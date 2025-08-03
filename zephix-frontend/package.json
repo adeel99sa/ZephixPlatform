@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "start": "npx serve -s dist -l $PORT --single",
+    "build": "vite build",
     "preview": "vite preview",
+    "start": "vite preview --port 8080",
     "lint": "eslint ."
   },
   "dependencies": {

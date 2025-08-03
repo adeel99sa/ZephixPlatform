@@ -1,0 +1,19 @@
+[environments.production]
+[environments.production.services.database]
+source = "postgresql"
+
+[environments.production.services.backend]
+source = "zephix-auth-service"
+variables = { 
+  NODE_ENV = "production", 
+  PORT = "3000",
+  JWT_SECRET = "ZephixJWT2024SecureKey!",
+  JWT_EXPIRES_IN = "15m"
+}
+
+[environments.production.services.frontend]
+source = "zephix-frontend"
+variables = { 
+  VITE_API_BASE_URL = "https://getzephix.com/api",
+  NODE_ENV = "production"
+}

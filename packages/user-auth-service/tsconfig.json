@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@api/*": ["api/*"],
+      "@application/*": ["application/*"],
+      "@domain/*": ["domain/*"],
+      "@infrastructure/*": ["infrastructure/*"],
+      "@shared/*": ["shared/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage"
+  ]
+} 
