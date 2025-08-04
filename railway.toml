@@ -3,7 +3,7 @@
 source = "postgresql"
 
 [environments.production.services.backend]
-source = "zephix-auth-service"
+source = "zephix-backend"
 variables = { 
   NODE_ENV = "production", 
   PORT = "3000",

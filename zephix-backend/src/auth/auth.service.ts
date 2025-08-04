@@ -8,6 +8,19 @@ import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
+/**
+ * Authentication Service
+ * 
+ * Handles user registration, login, and JWT token generation.
+ * 
+ * MICROSERVICE EXTRACTION NOTES:
+ * - This service can be moved to a dedicated auth microservice
+ * - Password hashing should use bcrypt with salt rounds >= 12
+ * - JWT tokens should have appropriate expiration times
+ * - Consider implementing refresh tokens for better security
+ * - User creation can be delegated to a user service
+ * - Token validation can be moved to a shared auth service
+ */
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,12 +33,12 @@ export class AuthService {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user exists
-    const existingUser = await this.userRepository.findOne({ where: { email } });
+    const existingUser = await this.userRepository.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash password
+    // Hash password with bcrypt (12 salt rounds for security)
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
@@ -34,12 +47,16 @@ export class AuthService {
       password: hashedPassword,
       firstName,
       lastName,
+      isActive: true,
     });
 
     const savedUser = await this.userRepository.save(user);
 
-    // Generate token
-    const accessToken = this.jwtService.sign({ sub: savedUser.id, email: savedUser.email });
+    // Generate JWT token
+    const accessToken = this.jwtService.sign({ 
+      sub: savedUser.id, 
+      email: savedUser.email 
+    });
 
     return { user: savedUser, accessToken };
   }
@@ -47,21 +64,53 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<{ user: User; accessToken: string }> {
     const { email, password } = loginDto;
 
-    // Find user
-    const user = await this.userRepository.findOne({ where: { email: email.toLowerCase() } });
+    // Find user by email
+    const user = await this.userRepository.findOne({ 
+      where: { email: email.toLowerCase() } 
+    });
+    
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Verify password
+    // Verify password using bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate token
-    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email });
+    // Check if user is active
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Generate JWT token
+    const accessToken = this.jwtService.sign({ 
+      sub: user.id, 
+      email: user.email 
+    });
 
     return { user, accessToken };
+  }
+
+  /**
+   * Validate JWT token and return user
+   * This method can be used by other services to validate tokens
+   */
+  async validateToken(token: string): Promise<User> {
+    try {
+      const payload = this.jwtService.verify(token);
+      const user = await this.userRepository.findOne({ 
+        where: { id: payload.sub } 
+      });
+      
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      
+      return user;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 }

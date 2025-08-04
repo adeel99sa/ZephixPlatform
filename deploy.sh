@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Zephix Application Deployment Script
-# This script helps deploy the application to Railway
+# Zephix Platform Deployment Script
+# This script builds and deploys the Zephix platform components
 
-set -e
+set -e  # Exit on any error
 
-echo "🚀 Starting Zephix Application Deployment..."
+echo "🚀 Starting Zephix Platform Deployment..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -26,41 +26,49 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if Railway CLI is installed
-if ! command -v railway &> /dev/null; then
-    print_error "Railway CLI is not installed. Please install it first:"
-    echo "npm install -g @railway/cli"
+# Check if we're in the right directory
+if [ ! -f "package.json" ] && [ ! -d "zephix-backend" ]; then
+    print_error "Please run this script from the Zephix project root directory"
     exit 1
 fi
 
-# Check if user is logged in to Railway
-if ! railway whoami &> /dev/null; then
-    print_error "Not logged in to Railway. Please run: railway login"
-    exit 1
-fi
+print_status "Building Backend Service..."
 
-print_status "Building backend service..."
-cd zephix-auth-service
+# Build backend
+cd zephix-backend
 npm install
 npm run build
+
+if [ $? -eq 0 ]; then
+    print_status "Backend build successful"
+else
+    print_error "Backend build failed"
+    exit 1
+fi
+
 cd ..
 
-print_status "Building frontend service..."
+print_status "Building Frontend Service..."
+
+# Build frontend
 cd zephix-frontend
 npm install
 npm run build
+
+if [ $? -eq 0 ]; then
+    print_status "Frontend build successful"
+else
+    print_error "Frontend build failed"
+    exit 1
+fi
+
 cd ..
 
-print_status "Deploying to Railway..."
-railway up
+print_status "✅ All builds completed successfully!"
+print_status "🚀 Ready for deployment to Railway"
 
-print_status "Deployment completed! 🎉"
-print_status "Check your Railway dashboard for deployment status."
-print_status "Health check endpoints:"
-echo "  - Backend: https://zephix-backend-production-27fb104a.up.railway.app/api/health"
-echo "  - Frontend: https://zephix-frontend-production-2c3ec553.up.railway.app"
-
-print_warning "Remember to:"
-echo "  1. Configure your custom domain (getzephix.com) in Railway dashboard"
-echo "  2. Set up DNS records for your domain"
-echo "  3. Configure path-based routing for API endpoints" 
+echo ""
+echo "Next steps:"
+echo "1. Commit your changes: git add . && git commit -m 'Deploy updates'"
+echo "2. Push to Railway: git push railway main"
+echo "3. Monitor deployment at: https://railway.app" 
