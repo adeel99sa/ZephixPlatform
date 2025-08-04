@@ -1,0 +1,17 @@
+[providers]
+node = "20"
+
+[phases.setup]
+nixPkgs = ['nodejs-20_x', 'npm-9_x']
+
+[phases.install]
+cmds = ['npm ci --omit=dev']
+
+[phases.build]
+cmds = ['npm run build']
+
+[phases.start]
+cmd = 'npm run start'
+
+[variables]
+NODE_ENV = 'production'
