@@ -1,27 +1,17 @@
-# Use Node.js 18 Alpine for smaller image size
-FROM node:20.12.2-alpine
-
-# Set working directory
+# ---- BUILD STAGE ----
+FROM node:20.12.2-alpine AS builder
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci --only=production
-
-# Copy source code
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Expose port
+# ---- PRODUCTION STAGE ----
+FROM node:20.12.2-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
+
 EXPOSE 3000
-
-# Add health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
-
-# Start the application
-CMD ["npm", "run", "start:prod"] 
+CMD ["node", "dist/main.js"]
