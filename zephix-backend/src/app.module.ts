@@ -3,6 +3,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
 
+// Import crypto explicitly for Node.js versions that require it
+import * as crypto from 'crypto';
+
 import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { FeedbackModule } from './feedback/feedback.module';
@@ -11,6 +14,11 @@ import { User } from './users/entities/user.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+
+// Patch global crypto to avoid "crypto is not defined" errors in TypeORM utils
+if (!(global as any).crypto) {
+  (global as any).crypto = crypto.webcrypto || crypto;
+}
 
 @Module({
   imports: [
@@ -22,9 +30,9 @@ import { AppService } from './app.service';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const databaseUrl = process.env.DATABASE_URL;
-        
+
         if (databaseUrl) {
-          // Use DATABASE_URL if available (Railway)
+          // Use DATABASE_URL if available (Railway production)
           return {
             type: 'postgres',
             url: databaseUrl,
@@ -34,21 +42,18 @@ import { AppService } from './app.service';
             ssl: {
               rejectUnauthorized: false,
             },
-            // Connection pooling for better performance
             extra: {
-              max: 20, // Maximum number of connections
-              min: 5,  // Minimum number of connections
-              acquire: 30000, // Maximum time to acquire connection
-              idle: 10000, // Maximum time connection can be idle
+              max: 20,
+              min: 5,
+              acquire: 30000,
+              idle: 10000,
             },
-            // Retry configuration
             retryAttempts: 10,
             retryDelay: 3000,
-            // Keep connection alive
             keepConnectionAlive: true,
           };
         } else {
-          // Fallback to individual parameters (local development)
+          // Local dev connection parameters fallback
           return {
             type: 'postgres',
             host: configService.get('database.host'),
@@ -59,7 +64,6 @@ import { AppService } from './app.service';
             entities: [User, Feedback],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
-            // Connection pooling for development
             extra: {
               max: 10,
               min: 2,
