@@ -1,8 +1,11 @@
-[phases.build]
-cmds = ['npm ci', 'npm run build']
-
-[phases.start]
-cmd = 'npm start'
+providers = ["node"]
 
 [variables]
-NODE_ENV = 'production' 
+NODE_VERSION = "20"
+NODE_ENV = "production"
+
+[phases.build]
+cmds = ["npm ci --omit=dev", "npm run build"]
+
+[phases.start]
+cmd = "node dist/main.js"
