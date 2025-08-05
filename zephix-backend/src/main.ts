@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import 'crypto';
+import * as crypto from 'crypto'; // Proper import of crypto
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -11,7 +11,7 @@ async function bootstrap() {
       logger: ['error', 'warn', 'log'],
     });
 
-    // Enable CORS (customize origins for production)
+    // Enable CORS - customize origins for production only
     app.enableCors({
       origin:
         process.env.NODE_ENV === 'production'
@@ -23,7 +23,7 @@ async function bootstrap() {
       credentials: true,
     });
 
-    // Global Validation Pipe (optional, but recommended)
+    // Global Validation Pipe
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -35,16 +35,14 @@ async function bootstrap() {
     // Set global API prefix
     app.setGlobalPrefix('api');
 
-    // Listen on process.env.PORT (required by Railway!)
-    const port = process.env.PORT || 3000;
+    // Listen on PORT provided by environment or default 3000
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
     await app.listen(port);
 
     logger.log(`🚀 Zephix Authentication Service running on port ${port}`);
-    logger.log(
-      `📊 Health check available at: http://localhost:${port}/api/health`,
-    );
+    logger.log(`📊 Health check available at: http://localhost:${port}/api/health`);
 
-    // Graceful shutdown
+    // Graceful shutdown on SIGTERM and SIGINT
     ['SIGTERM', 'SIGINT'].forEach((signal) => {
       process.on(signal, async () => {
         logger.log(`Received ${signal}, shutting down gracefully...`);
