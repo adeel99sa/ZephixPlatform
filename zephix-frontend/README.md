@@ -68,3 +68,4 @@ export default tseslint.config([
 ])
 ```
 # FORCE: Override Railway phantom commit cache Mon Aug  4 18:31:01 CDT 2025
+# Force Railway to use actual repository commit Mon Aug  4 20:41:39 CDT 2025
