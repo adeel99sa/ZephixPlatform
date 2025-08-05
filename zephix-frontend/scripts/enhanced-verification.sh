@@ -76,7 +76,7 @@ if [ -f "nixpacks.toml" ]; then
     fi
     
     # Check build phases
-    if grep -q '\[phases.build\]' nixpacks.toml && grep -q 'cmds = \["npm ci --omit=dev", "npm run build"\]' nixpacks.toml; then
+    if grep -q '\[phases.build\]' nixpacks.toml && grep -q 'cmds = \["npm run build"\]' nixpacks.toml; then
         print_status "PASS" "Build phase correctly configured"
     else
         print_status "FAIL" "Build phase incorrectly configured"
@@ -216,9 +216,9 @@ echo "📋 Expected Railway NIXPACKS build flow:"
 echo "   1. Railway detects global NIXPACKS builder from railway.toml"
 echo "   2. Railway uses nixpacks.toml configuration"
 echo "   3. Installs Node.js 20.19.0 via nixPkgs"
-echo "   4. Runs: npm ci --only=production"
-echo "   5. Runs: npm run build"
-echo "   6. Runs: npm run preview"
+echo "   4. Runs: npm ci --omit=dev (install phase)"
+echo "   5. Runs: npm run build (build phase)"
+echo "   6. Runs: npm run preview -- --host 0.0.0.0 --port \$PORT (start phase)"
 echo "   7. Starts Vite preview server on PORT"
 
 echo ""
