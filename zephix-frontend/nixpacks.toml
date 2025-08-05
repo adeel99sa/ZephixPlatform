@@ -1,17 +1,11 @@
-providers = ["node"]
-
-[variables]
-NODE_VERSION = "20.19.0"
-NODE_ENV = "production"
-
-[phases.install]
-cmds = ["npm ci --omit=dev"]
+[providers]
+node = true
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["npm ci", "npm run build"]
 
 [phases.start]
-cmd = "npm run preview -- --host 0.0.0.0 --port $PORT"
+cmd = "npm run preview"
 
-[phases.setup]
-nixPkgs = ["nodejs_20"]
+[variables]
+NODE_ENV = "production"
