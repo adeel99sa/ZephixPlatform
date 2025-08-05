@@ -1,0 +1,3 @@
+Domains already exists on the service:
+- https://getzephix.com
+- https://zephix-frontend-production.up.railway.app

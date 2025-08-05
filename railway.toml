@@ -1,3 +1,6 @@
+[build]
+builder = "NIXPACKS"
+
 [environments.production]
 [environments.production.services.database]
 source = "postgresql"
@@ -13,7 +16,9 @@ variables = {
 
 [environments.production.services.frontend]
 source = "zephix-frontend"
+build = { builder = "NIXPACKS" }
 variables = { 
   VITE_API_BASE_URL = "https://getzephix.com/api",
-  NODE_ENV = "production"
+  NODE_ENV = "production",
+  NIXPACKS_BUILDER = "true"
 }
