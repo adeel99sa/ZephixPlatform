@@ -1,13 +1,14 @@
-# nixpacks.toml - v1.1 - Corrected Configuration for Project Zephix Frontend
+[providers]
+node = "20"
 
-# Define the providers to use. The correct provider name is "node".
-# This prevents Nixpacks from automatically adding the "caddy" provider.
-providers = ["node"]
+[phases]
+install = "npm ci"
+build = "npm run build"
+start = "npm run preview -- --host 0.0.0.0 --port $PORT"
 
-[phases.build]
-# The standard command to build the React application.
-cmd = "npm run build"
+[static]
+disable = true
 
-[start]
-# The command to start the application in production using the Vite preview server.
-cmd = "npm run preview -- --host 0.0.0.0"
+[env]
+PORT = "8080"
+NODE_ENV = "production"
