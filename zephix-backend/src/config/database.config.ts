@@ -34,8 +34,8 @@ export const createDatabaseConfig = (configService: ConfigService): DatabaseConf
       type: 'postgres',
       url: databaseUrl,
       entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize'),
-      logging: isProduction ? ['error', 'warn'] : configService.get('database.logging'),
+      synchronize: configService.get('database.synchronize') ?? false, // FIX: Provide default value
+      logging: isProduction ? ['error', 'warn'] : (configService.get('database.logging') ?? false), // FIX: Provide default value
       ssl: {
         rejectUnauthorized: false,
       },
@@ -97,8 +97,8 @@ export const createDatabaseConfig = (configService: ConfigService): DatabaseConf
       password: configService.get('database.password'),
       database: configService.get('database.database'),
       entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize'),
-      logging: configService.get('database.logging'),
+      synchronize: configService.get('database.synchronize') ?? false, // FIX: Provide default value
+      logging: configService.get('database.logging') ?? false, // FIX: Provide default value
       extra: {
         max: 10,
         min: 2,
