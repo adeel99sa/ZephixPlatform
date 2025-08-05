@@ -30,30 +30,34 @@ if (!(global as any).crypto) {
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const databaseUrl = process.env.DATABASE_URL;
+        const isProduction = process.env.NODE_ENV === 'production';
 
         if (databaseUrl) {
-          // Use DATABASE_URL if available (Railway production)
+          // Railway production configuration - optimized for platform
           return {
             type: 'postgres',
             url: databaseUrl,
             entities: [User, Feedback],
             synchronize: configService.get('database.synchronize'),
-            logging: configService.get('database.logging'),
+            logging: isProduction ? ['error', 'warn'] : configService.get('database.logging'),
             ssl: {
               rejectUnauthorized: false,
             },
             extra: {
-              max: 20,
-              min: 5,
-              acquire: 30000,
+              max: 10,                // Reduced pool size for Railway limits
+              min: 2,
+              acquire: 60000,         // 60s acquire timeout for Railway delays  
               idle: 10000,
+              family: 4,              // Force IPv4 - CRITICAL for Railway networking
             },
-            retryAttempts: 10,
-            retryDelay: 3000,
+            retryAttempts: 15,        // More retries for Railway platform stability
+            retryDelay: 5000,         // 5s delay between retries
+            connectTimeoutMS: 60000,  // 60s connection timeout
+            acquireTimeoutMillis: 60000, // 60s acquire timeout
             keepConnectionAlive: true,
           };
         } else {
-          // Local dev connection parameters fallback
+          // Local development configuration
           return {
             type: 'postgres',
             host: configService.get('database.host'),
