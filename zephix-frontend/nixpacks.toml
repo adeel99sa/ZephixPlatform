@@ -1,11 +1,15 @@
-providers = ["node"]
+# nixpacks.toml - Configuration for Project Zephix Frontend
 
-[variables]
-NODE_VERSION = "20.19.0"
-NODE_ENV = "production"
+# Define the providers to use. By explicitly listing only "nodejs",
+# we prevent Nixpacks from automatically adding the "caddy" provider.
+providers = ["nodejs"]
 
 [phases.build]
-cmds = ["npm ci --omit=dev", "npm run build"]
+# The standard command to build the React application.
+cmd = "npm run build"
 
-[phases.start]
-cmd = "npm run preview -- --host 0.0.0.0 --port $PORT"
+[start]
+# The command to start the application in production.
+# We use the Vite preview server and tell it to listen on all network interfaces
+# (0.0.0.0) so Railway's proxy can connect to it.
+cmd = "npm run preview -- --host 0.0.0.0"
