@@ -45,4 +45,4 @@ export class Role {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

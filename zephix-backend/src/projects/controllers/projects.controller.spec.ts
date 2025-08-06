@@ -16,10 +16,10 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 
 /**
  * Projects Controller Integration Tests
- * 
+ *
  * Comprehensive integration test suite for the ProjectsController covering
  * all endpoints, authentication, authorization, and error scenarios.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -48,11 +48,21 @@ describe('ProjectsController (e2e)', () => {
     await app.init();
 
     jwtService = moduleFixture.get<JwtService>(JwtService);
-    userRepository = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
-    projectRepository = moduleFixture.get<Repository<Project>>(getRepositoryToken(Project));
-    teamRepository = moduleFixture.get<Repository<Team>>(getRepositoryToken(Team));
-    teamMemberRepository = moduleFixture.get<Repository<TeamMember>>(getRepositoryToken(TeamMember));
-    roleRepository = moduleFixture.get<Repository<Role>>(getRepositoryToken(Role));
+    userRepository = moduleFixture.get<Repository<User>>(
+      getRepositoryToken(User),
+    );
+    projectRepository = moduleFixture.get<Repository<Project>>(
+      getRepositoryToken(Project),
+    );
+    teamRepository = moduleFixture.get<Repository<Team>>(
+      getRepositoryToken(Team),
+    );
+    teamMemberRepository = moduleFixture.get<Repository<TeamMember>>(
+      getRepositoryToken(TeamMember),
+    );
+    roleRepository = moduleFixture.get<Repository<Role>>(
+      getRepositoryToken(Role),
+    );
   });
 
   beforeEach(async () => {
@@ -74,9 +84,9 @@ describe('ProjectsController (e2e)', () => {
     await roleRepository.save(testRole);
 
     // Generate auth token
-    authToken = jwtService.sign({ 
-      sub: testUser.id, 
-      email: testUser.email 
+    authToken = jwtService.sign({
+      sub: testUser.id,
+      email: testUser.email,
     });
   });
 
@@ -108,11 +118,26 @@ describe('ProjectsController (e2e)', () => {
         .send(createProjectDto)
         .expect(201);
 
-      expect(response.body).toHaveProperty('message', 'Project created successfully');
-      expect(response.body.project).toHaveProperty('name', createProjectDto.name);
-      expect(response.body.project).toHaveProperty('description', createProjectDto.description);
-      expect(response.body.project).toHaveProperty('status', createProjectDto.status);
-      expect(response.body.project).toHaveProperty('priority', createProjectDto.priority);
+      expect(response.body).toHaveProperty(
+        'message',
+        'Project created successfully',
+      );
+      expect(response.body.project).toHaveProperty(
+        'name',
+        createProjectDto.name,
+      );
+      expect(response.body.project).toHaveProperty(
+        'description',
+        createProjectDto.description,
+      );
+      expect(response.body.project).toHaveProperty(
+        'status',
+        createProjectDto.status,
+      );
+      expect(response.body.project).toHaveProperty(
+        'priority',
+        createProjectDto.priority,
+      );
       expect(response.body.project).toHaveProperty('createdById', testUser.id);
     });
 
@@ -189,7 +214,10 @@ describe('ProjectsController (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Projects retrieved successfully');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Projects retrieved successfully',
+      );
       expect(response.body).toHaveProperty('projects');
       expect(response.body).toHaveProperty('count');
       expect(Array.isArray(response.body.projects)).toBe(true);
@@ -198,9 +226,7 @@ describe('ProjectsController (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      await request(app.getHttpServer())
-        .get('/api/projects')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/projects').expect(401);
     });
 
     it('should return empty array when user has no projects', async () => {
@@ -213,9 +239,9 @@ describe('ProjectsController (e2e)', () => {
       });
       await userRepository.save(otherUser);
 
-      const otherUserToken = jwtService.sign({ 
-        sub: otherUser.id, 
-        email: otherUser.email 
+      const otherUserToken = jwtService.sign({
+        sub: otherUser.id,
+        email: otherUser.email,
       });
 
       const response = await request(app.getHttpServer())
@@ -267,7 +293,10 @@ describe('ProjectsController (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Project retrieved successfully');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Project retrieved successfully',
+      );
       expect(response.body.project).toHaveProperty('id', testProject.id);
       expect(response.body.project).toHaveProperty('name', 'Test Project');
     });
@@ -291,9 +320,9 @@ describe('ProjectsController (e2e)', () => {
       });
       await userRepository.save(otherUser);
 
-      const otherUserToken = jwtService.sign({ 
-        sub: otherUser.id, 
-        email: otherUser.email 
+      const otherUserToken = jwtService.sign({
+        sub: otherUser.id,
+        email: otherUser.email,
       });
 
       await request(app.getHttpServer())
@@ -355,10 +384,22 @@ describe('ProjectsController (e2e)', () => {
         .send(updateProjectDto)
         .expect(200);
 
-      expect(response.body).toHaveProperty('message', 'Project updated successfully');
-      expect(response.body.project).toHaveProperty('name', updateProjectDto.name);
-      expect(response.body.project).toHaveProperty('description', updateProjectDto.description);
-      expect(response.body.project).toHaveProperty('status', updateProjectDto.status);
+      expect(response.body).toHaveProperty(
+        'message',
+        'Project updated successfully',
+      );
+      expect(response.body.project).toHaveProperty(
+        'name',
+        updateProjectDto.name,
+      );
+      expect(response.body.project).toHaveProperty(
+        'description',
+        updateProjectDto.description,
+      );
+      expect(response.body.project).toHaveProperty(
+        'status',
+        updateProjectDto.status,
+      );
     });
 
     it('should return 404 when project not found', async () => {
@@ -496,7 +537,10 @@ describe('ProjectsController (e2e)', () => {
           .send(addTeamMemberDto)
           .expect(201);
 
-        expect(response.body).toHaveProperty('message', 'Team member added successfully');
+        expect(response.body).toHaveProperty(
+          'message',
+          'Team member added successfully',
+        );
         expect(response.body.teamMember).toHaveProperty('userId', newUser.id);
       });
 
@@ -521,19 +565,26 @@ describe('ProjectsController (e2e)', () => {
         };
 
         const response = await request(app.getHttpServer())
-          .patch(`/api/projects/${testProject.id}/team/members/${testTeamMember.id}`)
+          .patch(
+            `/api/projects/${testProject.id}/team/members/${testTeamMember.id}`,
+          )
           .set('Authorization', `Bearer ${authToken}`)
           .send(updateTeamMemberDto)
           .expect(200);
 
-        expect(response.body).toHaveProperty('message', 'Team member updated successfully');
+        expect(response.body).toHaveProperty(
+          'message',
+          'Team member updated successfully',
+        );
       });
     });
 
     describe('DELETE /api/projects/:id/team/members/:memberId', () => {
       it('should remove team member successfully', async () => {
         await request(app.getHttpServer())
-          .delete(`/api/projects/${testProject.id}/team/members/${testTeamMember.id}`)
+          .delete(
+            `/api/projects/${testProject.id}/team/members/${testTeamMember.id}`,
+          )
           .set('Authorization', `Bearer ${authToken}`)
           .expect(204);
       });

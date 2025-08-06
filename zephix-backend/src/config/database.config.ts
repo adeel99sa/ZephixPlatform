@@ -24,7 +24,9 @@ export interface DatabaseConfig {
   logger?: string;
 }
 
-export const createDatabaseConfig = (configService: ConfigService): DatabaseConfig => {
+export const createDatabaseConfig = (
+  configService: ConfigService,
+): DatabaseConfig => {
   const databaseUrl = process.env.DATABASE_URL;
   const isProduction = process.env.NODE_ENV === 'production';
 
@@ -35,30 +37,32 @@ export const createDatabaseConfig = (configService: ConfigService): DatabaseConf
       url: databaseUrl,
       entities: [], // Will be loaded by TypeORM
       synchronize: configService.get('database.synchronize') ?? false, // FIX: Provide default value
-      logging: isProduction ? ['error', 'warn'] : (configService.get('database.logging') ?? false), // FIX: Provide default value
+      logging: isProduction
+        ? ['error', 'warn']
+        : (configService.get('database.logging') ?? false), // FIX: Provide default value
       ssl: {
         rejectUnauthorized: false,
       },
       extra: {
         // Connection pool settings optimized for Railway
-        max: 10,                    // Standard pool size
-        min: 2,                     // Minimum connections
-        acquire: 60000,             // 1min acquire timeout
-        idle: 10000,               // 10s idle timeout
-        
+        max: 10, // Standard pool size
+        min: 2, // Minimum connections
+        acquire: 60000, // 1min acquire timeout
+        idle: 10000, // 10s idle timeout
+
         // CRITICAL FIX: Force IPv4 connections to prevent IPv6 timeouts
-        family: 4,                  // Force IPv4 - prevents "connect ETIMEDOUT fd12:..." errors
-        
+        family: 4, // Force IPv4 - prevents "connect ETIMEDOUT fd12:..." errors
+
         // Connection timeout settings optimized for Railway
-        connectTimeoutMS: 60000,    // 1min connection timeout
+        connectTimeoutMS: 60000, // 1min connection timeout
         acquireTimeoutMillis: 60000, // 1min acquire timeout
-        timeout: 60000,            // 1min query timeout
-        
+        timeout: 60000, // 1min query timeout
+
         // Keep connection alive settings
         keepConnectionAlive: true,
         keepAlive: true,
         keepAliveInitialDelayMillis: 10000,
-        
+
         // SSL settings for Railway
         ssl: {
           rejectUnauthorized: false,
@@ -67,23 +71,23 @@ export const createDatabaseConfig = (configService: ConfigService): DatabaseConf
           cert: undefined,
         },
       },
-      
+
       // Retry configuration to handle connection issues
-      retryAttempts: 15,           // 15 retry attempts for Railway stability
-      retryDelay: 5000,            // 5s delay between retries
+      retryAttempts: 15, // 15 retry attempts for Railway stability
+      retryDelay: 5000, // 5s delay between retries
       retryAttemptsTimeout: 300000, // 5min total retry timeout
-      
+
       // Connection validation
       keepConnectionAlive: true,
       autoLoadEntities: true,
-      
+
       // Query optimization
       maxQueryExecutionTime: 30000, // 30s max query time
-      
+
       // Migration settings
       migrationsRun: false,
       migrations: [],
-      
+
       // Logging for debugging
       logger: isProduction ? 'simple-console' : 'advanced-console',
     };
@@ -114,7 +118,10 @@ export const createDatabaseConfig = (configService: ConfigService): DatabaseConf
 };
 
 // Exponential backoff retry function
-export const exponentialBackoff = (attempt: number, baseDelay: number = 1000): number => {
+export const exponentialBackoff = (
+  attempt: number,
+  baseDelay: number = 1000,
+): number => {
   return Math.min(baseDelay * Math.pow(2, attempt), 30000); // Max 30s delay
 };
 
@@ -122,24 +129,27 @@ export const exponentialBackoff = (attempt: number, baseDelay: number = 1000): n
 export const withRetry = async <T>(
   operation: () => Promise<T>,
   maxAttempts: number = 5,
-  baseDelay: number = 1000
+  baseDelay: number = 1000,
 ): Promise<T> => {
   let lastError: Error;
-  
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error as Error;
-      console.warn(`Database operation failed (attempt ${attempt + 1}/${maxAttempts}):`, error);
-      
+      console.warn(
+        `Database operation failed (attempt ${attempt + 1}/${maxAttempts}):`,
+        error,
+      );
+
       if (attempt < maxAttempts - 1) {
         const delay = exponentialBackoff(attempt, baseDelay);
         console.log(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
-  
+
   throw lastError!;
-}; 
+};

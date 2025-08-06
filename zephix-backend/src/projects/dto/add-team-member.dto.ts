@@ -10,4 +10,4 @@ export class AddTeamMemberDto {
   @ApiProperty({ enum: RoleType, example: RoleType.EDITOR })
   @IsEnum(RoleType)
   role: RoleType;
-} 
+}

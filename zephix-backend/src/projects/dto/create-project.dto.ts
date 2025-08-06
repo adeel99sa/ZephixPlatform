@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsEnum, IsDateString, IsNumber, MinLength, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  IsNumber,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectStatus, ProjectPriority } from '../entities/project.entity';
 
@@ -9,7 +17,9 @@ export class CreateProjectDto {
   @MaxLength(255)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Building an AI-driven project management platform' })
+  @ApiPropertyOptional({
+    example: 'Building an AI-driven project management platform',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -35,7 +45,7 @@ export class CreateProjectDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ example: 500000.00 })
+  @ApiPropertyOptional({ example: 500000.0 })
   @IsOptional()
   @IsNumber()
   budget?: number;
@@ -44,4 +54,4 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   businessRequirementsDocument?: string;
-} 
+}

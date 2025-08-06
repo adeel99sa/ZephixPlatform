@@ -19,9 +19,9 @@ import { User } from '../users/entities/user.entity';
 
 /**
  * Authentication Controller
- * 
+ *
  * Handles user registration, login, and profile management.
- * 
+ *
  * MICROSERVICE EXTRACTION NOTES:
  * - This controller can be moved to a dedicated auth microservice
  * - All endpoints should be prefixed with /api/auth

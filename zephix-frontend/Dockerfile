@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -21,11 +21,24 @@ FROM nginx:alpine
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx config (make sure nginx.conf is in root of your frontend directory)
+# Copy custom nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
+
+# Create nginx user if it doesn't exist
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+# Change ownership of the nginx directory
+RUN chown -R nextjs:nodejs /usr/share/nginx/html
+RUN chown -R nextjs:nodejs /var/cache/nginx
+RUN chown -R nextjs:nodejs /var/log/nginx
+RUN chown -R nextjs:nodejs /etc/nginx/conf.d
+
+# Switch to non-root user
+USER nextjs
 
 # Expose port 80 for HTTP
 EXPOSE 80
 
-# Start nginx in foreground
+# Start nginx in foreground (Railway compatible)
 CMD ["nginx", "-g", "daemon off;"]

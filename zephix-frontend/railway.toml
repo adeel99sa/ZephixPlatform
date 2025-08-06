@@ -1,90 +1,14 @@
-# Zephix Frontend - Railway Service Configuration
-# React TypeScript Application
-# 
-# @author Zephix Development Team
-# @version 2.1.0
-# @description Service-specific Railway configuration for React frontend
-
 [build]
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm run serve"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
 
-# =============================================================================
-# ENVIRONMENT VARIABLES
-# =============================================================================
 [variables]
 NODE_ENV = "production"
-NODE_VERSION = "18"
-NIXPACKS_BUILDER = "true"
 VITE_API_BASE_URL = "https://getzephix.com/api"
 VITE_APP_NAME = "Zephix AI"
 VITE_APP_VERSION = "2.0.0"
-
-# =============================================================================
-# BUILD CONFIGURATION
-# =============================================================================
-[build.nixpacksConfig]
-# Node.js version specification
-providers = ["node"]
-
-# Build phases
-[build.nixpacksConfig.phases.setup]
-cmds = ["npm ci --omit=dev"]
-
-[build.nixpacksConfig.phases.install]
-cmds = ["npm ci --omit=dev"]
-
-[build.nixpacksConfig.phases.build]
-cmds = ["npm run build"]
-
-[build.nixpacksConfig.phases.start]
-cmd = "npm run serve"
-
-# =============================================================================
-# RUNTIME CONFIGURATION
-# =============================================================================
-[deploy.nixpacksConfig]
-# Static file serving
-cmd = "serve dist -l $PORT"
-
-# =============================================================================
-# RESOURCE ALLOCATION
-# =============================================================================
-[resources]
-cpu = "0.25"
-memory = "256MB"
-
-# =============================================================================
-# SECURITY CONFIGURATION
-# =============================================================================
-[security]
-# CORS settings for static files
-cors = {
-  enabled = true,
-  origins = ["https://getzephix.com", "https://www.getzephix.com"]
-}
-
-# =============================================================================
-# MONITORING CONFIGURATION
-# =============================================================================
-[monitoring]
-# Logging settings
-logging = {
-  level = "info",
-  retention = "30d"
-}
-
-# Health check configuration
-healthCheck = {
-  enabled = true,
-  path = "/",
-  timeout = 300,
-  interval = 30,
-  retries = 3
-}

@@ -6,4 +6,4 @@ export class UpdateTeamMemberDto {
   @ApiProperty({ enum: RoleType, example: RoleType.EDITOR })
   @IsEnum(RoleType)
   role: RoleType;
-} 
+}

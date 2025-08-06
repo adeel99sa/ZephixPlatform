@@ -29,7 +29,9 @@ export class Team {
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @OneToMany(() => TeamMember, (teamMember) => teamMember.team, { cascade: true })
+  @OneToMany(() => TeamMember, (teamMember) => teamMember.team, {
+    cascade: true,
+  })
   members: TeamMember[];
 
   @CreateDateColumn()
@@ -37,4 +39,4 @@ export class Team {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

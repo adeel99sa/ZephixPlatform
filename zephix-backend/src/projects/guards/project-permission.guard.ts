@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,10 +19,10 @@ export class ProjectPermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<RoleType[]>('projectPermissions', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredPermissions = this.reflector.getAllAndOverride<RoleType[]>(
+      'projectPermissions',
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredPermissions) {
       return true; // No specific permissions required
@@ -46,9 +51,11 @@ export class ProjectPermissionGuard implements CanActivate {
 
     const hasPermission = requiredPermissions.includes(teamMember.role.name);
     if (!hasPermission) {
-      throw new ForbiddenException(`Insufficient permissions. Required: ${requiredPermissions.join(', ')}`);
+      throw new ForbiddenException(
+        `Insufficient permissions. Required: ${requiredPermissions.join(', ')}`,
+      );
     }
 
     return true;
   }
-} 
+}

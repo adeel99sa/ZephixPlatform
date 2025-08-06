@@ -8,10 +8,10 @@ import { User } from '../../users/entities/user.entity';
 
 /**
  * Local Authentication Strategy
- * 
+ *
  * This strategy validates username/password credentials during login.
  * It's used in conjunction with the LocalAuthGuard for login endpoints.
- * 
+ *
  * Note: This strategy is designed to be easily extractable into a separate
  * microservice if needed. The validation logic is self-contained and
  * can be moved to a dedicated auth service.
@@ -28,10 +28,10 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(email: string, password: string): Promise<User> {
-    const user = await this.userRepository.findOne({ 
-      where: { email: email.toLowerCase() } 
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
     });
-    
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -47,4 +47,4 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
 
     return user;
   }
-} 
+}

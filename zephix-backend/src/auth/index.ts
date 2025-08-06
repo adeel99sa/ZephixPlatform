@@ -27,7 +27,7 @@ export { AuthModule } from './auth.module';
 
 /**
  * MICROSERVICE EXTRACTION NOTES:
- * 
+ *
  * When extracting to a separate auth microservice:
  * 1. Copy this entire auth directory to the new service
  * 2. Update imports to use relative paths
@@ -37,4 +37,4 @@ export { AuthModule } from './auth.module';
  * 6. Implement refresh tokens for better security
  * 7. Add rate limiting and security headers
  * 8. Create health check endpoints for the auth service
- */ 
+ */

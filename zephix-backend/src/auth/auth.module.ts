@@ -14,9 +14,9 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
 
 /**
  * Authentication Module
- * 
+ *
  * Provides JWT-based authentication with bcrypt password hashing.
- * 
+ *
  * MICROSERVICE EXTRACTION NOTES:
  * - This entire module can be moved to a dedicated auth microservice
  * - JWT configuration should be shared across services
@@ -41,15 +41,15 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
   ],
   controllers: [AuthController],
   providers: [
-    AuthService, 
-    JwtStrategy, 
+    AuthService,
+    JwtStrategy,
     LocalStrategy,
     JwtAuthGuard,
     LocalAuthGuard,
   ],
   exports: [
-    AuthService, 
-    JwtAuthGuard, 
+    AuthService,
+    JwtAuthGuard,
     LocalAuthGuard,
     JwtStrategy,
     LocalStrategy,

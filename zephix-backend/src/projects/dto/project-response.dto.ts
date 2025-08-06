@@ -1,13 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID, IsString, IsEnum, IsOptional, IsDate, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsUUID,
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsDate,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { ProjectStatus, ProjectPriority } from '../entities/project.entity';
 
 /**
  * Project Response DTO
- * 
+ *
  * Comprehensive response object for project data including all essential fields
  * with proper validation and API documentation.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -31,7 +39,8 @@ export class ProjectResponseDto {
 
   @ApiProperty({
     description: 'Detailed description of the project',
-    example: 'Core platform development for project management and team collaboration',
+    example:
+      'Core platform development for project management and team collaboration',
     type: 'string',
     required: false,
   })
@@ -79,7 +88,7 @@ export class ProjectResponseDto {
 
   @ApiProperty({
     description: 'Project budget in decimal format',
-    example: 50000.00,
+    example: 50000.0,
     type: 'number',
     required: false,
   })
@@ -126,10 +135,10 @@ export class ProjectResponseDto {
 
 /**
  * Projects List Response DTO
- * 
+ *
  * Response object for the GET /api/projects endpoint
  * containing an array of projects with metadata.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -159,10 +168,10 @@ export class ProjectsListResponseDto {
 
 /**
  * Single Project Response DTO
- * 
+ *
  * Response object for the GET /api/projects/:id endpoint
  * containing a single project with detailed information.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -184,10 +193,10 @@ export class SingleProjectResponseDto {
 
 /**
  * Project Creation Response DTO
- * 
+ *
  * Response object for the POST /api/projects endpoint
  * confirming successful project creation.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -209,10 +218,10 @@ export class ProjectCreationResponseDto {
 
 /**
  * Project Update Response DTO
- * 
+ *
  * Response object for the PATCH /api/projects/:id endpoint
  * confirming successful project update.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -234,10 +243,10 @@ export class ProjectUpdateResponseDto {
 
 /**
  * Project Deletion Response DTO
- * 
+ *
  * Response object for the DELETE /api/projects/:id endpoint
  * confirming successful project deletion.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -249,4 +258,4 @@ export class ProjectDeletionResponseDto {
   })
   @IsString()
   message: string;
-} 
+}

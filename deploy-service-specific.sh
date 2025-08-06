@@ -77,6 +77,18 @@ if [ ! -f "$FRONTEND_DIR/railway.toml" ]; then
     exit 1
 fi
 
+# Check if Dockerfile exists for frontend
+if [ ! -f "$FRONTEND_DIR/Dockerfile" ]; then
+    log_error "Frontend Dockerfile not found in $FRONTEND_DIR/"
+    exit 1
+fi
+
+# Check if nginx.conf exists for frontend
+if [ ! -f "$FRONTEND_DIR/nginx.conf" ]; then
+    log_error "Frontend nginx.conf not found in $FRONTEND_DIR/"
+    exit 1
+fi
+
 log_success "Prerequisites check passed!"
 
 # =============================================================================
@@ -139,10 +151,10 @@ railway up
 log_success "Backend service deployed successfully!"
 
 # =============================================================================
-# FRONTEND SERVICE DEPLOYMENT
+# FRONTEND SERVICE DEPLOYMENT (Docker-based)
 # =============================================================================
 
-log_info "Deploying frontend service..."
+log_info "Deploying frontend service (Docker-based)..."
 
 # Navigate to frontend directory
 cd "../$FRONTEND_DIR"
@@ -158,13 +170,12 @@ railway link --service frontend || {
 log_info "Setting frontend environment variables..."
 railway variables set NODE_ENV=production
 railway variables set NODE_VERSION=18
-railway variables set NIXPACKS_BUILDER=true
 railway variables set VITE_API_BASE_URL="https://getzephix.com/api"
 railway variables set VITE_APP_NAME="Zephix AI"
 railway variables set VITE_APP_VERSION="2.0.0"
 
-# Deploy frontend using service-specific railway.toml
-log_info "Deploying frontend with service-specific configuration..."
+# Deploy frontend using Docker-based configuration
+log_info "Deploying frontend with Docker configuration..."
 railway up
 
 log_success "Frontend service deployed successfully!"
@@ -261,7 +272,10 @@ echo "  railway service list"
 log_info "Troubleshooting information:"
 echo "  - Backend railway.toml: $BACKEND_DIR/railway.toml"
 echo "  - Frontend railway.toml: $FRONTEND_DIR/railway.toml"
+echo "  - Frontend Dockerfile: $FRONTEND_DIR/Dockerfile"
+echo "  - Frontend nginx.conf: $FRONTEND_DIR/nginx.conf"
 echo "  - Crypto module fix: NODE_OPTIONS=--experimental-global-webcrypto"
 echo "  - Node.js version: 18"
+echo "  - Frontend deployment: Docker-based with nginx"
 
 log_success "Service-specific deployment script completed successfully!"

@@ -1,0 +1,33 @@
+{
+  "workflows": {
+    "featureDevelopment": {
+      "createBranch": "auto",
+      "generateTests": true,
+      "documentCode": true,
+      "runQualityChecks": true,
+      "submitPR": "auto-with-review"
+    },
+    "codeReview": {
+      "enforceStandards": true,
+      "securityScan": true,
+      "performanceCheck": true,
+      "architectureValidation": true
+    },
+    "deployment": {
+      "railwayIntegration": true,
+      "preDeployTests": true,
+      "rollbackOnFailure": true,
+      "healthCheckValidation": true
+    }
+  },
+  "prTemplates": {
+    "feature": {
+      "title": "[FEATURE] {description}",
+      "body": "## Changes\n{changes}\n\n## Testing\n{testing}\n\n## Deployment Notes\n{deployment}"
+    },
+    "bugfix": {
+      "title": "[BUGFIX] {description}",
+      "body": "## Issue\n{issue}\n\n## Solution\n{solution}\n\n## Testing\n{testing}"
+    }
+  }
+}

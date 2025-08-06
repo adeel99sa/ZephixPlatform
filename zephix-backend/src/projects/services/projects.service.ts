@@ -29,7 +29,10 @@ export class ProjectsService {
     private roleRepository: Repository<Role>,
   ) {}
 
-  async create(createProjectDto: CreateProjectDto, user: User): Promise<Project> {
+  async create(
+    createProjectDto: CreateProjectDto,
+    user: User,
+  ): Promise<Project> {
     // Create project
     const project = this.projectRepository.create({
       ...createProjectDto,
@@ -48,7 +51,9 @@ export class ProjectsService {
     const savedTeam = await this.teamRepository.save(team);
 
     // Add creator as admin
-    const adminRole = await this.roleRepository.findOne({ where: { name: RoleType.ADMIN } });
+    const adminRole = await this.roleRepository.findOne({
+      where: { name: RoleType.ADMIN },
+    });
     if (adminRole) {
       const teamMember = this.teamMemberRepository.create({
         team: savedTeam,
@@ -93,11 +98,18 @@ export class ProjectsService {
     return project;
   }
 
-  async update(id: string, updateProjectDto: UpdateProjectDto, user: User): Promise<Project> {
+  async update(
+    id: string,
+    updateProjectDto: UpdateProjectDto,
+    user: User,
+  ): Promise<Project> {
     const project = await this.findOne(id);
 
     // Check if user has permission to update (admin or editor)
-    await this.checkUserPermission(project.id, user.id, [RoleType.ADMIN, RoleType.EDITOR]);
+    await this.checkUserPermission(project.id, user.id, [
+      RoleType.ADMIN,
+      RoleType.EDITOR,
+    ]);
 
     Object.assign(project, updateProjectDto);
     await this.projectRepository.save(project);
@@ -114,12 +126,20 @@ export class ProjectsService {
     await this.projectRepository.remove(project);
   }
 
-  async addTeamMember(projectId: string, addTeamMemberDto: AddTeamMemberDto, requestingUser: User): Promise<TeamMember> {
+  async addTeamMember(
+    projectId: string,
+    addTeamMemberDto: AddTeamMemberDto,
+    requestingUser: User,
+  ): Promise<TeamMember> {
     // Check if requesting user has admin permission
-    await this.checkUserPermission(projectId, requestingUser.id, [RoleType.ADMIN]);
+    await this.checkUserPermission(projectId, requestingUser.id, [
+      RoleType.ADMIN,
+    ]);
 
     const project = await this.findOne(projectId);
-    const role = await this.roleRepository.findOne({ where: { name: addTeamMemberDto.role } });
+    const role = await this.roleRepository.findOne({
+      where: { name: addTeamMemberDto.role },
+    });
 
     if (!role) {
       throw new NotFoundException(`Role ${addTeamMemberDto.role} not found`);
@@ -154,7 +174,9 @@ export class ProjectsService {
     requestingUser: User,
   ): Promise<TeamMember> {
     // Check if requesting user has admin permission
-    await this.checkUserPermission(projectId, requestingUser.id, [RoleType.ADMIN]);
+    await this.checkUserPermission(projectId, requestingUser.id, [
+      RoleType.ADMIN,
+    ]);
 
     const teamMember = await this.teamMemberRepository.findOne({
       where: { id: memberId },
@@ -165,7 +187,9 @@ export class ProjectsService {
       throw new NotFoundException('Team member not found');
     }
 
-    const newRole = await this.roleRepository.findOne({ where: { name: updateTeamMemberDto.role } });
+    const newRole = await this.roleRepository.findOne({
+      where: { name: updateTeamMemberDto.role },
+    });
     if (!newRole) {
       throw new NotFoundException(`Role ${updateTeamMemberDto.role} not found`);
     }
@@ -174,9 +198,15 @@ export class ProjectsService {
     return this.teamMemberRepository.save(teamMember);
   }
 
-  async removeTeamMember(projectId: string, memberId: string, requestingUser: User): Promise<void> {
+  async removeTeamMember(
+    projectId: string,
+    memberId: string,
+    requestingUser: User,
+  ): Promise<void> {
     // Check if requesting user has admin permission
-    await this.checkUserPermission(projectId, requestingUser.id, [RoleType.ADMIN]);
+    await this.checkUserPermission(projectId, requestingUser.id, [
+      RoleType.ADMIN,
+    ]);
 
     const teamMember = await this.teamMemberRepository.findOne({
       where: { id: memberId },
@@ -190,7 +220,11 @@ export class ProjectsService {
     await this.teamMemberRepository.remove(teamMember);
   }
 
-  private async checkUserPermission(projectId: string, userId: string, allowedRoles: RoleType[]): Promise<void> {
+  private async checkUserPermission(
+    projectId: string,
+    userId: string,
+    allowedRoles: RoleType[],
+  ): Promise<void> {
     const teamMember = await this.teamMemberRepository.findOne({
       where: {
         userId,
@@ -204,7 +238,9 @@ export class ProjectsService {
     }
 
     if (!allowedRoles.includes(teamMember.role.name)) {
-      throw new ForbiddenException(`Insufficient permissions. Required: ${allowedRoles.join(', ')}`);
+      throw new ForbiddenException(
+        `Insufficient permissions. Required: ${allowedRoles.join(', ')}`,
+      );
     }
   }
-} 
+}
