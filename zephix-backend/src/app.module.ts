@@ -44,20 +44,22 @@ if (!(global as any).crypto) {
             url: databaseUrl,
             entities: [User, Feedback, Project, Team, TeamMember, Role],
             synchronize: configService.get('database.synchronize'),
-            logging: isProduction ? ['error', 'warn'] : configService.get('database.logging'),
+            logging: isProduction
+              ? ['error', 'warn']
+              : configService.get('database.logging'),
             ssl: {
               rejectUnauthorized: false,
             },
             extra: {
-              max: 10,                // Reduced pool size for Railway limits
+              max: 10, // Reduced pool size for Railway limits
               min: 2,
-              acquire: 60000,         // 60s acquire timeout for Railway delays  
+              acquire: 60000, // 60s acquire timeout for Railway delays
               idle: 10000,
-              family: 4,              // Force IPv4 - CRITICAL for Railway networking
+              family: 4, // Force IPv4 - CRITICAL for Railway networking
             },
-            retryAttempts: 15,        // More retries for Railway platform stability
-            retryDelay: 5000,         // 5s delay between retries
-            connectTimeoutMS: 60000,  // 60s connection timeout
+            retryAttempts: 15, // More retries for Railway platform stability
+            retryDelay: 5000, // 5s delay between retries
+            connectTimeoutMS: 60000, // 60s connection timeout
             acquireTimeoutMillis: 60000, // 60s acquire timeout
             keepConnectionAlive: true,
           };

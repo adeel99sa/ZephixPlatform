@@ -3,10 +3,10 @@ import { AuthGuard } from '@nestjs/passport';
 
 /**
  * JWT Authentication Guard
- * 
+ *
  * This guard validates JWT tokens and ensures the user is authenticated.
  * Used to protect routes that require authentication.
- * 
+ *
  * @example
  * @UseGuards(JwtAuthGuard)
  * @Get('profile')
@@ -15,4 +15,4 @@ import { AuthGuard } from '@nestjs/passport';
  * }
  */
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {} 
+export class JwtAuthGuard extends AuthGuard('jwt') {}

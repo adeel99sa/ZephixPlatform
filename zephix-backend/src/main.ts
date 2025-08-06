@@ -41,7 +41,9 @@ async function bootstrap() {
     await app.listen(port);
 
     logger.log(`🚀 Zephix Authentication Service running on port ${port}`);
-    logger.log(`📊 Health check available at: http://localhost:${port}/api/health`);
+    logger.log(
+      `📊 Health check available at: http://localhost:${port}/api/health`,
+    );
 
     // Graceful shutdown on SIGTERM and SIGINT
     ['SIGTERM', 'SIGINT'].forEach((signal) => {

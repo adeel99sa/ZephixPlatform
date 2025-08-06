@@ -12,7 +12,10 @@ export class FeedbackService {
     private feedbackRepository: Repository<Feedback>,
   ) {}
 
-  async create(createFeedbackDto: CreateFeedbackDto, user: User): Promise<Feedback> {
+  async create(
+    createFeedbackDto: CreateFeedbackDto,
+    user: User,
+  ): Promise<Feedback> {
     const feedback = this.feedbackRepository.create({
       ...createFeedbackDto,
       user,
@@ -20,7 +23,7 @@ export class FeedbackService {
     });
 
     const savedFeedback = await this.feedbackRepository.save(feedback);
-    
+
     // Log for immediate visibility
     console.log(`🔔 NEW FEEDBACK from ${user.firstName} ${user.lastName}`);
     console.log(`📝 Type: ${createFeedbackDto.type}`);
@@ -57,8 +60,14 @@ export class FeedbackService {
 
     return {
       total,
-      byType: byType.reduce((acc, item) => ({ ...acc, [item.type]: parseInt(item.count) }), {}),
-      byStatus: byStatus.reduce((acc, item) => ({ ...acc, [item.status]: parseInt(item.count) }), {}),
+      byType: byType.reduce(
+        (acc, item) => ({ ...acc, [item.type]: parseInt(item.count) }),
+        {},
+      ),
+      byStatus: byStatus.reduce(
+        (acc, item) => ({ ...acc, [item.status]: parseInt(item.count) }),
+        {},
+      ),
     };
   }
-} 
+}

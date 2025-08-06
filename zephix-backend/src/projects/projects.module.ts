@@ -12,15 +12,9 @@ import { TeamMember } from './entities/team-member.entity';
 import { Role } from './entities/role.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Project, Team, TeamMember, Role]),
-  ],
+  imports: [TypeOrmModule.forFeature([Project, Team, TeamMember, Role])],
   controllers: [ProjectsController],
-  providers: [
-    ProjectsService,
-    RoleSeedService,
-    ProjectPermissionGuard,
-  ],
+  providers: [ProjectsService, RoleSeedService, ProjectPermissionGuard],
   exports: [ProjectsService, ProjectPermissionGuard],
 })
-export class ProjectsModule {} 
+export class ProjectsModule {}

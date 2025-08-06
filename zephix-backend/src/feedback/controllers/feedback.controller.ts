@@ -30,7 +30,10 @@ export class FeedbackController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit user feedback' })
   @ApiResponse({ status: 201, description: 'Feedback submitted successfully' })
-  async create(@Body() createFeedbackDto: CreateFeedbackDto, @CurrentUser() user: User) {
+  async create(
+    @Body() createFeedbackDto: CreateFeedbackDto,
+    @CurrentUser() user: User,
+  ) {
     const feedback = await this.feedbackService.create(createFeedbackDto, user);
     return {
       message: 'Thank you for your feedback! We appreciate your input.',
@@ -58,4 +61,4 @@ export class FeedbackController {
       count: feedback.length,
     };
   }
-} 
+}

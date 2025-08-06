@@ -47,4 +47,4 @@ export class TeamMember {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

@@ -41,11 +41,11 @@ import {
 
 /**
  * Projects Controller
- * 
+ *
  * Handles all project-related HTTP requests including CRUD operations,
  * team management, and project permissions. All endpoints require
  * JWT authentication and proper authorization.
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -58,37 +58,38 @@ export class ProjectsController {
 
   /**
    * Create a new project
-   * 
+   *
    * Creates a new project for the authenticated user with proper
    * team structure and role assignments.
-   * 
+   *
    * @param createProjectDto - Project creation data
    * @param user - Authenticated user
    * @returns Created project with success message
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new project',
-    description: 'Creates a new project for the authenticated user with team structure'
+    description:
+      'Creates a new project for the authenticated user with team structure',
   })
   @ApiBody({ type: CreateProjectDto })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Project created successfully',
-    type: ProjectCreationResponseDto
+    type: ProjectCreationResponseDto,
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid project data provided'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid project data provided',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
   async create(
-    @Body() createProjectDto: CreateProjectDto, 
-    @CurrentUser() user: User
+    @Body() createProjectDto: CreateProjectDto,
+    @CurrentUser() user: User,
   ): Promise<ProjectCreationResponseDto> {
     try {
       const project = await this.projectsService.create(createProjectDto, user);
@@ -102,33 +103,33 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to create project',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Get all projects for the authenticated user
-   * 
+   *
    * Retrieves all projects where the user is a team member,
    * including project details and team information.
-   * 
+   *
    * @param user - Authenticated user
    * @returns Array of projects with metadata
    */
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all projects for current user',
-    description: 'Retrieves all projects where the user is a team member'
+    description: 'Retrieves all projects where the user is a team member',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Projects retrieved successfully',
-    type: ProjectsListResponseDto
+    type: ProjectsListResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
   async findAll(@CurrentUser() user: User): Promise<ProjectsListResponseDto> {
     try {
@@ -144,64 +145,65 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to retrieve projects',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Get project by ID
-   * 
+   *
    * Retrieves a specific project by its ID. The user must be
    * a team member of the project to access it.
-   * 
+   *
    * @param id - Project UUID
    * @param user - Authenticated user
    * @returns Project details
    */
   @Get(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get project by ID',
-    description: 'Retrieves a specific project by ID. User must be a team member.'
+    description:
+      'Retrieves a specific project by ID. User must be a team member.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Project retrieved successfully',
-    type: SingleProjectResponseDto
+    type: SingleProjectResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - User is not a team member of this project'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User is not a team member of this project',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ): Promise<SingleProjectResponseDto> {
     try {
       const project = await this.projectsService.findOne(id);
-      
+
       // Check if user is a team member of this project
       const isTeamMember = project.team?.members?.some(
-        member => member.userId === user.id
+        (member) => member.userId === user.id,
       );
-      
+
       if (!isTeamMember) {
         throw new HttpException(
           'You do not have access to this project',
-          HttpStatus.FORBIDDEN
+          HttpStatus.FORBIDDEN,
         );
       }
 
@@ -214,56 +216,54 @@ export class ProjectsController {
         throw error;
       }
       if (error.message?.includes('not found')) {
-        throw new HttpException(
-          'Project not found',
-          HttpStatus.NOT_FOUND
-        );
+        throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
       }
       throw new HttpException(
         'Failed to retrieve project',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Update project
-   * 
+   *
    * Updates a specific project. The user must have admin or editor
    * permissions to modify the project.
-   * 
+   *
    * @param id - Project UUID
    * @param updateProjectDto - Project update data
    * @param user - Authenticated user
    * @returns Updated project details
    */
   @Patch(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update project',
-    description: 'Updates a project. User must have admin or editor permissions.'
+    description:
+      'Updates a project. User must have admin or editor permissions.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiBody({ type: UpdateProjectDto })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Project updated successfully',
-    type: ProjectUpdateResponseDto
+    type: ProjectUpdateResponseDto,
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Insufficient permissions'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
   })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -271,7 +271,11 @@ export class ProjectsController {
     @CurrentUser() user: User,
   ): Promise<ProjectUpdateResponseDto> {
     try {
-      const project = await this.projectsService.update(id, updateProjectDto, user);
+      const project = await this.projectsService.update(
+        id,
+        updateProjectDto,
+        user,
+      );
       return {
         message: 'Project updated successfully',
         project,
@@ -282,17 +286,17 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to update project',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Delete project (Admin only)
-   * 
+   *
    * Deletes a project and all associated data. Only users with
    * admin permissions can delete projects.
-   * 
+   *
    * @param id - Project UUID
    * @param user - Authenticated user
    * @returns Success message
@@ -300,34 +304,35 @@ export class ProjectsController {
   @Delete(':id')
   @RequirePermissions(RoleType.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Delete project (Admin only)',
-    description: 'Deletes a project and all associated data. Admin permissions required.'
+    description:
+      'Deletes a project and all associated data. Admin permissions required.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiResponse({ 
-    status: 204, 
-    description: 'Project deleted successfully'
+  @ApiResponse({
+    status: 204,
+    description: 'Project deleted successfully',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin permissions required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin permissions required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
   })
   async remove(
-    @Param('id', ParseUUIDPipe) id: string, 
-    @CurrentUser() user: User
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
   ): Promise<ProjectDeletionResponseDto> {
     try {
       await this.projectsService.remove(id, user);
@@ -340,7 +345,7 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to delete project',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -349,10 +354,10 @@ export class ProjectsController {
 
   /**
    * Add team member to project (Admin only)
-   * 
+   *
    * Adds a new team member to the project with specified role.
    * Only users with admin permissions can add team members.
-   * 
+   *
    * @param projectId - Project UUID
    * @param addTeamMemberDto - Team member data
    * @param user - Authenticated user
@@ -360,39 +365,40 @@ export class ProjectsController {
    */
   @Post(':id/team/members')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Add team member to project (Admin only)',
-    description: 'Adds a new team member to the project. Admin permissions required.'
+    description:
+      'Adds a new team member to the project. Admin permissions required.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiBody({ type: AddTeamMemberDto })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Team member added successfully'
+  @ApiResponse({
+    status: 201,
+    description: 'Team member added successfully',
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid team member data'
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid team member data',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin permissions required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin permissions required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project or role not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project or role not found',
   })
-  @ApiResponse({ 
-    status: 409, 
-    description: 'User is already a team member'
+  @ApiResponse({
+    status: 409,
+    description: 'User is already a team member',
   })
   async addTeamMember(
     @Param('id', ParseUUIDPipe) projectId: string,
@@ -400,7 +406,11 @@ export class ProjectsController {
     @CurrentUser() user: User,
   ) {
     try {
-      const teamMember = await this.projectsService.addTeamMember(projectId, addTeamMemberDto, user);
+      const teamMember = await this.projectsService.addTeamMember(
+        projectId,
+        addTeamMemberDto,
+        user,
+      );
       return {
         message: 'Team member added successfully',
         teamMember,
@@ -411,17 +421,17 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to add team member',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Update team member role (Admin only)
-   * 
+   *
    * Updates the role of an existing team member.
    * Only users with admin permissions can update team member roles.
-   * 
+   *
    * @param projectId - Project UUID
    * @param memberId - Team member UUID
    * @param updateTeamMemberDto - Updated team member data
@@ -429,36 +439,37 @@ export class ProjectsController {
    * @returns Updated team member
    */
   @Patch(':id/team/members/:memberId')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Update team member role (Admin only)',
-    description: 'Updates the role of an existing team member. Admin permissions required.'
+    description:
+      'Updates the role of an existing team member. Admin permissions required.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiParam({ 
-    name: 'memberId', 
+  @ApiParam({
+    name: 'memberId',
     description: 'Team Member UUID',
-    example: '123e4567-e89b-12d3-a456-426614174001'
+    example: '123e4567-e89b-12d3-a456-426614174001',
   })
   @ApiBody({ type: UpdateTeamMemberDto })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Team member updated successfully'
+  @ApiResponse({
+    status: 200,
+    description: 'Team member updated successfully',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin permissions required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin permissions required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project, team member, or role not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project, team member, or role not found',
   })
   async updateTeamMember(
     @Param('id', ParseUUIDPipe) projectId: string,
@@ -483,17 +494,17 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to update team member',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   /**
    * Remove team member from project (Admin only)
-   * 
+   *
    * Removes a team member from the project.
    * Only users with admin permissions can remove team members.
-   * 
+   *
    * @param projectId - Project UUID
    * @param memberId - Team member UUID
    * @param user - Authenticated user
@@ -501,35 +512,36 @@ export class ProjectsController {
    */
   @Delete(':id/team/members/:memberId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Remove team member from project (Admin only)',
-    description: 'Removes a team member from the project. Admin permissions required.'
+    description:
+      'Removes a team member from the project. Admin permissions required.',
   })
-  @ApiParam({ 
-    name: 'id', 
+  @ApiParam({
+    name: 'id',
     description: 'Project UUID',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @ApiParam({ 
-    name: 'memberId', 
+  @ApiParam({
+    name: 'memberId',
     description: 'Team Member UUID',
-    example: '123e4567-e89b-12d3-a456-426614174001'
+    example: '123e4567-e89b-12d3-a456-426614174001',
   })
-  @ApiResponse({ 
-    status: 204, 
-    description: 'Team member removed successfully'
+  @ApiResponse({
+    status: 204,
+    description: 'Team member removed successfully',
   })
-  @ApiResponse({ 
-    status: 401, 
-    description: 'Unauthorized - Invalid or missing JWT token'
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing JWT token',
   })
-  @ApiResponse({ 
-    status: 403, 
-    description: 'Forbidden - Admin permissions required'
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin permissions required',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Project or team member not found'
+  @ApiResponse({
+    status: 404,
+    description: 'Project or team member not found',
   })
   async removeTeamMember(
     @Param('id', ParseUUIDPipe) projectId: string,
@@ -547,8 +559,8 @@ export class ProjectsController {
       }
       throw new HttpException(
         'Failed to remove team member',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
-} 
+}

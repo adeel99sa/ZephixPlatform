@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -10,9 +14,9 @@ import { LoginDto } from './dto/login.dto';
 
 /**
  * Authentication Service
- * 
+ *
  * Handles user registration, login, and JWT token generation.
- * 
+ *
  * MICROSERVICE EXTRACTION NOTES:
  * - This service can be moved to a dedicated auth microservice
  * - Password hashing should use bcrypt with salt rounds >= 12
@@ -29,11 +33,15 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<{ user: User; accessToken: string }> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<{ user: User; accessToken: string }> {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user exists
-    const existingUser = await this.userRepository.findOne({ where: { email: email.toLowerCase() } });
+    const existingUser = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -53,22 +61,24 @@ export class AuthService {
     const savedUser = await this.userRepository.save(user);
 
     // Generate JWT token
-    const accessToken = this.jwtService.sign({ 
-      sub: savedUser.id, 
-      email: savedUser.email 
+    const accessToken = this.jwtService.sign({
+      sub: savedUser.id,
+      email: savedUser.email,
     });
 
     return { user: savedUser, accessToken };
   }
 
-  async login(loginDto: LoginDto): Promise<{ user: User; accessToken: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<{ user: User; accessToken: string }> {
     const { email, password } = loginDto;
 
     // Find user by email
-    const user = await this.userRepository.findOne({ 
-      where: { email: email.toLowerCase() } 
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
     });
-    
+
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -85,9 +95,9 @@ export class AuthService {
     }
 
     // Generate JWT token
-    const accessToken = this.jwtService.sign({ 
-      sub: user.id, 
-      email: user.email 
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
     });
 
     return { user, accessToken };
@@ -100,14 +110,14 @@ export class AuthService {
   async validateToken(token: string): Promise<User> {
     try {
       const payload = this.jwtService.verify(token);
-      const user = await this.userRepository.findOne({ 
-        where: { id: payload.sub } 
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
       });
-      
+
       if (!user || !user.isActive) {
         throw new UnauthorizedException('Invalid token');
       }
-      
+
       return user;
     } catch (error) {
       throw new UnauthorizedException('Invalid token');

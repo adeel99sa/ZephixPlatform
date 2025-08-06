@@ -81,4 +81,4 @@ export class Project {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

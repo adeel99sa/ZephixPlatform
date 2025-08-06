@@ -1,14 +1,20 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey, TableIndex } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+  TableIndex,
+} from 'typeorm';
 
 /**
  * Create Projects Tables Migration
- * 
+ *
  * Creates all necessary tables for the projects module including:
  * - projects: Main project table
  * - teams: Team management table
  * - team_members: Team membership table
  * - roles: Role definitions table
- * 
+ *
  * @author Zephix Development Team
  * @version 1.0.0
  */
@@ -30,7 +36,14 @@ export class CreateProjectsTables1704067200000 implements MigrationInterface {
           {
             name: 'name',
             type: 'enum',
-            enum: ['admin', 'editor', 'viewer', 'project_manager', 'developer', 'analyst'],
+            enum: [
+              'admin',
+              'editor',
+              'viewer',
+              'project_manager',
+              'developer',
+              'analyst',
+            ],
             isUnique: true,
           },
           {
@@ -217,38 +230,38 @@ export class CreateProjectsTables1704067200000 implements MigrationInterface {
       true,
     );
 
-    // Create indexes
+    // Create indexes using proper TableIndex objects
     await queryRunner.createIndex(
       'projects',
-      {
+      new TableIndex({
         name: 'IDX_PROJECT_NAME',
         columnNames: ['name'],
-      },
+      }),
     );
 
     await queryRunner.createIndex(
       'projects',
-      {
+      new TableIndex({
         name: 'IDX_PROJECT_STATUS',
         columnNames: ['status'],
-      },
+      }),
     );
 
     await queryRunner.createIndex(
       'team_members',
-      {
+      new TableIndex({
         name: 'IDX_TEAM_MEMBER_UNIQUE',
         columnNames: ['team_id', 'user_id'],
         isUnique: true,
-      },
+      }),
     );
 
     await queryRunner.createIndex(
       'roles',
-      {
+      new TableIndex({
         name: 'IDX_ROLE_NAME',
         columnNames: ['name'],
-      },
+      }),
     );
 
     // Create foreign key constraints
@@ -315,18 +328,24 @@ export class CreateProjectsTables1704067200000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop foreign keys
+    // Drop foreign keys with proper null checking
     const teamMembersTable = await queryRunner.getTable('team_members');
-    const teamMembersForeignKeys = teamMembersTable.foreignKeys;
-    await queryRunner.dropForeignKeys('team_members', teamMembersForeignKeys);
+    if (teamMembersTable && teamMembersTable.foreignKeys) {
+      await queryRunner.dropForeignKeys(
+        'team_members',
+        teamMembersTable.foreignKeys,
+      );
+    }
 
     const teamsTable = await queryRunner.getTable('teams');
-    const teamsForeignKeys = teamsTable.foreignKeys;
-    await queryRunner.dropForeignKeys('teams', teamsForeignKeys);
+    if (teamsTable && teamsTable.foreignKeys) {
+      await queryRunner.dropForeignKeys('teams', teamsTable.foreignKeys);
+    }
 
     const projectsTable = await queryRunner.getTable('projects');
-    const projectsForeignKeys = projectsTable.foreignKeys;
-    await queryRunner.dropForeignKeys('projects', projectsForeignKeys);
+    if (projectsTable && projectsTable.foreignKeys) {
+      await queryRunner.dropForeignKeys('projects', projectsTable.foreignKeys);
+    }
 
     // Drop tables
     await queryRunner.dropTable('team_members');

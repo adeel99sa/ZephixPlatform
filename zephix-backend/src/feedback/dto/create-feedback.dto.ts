@@ -7,7 +7,10 @@ export class CreateFeedbackDto {
   @IsEnum(FeedbackType)
   type: FeedbackType;
 
-  @ApiProperty({ example: 'The project creation flow is intuitive, but I\'d love project templates.' })
+  @ApiProperty({
+    example:
+      "The project creation flow is intuitive, but I'd love project templates.",
+  })
   @IsString()
   @MaxLength(2000)
   content: string;
@@ -20,4 +23,4 @@ export class CreateFeedbackDto {
   @ApiPropertyOptional()
   @IsOptional()
   metadata?: Record<string, any>;
-} 
+}

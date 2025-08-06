@@ -60,4 +60,4 @@ export class RoleSeedService implements OnModuleInit {
       }
     }
   }
-} 
+}

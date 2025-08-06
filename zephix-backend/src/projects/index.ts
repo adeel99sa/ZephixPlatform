@@ -24,4 +24,4 @@ export * from './guards/project-permission.guard';
 export * from './decorators/project-permissions.decorator';
 
 // Module
-export * from './projects.module'; 
+export * from './projects.module';
