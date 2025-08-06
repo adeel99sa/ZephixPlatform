@@ -1,24 +1,176 @@
+# Zephix Platform - Railway Monorepo Configuration
+# Enterprise-grade Infrastructure as Code for NestJS Backend + React Frontend
+# 
+# Architecture:
+# - Backend: NestJS TypeScript application (zephix-backend/)
+# - Frontend: React TypeScript application (zephix-frontend/)
+# - Database: PostgreSQL (managed by Railway)
+#
+# @author Zephix Development Team
+# @version 2.1.0
+
 [build]
 builder = "NIXPACKS"
 
-[environments.production]
-[environments.production.services.database]
+# =============================================================================
+# BACKEND SERVICE CONFIGURATION
+# =============================================================================
+[services.backend]
+# Service identification and metadata
+name = "Zephix Backend"
+description = "NestJS API backend for Zephix Platform"
+
+# Monorepo source configuration - CRITICAL FIX
+# Railway expects the source to be the relative path from repository root
+source = "zephix-backend"
+
+# Build configuration for NestJS TypeScript
+[services.backend.build]
+builder = "NIXPACKS"
+nixpacksConfigPath = "nixpacks.toml"
+
+# Deployment configuration
+[services.backend.deploy]
+startCommand = "npm run start:prod"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Environment variables for production
+[services.backend.variables]
+NODE_ENV = "production"
+PORT = "3000"
+JWT_SECRET = "ZephixJWT2024SecureKey!"
+JWT_EXPIRES_IN = "15m"
+DATABASE_URL = "{{.Postgres.DATABASE_URL}}"
+LOG_LEVEL = "info"
+CORS_ORIGIN = "https://getzephix.com"
+API_PREFIX = "/api"
+
+# Resource allocation
+[services.backend.resources]
+cpu = "0.5"
+memory = "512MB"
+
+# =============================================================================
+# FRONTEND SERVICE CONFIGURATION
+# =============================================================================
+[services.frontend]
+# Service identification and metadata
+name = "Zephix Frontend"
+description = "React TypeScript frontend for Zephix Platform"
+
+# Monorepo source configuration
+source = "zephix-frontend"
+
+# Build configuration for React TypeScript
+[services.frontend.build]
+builder = "NIXPACKS"
+nixpacksConfigPath = "nixpacks.toml"
+
+# Deployment configuration
+[services.frontend.deploy]
+startCommand = "npm run serve"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Environment variables for production
+[services.frontend.variables]
+VITE_API_BASE_URL = "https://getzephix.com/api"
+NODE_ENV = "production"
+NIXPACKS_BUILDER = "true"
+VITE_APP_NAME = "Zephix AI"
+VITE_APP_VERSION = "2.0.0"
+
+# Resource allocation
+[services.frontend.resources]
+cpu = "0.25"
+memory = "256MB"
+
+# =============================================================================
+# DATABASE SERVICE CONFIGURATION (Optional - for local development)
+# =============================================================================
+[services.database]
+# Service identification and metadata
+name = "Zephix Database"
+description = "PostgreSQL database for Zephix Platform"
+
+# Database configuration
 source = "postgresql"
 
-[environments.production.services.backend]
-source = "zephix-backend"
-variables = { 
-  NODE_ENV = "production", 
-  PORT = "3000",
-  JWT_SECRET = "ZephixJWT2024SecureKey!",
-  JWT_EXPIRES_IN = "15m"
-}
+[services.database.variables]
+POSTGRES_PASSWORD = "{{.RandomString}}"
+POSTGRES_DB = "zephix_production"
 
-[environments.production.services.frontend]
-source = "zephix-frontend"
-build = { builder = "NIXPACKS" }
-variables = { 
-  VITE_API_BASE_URL = "https://getzephix.com/api",
-  NODE_ENV = "production",
-  NIXPACKS_BUILDER = "true"
-}
+# Resource allocation
+[services.database.resources]
+cpu = "0.25"
+memory = "256MB"
+
+# =============================================================================
+# NETWORKING CONFIGURATION
+# =============================================================================
+[network]
+# Domain configuration
+domains = [
+  "getzephix.com",
+  "api.getzephix.com"
+]
+
+# SSL/TLS configuration
+[network.ssl]
+enabled = true
+redirect = true
+
+# =============================================================================
+# MONITORING AND LOGGING
+# =============================================================================
+[monitoring]
+# Logging configuration
+[monitoring.logging]
+level = "info"
+retention = "30d"
+
+# Metrics configuration
+[monitoring.metrics]
+enabled = true
+interval = "60s"
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+[security]
+# CORS configuration
+[security.cors]
+enabled = true
+origins = ["https://getzephix.com", "https://www.getzephix.com"]
+
+# Rate limiting
+[security.rateLimit]
+enabled = true
+requests = 100
+window = "1m"
+
+# =============================================================================
+# DEPLOYMENT STRATEGY
+# =============================================================================
+[deployment]
+# Deployment strategy
+strategy = "rolling"
+
+# Health check configuration
+[deployment.healthCheck]
+enabled = true
+path = "/api/health"
+timeout = 300
+interval = 30
+retries = 3
+
+# Rollback configuration
+[deployment.rollback]
+enabled = true
+automatic = true
+threshold = 3
