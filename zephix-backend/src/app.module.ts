@@ -17,7 +17,7 @@ import { Feedback } from './feedback/entities/feedback.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-// Patch global.crypto so TypeORM’s randomUUID() works
+// Patch global.crypto so TypeORM's randomUUID() works
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
 }
@@ -46,9 +46,6 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
           autoLoadEntities: true,
           ssl: { rejectUnauthorized: false },
 
-          // root keep-alive
-          keepConnectionAlive: true,
-
           // retry strategy
           retryAttempts: 10,
           retryDelay: 3000,
@@ -56,14 +53,14 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
           // logging
           logging: isProd ? ['error', 'warn'] : true,
 
-          // connection pool + IPv4
+          // connection pool + IPv4 (CRITICAL FIX for Railway)
           extra: {
             max: 10,
             min: 2,
             idleTimeoutMillis: 10000,
             acquireTimeoutMillis: 60000,
             keepAlive: true,
-            family: 4,                     // force IPv4
+            family: 4,                     // force IPv4 - prevents IPv6 timeout errors
           },
         };
       },
