@@ -7,8 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '../ui/Button';
 import type { CreateProjectData } from '../../types';
-import { projectsApi } from '../../services/api';
-import { toast } from 'sonner';
+import { useProjectStore } from '../../stores/projectStore';
 
 const createProjectSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
@@ -30,10 +29,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { createProject, isLoading } = useProjectStore();
+  
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
   } = useForm<CreateProjectData>({
     resolver: zodResolver(createProjectSchema),
@@ -43,19 +44,16 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   });
 
   const onSubmit = async (data: CreateProjectData) => {
-    try {
-      // Convert budget to number if provided
-      const projectData = {
-        ...data,
-        budget: data.budget ? Number(data.budget) : undefined,
-      };
+    // Convert budget to number if provided
+    const projectData = {
+      ...data,
+      budget: data.budget ? Number(data.budget) : undefined,
+    };
 
-      await projectsApi.create(projectData);
+    const success = await createProject(projectData);
+    if (success) {
       reset();
       onSuccess();
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      toast.error('Failed to create project. Please try again.');
     }
   };
 
@@ -194,12 +192,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       type="button"
                       variant="outline"
                       onClick={handleClose}
+                      disabled={isLoading}
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
-                      loading={isSubmitting}
+                      loading={isLoading}
                     >
                       Create Project
                     </Button>

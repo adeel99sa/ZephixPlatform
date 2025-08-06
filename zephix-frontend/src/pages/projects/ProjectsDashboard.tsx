@@ -5,43 +5,25 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ProjectCard } from '../../components/ui/ProjectCard';
 import { CreateProjectModal } from '../../components/modals/CreateProjectModal';
 import { useProjectStore } from '../../stores/projectStore';
-import { projectsApi } from '../../services/api';
-import { toast } from 'sonner';
 
 export const ProjectsDashboard: React.FC = () => {
   const {
     projects,
     isLoading,
     error,
-    setProjects,
-    setLoading,
-    setError,
+    totalCount,
+    fetchProjects,
   } = useProjectStore();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await projectsApi.getAll();
-      setProjects(response.projects);
-    } catch (error) {
-      setError('Failed to load projects');
-      console.error('Failed to load projects:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchProjects();
+  }, [fetchProjects]);
 
   const handleProjectCreated = () => {
     setIsCreateModalOpen(false);
-    loadProjects(); // Refresh the projects list
-    toast.success('Project created successfully!');
+    // The store will automatically update the projects list
   };
 
   if (isLoading) {
@@ -56,7 +38,7 @@ export const ProjectsDashboard: React.FC = () => {
     return (
       <div className="text-center py-12">
         <p className="text-red-600 mb-4">{error}</p>
-        <Button onClick={loadProjects}>Try Again</Button>
+        <Button onClick={fetchProjects}>Try Again</Button>
       </div>
     );
   }
@@ -68,6 +50,11 @@ export const ProjectsDashboard: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
           <p className="mt-2 text-sm text-gray-700">
             Manage and track all your projects in one place
+            {totalCount > 0 && (
+              <span className="ml-2 text-gray-500">
+                ({totalCount} project{totalCount !== 1 ? 's' : ''})
+              </span>
+            )}
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
