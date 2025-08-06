@@ -2,30 +2,33 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '../services/api';
 import type { User, LoginCredentials } from '../types';
+import type { BaseStoreState, AsyncResult, StoreError } from '../types/store';
+import { createError } from '../types/store';
 import { toast } from 'sonner';
 
-interface AuthState {
+interface AuthState extends BaseStoreState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
   
   // Actions
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
-  setLoading: (loading: boolean) => void;
+  setLoading: (loading: boolean, action?: string) => void;
   
   // API Actions
-  login: (credentials: LoginCredentials) => Promise<boolean>;
+  login: (credentials: LoginCredentials) => Promise<AsyncResult<{ user: User; token: string }>>;
   register: (userData: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
-  }) => Promise<boolean>;
-  logout: () => Promise<void>;
-  getCurrentUser: () => Promise<boolean>;
-  checkAuth: () => Promise<boolean>;
+  }) => Promise<AsyncResult<{ user: User; token: string }>>;
+  logout: () => Promise<AsyncResult<void>>;
+  getCurrentUser: () => Promise<AsyncResult<User>>;
+  checkAuth: () => Promise<AsyncResult<boolean>>;
+  clearError: () => void;
+  clearSuccess: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -35,6 +38,12 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      loadingAction: undefined,
+      loadingStartTime: undefined,
+      error: null,
+      errorTimestamp: undefined,
+      lastSuccess: undefined,
+      successTimestamp: undefined,
       
       // Basic state setters
       setAuth: (user, token) =>
@@ -43,6 +52,10 @@ export const useAuthStore = create<AuthState>()(
           token,
           isAuthenticated: true,
           isLoading: false,
+          loadingAction: undefined,
+          loadingStartTime: undefined,
+          error: null,
+          errorTimestamp: undefined,
         }),
       clearAuth: () =>
         set({
@@ -50,88 +63,271 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
           isLoading: false,
+          loadingAction: undefined,
+          loadingStartTime: undefined,
+          error: null,
+          errorTimestamp: undefined,
         }),
-      setLoading: (loading) => set({ isLoading: loading }),
+      setLoading: (loading, action) => {
+        console.log(`⏳ AuthStore: Setting loading state to ${loading}${action ? ` for ${action}` : ''}`);
+        set({ 
+          isLoading: loading,
+          loadingAction: action,
+          loadingStartTime: loading ? performance.now() : undefined
+        });
+      },
       
       // API Actions
       login: async (credentials: LoginCredentials) => {
+        const startTime = performance.now();
+        const action = 'login';
+        
+        console.log(`🔐 AuthStore: Starting ${action} for user: ${credentials.email}`);
+        
+        set({ 
+          isLoading: true, 
+          loadingAction: action,
+          loadingStartTime: startTime,
+          error: null 
+        });
+        
         try {
-          set({ isLoading: true });
           const response = await authApi.login(credentials);
+          const endTime = performance.now();
+          
+          console.log(`✅ AuthStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+          
           set({
             user: response.user,
             token: response.accessToken,
             isAuthenticated: true,
             isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            lastSuccess: `Welcome back, ${response.user.firstName}!`,
+            successTimestamp: new Date().toISOString()
           });
+          
           toast.success(`Welcome back, ${response.user.firstName}!`);
-          return true;
+          
+          return {
+            success: true,
+            data: { user: response.user, token: response.accessToken }
+          };
         } catch (error) {
-          set({ isLoading: false });
-          console.error('Login failed:', error);
-          return false;
+          const endTime = performance.now();
+          const errorMessage = error instanceof Error ? error.message : 'Login failed';
+          const storeError = createError('auth', errorMessage, {
+            reason: 'invalid_credentials',
+            endpoint: '/auth/login',
+            method: 'POST'
+          });
+          
+          console.error(`❌ AuthStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
+          console.error('AuthStore Error:', error);
+          
+          set({ 
+            isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            error: storeError,
+            errorTimestamp: new Date().toISOString()
+          });
+          
+          return {
+            success: false,
+            error: storeError
+          };
         }
       },
       
       register: async (userData) => {
+        const startTime = performance.now();
+        const action = 'register';
+        
+        console.log(`📝 AuthStore: Starting ${action} for user: ${userData.email}`);
+        
+        set({ 
+          isLoading: true, 
+          loadingAction: action,
+          loadingStartTime: startTime,
+          error: null 
+        });
+        
         try {
-          set({ isLoading: true });
           const response = await authApi.register(userData);
+          const endTime = performance.now();
+          
+          console.log(`✅ AuthStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+          
           set({
             user: response.user,
             token: response.accessToken,
             isAuthenticated: true,
             isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            lastSuccess: `Welcome to Zephix AI, ${response.user.firstName}!`,
+            successTimestamp: new Date().toISOString()
           });
+          
           toast.success(`Welcome to Zephix AI, ${response.user.firstName}!`);
-          return true;
+          
+          return {
+            success: true,
+            data: { user: response.user, token: response.accessToken }
+          };
         } catch (error) {
-          set({ isLoading: false });
-          console.error('Registration failed:', error);
-          return false;
+          const endTime = performance.now();
+          const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+          const storeError = createError('auth', errorMessage, {
+            reason: 'unauthorized',
+            endpoint: '/auth/register',
+            method: 'POST'
+          });
+          
+          console.error(`❌ AuthStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
+          console.error('AuthStore Error:', error);
+          
+          set({ 
+            isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            error: storeError,
+            errorTimestamp: new Date().toISOString()
+          });
+          
+          return {
+            success: false,
+            error: storeError
+          };
         }
       },
       
       logout: async () => {
+        const startTime = performance.now();
+        const action = 'logout';
+        
+        console.log(`🚪 AuthStore: Starting ${action}`);
+        
+        set({ 
+          isLoading: true, 
+          loadingAction: action,
+          loadingStartTime: startTime,
+          error: null 
+        });
+        
         try {
           await authApi.logout();
+          const endTime = performance.now();
+          
+          console.log(`✅ AuthStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+          
           set({
             user: null,
             token: null,
             isAuthenticated: false,
             isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            lastSuccess: 'Successfully logged out',
+            successTimestamp: new Date().toISOString()
           });
+          
+          return {
+            success: true
+          };
         } catch (error) {
-          console.error('Logout failed:', error);
+          const endTime = performance.now();
+          const errorMessage = error instanceof Error ? error.message : 'Logout failed';
+          const storeError = createError('auth', errorMessage, {
+            reason: 'unauthorized',
+            endpoint: '/auth/logout',
+            method: 'POST'
+          });
+          
+          console.error(`❌ AuthStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
+          console.error('AuthStore Error:', error);
+          
           // Clear auth state even if API call fails
           set({
             user: null,
             token: null,
             isAuthenticated: false,
             isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            error: storeError,
+            errorTimestamp: new Date().toISOString()
           });
+          
+          return {
+            success: false,
+            error: storeError
+          };
         }
       },
       
       getCurrentUser: async () => {
+        const startTime = performance.now();
+        const action = 'getCurrentUser';
+        
+        console.log(`👤 AuthStore: Starting ${action}`);
+        
+        set({ 
+          isLoading: true, 
+          loadingAction: action,
+          loadingStartTime: startTime,
+          error: null 
+        });
+        
         try {
-          set({ isLoading: true });
           const response = await authApi.getCurrentUser();
+          const endTime = performance.now();
+          
+          console.log(`✅ AuthStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+          
           set({
             user: response.user,
             isAuthenticated: true,
             isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            lastSuccess: 'User session validated',
+            successTimestamp: new Date().toISOString()
           });
-          return true;
+          
+          return {
+            success: true,
+            data: response.user
+          };
         } catch (error) {
+          const endTime = performance.now();
+          const errorMessage = error instanceof Error ? error.message : 'Failed to get current user';
+          const storeError = createError('auth', errorMessage, {
+            reason: 'token_expired',
+            endpoint: '/auth/me',
+            method: 'GET'
+          });
+          
+          console.error(`❌ AuthStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
+          console.error('AuthStore Error:', error);
+          
           set({ 
             user: null,
             token: null,
             isAuthenticated: false,
-            isLoading: false 
+            isLoading: false,
+            loadingAction: undefined,
+            loadingStartTime: undefined,
+            error: storeError,
+            errorTimestamp: new Date().toISOString()
           });
-          console.error('Failed to get current user:', error);
-          return false;
+          
+          return {
+            success: false,
+            error: storeError
+          };
         }
       },
       
@@ -139,16 +335,50 @@ export const useAuthStore = create<AuthState>()(
         const { token, isAuthenticated } = get();
         
         if (!token || !isAuthenticated) {
-          return false;
+          return {
+            success: false,
+            data: false
+          };
         }
         
         try {
-          const success = await get().getCurrentUser();
-          return success;
+          const result = await get().getCurrentUser();
+          return {
+            success: result.success,
+            data: result.success
+          };
         } catch (error) {
-          console.error('Auth check failed:', error);
-          return false;
+          const errorMessage = error instanceof Error ? error.message : 'Auth check failed';
+          const storeError = createError('auth', errorMessage, {
+            reason: 'unauthorized',
+            endpoint: '/auth/check',
+            method: 'GET'
+          });
+          
+          console.error('AuthStore Error:', error);
+          
+          return {
+            success: false,
+            error: storeError,
+            data: false
+          };
         }
+      },
+      
+      clearError: () => {
+        console.log('🧹 AuthStore: Clearing error state');
+        set({ 
+          error: null,
+          errorTimestamp: undefined
+        });
+      },
+      
+      clearSuccess: () => {
+        console.log('🧹 AuthStore: Clearing success state');
+        set({ 
+          lastSuccess: undefined,
+          successTimestamp: undefined
+        });
       },
     }),
     {
