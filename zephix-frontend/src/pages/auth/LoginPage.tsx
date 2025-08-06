@@ -1,14 +1,12 @@
 import React from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { LoginForm } from '../../components/forms/LoginForm';
 import { useAuthStore } from '../../stores/authStore';
-import { authApi } from '../../services/api';
 import { ChatBubbleLeftRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import type { LoginCredentials } from '../../types';
 
 export const LoginPage: React.FC = () => {
-  const { isAuthenticated, setAuth, setLoading, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, login } = useAuthStore();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -17,17 +15,9 @@ export const LoginPage: React.FC = () => {
   }
 
   const handleLogin = async (credentials: LoginCredentials) => {
-    try {
-      setLoading(true);
-      const response = await authApi.login(credentials);
-      setAuth(response.user, response.token);
-      toast.success(`Welcome to Zephix AI, ${response.user.firstName}!`);
+    const success = await login(credentials);
+    if (success) {
       navigate('/', { replace: true });
-    } catch (error) {
-      console.error('Login failed:', error);
-      // Error handling is done in the API interceptor
-    } finally {
-      setLoading(false);
     }
   };
 
