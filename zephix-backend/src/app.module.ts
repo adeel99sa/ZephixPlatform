@@ -11,9 +11,14 @@ import * as crypto from 'crypto';
 import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { ProjectsModule } from './projects/projects.module';
 import { HealthController } from './health/health.controller';
 import { User } from './users/entities/user.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
+import { Project } from './projects/entities/project.entity';
+import { Team } from './projects/entities/team.entity';
+import { TeamMember } from './projects/entities/team-member.entity';
+import { Role } from './projects/entities/role.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -41,7 +46,7 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
         return {
           type: 'postgres',
           url,
-          entities: [User, Feedback],
+          entities: [User, Feedback, Project, Team, TeamMember, Role],
           synchronize: true,               // auto-create tables
           autoLoadEntities: true,
           ssl: { rejectUnauthorized: false },
@@ -68,6 +73,7 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
     }),
     AuthModule,
     FeedbackModule,
+    ProjectsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

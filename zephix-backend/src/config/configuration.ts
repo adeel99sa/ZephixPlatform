@@ -6,7 +6,7 @@ export default () => ({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    synchronize: process.env.NODE_ENV === 'development',
+    synchronize: true, // Enable synchronization to create tables
     logging: process.env.DB_LOGGING === 'true',
   },
   jwt: {

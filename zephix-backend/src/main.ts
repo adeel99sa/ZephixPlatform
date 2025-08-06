@@ -17,8 +17,9 @@ async function bootstrap() {
         process.env.NODE_ENV === 'production'
           ? [
               'https://getzephix.com',
-              'https://zephix-frontend-production-2c3ec553.up.railway.app',
-            ]
+              'https://zephix-frontend-production.up.railway.app',
+              process.env.RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL,
+            ].filter(Boolean) // Remove undefined values
           : true,
       credentials: true,
     });
