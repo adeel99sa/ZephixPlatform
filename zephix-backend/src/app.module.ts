@@ -17,12 +17,12 @@ import { Feedback } from './feedback/entities/feedback.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-// Patch global.crypto for Node.js & TypeORM
+// Patch global.crypto so TypeORM’s randomUUID() works
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
 }
 
-// Force IPv4 DNS resolution (avoids FD12 timeout)
+// Force IPv4-first DNS resolution (avoids fd12 timeouts)
 process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
 
 @Module({
@@ -34,33 +34,38 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (cs: ConfigService): TypeOrmModuleOptions => {
-        const url = cs.get<string>('database.url') || process.env.DATABASE_URL!;
+        const url =
+          cs.get<string>('database.url') || process.env.DATABASE_URL!;
         const isProd = cs.get<string>('nodeEnv') === 'production';
 
-        const common: Partial<TypeOrmModuleOptions> = {
+        return {
           type: 'postgres',
           url,
           entities: [User, Feedback],
-          synchronize: true,          // auto-create tables
+          synchronize: true,               // auto-create tables
           autoLoadEntities: true,
           ssl: { rejectUnauthorized: false },
+
+          // root keep-alive
+          keepConnectionAlive: true,
+
+          // retry strategy
           retryAttempts: 10,
           retryDelay: 3000,
-          keepConnectionAlive: true,
+
+          // logging
           logging: isProd ? ['error', 'warn'] : true,
-        };
 
-        // Pool + IPv4 + timeouts
-        common.extra = {
-          max: 10,
-          min: 2,
-          idle: 10000,
-          acquireTimeoutMillis: 60000,
-          keepAlive: true,
-          family: 4,                  // force IPv4
+          // connection pool + IPv4
+          extra: {
+            max: 10,
+            min: 2,
+            idleTimeoutMillis: 10000,
+            acquireTimeoutMillis: 60000,
+            keepAlive: true,
+            family: 4,                     // force IPv4
+          },
         };
-
-        return common as TypeOrmModuleOptions;
       },
       inject: [ConfigService],
     }),
