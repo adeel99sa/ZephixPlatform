@@ -1,20 +1,87 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ArrowUp, Bot, BrainCircuit, CheckCircle2, ChevronRight, FileText, GitBranch, HardHat, Loader2, Plus, Sparkles, User, X, Zap, AlertTriangle, Calendar, Clock, Users, TrendingUp, Shield, Upload } from 'lucide-react';
 
-// Import existing stores and utilities
-import { mockApi } from './stores/mockApi';
-import { useProjectStore } from './stores/projectStore';
-import { useUIStore } from './stores/uiStore';
-import { getInitials, formatDate, truncate } from './utils';
-import type { Message, Project } from './types';
-import { ErrorBoundary } from './components/ErrorBoundary';
+// --- TYPES ---
+type Message = {
+  id: number;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: Date;
+  project?: Project;
+  type?: 'text' | 'project' | 'error' | 'success';
+};
 
-// Utility function to replace clsx
+type Project = {
+  id: string;
+  name: string;
+  status: 'Planning' | 'Building' | 'Review' | 'Complete';
+  health: 'On Track' | 'At Risk' | 'Off Track';
+  progress: number;
+  milestones: Milestone[];
+  risks: Risk[];
+  opportunities: Opportunity[];
+  team: TeamMember[];
+  budget?: number;
+  deadline?: Date;
+  priority: 'High' | 'Medium' | 'Low';
+  category: 'Marketing' | 'Development' | 'Operations' | 'Strategy';
+};
+
+type Milestone = {
+  id: string;
+  name: string;
+  status: 'done' | 'inprogress' | 'todo' | 'blocked';
+  dueDate?: Date;
+  assignee?: string;
+};
+
+type Risk = {
+  id: string;
+  description: string;
+  severity: 'High' | 'Medium' | 'Low';
+  probability: 'High' | 'Medium' | 'Low';
+  mitigation?: string;
+};
+
+type Opportunity = {
+  id: string;
+  description: string;
+  potential: 'High' | 'Medium' | 'Low';
+  effort: 'High' | 'Medium' | 'Low';
+};
+
+type TeamMember = {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  availability: 'Available' | 'Busy' | 'Away';
+};
+
+// --- UTILITIES ---
 const cn = (...classes: (string | undefined | null | false)[]): string => {
   return classes.filter(Boolean).join(' ');
 };
 
-// Performance monitoring utility
+const getInitials = (name: string): string => {
+  const names = name.split(' ');
+  if (names.length === 1) return names[0].charAt(0).toUpperCase();
+  return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
+};
+
+const formatDate = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+};
+
+const truncate = (str: string, length: number): string => {
+  return str.length > length ? str.substring(0, length) + '...' : str;
+};
+
 const logPerformance = (operation: string, startTime: number, data?: any) => {
   const endTime = performance.now();
   const duration = endTime - startTime;
@@ -24,8 +91,158 @@ const logPerformance = (operation: string, startTime: number, data?: any) => {
   }
 };
 
-// --- ENHANCED UI COMPONENTS ---
+// --- MOCK DATA & API ---
+const initialMockProjects: Project[] = [
+  {
+    id: 'proj-1',
+    name: 'Q4 Marketing Campaign',
+    status: 'Building',
+    health: 'On Track',
+    progress: 65,
+    priority: 'High',
+    category: 'Marketing',
+    budget: 150000,
+    deadline: new Date('2025-12-15'),
+    milestones: [
+      { id: 'm1', name: 'Creative Brief Approved', status: 'done', assignee: 'Sarah Chen' },
+      { id: 'm2', name: 'Ad Creatives Finalized', status: 'inprogress', dueDate: new Date('2025-08-20'), assignee: 'Mike Rodriguez' },
+      { id: 'm3', name: 'Campaign Launch', status: 'todo', dueDate: new Date('2025-09-01') },
+    ],
+    risks: [
+      { id: 'r1', description: 'Ad spend budget might be tight for Q4 push', severity: 'Medium', probability: 'Medium', mitigation: 'Negotiate volume discounts with platforms' }
+    ],
+    opportunities: [
+      { id: 'o1', description: 'Potential for viral TikTok trend integration', potential: 'High', effort: 'Low' }
+    ],
+    team: [
+      { id: 't1', name: 'Sarah Chen', role: 'Creative Director', avatar: 'SC', availability: 'Available' },
+      { id: 't2', name: 'Mike Rodriguez', role: 'Digital Strategist', avatar: 'MR', availability: 'Busy' },
+      { id: 't3', name: 'Lisa Park', role: 'Analytics Lead', avatar: 'LP', availability: 'Available' },
+    ]
+  },
+  {
+    id: 'proj-2',
+    name: 'Mobile API Infrastructure',
+    status: 'Review',
+    health: 'At Risk',
+    progress: 80,
+    priority: 'High',
+    category: 'Development',
+    deadline: new Date('2025-08-25'),
+    milestones: [
+      { id: 'm4', name: 'Authentication System', status: 'done' },
+      { id: 'm5', name: 'Data Models & Validation', status: 'done' },
+      { id: 'm6', name: 'Security Audit & Penetration Testing', status: 'inprogress', dueDate: new Date('2025-08-15') },
+      { id: 'm7', name: 'Load Testing & Optimization', status: 'blocked' },
+    ],
+    risks: [
+      { id: 'r2', description: 'Third-party payment API showing 15% latency degradation', severity: 'High', probability: 'High', mitigation: 'Implement fallback providers and circuit breakers' }
+    ],
+    opportunities: [
+      { id: 'o2', description: 'Architecture can be white-labeled for enterprise clients', potential: 'High', effort: 'Medium' }
+    ],
+    team: [
+      { id: 't4', name: 'David Kim', role: 'Backend Lead', avatar: 'DK', availability: 'Available' },
+      { id: 't5', name: 'Emma Watson', role: 'Security Engineer', avatar: 'EW', availability: 'Busy' },
+    ]
+  },
+];
 
+// Mock API simulation
+let mockProjects: Project[] = [...initialMockProjects];
+
+const mockApi = {
+  getProjects: async (): Promise<Project[]> => {
+    console.log("API: Fetching projects...");
+    return new Promise(resolve => setTimeout(() => resolve([...mockProjects]), 500));
+  },
+  
+  createProject: async (text: string): Promise<Project> => {
+    console.log("API: Creating project...");
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const newTeam: TeamMember[] = [
+          { id: `t-${Date.now()}-1`, name: 'Alex Johnson', role: 'Project Lead', avatar: getInitials('Alex Johnson'), availability: 'Available' },
+          { id: `t-${Date.now()}-2`, name: 'Sam Chen', role: 'Technical Lead', avatar: getInitials('Sam Chen'), availability: 'Available' },
+        ];
+
+        const newProject: Project = {
+          id: `proj-${Date.now()}`,
+          name: text.length > 40 ? text.substring(0, 37) + '...' : text,
+          status: 'Planning',
+          health: 'On Track',
+          progress: Math.floor(Math.random() * 20) + 5,
+          priority: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)] as 'High' | 'Medium' | 'Low',
+          category: ['Development', 'Marketing', 'Operations', 'Strategy'][Math.floor(Math.random() * 4)] as Project['category'],
+          deadline: new Date(Date.now() + (Math.random() * 90 + 30) * 24 * 60 * 60 * 1000),
+          milestones: [
+            { id: `m-${Date.now()}-1`, name: 'Project Scope & Requirements Analysis', status: 'inprogress' },
+            { id: `m-${Date.now()}-2`, name: 'Team Assembly & Resource Planning', status: 'todo' },
+            { id: `m-${Date.now()}-3`, name: 'Implementation Phase Kickoff', status: 'todo' },
+          ],
+          risks: [
+            { id: `r-${Date.now()}`, description: 'Scope expansion during development phase', severity: 'Medium', probability: 'Medium', mitigation: 'Implement change control process' }
+          ],
+          opportunities: [
+            { id: `o-${Date.now()}`, description: 'Potential for cross-team collaboration and knowledge sharing', potential: 'Medium', effort: 'Low' }
+          ],
+          team: newTeam,
+        };
+        mockProjects = [newProject, ...mockProjects];
+        resolve(newProject);
+      }, 1500 + Math.random() * 1000);
+    });
+  },
+};
+
+// --- SIMPLE STATE MANAGEMENT (Replacing Zustand) ---
+// Project Store
+type ProjectState = {
+  projects: Project[];
+  isLoading: boolean;
+  error: string | null;
+};
+
+const useProjectStore = () => {
+  const [state, setState] = useState<ProjectState>({
+    projects: [],
+    isLoading: false,
+    error: null,
+  });
+
+  const fetchProjects = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    try {
+      const projects = await mockApi.getProjects();
+      setState(prev => ({ ...prev, projects, isLoading: false }));
+    } catch (e) {
+      setState(prev => ({ ...prev, error: 'Failed to fetch projects', isLoading: false }));
+    }
+  }, []);
+
+  const addProject = useCallback((project: Project) => {
+    setState(prev => ({ ...prev, projects: [project, ...prev.projects] }));
+  }, []);
+
+  return { ...state, fetchProjects, addProject };
+};
+
+// UI Store
+const useUIStore = () => {
+  const [blueprintModalProjectId, setBlueprintModalProjectId] = useState<string | null>(null);
+
+  const openBlueprintModal = useCallback((projectId: string) => {
+    setBlueprintModalProjectId(projectId);
+  }, []);
+
+  const closeBlueprintModal = useCallback(() => {
+    setBlueprintModalProjectId(null);
+  }, []);
+
+  return { blueprintModalProjectId, openBlueprintModal, closeBlueprintModal };
+};
+
+// --- UI COMPONENTS ---
 const ProjectCard = React.memo(({ project, onClick }: { project: Project, onClick: () => void }) => {
   const healthColor = {
     'On Track': 'bg-green-500',
@@ -55,6 +272,7 @@ const ProjectCard = React.memo(({ project, onClick }: { project: Project, onClic
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      aria-label={`View project ${project.name}`}
     >
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-2">
@@ -242,8 +460,6 @@ const ChatInput = ({ onSend, loading }: { onSend: (text: string) => void, loadin
     e.preventDefault();
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
-    console.log('Files dropped:', files);
-    // Handle file upload logic here
     if (files.length > 0) {
       onSend(`Uploaded BRD: "${files[0].name}"`);
     }
@@ -269,10 +485,11 @@ const ChatInput = ({ onSend, loading }: { onSend: (text: string) => void, loadin
               setInputValue(e.target.value);
               setError('');
             }}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Tell me what you want to build, or drag & drop a BRD..."
             className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-6 pr-24 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             disabled={loading}
+            aria-label="Project description input"
           />
           
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-2">
@@ -280,6 +497,7 @@ const ChatInput = ({ onSend, loading }: { onSend: (text: string) => void, loadin
               type="button"
               className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-colors"
               title="Upload file"
+              aria-label="Upload file"
             >
               <Upload className="w-5 h-5" />
             </button>
@@ -288,6 +506,7 @@ const ChatInput = ({ onSend, loading }: { onSend: (text: string) => void, loadin
               onClick={handleSend}
               className="bg-indigo-600 rounded-xl p-2 hover:bg-indigo-500 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
               disabled={loading || !inputValue?.trim()}
+              aria-label="Send message"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -318,7 +537,6 @@ const ChatInput = ({ onSend, loading }: { onSend: (text: string) => void, loadin
   );
 };
 
-// Custom Modal Component (replacing Headless UI)
 const Modal = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => void, children: React.ReactNode }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -340,7 +558,7 @@ const Modal = ({ isOpen, onClose, children }: { isOpen: boolean, onClose: () => 
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className={`relative transform transition-all duration-300 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+        <div className="relative transform transition-all duration-300 opacity-100 scale-100">
           {children}
         </div>
       </div>
@@ -374,6 +592,7 @@ const ProjectBlueprintModal = ({ project, isOpen, onClose }: { project: Project 
           <button 
             onClick={onClose} 
             className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label="Close modal"
           >
             <X className="w-6 h-6"/>
           </button>
@@ -593,13 +812,11 @@ const ProjectBlueprintModal = ({ project, isOpen, onClose }: { project: Project 
   );
 };
 
-// --- MAIN ENHANCED APP ---
-const AppContent = () => {
-  // State management with Zustand stores
+// --- MAIN APP ---
+export default function App() {
   const { projects, isLoading, error, fetchProjects, addProject } = useProjectStore();
   const { blueprintModalProjectId, openBlueprintModal, closeBlueprintModal } = useUIStore();
   
-  // Local state for chat
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: 1, 
@@ -613,13 +830,11 @@ const AppContent = () => {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Effects
   useEffect(() => {
     console.log('🚀 App: Initializing application...');
     const startTime = performance.now();
     
     fetchProjects().finally(() => {
-      const endTime = performance.now();
       logPerformance('App initialization', startTime, { 
         projectsLoaded: projects.length,
         messagesCount: messages.length 
@@ -631,16 +846,11 @@ const AppContent = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Memoized values for performance
   const selectedProject = useMemo(() => 
     projects.find(p => p.id === blueprintModalProjectId) || null,
     [projects, blueprintModalProjectId]
   );
-  
-  const memoizedProjects = useMemo(() => projects, [projects]);
-  const memoizedMessages = useMemo(() => messages, [messages]);
 
-  // Event handlers with performance monitoring
   const handleSend = useCallback(async (text: string) => {
     const startTime = performance.now();
     console.log('💬 App: Processing user message:', text.substring(0, 50) + '...');
@@ -690,20 +900,17 @@ const AppContent = () => {
             type: 'error'
         };
         setMessages(prev => [...prev, errorAiMessage]);
-        
         console.error('❌ App: Error processing message:', error);
-        logPerformance('Message processing (error)', startTime, { error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
         setIsAiThinking(false);
     }
   }, [addProject]);
 
   const handleCreateProject = useCallback(() => {
-    console.log('➕ App: Creating new project via quick action');
     handleSend('New Strategic Initiative');
   }, [handleSend]);
 
-  const openProjectModal = useCallback((project: Project) => {
+  const handleOpenProject = useCallback((project: Project) => {
     openBlueprintModal(project.id);
   }, [openBlueprintModal]);
 
@@ -723,7 +930,7 @@ const AppContent = () => {
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center">
               <GitBranch className="w-4 h-4 mr-2" />
-              Projects ({memoizedProjects.length})
+              Projects ({projects.length})
             </h2>
             <button 
               className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
@@ -740,8 +947,8 @@ const AppContent = () => {
             ) : error ? (
                 <div className="text-center text-red-400">{error}</div>
             ) : (
-                memoizedProjects.map(project => (
-                    <ProjectCard key={project.id} project={project} onClick={() => openProjectModal(project)} />
+                projects.map(project => (
+                    <ProjectCard key={project.id} project={project} onClick={() => handleOpenProject(project)} />
                 ))
             )}
           </div>
@@ -788,7 +995,7 @@ const AppContent = () => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {memoizedMessages.map(msg => (
+          {messages.map(msg => (
             <ChatBubble key={msg.id} message={msg} />
           ))}
           {isAiThinking && (
@@ -823,22 +1030,5 @@ const AppContent = () => {
         project={selectedProject} 
       />
     </div>
-  );
-};
-
-// Wrap the main app with error boundary
-export default function App() {
-  return (
-    <ErrorBoundary
-      onError={(error, errorInfo) => {
-        console.error('🚨 App Error Boundary caught error:', {
-          error: error.message,
-          componentStack: errorInfo.componentStack,
-          timestamp: new Date().toISOString(),
-        });
-      }}
-    >
-      <AppContent />
-    </ErrorBoundary>
   );
 }
