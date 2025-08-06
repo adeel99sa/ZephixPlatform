@@ -1,14 +1,16 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { cn } from '../../utils';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  'data-testid'?: string;
 }
 
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
-  size = 'md', 
-  className 
+export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+  size = 'md',
+  className,
+  'data-testid': testId = 'loading-spinner'
 }) => {
   const sizeClasses = {
     sm: 'h-4 w-4',
@@ -18,11 +20,14 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   return (
     <div
-      className={clsx(
+      role="status"
+      aria-label="Loading"
+      data-testid={testId}
+      className={cn(
         'animate-spin rounded-full border-2 border-gray-600 border-t-indigo-500',
         sizeClasses[size],
         className
       )}
     />
   );
-}; 
+};

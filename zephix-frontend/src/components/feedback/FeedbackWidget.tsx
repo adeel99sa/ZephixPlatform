@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Button } from '../ui/Button';
 import { useFeedback } from '../../hooks/useFeedback';
 import type { FeedbackData } from '../../types';
-import { clsx } from 'clsx';
+import { cn } from '../../utils';
 
 const feedbackSchema = z.object({
   type: z.enum(['bug', 'feature_request', 'usability', 'general']),
@@ -15,7 +15,11 @@ const feedbackSchema = z.object({
 
 type FeedbackFormData = z.infer<typeof feedbackSchema>;
 
-export const FeedbackWidget: React.FC = () => {
+interface FeedbackWidgetProps {
+  // Add props here if needed in the future
+}
+
+export const FeedbackWidget: React.FC<FeedbackWidgetProps> = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { submitFeedback, getBrowserMetadata, isSubmitting } = useFeedback();
 
@@ -63,33 +67,36 @@ export const FeedbackWidget: React.FC = () => {
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 transition-colors"
         title="Send Feedback"
+        aria-label="Open feedback form"
       >
-        <ChatBubbleLeftRightIcon className="h-6 w-6" />
+        <ChatBubbleLeftRightIcon className="h-6 w-6" aria-hidden="true" />
       </button>
 
       {/* Feedback Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
           <div
             className="absolute inset-0 bg-black bg-opacity-50"
             onClick={() => setIsOpen(false)}
+            aria-hidden="true"
           />
           
           <div className="relative w-full max-w-md bg-white rounded-lg shadow-xl">
             <div className="flex items-center justify-between p-6 border-b">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Send Feedback</h3>
+                <h3 id="feedback-title" className="text-lg font-semibold text-gray-900">Send Feedback</h3>
                 <p className="text-sm text-gray-600">Help us improve Zephix</p>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label="Close feedback form"
               >
-                <XMarkIcon className="h-6 w-6" />
+                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4" aria-label="Feedback form">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   What type of feedback do you have?
@@ -126,7 +133,7 @@ export const FeedbackWidget: React.FC = () => {
                   {errors.content && (
                     <p className="text-sm text-red-600">{errors.content.message}</p>
                   )}
-                  <span className={clsx(
+                  <span className={cn(
                     'text-xs ml-auto',
                     remainingChars < 100 ? 'text-orange-600' : 'text-gray-500'
                   )}>

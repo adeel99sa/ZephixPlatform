@@ -1,5 +1,9 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://zephix-backend-production.up.railway.app/api';
+// src/utils/constants.ts
 
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'https://zephix-backend-production.up.railway.app/api';
+
+// Allowed project status keys: 'planning', 'active', 'on_hold', 'completed', 'cancelled'
 export const PROJECT_STATUS_LABELS = {
   planning: 'Planning',
   active: 'Active',
@@ -8,6 +12,7 @@ export const PROJECT_STATUS_LABELS = {
   cancelled: 'Cancelled',
 } as const;
 
+// Allowed priority keys: 'low', 'medium', 'high', 'critical'
 export const PROJECT_PRIORITY_LABELS = {
   low: 'Low',
   medium: 'Medium',
@@ -15,17 +20,28 @@ export const PROJECT_PRIORITY_LABELS = {
   critical: 'Critical',
 } as const;
 
+// Tailwind color classes for use with dark backgrounds (recommended for dark UI)
 export const PROJECT_STATUS_COLORS = {
-  planning: 'bg-yellow-100 text-yellow-800',
-  active: 'bg-green-100 text-green-800',
-  on_hold: 'bg-orange-100 text-orange-800',
-  completed: 'bg-blue-100 text-blue-800',
-  cancelled: 'bg-red-100 text-red-800',
+  planning: 'bg-yellow-500/20 text-yellow-300',
+  active: 'bg-green-500/20 text-green-300',
+  on_hold: 'bg-orange-500/20 text-orange-300',
+  completed: 'bg-blue-500/20 text-blue-300',
+  cancelled: 'bg-red-500/20 text-red-300',
 } as const;
 
 export const PROJECT_PRIORITY_COLORS = {
-  low: 'bg-gray-100 text-gray-800',
-  medium: 'bg-blue-100 text-blue-800',
-  high: 'bg-orange-100 text-orange-800',
-  critical: 'bg-red-100 text-red-800',
-} as const; 
+  low: 'bg-gray-500/20 text-gray-300',
+  medium: 'bg-blue-500/20 text-blue-300',
+  high: 'bg-orange-500/20 text-orange-300',
+  critical: 'bg-red-500/20 text-red-300',
+} as const;
+
+// For dropdowns or select components (optional, but future proof):
+export const PROJECT_STATUS_OPTIONS = Object.entries(PROJECT_STATUS_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+export const PROJECT_PRIORITY_OPTIONS = Object.entries(PROJECT_PRIORITY_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));

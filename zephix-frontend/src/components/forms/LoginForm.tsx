@@ -11,97 +11,128 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-interface LoginFormProps {
+type LoginFormProps = {
   onSubmit: (data: LoginCredentials) => Promise<void>;
   loading?: boolean;
-}
+  error?: string;
+};
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading, error }) => {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting, isValid, isDirty },
+    watch,
   } = useForm<LoginCredentials>({
     resolver: zodResolver(loginSchema),
+    mode: 'onTouched',
   });
 
+  const watchedFields = watch();
+  const isFormValid = isValid && isDirty;
+  const isSubmittingOrLoading = isSubmitting || loading;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="space-y-6"
+      aria-label="Login form"
+      autoComplete="on"
+      noValidate
+    >
+      {/* Global Error Message */}
+      {error && (
+        <div 
+          className="p-3 bg-red-900/20 border border-red-500/50 rounded-lg text-red-400 text-sm"
+          role="alert"
+          aria-live="polite"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Email Field */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-2">
           Email address
+          <span className="text-red-400 ml-1" aria-hidden="true">*</span>
         </label>
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-          </div>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <EnvelopeIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          </span>
           <input
             {...register('email')}
+            id="email"
             type="email"
             autoComplete="email"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-600 bg-gray-700 text-white rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
-            placeholder="Enter your email"
+            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed ${
+              errors.email ? 'border-red-500 focus:ring-red-500' : ''
+            }`}
+            placeholder="you@example.com"
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? 'email-error' : undefined}
+            disabled={isSubmittingOrLoading}
+            required
           />
-          {errors.email && (
-            <p className="mt-2 text-sm text-red-400 flex items-center">
-              <span className="w-1 h-1 bg-red-400 rounded-full mr-2"></span>
-              {errors.email.message}
-            </p>
-          )}
         </div>
+        {errors.email && (
+          <p id="email-error" className="mt-1 text-xs text-red-400" role="alert">
+            {errors.email.message}
+          </p>
+        )}
       </div>
 
+      {/* Password Field */}
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-2">
           Password
+          <span className="text-red-400 ml-1" aria-hidden="true">*</span>
         </label>
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <LockClosedIcon className="h-5 w-5 text-gray-400" />
-          </div>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <LockClosedIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          </span>
           <input
             {...register('password')}
+            id="password"
             type="password"
             autoComplete="current-password"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-600 bg-gray-700 text-white rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
+            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed ${
+              errors.password ? 'border-red-500 focus:ring-red-500' : ''
+            }`}
             placeholder="Enter your password"
+            aria-invalid={!!errors.password}
+            aria-describedby={errors.password ? 'password-error' : undefined}
+            disabled={isSubmittingOrLoading}
+            required
           />
-          {errors.password && (
-            <p className="mt-2 text-sm text-red-400 flex items-center">
-              <span className="w-1 h-1 bg-red-400 rounded-full mr-2"></span>
-              {errors.password.message}
-            </p>
-          )}
         </div>
+        {errors.password && (
+          <p id="password-error" className="mt-1 text-xs text-red-400" role="alert">
+            {errors.password.message}
+          </p>
+        )}
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <input
-            id="remember-me"
-            name="remember-me"
-            type="checkbox"
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-600 bg-gray-700 rounded"
-          />
-          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
-            Remember me
-          </label>
-        </div>
-        <div className="text-sm">
-          <a href="#" className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            Forgot your password?
-          </a>
-        </div>
+      {/* Submit Button */}
+      <div>
+        <Button
+          type="submit"
+          className="w-full"
+          loading={isSubmittingOrLoading}
+          loadingText="Signing in..."
+          disabled={!isFormValid || isSubmittingOrLoading}
+          aria-describedby={!isFormValid && isDirty ? 'form-error' : undefined}
+        >
+          Sign In
+        </Button>
+        {!isFormValid && isDirty && (
+          <p id="form-error" className="mt-2 text-xs text-gray-400 text-center" role="alert">
+            Please fill in all required fields correctly
+          </p>
+        )}
       </div>
-
-      <Button
-        type="submit"
-        loading={loading}
-        className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
-        size="lg"
-      >
-        {loading ? 'Signing in...' : 'Sign in to Zephix AI'}
-      </Button>
     </form>
   );
-}; 
+};
