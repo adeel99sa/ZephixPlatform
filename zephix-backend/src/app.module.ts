@@ -1,17 +1,15 @@
-// src/app.module.ts
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import {
-  TypeOrmModule,
-  TypeOrmModuleOptions,
-} from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
+
+// Import crypto explicitly for Node.js versions that require it
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
-import { FeedbackModule } from './feedback/feedback.module';
 import { ProjectsModule } from './projects/projects.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { HealthController } from './health/health.controller';
 import { User } from './users/entities/user.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
@@ -22,13 +20,10 @@ import { Role } from './projects/entities/role.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-// Patch global.crypto so TypeORM's randomUUID() works
+// Patch global crypto to avoid "crypto is not defined" errors in TypeORM utils
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
 }
-
-// Force IPv4-first DNS resolution (avoids fd12 timeouts)
-process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
 
 @Module({
   imports: [
@@ -38,47 +33,71 @@ process.env.NODE_OPTIONS = '--dns-result-order=ipv4first';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (cs: ConfigService): TypeOrmModuleOptions => {
-        const url =
-          cs.get<string>('database.url') || process.env.DATABASE_URL!;
-        const isProd = cs.get<string>('nodeEnv') === 'production';
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = process.env.DATABASE_URL;
+        const isProduction = process.env.NODE_ENV === 'production';
 
-        return {
-          type: 'postgres',
-          url,
-          entities: [User, Feedback, Project, Team, TeamMember, Role],
-          synchronize: true,               // auto-create tables
-          autoLoadEntities: true,
-          ssl: { rejectUnauthorized: false },
-
-          // retry strategy
-          retryAttempts: 10,
-          retryDelay: 3000,
-
-          // logging
-          logging: isProd ? ['error', 'warn'] : true,
-
-          // connection pool + IPv4 (CRITICAL FIX for Railway)
-          extra: {
-            max: 10,
-            min: 2,
-            idleTimeoutMillis: 10000,
-            acquireTimeoutMillis: 60000,
-            keepAlive: true,
-            family: 4,                     // force IPv4 - prevents IPv6 timeout errors
-          },
-        };
+        if (databaseUrl) {
+          // Railway production configuration - optimized for platform
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            entities: [User, Feedback, Project, Team, TeamMember, Role],
+            synchronize: configService.get('database.synchronize'),
+            logging: isProduction ? ['error', 'warn'] : configService.get('database.logging'),
+            ssl: {
+              rejectUnauthorized: false,
+            },
+            extra: {
+              max: 10,                // Reduced pool size for Railway limits
+              min: 2,
+              acquire: 60000,         // 60s acquire timeout for Railway delays  
+              idle: 10000,
+              family: 4,              // Force IPv4 - CRITICAL for Railway networking
+            },
+            retryAttempts: 15,        // More retries for Railway platform stability
+            retryDelay: 5000,         // 5s delay between retries
+            connectTimeoutMS: 60000,  // 60s connection timeout
+            acquireTimeoutMillis: 60000, // 60s acquire timeout
+            keepConnectionAlive: true,
+          };
+        } else {
+          // Local development configuration
+          return {
+            type: 'postgres',
+            host: configService.get('database.host'),
+            port: configService.get('database.port'),
+            username: configService.get('database.username'),
+            password: configService.get('database.password'),
+            database: configService.get('database.database'),
+            entities: [User, Feedback, Project, Team, TeamMember, Role],
+            synchronize: configService.get('database.synchronize'),
+            logging: configService.get('database.logging'),
+            extra: {
+              max: 10,
+              min: 2,
+              acquire: 30000,
+              idle: 10000,
+            },
+            retryAttempts: 5,
+            retryDelay: 3000,
+            keepConnectionAlive: true,
+          };
+        }
       },
       inject: [ConfigService],
     }),
     AuthModule,
-    FeedbackModule,
     ProjectsModule,
+    FeedbackModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
     AppService,
-    { provide: APP_PIPE, useClass: ValidationPipe },
+    {
+      provide: APP_PIPE,
+      useClass: ValidationPipe,
+    },
   ],
 })
 export class AppModule {}

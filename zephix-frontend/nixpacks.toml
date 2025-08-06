@@ -1,5 +1,5 @@
-# Zephix Backend - Nixpacks Configuration
-# NestJS TypeScript Application Build Configuration
+# Zephix Frontend - Nixpacks Configuration
+# React TypeScript Application Build Configuration
 # 
 # @author Zephix Development Team
 # @version 2.1.0
@@ -11,8 +11,6 @@ node = "18"
 NODE_VERSION = "18"
 NODE_ENV = "production"
 NIXPACKS_BUILDER = "true"
-# CRITICAL FIX: Ensure crypto module is available for Node.js v18+
-NODE_OPTIONS = "--experimental-global-webcrypto"
 
 [phases.setup]
 cmds = ["npm ci --omit=dev"]
@@ -24,13 +22,13 @@ cmds = ["npm ci --omit=dev"]
 cmds = ["npm run build"]
 
 [phases.start]
-cmd = "npm run start:prod"
+cmd = "npm run serve"
 
 # =============================================================================
 # BUILD OPTIMIZATION
 # =============================================================================
 [phases.build.nixpacksConfig]
-# Ensure TypeScript compilation with crypto support
+# Ensure Vite build process
 cmds = [
   "npm run build",
   "npm prune --production"
@@ -40,8 +38,8 @@ cmds = [
 # RUNTIME CONFIGURATION
 # =============================================================================
 [phases.start.nixpacksConfig]
-# Use production start command with crypto support
-cmd = "node --experimental-global-webcrypto dist/main.js"
+# Use serve command for static file serving
+cmd = "serve dist -l $PORT"
 
 # =============================================================================
 # ENVIRONMENT VARIABLES
@@ -49,5 +47,3 @@ cmd = "node --experimental-global-webcrypto dist/main.js"
 [variables.nixpacksConfig]
 NODE_ENV = "production"
 PORT = "3000"
-# Ensure crypto module is globally available
-NODE_OPTIONS = "--experimental-global-webcrypto"
