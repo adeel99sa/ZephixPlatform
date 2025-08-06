@@ -26,16 +26,16 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) =>
 
   return (
     <div
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+      className="glass p-6 hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-700/50 hover:border-gray-600/50"
       onClick={onClick}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-white mb-2">
             {project.name}
           </h3>
           {project.description && (
-            <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+            <p className="text-gray-300 text-sm mb-4 line-clamp-2">
               {project.description}
             </p>
           )}
@@ -60,7 +60,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) =>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500 mt-4">
+      <div className="flex items-center justify-between text-sm text-gray-400 mt-4">
         <div className="flex items-center">
           <CalendarIcon className="h-4 w-4 mr-1" />
           <span>Due: {formatDate(project.endDate)}</span>
@@ -72,7 +72,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) =>
       </div>
 
       {project.budget && (
-        <div className="mt-3 text-sm text-gray-600">
+        <div className="mt-3 text-sm text-gray-400">
           Budget: ${project.budget.toLocaleString()}
         </div>
       )}

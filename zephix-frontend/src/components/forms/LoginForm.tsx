@@ -28,7 +28,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-2">
           Email address
         </label>
         <div className="relative">
@@ -39,12 +39,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
             {...register('email')}
             type="email"
             autoComplete="email"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-3 py-3 border border-gray-600 bg-gray-700 text-white rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             placeholder="Enter your email"
           />
           {errors.email && (
-            <p className="mt-2 text-sm text-red-600 flex items-center">
-              <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+            <p className="mt-2 text-sm text-red-400 flex items-center">
+              <span className="w-1 h-1 bg-red-400 rounded-full mr-2"></span>
               {errors.email.message}
             </p>
           )}
@@ -52,7 +52,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-2">
           Password
         </label>
         <div className="relative">
@@ -63,12 +63,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
             {...register('password')}
             type="password"
             autoComplete="current-password"
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-3 py-3 border border-gray-600 bg-gray-700 text-white rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all duration-200"
             placeholder="Enter your password"
           />
           {errors.password && (
-            <p className="mt-2 text-sm text-red-600 flex items-center">
-              <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+            <p className="mt-2 text-sm text-red-400 flex items-center">
+              <span className="w-1 h-1 bg-red-400 rounded-full mr-2"></span>
               {errors.password.message}
             </p>
           )}
@@ -81,14 +81,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
             id="remember-me"
             name="remember-me"
             type="checkbox"
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-600 bg-gray-700 rounded"
           />
-          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
             Remember me
           </label>
         </div>
         <div className="text-sm">
-          <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+          <a href="#" className="font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
             Forgot your password?
           </a>
         </div>
@@ -97,7 +97,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading }) => {
       <Button
         type="submit"
         loading={loading}
-        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
+        className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
         size="lg"
       >
         {loading ? 'Signing in...' : 'Sign in to Zephix AI'}

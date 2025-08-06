@@ -74,7 +74,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black bg-opacity-25" />
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -88,17 +88,17 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden glass p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between mb-4">
                   <Dialog.Title
                     as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900"
+                    className="text-lg font-medium leading-6 text-white"
                   >
                     Create New Project
                   </Dialog.Title>
                   <button
                     onClick={handleClose}
-                    className="rounded-md text-gray-400 hover:text-gray-600"
+                    className="rounded-md text-gray-400 hover:text-gray-300 transition-colors"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
@@ -106,39 +106,39 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-200">
                       Project Name *
                     </label>
                     <input
                       {...register('name')}
                       type="text"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       placeholder="Enter project name"
                     />
                     {errors.name && (
-                      <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+                      <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-200">
                       Description
                     </label>
                     <textarea
                       {...register('description')}
                       rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       placeholder="Describe your project..."
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-200">
                       Priority
                     </label>
                     <select
                       {...register('priority')}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -149,29 +149,29 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-200">
                         Start Date
                       </label>
                       <input
                         {...register('startDate')}
                         type="date"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-200">
                         End Date
                       </label>
                       <input
                         {...register('endDate')}
                         type="date"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-200">
                       Budget
                     </label>
                     <input
@@ -179,11 +179,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       type="number"
                       min="0"
                       step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       placeholder="0.00"
                     />
                     {errors.budget && (
-                      <p className="mt-1 text-sm text-red-600">{errors.budget.message}</p>
+                      <p className="mt-1 text-sm text-red-400">{errors.budget.message}</p>
                     )}
                   </div>
 
@@ -193,12 +193,14 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       variant="outline"
                       onClick={handleClose}
                       disabled={isLoading}
+                      className="bg-gray-700 text-gray-200 border-gray-600 hover:bg-gray-600"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
                       loading={isLoading}
+                      className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
                     >
                       Create Project
                     </Button>
