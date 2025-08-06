@@ -1,75 +1,159 @@
-export interface User {
+// types/index.ts - Type definitions for Zephix Platform
+
+export type Message = {
+  id: number;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: Date;
+  project?: Project;
+  type?: 'text' | 'project' | 'error' | 'success';
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  status: 'Planning' | 'Building' | 'Review' | 'Complete';
+  health: 'On Track' | 'At Risk' | 'Off Track';
+  progress: number;
+  milestones: Milestone[];
+  risks: Risk[];
+  opportunities: Opportunity[];
+  team: TeamMember[];
+  budget?: number;
+  deadline?: Date;
+  priority: 'High' | 'Medium' | 'Low';
+  category: 'Marketing' | 'Development' | 'Operations' | 'Strategy';
+};
+
+export type Milestone = {
+  id: string;
+  name: string;
+  status: 'done' | 'inprogress' | 'todo' | 'blocked';
+  dueDate?: Date;
+  assignee?: string;
+};
+
+export type Risk = {
+  id: string;
+  description: string;
+  severity: 'High' | 'Medium' | 'Low';
+  probability: 'High' | 'Medium' | 'Low';
+  mitigation?: string;
+};
+
+export type Opportunity = {
+  id: string;
+  description: string;
+  potential: 'High' | 'Medium' | 'Low';
+  effort: 'High' | 'Medium' | 'Low';
+};
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  availability: 'Available' | 'Busy' | 'Away';
+};
+
+// Legacy types for backward compatibility
+export type User = {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  createdAt: string;
-  updatedAt: string;
-}
+  role: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  startDate?: string;
-  endDate?: string;
-  budget?: number;
-  createdBy: User;
-  createdAt: string;
-  updatedAt: string;
-  team?: {
-    id: string;
-    name: string;
-    members: TeamMember[];
-  };
-}
-
-export interface TeamMember {
-  id: string;
-  user: User;
-  role: {
-    id: string;
-    name: string;
-  };
-  joinedAt: string;
-}
-
-export interface CreateProjectData {
-  name: string;
-  description?: string;
-  status?: Project['status'];
-  priority?: Project['priority'];
-  startDate?: string;
-  endDate?: string;
-  budget?: number;
-}
-
-export interface LoginCredentials {
+export type LoginCredentials = {
   email: string;
   password: string;
-}
+};
 
-export interface AuthResponse {
-  message: string;
+export type CreateProjectData = {
+  name: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  startDate?: string;
+  endDate?: string;
+  budget?: number;
+};
+
+// API Response types
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+};
+
+export type ProjectsResponse = {
+  projects: Project[];
+  count: number;
+  message?: string;
+};
+
+export type ProjectResponse = {
+  project: Project;
+  message?: string;
+};
+
+export type AuthResponse = {
   user: User;
-  token: string;
-}
+  accessToken: string;
+  message?: string;
+};
 
-export interface FeedbackData {
-  type: 'bug' | 'feature_request' | 'usability' | 'general';
-  content: string;
-  context?: string;
-  metadata?: Record<string, any>;
-}
+// File upload types
+export type FileUploadResponse = {
+  fileId: string;
+  fileName: string;
+  fileSize: number;
+  message?: string;
+};
 
-export interface Feedback {
+// AI Chat types
+export type ChatMessage = {
   id: string;
-  type: 'bug' | 'feature_request' | 'usability' | 'general';
   content: string;
-  context?: string;
-  status: 'new' | 'reviewing' | 'acknowledged' | 'implemented' | 'closed';
-  user: User;
-  createdAt: string;
-} 
+  isUser: boolean;
+  timestamp: Date;
+  projectId?: string;
+};
+
+export type AIResponse = {
+  content: string;
+  action?: {
+    type: 'create_project' | 'show_projects' | 'analytics' | 'logout' | 'navigate';
+    data?: any;
+  };
+};
+
+// Constants
+export const PROJECT_STATUS_LABELS = {
+  'Planning': 'Planning',
+  'Building': 'Building',
+  'Review': 'Review',
+  'Complete': 'Complete',
+} as const;
+
+export const PROJECT_PRIORITY_LABELS = {
+  'High': 'High',
+  'Medium': 'Medium',
+  'Low': 'Low',
+} as const;
+
+export const PROJECT_STATUS_COLORS = {
+  'Planning': 'bg-blue-100 text-blue-800',
+  'Building': 'bg-yellow-100 text-yellow-800',
+  'Review': 'bg-purple-100 text-purple-800',
+  'Complete': 'bg-green-100 text-green-800',
+} as const;
+
+export const PROJECT_PRIORITY_COLORS = {
+  'High': 'bg-red-100 text-red-800',
+  'Medium': 'bg-yellow-100 text-yellow-800',
+  'Low': 'bg-green-100 text-green-800',
+} as const; 
