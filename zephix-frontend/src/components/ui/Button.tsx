@@ -1,53 +1,81 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import { cn } from '../../utils';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'dark';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'dark' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  loadingText?: string;
   children: React.ReactNode;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  fullWidth?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   loading = false,
+  loadingText,
   disabled,
   className,
   children,
+  type = 'button',
+  leftIcon,
+  rightIcon,
+  fullWidth = false,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900';
-  
+  const baseClasses =
+    'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-gray-900 disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none';
+
   const variantClasses = {
-    primary: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 focus:ring-indigo-500 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5',
-    secondary: 'bg-gray-700 text-white hover:bg-gray-600 focus:ring-gray-500 border border-gray-600',
-    outline: 'border border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white focus:ring-indigo-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-lg hover:shadow-xl',
-    dark: 'bg-gray-800 text-white hover:bg-gray-700 focus:ring-gray-500 border border-gray-700',
+    primary: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-lg hover:shadow-xl active:scale-95',
+    secondary: 'bg-gray-700 text-white hover:bg-gray-600 border border-gray-600 active:scale-95',
+    outline: 'border border-gray-600 bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white active:scale-95',
+    danger: 'bg-red-600 text-white hover:bg-red-700 shadow-lg hover:shadow-xl active:scale-95',
+    dark: 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700 active:scale-95',
+    ghost: 'text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95',
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+    sm: 'px-3 py-1.5 text-sm gap-1.5',
+    md: 'px-4 py-2 text-sm gap-2',
+    lg: 'px-6 py-3 text-base gap-2',
   };
+
+  const isDisabled = disabled || loading;
+  const displayText = loading && loadingText ? loadingText : children;
 
   return (
     <button
-      className={clsx(
+      type={type}
+      className={cn(
         baseClasses,
         variantClasses[variant],
         sizeClasses[size],
-        (disabled || loading) && 'opacity-50 cursor-not-allowed transform-none',
+        fullWidth && 'w-full',
         className
       )}
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      aria-disabled={isDisabled}
+      aria-label={typeof children === 'string' ? children : undefined}
+      aria-busy={loading}
       {...props}
     >
-      {loading && <LoadingSpinner size="sm" className="mr-2" />}
-      {children}
+      {loading ? (
+        <>
+          <LoadingSpinner size="sm" />
+          {displayText}
+        </>
+      ) : (
+        <>
+          {leftIcon && <span className="flex-shrink-0">{leftIcon}</span>}
+          {children}
+          {rightIcon && <span className="flex-shrink-0">{rightIcon}</span>}
+        </>
+      )}
     </button>
   );
-}; 
+};

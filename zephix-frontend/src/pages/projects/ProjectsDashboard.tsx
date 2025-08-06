@@ -6,7 +6,11 @@ import { ProjectCard } from '../../components/ui/ProjectCard';
 import { CreateProjectModal } from '../../components/modals/CreateProjectModal';
 import { useProjectStore } from '../../stores/projectStore';
 
-export const ProjectsDashboard: React.FC = () => {
+interface ProjectsDashboardProps {
+  // Add props here if needed in the future
+}
+
+export const ProjectsDashboard: React.FC<ProjectsDashboardProps> = () => {
   const {
     projects,
     isLoading,
@@ -109,4 +113,4 @@ export const ProjectsDashboard: React.FC = () => {
       />
     </div>
   );
-}; 
+};

@@ -1,6 +1,15 @@
 // utils/index.ts - Utility functions for Zephix Platform
 
 /**
+ * Utility function to combine class names with conditional logic
+ * @param classes - Array of class names, booleans, or undefined values
+ * @returns Combined class string
+ */
+export const cn = (...classes: (string | undefined | null | false)[]): string => {
+  return classes.filter(Boolean).join(' ');
+};
+
+/**
  * Generate initials from a full name
  * @param name - Full name string
  * @returns Initials string (e.g., "John Doe" -> "JD")

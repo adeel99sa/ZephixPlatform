@@ -1,13 +1,13 @@
 import React from 'react';
 import { CalendarIcon, UserIcon } from '@heroicons/react/24/outline';
 import type { Project } from '../../types';
-import { 
-  PROJECT_STATUS_LABELS, 
+import {
+  PROJECT_STATUS_LABELS,
   PROJECT_PRIORITY_LABELS,
   PROJECT_STATUS_COLORS,
-  PROJECT_PRIORITY_COLORS 
+  PROJECT_PRIORITY_COLORS
 } from '../../utils/constants';
-import { clsx } from 'clsx';
+import { cn } from '../../utils';
 
 interface ProjectCardProps {
   project: Project;
@@ -24,14 +24,29 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) =>
     });
   };
 
+  // Allow keyboard users to activate the card
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div
-      className="glass p-6 hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-700/50 hover:border-gray-600/50"
+      className={cn(
+        "glass p-6 hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-700/50 hover:border-gray-600/50 rounded-xl",
+        onClick && "focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      )}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={`Open project: ${project.name}`}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white mb-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold text-white mb-2 truncate">
             {project.name}
           </h3>
           {project.description && (
@@ -39,43 +54,56 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) =>
               {project.description}
             </p>
           )}
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span
+              className={cn(
+                "text-xs font-semibold px-2 py-0.5 rounded-full",
+                PROJECT_PRIORITY_COLORS[project.priority]
+              )}
+            >
+              {PROJECT_PRIORITY_LABELS[project.priority] || project.priority}
+            </span>
+            <span
+              className={cn(
+                "text-xs font-semibold px-2 py-0.5 rounded-full",
+                PROJECT_STATUS_COLORS[project.status]
+              )}
+            >
+              {PROJECT_STATUS_LABELS[project.status] || project.status}
+            </span>
+          </div>
+          {project.deadline && (
+            <div className="flex items-center text-xs text-gray-400 mt-1">
+              <CalendarIcon className="w-4 h-4 mr-1" aria-hidden="true" />
+              {formatDate(project.deadline)}
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-2 ml-4">
-          <span
-            className={clsx(
-              'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-              PROJECT_STATUS_COLORS[project.status]
-            )}
-          >
-            {PROJECT_STATUS_LABELS[project.status]}
-          </span>
-          <span
-            className={clsx(
-              'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-              PROJECT_PRIORITY_COLORS[project.priority]
-            )}
-          >
-            {PROJECT_PRIORITY_LABELS[project.priority]}
-          </span>
+        <div className="ml-4 flex-shrink-0 flex flex-col items-end gap-1">
+          {project.team && (
+            <div className="flex -space-x-1" aria-label={`${project.team.length} team members`}>
+              {project.team.slice(0, 3).map((member, idx) => (
+                <span
+                  key={member.id || idx}
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-indigo-500 text-xs font-bold text-white border-2 border-gray-900"
+                  title={member.name}
+                  aria-label={`Team member: ${member.name}`}
+                >
+                  {member.avatar || <UserIcon className="h-4 w-4" aria-hidden="true" />}
+                </span>
+              ))}
+              {project.team.length > 3 && (
+                <span 
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gray-700 text-xs font-semibold text-white border-2 border-gray-900"
+                  aria-label={`${project.team.length - 3} more team members`}
+                >
+                  +{project.team.length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="flex items-center justify-between text-sm text-gray-400 mt-4">
-        <div className="flex items-center">
-          <CalendarIcon className="h-4 w-4 mr-1" />
-          <span>Due: {formatDate(project.endDate)}</span>
-        </div>
-        <div className="flex items-center">
-          <UserIcon className="h-4 w-4 mr-1" />
-          <span>{project.team?.members?.length || 0} members</span>
-        </div>
-      </div>
-
-      {project.budget && (
-        <div className="mt-3 text-sm text-gray-400">
-          Budget: ${project.budget.toLocaleString()}
-        </div>
-      )}
     </div>
   );
-}; 
+};

@@ -1,5 +1,8 @@
 // types/index.ts - Type definitions for Zephix Platform
 
+// Re-export store types for convenience
+export * from './store';
+
 export type Message = {
   id: number;
   sender: 'user' | 'ai';
