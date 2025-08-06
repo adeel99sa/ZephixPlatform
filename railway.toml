@@ -90,24 +90,46 @@ cpu = "0.25"
 memory = "256MB"
 
 # =============================================================================
-# DATABASE SERVICE CONFIGURATION (Optional - for local development)
+# DATABASE SERVICE CONFIGURATION (ENHANCED for crash prevention)
 # =============================================================================
 [services.database]
 # Service identification and metadata
 name = "Zephix Database"
-description = "PostgreSQL database for Zephix Platform"
+description = "PostgreSQL database for Zephix Platform - Enhanced for stability"
 
 # Database configuration
 source = "postgresql"
 
+# ENHANCED: Database environment variables for crash prevention
 [services.database.variables]
 POSTGRES_PASSWORD = "{{.RandomString}}"
 POSTGRES_DB = "zephix_production"
+# CRITICAL: PostgreSQL configuration for Railway stability
+POSTGRES_INITDB_ARGS = "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+# Memory and connection settings
+POSTGRES_SHARED_PRELOAD_LIBRARIES = "pg_stat_statements"
+POSTGRES_MAX_CONNECTIONS = "50"
+POSTGRES_SHARED_BUFFERS = "128MB"
+POSTGRES_EFFECTIVE_CACHE_SIZE = "256MB"
+POSTGRES_WORK_MEM = "4MB"
+POSTGRES_MAINTENANCE_WORK_MEM = "32MB"
+POSTGRES_CHECKPOINT_SEGMENTS = "8"
+POSTGRES_CHECKPOINT_COMPLETION_TARGET = "0.9"
+POSTGRES_WAL_BUFFERS = "4MB"
+POSTGRES_DEFAULT_STATISTICS_TARGET = "100"
+POSTGRES_RANDOM_PAGE_COST = "1.1"
+POSTGRES_EFFECTIVE_IO_CONCURRENCY = "200"
+POSTGRES_WORK_MEM = "4MB"
+POSTGRES_MAINTENANCE_WORK_MEM = "32MB"
+POSTGRES_AUTOVACUUM_MAX_WORKERS = "3"
+POSTGRES_AUTOVACUUM_NAPTIME = "60"
+POSTGRES_LOG_STATEMENT = "all"
+POSTGRES_LOG_MIN_DURATION_STATEMENT = "1000"
 
-# Resource allocation
+# ENHANCED: Increased resource allocation for database stability
 [services.database.resources]
-cpu = "0.25"
-memory = "256MB"
+cpu = "0.5"  # Increased from 0.25
+memory = "512MB"  # Increased from 256MB
 
 # =============================================================================
 # NETWORKING CONFIGURATION

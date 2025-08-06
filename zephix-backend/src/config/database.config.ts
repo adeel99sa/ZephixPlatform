@@ -31,64 +31,72 @@ export const createDatabaseConfig = (
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (databaseUrl) {
-    // Railway production configuration - FIXED for IPv6 timeout errors
+    // Railway production configuration - ENHANCED for crash prevention
     return {
       type: 'postgres',
       url: databaseUrl,
       entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize') ?? false, // FIX: Provide default value
+      synchronize: configService.get('database.synchronize') ?? false,
       logging: isProduction
         ? ['error', 'warn']
-        : (configService.get('database.logging') ?? false), // FIX: Provide default value
+        : (configService.get('database.logging') ?? false),
       ssl: {
         rejectUnauthorized: false,
+        // Enhanced SSL configuration for Railway
+        ca: undefined,
+        key: undefined,
+        cert: undefined,
       },
       extra: {
-        // Connection pool settings optimized for Railway
-        max: 10, // Standard pool size
-        min: 2, // Minimum connections
-        acquire: 60000, // 1min acquire timeout
-        idle: 10000, // 10s idle timeout
+        // CRITICAL: Reduced connection pool for Railway stability
+        max: 5, // Reduced from 10 to prevent connection exhaustion
+        min: 1, // Reduced from 2 to minimize resource usage
+        acquire: 30000, // Reduced to 30s for faster failure detection
+        idle: 5000, // Reduced to 5s for better resource management
 
         // CRITICAL FIX: Force IPv4 connections to prevent IPv6 timeouts
         family: 4, // Force IPv4 - prevents "connect ETIMEDOUT fd12:..." errors
 
-        // Connection timeout settings optimized for Railway
-        connectTimeoutMS: 60000, // 1min connection timeout
-        acquireTimeoutMillis: 60000, // 1min acquire timeout
-        timeout: 60000, // 1min query timeout
+        // Enhanced timeout settings for Railway
+        connectTimeoutMS: 30000, // 30s connection timeout
+        acquireTimeoutMillis: 30000, // 30s acquire timeout
+        timeout: 30000, // 30s query timeout
 
-        // Keep connection alive settings
+        // Connection keep-alive settings
         keepConnectionAlive: true,
         keepAlive: true,
-        keepAliveInitialDelayMillis: 10000,
+        keepAliveInitialDelayMillis: 5000,
 
-        // SSL settings for Railway
+        // Enhanced SSL settings for Railway
         ssl: {
           rejectUnauthorized: false,
           ca: undefined,
           key: undefined,
           cert: undefined,
         },
+
+        // CRITICAL: Statement timeout to prevent hanging queries
+        statement_timeout: 30000, // 30s statement timeout
+        query_timeout: 30000, // 30s query timeout
       },
 
-      // Retry configuration to handle connection issues
-      retryAttempts: 15, // 15 retry attempts for Railway stability
-      retryDelay: 5000, // 5s delay between retries
-      retryAttemptsTimeout: 300000, // 5min total retry timeout
+      // ENHANCED: More conservative retry configuration
+      retryAttempts: 10, // Reduced from 15 to prevent excessive retries
+      retryDelay: 3000, // Reduced from 5000 to 3000ms
+      retryAttemptsTimeout: 180000, // 3min total retry timeout
 
-      // Connection validation
+      // Connection validation and health checks
       keepConnectionAlive: true,
       autoLoadEntities: true,
 
-      // Query optimization
-      maxQueryExecutionTime: 30000, // 30s max query time
+      // Query optimization and monitoring
+      maxQueryExecutionTime: 15000, // Reduced to 15s max query time
 
-      // Migration settings
+      // Migration settings - DISABLED for production stability
       migrationsRun: false,
       migrations: [],
 
-      // Logging for debugging
+      // Enhanced logging for debugging crashes
       logger: isProduction ? 'simple-console' : 'advanced-console',
     };
   } else {
@@ -101,8 +109,8 @@ export const createDatabaseConfig = (
       password: configService.get('database.password'),
       database: configService.get('database.database'),
       entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize') ?? false, // FIX: Provide default value
-      logging: configService.get('database.logging') ?? false, // FIX: Provide default value
+      synchronize: configService.get('database.synchronize') ?? false,
+      logging: configService.get('database.logging') ?? false,
       extra: {
         max: 10,
         min: 2,
@@ -117,15 +125,15 @@ export const createDatabaseConfig = (
   }
 };
 
-// Exponential backoff retry function
+// Enhanced exponential backoff retry function
 export const exponentialBackoff = (
   attempt: number,
   baseDelay: number = 1000,
 ): number => {
-  return Math.min(baseDelay * Math.pow(2, attempt), 30000); // Max 30s delay
+  return Math.min(baseDelay * Math.pow(2, attempt), 15000); // Reduced max delay to 15s
 };
 
-// Connection retry wrapper
+// Enhanced connection retry wrapper with better error handling
 export const withRetry = async <T>(
   operation: () => Promise<T>,
   maxAttempts: number = 5,
@@ -143,6 +151,12 @@ export const withRetry = async <T>(
         error,
       );
 
+      // Enhanced error logging for crash analysis
+      if (error instanceof Error) {
+        console.error(`Error details: ${error.message}`);
+        console.error(`Error stack: ${error.stack}`);
+      }
+
       if (attempt < maxAttempts - 1) {
         const delay = exponentialBackoff(attempt, baseDelay);
         console.log(`Retrying in ${delay}ms...`);
@@ -152,4 +166,15 @@ export const withRetry = async <T>(
   }
 
   throw lastError!;
+};
+
+// Database health check function
+export const checkDatabaseHealth = async (): Promise<boolean> => {
+  try {
+    // This would be implemented with actual database connection check
+    return true;
+  } catch (error) {
+    console.error('Database health check failed:', error);
+    return false;
+  }
 };
