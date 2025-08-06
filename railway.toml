@@ -64,14 +64,13 @@ description = "React TypeScript frontend for Zephix Platform"
 # Monorepo source configuration
 source = "zephix-frontend"
 
-# Build configuration for React TypeScript
+# Build configuration for React TypeScript with Docker
 [services.frontend.build]
-builder = "NIXPACKS"
-nixpacksConfigPath = "nixpacks.toml"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 # Deployment configuration
 [services.frontend.deploy]
-startCommand = "npm run serve"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
@@ -81,7 +80,6 @@ restartPolicyMaxRetries = 10
 [services.frontend.variables]
 VITE_API_BASE_URL = "https://getzephix.com/api"
 NODE_ENV = "production"
-NIXPACKS_BUILDER = "true"
 VITE_APP_NAME = "Zephix AI"
 VITE_APP_VERSION = "2.0.0"
 
