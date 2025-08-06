@@ -29,7 +29,7 @@ interface Message {
 
 export const AIDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user, clearAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { projects, setProjects } = useProjectStore();
   
   const [messages, setMessages] = useState<Message[]>([
@@ -144,9 +144,8 @@ export const AIDashboard: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    clearAuth();
-    toast.success('Successfully logged out');
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -163,9 +162,9 @@ export const AIDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="glass border-b border-gray-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
@@ -173,21 +172,21 @@ export const AIDashboard: React.FC = () => {
                 <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
                   <ChatBubbleLeftRightIcon className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-gray-900">Zephix AI</h1>
+                <h1 className="text-xl font-bold text-gradient">Zephix AI</h1>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               <button
                 onClick={handleCreateProject}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
               >
                 <PlusIcon className="w-4 h-4 mr-2" />
                 Create Project
               </button>
               
               <div className="relative">
-                <button className="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
+                <button className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
                   <UserCircleIcon className="w-6 h-6" />
                   <span className="hidden sm:block">{user?.firstName} {user?.lastName}</span>
                 </button>
@@ -195,7 +194,7 @@ export const AIDashboard: React.FC = () => {
               
               <button
                 onClick={handleLogout}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-300 transition-colors"
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
@@ -210,11 +209,11 @@ export const AIDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Chat Interface */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[600px] flex flex-col">
+            <div className="glass h-[600px] flex flex-col border border-gray-700/50">
               {/* Chat Header */}
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">AI Assistant</h2>
-                <p className="text-sm text-gray-500">Ask me anything about your projects and workflow</p>
+              <div className="px-6 py-4 border-b border-gray-700/50">
+                <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
+                <p className="text-sm text-gray-400">Ask me anything about your projects and workflow</p>
               </div>
               
               {/* Messages */}
@@ -227,8 +226,8 @@ export const AIDashboard: React.FC = () => {
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                         message.type === 'user'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                          : 'bg-gray-700 text-gray-200'
                       }`}
                     >
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -241,9 +240,9 @@ export const AIDashboard: React.FC = () => {
                 
                 {isProcessing && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
+                    <div className="bg-gray-700 text-gray-200 px-4 py-2 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
                         <span className="text-sm">Thinking...</span>
                       </div>
                     </div>
@@ -254,7 +253,7 @@ export const AIDashboard: React.FC = () => {
               </div>
               
               {/* Input */}
-              <div className="px-6 py-4 border-t border-gray-200">
+              <div className="px-6 py-4 border-t border-gray-700/50">
                 <div className="flex space-x-4">
                   <input
                     ref={inputRef}
@@ -263,13 +262,13 @@ export const AIDashboard: React.FC = () => {
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Ask me anything about your projects..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                     disabled={isProcessing}
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || isProcessing}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                   >
                     <PaperAirplaneIcon className="w-4 h-4" />
                   </button>
@@ -282,54 +281,54 @@ export const AIDashboard: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="space-y-6">
               {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+              <div className="glass p-6 border border-gray-700/50">
+                <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
                 <div className="space-y-3">
                   <button
                     onClick={() => handleQuickAction('Create a new project')}
-                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-200"
                   >
-                    <PlusIcon className="w-5 h-5 text-indigo-600" />
+                    <PlusIcon className="w-5 h-5 text-indigo-400" />
                     <span>Create Project</span>
                   </button>
                   
                   <button
                     onClick={() => handleQuickAction('Show me my projects')}
-                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-200"
                   >
-                    <DocumentTextIcon className="w-5 h-5 text-green-600" />
+                    <DocumentTextIcon className="w-5 h-5 text-green-400" />
                     <span>View Projects</span>
                   </button>
                   
                   <button
                     onClick={() => handleQuickAction('Show me project analytics')}
-                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-200"
                   >
-                    <ChartBarIcon className="w-5 h-5 text-blue-600" />
+                    <ChartBarIcon className="w-5 h-5 text-blue-400" />
                     <span>Analytics</span>
                   </button>
                   
                   <button
                     onClick={() => handleQuickAction('What can you help me with?')}
-                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="w-full flex items-center space-x-3 p-3 text-left text-gray-300 hover:bg-gray-700/50 rounded-lg transition-all duration-200"
                   >
-                    <ChatBubbleLeftRightIcon className="w-5 h-5 text-purple-600" />
+                    <ChatBubbleLeftRightIcon className="w-5 h-5 text-purple-400" />
                     <span>AI Help</span>
                   </button>
                 </div>
               </div>
               
               {/* Project Stats */}
-              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Overview</h3>
+              <div className="glass p-6 border border-gray-700/50">
+                <h3 className="text-lg font-semibold text-white mb-4">Project Overview</h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Total Projects</span>
-                    <span className="text-2xl font-bold text-indigo-600">{projects.length}</span>
+                    <span className="text-gray-400">Total Projects</span>
+                    <span className="text-2xl font-bold text-indigo-400">{projects.length}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Active Projects</span>
-                    <span className="text-lg font-semibold text-green-600">
+                    <span className="text-gray-400">Active Projects</span>
+                    <span className="text-lg font-semibold text-green-400">
                       {projects.filter(p => p.status === 'active').length}
                     </span>
                   </div>
@@ -338,17 +337,17 @@ export const AIDashboard: React.FC = () => {
               
               {/* Recent Projects */}
               {projects.length > 0 && (
-                <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Projects</h3>
+                <div className="glass p-6 border border-gray-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-4">Recent Projects</h3>
                   <div className="space-y-3">
                     {projects.slice(0, 3).map((project) => (
                       <div
                         key={project.id}
-                        className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="p-3 bg-gray-700/50 rounded-lg cursor-pointer hover:bg-gray-700 transition-all duration-200"
                         onClick={() => navigate('/projects')}
                       >
-                        <h4 className="font-medium text-gray-900">{project.name}</h4>
-                        <p className="text-sm text-gray-500 truncate">
+                        <h4 className="font-medium text-white">{project.name}</h4>
+                        <p className="text-sm text-gray-400 truncate">
                           {project.description || 'No description'}
                         </p>
                       </div>

@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -31,20 +31,20 @@ export const LoginPage: React.FC = () => {
               <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-3xl font-bold text-white mb-2">
             Welcome to Zephix AI
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-300 mb-6">
             Your AI-powered project management assistant
           </p>
           
           {/* Features */}
-          <div className="bg-white/50 backdrop-blur-sm rounded-xl p-4 mb-6">
+          <div className="glass p-4 mb-6">
             <div className="flex items-center justify-center space-x-2 mb-3">
-              <SparklesIcon className="w-5 h-5 text-indigo-600" />
-              <span className="text-sm font-medium text-gray-700">AI-Powered Features</span>
+              <SparklesIcon className="w-5 h-5 text-indigo-400" />
+              <span className="text-sm font-medium text-gray-200">AI-Powered Features</span>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+            <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <span>Smart Project Management</span>
@@ -66,10 +66,10 @@ export const LoginPage: React.FC = () => {
         </div>
         
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+        <div className="glass p-8">
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Sign in to your account</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-lg font-semibold text-white mb-2">Sign in to your account</h3>
+            <p className="text-sm text-gray-400">
               Access your AI-powered project dashboard
             </p>
           </div>
@@ -85,9 +85,9 @@ export const LoginPage: React.FC = () => {
         
         {/* Footer */}
         <div className="text-center">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             New to Zephix?{' '}
-            <button className="text-indigo-600 hover:text-indigo-500 font-medium">
+            <button className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
               Contact your administrator
             </button>
           </p>
