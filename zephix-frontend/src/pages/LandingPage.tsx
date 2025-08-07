@@ -16,12 +16,14 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   const handleDemoRequest = () => {
-    console.log('Demo request button clicked!');
+    console.log('LandingPage: handleDemoRequest called');
+    console.log('Current isDemoModalOpen state:', isDemoModalOpen);
     setIsDemoModalOpen(true);
+    console.log('Setting isDemoModalOpen to true');
   };
 
   const handleContactRequest = () => {
-    console.log('Contact request button clicked!');
+    console.log('LandingPage: handleContactRequest called');
     setIsContactModalOpen(true);
   };
 
@@ -34,6 +36,10 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
       console.warn('Section not found:', sectionId);
     }
   };
+
+  // Debug modal state
+  console.log('LandingPage render - isDemoModalOpen:', isDemoModalOpen);
+  console.log('LandingPage render - isContactModalOpen:', isContactModalOpen);
 
   return (
     <div className="font-sans text-gray-900 antialiased">

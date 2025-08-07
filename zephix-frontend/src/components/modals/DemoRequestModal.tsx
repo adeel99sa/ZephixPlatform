@@ -16,6 +16,10 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  // Debug modal props
+  console.log('DemoRequestModal render - isOpen:', isOpen);
+  console.log('DemoRequestModal render - onClose function:', typeof onClose);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({

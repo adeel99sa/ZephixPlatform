@@ -16,17 +16,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('Hero: Demo request button clicked!');
-    alert('Demo request button clicked!'); // Temporary alert for testing
+    console.log('Calling onDemoRequest function...');
     onDemoRequest();
+    console.log('onDemoRequest function called successfully');
   };
 
   const handleWatchDemo = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('Hero: Watch demo button clicked!');
-    alert('Watch demo button clicked!'); // Temporary alert for testing
+    console.log('Calling onDemoRequest function...');
     // For now, also trigger demo request
     onDemoRequest();
+    console.log('onDemoRequest function called successfully');
   };
 
   return (
