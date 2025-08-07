@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { cn } from '../utils';
-import { toast } from 'sonner';
+// import { toast } from 'sonner';
 import { FeedbackWidget } from '../components/feedback/FeedbackWidget';
 
 const navigation = [
@@ -37,12 +37,28 @@ export const MainLayout: React.FC<MainLayoutProps> = () => {
       <div className="fixed inset-y-0 left-0 z-50 w-64 glass border-r border-gray-700/50">
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-center border-b border-gray-700/50">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <SparklesIcon className="w-5 h-5 text-white" aria-hidden="true" />
+          <div className="flex h-20 items-center justify-center border-b border-gray-700/50 px-6">
+            <div className="flex flex-col items-center space-y-2">
+              {/* Logo with animated sparkle */}
+              <div className="relative">
+                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                  <SparklesIcon className="w-6 h-6 text-white" aria-hidden="true" />
+                </div>
+                {/* Animated sparkle ring */}
+                <div className="absolute inset-0 w-10 h-10 rounded-xl border-2 border-indigo-400/30 animate-pulse"></div>
+                {/* Pulsing shadow */}
+                <div className="absolute inset-0 w-10 h-10 rounded-xl bg-indigo-500/20 animate-ping"></div>
               </div>
-              <h1 className="text-xl font-bold text-gradient">Zephix</h1>
+              
+              {/* Brand name */}
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                Zephix
+              </h1>
+              
+              {/* AI Co-pilot badge */}
+              <div className="bg-indigo-700/30 text-indigo-200 rounded-full px-3 py-0.5 font-semibold text-xs border border-indigo-600/30">
+                AI Co-pilot
+              </div>
             </div>
           </div>
 

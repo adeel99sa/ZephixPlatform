@@ -1,151 +1,123 @@
-import React, { useRef, useEffect } from 'react';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useProjectSelection } from '../../hooks/useProjectSelection';
-import type { AIResponse } from '../../services/aiService';
-
-interface Message {
-  id: string;
-  type: 'user' | 'ai';
-  content: string;
-  timestamp: Date;
-  isLoading?: boolean;
-  action?: AIResponse['action'];
-}
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '../ui/Button';
+import { SendIcon } from 'lucide-react';
 
 interface ChatInterfaceProps {
-  messages: Message[];
-  inputValue: string;
-  isProcessing: boolean;
-  onInputChange: (value: string) => void;
-  onSendMessage: () => void;
+  messages: Array<{
+    id: string;
+    content: string;
+    isUser: boolean;
+    timestamp: Date;
+  }>;
+  onSendMessage: (message: string) => void;
+  isLoading?: boolean;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
-  inputValue,
-  isProcessing,
-  onInputChange,
   onSendMessage,
+  isLoading = false
 }) => {
+  const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { selectedProject } = useProjectSelection();
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom();
   }, [messages]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSendMessage();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim() && !isLoading) {
+      onSendMessage(inputValue.trim());
+      setInputValue('');
     }
   };
 
-  const handleSendClick = () => {
-    if (inputValue.trim() && !isProcessing) {
-      onSendMessage();
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
     }
   };
 
   return (
-    <div className="glass h-[600px] flex flex-col border border-gray-700/50" role="region" aria-label="AI Chat Interface">
-      {/* Chat Header */}
-      <div className="px-6 py-4 border-b border-gray-700/50">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
-            <p className="text-sm text-gray-400">
-              {selectedProject 
-                ? `Working on: ${selectedProject.name}` 
-                : 'Ask me anything about your projects and workflow'
-              }
-            </p>
-          </div>
-          {selectedProject && (
-            <div className="text-right">
-              <div className="text-xs text-gray-400">Current Project</div>
-              <div className="text-sm font-medium text-indigo-400">
-                {selectedProject.category} • {selectedProject.status}
-              </div>
+    <div className="flex flex-col h-full bg-gray-800 rounded-xl border border-gray-700">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+        <h2 className="text-lg font-bold tracking-tight text-white">AI Assistant</h2>
+        <div className="flex items-center space-x-2">
+          {isLoading && (
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
+              <span>AI is thinking...</span>
             </div>
           )}
         </div>
       </div>
-      
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4" role="log" aria-live="polite">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                message.type === 'user'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
-                  : 'bg-gray-700 text-gray-200'
-              }`}
-              role={message.type === 'user' ? 'log' : 'status'}
-              aria-label={`${message.type === 'user' ? 'You' : 'AI Assistant'} message`}
-            >
-              {message.isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <LoadingSpinner size="sm" />
-                  <span className="text-sm">Thinking...</span>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className="text-xs opacity-70 mt-1">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
-                </>
-              )}
-            </div>
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="text-center text-gray-400 py-8">
+            <h3 className="text-lg font-bold tracking-tight mb-2">
+              Welcome to Zephix AI Assistant
+            </h3>
+            <p className="text-sm">
+              Ask me anything about your projects, or upload a BRD to get started.
+            </p>
           </div>
-        ))}
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-xs lg:max-w-md px-5 py-3 rounded-xl ${
+                  message.isUser
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-700 text-gray-200'
+                }`}
+                role="log"
+                aria-live="polite"
+              >
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <p className="text-xs opacity-70 mt-1">
+                  {message.timestamp.toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Input */}
-      <div className="px-6 py-4 border-t border-gray-700/50">
-        <div className="flex space-x-4">
+      <form onSubmit={handleSubmit} className="px-5 py-4 border-t border-gray-700">
+        <div className="flex space-x-2">
           <input
             type="text"
             value={inputValue}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              selectedProject 
-                ? `Ask about ${selectedProject.name}...` 
-                : "Ask me anything about your projects..."
-            }
-            className="flex-1 px-4 py-2 border border-gray-600 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isProcessing}
-            aria-label="Type your message"
-            aria-describedby={isProcessing ? 'processing-status' : undefined}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask me anything about your projects..."
+            className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-transparent"
+            disabled={isLoading}
           />
-          <button
-            onClick={handleSendClick}
-            disabled={!inputValue.trim() || isProcessing}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
+          <Button
+            type="submit"
+            disabled={!inputValue.trim() || isLoading}
+            className="px-6 py-3"
             aria-label="Send message"
-            aria-busy={isProcessing}
           >
-            {isProcessing ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />
-            )}
-          </button>
+            <SendIcon className="w-4 h-4" aria-hidden="true" />
+          </Button>
         </div>
-        {isProcessing && (
-          <p id="processing-status" className="text-xs text-gray-400 mt-2" role="status">
-            Processing your message...
-          </p>
-        )}
-      </div>
+      </form>
     </div>
   );
 };

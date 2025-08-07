@@ -1,7 +1,8 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { SentryErrorBoundary } from './components/ErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { initSentry, setSentryTags, setSentryContext } from './config/sentry';
 
 // Lazy load page components for code splitting
 const LandingPage = lazy(() => import('./pages/LandingPage').then(module => ({ default: module.LandingPage })));
@@ -29,16 +30,25 @@ const NotFound = () => (
 );
 
 export default function App() {
+  useEffect(() => {
+    // Initialize Sentry
+    initSentry();
+    
+    // Set global tags and context
+    setSentryTags({
+      app: 'zephix-frontend',
+      version: '1.0.0',
+    });
+    
+    setSentryContext('app', {
+      environment: import.meta.env.MODE,
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+    });
+  }, []);
+
   return (
-    <ErrorBoundary
-      onError={(error, errorInfo) => {
-        console.error('🚨 App Error Boundary caught error:', {
-          error: error.message,
-          componentStack: errorInfo.componentStack,
-          timestamp: new Date().toISOString(),
-        });
-      }}
-    >
+    <SentryErrorBoundary>
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
@@ -59,6 +69,6 @@ export default function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-    </ErrorBoundary>
+    </SentryErrorBoundary>
   );
 }

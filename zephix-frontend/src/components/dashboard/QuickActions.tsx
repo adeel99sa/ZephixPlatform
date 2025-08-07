@@ -21,17 +21,17 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onQuickAction }) => 
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-      <div className="space-y-3">
-        {actions.map(({ id, label, icon: Icon, action }) => (
+      <h3 className="text-lg font-bold tracking-tight text-white mb-3">Quick Actions</h3>
+      <div className="space-y-2">
+        {actions.map((action) => (
           <button
-            key={id}
-            onClick={() => handleAction(action)}
-            className="w-full flex items-center gap-3 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-left"
-            aria-label={`${label}: ${action}`}
+            key={action.id}
+            onClick={() => handleAction(action.action)}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            aria-label={action.label}
           >
-            <Icon className="w-5 h-5 text-indigo-400" aria-hidden="true" />
-            <span className="text-sm font-medium text-white">{label}</span>
+            <action.icon className="w-5 h-5" aria-hidden="true" />
+            <span className="text-sm font-medium">{action.label}</span>
           </button>
         ))}
       </div>

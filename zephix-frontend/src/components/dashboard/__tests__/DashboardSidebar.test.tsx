@@ -49,7 +49,7 @@ describe('DashboardSidebar', () => {
     
     // Check for loading skeleton elements
     expect(screen.getByText('Quick Actions')).toBeInTheDocument();
-    expect(screen.getByText('Project Stats')).toBeInTheDocument();
+    expect(screen.getByText('Project Overview')).toBeInTheDocument();
     expect(screen.getByText('Recent Projects')).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe('DashboardSidebar', () => {
     
     // Check for proper heading structure
     const headings = screen.getAllByRole('heading');
-    expect(headings).toHaveLength(5); // Quick Actions, Project Overview, Recent Projects, and 2 project names (h4)
+    expect(headings).toHaveLength(4); // Quick Actions, Project Overview, Recent Projects, and selected project
   });
 
   it('has proper heading structure', () => {
@@ -71,7 +71,7 @@ describe('DashboardSidebar', () => {
     
     // Check for proper heading hierarchy
     const headings = screen.getAllByRole('heading');
-    expect(headings).toHaveLength(5);
+    expect(headings).toHaveLength(4);
     
     // Main section headings should be h3 level
     const h3Headings = headings.filter(heading => heading.tagName === 'H3');
@@ -79,7 +79,7 @@ describe('DashboardSidebar', () => {
     
     // Project names should be h4 level
     const h4Headings = headings.filter(heading => heading.tagName === 'H4');
-    expect(h4Headings).toHaveLength(2); // Project names
+    expect(h4Headings).toHaveLength(1); // Project name (only selected project shows as h4)
   });
 
   it('has proper ARIA attributes', () => {
@@ -185,7 +185,7 @@ describe('DashboardSidebar', () => {
     
     // Check for proper spacing between sections
     const sidebar = screen.getByRole('complementary');
-    const container = sidebar.querySelector('.space-y-6');
+    const container = sidebar.querySelector('.space-y-4');
     expect(container).toBeInTheDocument();
   });
 

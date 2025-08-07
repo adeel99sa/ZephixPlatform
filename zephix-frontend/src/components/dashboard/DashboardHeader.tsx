@@ -35,7 +35,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(({
             {/* Sidebar Toggle Button */}
             <button
               onClick={toggle}
-              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
               aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
             >
               {isOpen ? (
@@ -48,19 +48,19 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(({
             <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <ChatBubbleLeftRightIcon className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <h1 className="text-xl font-bold text-gradient">Zephix AI</h1>
+            <h1 className="text-xl font-bold tracking-tight text-gradient">Zephix AI</h1>
           </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={onCreateProject}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition-all duration-200"
               aria-label="Create new project"
             >
               <PlusIcon className="w-4 h-4 mr-2" aria-hidden="true" />
               Create Project
             </button>
             <button 
-              className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+              className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
               aria-label="User profile"
             >
               <UserCircleIcon className="w-6 h-6" aria-hidden="true" />
@@ -68,7 +68,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(({
             </button>
             <button
               onClick={handleLogout}
-              className="text-gray-400 hover:text-gray-300 transition-colors"
+              className="text-gray-400 hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
               title="Logout"
               aria-label="Sign out of your account"
             >
