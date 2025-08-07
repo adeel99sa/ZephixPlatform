@@ -14,46 +14,24 @@ export const LandingNavbar: React.FC = () => {
             </div>
             <span className="text-xl font-bold tracking-tight text-gray-800">Zephix</span>
           </Link>
-
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/#features"
-              className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-              aria-label="View features"
-            >
+            <Link to="/#features" className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label="View features">
               Features
             </Link>
-            <Link
-              to="/#pricing"
-              className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-              aria-label="View pricing"
-            >
+            <Link to="/#pricing" className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label="View pricing">
               Pricing
             </Link>
-            <Link
-              to="/#how-it-works"
-              className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-              aria-label="Learn how it works"
-            >
+            <Link to="/#how-it-works" className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label="Learn how it works">
               How It Works
             </Link>
           </div>
-
           {/* CTA Button */}
           <div className="flex items-center space-x-4">
-            <Link
-              to="/auth/login"
-              className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-              aria-label="Log in to your account"
-            >
+            <Link to="/auth/login" className="text-gray-600 hover:text-indigo-600 font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label="Log in to your account">
               Log in
             </Link>
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-              aria-label="Start building your first project"
-            >
+            <Link to="/dashboard" className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" aria-label="Start building your first project">
               Get Started
             </Link>
           </div>
