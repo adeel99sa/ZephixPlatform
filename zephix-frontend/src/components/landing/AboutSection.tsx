@@ -86,20 +86,6 @@ export const AboutSection: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Honest Disclaimer */}
-        <div className="mt-16 text-center">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 max-w-4xl mx-auto">
-            <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-              Honest About Our Stage
-            </h3>
-            <p className="text-yellow-700">
-              This is an early-stage product. We're not claiming to have solved every PM problem yet, 
-              but we're building the solution we wish existed. No fake testimonials, no exaggerated claims - 
-              just honest progress toward solving real problems.
-            </p>
-          </div>
-        </div>
       </div>
     </section>
   );

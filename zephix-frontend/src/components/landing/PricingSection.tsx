@@ -11,29 +11,33 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
     {
       name: 'STARTER',
       price: 'FREE',
-      description: "Perfect for trying out Zephix with basic features.",
+      description: "Perfect for small teams getting started with project management.",
       features: [
-        '5 projects',
-        'Basic AI features',
-        'Community support',
-        'Core dashboard',
-        'Email notifications'
+        'Up to 5 team members',
+        'Basic project templates',
+        'Email support',
+        'Core PM features',
+        'Mobile app access',
+        'Basic reporting'
       ],
       cta: 'Start Free',
       ctaTo: '/signup',
-      highlight: false
+      highlight: false,
+      isContact: false
     },
     {
       name: 'PROFESSIONAL',
       price: '$12/user/month',
-      description: "For teams that need full AI capabilities and unlimited projects.",
+      description: "For growing teams that need advanced features and integrations.",
       features: [
-        'Unlimited projects',
-        'Full AI capabilities',
-        'Standard support',
-        'Email integrations',
-        'Advanced reporting',
-        'Team collaboration'
+        'Unlimited team members',
+        'Advanced templates',
+        'Priority support',
+        'AI-powered insights',
+        'Advanced integrations',
+        'Custom workflows',
+        'Advanced analytics',
+        'Team collaboration tools'
       ],
       cta: 'Start Trial',
       ctaTo: '/signup',
@@ -118,19 +122,6 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
               )}
             </div>
           ))}
-        </div>
-
-        {/* Pricing note */}
-        <div className="mt-12 text-center">
-          <div className="bg-white rounded-xl p-6 max-w-2xl mx-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Honest About Our Stage
-            </h3>
-            <p className="text-gray-600 text-sm">
-              This is our planned pricing strategy. Currently, we're in early development (65% complete). 
-              The platform is free to try, and we're building features based on real PM feedback.
-            </p>
-          </div>
         </div>
       </div>
     </section>
