@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
 import EarlyAccessModal from '../components/modals/EarlyAccessModal';
 import { HeroSection } from '../components/landing/HeroSection';
+import { LandingNavbar } from '../components/landing/LandingNavbar';
 
 const ZephixLandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,24 +26,7 @@ const ZephixLandingPage = () => {
   return (
     <div className="min-h-screen">
       {/* Navigation */}
-      <nav className="relative z-50 flex items-center justify-between p-8 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-white">
-            Zephix Co-pilot
-          </span>
-        </div>
-        <div className="flex items-center space-x-8">
-          <button 
-            onClick={() => handleModalOpen('access')}
-            className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 hover:bg-white/20"
-          >
-            Request Access
-          </button>
-        </div>
-      </nav>
+      <LandingNavbar />
 
       {/* Hero Section */}
       <HeroSection />
