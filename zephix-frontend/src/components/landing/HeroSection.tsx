@@ -12,6 +12,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
     setIsVisible(true);
   }, []);
 
+  const handleDemoRequest = () => {
+    console.log('Hero: Demo request button clicked!');
+    onDemoRequest();
+  };
+
+  const handleWatchDemo = () => {
+    console.log('Hero: Watch demo button clicked!');
+    // For now, also trigger demo request
+    onDemoRequest();
+  };
+
   return (
     <section className="relative min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden pt-16">
       {/* Animated background elements */}
@@ -53,8 +64,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
           {/* CTA Buttons */}
           <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-6 mb-12">
             <button 
-              onClick={onDemoRequest}
-              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25"
+              onClick={handleDemoRequest}
+              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25 active:scale-95"
             >
               <div className="flex items-center space-x-3">
                 <Zap className="w-5 h-5" />
@@ -64,7 +75,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity"></div>
             </button>
 
-            <button className="group flex items-center space-x-2 text-slate-300 hover:text-white transition-colors">
+            <button 
+              onClick={handleWatchDemo}
+              className="group flex items-center space-x-2 text-slate-300 hover:text-white transition-colors hover:scale-105 transform active:scale-95"
+            >
               <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
                 <Play className="w-5 h-5" />
               </div>

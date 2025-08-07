@@ -16,17 +16,22 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   const handleDemoRequest = () => {
+    console.log('Demo request button clicked!');
     setIsDemoModalOpen(true);
   };
 
   const handleContactRequest = () => {
+    console.log('Contact request button clicked!');
     setIsContactModalOpen(true);
   };
 
   const scrollToSection = (sectionId: string) => {
+    console.log('Scrolling to section:', sectionId);
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      console.warn('Section not found:', sectionId);
     }
   };
 
@@ -53,12 +58,18 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
 
       <DemoRequestModal 
         isOpen={isDemoModalOpen}
-        onClose={() => setIsDemoModalOpen(false)}
+        onClose={() => {
+          console.log('Closing demo modal');
+          setIsDemoModalOpen(false);
+        }}
       />
 
       <ContactModal 
         isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
+        onClose={() => {
+          console.log('Closing contact modal');
+          setIsContactModalOpen(false);
+        }}
       />
     </div>
   );
