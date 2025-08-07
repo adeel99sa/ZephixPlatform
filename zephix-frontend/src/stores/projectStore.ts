@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { mockApi } from './mockApi';
 import type { Project } from '../types';
-import type { BaseStoreState, AsyncResult, StoreError } from '../types/store';
+import type { BaseStoreState, AsyncResult } from '../types/store';
 import { createError } from '../types/store';
 
 // Enhanced TypeScript interfaces for better type safety

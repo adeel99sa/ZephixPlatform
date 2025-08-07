@@ -22,13 +22,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading, error }
     register,
     handleSubmit,
     formState: { errors, isSubmitting, isValid, isDirty },
-    watch,
   } = useForm<LoginCredentials>({
     resolver: zodResolver(loginSchema),
     mode: 'onTouched',
   });
 
-  const watchedFields = watch();
   const isFormValid = isValid && isDirty;
   const isSubmittingOrLoading = isSubmitting || loading;
 
@@ -66,8 +64,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading, error }
             id="email"
             type="email"
             autoComplete="email"
-            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed ${
-              errors.email ? 'border-red-500 focus:ring-red-500' : ''
+            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+              errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''
             }`}
             placeholder="you@example.com"
             aria-invalid={!!errors.email}
@@ -98,8 +96,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, loading, error }
             id="password"
             type="password"
             autoComplete="current-password"
-            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed ${
-              errors.password ? 'border-red-500 focus:ring-red-500' : ''
+            className={`w-full rounded-lg bg-gray-800 border border-gray-700 py-2 pl-10 pr-3 text-gray-100 placeholder-gray-400 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+              errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''
             }`}
             placeholder="Enter your password"
             aria-invalid={!!errors.password}

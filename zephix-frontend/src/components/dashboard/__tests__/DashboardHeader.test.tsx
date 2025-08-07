@@ -7,8 +7,8 @@ import { useSidebar } from '../../../hooks/useSidebar';
 import type { User } from '../../../types';
 
 // Mock the hooks
-jest.mock('../../../hooks/useUser');
-jest.mock('../../../hooks/useSidebar');
+vi.mock('../../../hooks/useUser');
+vi.mock('../../../hooks/useSidebar');
 
 const mockUseUser = useUser as jest.MockedFunction<typeof useUser>;
 const mockUseSidebar = useSidebar as jest.MockedFunction<typeof useSidebar>;
@@ -27,27 +27,27 @@ const mockUser: User = {
 };
 
 const defaultProps = {
-  onCreateProject: jest.fn(),
+  onCreateProject: vi.fn(),
 };
 
 describe('DashboardHeader', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Default mock implementations
     mockUseUser.mockReturnValue({
       user: mockUser,
       isAuthenticated: true,
-      logout: jest.fn().mockResolvedValue({ success: true }),
-      getCurrentUser: jest.fn(),
-      checkAuth: jest.fn(),
+      logout: vi.fn().mockResolvedValue({ success: true }),
+      getCurrentUser: vi.fn(),
+      checkAuth: vi.fn(),
     });
 
     mockUseSidebar.mockReturnValue({
       isOpen: true,
-      toggle: jest.fn(),
-      open: jest.fn(),
-      close: jest.fn(),
+      toggle: vi.fn(),
+      open: vi.fn(),
+      close: vi.fn(),
     });
   });
 
@@ -78,13 +78,13 @@ describe('DashboardHeader', () => {
   });
 
   it('calls logout when logout button is clicked', async () => {
-    const mockLogout = jest.fn().mockResolvedValue({ success: true });
+    const mockLogout = vi.fn().mockResolvedValue({ success: true });
     mockUseUser.mockReturnValue({
       user: mockUser,
       isAuthenticated: true,
       logout: mockLogout,
-      getCurrentUser: jest.fn(),
-      checkAuth: jest.fn(),
+      getCurrentUser: vi.fn(),
+      checkAuth: vi.fn(),
     });
 
     const user = userEvent.setup();
@@ -97,7 +97,7 @@ describe('DashboardHeader', () => {
   });
 
   it('handles logout error gracefully', async () => {
-    const mockLogout = jest.fn().mockResolvedValue({ 
+    const mockLogout = vi.fn().mockResolvedValue({ 
       success: false, 
       error: { message: 'Logout failed' } 
     });
@@ -105,12 +105,12 @@ describe('DashboardHeader', () => {
       user: mockUser,
       isAuthenticated: true,
       logout: mockLogout,
-      getCurrentUser: jest.fn(),
-      checkAuth: jest.fn(),
+      getCurrentUser: vi.fn(),
+      checkAuth: vi.fn(),
     });
 
     const user = userEvent.setup();
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
     render(<DashboardHeader {...defaultProps} />);
 
@@ -126,24 +126,24 @@ describe('DashboardHeader', () => {
   it('renders sidebar toggle button on mobile', () => {
     render(<DashboardHeader {...defaultProps} />);
 
-    const sidebarToggle = screen.getByRole('button', { name: /open sidebar/i });
+    const sidebarToggle = screen.getByRole('button', { name: /close sidebar/i });
     expect(sidebarToggle).toBeInTheDocument();
     expect(sidebarToggle).toHaveClass('lg:hidden');
   });
 
   it('toggles sidebar when toggle button is clicked', async () => {
-    const mockToggle = jest.fn();
+    const mockToggle = vi.fn();
     mockUseSidebar.mockReturnValue({
       isOpen: true,
       toggle: mockToggle,
-      open: jest.fn(),
-      close: jest.fn(),
+      open: vi.fn(),
+      close: vi.fn(),
     });
 
     const user = userEvent.setup();
     render(<DashboardHeader {...defaultProps} />);
 
-    const sidebarToggle = screen.getByRole('button', { name: /open sidebar/i });
+    const sidebarToggle = screen.getByRole('button', { name: /close sidebar/i });
     await user.click(sidebarToggle);
 
     expect(mockToggle).toHaveBeenCalledTimes(1);
@@ -153,9 +153,9 @@ describe('DashboardHeader', () => {
     // Test open state
     mockUseSidebar.mockReturnValue({
       isOpen: true,
-      toggle: jest.fn(),
-      open: jest.fn(),
-      close: jest.fn(),
+      toggle: vi.fn(),
+      open: vi.fn(),
+      close: vi.fn(),
     });
 
     const { rerender } = render(<DashboardHeader {...defaultProps} />);
@@ -164,13 +164,13 @@ describe('DashboardHeader', () => {
     // Test closed state
     mockUseSidebar.mockReturnValue({
       isOpen: false,
-      toggle: jest.fn(),
-      open: jest.fn(),
-      close: jest.fn(),
+      toggle: vi.fn(),
+      open: vi.fn(),
+      close: vi.fn(),
     });
 
     rerender(<DashboardHeader {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /open sidebar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /close sidebar/i })).toBeInTheDocument();
   });
 
   it('has proper accessibility attributes', () => {
@@ -193,8 +193,8 @@ describe('DashboardHeader', () => {
 
     const createButton = screen.getByRole('button', { name: /create new project/i });
     expect(createButton).toHaveClass('bg-gradient-to-r');
-    expect(createButton).toHaveClass('from-indigo-500');
-    expect(createButton).toHaveClass('to-purple-600');
+    expect(createButton).toHaveClass('from-indigo-600');
+    expect(createButton).toHaveClass('to-blue-600');
   });
 
   it('handles user with missing name gracefully', () => {
@@ -202,9 +202,9 @@ describe('DashboardHeader', () => {
     mockUseUser.mockReturnValue({
       user: userWithoutName,
       isAuthenticated: true,
-      logout: jest.fn().mockResolvedValue({ success: true }),
-      getCurrentUser: jest.fn(),
-      checkAuth: jest.fn(),
+      logout: vi.fn().mockResolvedValue({ success: true }),
+      getCurrentUser: vi.fn(),
+      checkAuth: vi.fn(),
     });
 
     render(<DashboardHeader {...defaultProps} />);
@@ -218,9 +218,9 @@ describe('DashboardHeader', () => {
     mockUseUser.mockReturnValue({
       user: null,
       isAuthenticated: false,
-      logout: jest.fn().mockResolvedValue({ success: true }),
-      getCurrentUser: jest.fn(),
-      checkAuth: jest.fn(),
+      logout: vi.fn().mockResolvedValue({ success: true }),
+      getCurrentUser: vi.fn(),
+      checkAuth: vi.fn(),
     });
 
     render(<DashboardHeader {...defaultProps} />);
@@ -235,6 +235,10 @@ describe('DashboardHeader', () => {
     render(<DashboardHeader {...defaultProps} />);
 
     // Tab through all interactive elements
+    await user.tab();
+    const sidebarButton = screen.getByRole('button', { name: /close sidebar/i });
+    expect(sidebarButton).toHaveFocus();
+
     await user.tab();
     const createButton = screen.getByRole('button', { name: /create new project/i });
     expect(createButton).toHaveFocus();
@@ -256,7 +260,7 @@ describe('DashboardHeader', () => {
     expect(userName).toHaveClass('hidden', 'sm:block');
 
     // Check that sidebar toggle is hidden on large screens
-    const sidebarToggle = screen.getByRole('button', { name: /open sidebar/i });
+    const sidebarToggle = screen.getByRole('button', { name: /close sidebar/i });
     expect(sidebarToggle).toHaveClass('lg:hidden');
   });
 });

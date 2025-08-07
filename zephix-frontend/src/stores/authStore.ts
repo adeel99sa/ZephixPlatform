@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '../services/api';
 import type { User, LoginCredentials } from '../types';
-import type { BaseStoreState, AsyncResult, StoreError } from '../types/store';
+import type { BaseStoreState, AsyncResult } from '../types/store';
 import { createError } from '../types/store';
 import { toast } from 'sonner';
+import { setSentryUser, clearSentryUser, addSentryBreadcrumb, captureSentryError } from '../config/sentry';
 
 interface AuthState extends BaseStoreState {
   user: User | null;
@@ -46,7 +47,19 @@ export const useAuthStore = create<AuthState>()(
       successTimestamp: undefined,
       
       // Basic state setters
-      setAuth: (user, token) =>
+      setAuth: (user, token) => {
+        // Set Sentry user context
+        setSentryUser({
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+        });
+        
+        addSentryBreadcrumb('User authenticated', 'auth', {
+          userId: user.id,
+          userEmail: user.email,
+        });
+        
         set({
           user,
           token,
@@ -56,8 +69,14 @@ export const useAuthStore = create<AuthState>()(
           loadingStartTime: undefined,
           error: null,
           errorTimestamp: undefined,
-        }),
-      clearAuth: () =>
+        });
+      },
+      clearAuth: () => {
+        // Clear Sentry user context
+        clearSentryUser();
+        
+        addSentryBreadcrumb('User logged out', 'auth');
+        
         set({
           user: null,
           token: null,
@@ -67,7 +86,8 @@ export const useAuthStore = create<AuthState>()(
           loadingStartTime: undefined,
           error: null,
           errorTimestamp: undefined,
-        }),
+        });
+      },
       setLoading: (loading, action) => {
         console.log(`⏳ AuthStore: Setting loading state to ${loading}${action ? ` for ${action}` : ''}`);
         set({ 
@@ -125,6 +145,16 @@ export const useAuthStore = create<AuthState>()(
           
           console.error(`❌ AuthStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
           console.error('AuthStore Error:', error);
+          
+          // Capture error in Sentry
+          captureSentryError(error as Error, {
+            action: 'login',
+            email: credentials.email,
+            duration: endTime - startTime,
+          }, {
+            auth_action: 'login',
+            auth_reason: 'invalid_credentials',
+          });
           
           set({ 
             isLoading: false,

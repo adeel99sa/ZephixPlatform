@@ -102,7 +102,7 @@ describe('HeroSection', () => {
     
     // Check for proper hover states
     const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toHaveClass('hover:bg-yellow-400');
+    expect(startBuildingLink).toHaveClass('hover:from-indigo-700', 'hover:to-blue-700');
     
     const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
     expect(learnMoreLink).toHaveClass('hover:bg-yellow-300');

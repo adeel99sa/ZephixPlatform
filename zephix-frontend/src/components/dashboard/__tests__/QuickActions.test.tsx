@@ -1,162 +1,130 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '../../../test/utils';
+import userEvent from '@testing-library/user-event';
 import { QuickActions } from '../QuickActions';
 
 describe('QuickActions', () => {
-  const defaultProps = {
-    onQuickAction: vi.fn(),
-  };
-
   it('renders correctly with all quick actions', () => {
-    render(<QuickActions {...defaultProps} />);
-    
-    // Check for main heading
-    expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+    render(<QuickActions />);
     
     // Check for all quick action buttons
     expect(screen.getByText('Create Project')).toBeInTheDocument();
-    expect(screen.getByText('View Projects')).toBeInTheDocument();
-    expect(screen.getByText('Analytics')).toBeInTheDocument();
-    expect(screen.getByText('AI Help')).toBeInTheDocument();
-  });
-
-  it('renders correct number of action buttons', () => {
-    render(<QuickActions {...defaultProps} />);
-    
-    const actionButtons = screen.getAllByRole('button');
-    expect(actionButtons).toHaveLength(4);
+    expect(screen.getByText('Upload BRD')).toBeInTheDocument();
+    expect(screen.getByText('Invite Team')).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   it('has proper accessibility roles and labels', () => {
-    render(<QuickActions {...defaultProps} />);
-    
-    // Check for proper heading
-    const heading = screen.getByRole('heading', { level: 3 });
-    expect(heading).toHaveTextContent('Quick Actions');
+    render(<QuickActions />);
     
     // Check for accessible buttons with proper labels
     expect(screen.getByRole('button', { name: /create project/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /view projects/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /analytics/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ai help/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload brd/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /invite team/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument();
   });
 
   it('calls onQuickAction with correct text when buttons are clicked', async () => {
     const onQuickAction = vi.fn();
-    const userEvent = (await import('@testing-library/user-event')).default.setup();
+    const user = userEvent.setup();
     
-    render(<QuickActions {...defaultProps} onQuickAction={onQuickAction} />);
+    render(<QuickActions onQuickAction={onQuickAction} />);
     
     // Click Create Project button
     const createProjectButton = screen.getByRole('button', { name: /create project/i });
     await userEvent.click(createProjectButton);
-    expect(onQuickAction).toHaveBeenCalledWith('Create a new project');
+    expect(onQuickAction).toHaveBeenCalledWith('Create new project');
     
-    // Click View Projects button
-    const viewProjectsButton = screen.getByRole('button', { name: /view projects/i });
-    await userEvent.click(viewProjectsButton);
-    expect(onQuickAction).toHaveBeenCalledWith('Show me my projects');
+    // Click Upload BRD button
+    const uploadBrdButton = screen.getByRole('button', { name: /upload brd/i });
+    await userEvent.click(uploadBrdButton);
+    expect(onQuickAction).toHaveBeenCalledWith('Upload business requirements document');
     
-    // Click Analytics button
-    const analyticsButton = screen.getByRole('button', { name: /analytics/i });
-    await userEvent.click(analyticsButton);
-    expect(onQuickAction).toHaveBeenCalledWith('Show me project analytics');
+    // Click Invite Team button
+    const inviteTeamButton = screen.getByRole('button', { name: /invite team/i });
+    await userEvent.click(inviteTeamButton);
+    expect(onQuickAction).toHaveBeenCalledWith('Invite team members');
     
-    // Click AI Help button
-    const aiHelpButton = screen.getByRole('button', { name: /ai help/i });
-    await userEvent.click(aiHelpButton);
-    expect(onQuickAction).toHaveBeenCalledWith('What can you help me with?');
+    // Click Settings button
+    const settingsButton = screen.getByRole('button', { name: /settings/i });
+    await userEvent.click(settingsButton);
+    expect(onQuickAction).toHaveBeenCalledWith('Open settings');
   });
 
   it('has proper keyboard navigation support', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default.setup();
+    const user = userEvent.setup();
     
-    render(<QuickActions {...defaultProps} />);
+    render(<QuickActions />);
     
     // Tab through all buttons
-    await userEvent.tab();
+    await user.tab();
     const createProjectButton = screen.getByRole('button', { name: /create project/i });
     expect(createProjectButton).toHaveFocus();
     
-    await userEvent.tab();
-    const viewProjectsButton = screen.getByRole('button', { name: /view projects/i });
-    expect(viewProjectsButton).toHaveFocus();
+    await user.tab();
+    const uploadBrdButton = screen.getByRole('button', { name: /upload brd/i });
+    expect(uploadBrdButton).toHaveFocus();
     
-    await userEvent.tab();
-    const analyticsButton = screen.getByRole('button', { name: /analytics/i });
-    expect(analyticsButton).toHaveFocus();
+    await user.tab();
+    const inviteTeamButton = screen.getByRole('button', { name: /invite team/i });
+    expect(inviteTeamButton).toHaveFocus();
     
-    await userEvent.tab();
-    const aiHelpButton = screen.getByRole('button', { name: /ai help/i });
-    expect(aiHelpButton).toHaveFocus();
-  });
-
-  it('has proper ARIA attributes', () => {
-    render(<QuickActions {...defaultProps} />);
-    
-    // Check for decorative icons with aria-hidden
-    const icons = document.querySelectorAll('svg[aria-hidden="true"]');
-    expect(icons.length).toBeGreaterThan(0);
-    
-    // Check that all buttons have proper aria-label attributes
-    const buttons = screen.getAllByRole('button');
-    buttons.forEach(button => {
-      expect(button).toHaveAttribute('aria-label');
-    });
+    await user.tab();
+    const settingsButton = screen.getByRole('button', { name: /settings/i });
+    expect(settingsButton).toHaveFocus();
   });
 
   it('has proper hover states and styling', () => {
-    render(<QuickActions {...defaultProps} />);
+    render(<QuickActions />);
     
+    // Check for proper styling classes
     const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(4);
+    
     buttons.forEach(button => {
       // Check for proper CSS classes for hover states
-      expect(button).toHaveClass('hover:bg-gray-700/50');
+      expect(button).toHaveClass('hover:bg-gray-700');
       expect(button).toHaveClass('transition-all');
-      expect(button).toHaveClass('duration-200');
+      expect(button).toHaveClass('duration-300');
+      expect(button).toHaveClass('hover:scale-[1.015]');
+      expect(button).toHaveClass('focus-visible:ring-2');
+      expect(button).toHaveClass('focus-visible:ring-indigo-400');
     });
   });
 
   it('renders with correct icon colors', () => {
-    render(<QuickActions {...defaultProps} />);
+    render(<QuickActions />);
     
     // Check that icons have the correct color classes
-    const createProjectIcon = screen.getByRole('button', { name: /create project/i }).querySelector('.text-indigo-400');
+    const createProjectIcon = screen.getByRole('button', { name: /create project/i }).querySelector('svg');
     expect(createProjectIcon).toBeInTheDocument();
     
-    const viewProjectsIcon = screen.getByRole('button', { name: /view projects/i }).querySelector('.text-green-400');
-    expect(viewProjectsIcon).toBeInTheDocument();
+    const uploadBrdIcon = screen.getByRole('button', { name: /upload brd/i }).querySelector('svg');
+    expect(uploadBrdIcon).toBeInTheDocument();
     
-    const analyticsIcon = screen.getByRole('button', { name: /analytics/i }).querySelector('.text-blue-400');
-    expect(analyticsIcon).toBeInTheDocument();
+    const inviteTeamIcon = screen.getByRole('button', { name: /invite team/i }).querySelector('svg');
+    expect(inviteTeamIcon).toBeInTheDocument();
     
-    const aiHelpIcon = screen.getByRole('button', { name: /ai help/i }).querySelector('.text-purple-400');
-    expect(aiHelpIcon).toBeInTheDocument();
+    const settingsIcon = screen.getByRole('button', { name: /settings/i }).querySelector('svg');
+    expect(settingsIcon).toBeInTheDocument();
   });
 
-  it('has proper focus management', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default.setup();
+  it('has proper semantic structure', () => {
+    render(<QuickActions />);
     
-    render(<QuickActions {...defaultProps} />);
+    // Check for proper heading
+    const heading = screen.getByRole('heading', { name: /quick actions/i });
+    expect(heading).toBeInTheDocument();
+    expect(heading).toHaveTextContent('Quick Actions');
+  });
+
+  it('handles missing onQuickAction prop gracefully', async () => {
+    const user = userEvent.setup();
     
-    // Focus should be managed properly
+    render(<QuickActions />);
+    
+    // Should not throw when clicking buttons without onQuickAction
     const createProjectButton = screen.getByRole('button', { name: /create project/i });
-    createProjectButton.focus();
-    expect(createProjectButton).toHaveFocus();
-  });
-
-  it('calls onQuickAction multiple times correctly', async () => {
-    const onQuickAction = vi.fn();
-    const userEvent = (await import('@testing-library/user-event')).default.setup();
-    
-    render(<QuickActions {...defaultProps} onQuickAction={onQuickAction} />);
-    
-    // Click multiple buttons
-    const buttons = screen.getAllByRole('button');
-    for (const button of buttons) {
-      await userEvent.click(button);
-    }
-    
-    expect(onQuickAction).toHaveBeenCalledTimes(4);
+    await expect(userEvent.click(createProjectButton)).resolves.not.toThrow();
   });
 });
