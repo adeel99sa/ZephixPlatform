@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Zap } from 'lucide-react';
+import { Menu, X, Zap, ChevronDown, Brain, Users, BarChart3, Shield, Database, Zap as ZapIcon } from 'lucide-react';
 
 interface HeaderProps {
   onDemoRequest: () => void;
@@ -14,10 +14,12 @@ export const Header: React.FC<HeaderProps> = ({
   onScrollToSection 
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isFeaturesDropdownOpen, setIsFeaturesDropdownOpen] = useState(false);
 
   const handleNavClick = (sectionId: string) => {
     console.log('Navigation clicked:', sectionId);
     setIsMobileMenuOpen(false);
+    setIsFeaturesDropdownOpen(false);
     onScrollToSection(sectionId);
   };
 
@@ -30,6 +32,45 @@ export const Header: React.FC<HeaderProps> = ({
     console.log('Header: Contact request clicked');
     onContactRequest();
   };
+
+  const features = [
+    {
+      name: 'Strategic Planning',
+      description: 'AI-enhanced project planning',
+      icon: Brain,
+      sectionId: 'strategic-planning'
+    },
+    {
+      name: 'Resource Management',
+      description: 'Team allocation & workload',
+      icon: Users,
+      sectionId: 'resource-management'
+    },
+    {
+      name: 'Timeline Optimization',
+      description: 'AI-powered scheduling',
+      icon: BarChart3,
+      sectionId: 'timeline-optimization'
+    },
+    {
+      name: 'Automated Reporting',
+      description: 'Smart status updates',
+      icon: ZapIcon,
+      sectionId: 'automated-reporting'
+    },
+    {
+      name: 'Enterprise Security',
+      description: 'Compliance & security',
+      icon: Shield,
+      sectionId: 'enterprise-security'
+    },
+    {
+      name: 'Integration Hub',
+      description: 'Connect with your tools',
+      icon: Database,
+      sectionId: 'integration-hub'
+    }
+  ];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200">
@@ -45,12 +86,59 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => handleNavClick('features')}
-              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
-            >
-              Features
-            </button>
+            {/* Features Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsFeaturesDropdownOpen(!isFeaturesDropdownOpen)}
+                onMouseEnter={() => setIsFeaturesDropdownOpen(true)}
+                className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+              >
+                <span>Features</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isFeaturesDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* Features Dropdown Menu */}
+              {isFeaturesDropdownOpen && (
+                <div 
+                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                  onMouseLeave={() => setIsFeaturesDropdownOpen(false)}
+                >
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-900">Platform Features</h3>
+                    <p className="text-xs text-gray-500">Explore our AI-powered capabilities</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {features.map((feature) => {
+                      const IconComponent = feature.icon;
+                      return (
+                        <button
+                          key={feature.name}
+                          onClick={() => handleNavClick(feature.sectionId)}
+                          className="flex items-center space-x-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <IconComponent className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{feature.name}</div>
+                            <div className="text-xs text-gray-500">{feature.description}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="px-4 py-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleNavClick('features')}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      View All Features →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => handleNavClick('pricing')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
