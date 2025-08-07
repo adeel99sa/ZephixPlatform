@@ -5,7 +5,7 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { initSentry, setSentryTags, setSentryContext } from './config/sentry';
 
 // Lazy load page components for code splitting
-const LandingPage = lazy(() => import('./pages/LandingPage').then(module => ({ default: module.LandingPage })));
+const ZephixLandingPage = lazy(() => import('./pages/ZephixLandingPage').then(module => ({ default: module.default })));
 const ProjectsDashboard = lazy(() => import('./pages/projects/ProjectsDashboard').then(module => ({ default: module.ProjectsDashboard })));
 const AIDashboard = lazy(() => import('./pages/dashboard/AIDashboard').then(module => ({ default: module.AIDashboard })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
@@ -53,7 +53,7 @@ export default function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Landing page */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<ZephixLandingPage />} />
 
             {/* Project management dashboard */}
             <Route path="/projects" element={<ProjectsDashboard />} />
