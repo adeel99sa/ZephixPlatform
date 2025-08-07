@@ -71,18 +71,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-6 mb-12">
-            {/* Test button */}
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                alert('TEST BUTTON CLICKED!');
-                console.log('Test button clicked!');
-              }}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg mb-4"
-            >
-              TEST BUTTON
-            </button>
-            
             <button 
               onClick={handleDemoRequest}
               className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25 active:scale-95 cursor-pointer border-2 border-transparent hover:border-white/20"
