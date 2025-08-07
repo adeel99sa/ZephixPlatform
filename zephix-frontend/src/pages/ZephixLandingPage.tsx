@@ -4,6 +4,7 @@ import EarlyAccessModal from '../components/modals/EarlyAccessModal';
 import { HeroSection } from '../components/landing/HeroSection';
 import { LandingNavbar } from '../components/landing/LandingNavbar';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
+import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 
 const ZephixLandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -34,6 +35,9 @@ const ZephixLandingPage = () => {
 
       {/* Features Section */}
       <FeaturesSection />
+
+      {/* How It Works Section */}
+      <HowItWorksSection />
 
       {/* Footer */}
       <footer className="relative z-10 max-w-7xl mx-auto px-8 py-16 text-center">
