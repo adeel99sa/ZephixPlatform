@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useUser } from '../../hooks/useUser';
 import { useProjectStore } from '../../stores/projectStore';
-import { projectsApi } from '../../services/api';
 import { aiService, type AIResponse } from '../../services/aiService';
 import { DashboardHeader, ChatInterface, DashboardSidebar } from '../../components/dashboard';
 import { Skeleton, SkeletonList, SkeletonCard } from '../../components/ui/Skeleton';
@@ -24,7 +23,7 @@ interface AIDashboardProps {
 export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
   const navigate = useNavigate();
   const { user } = useUser();
-  const { projects, fetchProjects, isLoading: projectsLoading } = useProjectStore();
+  const { projects, fetchProjects } = useProjectStore();
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -175,11 +174,14 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
           <DashboardHeader onCreateProject={handleCreateProject} />
           
           <ChatInterface
-            messages={messages}
-            inputValue={inputValue}
-            onInputChange={setInputValue}
+            messages={messages.map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              isUser: msg.type === 'user',
+              timestamp: msg.timestamp
+            }))}
             onSendMessage={handleSendMessage}
-            isProcessing={isProcessing}
+            isLoading={isProcessing}
           />
         </div>
         

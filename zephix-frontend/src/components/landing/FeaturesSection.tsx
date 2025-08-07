@@ -26,25 +26,25 @@ export const FeaturesSection: React.FC = () => {
   ];
 
   return (
-    <section id="features" className="container mx-auto px-4 py-20" aria-labelledby="features-heading">
-      <h2 id="features-heading" className="text-center text-3xl font-bold text-gray-800 mb-4">
+    <section id="features" className="container mx-auto px-4 py-16" aria-labelledby="features-heading">
+      <h2 id="features-heading" className="text-center text-3xl font-bold tracking-tight text-gray-800 mb-3">
         Everything You Need to Manage Projects Intelligently
       </h2>
-      <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+      <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
         Zephix packs powerful AI features into an intuitive dashboard so you can focus on strategy, not busy-work.
       </p>
-      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {features.map((feature) => (
           <div
             key={feature.title}
-            className="rounded-xl border border-gray-200 p-6 text-center hover:shadow-lg transition"
+            className="rounded-xl border border-gray-200 px-6 py-5 text-center hover:shadow-lg hover:scale-[1.015] transition-all duration-300"
             role="article"
             aria-labelledby={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}
           >
             <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50" aria-hidden="true">
               {feature.icon}
             </div>
-            <h3 id={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`} className="text-xl font-semibold mb-2">{feature.title}</h3>
+            <h3 id={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`} className="text-xl font-bold tracking-tight mb-2">{feature.title}</h3>
             <p className="text-gray-600">{feature.desc}</p>
           </div>
         ))}

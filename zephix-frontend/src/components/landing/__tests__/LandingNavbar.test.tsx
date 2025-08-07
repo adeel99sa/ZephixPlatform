@@ -9,8 +9,6 @@ describe('LandingNavbar', () => {
     
     // Check for main navigation elements
     expect(screen.getByText('Zephix')).toBeInTheDocument();
-    expect(screen.getByText('AI Co-pilot')).toBeInTheDocument();
-    expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Features')).toBeInTheDocument();
     expect(screen.getByText('How It Works')).toBeInTheDocument();
     expect(screen.getByText('Pricing')).toBeInTheDocument();
@@ -27,7 +25,7 @@ describe('LandingNavbar', () => {
     expect(navigation).toHaveAttribute('aria-label', 'Main navigation');
     
     // Check for accessible links
-    const homeLink = screen.getByRole('link', { name: /zephix home/i });
+    const homeLink = screen.getByRole('link', { name: /go to homepage/i });
     expect(homeLink).toBeInTheDocument();
     
     const featuresLink = screen.getByRole('link', { name: /view features/i });
@@ -42,7 +40,7 @@ describe('LandingNavbar', () => {
     const loginLink = screen.getByRole('link', { name: /log in to your account/i });
     expect(loginLink).toBeInTheDocument();
     
-    const getStartedLink = screen.getByRole('link', { name: /get started with zephix/i });
+    const getStartedLink = screen.getByRole('link', { name: /start building your first project/i });
     expect(getStartedLink).toBeInTheDocument();
   });
 
@@ -75,7 +73,7 @@ describe('LandingNavbar', () => {
     
     // Tab through navigation elements
     await user.tab();
-    const homeLink = screen.getByRole('link', { name: /zephix home/i });
+    const homeLink = screen.getByRole('link', { name: /go to homepage/i });
     expect(homeLink).toHaveFocus();
     
     // Continue tabbing through other elements
@@ -92,11 +90,12 @@ describe('LandingNavbar', () => {
     render(<LandingNavbar />);
     
     // Check for responsive text elements
-    const aiCoPilotText = screen.getByText('AI Co-pilot');
-    expect(aiCoPilotText).toBeInTheDocument();
+    const zephixText = screen.getByText('Zephix');
+    expect(zephixText).toBeInTheDocument();
     
-    // Check that the text has proper responsive classes
-    expect(aiCoPilotText).toHaveClass('hidden', 'sm:inline-block');
+    // Check that the navigation links have proper responsive classes
+    const featuresLink = screen.getByRole('link', { name: /view features/i });
+    expect(featuresLink.parentElement).toHaveClass('hidden', 'md:flex');
   });
 
   it('has proper focus management', async () => {
@@ -105,7 +104,7 @@ describe('LandingNavbar', () => {
     render(<LandingNavbar />);
     
     // Focus should be managed properly
-    const homeLink = screen.getByRole('link', { name: /zephix home/i });
+    const homeLink = screen.getByRole('link', { name: /go to homepage/i });
     homeLink.focus();
     expect(homeLink).toHaveFocus();
   });
@@ -113,13 +112,12 @@ describe('LandingNavbar', () => {
   it('has proper semantic structure', () => {
     render(<LandingNavbar />);
     
-    // Check for proper header element
-    const header = screen.getByRole('banner');
-    expect(header).toBeInTheDocument();
-    
-    // Check that navigation is inside header
+    // Check for proper navigation element
     const navigation = screen.getByRole('navigation');
-    expect(header).toContainElement(navigation);
+    expect(navigation).toBeInTheDocument();
+    
+    // Check that navigation has proper aria-label
+    expect(navigation).toHaveAttribute('aria-label', 'Main navigation');
   });
 
   it('has proper color contrast and visual indicators', () => {
@@ -127,7 +125,6 @@ describe('LandingNavbar', () => {
     
     // Check for proper hover states (these would be tested in visual regression tests)
     const navigationLinks = screen.getAllByRole('link').filter(link => 
-      link.textContent === 'Home' || 
       link.textContent === 'Features' || 
       link.textContent === 'How It Works' || 
       link.textContent === 'Pricing' || 

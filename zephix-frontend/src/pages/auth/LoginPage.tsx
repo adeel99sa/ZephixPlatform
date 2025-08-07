@@ -41,7 +41,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
               <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" aria-hidden="true" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
             Welcome to Zephix AI
           </h1>
           <p className="text-gray-300 mb-6">
@@ -76,7 +76,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
         {/* Login Form */}
         <div className="glass p-8">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-white mb-2">Sign in to your account</h2>
+            <h2 className="text-lg font-bold tracking-tight text-white mb-2">Sign in to your account</h2>
             <p className="text-sm text-gray-400">
               Access your AI-powered project dashboard
             </p>
@@ -98,7 +98,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           <p className="text-sm text-gray-400">
             New to Zephix?{' '}
             <button 
-              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors focus:outline-none focus:underline"
+              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
               aria-label="Contact administrator for account access"
             >
               Contact your administrator
