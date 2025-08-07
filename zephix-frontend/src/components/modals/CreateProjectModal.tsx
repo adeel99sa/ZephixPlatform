@@ -98,7 +98,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   </Dialog.Title>
                   <button
                     onClick={handleClose}
-                    className="rounded-md text-gray-400 hover:text-gray-300 transition-colors"
+                    className="rounded-md text-gray-400 hover:text-gray-300 transition-all duration-300 hover:scale-[1.015] focus-visible:ring-2 focus-visible:ring-indigo-400"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
@@ -112,7 +112,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <input
                       {...register('name')}
                       type="text"
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="Enter project name"
                     />
                     {errors.name && (
@@ -127,7 +127,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <textarea
                       {...register('description')}
                       rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="Describe your project..."
                     />
                   </div>
@@ -138,7 +138,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     </label>
                     <select
                       {...register('priority')}
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -155,7 +155,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <input
                         {...register('startDate')}
                         type="date"
-                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       />
                     </div>
                     <div>
@@ -165,7 +165,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       <input
                         {...register('endDate')}
                         type="date"
-                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       />
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       type="number"
                       min="0"
                       step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="0.00"
                     />
                     {errors.budget && (

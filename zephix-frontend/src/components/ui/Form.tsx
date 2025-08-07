@@ -109,10 +109,10 @@ export const FormInput: React.FC<FormInputProps> = ({
       )}
       <input
         className={cn(
-          'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed',
+          'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 text-gray-100 placeholder-gray-400 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed',
           icon && 'pl-10 pr-3',
           !icon && 'px-3',
-          error && 'border-red-500 focus:ring-red-500',
+          error && 'border-red-500 focus-visible:ring-red-500',
           className
         )}
         disabled={disabled}
@@ -137,8 +137,8 @@ export const FormTextarea: React.FC<FormTextareaProps> = ({
   return (
     <textarea
       className={cn(
-        'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 px-3 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed resize-none',
-        error && 'border-red-500 focus:ring-red-500',
+        'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 px-3 text-gray-100 placeholder-gray-400 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed resize-none',
+        error && 'border-red-500 focus-visible:ring-red-500',
         className
       )}
       disabled={disabled}
@@ -164,8 +164,8 @@ export const FormSelect: React.FC<FormSelectProps> = ({
   return (
     <select
       className={cn(
-        'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 px-3 text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed',
-        error && 'border-red-500 focus:ring-red-500',
+        'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 px-3 text-gray-100 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed',
+        error && 'border-red-500 focus-visible:ring-red-500',
         className
       )}
       disabled={disabled}

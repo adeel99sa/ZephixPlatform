@@ -203,7 +203,7 @@ describe('PricingSection', () => {
     const actionLinks = screen.getAllByRole('link');
     actionLinks.forEach((link, index) => {
       if (index === 1) { // Professional plan
-        expect(link).toHaveClass('hover:bg-indigo-700');
+        expect(link).toHaveClass('hover:from-indigo-700', 'hover:to-blue-700');
       } else {
         expect(link).toHaveClass('hover:bg-gray-100');
       }
