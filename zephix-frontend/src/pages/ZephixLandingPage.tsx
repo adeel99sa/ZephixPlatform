@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Brain, Users, Target, BarChart3, Zap, Shield, Globe, Check, ChevronDown, Play, Clock, Code, Database, Cpu } from 'lucide-react';
+import { ArrowRight, Brain, Users, Target, BarChart3, Zap, Globe, Check, ChevronDown, Play, Clock, Cpu } from 'lucide-react';
 import EarlyAccessModal from '../components/modals/EarlyAccessModal';
 
 const ZephixLandingPage = () => {
@@ -42,12 +42,7 @@ const ZephixLandingPage = () => {
     }
   ];
 
-  const techStack = [
-    { icon: Code, label: "NestJS + TypeScript Backend" },
-    { icon: Database, label: "PostgreSQL + Vector Search" },
-    { icon: Cpu, label: "Claude AI Integration" },
-    { icon: Shield, label: "Enterprise Security" }
-  ];
+
 
   const pmScenarios = [
     "Convert Business Requirements into detailed project plans",
@@ -205,48 +200,7 @@ const ZephixLandingPage = () => {
         </div>
       </div>
 
-      {/* Technology Section */}
-      <div id="technology" className="relative z-10 max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-              Enterprise-Grade Technology Stack
-            </span>
-          </h2>
-          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-            Built with modern cloud architecture and AI technologies for reliability, security, and scale
-          </p>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
-          {techStack.map((tech, index) => (
-            <div 
-              key={index}
-              className="p-6 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 text-center hover:bg-white/10 transition-all duration-300"
-            >
-              <tech.icon className="w-8 h-8 text-purple-400 mx-auto mb-4" />
-              <span className="text-gray-300 font-medium">{tech.label}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div>
-              <h3 className="text-xl font-bold mb-2 text-purple-400">PMI Standards</h3>
-              <p className="text-gray-400">Built on official PMI methodologies and Rita Mulcahy PMP expertise</p>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-2 text-blue-400">Vector Search</h3>
-              <p className="text-gray-400">Semantic search through comprehensive PM knowledge base</p>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-2 text-green-400">Cloud Native</h3>
-              <p className="text-gray-400">Scalable microservices architecture on Railway Pro infrastructure</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Problem & Solution */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-20">
