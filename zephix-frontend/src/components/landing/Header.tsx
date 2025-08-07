@@ -16,8 +16,19 @@ export const Header: React.FC<HeaderProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNavClick = (sectionId: string) => {
+    console.log('Navigation clicked:', sectionId);
     setIsMobileMenuOpen(false);
     onScrollToSection(sectionId);
+  };
+
+  const handleDemoRequest = () => {
+    console.log('Header: Demo request clicked');
+    onDemoRequest();
+  };
+
+  const handleContactRequest = () => {
+    console.log('Header: Contact request clicked');
+    onContactRequest();
   };
 
   return (
@@ -35,26 +46,26 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <button
-              onClick={() => onScrollToSection('features')}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => handleNavClick('features')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Features
             </button>
             <button
-              onClick={() => onScrollToSection('pricing')}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => handleNavClick('pricing')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Pricing
             </button>
             <button
-              onClick={() => onScrollToSection('about')}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => handleNavClick('about')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               About
             </button>
             <button
-              onClick={onContactRequest}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={handleContactRequest}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Contact
             </button>
@@ -63,20 +74,20 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
             <button
-              onClick={onDemoRequest}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={handleDemoRequest}
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Request Demo
             </button>
             <Link
               to="/signup"
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Sign Up
             </Link>
             <Link
               to="/login"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors hover:scale-105 transform"
             >
               Login
             </Link>
@@ -116,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  onContactRequest();
+                  handleContactRequest();
                 }}
                 className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
               >
@@ -126,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    onDemoRequest();
+                    handleDemoRequest();
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
                 >
