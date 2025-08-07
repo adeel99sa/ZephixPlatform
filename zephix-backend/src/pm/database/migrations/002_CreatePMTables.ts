@@ -16,7 +16,7 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
         subdomain VARCHAR(100),
         methodology VARCHAR(20) NOT NULL,
         process_group VARCHAR(50),
-        embedding vector(1536),
+        embedding TEXT,
         source VARCHAR(200) DEFAULT 'Rita_Mulcahy_PMP_11th_Ed',
         confidence DECIMAL(3,2) DEFAULT 1.0,
         applicability TEXT[] DEFAULT '{}',
@@ -137,7 +137,6 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     `);
 
     // Create indexes for performance
-    await queryRunner.query(`CREATE INDEX ON pm_knowledge_chunks USING ivfflat (embedding vector_cosine_ops)`);
     await queryRunner.query(`CREATE INDEX ON pm_knowledge_chunks (domain, subdomain)`);
     await queryRunner.query(`CREATE INDEX ON pm_knowledge_chunks (methodology, process_group)`);
     await queryRunner.query(`CREATE INDEX ON user_projects (user_id, status)`);
