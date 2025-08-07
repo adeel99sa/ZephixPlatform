@@ -1,36 +1,122 @@
-import React, { memo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Zap, ArrowRight, Sparkles, Clock, Target } from 'lucide-react';
 
-export const HeroSection: React.FC = memo(() => {
+export const HeroSection: React.FC = () => {
+  const [currentStat, setCurrentStat] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const stats = [
+    { label: "Hours saved per PM per week", value: "23", suffix: "hrs" },
+    { label: "Faster project planning", value: "90", suffix: "%" },
+    { label: "Planning accuracy improvement", value: "85", suffix: "%" },
+    { label: "Administrative time reduction", value: "67", suffix: "%" }
+  ];
+
+  useEffect(() => {
+    setIsVisible(true);
+    const interval = setInterval(() => {
+      setCurrentStat((prev) => (prev + 1) % stats.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <section className="relative flex h-[80vh] items-center justify-center bg-gradient-to-br from-indigo-600 to-indigo-700 text-center text-white">
-      <div className="container mx-auto px-4">
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl leading-tight">
-          Transform Your BRDs into <br className="hidden lg:block" />
-          <span className="text-yellow-300">Actionable Project Plans</span>
-        </h1>
-        <p className="mt-4 max-w-2xl mx-auto text-lg opacity-90">
-          Zephix uses advanced AI to analyze your Business Requirements Documents and generate full project blueprints — complete with milestones, risks, and resource plans.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-          <Link
-            to="/dashboard"
-            className="inline-block rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 font-semibold text-white hover:from-indigo-700 hover:to-blue-700 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            aria-label="Start building your first project"
-          >
-            Start Building
-          </Link>
-          <Link
-            to="/#features"
-            className="inline-block rounded-xl border border-yellow-300 px-6 py-3 font-semibold text-yellow-300 hover:bg-yellow-300 hover:text-indigo-800 transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-            aria-label="Learn more about features"
-          >
-            Learn More
-          </Link>
+    <section className="relative min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:44px_44px]"></div>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20">
+        <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          
+          {/* Premium badge */}
+          <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-2 mb-8">
+            <Sparkles className="w-4 h-4 text-yellow-400" />
+            <span className="text-sm font-medium text-white">Enterprise AI • Trusted by Fortune 500 PMs</span>
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          </div>
+
+          {/* Main headline with gradient text */}
+          <h1 className="text-6xl md:text-8xl font-black mb-8 leading-tight">
+            <span className="bg-gradient-to-r from-white via-blue-100 to-indigo-200 bg-clip-text text-transparent">
+              Stop Managing.
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              Start Leading.
+            </span>
+          </h1>
+
+          {/* Dynamic value prop */}
+          <div className="max-w-3xl mx-auto mb-12">
+            <p className="text-xl md:text-2xl text-slate-300 mb-6 leading-relaxed">
+              Transform your BRDs into execution-ready plans in minutes, not weeks. 
+              <span className="text-white font-semibold"> Zephix AI does the heavy lifting</span> 
+              so you focus on strategic leadership.
+            </p>
+            
+            {/* Animated stats */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 mb-8">
+              <div className="transition-all duration-500 transform">
+                <div className="text-4xl font-bold text-white mb-2">
+                  {stats[currentStat].value}<span className="text-indigo-400">{stats[currentStat].suffix}</span>
+                </div>
+                <div className="text-slate-400">{stats[currentStat].label}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive CTA section */}
+          <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-6 mb-12">
+            <button className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25">
+              <div className="flex items-center space-x-3">
+                <Clock className="w-5 h-5" />
+                <span>See Your BRD Transform</span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity"></div>
+            </button>
+
+            <button className="group flex items-center space-x-2 text-slate-300 hover:text-white transition-colors">
+              <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <div className="font-medium">Watch 3-min Demo</div>
+                <div className="text-sm text-slate-400">See planning magic</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="text-center">
+            <p className="text-slate-400 text-sm mb-6">Trusted by Program Managers at</p>
+            <div className="flex items-center justify-center space-x-8 opacity-60">
+              {/* Replace with actual logos */}
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise A</div>
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise B</div>
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise C</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+        <div className="animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+            <div className="w-1 h-3 bg-white/50 rounded-full mt-2"></div>
+          </div>
         </div>
       </div>
     </section>
   );
-});
-
-HeroSection.displayName = 'HeroSection';
+};
