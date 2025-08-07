@@ -22,7 +22,7 @@ export class PMKnowledgeChunk {
   @Column({ type: 'varchar', length: 50, nullable: true })
   processGroup: 'initiating' | 'planning' | 'executing' | 'monitoring_controlling' | 'closing';
 
-  @Column({ type: 'vector', length: 1536, nullable: true })
+  @Column({ type: 'vector', length: 1536, nullable: true } as any)
   embedding: number[];
 
   @Column({ type: 'varchar', length: 200, default: 'Rita_Mulcahy_PMP_11th_Ed' })
