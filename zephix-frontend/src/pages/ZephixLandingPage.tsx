@@ -9,6 +9,7 @@ const ZephixLandingPage = () => {
 
   useEffect(() => {
     setIsVisible(true);
+    // Force cache bust for CSS
   }, []);
 
   const handleModalOpen = (type: 'access' | 'demo') => {
