@@ -16,10 +16,25 @@ const ZephixLandingPage = () => {
     setIsVisible(true);
     // Force cache bust for CSS
     
+    // Check URL parameters for testing
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceComingSoon = urlParams.get('coming-soon') === 'true';
+    
     // Check if we're on a public domain (not Railway)
     const hostname = window.location.hostname;
-    const isRailwayDomain = hostname.includes('railway.app') || hostname.includes('localhost');
-    setIsPublicDomain(!isRailwayDomain);
+    console.log('Current hostname:', hostname); // Debug log
+    
+    // More comprehensive Railway domain detection
+    const isRailwayDomain = hostname.includes('railway.app') || 
+                           hostname.includes('localhost') || 
+                           hostname.includes('127.0.0.1') ||
+                           hostname.includes('railway');
+    
+    console.log('Is Railway domain:', isRailwayDomain); // Debug log
+    console.log('Force coming soon:', forceComingSoon); // Debug log
+    
+    // Show coming soon if forced via URL or if not on Railway domain
+    setIsPublicDomain(forceComingSoon || !isRailwayDomain);
   }, []);
 
   const handleModalOpen = (type: 'access' | 'demo') => {
