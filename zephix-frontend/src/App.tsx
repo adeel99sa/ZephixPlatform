@@ -9,6 +9,16 @@ const LandingPage = lazy(() => import('./pages/LandingPage').then(module => ({ d
 const ProjectsDashboard = lazy(() => import('./pages/projects/ProjectsDashboard').then(module => ({ default: module.ProjectsDashboard })));
 const AIDashboard = lazy(() => import('./pages/dashboard/AIDashboard').then(module => ({ default: module.AIDashboard })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
+const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
+
+// Additional pages
+const RoadmapPage = lazy(() => import('./pages/RoadmapPage').then(module => ({ default: module.RoadmapPage })));
+const DocsPage = lazy(() => import('./pages/DocsPage').then(module => ({ default: module.DocsPage })));
+const BlogPage = lazy(() => import('./pages/BlogPage').then(module => ({ default: module.BlogPage })));
+const CareersPage = lazy(() => import('./pages/CareersPage').then(module => ({ default: module.CareersPage })));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then(module => ({ default: module.TermsPage })));
+const SecurityPage = lazy(() => import('./pages/SecurityPage').then(module => ({ default: module.SecurityPage })));
 
 // Loading component for Suspense fallback
 const PageLoader: React.FC = () => (
@@ -62,7 +72,17 @@ export default function App() {
             <Route path="/dashboard" element={<AIDashboard />} />
 
             {/* Authentication */}
-            <Route path="/auth/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+
+            {/* Additional pages */}
+            <Route path="/roadmap" element={<RoadmapPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/careers" element={<CareersPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/security" element={<SecurityPage />} />
 
             {/* 404 Not Found fallback */}
             <Route path="*" element={<NotFound />} />
