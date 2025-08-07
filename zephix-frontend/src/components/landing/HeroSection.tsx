@@ -1,27 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, ArrowRight, Sparkles, Clock, Target } from 'lucide-react';
+import { Zap, ArrowRight, Play, Target } from 'lucide-react';
 
-export const HeroSection: React.FC = () => {
-  const [currentStat, setCurrentStat] = useState(0);
+interface HeroSectionProps {
+  onDemoRequest: () => void;
+}
+
+export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
   const [isVisible, setIsVisible] = useState(false);
-
-  const stats = [
-    { label: "Hours saved per PM per week", value: "23", suffix: "hrs" },
-    { label: "Faster project planning", value: "90", suffix: "%" },
-    { label: "Planning accuracy improvement", value: "85", suffix: "%" },
-    { label: "Administrative time reduction", value: "67", suffix: "%" }
-  ];
 
   useEffect(() => {
     setIsVisible(true);
-    const interval = setInterval(() => {
-      setCurrentStat((prev) => (prev + 1) % stats.length);
-    }, 3000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
-    <section className="relative min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden">
+    <section className="relative min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 overflow-hidden pt-16">
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-20 left-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -37,44 +29,36 @@ export const HeroSection: React.FC = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-20">
         <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           
-
-
-          {/* Main headline with gradient text */}
-          <h1 className="text-6xl md:text-8xl font-black mb-8 leading-tight">
+          {/* Main headline */}
+          <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
             <span className="bg-gradient-to-r from-white via-blue-100 to-indigo-200 bg-clip-text text-transparent">
-              Stop Managing.
+              AI-Powered Project Management
             </span>
             <br />
             <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Start Leading.
+              for Enterprise Teams
             </span>
           </h1>
 
-          {/* Dynamic value prop */}
-          <div className="max-w-3xl mx-auto mb-12">
-            <p className="text-xl md:text-2xl text-slate-300 mb-6 leading-relaxed">
-              Transform your BRDs into execution-ready plans in minutes, not weeks. 
-              <span className="text-white font-semibold"> Zephix AI does the heavy lifting</span> 
-              so you focus on strategic leadership.
-            </p>
-            
-            {/* Animated stats */}
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 mb-8">
-              <div className="transition-all duration-500 transform">
-                <div className="text-4xl font-bold text-white mb-2">
-                  {stats[currentStat].value}<span className="text-indigo-400">{stats[currentStat].suffix}</span>
-                </div>
-                <div className="text-slate-400">{stats[currentStat].label}</div>
-              </div>
-            </div>
-          </div>
+          {/* Sub-headline */}
+          <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed max-w-4xl mx-auto">
+            Built by a practicing Program Manager who was tired of manual workflows in Monday.com and ClickUp
+          </p>
 
-          {/* Interactive CTA section */}
+          {/* Value proposition */}
+          <p className="text-lg text-slate-400 mb-12 max-w-3xl mx-auto">
+            Complete project management platform with AI intelligence built into every workflow
+          </p>
+
+          {/* CTA Buttons */}
           <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-6 mb-12">
-            <button className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25">
+            <button 
+              onClick={onDemoRequest}
+              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25"
+            >
               <div className="flex items-center space-x-3">
-                <Clock className="w-5 h-5" />
-                <span>See Your BRD Transform</span>
+                <Zap className="w-5 h-5" />
+                <span>Start Free Trial</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </div>
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 rounded-xl transition-opacity"></div>
@@ -82,23 +66,35 @@ export const HeroSection: React.FC = () => {
 
             <button className="group flex items-center space-x-2 text-slate-300 hover:text-white transition-colors">
               <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
-                <Target className="w-5 h-5" />
+                <Play className="w-5 h-5" />
               </div>
               <div className="text-left">
-                <div className="font-medium">Watch 3-min Demo</div>
-                <div className="text-sm text-slate-400">See planning magic</div>
+                <div className="font-medium">Watch Demo</div>
+                <div className="text-sm text-slate-400">See it in action</div>
               </div>
             </button>
           </div>
 
+          {/* Hero image placeholder */}
+          <div className="max-w-4xl mx-auto mb-12">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">
+              <div className="aspect-video bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl flex items-center justify-center">
+                <div className="text-center">
+                  <Target className="w-16 h-16 text-indigo-400 mx-auto mb-4" />
+                  <p className="text-slate-300 text-lg font-medium">Modern PM Dashboard Mockup</p>
+                  <p className="text-slate-400 text-sm">AI-powered project management interface</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Trust indicators */}
           <div className="text-center">
-            <p className="text-slate-400 text-sm mb-6">Trusted by Program Managers at</p>
+            <p className="text-slate-400 text-sm mb-6">Targeting Fortune 500 Program Managers</p>
             <div className="flex items-center justify-center space-x-8 opacity-60">
-              {/* Replace with actual logos */}
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise A</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise B</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise C</div>
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise Ready</div>
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">AI-Powered</div>
+              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">65% Complete</div>
             </div>
           </div>
         </div>
