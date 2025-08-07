@@ -38,13 +38,9 @@ export const FeaturesSection: React.FC = () => {
           <div
             key={feature.title}
             className="rounded-xl border border-gray-200 px-6 py-5 text-center hover:shadow-lg hover:scale-[1.015] transition-all duration-300"
-            role="article"
-            aria-labelledby={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}
           >
-            <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50" aria-hidden="true">
-              {feature.icon}
-            </div>
-            <h3 id={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`} className="text-xl font-bold tracking-tight mb-2">{feature.title}</h3>
+            <div className="mb-4 flex justify-center">{feature.icon}</div>
+            <h3 className="text-lg font-bold text-gray-800">{feature.title}</h3>
             <p className="text-gray-600">{feature.desc}</p>
           </div>
         ))}

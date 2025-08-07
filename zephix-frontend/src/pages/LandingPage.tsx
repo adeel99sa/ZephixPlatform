@@ -1,16 +1,12 @@
-// src/pages/LandingPage.tsx
 import React, { memo } from 'react';
 import { LandingNavbar, HeroSection, FeaturesSection, HowItWorksSection, PricingSection } from '../components/landing';
 
-interface LandingPageProps {
-  // Add props here if needed in the future
-}
+interface LandingPageProps {}
 
 export const LandingPage: React.FC<LandingPageProps> = memo(() => {
   return (
     <div className="font-sans text-gray-900 antialiased">
       <LandingNavbar />
-      
       <main className="pt-20">
         <HeroSection />
         <FeaturesSection />
