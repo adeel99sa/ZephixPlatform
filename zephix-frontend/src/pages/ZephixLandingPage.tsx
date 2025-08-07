@@ -3,6 +3,7 @@ import { Zap } from 'lucide-react';
 import EarlyAccessModal from '../components/modals/EarlyAccessModal';
 import { HeroSection } from '../components/landing/HeroSection';
 import { LandingNavbar } from '../components/landing/LandingNavbar';
+import { FeaturesSection } from '../components/landing/FeaturesSection';
 
 const ZephixLandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -30,6 +31,9 @@ const ZephixLandingPage = () => {
 
       {/* Hero Section */}
       <HeroSection />
+
+      {/* Features Section */}
+      <FeaturesSection />
 
       {/* Footer */}
       <footer className="relative z-10 max-w-7xl mx-auto px-8 py-16 text-center">
