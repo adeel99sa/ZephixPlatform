@@ -200,7 +200,7 @@ export class AIPMAssistantController {
       procurementPlan: this.generateProcurementPlan(dto),
       
       // Timeline and milestones
-      timeline: this.generateTimeline(dto),
+      projectTimeline: this.generateTimeline(dto),
       milestones: this.generateMilestones(dto),
       
       // Resource allocation
@@ -486,11 +486,12 @@ export class AIPMAssistantController {
   }
 
   private generateCostEstimate(dto: GeneratePlanDto): any {
+    const budget = dto.budget || 0;
     return {
-      laborCosts: dto.budget * 0.7,
-      materialCosts: dto.budget * 0.2,
-      overheadCosts: dto.budget * 0.1,
-      contingency: dto.budget * 0.1,
+      laborCosts: budget * 0.7,
+      materialCosts: budget * 0.2,
+      overheadCosts: budget * 0.1,
+      contingency: budget * 0.1,
     };
   }
 
