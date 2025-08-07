@@ -109,10 +109,6 @@ const ZephixLandingPage = () => {
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-32">
         <div className={`transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-8 border border-white/20">
-              <Cpu className="w-4 h-4 text-purple-400" />
-              <span className="text-sm text-gray-300">Powered by Claude AI + PMI Standards</span>
-            </div>
             
             <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight">
               <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
