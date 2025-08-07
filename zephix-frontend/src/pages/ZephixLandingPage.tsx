@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Brain, Users, Target, BarChart3, Zap, Shield, Globe, Check, ChevronDown, Play, Clock, Code, Database, Cpu } from 'lucide-react';
+import EarlyAccessModal from '../components/modals/EarlyAccessModal';
 
 const ZephixLandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'access' | 'demo'>('access');
 
   useEffect(() => {
     setIsVisible(true);
@@ -57,6 +60,15 @@ const ZephixLandingPage = () => {
     "Provide next-best-action recommendations"
   ];
 
+  const handleModalOpen = (type: 'access' | 'demo') => {
+    setModalType(type);
+    setModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       {/* Animated Background */}
@@ -84,7 +96,10 @@ const ZephixLandingPage = () => {
         <div className="flex items-center space-x-6">
           <a href="#capabilities" className="text-gray-300 hover:text-white transition-colors">Capabilities</a>
           <a href="#technology" className="text-gray-300 hover:text-white transition-colors">Technology</a>
-          <button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-6 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105">
+          <button 
+            onClick={() => handleModalOpen('access')}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-6 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105"
+          >
             Request Access
           </button>
         </div>
@@ -115,11 +130,17 @@ const ZephixLandingPage = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <button className="group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl flex items-center space-x-2">
+              <button 
+                onClick={() => handleModalOpen('access')}
+                className="group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl flex items-center space-x-2"
+              >
                 <span>Start Free Trial</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="group flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
+              <button 
+                onClick={() => handleModalOpen('demo')}
+                className="group flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+              >
                 <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
                   <Play className="w-5 h-5 ml-1" />
                 </div>
@@ -400,11 +421,17 @@ const ZephixLandingPage = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <button className="group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl flex items-center space-x-2">
+            <button 
+              onClick={() => handleModalOpen('access')}
+              className="group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl flex items-center space-x-2"
+            >
               <span>Request Early Access</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="px-8 py-4 rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/10 transition-all duration-300">
+            <button 
+              onClick={() => handleModalOpen('demo')}
+              className="px-8 py-4 rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/10 transition-all duration-300"
+            >
               Schedule Demo
             </button>
           </div>
@@ -436,6 +463,13 @@ const ZephixLandingPage = () => {
           © 2025 Zephix Co-pilot. Built for Project Managers, by Project Managers.
         </div>
       </footer>
+
+      {/* Modal */}
+      <EarlyAccessModal 
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        type={modalType}
+      />
     </div>
   );
 };
