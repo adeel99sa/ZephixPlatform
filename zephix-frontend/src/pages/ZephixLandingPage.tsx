@@ -13,7 +13,7 @@ const ZephixLandingPage = () => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, []); // Force cache bust
 
   const capabilities = [
     { 
