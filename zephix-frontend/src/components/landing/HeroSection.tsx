@@ -14,11 +14,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
 
   const handleDemoRequest = () => {
     console.log('Hero: Demo request button clicked!');
+    alert('Demo request button clicked!'); // Temporary alert for testing
     onDemoRequest();
   };
 
   const handleWatchDemo = () => {
     console.log('Hero: Watch demo button clicked!');
+    alert('Watch demo button clicked!'); // Temporary alert for testing
     // For now, also trigger demo request
     onDemoRequest();
   };
@@ -65,7 +67,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
           <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-6 mb-12">
             <button 
               onClick={handleDemoRequest}
-              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25 active:scale-95"
+              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-indigo-500/25 active:scale-95 cursor-pointer border-2 border-transparent hover:border-white/20"
             >
               <div className="flex items-center space-x-3">
                 <Zap className="w-5 h-5" />
