@@ -10,6 +10,7 @@ import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { PMModule } from './pm/pm.module';
 import { HealthController } from './health/health.controller';
 import { User } from './users/entities/user.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
@@ -17,6 +18,13 @@ import { Project } from './projects/entities/project.entity';
 import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
+import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';
+import { UserProject } from './pm/entities/user-project.entity';
+import { ProjectTask } from './pm/entities/project-task.entity';
+import { ProjectRisk } from './pm/entities/project-risk.entity';
+import { ProjectStakeholder } from './pm/entities/project-stakeholder.entity';
+import { Portfolio } from './pm/entities/portfolio.entity';
+import { Program } from './pm/entities/program.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -42,7 +50,7 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program],
             synchronize: configService.get('database.synchronize'),
             logging: isProduction
               ? ['error', 'warn']
@@ -72,7 +80,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
             extra: {
@@ -92,6 +100,7 @@ if (!(global as any).crypto) {
     AuthModule,
     ProjectsModule,
     FeedbackModule,
+    PMModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
