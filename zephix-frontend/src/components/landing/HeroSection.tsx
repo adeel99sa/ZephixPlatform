@@ -42,7 +42,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
 
           {/* Sub-headline */}
           <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed max-w-4xl mx-auto">
-            Built by a practicing Program Manager who was tired of manual workflows in Monday.com and ClickUp
+            Zephix Co-pilot automates planning, reporting, and risk management—so you focus on strategy, not paperwork.
           </p>
 
           {/* Value proposition */}
