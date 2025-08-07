@@ -1,5 +1,7 @@
-export { LandingNavbar } from './LandingNavbar';
+export { Header } from './Header';
 export { HeroSection } from './HeroSection';
+export { ProblemSection } from './ProblemSection';
 export { FeaturesSection } from './FeaturesSection';
-export { HowItWorksSection } from './HowItWorksSection';
 export { PricingSection } from './PricingSection';
+export { AboutSection } from './AboutSection';
+export { Footer } from './Footer';
