@@ -205,8 +205,8 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
     return await this.projectRepository.save(project);
   }
 
-  private parseBudget(budgetRange: string): number | null {
-    if (!budgetRange) return null;
+  private parseBudget(budgetRange: string): number | undefined {
+    if (!budgetRange) return undefined;
     
     // Extract the average from a range like "$500K - $750K"
     const match = budgetRange.match(/\$?(\d+(?:\.\d+)?)([KMB])?/g);
@@ -219,7 +219,7 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
       return (values[0] + values[1]) / 2;
     }
     
-    return null;
+    return undefined;
   }
 
   private async generateProjectCharter(analysis: any, projectId: string): Promise<any> {
@@ -307,11 +307,11 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
       this.riskRepository.create({
         projectId,
         category: risk.category,
-        description: risk.description,
+        riskDescription: risk.description,
         probability: risk.probability,
         impact: risk.impact,
-        riskLevel: risk.riskLevel,
-        responseStrategy: risk.responseStrategy,
+        riskScore: risk.riskScore,
+        mitigationStrategy: risk.responseStrategy,
         owner: risk.owner,
         metadata: {
           responseActions: risk.responseActions,
