@@ -1,32 +1,31 @@
-# ---- Build stage ----
+# ---- Builder ----
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copy package files
+# Install ALL deps (incl. devDeps) for TypeScript build
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --omit=dev
-
-# Copy source files
+# Copy source and build
 COPY . .
-
-# Build the NestJS app
+# If you use Nest CLI: RUN npm run build
 RUN npm run build
 
-# ---- Production stage ----
-FROM node:20-alpine
-
+# ---- Runner ----
+FROM node:20-alpine AS runner
 WORKDIR /app
+ENV NODE_ENV=production
 
-# Copy built app and production dependencies from builder stage
+# Install ONLY production deps
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy compiled output only
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
 
-# Expose your app port (default 3000)
+# If you need runtime assets (e.g., prisma, public, migrations), copy them too:
+# COPY --from=builder /app/prisma ./prisma
+# COPY --from=builder /app/public ./public
+
 EXPOSE 3000
-
-# Run the built app
 CMD ["node", "dist/main.js"]
