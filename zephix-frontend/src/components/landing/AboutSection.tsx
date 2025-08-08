@@ -45,8 +45,6 @@ export const AboutSection: React.FC = () => {
               </p>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
+      </section>
   );
 };
