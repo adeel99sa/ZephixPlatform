@@ -5,7 +5,8 @@ import {
   FolderIcon, 
   UsersIcon,
   ArrowRightOnRectangleIcon,
-  SparklesIcon
+  SparklesIcon,
+  BrainIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../stores/authStore';
 import { cn } from '../utils';
@@ -15,6 +16,7 @@ import { FeedbackWidget } from '../components/feedback/FeedbackWidget';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Projects', href: '/projects', icon: FolderIcon },
+  { name: 'Document Intelligence', href: '/intelligence', icon: BrainIcon },
   { name: 'Team', href: '/team', icon: UsersIcon },
 ];
 
