@@ -69,21 +69,7 @@ export const ProblemSection: React.FC = () => {
           })}
         </div>
 
-        <div className="mt-16 text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-4xl mx-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
-              Sound Familiar?
-            </h3>
-            <p className="text-lg text-gray-600 mb-6">
-              These aren't hypothetical problems - they're the exact challenges I face daily as a Project Management Expert. 
-              That's why I'm building Zephix to solve these specific pain points.
-            </p>
-            <div className="inline-flex items-center space-x-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium">
-              <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-              <span>65% complete platform, targeting director demo in 8 weeks</span>
-            </div>
-          </div>
-        </div>
+
       </div>
     </section>
   );

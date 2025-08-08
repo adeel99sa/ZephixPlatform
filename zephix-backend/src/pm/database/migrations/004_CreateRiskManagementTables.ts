@@ -412,30 +412,30 @@ export class CreateRiskManagementTables004 implements MigrationInterface {
     );
 
     // Create indexes
-    await queryRunner.createIndex('risks', {
+    await queryRunner.createIndex('risks', new TableIndex({
       name: 'IDX_risks_projectId_riskScore',
       columnNames: ['projectId', 'riskScore'],
-    });
+    }));
 
-    await queryRunner.createIndex('risks', {
+    await queryRunner.createIndex('risks', new TableIndex({
       name: 'IDX_risks_projectId_riskLevel',
       columnNames: ['projectId', 'riskLevel'],
-    });
+    }));
 
-    await queryRunner.createIndex('risk_assessments', {
+    await queryRunner.createIndex('risk_assessments', new TableIndex({
       name: 'IDX_risk_assessments_riskId_assessmentDate',
       columnNames: ['riskId', 'assessmentDate'],
-    });
+    }));
 
-    await queryRunner.createIndex('risk_responses', {
+    await queryRunner.createIndex('risk_responses', new TableIndex({
       name: 'IDX_risk_responses_riskId_strategy',
       columnNames: ['riskId', 'strategy'],
-    });
+    }));
 
-    await queryRunner.createIndex('risk_monitoring', {
+    await queryRunner.createIndex('risk_monitoring', new TableIndex({
       name: 'IDX_risk_monitoring_riskId_monitoringDate',
       columnNames: ['riskId', 'monitoringDate'],
-    });
+    }));
 
     // Create foreign keys
     await queryRunner.createForeignKey(

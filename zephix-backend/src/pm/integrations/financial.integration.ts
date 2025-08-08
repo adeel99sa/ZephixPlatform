@@ -8,8 +8,8 @@ export class FinancialIntegration {
   private readonly apiKey: string;
 
   constructor(private configService: ConfigService) {
-    this.apiUrl = this.configService.get<string>('FINANCIAL_API_URL');
-    this.apiKey = this.configService.get<string>('FINANCIAL_API_KEY');
+    this.apiUrl = this.configService.get<string>('FINANCIAL_API_URL') || '';
+    this.apiKey = this.configService.get<string>('FINANCIAL_API_KEY') || '';
   }
 
   async collectFinancialData(projectId: string, dateRange: { start: Date; end: Date }) {
