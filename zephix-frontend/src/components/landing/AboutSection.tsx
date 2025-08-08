@@ -7,7 +7,7 @@ export const AboutSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Built by a Practicing Program Manager
+            Built for Real Project Management
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             No fake testimonials - this is an early-stage product built to solve real PM problems
@@ -24,7 +24,7 @@ export const AboutSection: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">The Founder</h3>
-                  <p className="text-gray-600">Practicing Program Manager</p>
+                  <p className="text-gray-600">Project Management Expert</p>
                 </div>
               </div>
               
@@ -38,7 +38,7 @@ export const AboutSection: React.FC = () => {
                   everything but actually created more work, I decided to build the solution I needed.
                 </p>
                 <p>
-                  Zephix is built from real pain points - the exact problems I face daily as a Program Manager 
+                  Zephix is built from real pain points - the exact problems I face daily as a Project Management Expert 
                   in enterprise environments.
                 </p>
               </div>

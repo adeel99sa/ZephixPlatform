@@ -43,7 +43,7 @@ export const ProblemSection: React.FC = () => {
             The Real Pain Points of Enterprise Project Management
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Built by a practicing Program Manager who was tired of these exact problems in Monday.com and ClickUp
+            Real problems faced by enterprise project managers every day
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export const ProblemSection: React.FC = () => {
               Sound Familiar?
             </h3>
             <p className="text-lg text-gray-600 mb-6">
-              These aren't hypothetical problems - they're the exact challenges I face daily as a Program Manager. 
+              These aren't hypothetical problems - they're the exact challenges I face daily as a Project Management Expert. 
               That's why I'm building Zephix to solve these specific pain points.
             </p>
             <div className="inline-flex items-center space-x-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium">
