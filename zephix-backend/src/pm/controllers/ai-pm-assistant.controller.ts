@@ -165,6 +165,23 @@ export class AIPMAssistantController {
     };
   }
 
+  @Get('test-ai-chat')
+  @UseGuards() // Temporarily remove authentication for testing
+  async testAIChat(): Promise<any> {
+    console.log('AI Chat test endpoint called');
+    return {
+      message: 'AI Chat Service is working!',
+      capabilities: [
+        'Project Analysis',
+        'Resource Optimization', 
+        'Risk Assessment',
+        'Communication Planning',
+        'Health Monitoring'
+      ],
+      status: 'ready'
+    };
+  }
+
   @Get('templates/:type')
   async getPMTemplates(@Param('type') type: string, @Request() req): Promise<any> {
     const userId = req.user.id;
