@@ -25,6 +25,16 @@ import { ProjectRisk } from './pm/entities/project-risk.entity';
 import { ProjectStakeholder } from './pm/entities/project-stakeholder.entity';
 import { Portfolio } from './pm/entities/portfolio.entity';
 import { Program } from './pm/entities/program.entity';
+import { StatusReport } from './pm/entities/status-report.entity';
+import { ProjectMetrics } from './pm/entities/project-metrics.entity';
+import { PerformanceBaseline } from './pm/entities/performance-baseline.entity';
+import { AlertConfiguration } from './pm/entities/alert-configuration.entity';
+import { ManualUpdate } from './pm/entities/manual-update.entity';
+import { StakeholderCommunication } from './pm/entities/stakeholder-communication.entity';
+import { Risk } from './pm/entities/risk.entity';
+import { RiskAssessment } from './pm/entities/risk-assessment.entity';
+import { RiskResponse } from './pm/entities/risk-response.entity';
+import { RiskMonitoring } from './pm/entities/risk-monitoring.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -50,7 +60,7 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring],
             synchronize: configService.get('database.synchronize'),
             logging: isProduction
               ? ['error', 'warn']
@@ -80,7 +90,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
             extra: {
