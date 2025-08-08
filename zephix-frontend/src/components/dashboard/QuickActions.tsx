@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, FileText, Users, Settings } from 'lucide-react';
+import { Plus, FileText, Users, Settings, Brain } from 'lucide-react';
 
 interface QuickActionsProps {
   onQuickAction?: (action: string) => void;
@@ -15,6 +15,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onQuickAction }) => 
   const actions = [
     { id: 'create-project', label: 'Create Project', icon: Plus, action: 'Create new project' },
     { id: 'upload-document', label: 'Upload BRD', icon: FileText, action: 'Upload business requirements document' },
+    { id: 'document-intelligence', label: 'Document Intelligence', icon: Brain, action: 'Analyze project documents with AI' },
     { id: 'invite-team', label: 'Invite Team', icon: Users, action: 'Invite team members' },
     { id: 'settings', label: 'Settings', icon: Settings, action: 'Open settings' }
   ];

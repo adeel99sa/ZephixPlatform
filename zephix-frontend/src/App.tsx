@@ -11,6 +11,12 @@ const AIDashboard = lazy(() => import('./pages/dashboard/AIDashboard').then(modu
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
 const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
 
+// Document Intelligence
+const DocumentIntelligencePage = lazy(() => import('./pages/intelligence/DocumentIntelligencePage').then(module => ({ default: module.default })));
+
+// Project Management
+const ProjectStatusPage = lazy(() => import('./pages/pm/project/[id]/status').then(module => ({ default: module.default })));
+
 // Additional pages
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage').then(module => ({ default: module.RoadmapPage })));
 const DocsPage = lazy(() => import('./pages/DocsPage').then(module => ({ default: module.DocsPage })));
@@ -68,8 +74,14 @@ export default function App() {
             {/* Project management dashboard */}
             <Route path="/projects" element={<ProjectsDashboard />} />
 
+            {/* Project status reporting */}
+            <Route path="/projects/:id/status" element={<ProjectStatusPage />} />
+
             {/* AI co-pilot dashboard */}
             <Route path="/dashboard" element={<AIDashboard />} />
+
+            {/* Document Intelligence */}
+            <Route path="/intelligence" element={<DocumentIntelligencePage />} />
 
             {/* Authentication */}
             <Route path="/login" element={<LoginPage />} />
