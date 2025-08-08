@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../../stores/authStore';
-import { useProjectStore } from '../../../stores/projectStore';
-import StatusReportingDashboard from '../../../components/pm/status-reporting/StatusReportingDashboard';
-import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { useAuthStore } from '@/stores/authStore';
+import { useProjectStore } from '@/stores/projectStore';
+import StatusReportingDashboard from '@/components/pm/status-reporting/StatusReportingDashboard';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface ProjectStatusPageProps {}
 

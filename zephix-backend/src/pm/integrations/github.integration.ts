@@ -8,8 +8,8 @@ export class GitHubIntegration {
   private readonly org: string;
 
   constructor(private configService: ConfigService) {
-    this.apiToken = this.configService.get<string>('GITHUB_TOKEN');
-    this.org = this.configService.get<string>('GITHUB_ORG');
+    this.apiToken = this.configService.get<string>('GITHUB_TOKEN') || '';
+    this.org = this.configService.get<string>('GITHUB_ORG') || '';
   }
 
   async collectRepositoryData(repoName: string, dateRange: { start: Date; end: Date }) {

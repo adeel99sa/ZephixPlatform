@@ -16,11 +16,17 @@ export class ProjectStakeholder {
   @Column({ type: 'varchar', length: 100, nullable: true })
   role: string;
 
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  organization: string;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   influence: 'high' | 'medium' | 'low';
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   interest: 'high' | 'medium' | 'low';
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  category: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   communicationPreference: string;

@@ -359,6 +359,14 @@ export interface Dependency {
   critical: boolean;
 }
 
+export interface Milestone {
+  id: string;
+  name: string;
+  date: Date;
+  description: string;
+  deliverables: string[];
+}
+
 export interface TimelineAnalysis {
   estimatedDuration: number;
   criticalPath: string[];

@@ -1,5 +1,5 @@
-import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle2, Info, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface PricingSectionProps {
@@ -18,7 +18,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
         'Email support',
         'Core PM features',
         'Mobile app access',
-        'Basic reporting'
+        'Basic reporting & dashboards',
+        {
+          text: 'Limited AI insights',
+          tooltip: 'Get a taste of AI-powered project intelligence with basic insights and recommendations',
+          limited: true
+        }
       ],
       cta: 'Start Free',
       ctaTo: '/signup',
@@ -31,13 +36,13 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
       description: "For growing teams that need advanced features and integrations.",
       features: [
         'Unlimited team members',
-        'Advanced templates',
+        'Advanced project templates',
         'Priority support',
-        'AI-powered insights',
-        'Advanced integrations',
-        'Custom workflows',
-        'Advanced analytics',
-        'Team collaboration tools'
+        'Full AI-powered insights & recommendations',
+        'Advanced integrations & APIs',
+        'Custom workflows & automation',
+        'Advanced analytics & reporting dashboards',
+        'Team collaboration tools & real-time updates'
       ],
       cta: 'Start Trial',
       ctaTo: '/signup',
@@ -49,11 +54,11 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
       description: "For large organizations requiring advanced security and custom integrations.",
       features: [
         'Everything in Professional',
-        'Advanced security (RBAC)',
-        'Custom integrations',
-        'Dedicated support',
-        'API access',
-        'SLA guarantees'
+        'Advanced security & RBAC controls',
+        'Custom integrations & white-labeling',
+        'Dedicated support & account management',
+        'Full API access & webhooks',
+        'SLA guarantees & uptime commitments'
       ],
       cta: 'Contact Sales',
       ctaTo: '#',
@@ -93,12 +98,29 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
               <p className="mb-6 text-gray-700">{plan.description}</p>
               
               <ul className="mb-8 space-y-3 text-left">
-                {plan.features.map(feature => (
-                  <li key={feature} className="flex items-center text-gray-800">
-                    <CheckCircle2 className="w-4 h-4 text-indigo-500 mr-3 flex-shrink-0" />
-                    <span className="text-sm">{feature}</span>
-                  </li>
-                ))}
+                {plan.features.map((feature, index) => {
+                  const isLimitedFeature = typeof feature === 'object' && feature.limited;
+                  const featureText = typeof feature === 'string' ? feature : feature.text;
+                  const tooltip = typeof feature === 'object' ? feature.tooltip : null;
+                  
+                  return (
+                    <li key={index} className="flex items-start text-gray-800">
+                      <CheckCircle2 className={`w-4 h-4 mr-3 flex-shrink-0 mt-0.5 ${
+                        isLimitedFeature ? 'text-gray-400' : 'text-indigo-500'
+                      }`} />
+                      <div className="flex-1">
+                        <span className={`text-sm ${isLimitedFeature ? 'text-gray-500' : ''}`}>
+                          {featureText}
+                          {isLimitedFeature && (
+                            <span className="inline-flex items-center ml-1">
+                              <Info className="w-3 h-3 text-gray-400 cursor-help" title={tooltip} />
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
               
               {plan.isContact ? (
@@ -122,6 +144,14 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
               )}
             </div>
           ))}
+        </div>
+        
+        {/* Feature Comparison Link */}
+        <div className="mt-12 text-center">
+          <div className="inline-flex items-center space-x-2 text-gray-600 hover:text-indigo-600 transition-colors cursor-pointer">
+            <ExternalLink className="w-4 h-4" />
+            <span className="text-sm font-medium">See full feature comparison</span>
+          </div>
         </div>
       </div>
     </section>

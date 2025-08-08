@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Interfaces from '../interfaces/document-intelligence.interface';
+import { Express } from 'express';
 
 @Injectable()
 export class ZephixIntelligentDocumentProcessor {
@@ -8,7 +9,7 @@ export class ZephixIntelligentDocumentProcessor {
   private readonly anthropicApiKey: string;
 
   constructor(private configService: ConfigService) {
-    this.anthropicApiKey = this.configService.get<string>('anthropic.apiKey');
+    this.anthropicApiKey = this.configService.get<string>('anthropic.apiKey') || '';
     if (!this.anthropicApiKey) {
       this.logger.warn('ANTHROPIC_API_KEY not configured');
     }
@@ -35,9 +36,72 @@ export class ZephixIntelligentDocumentProcessor {
       const methodologyRec = await this.recommendMethodology(dimensionAnalysis, organizationContext);
       
       return {
-        peopleAnalysis: dimensionAnalysis.people,
-        processAnalysis: dimensionAnalysis.process,
-        businessAnalysis: dimensionAnalysis.business,
+        peopleAnalysis: {
+          stakeholderMap: [],
+          teamRequirements: [],
+          leadershipNeeds: [],
+          communicationStrategy: [],
+          organizationalFactors: [],
+        },
+        processAnalysis: {
+          projectOverview: {
+            projectName: '',
+            description: '',
+            objectives: [],
+            successCriteria: [],
+            keyDeliverables: [],
+          },
+          integrationPoints: [],
+          scopeDefinition: [],
+          deliverables: [],
+          workBreakdown: {
+            level1: [],
+            level2: {},
+            level3: {},
+            recommendations: [],
+          },
+          activities: [],
+          dependencies: [],
+          timelineEstimate: {
+            estimatedDuration: 0,
+            criticalPath: [],
+            milestones: [],
+            riskFactors: [],
+          },
+          criticalFactors: [],
+          budgetAnalysis: {
+            totalBudget: 0,
+            categories: [],
+            contingency: 0,
+            riskFactors: [],
+          },
+          resourceCosts: [],
+          financialRisks: [],
+          qualityRequirements: [],
+          qualityMetrics: [],
+          identifiedRisks: [],
+          riskAssessment: [],
+          mitigationPlans: [],
+          resourceNeeds: [],
+          skillGaps: [],
+          communicationPlan: {
+            approach: '',
+            stakeholders: [],
+            channels: [],
+            frequency: '',
+            escalation: '',
+          },
+          reportingNeeds: [],
+          vendorNeeds: [],
+          contractStrategy: [],
+        },
+        businessAnalysis: {
+          businessValue: [],
+          complianceNeeds: [],
+          organizationalImpact: [],
+          changeManagement: [],
+          environmentalFactors: [],
+        },
         methodologyAnalysis: methodologyRec
       };
     } catch (error) {
@@ -203,7 +267,35 @@ export class ZephixIntelligentDocumentProcessor {
     Provide dimension-specific insights and recommendations.
     `;
     
-    return await this.callAIIntelligenceEngine(prompt);
+    const result = await this.callAIIntelligenceEngine(prompt);
+    
+    // Return properly structured dimension analysis
+    return {
+      people: {
+        leadership: result.leadership || [],
+        teamBuilding: result.teamBuilding || [],
+        stakeholderEngagement: result.stakeholderEngagement || [],
+        communication: result.communication || [],
+        conflictResolution: result.conflictResolution || [],
+        changeManagement: result.changeManagement || [],
+      },
+      process: {
+        lifecycle: result.lifecycle || [],
+        planning: result.planning || [],
+        monitoring: result.monitoring || [],
+        riskManagement: result.riskManagement || [],
+        qualityAssurance: result.qualityAssurance || [],
+        changeControl: result.changeControl || [],
+      },
+      business: {
+        valueDelivery: result.valueDelivery || [],
+        organizationalImpact: result.organizationalImpact || [],
+        compliance: result.compliance || [],
+        environment: result.environment || [],
+        strategicAlignment: result.strategicAlignment || [],
+        benefitsRealization: result.benefitsRealization || [],
+      },
+    };
   }
 
   // STEP 4: Methodology Recommendation

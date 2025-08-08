@@ -31,13 +31,32 @@ export const AboutSection: React.FC = () => {
                 optimal execution plans.
               </p>
               <div className="border-l-4 border-indigo-500 pl-4 bg-indigo-50 p-4 rounded-r-lg">
-                <h4 className="font-semibold text-gray-900 mb-2">Designed for:</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">Where Zephix Excels</h4>
+                <p className="text-gray-700 mb-3">
+                  Zephix is built to handle the strategic complexity of a wide range of projects. While our AI is particularly adept at the challenges common in the following areas, its principles apply to any project requiring deep planning and resource optimization.
+                </p>
                 <ul className="space-y-2 text-gray-700">
-                  <li className="flex items-center"><CheckCircle className="w-4 h-4 text-green-500 mr-2" />Infrastructure & Cloud Projects</li>
-                  <li className="flex items-center"><CheckCircle className="w-4 h-4 text-green-500 mr-2" />Service Implementation</li>
-                  <li className="flex items-center"><CheckCircle className="w-4 h-4 text-green-500 mr-2" />Analytics & Dashboard Projects</li>
-                  <li className="flex items-center"><CheckCircle className="w-4 h-4 text-green-500 mr-2" />System Modernization</li>
+                  <li className="flex items-start"><CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Complex Technology Projects:</strong> From large-scale infrastructure deployments to system modernizations, Zephix automates planning and risk assessment.
+                    </div>
+                  </li>
+                  <li className="flex items-start"><CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Service & Product Rollouts:</strong> Streamline the implementation of new services or product launches with intelligent resource allocation and timeline optimization.
+                    </div>
+                  </li>
+                  <li className="flex items-start"><CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <strong>Data & Business Intelligence Initiatives:</strong> Gain strategic clarity on analytics projects, ensuring resources are aligned with business objectives.
+                    </div>
+                  </li>
                 </ul>
+                <div className="mt-4 p-3 bg-indigo-100 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <strong>The Takeaway:</strong> The core strength of Zephix lies in its ability to bring AI-powered strategic intelligence to any project—not just those listed here—that requires a proactive and data-driven approach to planning.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
