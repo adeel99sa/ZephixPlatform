@@ -37,8 +37,8 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
 
     // Listen on PORT provided by environment or default 3000
-    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-    await app.listen(port);
+    const port = process.env.PORT || 3000;
+    await app.listen(port, '0.0.0.0');
 
     logger.log(`🚀 Zephix Authentication Service running on port ${port}`);
     logger.log(
