@@ -8,8 +8,8 @@ export class TeamsIntegration {
   private readonly apiToken: string;
 
   constructor(private configService: ConfigService) {
-    this.webhookUrl = this.configService.get<string>('TEAMS_WEBHOOK_URL');
-    this.apiToken = this.configService.get<string>('TEAMS_API_TOKEN');
+    this.webhookUrl = this.configService.get<string>('TEAMS_WEBHOOK_URL') || '';
+    this.apiToken = this.configService.get<string>('TEAMS_API_TOKEN') || '';
   }
 
   async collectTeamsData(projectId: string, dateRange: { start: Date; end: Date }) {

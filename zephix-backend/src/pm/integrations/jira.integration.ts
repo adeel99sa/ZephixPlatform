@@ -9,9 +9,9 @@ export class JiraIntegration {
   private readonly email: string;
 
   constructor(private configService: ConfigService) {
-    this.baseUrl = this.configService.get<string>('JIRA_BASE_URL');
-    this.apiToken = this.configService.get<string>('JIRA_API_TOKEN');
-    this.email = this.configService.get<string>('JIRA_EMAIL');
+    this.baseUrl = this.configService.get<string>('JIRA_BASE_URL') || '';
+    this.apiToken = this.configService.get<string>('JIRA_API_TOKEN') || '';
+    this.email = this.configService.get<string>('JIRA_EMAIL') || '';
   }
 
   async collectProjectData(projectKey: string, dateRange: { start: Date; end: Date }) {
@@ -26,7 +26,7 @@ export class JiraIntegration {
         issues: mockData.issues,
         sprints: mockData.sprints,
         defects: mockData.defects,
-        velocity: mockData.velocity,
+        velocity: mockData.sprints.velocity,
         burndown: mockData.burndown,
         teamMetrics: mockData.teamMetrics,
       };
@@ -195,7 +195,13 @@ export class JiraIntegration {
   }
 
   private async getMockVelocityData(projectKey: string, period: number) {
-    const velocities = [];
+    const velocities: Array<{
+      sprint: string;
+      velocity: number;
+      storyPoints: number;
+      issues: number;
+    }> = [];
+    
     for (let i = 0; i < period; i++) {
       velocities.push({
         sprint: `Sprint ${period - i}`,

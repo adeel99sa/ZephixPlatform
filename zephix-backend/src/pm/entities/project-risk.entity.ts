@@ -13,6 +13,9 @@ export class ProjectRisk {
   @Column({ type: 'text', nullable: false })
   riskDescription: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  category: string;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   probability: 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
 

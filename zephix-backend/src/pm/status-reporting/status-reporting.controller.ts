@@ -113,10 +113,7 @@ export class StatusReportingController {
     @Query('limit') limit?: string,
   ): Promise<{ success: boolean; data: any[] }> {
     try {
-      const reports = await this.statusReportingService.getProjectMetrics(
-        projectId,
-        limit ? parseInt(limit) : undefined,
-      );
+      const reports = await this.statusReportingService.getProjectMetrics(projectId);
       
       return {
         success: true,
