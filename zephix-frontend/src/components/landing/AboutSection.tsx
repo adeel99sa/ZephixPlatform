@@ -5,10 +5,8 @@ export const AboutSection: React.FC = () => {
   return (
     <section id="about" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-
-          {/* Current Status */}
-          <div className="space-y-6">
+        {/* Current Status */}
+        <div className="space-y-6">
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <div className="flex items-center space-x-3 mb-4">
                 <Target className="w-6 h-6 text-indigo-600" />
