@@ -29,6 +29,10 @@ import { Risk } from './entities/risk.entity';
 import { RiskAssessment } from './entities/risk-assessment.entity';
 import { RiskResponse } from './entities/risk-response.entity';
 import { RiskMonitoring } from './entities/risk-monitoring.entity';
+import { Project } from '../projects/entities/project.entity';
+import { TeamMember } from '../projects/entities/team-member.entity';
+import { ClaudeService } from '../ai/claude.service';
+import { ProjectPermissionGuard } from '../projects/guards/project-permission.guard';
 import { JiraIntegration } from './integrations/jira.integration';
 import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
@@ -56,6 +60,8 @@ import { FinancialIntegration } from './integrations/financial.integration';
       RiskAssessment,
       RiskResponse,
       RiskMonitoring,
+      Project,
+      TeamMember,
     ]),
   ],
   controllers: [
@@ -70,7 +76,9 @@ import { FinancialIntegration } from './integrations/financial.integration';
     ZephixAIIntelligenceService, 
     AIChatService,
     ZephixIntelligentDocumentProcessor,
-    StatusReportingService,
+    // StatusReportingService, // <-- Comment this out temporarily
+    ClaudeService,
+    ProjectPermissionGuard,
     JiraIntegration,
     GitHubIntegration,
     TeamsIntegration,
