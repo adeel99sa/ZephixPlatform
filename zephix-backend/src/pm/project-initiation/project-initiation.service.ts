@@ -8,6 +8,7 @@ import { ProjectRisk } from '../entities/project-risk.entity';
 import { DocumentAnalysisDto } from './dto/document-analysis.dto';
 import { ProjectCharterDto } from './dto/project-charter.dto';
 import { StakeholderAnalysisDto } from './dto/stakeholder-analysis.dto';
+import type { Express } from 'express';
 
 @Injectable()
 export class ProjectInitiationService {

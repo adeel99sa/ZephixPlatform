@@ -12,6 +12,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZephixIntelligentDocumentProcessor } from '../services/document-intelligence.service';
 import * as Interfaces from '../interfaces/document-intelligence.interface';
+import type { Express } from 'express';
 
 @Controller('ai-intelligence')
 export class DocumentIntelligenceController {
