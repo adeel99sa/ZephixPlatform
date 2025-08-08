@@ -23,8 +23,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <span className="text-xl font-bold">ZEPHIX</span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
-              AI-powered project management for enterprise teams. Built by a practicing Program Manager 
-              to solve real PM problems.
+              AI-powered project management for enterprise teams.
             </p>
           </div>
 
