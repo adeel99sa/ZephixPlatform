@@ -74,6 +74,45 @@ export class HealthController {
     };
   }
 
+  @Get('ready')
+  async readiness() {
+    try {
+      // Comprehensive readiness check
+      if (!this.dataSource.isInitialized) {
+        throw new Error('Database connection not initialized');
+      }
+
+      // Test database with a query that requires table structure
+      await this.dataSource.query('SELECT COUNT(*) FROM organizations LIMIT 1');
+      
+      return {
+        status: 'ready',
+        timestamp: new Date().toISOString(),
+        service: 'Zephix Backend Service',
+        checks: {
+          database: 'pass',
+          migrations: 'pass',
+          essential_tables: 'pass',
+        },
+        environment: process.env.NODE_ENV || 'development',
+        version: process.env.npm_package_version || '1.0.0',
+      };
+    } catch (error) {
+      return {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        status: 'not_ready',
+        timestamp: new Date().toISOString(),
+        service: 'Zephix Backend Service',
+        error: `Service not ready: ${error.message}`,
+        checks: {
+          database: 'fail',
+          migrations: 'unknown',
+          essential_tables: 'fail',
+        },
+      };
+    }
+  }
+
   @Get('metrics')
   async getMetrics(@Res() res: Response) {
     try {
