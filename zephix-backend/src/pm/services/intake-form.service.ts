@@ -77,9 +77,9 @@ export class IntakeFormService {
         totalSubmissions: 0,
         conversionRate: 0,
       },
-    });
+    } as any);
 
-    return await this.formRepository.save(form);
+    return await this.formRepository.save(form) as any;
   }
 
   async updateForm(
@@ -176,9 +176,9 @@ export class IntakeFormService {
         },
       },
       dueDate: submissionDto.dueDate ? new Date(submissionDto.dueDate) : null,
-    });
+    } as any);
 
-    const savedSubmission = await this.submissionRepository.save(submission);
+    const savedSubmission = await this.submissionRepository.save(submission) as any;
 
     // Update form analytics
     form.incrementSubmissions();
@@ -374,7 +374,7 @@ export class IntakeFormService {
         results.success++;
       } catch (error) {
         results.failed++;
-        results.errors.push(`Failed to process ${submissionId}: ${error.message}`);
+        results.errors.push(`Failed to process ${submissionId}: ${error.message}` as never);
       }
     }
 
@@ -470,7 +470,7 @@ export class IntakeFormService {
     if (assignTo) {
       submission.assignedTo = assignTo;
       submission.addAutomationResult('assignment', {
-        assignedTo,
+        assignTo,
         reason: 'Auto-assignment based on form rules',
       });
       await this.submissionRepository.save(submission);
