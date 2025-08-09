@@ -40,18 +40,18 @@ async function bootstrap() {
       logger.log('⏸️  Skipping database migrations (RUN_MIGRATIONS_ON_BOOT=false)');
     }
 
-    // Enable CORS - customize origins for production only
+    // Configure CORS before Helmet and route setup
+    const allowed = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
     app.enableCors({
-      origin:
-        process.env.NODE_ENV === 'production'
-          ? [
-              'https://getzephix.com',
-              'https://zephix-frontend-production.up.railway.app',
-              process.env.RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL,
-            ].filter(Boolean) // Remove undefined values
-          : true,
+      origin: allowed.length > 0 ? allowed : true,
       credentials: true,
+      methods: 'GET,HEAD,POST,PUT,PATCH,DELETE',
+      allowedHeaders: 'Authorization,Content-Type',
+      optionsSuccessStatus: 204
     });
+
+    // Trust proxy for rate limiting and IP detection
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
     // Global Validation Pipe
     app.useGlobalPipes(
