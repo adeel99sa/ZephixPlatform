@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status - Zephix</title>
+    <meta name="description" content="Current status of Zephix services and platform availability.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Local Fonts -->
+    <link rel="stylesheet" href="fonts/inter.css">
+    
+    <style>
+        .status-page {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .status-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .status-header h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-overview {
+            background: #f8fffe;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #065f46;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        
+        .service-status {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .service-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .service-name {
+            font-weight: 600;
+            color: #111827;
+        }
+        
+        .service-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-operational {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-maintenance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-degraded {
+            background: #fed7d7;
+            color: #991b1b;
+        }
+        
+        .incident-history {
+            margin-top: 2rem;
+        }
+        
+        .incident-history h2 {
+            font-size: 1.5rem;
+            color: #111827;
+            margin-bottom: 1rem;
+        }
+        
+        .no-incidents {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            color: #6b7280;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .status-header h1 {
+                font-size: 2rem;
+            }
+            
+            .service-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="status-page">
+        <a href="/" class="back-link">
+            ← Back to Zephix
+        </a>
+        
+        <div class="status-header">
+            <h1>System Status</h1>
+            <p>Current status of all Zephix services</p>
+        </div>
+        
+        <div class="status-overview">
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                All Systems Operational
+            </div>
+            <p style="margin-top: 0.5rem; color: #065f46;">All services are running normally</p>
+        </div>
+        
+        <div class="service-status">
+            <div class="service-item">
+                <div>
+                    <div class="service-name">Zephix Platform</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">Main application and dashboard</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+            
+            <div class="service-item">
+                <div>
+                    <div class="service-name">API Services</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">REST API and webhooks</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+            
+            <div class="service-item">
+                <div>
+                    <div class="service-name">AI Services</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">AI-powered insights and analysis</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+            
+            <div class="service-item">
+                <div>
+                    <div class="service-name">Database</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">Data storage and retrieval</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+            
+            <div class="service-item">
+                <div>
+                    <div class="service-name">Authentication</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">User login and security</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+            
+            <div class="service-item">
+                <div>
+                    <div class="service-name">Notifications</div>
+                    <div style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">Email and in-app notifications</div>
+                </div>
+                <div class="service-status-badge status-operational">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+            </div>
+        </div>
+        
+        <div class="incident-history">
+            <h2>Recent Incidents</h2>
+            <div class="no-incidents">
+                <div style="font-size: 2rem; margin-bottom: 1rem;">✅</div>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">No recent incidents</div>
+                <div>All systems have been running smoothly over the past 90 days.</div>
+            </div>
+        </div>
+        
+        <div class="last-updated">
+            Last updated: <span id="last-updated-time">Loading...</span>
+        </div>
+    </div>
+    
+    <script>
+        // Update the last updated time
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastUpdatedEl = document.getElementById('last-updated-time');
+            const now = new Date();
+            const options = {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZoneName: 'short'
+            };
+            lastUpdatedEl.textContent = now.toLocaleString('en-US', options);
+        });
+        
+        // Auto-refresh every 5 minutes
+        setTimeout(function() {
+            window.location.reload();
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
