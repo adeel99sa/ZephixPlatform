@@ -6,11 +6,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { OrganizationSignupController } from './controllers/organization-signup.controller';
+import { OrganizationSignupService } from './services/organization-signup.service';
+import { EmailVerificationService } from './services/email-verification.service';
 import { User } from '../users/entities/user.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { EmailVerification } from './entities/email-verification.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { SharedModule } from '../shared/shared.module';
 
 /**
  * Authentication Module
@@ -26,7 +33,8 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification]),
+    SharedModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -39,9 +47,11 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, OrganizationSignupController],
   providers: [
     AuthService,
+    OrganizationSignupService,
+    EmailVerificationService,
     JwtStrategy,
     LocalStrategy,
     JwtAuthGuard,
@@ -49,6 +59,7 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
   ],
   exports: [
     AuthService,
+    EmailVerificationService,
     JwtAuthGuard,
     LocalAuthGuard,
     JwtStrategy,

@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { RiskResponse } from './risk-response.entity';
 import { RiskMonitoring } from './risk-monitoring.entity';
 
@@ -14,6 +15,13 @@ export class Risk {
 
   @Column('uuid')
   projectId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column('varchar', { length: 255 })
   title: string;

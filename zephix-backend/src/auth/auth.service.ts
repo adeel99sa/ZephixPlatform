@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EmailVerificationService } from './services/email-verification.service';
 
 /**
  * Authentication Service
@@ -31,11 +33,14 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
   async register(
     registerDto: RegisterDto,
-  ): Promise<{ user: User; accessToken: string }> {
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ user: User; accessToken: string; requiresEmailVerification: boolean }> {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user exists
@@ -49,24 +54,37 @@ export class AuthService {
     // Hash password with bcrypt (12 salt rounds for security)
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Create user (email verification required)
     const user = this.userRepository.create({
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName,
       lastName,
       isActive: true,
+      isEmailVerified: false, // Email verification required
     });
 
     const savedUser = await this.userRepository.save(user);
 
-    // Generate JWT token
+    // Send verification email
+    await this.emailVerificationService.sendVerificationEmail(
+      savedUser,
+      ipAddress,
+      userAgent,
+    );
+
+    // Generate JWT token (user can have token but limited access until verified)
     const accessToken = this.jwtService.sign({
       sub: savedUser.id,
       email: savedUser.email,
+      emailVerified: savedUser.isEmailVerified,
     });
 
-    return { user: savedUser, accessToken };
+    return { 
+      user: savedUser, 
+      accessToken,
+      requiresEmailVerification: true,
+    };
   }
 
   async login(
@@ -94,10 +112,18 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
+    // Check if email is verified (enterprise security requirement)
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException(
+        'Email verification required. Please check your email and verify your account before logging in.',
+      );
+    }
+
     // Generate JWT token
     const accessToken = this.jwtService.sign({
       sub: user.id,
       email: user.email,
+      emailVerified: user.isEmailVerified,
     });
 
     return { user, accessToken };

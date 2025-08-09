@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('pm_knowledge_chunks')
 @Index(['domain', 'subdomain'])
@@ -6,6 +7,13 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 export class PMKnowledgeChunk {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column('uuid', { nullable: true })
+  organizationId: string;
+
+  @ManyToOne(() => Organization, { nullable: true })
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column({ type: 'text', nullable: false })
   content: string;

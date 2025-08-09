@@ -6,9 +6,11 @@ import {
   UpdateDateColumn,
   OneToOne,
   OneToMany,
+  ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { Project } from './project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { TeamMember } from './team-member.entity';
 
 @Entity('teams')
@@ -28,6 +30,13 @@ export class Team {
 
   @Column({ name: 'project_id' })
   projectId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @OneToMany(() => TeamMember, (teamMember) => teamMember.team, {
     cascade: true,

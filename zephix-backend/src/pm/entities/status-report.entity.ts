@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('status_reports')
 @Index(['projectId', 'reportingPeriodStart'])
@@ -11,6 +12,13 @@ export class StatusReport {
 
   @Column('uuid')
   projectId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column('date')
   reportingPeriodStart: Date;

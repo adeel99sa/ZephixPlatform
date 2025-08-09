@@ -32,11 +32,13 @@ export class ProjectsService {
   async create(
     createProjectDto: CreateProjectDto,
     user: User,
+    organizationId: string,
   ): Promise<Project> {
     // Create project
     const project = this.projectRepository.create({
       ...createProjectDto,
       createdBy: user,
+      organizationId,
     });
 
     const savedProject = await this.projectRepository.save(project);
@@ -46,6 +48,7 @@ export class ProjectsService {
       name: `${savedProject.name} Team`,
       description: `Team for ${savedProject.name} project`,
       project: savedProject,
+      organizationId,
     });
 
     const savedTeam = await this.teamRepository.save(team);
@@ -59,6 +62,7 @@ export class ProjectsService {
         team: savedTeam,
         user,
         role: adminRole,
+        organizationId,
         joinedAt: new Date(),
       });
       await this.teamMemberRepository.save(teamMember);
@@ -67,7 +71,7 @@ export class ProjectsService {
     return this.findOne(savedProject.id);
   }
 
-  async findAll(user: User): Promise<Project[]> {
+  async findAll(user: User, organizationId: string): Promise<Project[]> {
     return this.projectRepository
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.team', 'team')
@@ -76,6 +80,7 @@ export class ProjectsService {
       .leftJoinAndSelect('members.role', 'memberRole')
       .leftJoinAndSelect('project.createdBy', 'createdBy')
       .where('members.userId = :userId', { userId: user.id })
+      .andWhere('project.organizationId = :organizationId', { organizationId })
       .getMany();
   }
 

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { ProjectTask } from './project-task.entity';
 import { ProjectRisk } from './project-risk.entity';
 import { ProjectStakeholder } from './project-stakeholder.entity';
@@ -13,6 +14,13 @@ export class UserProject {
 
   @Column({ type: 'uuid', nullable: false })
   userId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column({ type: 'varchar', length: 200, nullable: false })
   name: string;

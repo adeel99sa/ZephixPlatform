@@ -31,6 +31,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User } from '../../users/entities/user.entity';
 import { RequirePermissions } from '../decorators/project-permissions.decorator';
 import { RoleType } from '../entities/role.entity';
+import { OrganizationGuard } from '../../organizations/guards/organization.guard';
+import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 import {
   ProjectsListResponseDto,
   SingleProjectResponseDto,
@@ -50,8 +52,8 @@ import {
  * @version 1.0.0
  */
 @ApiTags('Projects')
-@Controller('projects')
-@UseGuards(AuthGuard('jwt'))
+@Controller('api/pm/projects')
+@UseGuards(AuthGuard('jwt'), OrganizationGuard)
 @ApiBearerAuth()
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
@@ -90,9 +92,10 @@ export class ProjectsController {
   async create(
     @Body() createProjectDto: CreateProjectDto,
     @CurrentUser() user: User,
+    @CurrentOrg() organizationId: string,
   ): Promise<ProjectCreationResponseDto> {
     try {
-      const project = await this.projectsService.create(createProjectDto, user);
+      const project = await this.projectsService.create(createProjectDto, user, organizationId);
       return {
         message: 'Project created successfully',
         project,
@@ -131,9 +134,12 @@ export class ProjectsController {
     status: 401,
     description: 'Unauthorized - Invalid or missing JWT token',
   })
-  async findAll(@CurrentUser() user: User): Promise<ProjectsListResponseDto> {
+  async findAll(
+    @CurrentUser() user: User,
+    @CurrentOrg() organizationId: string,
+  ): Promise<ProjectsListResponseDto> {
     try {
-      const projects = await this.projectsService.findAll(user);
+      const projects = await this.projectsService.findAll(user, organizationId);
       return {
         message: 'Projects retrieved successfully',
         projects,
