@@ -6,7 +6,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "prebuild": "npm run build:metadata",
     "build": "nest build",
+    "build:metadata": "echo \"export const BUILD_METADATA = { sha: '$(git rev-parse HEAD 2>/dev/null || echo \"unknown\")', timestamp: '$(date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\")' };\" > src/build-metadata.ts",
     "start": "node dist/src/main.js",
     "dev": "ts-node src/main.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
