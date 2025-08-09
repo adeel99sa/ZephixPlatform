@@ -4,6 +4,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as crypto from 'crypto'; // Proper import of crypto
+import rateLimit from 'express-rate-limit';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -52,6 +53,32 @@ async function bootstrap() {
           : true,
       credentials: true,
     });
+
+    // Configure rate limiting
+    const enabled = process.env.RATE_LIMIT_ENABLED === 'true';
+    const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+    const max = Number(process.env.RATE_LIMIT_MAX || 100);
+    
+    if (enabled) {
+      logger.log(`⚡ Rate limiting enabled: ${max} requests per ${windowMs}ms window`);
+      app.use(rateLimit({
+        windowMs,
+        max,
+        skip: req => req.path === '/api/health',
+        standardHeaders: true,
+        legacyHeaders: false,
+        handler: (req, res) => {
+          logger.warn(`🚫 Rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
+          res.status(429).json({
+            statusCode: 429,
+            message: 'Too Many Requests',
+            error: 'Rate limit exceeded'
+          });
+        }
+      }));
+    } else {
+      logger.log('⚡ Rate limiting disabled');
+    }
 
     // Global Validation Pipe
     app.useGlobalPipes(
