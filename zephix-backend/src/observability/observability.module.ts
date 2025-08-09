@@ -2,6 +2,8 @@ import { Module, Global } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { MetricsService } from './metrics.service';
 import { MetricsController } from './metrics.controller';
+import { LoggerService } from './logger.service';
+import { TelemetryService } from './telemetry.service';
 import { pinoConfig } from './logger.config';
 
 @Global()
@@ -9,8 +11,8 @@ import { pinoConfig } from './logger.config';
   imports: [
     LoggerModule.forRoot(pinoConfig),
   ],
-  providers: [MetricsService],
+  providers: [MetricsService, LoggerService, TelemetryService],
   controllers: [MetricsController],
-  exports: [MetricsService, LoggerModule],
+  exports: [MetricsService, LoggerService, TelemetryService, LoggerModule],
 })
 export class ObservabilityModule {}
