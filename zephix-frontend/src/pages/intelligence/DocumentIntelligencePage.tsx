@@ -14,12 +14,10 @@ const DocumentIntelligencePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <DocumentIntelligence 
-        onAnalysisComplete={handleAnalysisComplete}
-        onError={handleError}
-      />
-    </div>
+    <DocumentIntelligence 
+      onAnalysisComplete={handleAnalysisComplete}
+      onError={handleError}
+    />
   );
 };
 
