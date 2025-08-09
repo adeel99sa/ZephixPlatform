@@ -1,0 +1,13 @@
+# Redirect www to apex domain
+https://www.getzephix.com/* https://getzephix.com/:splat 301!
+
+# Redirect HTTP to HTTPS
+http://getzephix.com/* https://getzephix.com/:splat 301!
+http://www.getzephix.com/* https://getzephix.com/:splat 301!
+
+# Clean URLs
+/privacy /privacy.html 200
+/terms /terms.html 200
+
+# 404 fallback
+/* /404.html 404

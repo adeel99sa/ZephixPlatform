@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zephix - AI-Powered Project Management Platform</title>
+    <meta name="description" content="Transform your project management with AI. Zephix provides intelligent insights, automated reporting, and risk management for modern teams.">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://getzephix.com/">
+    <meta property="og:title" content="Zephix - AI-Powered Project Management Platform">
+    <meta property="og:description" content="Transform your project management with AI. Zephix provides intelligent insights, automated reporting, and risk management for modern teams.">
+    <meta property="og:image" content="https://getzephix.com/og-image.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://getzephix.com/">
+    <meta property="twitter:title" content="Zephix - AI-Powered Project Management Platform">
+    <meta property="twitter:description" content="Transform your project management with AI. Zephix provides intelligent insights, automated reporting, and risk management for modern teams.">
+    <meta property="twitter:image" content="https://getzephix.com/og-image.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Analytics Scripts - Only load in production -->
+    <script>
+        // Check if we're in production (not localhost or file://)
+        const isProduction = window.location.hostname !== 'localhost' && 
+                            window.location.hostname !== '127.0.0.1' && 
+                            !window.location.hostname.includes('netlify.app') && // Remove this if you want analytics on Netlify previews
+                            window.location.protocol !== 'file:';
+        
+        // Analytics configuration
+        const analytics = {
+            plausible: {
+                enabled: true,
+                domain: 'getzephix.com', // Replace with your domain
+                src: 'https://plausible.io/js/script.js' // Or your self-hosted instance
+            },
+            googleAnalytics: {
+                enabled: false, // Set to true to enable GA
+                measurementId: 'G-XXXXXXXXXX', // Replace with your GA4 measurement ID
+                requireConsent: true // Set to false to load GA without cookie banner
+            }
+        };
+    </script>
+    
+    <!-- Plausible Analytics -->
+    <script>
+        if (isProduction && analytics.plausible.enabled) {
+            const plausibleScript = document.createElement('script');
+            plausibleScript.defer = true;
+            plausibleScript.setAttribute('data-domain', analytics.plausible.domain);
+            plausibleScript.src = analytics.plausible.src;
+            document.head.appendChild(plausibleScript);
+        }
+    </script>
+    
+    <!-- Google Analytics (GA4) -->
+    <script>
+        if (isProduction && analytics.googleAnalytics.enabled) {
+            // Check for cookie consent first
+            function loadGoogleAnalytics() {
+                // Google tag (gtag.js)
+                const gtagScript = document.createElement('script');
+                gtagScript.async = true;
+                gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${analytics.googleAnalytics.measurementId}`;
+                document.head.appendChild(gtagScript);
+                
+                // Initialize gtag
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', analytics.googleAnalytics.measurementId, {
+                    cookie_flags: 'SameSite=None;Secure',
+                    anonymize_ip: true
+                });
+                
+                // Make gtag available globally
+                window.gtag = gtag;
+            }
+            
+            // Load GA immediately if no cookie banner, or wait for consent
+            if (!analytics.googleAnalytics.requireConsent) {
+                loadGoogleAnalytics();
+            } else {
+                // Wait for cookie consent - will be handled by cookie banner
+                window.loadGoogleAnalytics = loadGoogleAnalytics;
+            }
+        }
+    </script>
+</head>
+<body>
+    <!-- Cookie Banner (shows only if Google Analytics is enabled) -->
+    <div id="cookie-banner" class="cookie-banner" style="display: none;">
+        <div class="cookie-content">
+            <div class="cookie-text">
+                <h4>🍪 We use cookies</h4>
+                <p>We use cookies to analyze website traffic and optimize your experience. By accepting, you consent to our use of cookies for analytics.</p>
+            </div>
+            <div class="cookie-actions">
+                <button id="cookie-accept" class="cookie-btn cookie-accept">Accept</button>
+                <button id="cookie-decline" class="cookie-btn cookie-decline">Decline</button>
+                <a href="/privacy.html" class="cookie-link">Privacy Policy</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <img src="/logo.svg" alt="Zephix" class="logo">
+                <span class="brand-name">Zephix</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="/privacy.html">Privacy</a>
+                <a href="/terms.html">Terms</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">AI-Powered Project Management for Modern Teams</h1>
+                <p class="hero-subtitle">
+                    Transform your project workflows with intelligent insights, automated reporting, 
+                    and predictive risk management. Join the future of project management.
+                </p>
+                
+                <!-- Waitlist Form -->
+                <div class="waitlist-form">
+                    <h3>Join the Waitlist</h3>
+                    <p>Be the first to know when Zephix launches. Get early access and exclusive updates.</p>
+                    
+                    <!-- Success Message (hidden by default) -->
+                    <div id="success-message" class="success-message" style="display: none;">
+                        <div class="success-icon">✅</div>
+                        <h4>You're on the list!</h4>
+                        <p>Thanks for joining! We've sent you a confirmation email. Please check your inbox and click the link to confirm your subscription.</p>
+                    </div>
+                    
+                    <!-- ConvertKit Form -->
+                    <form id="waitlist-form" action="https://app.convertkit.com/forms/YOUR_FORM_ID/subscriptions" method="post" class="form" data-sv-form="YOUR_FORM_ID">
+                        <div class="form-group">
+                            <input 
+                                type="email" 
+                                name="email_address" 
+                                placeholder="Enter your email address" 
+                                required 
+                                class="email-input"
+                                id="email-input"
+                            >
+                            <button type="submit" class="submit-btn" id="submit-btn">
+                                <span class="btn-text">Join Waitlist</span>
+                                <span class="btn-loading" style="display: none;">Joining...</span>
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <select name="fields[role]" class="role-select" id="role-select">
+                                <option value="">Select your role (optional)</option>
+                                <option value="Project Manager">Project Manager</option>
+                                <option value="Product Manager">Product Manager</option>
+                                <option value="Team Lead">Team Lead</option>
+                                <option value="Developer">Developer</option>
+                                <option value="Designer">Designer</option>
+                                <option value="Founder/CEO">Founder/CEO</option>
+                                <option value="Operations">Operations</option>
+                                <option value="Consultant">Consultant</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Double Opt-in Notice -->
+                        <div class="double-optin-notice">
+                            <p><strong>📧 Double Opt-in Required:</strong> After submitting, you'll receive a confirmation email. Please click the link in that email to complete your subscription and ensure you receive our updates.</p>
+                        </div>
+                        
+                        <p class="form-disclaimer">
+                            By joining, you agree to our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>. You can unsubscribe at any time.
+                        </p>
+                        
+                        <!-- Hidden fields for ConvertKit -->
+                        <input type="hidden" name="utf8" value="✓">
+                        <input type="hidden" name="authenticity_token" value="">
+                    </form>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="dashboard-preview">
+                    <div class="preview-header">
+                        <div class="preview-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span class="preview-title">Zephix Dashboard</span>
+                    </div>
+                    <div class="preview-content">
+                        <div class="preview-card">
+                            <h4>🎯 Project Insights</h4>
+                            <p>AI-driven analytics</p>
+                        </div>
+                        <div class="preview-card">
+                            <h4>⚡ Smart Automation</h4>
+                            <p>Intelligent workflows</p>
+                        </div>
+                        <div class="preview-card">
+                            <h4>🛡️ Risk Management</h4>
+                            <p>Predictive monitoring</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Zephix?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Powered Insights</h3>
+                    <p>Get intelligent project analytics and recommendations powered by advanced AI algorithms.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Automated Reporting</h3>
+                    <p>Generate comprehensive project reports automatically with real-time data and trends.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚠️</div>
+                    <h3>Risk Management</h3>
+                    <p>Identify and mitigate project risks before they become problems with predictive analytics.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Smart Integrations</h3>
+                    <p>Connect with your favorite tools including Jira, GitHub, Slack, and more.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">👥</div>
+                    <h3>Team Collaboration</h3>
+                    <p>Enhanced team communication and collaboration with AI-assisted workflows.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Performance Tracking</h3>
+                    <p>Monitor team performance and project health with advanced metrics and KPIs.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Starter</h3>
+                    <div class="price">$19<span>/month</span></div>
+                    <ul class="pricing-features">
+                        <li>Up to 5 projects</li>
+                        <li>Basic AI insights</li>
+                        <li>Standard support</li>
+                        <li>Core integrations</li>
+                    </ul>
+                    <button class="pricing-btn">Get Started</button>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="popular-badge">Most Popular</div>
+                    <h3>Professional</h3>
+                    <div class="price">$49<span>/month</span></div>
+                    <ul class="pricing-features">
+                        <li>Unlimited projects</li>
+                        <li>Advanced AI features</li>
+                        <li>Priority support</li>
+                        <li>All integrations</li>
+                        <li>Custom reporting</li>
+                    </ul>
+                    <button class="pricing-btn">Get Started</button>
+                </div>
+                <div class="pricing-card">
+                    <h3>Enterprise</h3>
+                    <div class="price">Custom</div>
+                    <ul class="pricing-features">
+                        <li>Everything in Professional</li>
+                        <li>Custom AI models</li>
+                        <li>Dedicated support</li>
+                        <li>On-premise deployment</li>
+                        <li>Custom integrations</li>
+                    </ul>
+                    <button class="pricing-btn">Contact Sales</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="/logo.svg" alt="Zephix" class="logo">
+                    <span class="brand-name">Zephix</span>
+                    <p>AI-powered project management for modern teams.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <a href="#features">Features</a>
+                        <a href="#pricing">Pricing</a>
+                        <a href="#">Documentation</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <a href="#">About</a>
+                        <a href="#">Blog</a>
+                        <a href="#">Careers</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <a href="/privacy.html">Privacy Policy</a>
+                        <a href="/terms.html">Terms of Service</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Zephix. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ConvertKit Script -->
+    <script src="https://f.convertkit.com/ckjs/ck.5.js"></script>
+    
+    <!-- Form Handling Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('waitlist-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            const successMessage = document.getElementById('success-message');
+            
+            // Handle form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Get form data
+                const formData = new FormData(form);
+                const email = formData.get('email_address');
+                const role = formData.get('fields[role]');
+                
+                // Validate email
+                if (!email || !isValidEmail(email)) {
+                    showError('Please enter a valid email address.');
+                    return;
+                }
+                
+                // Show loading state
+                setLoadingState(true);
+                
+                // Submit to ConvertKit
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'no-cors' // ConvertKit handles CORS
+                })
+                .then(() => {
+                    // Show success message
+                    showSuccess();
+                })
+                .catch((error) => {
+                    console.error('Form submission error:', error);
+                    // Still show success as no-cors doesn't give us response details
+                    showSuccess();
+                });
+            });
+            
+            function setLoadingState(loading) {
+                if (loading) {
+                    submitBtn.disabled = true;
+                    btnText.style.display = 'none';
+                    btnLoading.style.display = 'inline';
+                    submitBtn.style.opacity = '0.7';
+                } else {
+                    submitBtn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnLoading.style.display = 'none';
+                    submitBtn.style.opacity = '1';
+                }
+            }
+            
+            function showSuccess() {
+                // Hide the form
+                form.style.display = 'none';
+                
+                // Show success message
+                successMessage.style.display = 'block';
+                
+                // Scroll to success message
+                successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Reset loading state (in case user refreshes)
+                setTimeout(() => {
+                    setLoadingState(false);
+                }, 1000);
+                
+                // Track analytics events
+                trackEvent('waitlist_signup', {
+                    method: 'form_submission',
+                    email_domain: email.split('@')[1]
+                });
+                
+                // Track with Facebook Pixel (if you have it)
+                if (typeof fbq !== 'undefined') {
+                    fbq('track', 'Lead');
+                }
+            }
+            
+            function showError(message) {
+                alert(message); // Simple error handling
+                setLoadingState(false);
+            }
+            
+            function isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+            
+            // Add real-time email validation
+            const emailInput = document.getElementById('email-input');
+            emailInput.addEventListener('blur', function() {
+                if (this.value && !isValidEmail(this.value)) {
+                    this.style.borderColor = '#ef4444';
+                    this.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+                } else {
+                    this.style.borderColor = '';
+                    this.style.boxShadow = '';
+                }
+            });
+            
+            emailInput.addEventListener('input', function() {
+                // Reset border on input
+                this.style.borderColor = '';
+                this.style.boxShadow = '';
+            });
+            
+            // Cookie Banner Management
+            initializeCookieBanner();
+            
+            // Analytics helper function
+            window.trackEvent = function(eventName, parameters = {}) {
+                // Plausible Analytics
+                if (typeof plausible !== 'undefined') {
+                    plausible(eventName, { props: parameters });
+                }
+                
+                // Google Analytics
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', eventName, parameters);
+                }
+                
+                console.log('Analytics Event:', eventName, parameters);
+            };
+        });
+        
+        function initializeCookieBanner() {
+            // Only show cookie banner if Google Analytics is enabled
+            if (!analytics.googleAnalytics.enabled || !isProduction) {
+                return;
+            }
+            
+            const banner = document.getElementById('cookie-banner');
+            const acceptBtn = document.getElementById('cookie-accept');
+            const declineBtn = document.getElementById('cookie-decline');
+            
+            // Check if user has already made a choice
+            const cookieConsent = localStorage.getItem('cookieConsent');
+            
+            if (cookieConsent === 'accepted') {
+                // Load GA if previously accepted
+                if (window.loadGoogleAnalytics) {
+                    window.loadGoogleAnalytics();
+                }
+            } else if (cookieConsent === 'declined') {
+                // Don't show banner if previously declined
+                return;
+            } else {
+                // Show banner for new users
+                banner.style.display = 'block';
+                
+                // Add slide-in animation
+                setTimeout(() => {
+                    banner.classList.add('show');
+                }, 100);
+            }
+            
+            // Handle accept
+            acceptBtn.addEventListener('click', function() {
+                localStorage.setItem('cookieConsent', 'accepted');
+                hideCookieBanner();
+                
+                // Load Google Analytics
+                if (window.loadGoogleAnalytics) {
+                    window.loadGoogleAnalytics();
+                }
+                
+                // Track consent
+                setTimeout(() => {
+                    trackEvent('cookie_consent', { consent: 'accepted' });
+                }, 1000);
+            });
+            
+            // Handle decline
+            declineBtn.addEventListener('click', function() {
+                localStorage.setItem('cookieConsent', 'declined');
+                hideCookieBanner();
+                
+                trackEvent('cookie_consent', { consent: 'declined' });
+            });
+            
+            function hideCookieBanner() {
+                banner.classList.add('hide');
+                setTimeout(() => {
+                    banner.style.display = 'none';
+                }, 300);
+            }
+        }
+    </script>
+</body>
+</html>

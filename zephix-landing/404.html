@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found - Zephix</title>
+    <meta name="description" content="The page you're looking for doesn't exist. Return to Zephix homepage.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        .error-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, var(--background) 0%, var(--background-light) 100%);
+        }
+        
+        .error-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .error-code {
+            font-size: 8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+        
+        .error-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .error-description {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .error-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-block;
+        }
+        
+        .error-btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .error-btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .error-btn-secondary {
+            background: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+        
+        .error-btn-secondary:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .error-visual {
+            margin: 2rem 0;
+            font-size: 4rem;
+            opacity: 0.6;
+        }
+        
+        .helpful-links {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .helpful-links h3 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .helpful-links ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .helpful-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .helpful-links a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 6rem;
+            }
+            
+            .error-title {
+                font-size: 2rem;
+            }
+            
+            .error-description {
+                font-size: 1.125rem;
+            }
+            
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .helpful-links ul {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <img src="/logo.svg" alt="Zephix" class="logo">
+                <span class="brand-name">Zephix</span>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/#features">Features</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/privacy.html">Privacy</a>
+                <a href="/terms.html">Terms</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="error-page">
+        <div class="error-content">
+            <div class="error-code">404</div>
+            <h1 class="error-title">Page Not Found</h1>
+            <p class="error-description">
+                Oops! The page you're looking for seems to have wandered off into the digital void. 
+                Don't worry, even our AI couldn't predict this one!
+            </p>
+            
+            <div class="error-visual">🤖💭</div>
+            
+            <div class="error-actions">
+                <a href="/" class="error-btn error-btn-primary">Go Home</a>
+                <a href="javascript:history.back()" class="error-btn error-btn-secondary">Go Back</a>
+            </div>
+            
+            <div class="helpful-links">
+                <h3>Looking for something specific?</h3>
+                <ul>
+                    <li><a href="/#features">Features</a></li>
+                    <li><a href="/#pricing">Pricing</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="/logo.svg" alt="Zephix" class="logo">
+                    <span class="brand-name">Zephix</span>
+                    <p>AI-powered project management for modern teams.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Product</h4>
+                        <a href="/#features">Features</a>
+                        <a href="/#pricing">Pricing</a>
+                        <a href="#">Documentation</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Company</h4>
+                        <a href="#">About</a>
+                        <a href="#">Blog</a>
+                        <a href="#">Careers</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <a href="/privacy.html">Privacy Policy</a>
+                        <a href="/terms.html">Terms of Service</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Zephix. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

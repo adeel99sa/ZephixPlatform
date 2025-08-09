@@ -1,0 +1,40 @@
+{
+  "name": "zephix-landing",
+  "version": "1.0.0",
+  "description": "Static landing page for Zephix AI-powered project management platform",
+  "main": "index.html",
+  "scripts": {
+    "test": "./test-local.sh",
+    "lint:html": "html-validate *.html",
+    "lint:htmlhint": "htmlhint *.html",
+    "lint": "npm run lint:html && npm run lint:htmlhint",
+    "serve": "python3 -m http.server 8000",
+    "validate": "npm run lint && npm run check:links",
+    "check:links": "node -e \"console.log('Link checking requires test script')\"",
+    "build": "echo 'Static site - no build step required'",
+    "deploy:netlify": "netlify deploy --prod --dir .",
+    "deploy:vercel": "vercel --prod"
+  },
+  "keywords": [
+    "landing-page",
+    "static-site",
+    "ai",
+    "project-management",
+    "zephix"
+  ],
+  "author": "Zephix Team",
+  "license": "MIT",
+  "devDependencies": {
+    "html-validate": "^8.0.0",
+    "htmlhint": "^1.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adeel99sa/ZephixPlatform.git",
+    "directory": "zephix-landing"
+  },
+  "homepage": "https://getzephix.com"
+}
