@@ -74,6 +74,7 @@ if (!(global as any).crypto) {
             type: 'postgres',
             url: databaseUrl,
             entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
+            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: true, // Auto-run migrations on startup
             logging: isProduction
@@ -106,6 +107,7 @@ if (!(global as any).crypto) {
             password: configService.get('database.password'),
             database: configService.get('database.database'),
             entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
+            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
             extra: {
