@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -11,6 +12,19 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Handle messages from navigation state (e.g., from email verification)
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.message) {
+      setSuccessMessage(state.message);
+      if (state.email) {
+        setFormData(prev => ({ ...prev, email: state.email }));
+      }
+    }
+  }, [location.state]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -22,27 +36,51 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
-      // TODO: Integrate with backend API
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store in localStorage for demo purposes
-      const logins = JSON.parse(localStorage.getItem('logins') || '[]');
-      logins.push({
-        email: formData.email,
-        timestamp: new Date().toISOString()
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
-      localStorage.setItem('logins', JSON.stringify(logins));
-      
-      setIsSubmitted(true);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    } catch (error) {
-      console.error('Error signing in:', error);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store token
+        localStorage.setItem('token', data.accessToken);
+        
+        setIsSubmitted(true);
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        if (response.status === 403 && data.message?.includes('Email verification required')) {
+          // Email verification required
+          setError(data.message);
+          // Show link to resend verification
+          setTimeout(() => {
+            navigate('/auth/pending-verification', {
+              state: {
+                email: formData.email,
+                message: 'Please verify your email address before logging in.',
+              },
+            });
+          }, 3000);
+        } else {
+          setError(data.message || 'Login failed. Please try again.');
+        }
+      }
+    } catch (err) {
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -86,6 +124,31 @@ export const LoginPage: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex">
+                    <CheckCircle2 className="h-5 w-5 text-green-400 mr-2" />
+                    <p className="text-sm text-green-800">{successMessage}</p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                    <div>
+                      <p className="text-sm text-red-800">{error}</p>
+                      {error.includes('Email verification required') && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Redirecting to verification page in 3 seconds...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Email address

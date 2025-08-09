@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SentryErrorBoundary } from './components/ErrorBoundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { ProtectedLayout } from './components/layout/ProtectedLayout';
 import { initSentry, setSentryTags, setSentryContext } from './config/sentry';
 
 // Lazy load page components for code splitting
@@ -10,12 +11,28 @@ const ProjectsDashboard = lazy(() => import('./pages/projects/ProjectsDashboard'
 const AIDashboard = lazy(() => import('./pages/dashboard/AIDashboard').then(module => ({ default: module.AIDashboard })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
 const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
+const EmailVerificationPage = lazy(() => import('./pages/auth/EmailVerificationPage').then(module => ({ default: module.default })));
+const PendingVerificationPage = lazy(() => import('./pages/auth/PendingVerificationPage').then(module => ({ default: module.default })));
 
 // Document Intelligence
 const DocumentIntelligencePage = lazy(() => import('./pages/intelligence/DocumentIntelligencePage').then(module => ({ default: module.default })));
 
+// Organizations
+const TeamManagement = lazy(() => import('./pages/organizations/TeamManagement').then(module => ({ default: module.default })));
+const OrganizationSettings = lazy(() => import('./pages/organizations/OrganizationSettings').then(module => ({ default: module.default })));
+
+// BRD
+const BRDUpload = lazy(() => import('./pages/brd/BRDUpload').then(module => ({ default: module.default })));
+
 // Project Management
 const ProjectStatusPage = lazy(() => import('./pages/pm/project/[id]/status').then(module => ({ default: module.default })));
+
+// Workflow Framework
+const WorkflowTemplateList = lazy(() => import('./pages/WorkflowTemplateList').then(module => ({ default: module.WorkflowTemplateList })));
+const WorkflowTemplateBuilder = lazy(() => import('./pages/WorkflowTemplateBuilder').then(module => ({ default: module.WorkflowTemplateBuilder })));
+const IntakeFormList = lazy(() => import('./pages/IntakeFormList').then(module => ({ default: module.IntakeFormList })));
+const IntakeFormBuilder = lazy(() => import('./pages/IntakeFormBuilder').then(module => ({ default: module.IntakeFormBuilder })));
+const PublicIntakeForm = lazy(() => import('./pages/PublicIntakeForm').then(module => ({ default: module.PublicIntakeForm })));
 
 // Additional pages
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage').then(module => ({ default: module.RoadmapPage })));
@@ -71,21 +88,96 @@ export default function App() {
             {/* Landing page */}
             <Route path="/" element={<LandingPage />} />
 
-            {/* Project management dashboard */}
-            <Route path="/projects" element={<ProjectsDashboard />} />
+            {/* Protected routes with new layout */}
+            <Route path="/dashboard" element={
+              <ProtectedLayout currentPage="Dashboard" noPadding>
+                <AIDashboard />
+              </ProtectedLayout>
+            } />
 
-            {/* Project status reporting */}
-            <Route path="/projects/:id/status" element={<ProjectStatusPage />} />
+            <Route path="/projects" element={
+              <ProtectedLayout currentPage="Projects">
+                <ProjectsDashboard />
+              </ProtectedLayout>
+            } />
 
-            {/* AI co-pilot dashboard */}
-            <Route path="/dashboard" element={<AIDashboard />} />
+            <Route path="/projects/:id/status" element={
+              <ProtectedLayout currentPage="Project Status">
+                <ProjectStatusPage />
+              </ProtectedLayout>
+            } />
 
-            {/* Document Intelligence */}
-            <Route path="/intelligence" element={<DocumentIntelligencePage />} />
+            <Route path="/intelligence" element={
+              <ProtectedLayout currentPage="Document Intelligence">
+                <DocumentIntelligencePage />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/organizations/team" element={
+              <ProtectedLayout currentPage="Team Management">
+                <TeamManagement />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/organizations/settings" element={
+              <ProtectedLayout currentPage="Organization Settings">
+                <OrganizationSettings />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/brd/upload" element={
+              <ProtectedLayout currentPage="BRD Upload">
+                <BRDUpload />
+              </ProtectedLayout>
+            } />
+
+            {/* Workflow Management */}
+            <Route path="/workflow-templates" element={
+              <ProtectedLayout currentPage="Workflow Templates">
+                <WorkflowTemplateList />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/workflow-templates/builder" element={
+              <ProtectedLayout currentPage="Template Builder" noPadding>
+                <WorkflowTemplateBuilder />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/workflow-templates/:id/edit" element={
+              <ProtectedLayout currentPage="Template Builder" noPadding>
+                <WorkflowTemplateBuilder />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/intake-forms" element={
+              <ProtectedLayout currentPage="Intake Forms">
+                <IntakeFormList />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/intake-forms/builder" element={
+              <ProtectedLayout currentPage="Form Builder" noPadding>
+                <IntakeFormBuilder />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/intake-forms/:id/edit" element={
+              <ProtectedLayout currentPage="Form Builder" noPadding>
+                <IntakeFormBuilder />
+              </ProtectedLayout>
+            } />
+
+            {/* Public Intake Forms (no authentication required) */}
+            <Route path="/intake/:slug" element={<PublicIntakeForm />} />
 
             {/* Authentication */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/auth/login" element={<LoginPage />} />
+            <Route path="/auth/signup" element={<SignupPage />} />
+            <Route path="/verify-email/:token" element={<EmailVerificationPage />} />
+            <Route path="/auth/pending-verification" element={<PendingVerificationPage />} />
 
             {/* Additional pages */}
             <Route path="/roadmap" element={<RoadmapPage />} />

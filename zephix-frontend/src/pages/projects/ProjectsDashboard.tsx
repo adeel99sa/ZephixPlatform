@@ -1,18 +1,37 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { ProjectCard } from '../../components/ui/ProjectCard';
-import { CreateProjectModal } from '../../components/modals/CreateProjectModal';
+import { EnhancedCreateProjectModal } from '../../components/modals/EnhancedCreateProjectModal';
 import { useProjectStore } from '../../stores/projectStore';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import type { Project } from '../../types';
 
 export const ProjectsDashboard: React.FC = () => {
   const { projects, fetchProjects, isLoading, error } = useProjectStore();
+  const location = useLocation();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [prefilledData, setPrefilledData] = useState<any>(null);
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+    
+    // Check if we have BRD data from navigation state
+    if (location.state?.brdFile) {
+      const brdFile = location.state.brdFile;
+      if (brdFile.processingResult) {
+        // Pre-fill project data based on BRD analysis
+        setPrefilledData({
+          name: brdFile.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+          description: brdFile.processingResult.aiAnalysis,
+          template: 'software', // Default based on BRD
+          methodology: 'agile',
+          priority: 'medium'
+        });
+        setIsCreateModalOpen(true);
+      }
+    }
+  }, [fetchProjects, location.state]);
 
   const handleCreateProject = () => {
     setIsCreateModalOpen(true);
@@ -20,6 +39,7 @@ export const ProjectsDashboard: React.FC = () => {
 
   const handleCloseModal = () => {
     setIsCreateModalOpen(false);
+    setPrefilledData(null);
   };
 
   const handleProjectClick = (project: Project) => {
@@ -107,9 +127,10 @@ export const ProjectsDashboard: React.FC = () => {
       </div>
 
       {/* Create Project Modal */}
-      <CreateProjectModal
+      <EnhancedCreateProjectModal
         isOpen={isCreateModalOpen}
         onClose={handleCloseModal}
+        prefilledData={prefilledData}
         onSuccess={() => {
           handleCloseModal();
           fetchProjects();

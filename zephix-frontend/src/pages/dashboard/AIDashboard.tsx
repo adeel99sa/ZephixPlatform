@@ -133,8 +133,8 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
   // Show skeleton loaders during initial load
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-gray-900">
-        <div className="flex h-screen">
+      <div className="min-h-[calc(100vh-80px)]">
+        <div className="flex h-[calc(100vh-80px)]">
           {/* Main Content */}
           <div className="flex-1 flex flex-col">
             {/* Header Skeleton */}
@@ -167,8 +167,8 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="flex h-screen">
+    <div className="min-h-[calc(100vh-80px)]">
+      <div className="flex h-[calc(100vh-80px)]">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <DashboardHeader onCreateProject={handleCreateProject} />
