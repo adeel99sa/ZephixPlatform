@@ -108,9 +108,9 @@ export class WorkflowTemplateService {
         createdBy: userId,
         lastModifiedBy: userId,
       },
-    });
+    } as any);
 
-    return await this.templateRepository.save(template);
+    return await this.templateRepository.save(template) as any;
   }
 
   async update(
@@ -250,9 +250,9 @@ export class WorkflowTemplateService {
         actor: userId,
         notes: 'Workflow instance created',
       }],
-    });
+    } as any);
 
-    return await this.instanceRepository.save(instance);
+    return await this.instanceRepository.save(instance) as any;
   }
 
   async findInstances(organizationId: string, query: any) {
