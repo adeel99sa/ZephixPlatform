@@ -1,6 +1,7 @@
 import { Controller, Get, HttpStatus } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { BUILD_METADATA } from '../build-metadata';
 
 @Controller('health')
 export class HealthController {
@@ -33,6 +34,10 @@ export class HealthController {
         database: 'connected',
         environment: process.env.NODE_ENV || 'development',
         version: process.env.npm_package_version || '1.0.0',
+        build: {
+          sha: BUILD_METADATA.sha,
+          timestamp: BUILD_METADATA.timestamp,
+        },
       };
     } catch (error) {
       return {
