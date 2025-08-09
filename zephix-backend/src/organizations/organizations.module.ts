@@ -8,6 +8,7 @@ import { TeamManagementService } from './services/team-management.service';
 import { OrganizationsController } from './controllers/organizations.controller';
 import { TeamManagementController } from './controllers/team-management.controller';
 import { InvitationAcceptanceController } from './controllers/invitation-acceptance.controller';
+import { OrganizationGuard } from './guards/organization.guard';
 import { Organization, UserOrganization, Invitation } from './entities';
 import { User } from '../users/entities/user.entity';
 import { SharedModule } from '../shared/shared.module';
@@ -36,11 +37,13 @@ import { SharedModule } from '../shared/shared.module';
     OrganizationsService,
     InvitationService,
     TeamManagementService,
+    OrganizationGuard,
   ],
   exports: [
     OrganizationsService,
     InvitationService,
     TeamManagementService,
+    OrganizationGuard,
     TypeOrmModule,
   ],
 })
