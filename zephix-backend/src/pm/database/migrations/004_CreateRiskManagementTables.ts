@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
 
-export class CreateRiskManagementTables004 implements MigrationInterface {
-  name = 'CreateRiskManagementTables004';
+export class CreateRiskManagementTables1704000004000 implements MigrationInterface {
+  name = 'CreateRiskManagementTables1704000004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create risks table
