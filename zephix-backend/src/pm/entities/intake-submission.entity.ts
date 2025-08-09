@@ -155,7 +155,7 @@ export class IntakeSubmission {
   // Helper methods
   getSubmitterIdentifier(): string {
     if (this.submitter) {
-      return this.submitter.email || this.submitter.name || 'Unknown User';
+      return this.submitter.email || `${this.submitter.firstName} ${this.submitter.lastName}`.trim() || 'Unknown User';
     }
     return this.submitterEmail || this.submitterName || 'Anonymous';
   }
