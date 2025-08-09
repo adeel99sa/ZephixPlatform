@@ -74,19 +74,21 @@ if (!(global as any).crypto) {
             type: 'postgres',
             url: databaseUrl,
             entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
-            synchronize: configService.get('database.synchronize'),
+            synchronize: false, // Never use synchronize in production
+            migrationsRun: true, // Auto-run migrations on startup
             logging: isProduction
               ? ['error', 'warn']
               : configService.get('database.logging'),
-            ssl: {
-              rejectUnauthorized: false,
-            },
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             extra: {
-              max: 10, // Reduced pool size for Railway limits
+              max: 10, // Connection pool size for Railway limits
               min: 2,
               acquire: 60000, // 60s acquire timeout for Railway delays
               idle: 10000,
               family: 4, // Force IPv4 - CRITICAL for Railway networking
+              connectionLimit: 10,
+              acquireTimeout: 60000,
+              timeout: 60000,
             },
             retryAttempts: 15, // More retries for Railway platform stability
             retryDelay: 5000, // 5s delay between retries
