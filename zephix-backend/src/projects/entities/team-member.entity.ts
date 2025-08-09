@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { Team } from './team.entity';
 import { Role } from './role.entity';
 
@@ -38,6 +39,13 @@ export class TeamMember {
 
   @Column({ name: 'role_id' })
   roleId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column({ type: 'timestamp', nullable: true })
   joinedAt: Date;

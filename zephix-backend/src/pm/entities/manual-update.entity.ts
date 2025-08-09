@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('manual_updates')
 @Index(['projectId', 'createdAt'])
@@ -11,6 +12,13 @@ export class ManualUpdate {
 
   @Column('uuid')
   projectId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column({
     type: 'enum',

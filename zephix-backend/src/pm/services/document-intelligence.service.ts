@@ -1,19 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { LLMProviderService, LLMRequest } from '../../ai/llm-provider.service';
 import * as Interfaces from '../interfaces/document-intelligence.interface';
 import { Express } from 'express';
 
 @Injectable()
 export class ZephixIntelligentDocumentProcessor {
   private readonly logger = new Logger(ZephixIntelligentDocumentProcessor.name);
-  private readonly anthropicApiKey: string;
 
-  constructor(private configService: ConfigService) {
-    this.anthropicApiKey = this.configService.get<string>('anthropic.apiKey') || '';
-    if (!this.anthropicApiKey) {
-      this.logger.warn('ANTHROPIC_API_KEY not configured');
-    }
-  }
+  constructor(
+    private configService: ConfigService,
+    private llmProvider: LLMProviderService,
+  ) {}
 
   // MAIN PROCESSING ENGINE: Document → Professional PM Intelligence
   async processProjectDocument(
@@ -349,8 +347,8 @@ export class ZephixIntelligentDocumentProcessor {
 
   // Professional AI Engine (No Copyrighted Content)
   private async callAIIntelligenceEngine(prompt: string): Promise<any> {
-    if (!this.anthropicApiKey) {
-      this.logger.error('ANTHROPIC_API_KEY not configured');
+    if (!this.llmProvider.isConfigured()) {
+      this.logger.error('LLM provider not configured');
       throw new Error('AI service not configured');
     }
 
@@ -359,7 +357,7 @@ export class ZephixIntelligentDocumentProcessor {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': this.anthropicApiKey,
+          'x-api-key': 'dummy-key', // Will be replaced by LLMProviderService
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({

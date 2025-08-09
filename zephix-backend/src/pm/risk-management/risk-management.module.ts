@@ -7,10 +7,11 @@ import { RiskAssessment } from '../entities/risk-assessment.entity';
 import { RiskResponse } from '../entities/risk-response.entity';
 import { RiskMonitoring } from '../entities/risk-monitoring.entity';
 import { Project } from '../../projects/entities/project.entity';
-import { ClaudeService } from '../../ai/claude.service';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule,
     TypeOrmModule.forFeature([
       Risk,
       RiskAssessment,
@@ -20,7 +21,7 @@ import { ClaudeService } from '../../ai/claude.service';
     ]),
   ],
   controllers: [RiskManagementController],
-  providers: [RiskManagementService, ClaudeService],
+  providers: [RiskManagementService],
   exports: [RiskManagementService],
 })
 export class RiskManagementModule {}

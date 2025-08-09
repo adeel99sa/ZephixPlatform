@@ -10,11 +10,11 @@ import { ManualUpdate } from '../entities/manual-update.entity';
 import { StakeholderCommunication } from '../entities/stakeholder-communication.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TeamMember } from '../../projects/entities/team-member.entity';
-import { ClaudeService } from '../../ai/claude.service';
-import { ProjectPermissionGuard } from '../../projects/guards/project-permission.guard';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule,
     TypeOrmModule.forFeature([
       StatusReport,
       ProjectMetrics,
@@ -29,8 +29,6 @@ import { ProjectPermissionGuard } from '../../projects/guards/project-permission
   controllers: [StatusReportingController],
   providers: [
     StatusReportingService,
-    ClaudeService,
-    ProjectPermissionGuard,
   ],
   exports: [StatusReportingService],
 })
