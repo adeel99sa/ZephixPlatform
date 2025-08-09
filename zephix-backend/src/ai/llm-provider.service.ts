@@ -35,6 +35,7 @@ export class LLMProviderService implements OnModuleInit {
   private readonly logger = new Logger(LLMProviderService.name);
   private readonly anthropicApiKey: string;
   private readonly providerSettings: ProviderSettings;
+  private isConfigValid = true; // Track configuration state for graceful degradation
 
   constructor(
     private configService: ConfigService,
@@ -53,7 +54,7 @@ export class LLMProviderService implements OnModuleInit {
 
   async onModuleInit() {
     if (this.configService.get<boolean>('llm.validateOnStartup')) {
-      await this.validateProviderSettings();
+      this.validateProviderSettings(); // Remove await since it's now non-blocking
     }
     
     if (this.configService.get<boolean>('llm.logProviderSettings')) {
@@ -61,7 +62,7 @@ export class LLMProviderService implements OnModuleInit {
     }
   }
 
-  private async validateProviderSettings(): Promise<void> {
+  private validateProviderSettings(): void {
     this.logger.log('🔍 Validating LLM provider settings...');
     
     const issues: string[] = [];
@@ -88,16 +89,18 @@ export class LLMProviderService implements OnModuleInit {
     }
 
     if (issues.length > 0) {
-      this.logger.error('❌ LLM Provider configuration issues found:');
-      issues.forEach(issue => this.logger.error(`   - ${issue}`));
+      // CHANGE: Make it a warning instead of throwing an error
+      this.logger.warn('⚠️ LLM Provider configuration issues found:');
+      issues.forEach(issue => {
+        this.logger.warn(`- ${issue}`);
+      });
+      this.logger.warn('🔧 Application will continue with limited AI functionality');
       
-      if (this.providerSettings.enforceNoDataRetention) {
-        throw new Error(`LLM Provider configuration validation failed: ${issues.join(', ')}`);
-      } else {
-        this.logger.warn('⚠️  LLM Provider validation failed but enforcement is disabled');
-      }
+      // Set flag to indicate degraded functionality
+      this.isConfigValid = false;
     } else {
-      this.logger.log('✅ LLM Provider settings validation passed');
+      this.logger.log('✅ LLM Provider configuration validated successfully');
+      this.isConfigValid = true;
     }
   }
 
@@ -124,9 +127,33 @@ export class LLMProviderService implements OnModuleInit {
   }
 
   async sendRequest(request: LLMRequest): Promise<LLMResponse> {
+    // Handle graceful degradation when configuration is invalid
+    if (!this.isConfigValid) {
+      this.logger.warn('⚠️ LLM service not properly configured, returning placeholder response');
+      return {
+        content: 'AI service temporarily unavailable. Please check configuration.',
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0
+        },
+        model: this.providerSettings.model || 'unavailable',
+        finishReason: 'configuration_error'
+      };
+    }
+
     if (!this.anthropicApiKey) {
       this.logger.error('ANTHROPIC_API_KEY not configured');
-      throw new Error('LLM provider not configured');
+      return {
+        content: 'AI service temporarily unavailable. API key not configured.',
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0
+        },
+        model: this.providerSettings.model || 'unavailable',
+        finishReason: 'api_key_missing'
+      };
     }
 
     // Log compliance check for each request
@@ -217,8 +244,19 @@ export class LLMProviderService implements OnModuleInit {
       this.metricsService.observeLlmDuration(provider, model, durationSeconds);
       this.metricsService.incrementError('llm_request', 'llm-provider');
       
-      this.logger.error('LLM request failed:', error);
-      throw error;
+      this.logger.error('AI generation failed:', error);
+      
+      // Return graceful error response instead of throwing
+      return {
+        content: 'AI service temporarily unavailable.',
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0
+        },
+        model: model,
+        finishReason: 'error'
+      };
     }
   }
 
@@ -227,7 +265,7 @@ export class LLMProviderService implements OnModuleInit {
   }
 
   isConfigured(): boolean {
-    return !!this.anthropicApiKey;
+    return !!this.anthropicApiKey && this.isConfigValid;
   }
 
   getComplianceStatus(): {
