@@ -1,0 +1,199 @@
+<!-- MAILCHIMP FORM ALTERNATIVE -->
+<!-- Replace the ConvertKit form in index.html with this section if using Mailchimp -->
+
+<!-- Waitlist Form -->
+<div class="waitlist-form">
+    <h3>Join the Waitlist</h3>
+    <p>Be the first to know when Zephix launches. Get early access and exclusive updates.</p>
+    
+    <!-- Success Message (hidden by default) -->
+    <div id="success-message" class="success-message" style="display: none;">
+        <div class="success-icon">✅</div>
+        <h4>You're on the list!</h4>
+        <p>Thanks for joining! We've sent you a confirmation email. Please check your inbox and click the link to confirm your subscription.</p>
+    </div>
+    
+    <!-- Mailchimp Form -->
+    <form id="waitlist-form" action="https://YOUR_MAILCHIMP_DOMAIN.us1.list-manage.com/subscribe/post?u=YOUR_USER_ID&amp;id=YOUR_LIST_ID" method="post" class="form" target="_blank" novalidate>
+        <div class="form-group">
+            <input 
+                type="email" 
+                name="EMAIL" 
+                placeholder="Enter your email address" 
+                required 
+                class="email-input"
+                id="email-input"
+            >
+            <button type="submit" class="submit-btn" id="submit-btn">
+                <span class="btn-text">Join Waitlist</span>
+                <span class="btn-loading" style="display: none;">Joining...</span>
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <select name="ROLE" class="role-select" id="role-select">
+                <option value="">Select your role (optional)</option>
+                <option value="Project Manager">Project Manager</option>
+                <option value="Product Manager">Product Manager</option>
+                <option value="Team Lead">Team Lead</option>
+                <option value="Developer">Developer</option>
+                <option value="Designer">Designer</option>
+                <option value="Founder/CEO">Founder/CEO</option>
+                <option value="Operations">Operations</option>
+                <option value="Consultant">Consultant</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        
+        <!-- Double Opt-in Notice -->
+        <div class="double-optin-notice">
+            <p><strong>📧 Double Opt-in Required:</strong> After submitting, you'll receive a confirmation email. Please click the link in that email to complete your subscription and ensure you receive our updates.</p>
+        </div>
+        
+        <p class="form-disclaimer">
+            By joining, you agree to our <a href="/privacy.html">Privacy Policy</a> and <a href="/terms.html">Terms of Service</a>. You can unsubscribe at any time.
+        </p>
+        
+        <!-- Hidden Mailchimp fields -->
+        <div style="position: absolute; left: -5000px;" aria-hidden="true">
+            <input type="text" name="b_YOUR_USER_ID_YOUR_LIST_ID" tabindex="-1" value="">
+        </div>
+    </form>
+</div>
+
+<!-- JAVASCRIPT FOR MAILCHIMP -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('waitlist-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnLoading = submitBtn.querySelector('.btn-loading');
+    const successMessage = document.getElementById('success-message');
+    
+    // Handle form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get form data
+        const formData = new FormData(form);
+        const email = formData.get('EMAIL');
+        
+        // Validate email
+        if (!email || !isValidEmail(email)) {
+            showError('Please enter a valid email address.');
+            return;
+        }
+        
+        // Show loading state
+        setLoadingState(true);
+        
+        // Submit to Mailchimp using JSONP
+        const url = form.action.replace('/post?', '/post-json?') + '&c=?';
+        const data = new URLSearchParams(new FormData(form)).toString();
+        
+        // Use JSONP for Mailchimp
+        const script = document.createElement('script');
+        const callbackName = 'mailchimpCallback' + Date.now();
+        
+        window[callbackName] = function(data) {
+            if (data.result === 'success') {
+                showSuccess();
+            } else {
+                showError(data.msg || 'Something went wrong. Please try again.');
+            }
+            document.head.removeChild(script);
+            delete window[callbackName];
+        };
+        
+        script.src = url + '&' + data + '&c=' + callbackName;
+        document.head.appendChild(script);
+    });
+    
+    function setLoadingState(loading) {
+        if (loading) {
+            submitBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline';
+            submitBtn.style.opacity = '0.7';
+        } else {
+            submitBtn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            submitBtn.style.opacity = '1';
+        }
+    }
+    
+    function showSuccess() {
+        // Hide the form
+        form.style.display = 'none';
+        
+        // Show success message
+        successMessage.style.display = 'block';
+        
+        // Scroll to success message
+        successMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Reset loading state
+        setTimeout(() => {
+            setLoadingState(false);
+        }, 1000);
+        
+        // Track conversion (if you have analytics)
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'conversion', {
+                'send_to': 'AW-CONVERSION_ID/CONVERSION_LABEL'
+            });
+        }
+        
+        // Track with Facebook Pixel (if you have it)
+        if (typeof fbq !== 'undefined') {
+            fbq('track', 'Lead');
+        }
+    }
+    
+    function showError(message) {
+        alert(message);
+        setLoadingState(false);
+    }
+    
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    // Add real-time email validation
+    const emailInput = document.getElementById('email-input');
+    emailInput.addEventListener('blur', function() {
+        if (this.value && !isValidEmail(this.value)) {
+            this.style.borderColor = '#ef4444';
+            this.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
+        } else {
+            this.style.borderColor = '';
+            this.style.boxShadow = '';
+        }
+    });
+    
+    emailInput.addEventListener('input', function() {
+        // Reset border on input
+        this.style.borderColor = '';
+        this.style.boxShadow = '';
+    });
+});
+</script>
+
+<!-- 
+TO USE MAILCHIMP:
+1. Replace YOUR_MAILCHIMP_DOMAIN with your actual Mailchimp domain (e.g., yourcompany.us1.list-manage.com)
+2. Replace YOUR_USER_ID with your Mailchimp user ID
+3. Replace YOUR_LIST_ID with your Mailchimp list/audience ID
+4. Update the hidden field name to match: b_YOUR_USER_ID_YOUR_LIST_ID
+
+To get these values:
+1. Go to Mailchimp > Audience > Signup forms > Embedded forms
+2. Copy the form action URL and extract the values
+3. Example URL: https://yourcompany.us1.list-manage.com/subscribe/post?u=abc123&id=def456
+   - Domain: yourcompany.us1.list-manage.com
+   - User ID: abc123
+   - List ID: def456
+   - Hidden field: b_abc123_def456
+-->
