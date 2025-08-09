@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import * as crypto from 'crypto'; // Proper import of crypto
 
 async function bootstrap() {
@@ -10,6 +12,33 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log'],
     });
+
+    // Get configuration service
+    const configService = app.get(ConfigService);
+    
+    // Run migrations conditionally based on environment variable
+    const runMigrationsOnBoot = configService.get<boolean>('database.runMigrationsOnBoot');
+    if (runMigrationsOnBoot) {
+      logger.log('🔄 Running database migrations...');
+      try {
+        const dataSource = app.get(DataSource);
+        const migrations = await dataSource.runMigrations();
+        if (migrations.length > 0) {
+          logger.log(`✅ Successfully ran ${migrations.length} migration(s):`);
+          migrations.forEach(migration => {
+            logger.log(`   - ${migration.name}`);
+          });
+        } else {
+          logger.log('✅ No pending migrations found');
+        }
+      } catch (migrationError) {
+        logger.error('❌ Database migration failed:', migrationError);
+        // Don't exit - let the app start anyway to avoid deployment loops
+        logger.warn('⚠️  Application will start without running migrations');
+      }
+    } else {
+      logger.log('⏸️  Skipping database migrations (RUN_MIGRATIONS_ON_BOOT=false)');
+    }
 
     // Enable CORS - customize origins for production only
     app.enableCors({
