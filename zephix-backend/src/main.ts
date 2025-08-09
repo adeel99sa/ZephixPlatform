@@ -14,8 +14,15 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   try {
+    logger.log('🚀 Starting Zephix Backend...');
+    logger.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.log(`🔗 Database URL configured: ${!!process.env.DATABASE_URL}`);
+    logger.log(`🤖 AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
+    
     const app = await NestFactory.create(AppModule, {
-      logger: ['error', 'warn', 'log'],
+      logger: process.env.NODE_ENV === 'production' 
+        ? ['error', 'warn', 'log'] 
+        : ['error', 'warn', 'log', 'debug', 'verbose'],
     });
 
     // Get configuration service
@@ -67,8 +74,18 @@ async function bootstrap() {
           return callback(null, true);
         }
         
-        // Check if origin is in allowed list
-        if (allowedOrigins.includes(origin)) {
+        // Enhanced origin matching for production domains
+        const productionOrigins = [
+          'https://getzephix.com',
+          'https://www.getzephix.com',
+          /\.railway\.app$/,
+        ];
+        
+        // Check if origin is in allowed list or production origins
+        if (allowedOrigins.includes(origin) || 
+            productionOrigins.some(allowedOrigin => 
+              typeof allowedOrigin === 'string' ? allowedOrigin === origin : allowedOrigin.test(origin)
+            )) {
           return callback(null, true);
         }
         
@@ -185,14 +202,16 @@ async function bootstrap() {
     // Set global API prefix
     app.setGlobalPrefix('api');
 
+    // Enable graceful shutdown
+    app.enableShutdownHooks();
+
     // Listen on PORT provided by environment or default 3000
     const port = process.env.PORT || 3000;
     await app.listen(port, '0.0.0.0');
 
-    logger.log(`🚀 Zephix Authentication Service running on port ${port}`);
-    logger.log(
-      `📊 Health check available at: http://localhost:${port}/api/health`,
-    );
+    logger.log(`✅ Zephix Backend Service started successfully on port ${port}`);
+    logger.log(`📊 Health check: http://0.0.0.0:${port}/api/health`);
+    logger.log(`🔍 Readiness check: http://0.0.0.0:${port}/api/ready`);
 
     // Graceful shutdown on SIGTERM and SIGINT
     ['SIGTERM', 'SIGINT'].forEach((signal) => {
@@ -203,7 +222,7 @@ async function bootstrap() {
       });
     });
   } catch (error) {
-    logger.error('Failed to start application:', error);
+    logger.error('❌ Failed to start application:', error.stack);
     process.exit(1);
   }
 }
