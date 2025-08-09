@@ -25,6 +25,22 @@
   status = 301
   force = true
 
+# Clean URL redirects
+[[redirects]]
+  from = "/status"
+  to = "/status.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms.html"
+  status = 200
+
 # SPA fallback for clean URLs (optional)
 [[redirects]]
   from = "/*"
