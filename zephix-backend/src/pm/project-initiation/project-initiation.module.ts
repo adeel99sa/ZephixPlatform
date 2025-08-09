@@ -5,10 +5,11 @@ import { ProjectInitiationService } from './project-initiation.service';
 import { UserProject } from '../entities/user-project.entity';
 import { ProjectStakeholder } from '../entities/project-stakeholder.entity';
 import { ProjectRisk } from '../entities/project-risk.entity';
-import { ClaudeService } from '../../ai/claude.service';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule,
     TypeOrmModule.forFeature([
       UserProject,
       ProjectStakeholder,
@@ -16,7 +17,7 @@ import { ClaudeService } from '../../ai/claude.service';
     ]),
   ],
   controllers: [ProjectInitiationController],
-  providers: [ProjectInitiationService, ClaudeService],
+  providers: [ProjectInitiationService],
   exports: [ProjectInitiationService],
 })
 export class ProjectInitiationModule {}

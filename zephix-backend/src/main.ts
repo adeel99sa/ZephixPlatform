@@ -1,3 +1,6 @@
+// Initialize OpenTelemetry before importing anything else
+import './telemetry';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
@@ -45,15 +48,27 @@ async function bootstrap() {
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
-    // Enable CORS BEFORE Helmet - use function for origin validation
-    const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    // Enable CORS BEFORE Helmet - use configuration service for environment-specific settings
+    const corsConfig = configService.get('security.cors');
+    const allowedOrigins = corsConfig.allowedOrigins 
+      ? corsConfig.allowedOrigins.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    
+    logger.log(`🌐 CORS allowed origins: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'All origins (dev mode)'}`);
+    
     app.enableCors({
       origin: (origin, callback) => {
         // Allow requests with no origin (e.g., mobile apps, Postman)
         if (!origin) return callback(null, true);
         
+        // In development, allow all origins if no origins specified
+        const isDevelopment = configService.get('environment') === 'development';
+        if (isDevelopment && allowedOrigins.length === 0) {
+          return callback(null, true);
+        }
+        
         // Check if origin is in allowed list
-        if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        if (allowedOrigins.includes(origin)) {
           return callback(null, true);
         }
         
@@ -62,51 +77,98 @@ async function bootstrap() {
         return callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
       },
       credentials: true,
-      methods: 'GET,HEAD,POST,PUT,PATCH,DELETE',
-      allowedHeaders: 'Authorization,Content-Type',
-      optionsSuccessStatus: 204
+      methods: 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
+      allowedHeaders: 'Authorization,Content-Type,Accept,Origin,X-Requested-With',
+      exposedHeaders: 'X-RateLimit-Limit,X-RateLimit-Remaining,X-RateLimit-Reset',
+      optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+      maxAge: 86400, // 24 hours preflight cache
     });
 
     // Apply Helmet security headers AFTER CORS
-    app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
+    const helmetConfig = configService.get('security.helmet');
+    if (helmetConfig.enabled) {
+      logger.log('🛡️  Security headers enabled via Helmet');
+      app.use(helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+          },
         },
-      },
-      crossOriginEmbedderPolicy: false, // Disable for API
-    }));
+        crossOriginEmbedderPolicy: false, // Disable for API
+        crossOriginResourcePolicy: { policy: "cross-origin" },
+        hsts: {
+          maxAge: 31536000, // 1 year
+          includeSubDomains: true,
+          preload: true,
+        },
+        noSniff: true,
+        frameguard: { action: 'deny' },
+        xssFilter: true,
+      }));
+    } else {
+      logger.log('🛡️  Security headers disabled');
+    }
 
-    // Configure rate limiting
-    const enabled = process.env.RATE_LIMIT_ENABLED === 'true';
-    const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
-    const max = Number(process.env.RATE_LIMIT_MAX || 100);
+    // Configure global rate limiting with per-route overrides
+    const rateLimitConfig = configService.get('security.rateLimit');
     
-    if (enabled) {
-      logger.log(`⚡ Rate limiting enabled: ${max} requests per ${windowMs}ms window`);
+    if (rateLimitConfig.enabled) {
+      logger.log(`⚡ Global rate limiting: ${rateLimitConfig.max} requests per ${rateLimitConfig.windowMs}ms per IP`);
+      
+      // Global rate limiter
       app.use(rateLimit({
-        windowMs,
-        max,
-        skip: req => req.path === '/api/health',
+        windowMs: rateLimitConfig.windowMs,
+        max: rateLimitConfig.max,
+        skip: (req) => {
+          // Skip rate limiting for health and status endpoints
+          return req.path === '/api/health' || 
+                 req.path === '/api/_status' ||
+                 req.path === '/api/metrics';
+        },
         standardHeaders: true,
         legacyHeaders: false,
+        keyGenerator: (req) => req.ip || 'unknown',
         handler: (req, res) => {
-          logger.warn(`🚫 Rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
+          logger.warn(`🚫 Global rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
           res.status(429).json({
             statusCode: 429,
             message: 'Too Many Requests',
-            error: 'Rate limit exceeded'
+            error: 'Rate limit exceeded',
+            retryAfter: Math.round(rateLimitConfig.windowMs / 1000),
           });
         }
       }));
+
+      // Stricter rate limiting for auth endpoints
+      logger.log(`🔐 Auth rate limiting: ${rateLimitConfig.authMax} requests per ${rateLimitConfig.authWindowMs}ms per IP`);
+      const authRateLimit = rateLimit({
+        windowMs: rateLimitConfig.authWindowMs,
+        max: rateLimitConfig.authMax,
+        standardHeaders: true,
+        legacyHeaders: false,
+        keyGenerator: (req) => req.ip || 'unknown',
+        handler: (req, res) => {
+          logger.warn(`🚫 Auth rate limit exceeded for IP: ${req.ip}, path: ${req.path}`);
+          res.status(429).json({
+            statusCode: 429,
+            message: 'Too Many Authentication Attempts',
+            error: 'Authentication rate limit exceeded',
+            retryAfter: Math.round(rateLimitConfig.authWindowMs / 1000),
+          });
+        }
+      });
+      
+      // Apply auth rate limiting to authentication endpoints
+      app.use('/api/auth', authRateLimit);
     } else {
       logger.log('⚡ Rate limiting disabled');
     }
