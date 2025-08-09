@@ -5,7 +5,6 @@ import { ProjectsService } from './services/projects.service';
 import { RoleSeedService } from './services/role-seed.service';
 import { ProjectsController } from './controllers/projects.controller';
 import { SharedModule } from '../shared/shared.module';
-import { OrganizationsModule } from '../organizations/organizations.module';
 
 import { Project } from './entities/project.entity';
 import { Team } from './entities/team.entity';
@@ -15,8 +14,8 @@ import { Role } from './entities/role.entity';
 @Module({
   imports: [
     SharedModule,
-    OrganizationsModule, // Add this line to import OrganizationGuard dependencies
     TypeOrmModule.forFeature([Project, Team, TeamMember, Role])
+    // OrganizationsModule no longer needed - it's now Global
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService, RoleSeedService],
