@@ -13,6 +13,9 @@ export class MetricsMiddleware implements NestMiddleware {
     // Extract route pattern for better grouping
     const route = this.extractRoute(req);
 
+    // Store reference to metricsService for use in closure
+    const metricsService = this.metricsService;
+
     // Override res.end to capture metrics when response is sent
     const originalEnd = res.end;
     res.end = function(chunk?: any, encoding?: any, cb?: any) {
@@ -20,7 +23,7 @@ export class MetricsMiddleware implements NestMiddleware {
       const tenantId = (req as any).user?.tenant_id;
 
       // Record HTTP request metrics
-      this.metricsService.recordHttpRequest(
+      metricsService.recordHttpRequest(
         req.method,
         route,
         res.statusCode,
@@ -31,12 +34,12 @@ export class MetricsMiddleware implements NestMiddleware {
       // Record error metrics if status code indicates an error
       if (res.statusCode >= 400) {
         const errorType = res.statusCode >= 500 ? 'server_error' : 'client_error';
-        this.metricsService.recordError(errorType, 'http', tenantId);
+        metricsService.recordError(errorType, 'http', tenantId);
       }
 
-      // Call the original end method
+      // Call the original end method with proper context
       return originalEnd.call(this, chunk, encoding, cb);
-    }.bind(this);
+    };
 
     next();
   }
