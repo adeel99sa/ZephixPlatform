@@ -8,6 +8,7 @@ export default () => ({
     database: process.env.DB_DATABASE,
     synchronize: true, // Enable synchronization to create tables
     logging: process.env.DB_LOGGING === 'true',
+    runMigrationsOnBoot: process.env.RUN_MIGRATIONS_ON_BOOT === 'true',
   },
   jwt: {
     secret: process.env.JWT_SECRET,
