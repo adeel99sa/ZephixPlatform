@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StatusReportingController } from '../controllers/status-reporting.controller';
+import { StatusReportingController } from './status-reporting.controller';
 import { StatusReportingService } from '../services/status-reporting.service';
 import { StatusReport } from '../entities/status-report.entity';
 import { ProjectMetrics } from '../entities/project-metrics.entity';
