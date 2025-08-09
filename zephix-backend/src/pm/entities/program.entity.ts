@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { UserProject } from './user-project.entity';
 
 @Entity('programs')
@@ -10,6 +11,13 @@ export class Program {
 
   @Column({ type: 'uuid', nullable: false })
   userId: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @Column({ type: 'varchar', length: 200, nullable: false })
   name: string;

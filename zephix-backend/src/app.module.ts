@@ -1,4 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
+import { Module, ValidationPipe, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
@@ -11,7 +11,17 @@ import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { PMModule } from './pm/pm.module';
+import { SharedModule } from './shared/shared.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { IntelligenceModule } from './intelligence/intelligence.module';
+import { ArchitectureModule } from './architecture/architecture.module';
+import { BRDModule } from './brd/brd.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { HealthController } from './health/health.controller';
+
+// Import middleware
+import { RequestIdMiddleware } from './observability/request-id.middleware';
+import { MetricsMiddleware } from './observability/metrics.middleware';
 import { User } from './users/entities/user.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
 import { Project } from './projects/entities/project.entity';
@@ -35,6 +45,9 @@ import { Risk } from './pm/entities/risk.entity';
 import { RiskAssessment } from './pm/entities/risk-assessment.entity';
 import { RiskResponse } from './pm/entities/risk-response.entity';
 import { RiskMonitoring } from './pm/entities/risk-monitoring.entity';
+import { BRD } from './brd/entities/brd.entity';
+import { Organization } from './organizations/entities/organization.entity';
+import { UserOrganization } from './organizations/entities/user-organization.entity';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -60,7 +73,7 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
             synchronize: configService.get('database.synchronize'),
             logging: isProduction
               ? ['error', 'warn']
@@ -90,7 +103,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
             extra: {
@@ -111,6 +124,12 @@ if (!(global as any).crypto) {
     ProjectsModule,
     FeedbackModule,
     PMModule,
+    SharedModule,
+    ObservabilityModule,
+    IntelligenceModule,
+    ArchitectureModule,
+    BRDModule,
+    OrganizationsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
@@ -121,4 +140,10 @@ if (!(global as any).crypto) {
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestIdMiddleware, MetricsMiddleware)
+      .forRoutes('*');
+  }
+}

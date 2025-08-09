@@ -2,9 +2,11 @@ import { Controller, Post, Get, Put, Body, Param, UseGuards, Request } from '@ne
 import { RiskManagementService } from './risk-management.service';
 import type { RiskIdentificationInput } from './risk-management.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { OrganizationGuard } from '../../organizations/guards/organization.guard';
+import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 
-@Controller('pm/risk-management')
-@UseGuards(JwtAuthGuard)
+@Controller('api/pm/risk-management')
+@UseGuards(JwtAuthGuard, OrganizationGuard)
 export class RiskManagementController {
   constructor(private readonly riskManagementService: RiskManagementService) {}
 

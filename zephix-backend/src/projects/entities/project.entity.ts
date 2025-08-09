@@ -11,6 +11,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { Team } from './team.entity';
 import { StatusReport } from '../../pm/entities/status-report.entity';
 import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
@@ -81,6 +82,13 @@ export class Project {
 
   @Column({ name: 'created_by_id' })
   createdById: string;
+
+  @Column('uuid')
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
 
   @OneToOne(() => Team, (team) => team.project, { cascade: true })
   team: Team;
