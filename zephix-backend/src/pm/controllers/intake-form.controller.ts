@@ -178,6 +178,40 @@ export class IntakeFormController {
 
     return analytics;
   }
+
+  private calculateSubmissionsByStatus(submissions: any[]): Record<string, number> {
+    return submissions.reduce((acc, sub) => {
+      acc[sub.status] = (acc[sub.status] || 0) + 1;
+      return acc;
+    }, {});
+  }
+
+  private calculateSubmissionsByPriority(submissions: any[]): Record<string, number> {
+    return submissions.reduce((acc, sub) => {
+      acc[sub.priority || 'medium'] = (acc[sub.priority || 'medium'] || 0) + 1;
+      return acc;
+    }, {});
+  }
+
+  private calculateAverageCompletionTime(submissions: any[]): number {
+    const completed = submissions.filter(s => s.completedAt);
+    if (completed.length === 0) return 0;
+    
+    const totalTime = completed.reduce((acc, sub) => {
+      const diff = new Date(sub.completedAt).getTime() - new Date(sub.createdAt).getTime();
+      return acc + diff;
+    }, 0);
+    
+    return Math.round(totalTime / completed.length / (1000 * 60 * 60)); // hours
+  }
+
+  private calculatePeakSubmissionHours(submissions: any[]): Record<string, number> {
+    return submissions.reduce((acc, sub) => {
+      const hour = new Date(sub.createdAt).getHours();
+      acc[hour] = (acc[hour] || 0) + 1;
+      return acc;
+    }, {});
+  }
 }
 
 @ApiTags('Public Intake')
@@ -253,37 +287,4 @@ export class PublicIntakeController {
   }
 }
 
-// Helper methods for analytics
-function calculateSubmissionsByStatus(submissions: any[]): Record<string, number> {
-  return submissions.reduce((acc, submission) => {
-    acc[submission.status] = (acc[submission.status] || 0) + 1;
-    return acc;
-  }, {});
-}
 
-function calculateSubmissionsByPriority(submissions: any[]): Record<string, number> {
-  return submissions.reduce((acc, submission) => {
-    acc[submission.priority] = (acc[submission.priority] || 0) + 1;
-    return acc;
-  }, {});
-}
-
-function calculateAverageCompletionTime(submissions: any[]): number | null {
-  const completionTimes = submissions
-    .map(s => s.data?.metadata?.timeToComplete)
-    .filter(time => time != null);
-
-  if (completionTimes.length === 0) return null;
-
-  return completionTimes.reduce((sum, time) => sum + time, 0) / completionTimes.length;
-}
-
-function calculatePeakSubmissionHours(submissions: any[]): Record<string, number> {
-  const hourCounts = submissions.reduce((acc, submission) => {
-    const hour = new Date(submission.createdAt).getHours();
-    acc[hour] = (acc[hour] || 0) + 1;
-    return acc;
-  }, {});
-
-  return hourCounts;
-}
