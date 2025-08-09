@@ -38,19 +38,21 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+    Referrer-Policy = "no-referrer"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     Content-Security-Policy = """
       default-src 'self';
-      script-src 'self' 'unsafe-inline' https://f.convertkit.com https://app.convertkit.com https://fonts.googleapis.com https://plausible.io https://www.googletagmanager.com;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      script-src 'self' https://f.convertkit.com https://plausible.io https://www.googletagmanager.com;
+      style-src 'self' 'unsafe-inline';
       font-src 'self' https://fonts.gstatic.com;
       img-src 'self' data: https:;
-      connect-src 'self' https://app.convertkit.com https://plausible.io https://www.google-analytics.com https://analytics.google.com;
+      connect-src 'self' https://app.convertkit.com https://plausible.io https://www.google-analytics.com https://analytics.google.com https://fonts.googleapis.com;
       form-action 'self' https://app.convertkit.com;
       frame-ancestors 'none';
       base-uri 'self';
+      object-src 'none';
+      upgrade-insecure-requests;
     """
 
 # Cache static assets
