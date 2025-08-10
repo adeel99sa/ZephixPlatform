@@ -139,17 +139,17 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     `);
 
     // Create indexes for performance (handle existing indexes gracefully)
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON pm_knowledge_chunks (domain, subdomain)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON pm_knowledge_chunks (methodology, process_group)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (user_id, status)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (portfolio_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (program_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_tasks (project_id, status)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_tasks (parent_task_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_risks (project_id, risk_score DESC)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_stakeholders (project_id, influence, interest)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON portfolios (user_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON programs (user_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_domain_subdomain ON pm_knowledge_chunks (domain, subdomain)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_methodology_process_group ON pm_knowledge_chunks (methodology, process_group)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_user_id_status ON user_projects (user_id, status)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_portfolio_id ON user_projects (portfolio_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_program_id ON user_projects (program_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_tasks_project_id_status ON project_tasks (project_id, status)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_tasks_parent_task_id ON project_tasks (parent_task_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_risks_project_id_risk_score ON project_risks (project_id, risk_score DESC)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_stakeholders_project_id_influence_interest ON project_stakeholders (project_id, influence, interest)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios (user_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_programs_user_id ON programs (user_id)`);
 
     // Add foreign key constraints (handle existing constraints gracefully)
     await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
