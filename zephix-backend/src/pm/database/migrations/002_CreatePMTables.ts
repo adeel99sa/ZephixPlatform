@@ -4,14 +4,10 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
   name = 'CreatePMTables1700000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Try to enable pgvector extension for embeddings (optional for Railway deployment)
-    try {
-      await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS vector`);
-      console.log('✅ pgvector extension enabled successfully');
-    } catch (error) {
-      console.log('⚠️  pgvector extension not available (Railway PostgreSQL limitation)');
-      console.log('   Embedding functionality will be limited but tables will be created');
-    }
+    // Skip pgvector extension for Railway deployment - not available in standard PostgreSQL
+    // This prevents deployment failures while maintaining table structure
+    console.log('⚠️  Skipping pgvector extension - not available in Railway PostgreSQL');
+    console.log('   Embedding functionality will be limited but tables will be created');
 
     // Create PM Knowledge Chunks table
     await queryRunner.query(`
@@ -188,12 +184,7 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS portfolios`);
     await queryRunner.query(`DROP TABLE IF EXISTS pm_knowledge_chunks`);
 
-    // Try to drop pgvector extension (may not exist in Railway)
-    try {
-      await queryRunner.query(`DROP EXTENSION IF EXISTS vector`);
-      console.log('✅ pgvector extension dropped successfully');
-    } catch (error) {
-      console.log('⚠️  pgvector extension not found during rollback');
-    }
+    // Skip pgvector extension drop - not used in Railway deployment
+    console.log('⚠️  Skipping pgvector extension drop - not used in Railway deployment');
   }
 }
