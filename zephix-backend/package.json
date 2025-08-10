@@ -23,8 +23,11 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:run": "ts-node -r tsconfig-paths/register scripts/run-migrations-production.ts",
     "migration:run:dev": "ts-node -r tsconfig-paths/register scripts/run-migrations.ts",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
+    "migrate:generate": "ts-node -r tsconfig-paths/register scripts/migrate-generate.ts",
     "db:migrate": "npm run migration:run",
     "db:migrate:dev": "npm run migration:run:dev",
+    "db:migrate:generate": "npm run migrate:generate",
     "postbuild": "echo 'Build completed successfully'",
     "health:check": "curl -f http://localhost:${PORT:-3000}/api/health || exit 1"
   },

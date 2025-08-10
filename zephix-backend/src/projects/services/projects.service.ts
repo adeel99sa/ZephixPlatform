@@ -37,7 +37,7 @@ export class ProjectsService {
     // Create project
     const project = this.projectRepository.create({
       ...createProjectDto,
-      createdBy: user,
+      createdById: user.id,
       organizationId,
     });
 
@@ -47,7 +47,7 @@ export class ProjectsService {
     const team = this.teamRepository.create({
       name: `${savedProject.name} Team`,
       description: `Team for ${savedProject.name} project`,
-      project: savedProject,
+      projectId: savedProject.id,
       organizationId,
     });
 
@@ -59,9 +59,9 @@ export class ProjectsService {
     });
     if (adminRole) {
       const teamMember = this.teamMemberRepository.create({
-        team: savedTeam,
-        user,
-        role: adminRole,
+        teamId: savedTeam.id,
+        userId: user.id,
+        roleId: adminRole.id,
         organizationId,
         joinedAt: new Date(),
       });
@@ -136,19 +136,13 @@ export class ProjectsService {
     addTeamMemberDto: AddTeamMemberDto,
     requestingUser: User,
   ): Promise<TeamMember> {
-    // Check if requesting user has admin permission
-    await this.checkUserPermission(projectId, requestingUser.id, [
-      RoleType.ADMIN,
-    ]);
-
     const project = await this.findOne(projectId);
-    const role = await this.roleRepository.findOne({
-      where: { name: addTeamMemberDto.role },
-    });
 
-    if (!role) {
-      throw new NotFoundException(`Role ${addTeamMemberDto.role} not found`);
-    }
+    // Check if requesting user has permission to add team members
+    await this.checkUserPermission(project.id, requestingUser.id, [
+      RoleType.ADMIN,
+      RoleType.EDITOR,
+    ]);
 
     // Check if user is already a team member
     const existingMember = await this.teamMemberRepository.findOne({
@@ -159,13 +153,24 @@ export class ProjectsService {
     });
 
     if (existingMember) {
-      throw new ConflictException('User is already a member of this team');
+      throw new ConflictException('User is already a team member');
     }
 
+    // Get the role
+    const role = await this.roleRepository.findOne({
+      where: { name: addTeamMemberDto.role },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role ${addTeamMemberDto.role} not found`);
+    }
+
+    // Create team member
     const teamMember = this.teamMemberRepository.create({
-      team: project.team,
+      teamId: project.team.id,
       userId: addTeamMemberDto.userId,
-      role,
+      roleId: role.id,
+      organizationId: project.organizationId,
       joinedAt: new Date(),
     });
 
