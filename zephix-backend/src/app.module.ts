@@ -28,7 +28,7 @@ import { Project } from './projects/entities/project.entity';
 import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
-import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';
+// import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';
 import { UserProject } from './pm/entities/user-project.entity';
 import { ProjectTask } from './pm/entities/project-task.entity';
 import { ProjectRisk } from './pm/entities/project-risk.entity';
@@ -75,10 +75,10 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
-            migrationsRun: true, // Auto-run migrations on startup
+            migrationsRun: false, // Auto-run migrations on startup - temporarily disabled
             logging: isProduction
               ? ['error', 'warn']
               : configService.get('database.logging'),
@@ -108,7 +108,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),

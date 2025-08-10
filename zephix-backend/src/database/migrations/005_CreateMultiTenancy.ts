@@ -224,8 +224,7 @@ export class CreateMultiTenancy1700000000005 implements MigrationInterface {
       'risks',
       'risk_assessments',
       'risk_responses',
-      'risk_monitoring',
-      'pm_knowledge_chunks'
+      'risk_monitoring'
     ];
 
     for (const table of tenantTables) {
@@ -568,8 +567,7 @@ export class CreateMultiTenancy1700000000005 implements MigrationInterface {
       'risks',
       'risk_assessments',
       'risk_responses',
-      'risk_monitoring',
-      'pm_knowledge_chunks'
+      'risk_monitoring'
     ];
 
     for (const table of tenantTables) {
