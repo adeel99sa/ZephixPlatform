@@ -20,7 +20,7 @@ export class MetricsMiddleware implements NestMiddleware {
     const originalEnd = res.end;
     res.end = function(chunk?: any, encoding?: any, cb?: any) {
       const duration = (Date.now() - startTime) / 1000; // Convert to seconds
-      const tenantId = (req as any).user?.tenant_id;
+      const organizationId = (req as any).user?.organizationId;
 
       // Record HTTP request metrics
       metricsService.recordHttpRequest(
@@ -28,13 +28,13 @@ export class MetricsMiddleware implements NestMiddleware {
         route,
         res.statusCode,
         duration,
-        tenantId,
+        organizationId,
       );
 
       // Record error metrics if status code indicates an error
       if (res.statusCode >= 400) {
         const errorType = res.statusCode >= 500 ? 'server_error' : 'client_error';
-        metricsService.recordError(errorType, 'http', tenantId);
+        metricsService.recordError(errorType, 'http', organizationId);
       }
 
       // Call the original end method with proper context

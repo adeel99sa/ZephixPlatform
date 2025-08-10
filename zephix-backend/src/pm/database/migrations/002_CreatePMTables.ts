@@ -9,9 +9,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     console.log('⚠️  Skipping pgvector extension - not available in Railway PostgreSQL');
     console.log('   Embedding functionality will be limited but tables will be created');
 
-    // Create PM Knowledge Chunks table
+    // Create PM Knowledge Chunks table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE pm_knowledge_chunks (
+      CREATE TABLE IF NOT EXISTS pm_knowledge_chunks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         content TEXT NOT NULL,
         domain VARCHAR(50) NOT NULL,
@@ -26,9 +26,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create Portfolios table
+    // Create Portfolios table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE portfolios (
+      CREATE TABLE IF NOT EXISTS portfolios (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL,
         name VARCHAR(200) NOT NULL,
@@ -43,9 +43,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create Programs table
+    // Create Programs table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE programs (
+      CREATE TABLE IF NOT EXISTS programs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL,
         name VARCHAR(200) NOT NULL,
@@ -62,9 +62,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create User Projects table
+    // Create User Projects table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE user_projects (
+      CREATE TABLE IF NOT EXISTS user_projects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL,
         name VARCHAR(200) NOT NULL,
@@ -82,9 +82,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create Project Tasks table
+    // Create Project Tasks table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE project_tasks (
+      CREATE TABLE IF NOT EXISTS project_tasks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         parent_task_id UUID,
@@ -103,9 +103,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create Project Risks table
+    // Create Project Risks table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE project_risks (
+      CREATE TABLE IF NOT EXISTS project_risks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         risk_description TEXT NOT NULL,
@@ -121,9 +121,9 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create Project Stakeholders table
+    // Create Project Stakeholders table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE project_stakeholders (
+      CREATE TABLE IF NOT EXISTS project_stakeholders (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         name VARCHAR(200) NOT NULL,
@@ -138,29 +138,29 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
       )
     `);
 
-    // Create indexes for performance
-    await queryRunner.query(`CREATE INDEX ON pm_knowledge_chunks (domain, subdomain)`);
-    await queryRunner.query(`CREATE INDEX ON pm_knowledge_chunks (methodology, process_group)`);
-    await queryRunner.query(`CREATE INDEX ON user_projects (user_id, status)`);
-    await queryRunner.query(`CREATE INDEX ON user_projects (portfolio_id)`);
-    await queryRunner.query(`CREATE INDEX ON user_projects (program_id)`);
-    await queryRunner.query(`CREATE INDEX ON project_tasks (project_id, status)`);
-    await queryRunner.query(`CREATE INDEX ON project_tasks (parent_task_id)`);
-    await queryRunner.query(`CREATE INDEX ON project_risks (project_id, risk_score DESC)`);
-    await queryRunner.query(`CREATE INDEX ON project_stakeholders (project_id, influence, interest)`);
-    await queryRunner.query(`CREATE INDEX ON portfolios (user_id)`);
-    await queryRunner.query(`CREATE INDEX ON programs (user_id)`);
+    // Create indexes for performance (handle existing indexes gracefully)
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON pm_knowledge_chunks (domain, subdomain)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON pm_knowledge_chunks (methodology, process_group)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (user_id, status)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (portfolio_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON user_projects (program_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_tasks (project_id, status)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_tasks (parent_task_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_risks (project_id, risk_score DESC)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON project_stakeholders (project_id, influence, interest)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON portfolios (user_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS ON programs (user_id)`);
 
-    // Add foreign key constraints
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT fk_user_projects_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT fk_user_projects_portfolio_id FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT fk_user_projects_program_id FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT fk_project_tasks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT fk_project_tasks_parent_task_id FOREIGN KEY (parent_task_id) REFERENCES project_tasks(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_risks ADD CONSTRAINT fk_project_risks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_stakeholders ADD CONSTRAINT fk_project_stakeholders_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE portfolios ADD CONSTRAINT fk_portfolios_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE programs ADD CONSTRAINT fk_programs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
+    // Add foreign key constraints (handle existing constraints gracefully)
+    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_portfolio_id FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL`);
+    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_program_id FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL`);
+    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_parent_task_id FOREIGN KEY (parent_task_id) REFERENCES project_tasks(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE project_risks ADD CONSTRAINT IF NOT EXISTS fk_project_risks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE project_stakeholders ADD CONSTRAINT IF NOT EXISTS fk_project_stakeholders_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE portfolios ADD CONSTRAINT IF NOT EXISTS fk_portfolios_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE programs ADD CONSTRAINT IF NOT EXISTS fk_programs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

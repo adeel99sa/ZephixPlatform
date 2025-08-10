@@ -4,14 +4,14 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
   name = 'CreateBRDTable1703001000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Enable pg_trgm extension if not already enabled
+    // Enable pg_trgm extension if not already enabled (Railway compatible)
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
 
-    // Create BRD table
+    // Create BRD table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE "brds" (
+      CREATE TABLE IF NOT EXISTS "brds" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "tenant_id" uuid NOT NULL,
+        "organizationId" uuid NOT NULL,
         "project_id" uuid,
         "version" integer NOT NULL DEFAULT 1,
         "status" character varying NOT NULL DEFAULT 'draft',
@@ -24,19 +24,19 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
       )
     `);
 
-    // Create indexes
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id" ON "brds" ("tenant_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_status" ON "brds" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id_status" ON "brds" ("tenant_id", "status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id_project_id" ON "brds" ("tenant_id", "project_id")`);
+    // Create indexes (handle existing indexes gracefully)
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_status" ON "brds" ("status")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id")`);
     
     // Create GIN index on payload for JSON queries
-    await queryRunner.query(`CREATE INDEX "brds_payload_gin" ON "brds" USING gin("payload")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "brds_payload_gin" ON "brds" USING gin("payload")`);
     
     // Create GIN index on search_vector for full-text search
-    await queryRunner.query(`CREATE INDEX "brds_search_idx" ON "brds" USING gin("search_vector")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "brds_search_idx" ON "brds" USING gin("search_vector")`);
 
-    // Create function to update search_vector
+    // Create function to update search_vector (handle existing function gracefully)
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION update_brd_search_vector()
       RETURNS trigger AS $$
@@ -57,7 +57,8 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
       $$ LANGUAGE plpgsql;
     `);
 
-    // Create trigger to automatically update search_vector
+    // Create trigger to automatically update search_vector (handle existing trigger gracefully)
+    await queryRunner.query(`DROP TRIGGER IF EXISTS brd_search_vector_trigger ON "brds"`);
     await queryRunner.query(`
       CREATE TRIGGER brd_search_vector_trigger
       BEFORE INSERT OR UPDATE ON "brds"
@@ -65,11 +66,17 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
       EXECUTE FUNCTION update_brd_search_vector();
     `);
 
-    // Add foreign key constraints (assuming projects table exists)
+    // Add foreign key constraints (handle existing constraints gracefully)
     await queryRunner.query(`
       ALTER TABLE "brds" 
-      ADD CONSTRAINT "FK_brds_project_id" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_brds_project_id" 
       FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "brds" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_brds_organizationId" 
+      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
   }
 
@@ -79,6 +86,6 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
     await queryRunner.query(`DROP FUNCTION IF EXISTS update_brd_search_vector()`);
     
     // Drop table (this will automatically drop all indexes and constraints)
-    await queryRunner.query(`DROP TABLE "brds"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "brds"`);
   }
 }

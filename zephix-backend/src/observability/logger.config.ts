@@ -41,7 +41,7 @@ export const pinoConfig: Params = {
     },
     customProps: (req: RequestWithId) => ({
       requestId: req.id,
-      tenantId: (req as any).user?.tenant_id,
+      organizationId: (req as any).user?.organizationId,
       userId: (req as any).user?.sub,
     }),
     // Auto-logging for HTTP requests
