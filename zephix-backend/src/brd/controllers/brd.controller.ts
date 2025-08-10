@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 import { BRDService } from '../services/brd.service';
+import { BRDAnalysisService } from '../services/brd-analysis.service';
 import { 
   CreateBRDDto, 
   UpdateBRDDto, 
@@ -32,6 +33,12 @@ import {
   BRDListResponseDto,
   BRDCreateResponseDto,
   BRDUpdateResponseDto,
+  AnalyzeBRDDto,
+  GenerateProjectPlanDto,
+  BRDAnalysisResponseDto,
+  GeneratedProjectPlanResponseDto,
+  BRDAnalysisListResponseDto,
+  GeneratedProjectPlanListResponseDto,
 } from '../dto';
 import { BRDListQueryDto } from '../dto/brd-list-query.dto';
 import { BRDStatus } from '../entities/brd.entity';
@@ -39,9 +46,12 @@ import { BRDStatus } from '../entities/brd.entity';
 @ApiTags('BRD Management')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, OrganizationGuard)
-@Controller('api/pm/brds')
+@Controller('pm/brds')
 export class BRDController {
-  constructor(private readonly brdService: BRDService) {}
+  constructor(
+    private readonly brdService: BRDService,
+    private readonly brdAnalysisService: BRDAnalysisService,
+  ) {}
 
   @Post()
   @ApiOperation({ 
@@ -379,6 +389,174 @@ export class BRDController {
     return brds.map(brd => this.mapToResponseDto(brd));
   }
 
+  @Post(':id/analyze')
+  @ApiOperation({
+    summary: 'Analyze BRD with AI',
+    description: 'Performs AI-powered analysis of a BRD to extract key elements and insights'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'BRD analysis completed successfully',
+    type: BRDAnalysisResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'BRD not found',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
+  async analyzeBRD(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() analyzeDto: AnalyzeBRDDto,
+    @Req() req: any,
+  ): Promise<BRDAnalysisResponseDto> {
+    const organizationId = req.user.organizationId;
+    const userId = req.user.id;
+    
+    const analysis = await this.brdAnalysisService.analyzeBRD(id, organizationId, userId);
+    
+    return this.mapToAnalysisResponseDto(analysis);
+  }
+
+  @Post('analysis/:analysisId/generate-plan')
+  @ApiOperation({
+    summary: 'Generate project plan from BRD analysis',
+    description: 'Generates a methodology-specific project plan based on BRD analysis results'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Project plan generated successfully',
+    type: GeneratedProjectPlanResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'BRD analysis not found',
+  })
+  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  async generateProjectPlan(
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+    @Body() generateDto: GenerateProjectPlanDto,
+    @Req() req: any,
+  ): Promise<GeneratedProjectPlanResponseDto> {
+    const organizationId = req.user.organizationId;
+    const userId = req.user.id;
+    
+    // Get the analysis first
+    const analysis = await this.brdAnalysisService.getAnalysisById(analysisId, organizationId);
+    
+    const projectPlan = await this.brdAnalysisService.generateProjectPlan(
+      { id: analysis.id, extractedElements: analysis.extractedElements, analysisMetadata: analysis.analysisMetadata },
+      generateDto.methodology,
+      organizationId,
+      userId
+    );
+    
+    return this.mapToProjectPlanResponseDto(projectPlan);
+  }
+
+  @Get('analysis/:analysisId')
+  @ApiOperation({
+    summary: 'Get BRD analysis by ID',
+    description: 'Retrieves a specific BRD analysis by its unique identifier'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'BRD analysis retrieved successfully',
+    type: BRDAnalysisResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'BRD analysis not found',
+  })
+  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  async getAnalysisById(
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+    @Req() req: any,
+  ): Promise<BRDAnalysisResponseDto> {
+    const organizationId = req.user.organizationId;
+    const analysis = await this.brdAnalysisService.getAnalysisById(analysisId, organizationId);
+    
+    return this.mapToAnalysisResponseDto(analysis);
+  }
+
+  @Get('analysis/:analysisId/project-plans')
+  @ApiOperation({
+    summary: 'Get project plans by BRD analysis',
+    description: 'Retrieves all project plans generated from a specific BRD analysis'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Project plans retrieved successfully',
+    type: GeneratedProjectPlanListResponseDto,
+  })
+  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  async getProjectPlansByAnalysis(
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+    @Req() req: any,
+  ): Promise<GeneratedProjectPlanListResponseDto> {
+    const organizationId = req.user.organizationId;
+    const plans = await this.brdAnalysisService.listGeneratedPlansByAnalysis(analysisId, organizationId);
+    
+    return {
+      data: plans.map(plan => this.mapToProjectPlanResponseDto(plan)),
+      total: plans.length,
+      page: 1,
+      limit: plans.length,
+      totalPages: 1,
+    };
+  }
+
+  @Get(':id/analyses')
+  @ApiOperation({
+    summary: 'Get BRD analyses by BRD ID',
+    description: 'Retrieves all analyses performed on a specific BRD'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'BRD analyses retrieved successfully',
+    type: BRDAnalysisListResponseDto,
+  })
+  @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
+  async getAnalysesByBRD(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: any,
+  ): Promise<BRDAnalysisListResponseDto> {
+    const organizationId = req.user.organizationId;
+    const analyses = await this.brdAnalysisService.listAnalysesByBRD(id, organizationId);
+    
+    return {
+      data: analyses.map(analysis => this.mapToAnalysisResponseDto(analysis)),
+      total: analyses.length,
+      page: 1,
+      limit: analyses.length,
+      totalPages: 1,
+    };
+  }
+
+  @Get('project-plans/:planId')
+  @ApiOperation({
+    summary: 'Get generated project plan by ID',
+    description: 'Retrieves a specific generated project plan by its unique identifier'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Project plan retrieved successfully',
+    type: GeneratedProjectPlanResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Project plan not found',
+  })
+  @ApiParam({ name: 'planId', type: String, description: 'Project plan unique identifier' })
+  async getProjectPlanById(
+    @Param('planId', ParseUUIDPipe) planId: string,
+    @Req() req: any,
+  ): Promise<GeneratedProjectPlanResponseDto> {
+    const organizationId = req.user.organizationId;
+    const plan = await this.brdAnalysisService.getGeneratedPlanById(planId, organizationId);
+    
+    return this.mapToProjectPlanResponseDto(plan);
+  }
+
   /**
    * Helper method to map BRD entity to response DTO
    */
@@ -396,6 +574,40 @@ export class BRDController {
       summary: brd.getSummary(),
       industry: brd.getIndustry(),
       department: brd.getDepartment(),
+    };
+  }
+
+  /**
+   * Helper method to map BRD analysis entity to response DTO
+   */
+  private mapToAnalysisResponseDto(analysis: any): BRDAnalysisResponseDto {
+    return {
+      id: analysis.id,
+      brdId: analysis.brdId,
+      extractedElements: analysis.extractedElements,
+      analysisMetadata: analysis.analysisMetadata,
+      analyzedBy: analysis.analyzedBy,
+      createdAt: analysis.createdAt,
+      updatedAt: analysis.updatedAt,
+    };
+  }
+
+  /**
+   * Helper method to map generated project plan entity to response DTO
+   */
+  private mapToProjectPlanResponseDto(plan: any): GeneratedProjectPlanResponseDto {
+    return {
+      id: plan.id,
+      brdAnalysisId: plan.brdAnalysisId,
+      organizationId: plan.organizationId,
+      methodology: plan.methodology,
+      planStructure: plan.planStructure,
+      resourcePlan: plan.resourcePlan,
+      riskRegister: plan.riskRegister,
+      generationMetadata: plan.generationMetadata,
+      generatedBy: plan.generatedBy,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
     };
   }
 }
