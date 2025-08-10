@@ -50,7 +50,7 @@ if (isTracingEnabled) {
           if (req.id) {
             span.setAttributes({
               'request.id': req.id,
-              'user.tenant_id': req.user?.tenant_id || 'anonymous',
+              'user.organizationId': req.user?.organizationId || 'anonymous',
               'user.id': req.user?.sub || 'anonymous',
             });
           }

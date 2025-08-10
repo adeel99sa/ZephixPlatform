@@ -4,9 +4,9 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
   name = 'CreateStatusReportingTables1700000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create Status Reports table
+    // Create Status Reports table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE status_reports (
+      CREATE TABLE IF NOT EXISTS status_reports (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         reporting_period_start DATE NOT NULL,
@@ -25,14 +25,13 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
         schedule_performance_index DECIMAL(5,2),
         created_by UUID NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_status_reports_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    // Create Project Metrics table
+    // Create Project Metrics table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE project_metrics (
+      CREATE TABLE IF NOT EXISTS project_metrics (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         metric_date DATE NOT NULL,
@@ -43,14 +42,13 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
         metric_metadata JSONB,
         notes TEXT,
         recorded_by UUID NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_project_metrics_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    // Create Performance Baselines table
+    // Create Performance Baselines table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE performance_baselines (
+      CREATE TABLE IF NOT EXISTS performance_baselines (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         baseline_type VARCHAR(50) NOT NULL,
@@ -60,14 +58,13 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
         change_reason TEXT,
         approved_by UUID NOT NULL,
         is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_performance_baselines_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    // Create Alert Configurations table
+    // Create Alert Configurations table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE alert_configurations (
+      CREATE TABLE IF NOT EXISTS alert_configurations (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         alert_type VARCHAR(100) NOT NULL,
@@ -80,14 +77,13 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
         is_active BOOLEAN DEFAULT true,
         created_by UUID NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_alert_configurations_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    // Create Manual Updates table
+    // Create Manual Updates table (handle existing table gracefully)
     await queryRunner.query(`
-      CREATE TABLE manual_updates (
+      CREATE TABLE IF NOT EXISTS manual_updates (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         project_id UUID NOT NULL,
         category VARCHAR(20) NOT NULL CHECK (category IN ('schedule', 'budget', 'scope', 'quality', 'risk', 'stakeholder')),
@@ -99,85 +95,36 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
         included_in_report BOOLEAN DEFAULT false,
         submitted_by UUID NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_manual_updates_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    // Create Stakeholder Communications table
-    await queryRunner.query(`
-      CREATE TABLE stakeholder_communications (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        project_id UUID NOT NULL,
-        stakeholder_type VARCHAR(50) NOT NULL,
-        stakeholder_name VARCHAR(255) NOT NULL,
-        communication_date DATE NOT NULL,
-        communication_type VARCHAR(100) NOT NULL,
-        subject VARCHAR(255) NOT NULL,
-        content TEXT NOT NULL,
-        delivery_metrics JSONB,
-        attachments TEXT[],
-        status VARCHAR(20) NOT NULL,
-        sent_by UUID NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT fk_stakeholder_communications_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-      )
-    `);
+    // Add foreign key constraints (handle existing constraints gracefully)
+    await queryRunner.query(`ALTER TABLE status_reports ADD CONSTRAINT IF NOT EXISTS fk_status_reports_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE project_metrics ADD CONSTRAINT IF NOT EXISTS fk_project_metrics_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE performance_baselines ADD CONSTRAINT IF NOT EXISTS fk_performance_baselines_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE alert_configurations ADD CONSTRAINT IF NOT EXISTS fk_alert_configurations_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE manual_updates ADD CONSTRAINT IF NOT EXISTS fk_manual_updates_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
 
-    // Add new columns to projects table for status reporting
-    await queryRunner.query(`
-      ALTER TABLE projects 
-      ADD COLUMN current_metrics JSONB,
-      ADD COLUMN last_status_report_date DATE,
-      ADD COLUMN current_phase VARCHAR(20),
-      ADD COLUMN overall_completion DECIMAL(5,2),
-      ADD COLUMN forecasted_completion_date DATE,
-      ADD COLUMN forecasted_final_cost DECIMAL(15,2)
-    `);
-
-    // Create indexes for better performance
-    await queryRunner.query(`
-      CREATE INDEX idx_status_reports_project_period ON status_reports(project_id, reporting_period_start);
-      CREATE INDEX idx_status_reports_status ON status_reports(overall_status);
-      CREATE INDEX idx_status_reports_created ON status_reports(created_at);
-      CREATE INDEX idx_project_metrics_project_date ON project_metrics(project_id, metric_date);
-      CREATE INDEX idx_project_metrics_type ON project_metrics(metric_type);
-      CREATE INDEX idx_performance_baselines_project_type ON performance_baselines(project_id, baseline_type);
-      CREATE INDEX idx_manual_updates_project_created ON manual_updates(project_id, created_at);
-      CREATE INDEX idx_manual_updates_category ON manual_updates(category);
-      CREATE INDEX idx_manual_updates_impact ON manual_updates(impact);
-      CREATE INDEX idx_stakeholder_communications_project_type ON stakeholder_communications(project_id, stakeholder_type);
-      CREATE INDEX idx_stakeholder_communications_date ON stakeholder_communications(communication_date);
-    `);
+    // Create indexes (handle existing indexes gracefully)
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_status_reports_project_id ON status_reports (project_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_status_reports_period ON status_reports (reporting_period_start, reporting_period_end)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_metrics_project_id ON project_metrics (project_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_metrics_date ON project_metrics (metric_date)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_performance_baselines_project_id ON performance_baselines (project_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_alert_configurations_project_id ON alert_configurations (project_id)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_manual_updates_project_id ON manual_updates (project_id)`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop indexes
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_stakeholder_communications_date`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_stakeholder_communications_project_type`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_manual_updates_impact`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_manual_updates_category`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_manual_updates_project_created`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_performance_baselines_project_type`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_project_metrics_type`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_project_metrics_project_date`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_status_reports_created`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_status_reports_status`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_status_reports_project_period`);
-
-    // Drop new columns from projects table
-    await queryRunner.query(`
-      ALTER TABLE projects 
-      DROP COLUMN IF EXISTS current_metrics,
-      DROP COLUMN IF EXISTS last_status_report_date,
-      DROP COLUMN IF EXISTS current_phase,
-      DROP COLUMN IF EXISTS overall_completion,
-      DROP COLUMN IF EXISTS forecasted_completion_date,
-      DROP COLUMN IF EXISTS forecasted_final_cost
-    `);
+    // Drop foreign key constraints
+    await queryRunner.query(`ALTER TABLE manual_updates DROP CONSTRAINT IF EXISTS fk_manual_updates_project`);
+    await queryRunner.query(`ALTER TABLE alert_configurations DROP CONSTRAINT IF EXISTS fk_alert_configurations_project`);
+    await queryRunner.query(`ALTER TABLE performance_baselines DROP CONSTRAINT IF EXISTS fk_performance_baselines_project`);
+    await queryRunner.query(`ALTER TABLE project_metrics DROP CONSTRAINT IF EXISTS fk_project_metrics_project`);
+    await queryRunner.query(`ALTER TABLE status_reports DROP CONSTRAINT IF EXISTS fk_status_reports_project`);
 
     // Drop tables
-    await queryRunner.query(`DROP TABLE IF EXISTS stakeholder_communications`);
     await queryRunner.query(`DROP TABLE IF EXISTS manual_updates`);
     await queryRunner.query(`DROP TABLE IF EXISTS alert_configurations`);
     await queryRunner.query(`DROP TABLE IF EXISTS performance_baselines`);
