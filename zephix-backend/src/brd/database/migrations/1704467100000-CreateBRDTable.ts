@@ -17,7 +17,7 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
             default: 'gen_random_uuid()',
           },
           {
-            name: 'tenant_id',
+            name: 'organizationId',
             type: 'uuid',
             isNullable: false,
           },
@@ -63,9 +63,9 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id" ON "brds" ("tenant_id");`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id_status" ON "brds" ("tenant_id", "status");`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_tenant_id_project_id" ON "brds" ("tenant_id", "project_id");`);
+    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId");`);
+    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`);
+    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`);
 
     // Create GIN index for JSONB payload
     await queryRunner.query(`
@@ -129,7 +129,7 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE POLICY brds_tenant_isolation ON brds
         FOR ALL
-        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        USING (organizationId = current_setting('app.current_organization_id', true)::uuid);
     `);
 
     // Create policy for superuser access (for admin operations)

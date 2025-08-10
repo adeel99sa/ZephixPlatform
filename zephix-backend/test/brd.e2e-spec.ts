@@ -15,7 +15,7 @@ describe('BRD (e2e)', () => {
   let jwtService: JwtService;
   let authToken: string;
 
-  const testTenantId = '550e8400-e29b-41d4-a716-446655440000';
+  const testOrganizationId = '550e8400-e29b-41d4-a716-446655440000';
   const testProjectId = '550e8400-e29b-41d4-a716-446655440001';
   const testUserId = '550e8400-e29b-41d4-a716-446655440002';
 
@@ -45,7 +45,7 @@ describe('BRD (e2e)', () => {
     authToken = jwtService.sign({
       sub: testUserId,
       email: 'test@example.com',
-      tenant_id: testTenantId,
+      organizationId: testOrganizationId,
     });
   });
 
@@ -61,7 +61,7 @@ describe('BRD (e2e)', () => {
   describe('POST /api/brd', () => {
     it('should create a new BRD with valid payload', () => {
       const createDto = {
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         payload: seedData,
       };
@@ -80,7 +80,7 @@ describe('BRD (e2e)', () => {
 
     it('should return 400 for invalid payload', () => {
       const createDto = {
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         payload: {
           metadata: {
             title: 'ab', // Too short
@@ -102,7 +102,7 @@ describe('BRD (e2e)', () => {
 
     it('should return 400 for missing required fields', () => {
       const createDto = {
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         payload: {}, // Empty payload
       };
 
@@ -115,7 +115,7 @@ describe('BRD (e2e)', () => {
 
     it('should return 401 without authentication', () => {
       const createDto = {
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         payload: seedData,
       };
 
@@ -131,7 +131,7 @@ describe('BRD (e2e)', () => {
 
     beforeEach(async () => {
       testBRD = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -143,12 +143,12 @@ describe('BRD (e2e)', () => {
     it('should get a BRD by ID', () => {
       return request(app.getHttpServer())
         .get(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
         .expect((res) => {
           expect(res.body).toHaveProperty('id', testBRD.id);
-          expect(res.body).toHaveProperty('tenant_id', testTenantId);
+          expect(res.body).toHaveProperty('organizationId', testOrganizationId);
           expect(res.body).toHaveProperty('version', 1);
           expect(res.body).toHaveProperty('status', BRDStatus.DRAFT);
           expect(res.body).toHaveProperty('payload');
@@ -160,7 +160,7 @@ describe('BRD (e2e)', () => {
     it('should return 404 for non-existent BRD', () => {
       return request(app.getHttpServer())
         .get('/api/brd/550e8400-e29b-41d4-a716-446655440999')
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -168,7 +168,7 @@ describe('BRD (e2e)', () => {
     it('should return 404 for wrong tenant', () => {
       return request(app.getHttpServer())
         .get(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: '550e8400-e29b-41d4-a716-446655440999' })
+        .query({ organizationId: '550e8400-e29b-41d4-a716-446655440999' })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(404);
     });
@@ -179,7 +179,7 @@ describe('BRD (e2e)', () => {
 
     beforeEach(async () => {
       testBRD = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -201,7 +201,7 @@ describe('BRD (e2e)', () => {
 
       return request(app.getHttpServer())
         .put(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .send(updateDto)
         .expect(200)
@@ -223,7 +223,7 @@ describe('BRD (e2e)', () => {
 
       return request(app.getHttpServer())
         .put(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .send(updateDto)
         .expect(400);
@@ -235,7 +235,7 @@ describe('BRD (e2e)', () => {
       // Create multiple test BRDs
       const brds = [
         {
-          tenant_id: testTenantId,
+          organizationId: testOrganizationId,
           project_id: testProjectId,
           version: 1,
           status: BRDStatus.DRAFT,
@@ -245,7 +245,7 @@ describe('BRD (e2e)', () => {
           },
         },
         {
-          tenant_id: testTenantId,
+          organizationId: testOrganizationId,
           project_id: testProjectId,
           version: 1,
           status: BRDStatus.APPROVED,
@@ -255,7 +255,7 @@ describe('BRD (e2e)', () => {
           },
         },
         {
-          tenant_id: testTenantId,
+          organizationId: testOrganizationId,
           project_id: null,
           version: 1,
           status: BRDStatus.DRAFT,
@@ -276,7 +276,7 @@ describe('BRD (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/brd')
         .query({
-          tenantId: testTenantId,
+          organizationId: testOrganizationId,
           page: 1,
           limit: 2,
         })
@@ -296,7 +296,7 @@ describe('BRD (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/brd')
         .query({
-          tenantId: testTenantId,
+          organizationId: testOrganizationId,
           status: BRDStatus.DRAFT,
         })
         .set('Authorization', `Bearer ${authToken}`)
@@ -313,7 +313,7 @@ describe('BRD (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/brd')
         .query({
-          tenantId: testTenantId,
+          organizationId: testOrganizationId,
           project_id: testProjectId,
         })
         .set('Authorization', `Bearer ${authToken}`)
@@ -330,7 +330,7 @@ describe('BRD (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/brd')
         .query({
-          tenantId: testTenantId,
+          organizationId: testOrganizationId,
           industry: 'Technology',
         })
         .set('Authorization', `Bearer ${authToken}`)
@@ -349,7 +349,7 @@ describe('BRD (e2e)', () => {
 
     beforeEach(async () => {
       testBRD = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -365,7 +365,7 @@ describe('BRD (e2e)', () => {
 
       return request(app.getHttpServer())
         .post(`/api/brd/${testBRD.id}/publish`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .send(publishDto)
         .expect(200)
@@ -381,7 +381,7 @@ describe('BRD (e2e)', () => {
 
       return request(app.getHttpServer())
         .post(`/api/brd/${testBRD.id}/publish`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .send(publishDto)
         .expect(400);
@@ -393,7 +393,7 @@ describe('BRD (e2e)', () => {
 
     beforeEach(async () => {
       testBRD = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -405,7 +405,7 @@ describe('BRD (e2e)', () => {
     it('should delete a draft BRD successfully', () => {
       return request(app.getHttpServer())
         .delete(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(204);
     });
@@ -417,7 +417,7 @@ describe('BRD (e2e)', () => {
 
       return request(app.getHttpServer())
         .delete(`/api/brd/${testBRD.id}`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(403);
     });
@@ -428,7 +428,7 @@ describe('BRD (e2e)', () => {
 
     beforeEach(async () => {
       testBRD = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -440,7 +440,7 @@ describe('BRD (e2e)', () => {
     it('should get validation summary for a BRD', () => {
       return request(app.getHttpServer())
         .get(`/api/brd/${testBRD.id}/validation`)
-        .query({ tenantId: testTenantId })
+        .query({ organizationId: testOrganizationId })
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200)
         .expect((res) => {
@@ -470,7 +470,7 @@ describe('BRD (e2e)', () => {
   describe('GET /api/brd/search', () => {
     beforeEach(async () => {
       const brd = brdRepository.create({
-        tenant_id: testTenantId,
+        organizationId: testOrganizationId,
         project_id: testProjectId,
         version: 1,
         status: BRDStatus.DRAFT,
@@ -490,7 +490,7 @@ describe('BRD (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/brd/search')
         .query({
-          tenantId: testTenantId,
+          organizationId: testOrganizationId,
           q: 'customer portal',
           limit: 10,
         })

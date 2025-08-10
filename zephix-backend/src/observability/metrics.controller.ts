@@ -22,11 +22,11 @@ export class MetricsController {
           type: 'string',
           example: `# HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
-http_requests_total{method="GET",route="/api/pm/brds",status_code="200",tenant_id="tenant-1"} 42
+http_requests_total{method="GET",route="/api/pm/brds",status_code="200",organizationId="org-1"} 42
 
 # HELP brd_operations_total Total number of BRD operations
 # TYPE brd_operations_total counter
-brd_operations_total{operation="create",status="success",tenant_id="tenant-1"} 15`,
+brd_operations_total{operation="create",status="success",organizationId="org-1"} 15`,
         },
       },
     },

@@ -1,523 +1,123 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateRiskManagementTables1704000004000 implements MigrationInterface {
   name = 'CreateRiskManagementTables1704000004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create risks table
-    await queryRunner.createTable(
-      new Table({
-        name: 'risks',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'projectId',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'title',
-            type: 'varchar',
-            length: '255',
-            isNullable: false,
-          },
-          {
-            name: 'description',
-            type: 'text',
-            isNullable: false,
-          },
-          {
-            name: 'category',
-            type: 'varchar',
-            length: '50',
-            isNullable: false,
-          },
-          {
-            name: 'subcategory',
-            type: 'varchar',
-            length: '100',
-            isNullable: true,
-          },
-          {
-            name: 'probability',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'impact',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'riskScore',
-            type: 'decimal',
-            precision: 5,
-            scale: 2,
-            isNullable: false,
-          },
-          {
-            name: 'riskLevel',
-            type: 'varchar',
-            length: '20',
-            isNullable: false,
-          },
-          {
-            name: 'timing',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'triggers',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'dependencies',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'source',
-            type: 'varchar',
-            length: '30',
-            isNullable: false,
-          },
-          {
-            name: 'confidence',
-            type: 'decimal',
-            precision: 5,
-            scale: 2,
-            isNullable: false,
-          },
-          {
-            name: 'status',
-            type: 'varchar',
-            length: '20',
-            default: "'active'",
-            isNullable: false,
-          },
-          {
-            name: 'statusNotes',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'riskData',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'createdBy',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'lastUpdatedBy',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-    );
+    // Create risks table (handle existing table gracefully)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS risks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "projectId" UUID NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        subcategory VARCHAR(100),
+        probability JSONB NOT NULL,
+        impact JSONB NOT NULL,
+        "riskScore" DECIMAL(5,2) NOT NULL,
+        "riskLevel" VARCHAR(20) NOT NULL,
+        timing JSONB NOT NULL,
+        triggers JSONB NOT NULL,
+        dependencies JSONB NOT NULL,
+        source VARCHAR(30) NOT NULL,
+        confidence DECIMAL(5,2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'identified',
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // Create risk_assessments table
-    await queryRunner.createTable(
-      new Table({
-        name: 'risk_assessments',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'riskId',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'assessmentDate',
-            type: 'timestamp',
-            isNullable: false,
-          },
-          {
-            name: 'probabilityScore',
-            type: 'decimal',
-            precision: 3,
-            scale: 1,
-            isNullable: false,
-          },
-          {
-            name: 'probabilityConfidence',
-            type: 'decimal',
-            precision: 5,
-            scale: 2,
-            isNullable: false,
-          },
-          {
-            name: 'probabilityRationale',
-            type: 'text',
-            isNullable: false,
-          },
-          {
-            name: 'impactScores',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'riskScore',
-            type: 'decimal',
-            precision: 5,
-            scale: 2,
-            isNullable: false,
-          },
-          {
-            name: 'riskLevel',
-            type: 'varchar',
-            length: '20',
-            isNullable: false,
-          },
-          {
-            name: 'quantifiedImpact',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'assessmentNotes',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'evidencePoints',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'assessmentData',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'assessedBy',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-    );
+    // Create risk_assessments table (handle existing table gracefully)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS risk_assessments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "riskId" UUID NOT NULL,
+        "assessmentDate" DATE NOT NULL,
+        assessor VARCHAR(255) NOT NULL,
+        "assessmentType" VARCHAR(50) NOT NULL,
+        "assessmentMethod" VARCHAR(100),
+        "assessmentCriteria" JSONB NOT NULL,
+        "assessmentResults" JSONB NOT NULL,
+        "assessmentScore" DECIMAL(5,2),
+        "assessmentLevel" VARCHAR(20),
+        "assessmentNotes" TEXT,
+        "assessmentConfidence" DECIMAL(5,2),
+        "assessmentStatus" VARCHAR(20) DEFAULT 'completed',
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // Create risk_responses table
-    await queryRunner.createTable(
-      new Table({
-        name: 'risk_responses',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'riskId',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'strategy',
-            type: 'varchar',
-            length: '20',
-            isNullable: false,
-          },
-          {
-            name: 'rationale',
-            type: 'text',
-            isNullable: false,
-          },
-          {
-            name: 'actions',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'contingencyPlan',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'transferDetails',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'monitoring',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'effectiveness',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'responseData',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'createdBy',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'lastUpdatedBy',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-    );
+    // Create risk_responses table (handle existing table gracefully)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS risk_responses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "riskId" UUID NOT NULL,
+        strategy VARCHAR(50) NOT NULL,
+        "responseType" VARCHAR(50) NOT NULL,
+        description TEXT NOT NULL,
+        "responsePlan" JSONB NOT NULL,
+        "responseActions" JSONB[] NOT NULL,
+        "responseTimeline" JSONB NOT NULL,
+        "responseBudget" DECIMAL(12,2),
+        "responseResources" JSONB NOT NULL,
+        "responseOwner" VARCHAR(255) NOT NULL,
+        "responseStatus" VARCHAR(20) DEFAULT 'planned',
+        "responseEffectiveness" DECIMAL(5,2),
+        "responseNotes" TEXT,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // Create risk_monitoring table
-    await queryRunner.createTable(
-      new Table({
-        name: 'risk_monitoring',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'riskId',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'monitoringDate',
-            type: 'timestamp',
-            isNullable: false,
-          },
-          {
-            name: 'monitoringFrequency',
-            type: 'varchar',
-            length: '20',
-            isNullable: false,
-          },
-          {
-            name: 'kpis',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'thresholds',
-            type: 'jsonb',
-            isNullable: false,
-          },
-          {
-            name: 'assignedTo',
-            type: 'varchar',
-            length: '100',
-            isNullable: false,
-          },
-          {
-            name: 'monitoringMethods',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'reportingStructure',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'monitoringNotes',
-            type: 'text',
-            isNullable: true,
-          },
-          {
-            name: 'status',
-            type: 'varchar',
-            length: '20',
-            default: "'active'",
-            isNullable: false,
-          },
-          {
-            name: 'monitoringData',
-            type: 'jsonb',
-            isNullable: true,
-          },
-          {
-            name: 'createdBy',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'lastUpdatedBy',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'createdAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updatedAt',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-    );
+    // Create risk_monitoring table (handle existing table gracefully)
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS risk_monitoring (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "riskId" UUID NOT NULL,
+        "monitoringDate" DATE NOT NULL,
+        "monitoringType" VARCHAR(50) NOT NULL,
+        "monitoringMethod" VARCHAR(100),
+        "monitoringMetrics" JSONB NOT NULL,
+        "monitoringResults" JSONB NOT NULL,
+        "monitoringStatus" VARCHAR(20) DEFAULT 'active',
+        "monitoringNotes" TEXT,
+        "monitoringNextReview" DATE,
+        "monitoringEscalation" BOOLEAN DEFAULT false,
+        "monitoringEscalationReason" TEXT,
+        "monitoringEscalationLevel" VARCHAR(20),
+        "monitoringEscalationActions" JSONB,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // Create indexes
-    await queryRunner.createIndex('risks', new TableIndex({
-      name: 'IDX_risks_projectId_riskScore',
-      columnNames: ['projectId', 'riskScore'],
-    }));
+    // Create indexes (handle existing indexes gracefully)
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskScore" ON risks ("projectId", "riskScore")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskLevel" ON risks ("projectId", "riskLevel")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_assessments_riskId_assessmentDate" ON risk_assessments ("riskId", "assessmentDate")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_responses_riskId_strategy" ON risk_responses ("riskId", strategy)`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_monitoring_riskId_monitoringDate" ON risk_monitoring ("riskId", "monitoringDate")`);
 
-    await queryRunner.createIndex('risks', new TableIndex({
-      name: 'IDX_risks_projectId_riskLevel',
-      columnNames: ['projectId', 'riskLevel'],
-    }));
-
-    await queryRunner.createIndex('risk_assessments', new TableIndex({
-      name: 'IDX_risk_assessments_riskId_assessmentDate',
-      columnNames: ['riskId', 'assessmentDate'],
-    }));
-
-    await queryRunner.createIndex('risk_responses', new TableIndex({
-      name: 'IDX_risk_responses_riskId_strategy',
-      columnNames: ['riskId', 'strategy'],
-    }));
-
-    await queryRunner.createIndex('risk_monitoring', new TableIndex({
-      name: 'IDX_risk_monitoring_riskId_monitoringDate',
-      columnNames: ['riskId', 'monitoringDate'],
-    }));
-
-    // Create foreign keys
-    await queryRunner.createForeignKey(
-      'risks',
-      new TableForeignKey({
-        columnNames: ['projectId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'projects',
-        onDelete: 'CASCADE',
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      'risk_assessments',
-      new TableForeignKey({
-        columnNames: ['riskId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'risks',
-        onDelete: 'CASCADE',
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      'risk_responses',
-      new TableForeignKey({
-        columnNames: ['riskId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'risks',
-        onDelete: 'CASCADE',
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      'risk_monitoring',
-      new TableForeignKey({
-        columnNames: ['riskId'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'risks',
-        onDelete: 'CASCADE',
-      }),
-    );
+    // Add foreign key constraints (handle existing constraints gracefully)
+    await queryRunner.query(`ALTER TABLE risks ADD CONSTRAINT IF NOT EXISTS fk_risks_project_id FOREIGN KEY ("projectId") REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE risk_assessments ADD CONSTRAINT IF NOT EXISTS fk_risk_assessments_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE risk_responses ADD CONSTRAINT IF NOT EXISTS fk_risk_responses_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
+    await queryRunner.query(`ALTER TABLE risk_monitoring ADD CONSTRAINT IF NOT EXISTS fk_risk_monitoring_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop foreign keys
-    const risksTable = await queryRunner.getTable('risks');
-    const riskAssessmentsTable = await queryRunner.getTable('risk_assessments');
-    const riskResponsesTable = await queryRunner.getTable('risk_responses');
-    const riskMonitoringTable = await queryRunner.getTable('risk_monitoring');
-
-    if (risksTable) {
-      const foreignKey = risksTable.foreignKeys.find(fk => fk.columnNames.indexOf('projectId') !== -1);
-      if (foreignKey) {
-        await queryRunner.dropForeignKey('risks', foreignKey);
-      }
-    }
-
-    if (riskAssessmentsTable) {
-      const foreignKey = riskAssessmentsTable.foreignKeys.find(fk => fk.columnNames.indexOf('riskId') !== -1);
-      if (foreignKey) {
-        await queryRunner.dropForeignKey('risk_assessments', foreignKey);
-      }
-    }
-
-    if (riskResponsesTable) {
-      const foreignKey = riskResponsesTable.foreignKeys.find(fk => fk.columnNames.indexOf('riskId') !== -1);
-      if (foreignKey) {
-        await queryRunner.dropForeignKey('risk_responses', foreignKey);
-      }
-    }
-
-    if (riskMonitoringTable) {
-      const foreignKey = riskMonitoringTable.foreignKeys.find(fk => fk.columnNames.indexOf('riskId') !== -1);
-      if (foreignKey) {
-        await queryRunner.dropForeignKey('risk_monitoring', foreignKey);
-      }
-    }
+    // Drop foreign key constraints
+    await queryRunner.query(`ALTER TABLE risk_monitoring DROP CONSTRAINT IF EXISTS fk_risk_monitoring_risk_id`);
+    await queryRunner.query(`ALTER TABLE risk_responses DROP CONSTRAINT IF EXISTS fk_risk_responses_risk_id`);
+    await queryRunner.query(`ALTER TABLE risk_assessments DROP CONSTRAINT IF EXISTS fk_risk_assessments_risk_id`);
+    await queryRunner.query(`ALTER TABLE risks DROP CONSTRAINT IF EXISTS fk_risks_project_id`);
 
     // Drop tables
-    await queryRunner.dropTable('risk_monitoring');
-    await queryRunner.dropTable('risk_responses');
-    await queryRunner.dropTable('risk_assessments');
-    await queryRunner.dropTable('risks');
+    await queryRunner.query(`DROP TABLE IF EXISTS risk_monitoring`);
+    await queryRunner.query(`DROP TABLE IF EXISTS risk_responses`);
+    await queryRunner.query(`DROP TABLE IF EXISTS risk_assessments`);
+    await queryRunner.query(`DROP TABLE IF EXISTS risks`);
   }
 }
