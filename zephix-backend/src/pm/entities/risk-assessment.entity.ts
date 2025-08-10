@@ -148,7 +148,8 @@ export class RiskAssessment {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.riskAssessments)
-  @JoinColumn({ name: 'projectId' })
-  project: Project;
+  // REMOVED Project relationship to prevent circular dependency
+  // @ManyToOne(() => Project, project => project.riskAssessments)
+  // @JoinColumn({ name: 'projectId' })
+  // project: Project;
 }

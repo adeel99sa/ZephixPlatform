@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { StatusReport } from '../entities/status-report.entity';
+import { StatusReport } from '../status-reporting/entities/status-report.entity';
 import { ProjectMetrics } from '../entities/project-metrics.entity';
 import { PerformanceBaseline } from '../entities/performance-baseline.entity';
 import { AlertConfiguration } from '../entities/alert-configuration.entity';
