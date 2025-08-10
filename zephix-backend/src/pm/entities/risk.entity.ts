@@ -158,9 +158,10 @@ export class Risk {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.risks)
-  @JoinColumn({ name: 'projectId' })
-  project: Project;
+  // REMOVED Project relationship to prevent circular dependency
+  // @ManyToOne(() => Project, project => project.risks)
+  // @JoinColumn({ name: 'projectId' })
+  // project: Project;
 
   @OneToMany(() => RiskResponse, response => response.risk)
   responses: RiskResponse[];

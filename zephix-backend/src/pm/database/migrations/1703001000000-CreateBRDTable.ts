@@ -5,36 +5,61 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Enable pg_trgm extension if not already enabled (Railway compatible)
-    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
-
-    // Create BRD table (handle existing table gracefully)
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "brds" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "organizationId" uuid NOT NULL,
-        "project_id" uuid,
-        "version" integer NOT NULL DEFAULT 1,
-        "status" character varying NOT NULL DEFAULT 'draft',
-        "payload" jsonb NOT NULL,
-        "search_vector" tsvector,
-        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_brds" PRIMARY KEY ("id"),
-        CONSTRAINT "CHK_brd_status" CHECK ("status" IN ('draft', 'in_review', 'approved', 'published'))
+    const pgTrgmExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM pg_extension WHERE extname = 'pg_trgm'
       )
     `);
+    if (!pgTrgmExists[0].exists) {
+      await queryRunner.query(`CREATE EXTENSION pg_trgm;`);
+    }
+
+    // Create BRD table (handle existing table gracefully)
+    const brdTableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'brds'
+      )
+    `);
+    if (!brdTableExists[0].exists) {
+      await queryRunner.query(`
+        CREATE TABLE "brds" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "organizationId" uuid NOT NULL,
+          "project_id" uuid,
+          "version" integer NOT NULL DEFAULT 1,
+          "status" character varying NOT NULL DEFAULT 'draft',
+          "payload" jsonb NOT NULL,
+          "search_vector" tsvector,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_brds" PRIMARY KEY ("id"),
+          CONSTRAINT "CHK_brd_status" CHECK ("status" IN ('draft', 'in_review', 'approved', 'published'))
+        )
+      `);
+    }
 
     // Create indexes (handle existing indexes gracefully)
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_status" ON "brds" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id")`);
-    
-    // Create GIN index on payload for JSON queries
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "brds_payload_gin" ON "brds" USING gin("payload")`);
-    
-    // Create GIN index on search_vector for full-text search
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "brds_search_idx" ON "brds" USING gin("search_vector")`);
+    const indexes = [
+      { name: 'IDX_brds_organizationId', query: `CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId")` },
+      { name: 'IDX_brds_status', query: `CREATE INDEX "IDX_brds_status" ON "brds" ("status")` },
+      { name: 'IDX_brds_organizationId_status', query: `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status")` },
+      { name: 'IDX_brds_organizationId_project_id', query: `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id")` },
+      { name: 'brds_payload_gin', query: `CREATE INDEX "brds_payload_gin" ON "brds" USING gin("payload")` },
+      { name: 'brds_search_idx', query: `CREATE INDEX "brds_search_idx" ON "brds" USING gin("search_vector")` }
+    ];
+
+    for (const index of indexes) {
+      const indexExists = await queryRunner.query(`
+        SELECT EXISTS (
+          SELECT FROM pg_indexes 
+          WHERE indexname = '${index.name}'
+        )
+      `);
+      if (!indexExists[0].exists) {
+        await queryRunner.query(index.query);
+      }
+    }
 
     // Create function to update search_vector (handle existing function gracefully)
     await queryRunner.query(`
@@ -67,17 +92,35 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
     `);
 
     // Add foreign key constraints (handle existing constraints gracefully)
-    await queryRunner.query(`
-      ALTER TABLE "brds" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_brds_project_id" 
-      FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL
+    const fkProjectExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.table_constraints 
+        WHERE constraint_name = 'FK_brds_project_id' 
+        AND table_name = 'brds'
+      )
     `);
+    if (!fkProjectExists[0].exists) {
+      await queryRunner.query(`
+        ALTER TABLE "brds" 
+        ADD CONSTRAINT "FK_brds_project_id" 
+        FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE SET NULL
+      `);
+    }
 
-    await queryRunner.query(`
-      ALTER TABLE "brds" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_brds_organizationId" 
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
+    const fkOrgExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.table_constraints 
+        WHERE constraint_name = 'FK_brds_organizationId' 
+        AND table_name = 'brds'
+      )
     `);
+    if (!fkOrgExists[0].exists) {
+      await queryRunner.query(`
+        ALTER TABLE "brds" 
+        ADD CONSTRAINT "FK_brds_organizationId" 
+        FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
