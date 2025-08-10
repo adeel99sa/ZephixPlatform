@@ -33,9 +33,9 @@ export const pinoConfig: Params = {
       res: (res: any) => ({
         statusCode: res.statusCode,
         headers: {
-          'content-type': res.getHeader('content-type'),
-          'content-length': res.getHeader('content-length'),
-          'x-request-id': res.getHeader('x-request-id'),
+          'content-type': res.getHeader ? res.getHeader('content-type') : res.headers?.['content-type'],
+          'content-length': res.getHeader ? res.getHeader('content-length') : res.headers?.['content-length'],
+          'x-request-id': res.getHeader ? res.getHeader('x-request-id') : res.headers?.['x-request-id'],
         },
       }),
     },

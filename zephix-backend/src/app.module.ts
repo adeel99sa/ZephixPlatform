@@ -46,6 +46,8 @@ import { RiskAssessment } from './pm/entities/risk-assessment.entity';
 import { RiskResponse } from './pm/entities/risk-response.entity';
 import { RiskMonitoring } from './pm/entities/risk-monitoring.entity';
 import { BRD } from './brd/entities/brd.entity';
+import { BRDAnalysis } from './brd/entities/brd-analysis.entity';
+import { GeneratedProjectPlan } from './brd/entities/generated-project-plan.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { UserOrganization } from './organizations/entities/user-organization.entity';
 import { AppController } from './app.controller';
@@ -73,7 +75,7 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: true, // Auto-run migrations on startup
@@ -106,7 +108,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, Organization, UserOrganization],
+            entities: [User, Feedback, Project, Team, TeamMember, Role, PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
