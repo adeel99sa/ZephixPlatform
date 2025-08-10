@@ -7,7 +7,7 @@ export class MetricsService {
   public readonly httpRequestsTotal = new Counter({
     name: 'http_requests_total',
     help: 'Total number of HTTP requests',
-    labelNames: ['method', 'route', 'status_code', 'tenant_id'],
+    labelNames: ['method', 'route', 'status_code', 'organizationId'],
   });
 
   public readonly httpRequestDuration = new Histogram({
@@ -21,27 +21,27 @@ export class MetricsService {
   public readonly errorsTotal = new Counter({
     name: 'errors_total',
     help: 'Total number of errors',
-    labelNames: ['type', 'service', 'tenant_id'],
+    labelNames: ['type', 'service', 'organizationId'],
   });
 
   // BRD-specific Metrics
   public readonly brdOperationsTotal = new Counter({
     name: 'brd_operations_total',
     help: 'Total number of BRD operations',
-    labelNames: ['operation', 'status', 'tenant_id'],
+    labelNames: ['operation', 'status', 'organizationId'],
   });
 
   public readonly brdStatusTransitions = new Counter({
     name: 'brd_status_transitions_total',
     help: 'Total number of BRD status transitions',
-    labelNames: ['from_status', 'to_status', 'tenant_id'],
+    labelNames: ['from_status', 'to_status', 'organizationId'],
   });
 
   // Database Metrics
   public readonly databaseQueriesTotal = new Counter({
     name: 'database_queries_total',
     help: 'Total number of database queries',
-    labelNames: ['operation', 'table', 'tenant_id'],
+    labelNames: ['operation', 'table', 'organizationId'],
   });
 
   public readonly databaseQueryDuration = new Histogram({
@@ -68,14 +68,14 @@ export class MetricsService {
   public readonly authAttemptsTotal = new Counter({
     name: 'auth_attempts_total',
     help: 'Total number of authentication attempts',
-    labelNames: ['result', 'tenant_id'],
+    labelNames: ['result', 'organizationId'],
   });
 
   // Search Metrics
   public readonly searchQueriesTotal = new Counter({
     name: 'search_queries_total',
     help: 'Total number of search queries',
-    labelNames: ['type', 'tenant_id'],
+    labelNames: ['type', 'organizationId'],
   });
 
   public readonly searchQueryDuration = new Histogram({
@@ -98,13 +98,13 @@ export class MetricsService {
     route: string,
     statusCode: number,
     duration: number,
-    tenantId?: string,
+    organizationId?: string,
   ): void {
     const labels = {
       method,
       route,
       status_code: statusCode.toString(),
-      tenant_id: tenantId || 'unknown',
+      organizationId: organizationId || 'unknown',
     };
 
     this.httpRequestsTotal.inc(labels);
@@ -117,11 +117,11 @@ export class MetricsService {
   /**
    * Record error metrics
    */
-  recordError(type: string, service: string, tenantId?: string): void {
+  recordError(type: string, service: string, organizationId?: string): void {
     this.errorsTotal.inc({
       type,
       service,
-      tenant_id: tenantId || 'unknown',
+      organizationId: organizationId || 'unknown',
     });
   }
 
@@ -131,12 +131,12 @@ export class MetricsService {
   recordBRDOperation(
     operation: 'create' | 'read' | 'update' | 'delete' | 'search',
     status: 'success' | 'error',
-    tenantId: string,
+    organizationId: string,
   ): void {
     this.brdOperationsTotal.inc({
       operation,
       status,
-      tenant_id: tenantId,
+      organizationId: organizationId,
     });
   }
 
@@ -146,12 +146,12 @@ export class MetricsService {
   recordBRDStatusTransition(
     fromStatus: string,
     toStatus: string,
-    tenantId: string,
+    organizationId: string,
   ): void {
     this.brdStatusTransitions.inc({
       from_status: fromStatus,
       to_status: toStatus,
-      tenant_id: tenantId,
+      organizationId: organizationId,
     });
   }
 
@@ -162,12 +162,12 @@ export class MetricsService {
     operation: 'select' | 'insert' | 'update' | 'delete',
     table: string,
     duration: number,
-    tenantId?: string,
+    organizationId?: string,
   ): void {
     this.databaseQueriesTotal.inc({
       operation,
       table,
-      tenant_id: tenantId || 'unknown',
+      organizationId: organizationId || 'unknown',
     });
 
     this.databaseQueryDuration.observe(
@@ -179,10 +179,10 @@ export class MetricsService {
   /**
    * Record authentication attempt metrics
    */
-  recordAuthAttempt(result: 'success' | 'failure', tenantId?: string): void {
+  recordAuthAttempt(result: 'success' | 'failure', organizationId?: string): void {
     this.authAttemptsTotal.inc({
       result,
-      tenant_id: tenantId || 'unknown',
+      organizationId: organizationId || 'unknown',
     });
   }
 
@@ -192,11 +192,11 @@ export class MetricsService {
   recordSearchQuery(
     type: 'fulltext' | 'filter' | 'aggregate',
     duration: number,
-    tenantId: string,
+    organizationId: string,
   ): void {
     this.searchQueriesTotal.inc({
       type,
-      tenant_id: tenantId,
+      organizationId: organizationId,
     });
 
     this.searchQueryDuration.observe({ type }, duration);
@@ -243,7 +243,7 @@ export class MetricsService {
     this.errorsTotal.inc({
       type: `llm_${status}`,
       service: `${provider}_${model}`,
-      tenant_id: 'system',
+      organizationId: 'system',
     });
   }
 
