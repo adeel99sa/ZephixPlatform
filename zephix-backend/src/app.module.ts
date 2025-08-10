@@ -66,34 +66,15 @@ if (!(global as any).crypto) {
         const databaseUrl = process.env.DATABASE_URL;
         const isProduction = process.env.NODE_ENV === 'production';
 
-        // Define entities with working migrations only
-        const workingEntities = [
-          // Core entities
-          User,
-          Organization, 
-          UserOrganization,
-          // Projects entities
-          Project,
-          Team,
-          TeamMember,
-          Role,
-          // Workflow entities  
-          WorkflowTemplate,
-          WorkflowInstance,
-          IntakeForm,
-          IntakeSubmission,
-          // BRD entities
-          BRD,
-          BRDAnalysis,
-          GeneratedProjectPlan,
-        ];
+        // Use glob pattern for entities to work in both dev and prod
+        const entityGlob = __dirname + '/**/*.entity.{js,ts}';
 
         if (databaseUrl) {
           // Railway production configuration - optimized for platform
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: workingEntities,
+            entities: [__dirname + '/**/*.entity.{js,ts}'],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: false, // Migrations controlled manually for safety
@@ -126,7 +107,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: workingEntities,
+            entities: [__dirname + '/**/*.entity.{js,ts}'],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),

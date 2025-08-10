@@ -106,8 +106,8 @@ export class StatusReport {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Relations
-  @ManyToOne(() => Project, project => project.statusReports)
-  @JoinColumn({ name: 'projectId' })
-  project: Project;
+  // REMOVED Project relationship to prevent circular dependency
+  // @ManyToOne(() => Project, project => project.statusReports)
+  // @JoinColumn({ name: 'projectId' })
+  // project: Project;
 }
