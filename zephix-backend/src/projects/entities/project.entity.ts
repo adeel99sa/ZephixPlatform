@@ -1,13 +1,18 @@
 // src/projects/entities/project.entity.ts
-// TEMPORARY FIX: Keep PM structure, remove problematic relationships
+// FIXED: Added missing properties and relationships
 
 import { 
   Entity, 
   PrimaryGeneratedColumn, 
   Column, 
   CreateDateColumn, 
-  UpdateDateColumn 
+  UpdateDateColumn,
+  OneToOne,
+  ManyToOne,
+  JoinColumn
 } from 'typeorm';
+import { Team } from './team.entity';
+import { User } from '../../users/entities/user.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -48,6 +53,13 @@ export class Project {
     default: ProjectStatus.PLANNING 
   })
   status: ProjectStatus;
+
+  @Column({ 
+    type: 'enum', 
+    enum: ProjectPriority, 
+    default: ProjectPriority.MEDIUM 
+  })
+  priority: ProjectPriority;
 
   @Column({ name: 'start_date', type: 'timestamp', nullable: true })
   startDate: Date;
@@ -90,16 +102,11 @@ export class Project {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // TODO: Add back when entities are implemented
-  // @OneToMany(() => StatusReport, statusReport => statusReport.project)
-  // statusReports: StatusReport[];
+  // Relationships
+  @OneToOne(() => Team, team => team.project, { cascade: true })
+  team: Team;
 
-  // @OneToMany(() => Task, task => task.project)  
-  // tasks: Task[];
-
-  // @OneToMany(() => Risk, risk => risk.project)
-  // risks: Risk[];
-
-  // @OneToMany(() => Milestone, milestone => milestone.project)
-  // milestones: Milestone[];
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
+  createdBy: User;
 }

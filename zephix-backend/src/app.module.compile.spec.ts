@@ -17,7 +17,7 @@ import { ProjectRisk } from './pm/entities/project-risk.entity';
 import { ProjectStakeholder } from './pm/entities/project-stakeholder.entity';
 import { Portfolio } from './pm/entities/portfolio.entity';
 import { Program } from './pm/entities/program.entity';
-import { StatusReport } from './pm/entities/status-report.entity';
+import { StatusReport } from './pm/status-reporting/entities/status-report.entity';
 import { ProjectMetrics } from './pm/entities/project-metrics.entity';
 import { PerformanceBaseline } from './pm/entities/performance-baseline.entity';
 import { AlertConfiguration } from './pm/entities/alert-configuration.entity';

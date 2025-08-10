@@ -6,7 +6,7 @@ export class CreateWorkflowFramework1704123600000 implements MigrationInterface 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create workflow_templates table
     await queryRunner.query(`
-      CREATE TABLE "workflow_templates" (
+      CREATE TABLE IF NOT EXISTS "workflow_templates" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "organizationId" uuid NOT NULL,
         "name" character varying NOT NULL,
@@ -26,7 +26,7 @@ export class CreateWorkflowFramework1704123600000 implements MigrationInterface 
 
     // Create workflow_instances table
     await queryRunner.query(`
-      CREATE TABLE "workflow_instances" (
+      CREATE TABLE IF NOT EXISTS "workflow_instances" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "organizationId" uuid NOT NULL,
         "templateId" uuid NOT NULL,
@@ -52,7 +52,7 @@ export class CreateWorkflowFramework1704123600000 implements MigrationInterface 
 
     // Create intake_forms table
     await queryRunner.query(`
-      CREATE TABLE "intake_forms" (
+      CREATE TABLE IF NOT EXISTS "intake_forms" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "organizationId" uuid NOT NULL,
         "name" character varying NOT NULL,
@@ -74,7 +74,7 @@ export class CreateWorkflowFramework1704123600000 implements MigrationInterface 
 
     // Create intake_submissions table
     await queryRunner.query(`
-      CREATE TABLE "intake_submissions" (
+      CREATE TABLE IF NOT EXISTS "intake_submissions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "organizationId" uuid NOT NULL,
         "formId" uuid NOT NULL,
@@ -131,79 +131,79 @@ export class CreateWorkflowFramework1704123600000 implements MigrationInterface 
     // Add foreign key constraints
     await queryRunner.query(`
       ALTER TABLE "workflow_templates" 
-      ADD CONSTRAINT "FK_workflow_template_organization" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_template_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_organization" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_template" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_template" 
       FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_assigned_user" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_assigned_user" 
       FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_creator" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_creator" 
       FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT "FK_intake_form_organization" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_form_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT "FK_intake_form_workflow" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_form_workflow" 
       FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_organization" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_form" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_form" 
       FOREIGN KEY ("formId") REFERENCES "intake_forms"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_submitter" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_submitter" 
       FOREIGN KEY ("submittedBy") REFERENCES "users"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_assigned_user" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_assigned_user" 
       FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_processor" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_processor" 
       FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_workflow" 
+      ADD CONSTRAINT IF NOT EXISTS "FK_intake_submission_workflow" 
       FOREIGN KEY ("workflowInstanceId") REFERENCES "workflow_instances"("id") ON DELETE SET NULL
     `);
   }
