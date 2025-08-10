@@ -22,34 +22,30 @@ import { HealthController } from './health/health.controller';
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
 import { MetricsMiddleware } from './observability/metrics.middleware';
+
+// Import ONLY entities with working table creation migrations
+// Core entities (from 005_CreateMultiTenancy migration)
 import { User } from './users/entities/user.entity';
-import { Feedback } from './feedback/entities/feedback.entity';
+import { Organization } from './organizations/entities/organization.entity';
+import { UserOrganization } from './organizations/entities/user-organization.entity';
+
+// Projects entities (from 001_CreateProjectsTables migration)
 import { Project } from './projects/entities/project.entity';
 import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
-// import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';
-import { UserProject } from './pm/entities/user-project.entity';
-import { ProjectTask } from './pm/entities/project-task.entity';
-import { ProjectRisk } from './pm/entities/project-risk.entity';
-import { ProjectStakeholder } from './pm/entities/project-stakeholder.entity';
-import { Portfolio } from './pm/entities/portfolio.entity';
-import { Program } from './pm/entities/program.entity';
-import { StatusReport } from './pm/entities/status-report.entity';
-import { ProjectMetrics } from './pm/entities/project-metrics.entity';
-import { PerformanceBaseline } from './pm/entities/performance-baseline.entity';
-import { AlertConfiguration } from './pm/entities/alert-configuration.entity';
-import { ManualUpdate } from './pm/entities/manual-update.entity';
-import { StakeholderCommunication } from './pm/entities/stakeholder-communication.entity';
-import { Risk } from './pm/entities/risk.entity';
-import { RiskAssessment } from './pm/entities/risk-assessment.entity';
-import { RiskResponse } from './pm/entities/risk-response.entity';
-import { RiskMonitoring } from './pm/entities/risk-monitoring.entity';
+
+// Workflow entities (from 1704123600000-CreateWorkflowFramework migration)
+import { WorkflowTemplate } from './pm/entities/workflow-template.entity';
+import { WorkflowInstance } from './pm/entities/workflow-instance.entity';
+import { IntakeForm } from './pm/entities/intake-form.entity';
+import { IntakeSubmission } from './pm/entities/intake-submission.entity';
+
+// BRD entities (from BRD migrations)
 import { BRD } from './brd/entities/brd.entity';
 import { BRDAnalysis } from './brd/entities/brd-analysis.entity';
 import { GeneratedProjectPlan } from './brd/entities/generated-project-plan.entity';
-import { Organization } from './organizations/entities/organization.entity';
-import { UserOrganization } from './organizations/entities/user-organization.entity';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -70,15 +66,37 @@ if (!(global as any).crypto) {
         const databaseUrl = process.env.DATABASE_URL;
         const isProduction = process.env.NODE_ENV === 'production';
 
+        // Define entities with working migrations only
+        const workingEntities = [
+          // Core entities
+          User,
+          Organization, 
+          UserOrganization,
+          // Projects entities
+          Project,
+          Team,
+          TeamMember,
+          Role,
+          // Workflow entities  
+          WorkflowTemplate,
+          WorkflowInstance,
+          IntakeForm,
+          IntakeSubmission,
+          // BRD entities
+          BRD,
+          BRDAnalysis,
+          GeneratedProjectPlan,
+        ];
+
         if (databaseUrl) {
           // Railway production configuration - optimized for platform
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Feedback, Project, Team, TeamMember, Role, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
+            entities: workingEntities,
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
-            migrationsRun: false, // Auto-run migrations on startup - temporarily disabled
+            migrationsRun: false, // Migrations controlled manually for safety
             logging: isProduction
               ? ['error', 'warn']
               : configService.get('database.logging'),
@@ -108,7 +126,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Feedback, Project, Team, TeamMember, Role, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder, Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline, AlertConfiguration, ManualUpdate, StakeholderCommunication, Risk, RiskAssessment, RiskResponse, RiskMonitoring, BRD, BRDAnalysis, GeneratedProjectPlan, Organization, UserOrganization],
+            entities: workingEntities,
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
