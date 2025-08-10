@@ -56,6 +56,54 @@ export class CreateMultiTenancy1700000000005 implements MigrationInterface {
       await queryRunner.query(`CREATE INDEX "IDX_ORGANIZATION_STATUS" ON "organizations" ("status")`);
     }
 
+    // Create Users table (handle existing table gracefully)
+    const usersTableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'users'
+      )
+    `);
+
+    if (!usersTableExists[0].exists) {
+      await queryRunner.query(`
+        CREATE TABLE "users" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "email" character varying(255) NOT NULL,
+          "password" character varying(255) NOT NULL,
+          "firstName" character varying(255) NOT NULL,
+          "lastName" character varying(255) NOT NULL,
+          "isActive" boolean NOT NULL DEFAULT true,
+          "isEmailVerified" boolean NOT NULL DEFAULT false,
+          "emailVerifiedAt" timestamp,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_users" PRIMARY KEY ("id"),
+          CONSTRAINT "UQ_users_email" UNIQUE ("email")
+        )
+      `);
+    }
+
+    // Create indexes for users (handle existing indexes gracefully)
+    const usersEmailIndexExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM pg_indexes 
+        WHERE indexname = 'IDX_USERS_EMAIL'
+      )
+    `);
+    if (!usersEmailIndexExists[0].exists) {
+      await queryRunner.query(`CREATE INDEX "IDX_USERS_EMAIL" ON "users" ("email")`);
+    }
+
+    const usersActiveIndexExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM pg_indexes 
+        WHERE indexname = 'IDX_USERS_ACTIVE'
+      )
+    `);
+    if (!usersActiveIndexExists[0].exists) {
+      await queryRunner.query(`CREATE INDEX "IDX_USERS_ACTIVE" ON "users" ("isActive")`);
+    }
+
     // Create UserOrganizations junction table (handle existing table gracefully)
     const userOrgTableExists = await queryRunner.query(`
       SELECT EXISTS (
@@ -491,6 +539,16 @@ export class CreateMultiTenancy1700000000005 implements MigrationInterface {
     `);
     if (orgTableExists[0].exists) {
       await queryRunner.query(`DROP TABLE "organizations"`);
+    }
+
+    const usersTableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'users'
+      )
+    `);
+    if (usersTableExists[0].exists) {
+      await queryRunner.query(`DROP TABLE "users"`);
     }
 
     // Remove organizationId columns from tenant tables
