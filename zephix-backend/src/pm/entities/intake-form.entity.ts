@@ -136,6 +136,63 @@ export class IntakeForm {
     popularFields?: Record<string, number>;
   };
 
+  @Column('jsonb', { nullable: true })
+  aiGenerationContext?: {
+    originalDescription: string;
+    generationTimestamp: Date;
+    refinementHistory: Array<{
+      request: string;
+      changes: any;
+      timestamp: Date;
+      confidence: number;
+    }>;
+    confidence: number;
+    suggestedImprovements: string[];
+    processingTime: number;
+    modelUsed: string;
+    complexity: 'simple' | 'moderate' | 'complex';
+    detectedPatterns: string[];
+  };
+
+  @Column('jsonb', { nullable: true })
+  intelligentFeatures?: {
+    autoFieldTypes: Record<string, string>;
+    conditionalLogic: Array<{
+      fieldId: string;
+      conditions: any[];
+      actions: any[];
+    }>;
+    smartValidation: Array<{
+      fieldId: string;
+      rule: string;
+      message: string;
+    }>;
+    suggestedIntegrations: string[];
+    workflowConfiguration?: {
+      approvalChain: Array<{
+        level: number;
+        role: string;
+        condition?: string;
+        threshold?: any;
+      }>;
+      assignmentRules: Array<{
+        condition: string;
+        assignTo: string;
+        priority: 'low' | 'medium' | 'high' | 'urgent';
+      }>;
+      notifications: Array<{
+        trigger: string;
+        recipients: string[];
+        template: string;
+      }>;
+      automationTriggers: Array<{
+        condition: string;
+        action: string;
+        parameters: any;
+      }>;
+    };
+  };
+
   @OneToMany(() => IntakeSubmission, submission => submission.form)
   submissions: IntakeSubmission[];
 
@@ -230,5 +287,76 @@ export class IntakeForm {
     this.analytics.conversionRate = this.analytics.totalViews > 0 
       ? (this.analytics.totalSubmissions / this.analytics.totalViews) * 100 
       : 0;
+  }
+
+  // AI-specific helper methods
+  isAIGenerated(): boolean {
+    return !!this.aiGenerationContext;
+  }
+
+  getAIConfidence(): number {
+    return this.aiGenerationContext?.confidence || 0;
+  }
+
+  addRefinementHistory(request: string, changes: any, confidence: number): void {
+    if (!this.aiGenerationContext) {
+      return;
+    }
+    
+    if (!this.aiGenerationContext.refinementHistory) {
+      this.aiGenerationContext.refinementHistory = [];
+    }
+    
+    this.aiGenerationContext.refinementHistory.push({
+      request,
+      changes,
+      timestamp: new Date(),
+      confidence
+    });
+  }
+
+  getLatestRefinement(): any {
+    if (!this.aiGenerationContext?.refinementHistory?.length) {
+      return null;
+    }
+    return this.aiGenerationContext.refinementHistory[this.aiGenerationContext.refinementHistory.length - 1];
+  }
+
+  hasIntelligentFeatures(): boolean {
+    return !!this.intelligentFeatures;
+  }
+
+  getSmartValidationForField(fieldId: string): any {
+    return this.intelligentFeatures?.smartValidation?.find(v => v.fieldId === fieldId);
+  }
+
+  getConditionalLogicForField(fieldId: string): any {
+    return this.intelligentFeatures?.conditionalLogic?.find(c => c.fieldId === fieldId);
+  }
+
+  getSuggestedIntegrations(): string[] {
+    return this.intelligentFeatures?.suggestedIntegrations || [];
+  }
+
+  getWorkflowConfiguration(): any {
+    return this.intelligentFeatures?.workflowConfiguration;
+  }
+
+  updateAIGenerationContext(updates: Partial<NonNullable<IntakeForm['aiGenerationContext']>>): void {
+    if (!this.aiGenerationContext) {
+      this.aiGenerationContext = {
+        originalDescription: '',
+        generationTimestamp: new Date(),
+        refinementHistory: [],
+        confidence: 0,
+        suggestedImprovements: [],
+        processingTime: 0,
+        modelUsed: '',
+        complexity: 'moderate',
+        detectedPatterns: []
+      };
+    }
+    
+    Object.assign(this.aiGenerationContext, updates);
   }
 }

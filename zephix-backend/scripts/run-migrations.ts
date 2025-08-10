@@ -33,11 +33,22 @@ import { RiskAssessment } from '../src/pm/entities/risk-assessment.entity';
 import { RiskResponse } from '../src/pm/entities/risk-response.entity';
 import { RiskMonitoring } from '../src/pm/entities/risk-monitoring.entity';
 
+// Workflow Framework Entities
+import { WorkflowTemplate } from '../src/pm/entities/workflow-template.entity';
+import { WorkflowInstance } from '../src/pm/entities/workflow-instance.entity';
+import { IntakeForm } from '../src/pm/entities/intake-form.entity';
+import { IntakeSubmission } from '../src/pm/entities/intake-submission.entity';
+
+// Organization Entities
+import { Organization } from '../src/organizations/entities/organization.entity';
+
 // Import migrations with correct class names
 import { CreateProjectsTables1704067200000 } from '../src/projects/database/migrations/001_CreateProjectsTables';
 import { CreatePMTables1700000000002 } from '../src/pm/database/migrations/002_CreatePMTables';
 import { CreateStatusReportingTables1700000000003 } from '../src/pm/database/migrations/003_CreateStatusReportingTables';
-import { CreateRiskManagementTables004 } from '../src/pm/database/migrations/004_CreateRiskManagementTables';
+import { CreateRiskManagementTables1704000004000 } from '../src/pm/database/migrations/004_CreateRiskManagementTables';
+import { CreateWorkflowFramework1704123600000 } from '../src/database/migrations/1704123600000-CreateWorkflowFramework';
+import { AddAIGenerationToIntakeForms1735598000000 } from '../src/database/migrations/1735598000000-AddAIGenerationToIntakeForms';
 
 async function runMigrations() {
   const logger = new Logger('Migration');
@@ -66,17 +77,20 @@ async function runMigrations() {
       logging: false,
       logger: undefined,
       entities: [
-        User, Project, TeamMember, Role, Team, Feedback,
+        User, Project, TeamMember, Role, Team, Feedback, Organization,
         PMKnowledgeChunk, UserProject, ProjectTask, ProjectRisk, ProjectStakeholder,
         Portfolio, Program, StatusReport, ProjectMetrics, PerformanceBaseline,
         AlertConfiguration, ManualUpdate, StakeholderCommunication,
         Risk, RiskAssessment, RiskResponse, RiskMonitoring,
+        WorkflowTemplate, WorkflowInstance, IntakeForm, IntakeSubmission,
       ],
       migrations: [
         CreateProjectsTables1704067200000,
         CreatePMTables1700000000002,
         CreateStatusReportingTables1700000000003,
-        CreateRiskManagementTables004,
+        CreateRiskManagementTables1704000004000,
+        CreateWorkflowFramework1704123600000,
+        AddAIGenerationToIntakeForms1735598000000,
       ],
       migrationsRun: false, // We'll run them manually
     };

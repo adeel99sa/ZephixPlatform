@@ -5,7 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
+import { BRDAnalysis } from './brd-analysis.entity';
 
 export enum BRDStatus {
   DRAFT = 'draft',
@@ -52,6 +54,10 @@ export class BRD {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  // Relations
+  @OneToMany(() => BRDAnalysis, analysis => analysis.brd)
+  analyses: BRDAnalysis[];
 
   // Helper methods to extract data from payload
   getTitle(): string {
