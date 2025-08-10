@@ -11,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
 async function bootstrap() {
+
   const logger = new Logger('Bootstrap');
 
   try {

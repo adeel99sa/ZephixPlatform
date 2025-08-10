@@ -24,10 +24,6 @@ export class Team {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @OneToOne(() => Project, (project) => project.team, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'project_id' })
-  project: Project;
-
   @Column({ name: 'project_id' })
   projectId: string;
 
@@ -37,6 +33,10 @@ export class Team {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
+
+  @OneToOne(() => Project, project => project.team, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'project_id' })
+  project: Project;
 
   @OneToMany(() => TeamMember, (teamMember) => teamMember.team, {
     cascade: true,
