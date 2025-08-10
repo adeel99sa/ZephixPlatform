@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatusReportingController } from './status-reporting.controller';
 import { StatusReportingService } from '../services/status-reporting.service';
-import { StatusReport } from '../entities/status-report.entity';
+import { StatusReport } from './entities/status-report.entity';
 import { ProjectMetrics } from '../entities/project-metrics.entity';
 import { PerformanceBaseline } from '../entities/performance-baseline.entity';
 import { AlertConfiguration } from '../entities/alert-configuration.entity';
@@ -30,6 +30,6 @@ import { SharedModule } from '../../shared/shared.module';
   providers: [
     StatusReportingService,
   ],
-  exports: [StatusReportingService],
+  exports: [],
 })
 export class StatusReportingModule {}

@@ -16,7 +16,7 @@ export { RiskResponse } from './risk-response.entity';
 export { RiskMonitoring } from './risk-monitoring.entity';
 
 // Status Reporting System
-export { StatusReport } from './status-report.entity';
+export { StatusReport } from '../status-reporting/entities/status-report.entity';
 export { ProjectMetrics } from './project-metrics.entity';
 export { PerformanceBaseline } from './performance-baseline.entity';
 export { AlertConfiguration } from './alert-configuration.entity';
