@@ -163,3 +163,79 @@ export class BRDUpdateResponseDto {
   })
   updated_at: Date;
 }
+
+export class GeneratedProjectPlanResponseDto {
+  @ApiProperty({
+    description: 'Generated project plan unique identifier',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Associated BRD analysis ID',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  brdAnalysisId: string;
+
+  @ApiProperty({
+    description: 'Tenant ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  organizationId: string;
+
+  @ApiProperty({
+    description: 'Project methodology used',
+    example: 'waterfall',
+    enum: ['waterfall', 'agile', 'hybrid'],
+  })
+  methodology: string;
+
+  @ApiProperty({
+    description: 'Plan structure with phases, epics, and tasks',
+    additionalProperties: true,
+  })
+  planStructure: any;
+
+  @ApiProperty({
+    description: 'Resource allocation and timeline plan',
+    additionalProperties: true,
+  })
+  resourcePlan: any;
+
+  @ApiProperty({
+    description: 'Risk assessment and mitigation strategies',
+    type: 'array',
+  })
+  riskRegister: any[];
+
+  @ApiProperty({
+    description: 'Generation metadata and confidence scores',
+    additionalProperties: true,
+  })
+  generationMetadata: any;
+
+  @ApiProperty({
+    description: 'Changes made during refinement',
+    type: 'array',
+    required: false,
+  })
+  changesMade?: string[];
+
+  @ApiProperty({
+    description: 'User who generated the plan',
+    example: '550e8400-e29b-41d4-a716-446655440002',
+  })
+  generatedBy: string;
+
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: '2024-01-15T10:30:00Z',
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: '2024-01-15T14:45:00Z',
+  })
+  updatedAt: Date;
+}

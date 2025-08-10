@@ -4,6 +4,7 @@ import { AIPMAssistantController } from './controllers/ai-pm-assistant.controlle
 import { AIIntelligenceController } from './controllers/ai-intelligence.controller';
 import { AIChatController } from './controllers/ai-chat.controller';
 import { DocumentIntelligenceController } from './controllers/document-intelligence.controller';
+import { IntakeDesignerController } from './controllers/intake-designer.controller';
 
 // Workflow Framework Controllers
 import { WorkflowTemplateController, WorkflowInstanceController } from './controllers/workflow-template.controller';
@@ -13,6 +14,7 @@ import { AIPMAssistantService } from './services/ai-pm-assistant.service';
 import { ZephixAIIntelligenceService } from './services/zephix-ai-intelligence.service';
 import { AIChatService } from './services/ai-chat.service';
 import { ZephixIntelligentDocumentProcessor } from './services/document-intelligence.service';
+import { AIFormGeneratorService } from './services/ai-form-generator.service';
 
 // Workflow Framework Services
 import { WorkflowTemplateService } from './services/workflow-template.service';
@@ -79,6 +81,7 @@ import { FinancialIntegration } from './integrations/financial.integration';
     AIIntelligenceController, 
     AIChatController,
     DocumentIntelligenceController,
+    IntakeDesignerController,
     // Workflow Framework Controllers
     WorkflowTemplateController,
     WorkflowInstanceController,
@@ -90,6 +93,7 @@ import { FinancialIntegration } from './integrations/financial.integration';
     ZephixAIIntelligenceService, 
     AIChatService,
     ZephixIntelligentDocumentProcessor,
+    AIFormGeneratorService,
     JiraIntegration,
     GitHubIntegration,
     TeamsIntegration,
@@ -104,6 +108,7 @@ import { FinancialIntegration } from './integrations/financial.integration';
     ZephixAIIntelligenceService, 
     AIChatService,
     ZephixIntelligentDocumentProcessor,
+    AIFormGeneratorService,
     // Workflow Framework Services
     WorkflowTemplateService,
     IntakeFormService,

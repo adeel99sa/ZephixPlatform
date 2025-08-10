@@ -274,7 +274,6 @@ describe('ProjectsService', () => {
       const updatedProject = { ...mockProject, ...updateProjectDto };
 
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(projectRepository, 'save').mockResolvedValue(updatedProject);
       jest.spyOn(service, 'findOne').mockResolvedValue(updatedProject);
 
@@ -290,9 +289,7 @@ describe('ProjectsService', () => {
 
     it('should throw ForbiddenException when user lacks permission', async () => {
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
-      jest
-        .spyOn(service, 'checkUserPermission')
-        .mockRejectedValue(new ForbiddenException('Insufficient permissions'));
+      // Note: checkUserPermission is private method, cannot be mocked
 
       await expect(
         service.update('project-123', updateProjectDto, mockUser),
@@ -303,7 +300,6 @@ describe('ProjectsService', () => {
   describe('remove', () => {
     it('should remove a project successfully', async () => {
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(projectRepository, 'remove').mockResolvedValue(mockProject);
 
       await service.remove('project-123', mockUser);
@@ -313,11 +309,7 @@ describe('ProjectsService', () => {
 
     it('should throw ForbiddenException when user lacks admin permission', async () => {
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
-      jest
-        .spyOn(service, 'checkUserPermission')
-        .mockRejectedValue(
-          new ForbiddenException('Admin permissions required'),
-        );
+      // Note: checkUserPermission is private method, cannot be mocked
 
       await expect(service.remove('project-123', mockUser)).rejects.toThrow(
         ForbiddenException,
@@ -332,7 +324,6 @@ describe('ProjectsService', () => {
     };
 
     it('should add a team member successfully', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
       jest.spyOn(roleRepository, 'findOne').mockResolvedValue(mockRole);
       jest.spyOn(teamMemberRepository, 'findOne').mockResolvedValue(null);
@@ -359,7 +350,6 @@ describe('ProjectsService', () => {
     });
 
     it('should throw ConflictException when user is already a team member', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
       jest
         .spyOn(teamMemberRepository, 'findOne')
@@ -371,7 +361,6 @@ describe('ProjectsService', () => {
     });
 
     it('should throw NotFoundException when role not found', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(service, 'findOne').mockResolvedValue(mockProject);
       jest.spyOn(roleRepository, 'findOne').mockResolvedValue(null);
 
@@ -392,7 +381,6 @@ describe('ProjectsService', () => {
         role: { ...mockRole, name: RoleType.EDITOR },
       };
 
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest
         .spyOn(teamMemberRepository, 'findOne')
         .mockResolvedValue(mockTeamMember);
@@ -414,7 +402,6 @@ describe('ProjectsService', () => {
     });
 
     it('should throw NotFoundException when team member not found', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(teamMemberRepository, 'findOne').mockResolvedValue(null);
 
       await expect(
@@ -430,7 +417,6 @@ describe('ProjectsService', () => {
 
   describe('removeTeamMember', () => {
     it('should remove team member successfully', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest
         .spyOn(teamMemberRepository, 'findOne')
         .mockResolvedValue(mockTeamMember);
@@ -444,7 +430,6 @@ describe('ProjectsService', () => {
     });
 
     it('should throw NotFoundException when team member not found', async () => {
-      jest.spyOn(service, 'checkUserPermission').mockResolvedValue();
       jest.spyOn(teamMemberRepository, 'findOne').mockResolvedValue(null);
 
       await expect(
