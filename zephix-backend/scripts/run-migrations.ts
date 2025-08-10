@@ -46,6 +46,7 @@ import { Organization } from '../src/organizations/entities/organization.entity'
 import { CreateProjectsTables1704067200000 } from '../src/projects/database/migrations/001_CreateProjectsTables';
 import { CreateWorkflowFramework1704123600000 } from '../src/database/migrations/1704123600000-CreateWorkflowFramework';
 import { AddAIGenerationToIntakeForms1735598000000 } from '../src/database/migrations/1735598000000-AddAIGenerationToIntakeForms';
+import { UpdateProjectEntity1700000000006 } from '../src/database/migrations/006_UpdateProjectEntity';
 
 async function runMigrations() {
   const logger = new Logger('Migration');
@@ -85,6 +86,7 @@ async function runMigrations() {
         CreateProjectsTables1704067200000,
         CreateWorkflowFramework1704123600000,
         AddAIGenerationToIntakeForms1735598000000,
+        UpdateProjectEntity1700000000006,
       ],
       migrationsRun: false, // We'll run them manually
     };

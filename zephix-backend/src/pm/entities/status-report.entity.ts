@@ -16,6 +16,10 @@ export class StatusReport {
   @Column('uuid')
   organizationId: string;
 
+  @ManyToOne(() => Project, { nullable: true })
+  @JoinColumn({ name: 'projectId' })
+  project: Project;
+
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
@@ -105,9 +109,4 @@ export class StatusReport {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // REMOVED Project relationship to prevent circular dependency
-  // @ManyToOne(() => Project, project => project.statusReports)
-  // @JoinColumn({ name: 'projectId' })
-  // project: Project;
 }
