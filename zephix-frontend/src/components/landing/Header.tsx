@@ -35,40 +35,34 @@ export const Header: React.FC<HeaderProps> = ({
 
   const features = [
     {
-      name: 'Strategic Planning',
-      description: 'AI-enhanced project planning',
+      name: 'BRD to Plan',
+      description: 'Convert requirements to project plans',
       icon: Brain,
-      sectionId: 'strategic-planning'
+      sectionId: 'brd-to-plan'
     },
     {
-      name: 'Resource Management',
-      description: 'Team allocation & workload',
-      icon: Users,
-      sectionId: 'resource-management'
-    },
-    {
-      name: 'Timeline Optimization',
-      description: 'AI-powered scheduling',
-      icon: BarChart3,
-      sectionId: 'timeline-optimization'
-    },
-    {
-      name: 'Automated Reporting',
-      description: 'Smart status updates',
-      icon: ZapIcon,
-      sectionId: 'automated-reporting'
-    },
-    {
-      name: 'Enterprise Security',
-      description: 'Compliance & security',
+      name: 'Approvals & Stage Gates',
+      description: 'Streamlined approval workflows',
       icon: Shield,
-      sectionId: 'enterprise-security'
+      sectionId: 'approvals-stage-gates'
     },
     {
-      name: 'Integration Hub',
-      description: 'Connect with your tools',
-      icon: Database,
-      sectionId: 'integration-hub'
+      name: 'Reporting',
+      description: 'Automated status reports',
+      icon: BarChart3,
+      sectionId: 'reporting'
+    },
+    {
+      name: 'Timeline',
+      description: 'Project scheduling & tracking',
+      icon: ZapIcon,
+      sectionId: 'timeline'
+    },
+    {
+      name: 'List & Board',
+      description: 'Task management views',
+      icon: Users,
+      sectionId: 'list-board'
     }
   ];
 
@@ -140,23 +134,41 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <button
+              onClick={() => handleNavClick('solutions')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+            >
+              Solutions
+            </button>
+            <button
               onClick={() => handleNavClick('pricing')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
               Pricing
             </button>
             <button
-              onClick={() => handleNavClick('about')}
+              onClick={() => handleNavClick('customers')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
-              About
+              Customers
             </button>
             <button
-              onClick={handleContactRequest}
+              onClick={() => handleNavClick('security')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
-              Contact
+              Security
             </button>
+            <Link
+              to="/roadmap"
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+            >
+              Roadmap
+            </Link>
+            <Link
+              to="/docs"
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+            >
+              Docs
+            </Link>
           </nav>
 
           {/* Desktop CTA Buttons */}
