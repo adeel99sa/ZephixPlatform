@@ -39,10 +39,10 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       cy.get('[data-testid="team-member-email-0"]').type('developer@zephix.com');
       cy.get('[data-testid="team-member-role-0"]').select('developer');
       
-      // Submit project creation
-      cy.intercept('POST', '/api/projects', {
+      // Mock API response
+      cy.intercept('POST', '/api/pm/projects', {
         statusCode: 201,
-        body: { id: 'test-project-123', status: 'created' }
+        body: { id: 'test-project-id', name: 'Enterprise Test Project' }
       }).as('createProject');
       
       cy.get('[data-testid="create-project-submit-btn"]').click();
@@ -71,9 +71,9 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       
       // Test server error handling
       cy.get('[data-testid="project-name-input"]').type('Error Test Project');
-      cy.intercept('POST', '/api/projects', {
-        statusCode: 500,
-        body: { error: 'Internal server error' }
+      cy.intercept('POST', '/api/pm/projects', {
+        statusCode: 400,
+        body: { message: 'Failed to create project' }
       }).as('createProjectError');
       
       cy.get('[data-testid="create-project-submit-btn"]').click();
@@ -106,8 +106,8 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       cy.get('[data-testid="uploaded-file-item"]').should('contain', fileName);
       cy.get('[data-testid="file-upload-progress"]').should('be.visible');
       
-      // Mock AI processing response
-      cy.intercept('POST', '/api/brd/analyze', {
+      // Mock BRD analysis API
+      cy.intercept('POST', '/api/pm/brds/*/analyze', {
         statusCode: 200,
         body: {
           id: 'brd-123',
@@ -116,10 +116,10 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
             projectName: 'Extracted Project Name',
             objectives: ['Objective 1', 'Objective 2'],
             requirements: ['Req 1', 'Req 2'],
-            stakeholders: ['Stakeholder 1', 'Stakeholder 2'],
-            risks: ['Risk 1', 'Risk 2'],
             timeline: '6 months',
-            budget: '$500,000'
+            budget: '$250,000',
+            risks: ['Risk 1', 'Risk 2'],
+            stakeholders: ['PM', 'Dev Team', 'Business Owner']
           }
         }
       }).as('analyzeBRD');
@@ -248,29 +248,29 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       cy.get('[data-testid="export-menu-btn"]').click();
       cy.get('[data-testid="export-pdf-option"]').click();
       
-      cy.intercept('GET', `/api/projects/${testProjectId}/export/pdf`, {
+      cy.intercept('GET', `/api/pm/projects/${testProjectId}/export/pdf`, {
         statusCode: 200,
         headers: {
-          'content-type': 'application/pdf',
-          'content-disposition': 'attachment; filename="project-report.pdf"'
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="project-report.pdf"'
         },
-        body: 'PDF content'
-      }).as('exportPDF');
+        body: 'mock-pdf-content'
+      }).as('exportPdf');
       
-      cy.wait('@exportPDF');
+      cy.wait('@exportPdf');
       cy.get('[data-testid="success-toast"]').should('contain', 'PDF exported successfully');
       
       // Test Excel export
       cy.get('[data-testid="export-menu-btn"]').click();
       cy.get('[data-testid="export-excel-option"]').click();
       
-      cy.intercept('GET', `/api/projects/${testProjectId}/export/excel`, {
+      cy.intercept('GET', `/api/pm/projects/${testProjectId}/export/excel`, {
         statusCode: 200,
         headers: {
-          'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'content-disposition': 'attachment; filename="project-data.xlsx"'
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': 'attachment; filename="project-report.xlsx"'
         },
-        body: 'Excel content'
+        body: 'mock-excel-content'
       }).as('exportExcel');
       
       cy.wait('@exportExcel');
@@ -280,16 +280,16 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       cy.get('[data-testid="export-menu-btn"]').click();
       cy.get('[data-testid="export-csv-option"]').click();
       
-      cy.intercept('GET', `/api/projects/${testProjectId}/export/csv`, {
+      cy.intercept('GET', `/api/pm/projects/${testProjectId}/export/csv`, {
         statusCode: 200,
         headers: {
-          'content-type': 'text/csv',
-          'content-disposition': 'attachment; filename="project-data.csv"'
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="project-report.csv"'
         },
-        body: 'CSV content'
-      }).as('exportCSV');
+        body: 'mock-csv-content'
+      }).as('exportCsv');
       
-      cy.wait('@exportCSV');
+      cy.wait('@exportCsv');
       cy.get('[data-testid="success-toast"]').should('contain', 'CSV exported successfully');
     });
 
@@ -364,7 +364,7 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       
       cy.intercept('POST', '/api/integrations/jira/test', {
         statusCode: 200,
-        body: { status: 'success', message: 'Connection successful' }
+        body: { success: true, message: 'Connection successful' }
       }).as('testJiraConnection');
       
       cy.wait('@testJiraConnection');
@@ -376,11 +376,11 @@ describe('PM Dashboard Comprehensive Test Suite', () => {
       });
       
       cy.intercept('POST', '/api/integrations/slack/test', {
-        statusCode: 401,
-        body: { status: 'error', message: 'Invalid credentials' }
-      }).as('testSlackConnectionFail');
+        statusCode: 400,
+        body: { message: 'Connection failed: Invalid token' }
+      }).as('testSlackConnection');
       
-      cy.wait('@testSlackConnectionFail');
+      cy.wait('@testSlackConnection');
       cy.get('[data-testid="error-toast"]').should('contain', 'Slack connection failed');
     });
 
