@@ -146,12 +146,6 @@ export const Header: React.FC<HeaderProps> = ({
               Pricing
             </button>
             <button
-              onClick={() => handleNavClick('customers')}
-              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
-            >
-              Customers
-            </button>
-            <button
               onClick={() => handleNavClick('security')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
