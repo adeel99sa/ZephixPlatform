@@ -1,6 +1,6 @@
 import React from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { cn } from "../../utils/cn";
+import { cn } from "../../utils";
 
 type Props = React.ComponentProps<typeof RouterLink>;
 
