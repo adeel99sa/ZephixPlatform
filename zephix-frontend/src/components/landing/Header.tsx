@@ -140,6 +140,18 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <button
+              onClick={() => handleNavClick('problems')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+            >
+              Problems
+            </button>
+            <button
+              onClick={() => handleNavClick('how-it-works')}
+              className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+            >
+              How It Works
+            </button>
+            <button
               onClick={() => handleNavClick('pricing')}
               className="text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
             >
@@ -194,24 +206,42 @@ export const Header: React.FC<HeaderProps> = ({
         {isMobileMenuOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
-              <button
-                onClick={() => handleNavClick('features')}
-                className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-              >
-                Features
-              </button>
-              <button
-                onClick={() => handleNavClick('pricing')}
-                className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-              >
-                Pricing
-              </button>
-              <button
-                onClick={() => handleNavClick('about')}
-                className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-              >
-                About
-              </button>
+                          <button
+              onClick={() => handleNavClick('hero')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              Home
+            </button>
+            <button
+              onClick={() => handleNavClick('problems')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              Problems
+            </button>
+            <button
+              onClick={() => handleNavClick('features')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              Features
+            </button>
+            <button
+              onClick={() => handleNavClick('how-it-works')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              How It Works
+            </button>
+            <button
+              onClick={() => handleNavClick('about')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              About
+            </button>
+            <button
+              onClick={() => handleNavClick('pricing')}
+              className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+            >
+              Pricing
+            </button>
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);

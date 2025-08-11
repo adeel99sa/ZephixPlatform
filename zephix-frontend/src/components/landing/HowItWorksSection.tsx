@@ -102,7 +102,7 @@ export const HowItWorksSection: React.FC = () => {
   }, [isVisible]);
 
   return (
-    <section ref={sectionRef} className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 relative overflow-hidden">
+    <section id="how-it-works" ref={sectionRef} className="py-24 bg-gradient-to-b from-slate-900 to-slate-800 relative overflow-hidden">
       {/* Background elements */}
       <div className="absolute inset-0">
         <div className="absolute top-20 right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
