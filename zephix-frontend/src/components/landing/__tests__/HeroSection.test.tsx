@@ -9,11 +9,11 @@ describe('HeroSection', () => {
     render(<HeroSection />);
     
     // Check for main hero elements
-    expect(screen.getByText(/Transform Your BRDs into/)).toBeInTheDocument();
-    expect(screen.getByText(/Actionable Project Plans/)).toBeInTheDocument();
-    expect(screen.getByText(/Zephix uses advanced AI/)).toBeInTheDocument();
-    expect(screen.getByText('Start Building')).toBeInTheDocument();
-    expect(screen.getByText('Learn More')).toBeInTheDocument();
+    expect(screen.getByText(/Private beta/)).toBeInTheDocument();
+    expect(screen.getByText(/Turn a BRD into a project plan in 3 minutes/)).toBeInTheDocument();
+    expect(screen.getByText(/Upload a BRD. Zephix extracts scope/)).toBeInTheDocument();
+    expect(screen.getByText('Try a sample BRD')).toBeInTheDocument();
+    expect(screen.getByText('Book a 15 minute demo')).toBeInTheDocument();
   });
 
   it('has proper accessibility roles and labels', () => {
@@ -22,14 +22,15 @@ describe('HeroSection', () => {
     // Check for main heading
     const mainHeading = screen.getByRole('heading', { level: 1 });
     expect(mainHeading).toBeInTheDocument();
-    expect(mainHeading).toHaveTextContent(/Transform Your BRDs into/);
+    expect(mainHeading).toHaveTextContent(/Turn a BRD into a project plan in 3 minutes/);
     
-    // Check for accessible links
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toBeInTheDocument();
+    // Check for status badge
+    const statusBadge = screen.getByRole('status', { name: /private beta/i });
+    expect(statusBadge).toBeInTheDocument();
     
-    const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
-    expect(learnMoreLink).toBeInTheDocument();
+    // Check for buttons
+    expect(screen.getByRole('button', { name: /try a sample brd/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /book a 15 minute demo/i })).toBeInTheDocument();
   });
 
   it('has proper heading structure', () => {
@@ -43,11 +44,13 @@ describe('HeroSection', () => {
   it('has proper ARIA attributes', () => {
     render(<HeroSection />);
     
-    // Check that all links have proper aria-labels
-    const links = screen.getAllByRole('link');
-    links.forEach(link => {
-      expect(link).toHaveAttribute('aria-label');
-    });
+    // Check that status badge has proper aria-label
+    const statusBadge = screen.getByRole('status');
+    expect(statusBadge).toHaveAttribute('aria-label', 'Private beta');
+    
+    // Check that buttons have proper accessibility
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(2);
   });
 
   it('has proper keyboard navigation support', async () => {
@@ -55,15 +58,15 @@ describe('HeroSection', () => {
     
     render(<HeroSection />);
     
-    // Tab to first link
+    // Tab to first button
     await user.tab();
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toHaveFocus();
+    const sampleBRDButton = screen.getByRole('button', { name: /try a sample brd/i });
+    expect(sampleBRDButton).toHaveFocus();
     
-    // Tab to second link
+    // Tab to second button
     await user.tab();
-    const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
-    expect(learnMoreLink).toHaveFocus();
+    const demoButton = screen.getByRole('button', { name: /book a 15 minute demo/i });
+    expect(demoButton).toHaveFocus();
   });
 
   it('renders responsive elements correctly', () => {
@@ -71,7 +74,7 @@ describe('HeroSection', () => {
     
     // Check for responsive text elements
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveClass('text-4xl', 'md:text-5xl', 'lg:text-6xl');
+    expect(heading).toHaveClass('text-5xl', 'md:text-6xl');
   });
 
   it('has proper focus management', async () => {
@@ -80,9 +83,9 @@ describe('HeroSection', () => {
     render(<HeroSection />);
     
     // Focus should be managed properly
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    startBuildingLink.focus();
-    expect(startBuildingLink).toHaveFocus();
+    const sampleBRDButton = screen.getByRole('button', { name: /try a sample brd/i });
+    sampleBRDButton.focus();
+    expect(sampleBRDButton).toHaveFocus();
   });
 
   it('has proper semantic structure', () => {
@@ -100,34 +103,38 @@ describe('HeroSection', () => {
   it('has proper color contrast and visual indicators', () => {
     render(<HeroSection />);
     
-    // Check for proper hover states
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toHaveClass('hover:from-indigo-700', 'hover:to-blue-700');
+    // Check for status badge styling
+    const statusBadge = screen.getByRole('status', { name: /private beta/i });
+    expect(statusBadge).toHaveClass('text-xs', 'px-2.5', 'py-1', 'rounded-full');
     
-    const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
-    expect(learnMoreLink).toHaveClass('hover:bg-yellow-300');
+    // Check for button styling
+    const sampleBRDButton = screen.getByRole('button', { name: /try a sample brd/i });
+    expect(sampleBRDButton).toHaveClass('btn-primary');
+    
+    const demoButton = screen.getByRole('button', { name: /book a 15 minute demo/i });
+    expect(demoButton).toHaveClass('btn-secondary');
   });
 
   it('has proper text content and descriptions', () => {
     render(<HeroSection />);
     
     // Check for descriptive text
-    const description = screen.getByText(/Zephix uses advanced AI to analyze/);
+    const description = screen.getByText(/Upload a BRD. Zephix extracts scope/);
     expect(description).toBeInTheDocument();
     
     // Check that description provides context
-    expect(description).toHaveTextContent(/Business Requirements Documents/);
+    expect(description).toHaveTextContent(/builds a schedule with stage gates/);
   });
 
-  it('has proper link destinations', () => {
+  it('has proper button functionality', () => {
     render(<HeroSection />);
     
-    // Check that links point to correct destinations
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toHaveAttribute('href', '/dashboard');
+    // Check that buttons have proper functionality
+    const sampleBRDButton = screen.getByRole('button', { name: /try a sample brd/i });
+    expect(sampleBRDButton).toBeInTheDocument();
     
-    const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
-    expect(learnMoreLink).toHaveAttribute('href', '/#features');
+    const demoButton = screen.getByRole('button', { name: /book a 15 minute demo/i });
+    expect(demoButton).toBeInTheDocument();
   });
 
   it('passes accessibility audit', async () => {
@@ -146,10 +153,14 @@ describe('HeroSection', () => {
     render(<HeroSection />);
     
     // Check for proper ARIA labels
-    const startBuildingLink = screen.getByRole('link', { name: /start building your first project/i });
-    expect(startBuildingLink).toHaveAttribute('aria-label', 'Start building your first project');
+    const statusBadge = screen.getByRole('status', { name: /private beta/i });
+    expect(statusBadge).toHaveAttribute('aria-label', 'Private beta');
     
-    const learnMoreLink = screen.getByRole('link', { name: /learn more about features/i });
-    expect(learnMoreLink).toHaveAttribute('aria-label', 'Learn more about features');
+    // Check that buttons have proper accessibility
+    const sampleBRDButton = screen.getByRole('button', { name: /try a sample brd/i });
+    expect(sampleBRDButton).toBeInTheDocument();
+    
+    const demoButton = screen.getByRole('button', { name: /book a 15 minute demo/i });
+    expect(demoButton).toBeInTheDocument();
   });
 });
