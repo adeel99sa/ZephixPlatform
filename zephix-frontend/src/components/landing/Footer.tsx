@@ -142,12 +142,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
           <p className="text-gray-400 text-sm">
             © {currentYear} Zephix. All rights reserved.
           </p>
-          <div className="mt-4 md:mt-0">
-            <div className="inline-flex items-center space-x-2 bg-gray-800 px-3 py-1 rounded-full">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              <span className="text-xs text-gray-400">65% Complete</span>
-            </div>
-          </div>
+
         </div>
       </div>
     </footer>

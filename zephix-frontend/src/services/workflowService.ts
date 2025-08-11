@@ -10,7 +10,7 @@ import {
   WorkflowActionRequest
 } from '../types/workflow';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.VITE_API_BASE_URL || '/api';
 
 class WorkflowTemplateService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

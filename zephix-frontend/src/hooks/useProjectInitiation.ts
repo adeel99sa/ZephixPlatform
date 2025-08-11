@@ -19,7 +19,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
     data?: any;
     headers?: any;
   }) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+    const baseUrl = process.env.VITE_API_BASE_URL || '/api';
     const token = localStorage.getItem('authToken');
 
     const response = await fetch(`${baseUrl}/api${options.url}`, {
