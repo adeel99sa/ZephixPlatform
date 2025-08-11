@@ -26,7 +26,7 @@ import {
 } from '../dto';
 
 @ApiTags('Team Management')
-@Controller('api/organizations/:organizationId/team')
+@Controller('organizations/:organizationId/team')
 @UseGuards(JwtAuthGuard, OrganizationGuard)
 @ApiBearerAuth()
 export class TeamManagementController {

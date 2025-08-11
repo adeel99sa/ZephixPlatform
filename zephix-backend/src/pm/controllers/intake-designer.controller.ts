@@ -35,7 +35,7 @@ import {
   BulkGenerationResult
 } from '../dto/ai-form-generation.dto';
 
-@Controller('api/pm/intake-designer')
+@Controller('pm/intake-designer')
 @UseGuards(JwtAuthGuard, OrganizationGuard)
 export class IntakeDesignerController {
   private readonly logger = new Logger(IntakeDesignerController.name);

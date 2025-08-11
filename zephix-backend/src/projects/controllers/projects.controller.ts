@@ -52,7 +52,7 @@ import {
  * @version 1.0.0
  */
 @ApiTags('Projects')
-@Controller('api/pm/projects')
+@Controller('pm/projects')
 @UseGuards(AuthGuard('jwt'), OrganizationGuard)
 @ApiBearerAuth()
 export class ProjectsController {
