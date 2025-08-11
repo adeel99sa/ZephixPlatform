@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
+import { authApi } from '../../services/api';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,46 +42,34 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const data = await authApi.login({
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store token
-        localStorage.setItem('token', data.accessToken);
-        
-        setIsSubmitted(true);
+      // Store token
+      localStorage.setItem('token', data.accessToken);
+      
+      setIsSubmitted(true);
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+    } catch (err: any) {
+      if (err.status === 403 && err.message?.includes('Email verification required')) {
+        // Email verification required
+        setError(err.message);
+        // Show link to resend verification
         setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
+          navigate('/auth/pending-verification', {
+            state: {
+              email: formData.email,
+              message: 'Please verify your email address before logging in.',
+            },
+          });
+        }, 3000);
       } else {
-        if (response.status === 403 && data.message?.includes('Email verification required')) {
-          // Email verification required
-          setError(data.message);
-          // Show link to resend verification
-          setTimeout(() => {
-            navigate('/auth/pending-verification', {
-              state: {
-                email: formData.email,
-                message: 'Please verify your email address before logging in.',
-              },
-            });
-          }, 3000);
-        } else {
-          setError(data.message || 'Login failed. Please try again.');
-        }
+        setError(err.message || 'Login failed. Please try again.');
       }
-    } catch (err) {
-      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
