@@ -107,19 +107,7 @@ async function bootstrap() {
     if (helmetConfig.enabled) {
       logger.log('🛡️  Security headers enabled via Helmet');
       app.use(helmet({
-        contentSecurityPolicy: {
-          directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https:"],
-            fontSrc: ["'self'", "https:"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"],
-          },
-        },
+
         crossOriginEmbedderPolicy: false, // Disable for API
         crossOriginResourcePolicy: { policy: "cross-origin" },
         noSniff: true,
