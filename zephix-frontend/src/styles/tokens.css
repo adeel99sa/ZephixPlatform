@@ -1,0 +1,31 @@
+:root {
+  --primary-600: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-pressed: #1E40AF;
+  --primary-50: #EFF6FF;
+
+  --link: #2563EB;
+
+  --ink: #111827;
+  --muted: #6B7280;
+
+  --surface: #FFFFFF;
+  --alt-surface: #F8FAFC;
+  --border: #E5E7EB;
+
+  --hero: #0F172A;
+  --footer: #0B1220;
+
+  --success-600: #16A34A;
+  --warning-600: #D97706;
+  --danger-600: #DC2626;
+  --info-600: #0284C7;
+
+  --ring-brand: #2563EB;
+  --ring-light: #FFFFFF;
+
+  --overlay-scrim: rgba(15, 23, 42, 0.6);
+  --selection: #DBEAFE;
+  --disabled-text: #9CA3AF;
+  --disabled-surface: #F3F4F6;
+}
