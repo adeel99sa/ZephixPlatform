@@ -1,7 +1,7 @@
 // src/utils/constants.ts
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://zephix-backend-production.up.railway.app/api';
+  import.meta.env.VITE_API_BASE_URL || 'https://api.getzephix.com/api';
 
 // Allowed project status keys: 'planning', 'active', 'on_hold', 'completed', 'cancelled'
 export const PROJECT_STATUS_LABELS = {
