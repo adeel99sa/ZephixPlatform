@@ -789,16 +789,6 @@ export const SampleBRDPage: React.FC = () => {
                   <div className="text-sm text-slate-400">
                     No credit card required • 14-day free trial
                   </div>
-                  
-                  {/* Social Proof */}
-                  <div className="mt-8 bg-slate-800/50 rounded-xl p-4">
-                    <p className="text-sm text-slate-300 italic">
-                      💬 "This blew our minds! Generated a better plan than our 3-week process"
-                    </p>
-                    <p className="text-sm text-indigo-400 mt-2">
-                      - Sarah Chen, PM at TechCorp
-                    </p>
-                  </div>
                 </div>
               </div>
 
