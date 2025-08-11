@@ -32,7 +32,7 @@ export const AITeaserSection: React.FC = () => {
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
       </div>
 
-      <div className={`teaser-container max-w-4xl mx-auto relative z-10 transition-all duration-1000 ${
+      <div className={`teaser-container max-w-4xl mx-auto relative z-10 pt-8 transition-all duration-1000 ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
       }`}>
         {/* AI Brain Icon with animation */}
