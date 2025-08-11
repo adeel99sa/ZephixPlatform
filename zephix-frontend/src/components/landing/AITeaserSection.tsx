@@ -25,7 +25,7 @@ export const AITeaserSection: React.FC = () => {
   };
 
   return (
-    <section className="ai-teaser-section pt-4 pb-16 px-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white relative overflow-hidden">
+    <section className="ai-teaser-section pt-0 pb-16 px-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
@@ -110,6 +110,17 @@ export const AITeaserSection: React.FC = () => {
             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             See results instantly
           </span>
+        </div>
+        
+        {/* Enterprise Security Features */}
+        <div className="security-badges mt-12 pt-8 border-t border-white/20">
+          <p className="text-center text-sm text-white/80 mb-4">Enterprise-grade security built in</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">SSO</div>
+            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">RBAC</div>
+            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">Audit logs</div>
+            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">Encryption at rest and in transit</div>
+          </div>
         </div>
       </div>
     </section>
