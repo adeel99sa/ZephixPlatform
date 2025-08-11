@@ -17,7 +17,6 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
         'Basic project templates',
         'Email support',
         'Core PM features',
-        'Mobile app access',
         'Basic reporting & dashboards',
         {
           text: 'Limited AI insights',
