@@ -396,28 +396,29 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onScrollToSect
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-3">Available Now</h4>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Basic project management</li>
-                  <li>• Team assignment</li>
-                  <li>• Progress tracking</li>
-                  <li>• Basic reporting</li>
+                  <li>• Multi-tenant organization management</li>
+                  <li>• AI-powered chat assistant</li>
+                  <li>• Global navigation system</li>
+                  <li>• Document intelligence processing</li>
+                  <li>• Perfect accessibility compliance</li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-3">In Development</h4>
+                <h4 className="text-lg font-semibold text-gray-900 mb-3">Completing Now</h4>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• AI-powered planning</li>
-                  <li>• Timeline optimization</li>
-                  <li>• Advanced integrations</li>
-                  <li>• Automated insights</li>
+                  <li>• Team invitation management</li>
+                  <li>• Organization settings</li>
+                  <li>• Enhanced security scanning</li>
+                  <li>• Advanced analytics dashboard</li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-lg font-semibold text-gray-900 mb-3">Coming Soon</h4>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Enterprise security</li>
-                  <li>• Advanced analytics</li>
+                  <li>• Enterprise integrations</li>
                   <li>• Custom workflows</li>
                   <li>• Mobile app</li>
+                  <li>• API access & webhooks</li>
                 </ul>
               </div>
             </div>

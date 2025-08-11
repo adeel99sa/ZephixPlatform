@@ -23,6 +23,8 @@ const OrganizationSettings = lazy(() => import('./pages/organizations/Organizati
 
 // BRD
 const BRDUpload = lazy(() => import('./pages/brd/BRDUpload').then(module => ({ default: module.default })));
+const BRDDetails = lazy(() => import('./pages/brd/BRDDetails').then(module => ({ default: module.default })));
+const BRDProjectPlanning = lazy(() => import('./pages/brd/BRDProjectPlanning').then(module => ({ default: module.default })));
 
 // Project Management
 const ProjectStatusPage = lazy(() => import('./pages/pm/project/[id]/status').then(module => ({ default: module.default })));
@@ -32,6 +34,7 @@ const WorkflowTemplateList = lazy(() => import('./pages/WorkflowTemplateList').t
 const WorkflowTemplateBuilder = lazy(() => import('./pages/WorkflowTemplateBuilder').then(module => ({ default: module.WorkflowTemplateBuilder })));
 const IntakeFormList = lazy(() => import('./pages/IntakeFormList').then(module => ({ default: module.IntakeFormList })));
 const IntakeFormBuilder = lazy(() => import('./pages/IntakeFormBuilder').then(module => ({ default: module.IntakeFormBuilder })));
+const NaturalLanguageDesigner = lazy(() => import('./components/intake/NaturalLanguageDesigner').then(module => ({ default: module.NaturalLanguageDesigner })));
 const PublicIntakeForm = lazy(() => import('./pages/PublicIntakeForm').then(module => ({ default: module.PublicIntakeForm })));
 
 // Additional pages
@@ -131,6 +134,18 @@ export default function App() {
               </ProtectedLayout>
             } />
 
+            <Route path="/brd/:brdId" element={
+              <ProtectedLayout currentPage="BRD Details">
+                <BRDDetails />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/brd/:brdId/project-planning" element={
+              <ProtectedLayout currentPage="BRD Project Planning">
+                <BRDProjectPlanning />
+              </ProtectedLayout>
+            } />
+
             {/* Workflow Management */}
             <Route path="/workflow-templates" element={
               <ProtectedLayout currentPage="Workflow Templates">
@@ -165,6 +180,19 @@ export default function App() {
             <Route path="/intake-forms/:id/edit" element={
               <ProtectedLayout currentPage="Form Builder" noPadding>
                 <IntakeFormBuilder />
+              </ProtectedLayout>
+            } />
+
+            {/* AI Form Designer */}
+            <Route path="/intake-forms/ai-designer" element={
+              <ProtectedLayout currentPage="AI Form Designer" noPadding>
+                <NaturalLanguageDesigner />
+              </ProtectedLayout>
+            } />
+
+            <Route path="/intake-forms/ai-designer/:formId" element={
+              <ProtectedLayout currentPage="AI Form Designer" noPadding>
+                <NaturalLanguageDesigner />
               </ProtectedLayout>
             } />
 

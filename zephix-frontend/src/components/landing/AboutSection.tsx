@@ -99,13 +99,13 @@ export const AboutSection: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Platform Development</span>
-                <span className="font-semibold text-gray-900">In Progress</span>
+                <span className="font-semibold text-green-700">Production Ready</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-300" style={{ width: '65%' }}></div>
+                <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-300" style={{ width: '85%' }}></div>
               </div>
               <p className="text-sm text-gray-600">
-                Core AI services and user interface development
+                Multi-tenancy, AI chat, and navigation systems complete
               </p>
             </div>
           </div>
@@ -118,13 +118,13 @@ export const AboutSection: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Current Phase</span>
-                <span className="font-semibold text-blue-600">Active Development</span>
+                <span className="font-semibold text-blue-600">Enhancement Phase</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-300" style={{ width: '40%' }}></div>
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
               </div>
               <p className="text-sm text-gray-600">
-                Building toward initial demonstration version
+                Completing team management and advanced features
               </p>
             </div>
           </div>
