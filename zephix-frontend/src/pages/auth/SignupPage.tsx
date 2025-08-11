@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
+import { authApi } from '../../services/api';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,43 +43,31 @@ export const SignupPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-        }),
+      const data = await authApi.register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store token for potential resend verification requests
-        if (data.accessToken) {
-          localStorage.setItem('token', data.accessToken);
-        }
-        
-        setIsSubmitted(true);
-        
-        // Redirect to pending verification page
-        setTimeout(() => {
-          navigate('/auth/pending-verification', {
-            state: {
-              email: formData.email,
-              message: data.message,
-            },
-          });
-        }, 2000);
-      } else {
-        setError(data.message || 'Registration failed. Please try again.');
+      // Store token for potential resend verification requests
+      if (data.accessToken) {
+        localStorage.setItem('token', data.accessToken);
       }
-    } catch (err) {
-      setError('Network error. Please check your connection and try again.');
+      
+      setIsSubmitted(true);
+      
+      // Redirect to pending verification page
+      setTimeout(() => {
+        navigate('/auth/pending-verification', {
+          state: {
+            email: formData.email,
+            message: data.message,
+          },
+        });
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
