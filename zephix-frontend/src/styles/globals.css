@@ -1,0 +1,71 @@
+@import "./tokens.css";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html, body {
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  /* Focus visibility */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 2px var(--ring-brand);
+    border-radius: 8px;
+  }
+
+  /* Dark hero and footer helpers */
+  .hero-bg { background: var(--hero); color: #FFFFFF; }
+  .footer-bg { background: var(--footer); color: #CBD5E1; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-3 rounded-xl font-medium;
+    background: var(--primary-600);
+    color: #FFFFFF;
+  }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary:active { background: var(--primary-pressed); }
+  .btn-primary:focus-visible { box-shadow: 0 0 0 2px var(--ring-brand); }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-3 rounded-xl font-medium border;
+    color: var(--primary-600);
+    border-color: var(--primary-600);
+    background: transparent;
+  }
+  .btn-secondary:hover { color: var(--primary-hover); border-color: var(--primary-hover); }
+
+  .card {
+    @apply rounded-2xl;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .badge-success { background: #ECFDF5; color: #065F46; }
+  .badge-warning { background: #FFFBEB; color: #92400E; }
+  .badge-danger { background: #FEF2F2; color: #7F1D1D; }
+  .badge-info { background: var(--primary-50); color: #1E3A8A; }
+}
