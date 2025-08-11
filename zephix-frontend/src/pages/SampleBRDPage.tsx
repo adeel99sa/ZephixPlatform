@@ -728,30 +728,30 @@ export const SampleBRDPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Competitive Advantage */}
-              <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700 rounded-2xl p-8">
-                <h3 className="text-2xl font-bold text-white mb-6 text-center">
-                  🏆 While Others Show Templates...
-                </h3>
-                <div className="grid md:grid-cols-4 gap-4">
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-                    <h4 className="text-red-400 font-medium mb-2">Monday.com</h4>
-                    <p className="text-sm text-red-300">Manual drag & drop</p>
-                  </div>
-                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-center">
-                    <h4 className="text-yellow-400 font-medium mb-2">ClickUp</h4>
-                    <p className="text-sm text-yellow-300">Template selection</p>
-                  </div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
-                    <h4 className="text-blue-400 font-medium mb-2">Asana</h4>
-                    <p className="text-sm text-blue-300">Basic task management</p>
-                  </div>
-                  <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-xl p-4 text-center">
-                    <h4 className="text-indigo-400 font-bold mb-2">Zephix</h4>
-                    <p className="text-sm text-indigo-300">🚀 AI reads your actual BRD</p>
-                  </div>
-                </div>
-              </div>
+                             {/* Competitive Advantage */}
+               <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700 rounded-2xl p-8">
+                 <h3 className="text-2xl font-bold text-white mb-6 text-center">
+                   🏆 While Others Use Templates...
+                 </h3>
+                 <div className="grid md:grid-cols-4 gap-4">
+                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
+                     <h4 className="text-red-400 font-medium mb-2">Traditional Tools</h4>
+                     <p className="text-sm text-red-300">Manual drag & drop</p>
+                   </div>
+                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-center">
+                     <h4 className="text-yellow-400 font-medium mb-2">Other Platforms</h4>
+                     <p className="text-sm text-yellow-300">Template selection</p>
+                   </div>
+                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
+                     <h4 className="text-blue-400 font-medium mb-2">Legacy Software</h4>
+                     <p className="text-sm text-blue-300">Basic task management</p>
+                   </div>
+                   <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-xl p-4 text-center">
+                     <h4 className="text-indigo-400 font-bold mb-2">Zephix</h4>
+                     <p className="text-sm text-indigo-300">🚀 AI reads your actual BRD</p>
+                   </div>
+                 </div>
+               </div>
 
               {/* Final CTA */}
               <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl p-8 text-center">
