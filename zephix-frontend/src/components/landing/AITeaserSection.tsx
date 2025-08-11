@@ -1,13 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, FileText, Clock, DollarSign, Users, Rocket } from 'lucide-react';
+import { Brain, FileText, Clock, DollarSign, Users, Rocket, Building2, Factory, Home } from 'lucide-react';
 
 export const AITeaserSection: React.FC = () => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
+  const [selectedSample, setSelectedSample] = useState(0);
+
+  const sampleProjects = [
+    {
+      title: 'Legacy System Data Migration',
+      icon: FileText,
+      industry: 'Enterprise',
+      description: 'Complex enterprise migration project'
+    },
+    {
+      title: 'Digital Banking Platform',
+      icon: Building2,
+      industry: 'Banking',
+      description: 'Full-scale banking transformation'
+    },
+    {
+      title: 'Smart Factory Implementation',
+      icon: Factory,
+      industry: 'Manufacturing',
+      description: 'Industry 4.0 automation project'
+    },
+    {
+      title: 'Property Management System',
+      icon: Home,
+      industry: 'Real Estate',
+      description: 'End-to-end property platform'
+    }
+  ];
 
   useEffect(() => {
     setIsVisible(true);
+    // Rotate through samples
+    const interval = setInterval(() => {
+      setSelectedSample((prev) => (prev + 1) % sampleProjects.length);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCTAClick = () => {
@@ -23,6 +56,9 @@ export const AITeaserSection: React.FC = () => {
     // Navigate to AI Theater
     navigate('/sample-brd');
   };
+
+  const currentSample = sampleProjects[selectedSample];
+  const CurrentIcon = currentSample.icon;
 
   return (
     <section className="ai-teaser-section pt-0 pb-16 px-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white relative overflow-hidden">
@@ -49,36 +85,56 @@ export const AITeaserSection: React.FC = () => {
         
         {/* Subheadline with value prop */}
         <p className="teaser-subheadline text-xl text-center mb-8 opacity-90 max-w-2xl mx-auto">
-          Upload your BRD or try our enterprise sample below. See AI generate an intelligent project plan in 60 seconds.
+          Upload your BRD or explore our enterprise samples below. Experience AI-powered intelligent project planning.
         </p>
+        
+        {/* Sample selector */}
+        <div className="sample-selector flex flex-wrap justify-center gap-2 mb-6">
+          {sampleProjects.map((sample, index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedSample(index)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                selectedSample === index
+                  ? 'bg-white text-purple-600 shadow-lg'
+                  : 'bg-white/10 hover:bg-white/20 backdrop-blur-sm'
+              }`}
+            >
+              {sample.industry}
+            </button>
+          ))}
+        </div>
         
         {/* Enterprise sample preview card */}
         <div className="enterprise-preview-card bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
           <div className="preview-header flex items-center gap-3 mb-4">
-            <FileText className="w-6 h-6 text-white" />
-            <span className="text-lg font-semibold">Enterprise Sample: Legacy System Data Migration</span>
+            <CurrentIcon className="w-6 h-6 text-white" />
+            <div>
+              <span className="text-lg font-semibold block">{currentSample.title}</span>
+              <span className="text-sm opacity-80">{currentSample.description}</span>
+            </div>
           </div>
-          <div className="preview-stats grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="stat bg-white/5 rounded-lg p-3">
+          <div className="preview-features grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="feature bg-white/5 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Document Size:</span>
+                <Brain className="w-4 h-4 text-white/70" />
+                <span className="feature-label text-sm opacity-80">AI Analysis</span>
               </div>
-              <span className="stat-value text-xl font-bold">47 pages</span>
+              <span className="feature-value text-base">Deep requirements extraction</span>
             </div>
-            <div className="stat bg-white/5 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Project Budget:</span>
-              </div>
-              <span className="stat-value text-xl font-bold">$150,000</span>
-            </div>
-            <div className="stat bg-white/5 rounded-lg p-3">
+            <div className="feature bg-white/5 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Team Size:</span>
+                <span className="feature-label text-sm opacity-80">Smart Planning</span>
               </div>
-              <span className="stat-value text-xl font-bold">6 members</span>
+              <span className="feature-value text-base">Optimal resource allocation</span>
+            </div>
+            <div className="feature bg-white/5 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-4 h-4 text-white/70" />
+                <span className="feature-label text-sm opacity-80">Timeline</span>
+              </div>
+              <span className="feature-value text-base">Realistic project scheduling</span>
             </div>
           </div>
         </div>
@@ -90,7 +146,7 @@ export const AITeaserSection: React.FC = () => {
             onClick={handleCTAClick}
           >
             <Rocket className="w-6 h-6" />
-            See AI Generate Plan in 60 Seconds
+            Experience AI Project Planning
           </button>
         </div>
         
