@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, ArrowRight, Play, Target, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../ui/StatusBadge';
 
 interface HeroSectionProps {
@@ -8,6 +9,7 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setIsVisible(true);
@@ -32,8 +34,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
       });
     }
     
-    // Navigate to sample BRD flow
-    window.open('/sample-brd', '_blank');
+    // Navigate to sample BRD flow in the same window
+    navigate('/sample-brd');
   };
 
   return (
@@ -80,6 +82,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* CTA Buttons */}
+          <div className="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={handleSampleBRD}
+              className="btn-primary px-8 py-4 bg-white text-indigo-600 hover:bg-gray-100 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              <FileText className="inline-block w-5 h-5 mr-2" />
+              Try a sample BRD
+            </button>
+            <button 
+              onClick={handleDemoRequest}
+              className="btn-secondary px-8 py-4 bg-transparent text-white border-2 border-white/30 hover:bg-white/10 rounded-xl font-semibold text-lg transition-all duration-200"
+            >
+              <ArrowRight className="inline-block w-5 h-5 mr-2" />
+              Book a 15 minute demo
+            </button>
           </div>
         </div>
       </div>
