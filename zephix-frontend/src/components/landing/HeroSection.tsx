@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, ArrowRight, Play, Target, FileText } from 'lucide-react';
+import { StatusBadge } from '../ui/StatusBadge';
 
 interface HeroSectionProps {
   onDemoRequest: () => void;
@@ -40,10 +41,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16">
         <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           {/* Private Beta Badge */}
-          <div className="flex justify-center mb-6">
-            <div className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-sm font-semibold text-white shadow-lg">
-              Private Beta
-            </div>
+          <div className="mb-3">
+            <StatusBadge onDark={true} />
           </div>
           
           {/* Trust row */}
