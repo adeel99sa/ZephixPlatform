@@ -22,7 +22,7 @@ import { ProjectRisk } from '../src/pm/entities/project-risk.entity';
 import { ProjectStakeholder } from '../src/pm/entities/project-stakeholder.entity';
 import { Portfolio } from '../src/pm/entities/portfolio.entity';
 import { Program } from '../src/pm/entities/program.entity';
-import { StatusReport } from '../src/pm/entities/status-report.entity';
+import { StatusReport } from '../src/pm/status-reporting/entities/status-report.entity';
 import { ProjectMetrics } from '../src/pm/entities/project-metrics.entity';
 import { PerformanceBaseline } from '../src/pm/entities/performance-baseline.entity';
 import { AlertConfiguration } from '../src/pm/entities/alert-configuration.entity';

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import { StatusReport } from '../src/pm/entities/status-report.entity';
+import { StatusReport } from '../src/pm/status-reporting/entities/status-report.entity';
 import { Project } from '../src/projects/entities/project.entity';
 import { Organization } from '../src/organizations/entities/organization.entity';
 import { User } from '../src/users/entities/user.entity';
