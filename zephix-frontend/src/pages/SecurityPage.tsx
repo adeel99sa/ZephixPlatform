@@ -5,11 +5,27 @@ import { Zap, Shield, Lock, Eye, Server } from 'lucide-react';
 export const SecurityPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center space-x-2 mb-4">
+            <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">ZEPHIX</span>
+            </Link>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Security</h1>
+          <p className="text-gray-600 mt-2">Enterprise-grade security and compliance</p>
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
           <div className="flex items-center space-x-3 mb-6">
             <Shield className="w-6 h-6 text-indigo-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Security</h1>
+            <h2 className="text-2xl font-bold text-gray-900">Security Features</h2>
           </div>
           
           <div className="prose prose-gray max-w-none">
