@@ -81,6 +81,22 @@ export default function App() {
       userAgent: navigator.userAgent,
       language: navigator.language,
     });
+
+    // Add error logging for debugging
+    console.log('🚀 Zephix App initializing...');
+    console.log('📍 Current pathname:', window.location.pathname);
+    console.log('🔧 Environment:', import.meta.env.MODE);
+    
+    // Global error handler
+    window.addEventListener('error', (event) => {
+      console.error('🚨 Global error caught:', event.error);
+      console.error('📍 Error location:', event.filename, event.lineno, event.colno);
+    });
+
+    // Unhandled promise rejection handler
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('🚨 Unhandled promise rejection:', event.reason);
+    });
   }, []);
 
   return (
