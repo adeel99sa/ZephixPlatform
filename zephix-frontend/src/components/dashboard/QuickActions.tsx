@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Users, Settings, Brain, Upload, Workflow, FormInput } from 'lucide-react';
+import { Plus, FileText, Users, Settings, Brain, Upload, Workflow, FormInput, Sparkles } from 'lucide-react';
 
 interface QuickActionsProps {
   onQuickAction?: (action: string) => void;
@@ -38,10 +38,17 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onQuickAction }) => 
       route: '/workflow-templates/builder'
     },
     { 
+      id: 'ai-form-designer', 
+      label: 'AI Form Designer', 
+      icon: Sparkles, 
+      action: 'Create forms with AI assistance',
+      route: '/intake-forms/ai-designer'
+    },
+    { 
       id: 'create-intake-form', 
       label: 'Create Intake Form', 
       icon: FormInput, 
-      action: 'Create intake form',
+      action: 'Create intake form manually',
       route: '/intake-forms/builder'
     },
     { 

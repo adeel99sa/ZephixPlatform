@@ -66,7 +66,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       'upload': 'Upload',
       'status': 'Status',
       'builder': 'Builder',
-      'edit': 'Edit'
+      'edit': 'Edit',
+      'ai-designer': 'AI Designer'
     };
 
     if (pathSegments.length === 0) return ['Dashboard'];

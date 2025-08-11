@@ -485,4 +485,108 @@ export const aiApi = {
   },
 };
 
+/**
+ * BRD Service API functions for Business Requirements Document management
+ */
+export const brdApi = {
+  /**
+   * Get a specific BRD by ID
+   * @param brdId - BRD unique identifier
+   * @returns Promise resolving to BRD data
+   * @throws {ApiError} When BRD retrieval fails
+   */
+  getBRD: async (brdId: string): Promise<any> => {
+    try {
+      const response = await api.get(`/api/brd/${brdId}`);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/${brdId}`, 'GET');
+      throw apiError;
+    }
+  },
+
+  /**
+   * Get BRD analysis results
+   * @param brdId - BRD unique identifier
+   * @returns Promise resolving to BRD analysis data
+   * @throws {ApiError} When analysis retrieval fails
+   */
+  getBRDAnalysis: async (brdId: string): Promise<any> => {
+    try {
+      const response = await api.get(`/api/brd/project-planning/${brdId}/analysis`);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/${brdId}/analysis`, 'GET');
+      throw apiError;
+    }
+  },
+
+  /**
+   * Generate project plan from BRD
+   * @param brdId - BRD unique identifier
+   * @param data - Project plan generation data
+   * @returns Promise resolving to generated project plan
+   * @throws {ApiError} When plan generation fails
+   */
+  generateProjectPlan: async (brdId: string, data: { methodology: string }): Promise<any> => {
+    try {
+      const response = await api.post(`/api/brd/project-planning/${brdId}/generate-plan`, data);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/${brdId}/generate-plan`, 'POST');
+      throw apiError;
+    }
+  },
+
+  /**
+   * Refine a generated project plan
+   * @param planId - Project plan unique identifier
+   * @param data - Plan refinement data
+   * @returns Promise resolving to refined project plan
+   * @throws {ApiError} When plan refinement fails
+   */
+  refinePlan: async (planId: string, data: { refinementRequest: string }): Promise<any> => {
+    try {
+      const response = await api.post(`/api/brd/project-planning/plans/${planId}/refine`, data);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/plans/${planId}/refine`, 'POST');
+      throw apiError;
+    }
+  },
+
+  /**
+   * Create a project from a generated plan
+   * @param planId - Project plan unique identifier
+   * @param data - Project creation data
+   * @returns Promise resolving to created project
+   * @throws {ApiError} When project creation fails
+   */
+  createProjectFromPlan: async (planId: string, data: any): Promise<any> => {
+    try {
+      const response = await api.post(`/api/brd/project-planning/plans/${planId}/create-project`, data);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/plans/${planId}/create-project`, 'POST');
+      throw apiError;
+    }
+  },
+
+  /**
+   * Delete a BRD
+   * @param brdId - BRD unique identifier
+   * @returns Promise resolving to deletion result
+   * @throws {ApiError} When BRD deletion fails
+   */
+  deleteBRD: async (brdId: string): Promise<any> => {
+    try {
+      const response = await api.delete(`/api/brd/${brdId}`);
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, `/api/brd/${brdId}`, 'DELETE');
+      throw apiError;
+    }
+  },
+};
+
 export default api; 
