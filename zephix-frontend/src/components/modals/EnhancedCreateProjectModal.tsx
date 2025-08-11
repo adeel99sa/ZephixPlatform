@@ -311,9 +311,10 @@ export const EnhancedCreateProjectModal: React.FC<EnhancedCreateProjectModalProp
           type="text"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           placeholder="Enter a descriptive project name"
+          data-testid="project-name-input"
         />
         {errors.name && (
-          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+          <p className="mt-1 text-sm text-red-600" data-testid="project-name-error">{errors.name.message}</p>
         )}
       </div>
 
@@ -326,9 +327,10 @@ export const EnhancedCreateProjectModal: React.FC<EnhancedCreateProjectModalProp
           rows={4}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           placeholder="Describe the project goals, objectives, and key deliverables..."
+          data-testid="project-description-input"
         />
         {errors.description && (
-          <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+          <p className="mt-1 text-sm text-red-600" data-testid="project-description-error">{errors.description.message}</p>
         )}
       </div>
     </div>

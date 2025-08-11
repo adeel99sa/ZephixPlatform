@@ -93,12 +93,14 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   <Dialog.Title
                     as="h3"
                     className="text-lg font-medium leading-6 text-white"
+                    data-testid="create-project-modal"
                   >
                     Create New Project
                   </Dialog.Title>
                   <button
                     onClick={handleClose}
                     className="rounded-md text-gray-400 hover:text-gray-300 transition-all duration-300 hover:scale-[1.015] focus-visible:ring-2 focus-visible:ring-indigo-400"
+                    data-testid="create-project-modal-close"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
@@ -114,9 +116,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       type="text"
                       className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="Enter project name"
+                      data-testid="project-name-input"
                     />
                     {errors.name && (
-                      <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
+                      <p className="mt-1 text-sm text-red-400" data-testid="project-name-error">{errors.name.message}</p>
                     )}
                   </div>
 
@@ -129,6 +132,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       rows={3}
                       className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="Describe your project..."
+                      data-testid="project-description-input"
                     />
                   </div>
 
@@ -139,6 +143,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <select
                       {...register('priority')}
                       className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
+                      data-testid="project-priority-select"
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -156,6 +161,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         {...register('startDate')}
                         type="date"
                         className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
+                        data-testid="project-start-date"
                       />
                     </div>
                     <div>
@@ -166,6 +172,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         {...register('endDate')}
                         type="date"
                         className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
+                        data-testid="project-end-date"
                       />
                     </div>
                   </div>
@@ -181,9 +188,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       step="0.01"
                       className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
                       placeholder="0.00"
+                      data-testid="project-budget-input"
                     />
                     {errors.budget && (
-                      <p className="mt-1 text-sm text-red-400">{errors.budget.message}</p>
+                      <p className="mt-1 text-sm text-red-400" data-testid="project-budget-error">{errors.budget.message}</p>
                     )}
                   </div>
 
@@ -194,6 +202,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       onClick={handleClose}
                       disabled={isLoading}
                       className="bg-gray-700 text-gray-200 border-gray-600 hover:bg-gray-600"
+                      data-testid="create-project-cancel-btn"
                     >
                       Cancel
                     </Button>
@@ -201,6 +210,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       type="submit"
                       loading={isLoading}
                       className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                      data-testid="create-project-submit-btn"
                     >
                       Create Project
                     </Button>

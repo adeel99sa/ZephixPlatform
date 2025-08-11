@@ -61,6 +61,7 @@ const ReportExport: React.FC<ReportExportProps> = ({
               value={selectedReport}
               onChange={(e) => setSelectedReport(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="report-select"
             >
               <option value="latest">Latest Report</option>
               {mockReports.map((report) => (
@@ -78,6 +79,7 @@ const ReportExport: React.FC<ReportExportProps> = ({
               value={selectedFormat}
               onChange={(e) => setSelectedFormat(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="format-select"
             >
               {exportFormats.map((format) => (
                 <option key={format.id} value={format.id}>
@@ -90,6 +92,7 @@ const ReportExport: React.FC<ReportExportProps> = ({
         <button
           onClick={handleExport}
           className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-testid="export-report-btn"
         >
           Export Report
         </button>
@@ -146,12 +149,14 @@ const ReportExport: React.FC<ReportExportProps> = ({
                   <button
                     onClick={() => onExportReport(report.id, 'pdf')}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    data-testid={`export-pdf-${report.id}`}
                   >
                     Export PDF
                   </button>
                   <button
                     onClick={() => onExportReport(report.id, 'pptx')}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    data-testid={`export-ppt-${report.id}`}
                   >
                     Export PPT
                   </button>
@@ -235,7 +240,7 @@ const ReportExport: React.FC<ReportExportProps> = ({
               <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
             </div>
           </div>
-          <button className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-600 hover:border-gray-400 hover:text-gray-700">
+          <button className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-600 hover:border-gray-400 hover:text-gray-700" data-testid="add-scheduled-export-btn">
             + Add New Scheduled Export
           </button>
         </div>

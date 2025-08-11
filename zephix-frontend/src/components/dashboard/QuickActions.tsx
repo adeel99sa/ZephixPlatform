@@ -84,6 +84,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onQuickAction }) => 
             onClick={() => handleAction(action.id, action.route)}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-300 hover:scale-[1.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             aria-label={action.label}
+            data-testid={`quick-action-${action.id}`}
           >
             <action.icon className="w-5 h-5" aria-hidden="true" />
             <span className="text-sm font-medium">{action.label}</span>

@@ -66,7 +66,7 @@ export const ProjectsDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Projects</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-white" data-testid="projects-header">Projects</h1>
               <p className="text-gray-400 mt-1">
                 Manage your AI-powered project portfolio
               </p>
@@ -75,6 +75,7 @@ export const ProjectsDashboard: React.FC = () => {
               onClick={handleCreateProject}
               leftIcon={<PlusIcon className="w-4 h-4" />}
               className="px-6 py-3"
+              data-testid="create-project-button"
             >
               Create Project
             </Button>
