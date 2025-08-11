@@ -69,3 +69,21 @@
   .badge-danger { background: #FEF2F2; color: #7F1D1D; }
   .badge-info { background: var(--primary-50); color: #1E3A8A; }
 }
+
+/* AI Teaser Section animations */
+@keyframes pulse-glow {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.8; 
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% { 
+    transform: scale(1.05); 
+    opacity: 1; 
+    box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0.2);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
