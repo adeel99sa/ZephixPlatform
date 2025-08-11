@@ -37,48 +37,51 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
 
   return (
     <section className="relative min-h-screen hero-bg overflow-hidden">
-      <div className="relative z-10 max-w-[1200px] mx-auto px-6 pt-24 pb-16">
-        <div className={`grid lg:grid-cols-2 gap-12 items-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-          {/* Left Column - Content */}
-          <div className="text-center lg:text-left">
-            {/* Private Beta Badge */}
-            <div className="flex justify-center lg:justify-start mb-6">
-              <div className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-sm font-semibold text-white shadow-lg">
-                Private Beta
-              </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16">
+        <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+          {/* Private Beta Badge */}
+          <div className="flex justify-center mb-6">
+            <div className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-sm font-semibold text-white shadow-lg">
+              Private Beta
             </div>
-            {/* Trust row */}
-            <div className="flex flex-wrap justify-center lg:justify-start gap-2 mb-6">
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">SSO</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">RBAC</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Audit logs</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Encryption at rest and in transit</div>
-            </div>
-            {/* Main headline */}
-            <h1 className="text-[56px] font-bold text-white mb-6 leading-tight">
-              Turn a BRD into a project plan in 3 minutes.
-            </h1>
-            {/* Sub-headline */}
-            <p className="text-[20px] text-slate-300 mb-8 max-w-2xl mx-auto lg:mx-0 opacity-60">
-              Upload a BRD. Zephix extracts scope, builds a schedule with stage gates, and prepares an executive one pager.
-            </p>
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
-              <button onClick={handleSampleBRD} className="btn-primary">
-                Try a sample BRD
-              </button>
-              <button onClick={handleDemoRequest} className="btn-secondary">
-                Book a 15 minute demo
-              </button>
-            </div>
-            {/* Proof blurb */}
-            <p className="text-sm text-slate-300 opacity-80 max-w-2xl mx-auto lg:mx-0">
-              Time to first plan under 3 minutes in internal tests. Details in Changelog.
-            </p>
           </div>
-          {/* Right Column - 12 second silent video */}
-          <div className="flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-lg">
+          
+          {/* Trust row */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">SSO</div>
+            <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">RBAC</div>
+            <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Audit logs</div>
+            <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Encryption at rest and in transit</div>
+          </div>
+          
+          {/* Main headline */}
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight max-w-4xl mx-auto">
+            Turn a BRD into a project plan in 3 minutes.
+          </h1>
+          
+          {/* Sub-headline */}
+          <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+            Upload a BRD. Zephix extracts scope, builds a schedule with stage gates, and prepares an executive one pager.
+          </p>
+          
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <button onClick={handleSampleBRD} className="btn-primary">
+              Try a sample BRD
+            </button>
+            <button onClick={handleDemoRequest} className="btn-secondary">
+              Book a 15 minute demo
+            </button>
+          </div>
+          
+          {/* Proof blurb */}
+          <p className="text-sm text-slate-300 opacity-80 max-w-2xl mx-auto">
+            Time to first plan under 3 minutes in internal tests. Details in Changelog.
+          </p>
+          
+          {/* Video placeholder - centered below content */}
+          <div className="mt-12 flex justify-center">
+            <div className="relative w-full max-w-2xl">
               <div className="aspect-video bg-gradient-to-br from-white/10 to-white/5 rounded-2xl border border-white/20 flex items-center justify-center">
                 <div className="text-center text-white/60">
                   <Play className="w-16 h-16 mx-auto mb-4" />
