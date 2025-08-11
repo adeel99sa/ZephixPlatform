@@ -39,8 +39,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
   };
 
   return (
-    <section id="hero" className="relative min-h-screen hero-bg overflow-hidden">
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-8">
+    <section id="hero" className="relative hero-bg overflow-hidden">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-4">
         <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           {/* Private Beta Badge */}
           <div className="mb-3">
