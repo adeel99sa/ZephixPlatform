@@ -83,7 +83,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
     <header className={cn(
       "bg-slate-900 border-b border-slate-700 px-4 sm:px-6 py-4 sticky top-0 z-40",
       className
-    )}>
+    )} data-testid="global-header">
       <div className="flex items-center justify-between">
         {/* Left: Logo + Breadcrumbs */}
         <div className="flex items-center space-x-4">
@@ -110,7 +110,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         </div>
 
         {/* Center: Quick Navigation (Desktop) */}
-        <nav className="hidden lg:flex items-center space-x-6">
+        <nav className="hidden lg:flex items-center space-x-6" data-testid="desktop-navigation">
           {navigation.map((item) => (
             <NavLink
               key={item.name}
@@ -123,6 +123,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                     : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
                 )
               }
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
             >
               <item.icon className="w-4 h-4" />
               <span>{item.name}</span>
@@ -147,6 +148,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
               onClick={handleOrganizationSettings}
               className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
               title="Settings"
+              data-testid="settings-button"
             >
               <Cog6ToothIcon className="w-5 h-5" />
             </button>
@@ -163,6 +165,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                 onClick={handleLogout}
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
                 title="Logout"
+                data-testid="logout-button"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </button>
@@ -172,6 +175,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+              data-testid="mobile-menu-toggle"
             >
               <Bars3Icon className="w-5 h-5" />
             </button>
@@ -181,7 +185,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden mt-4 pt-4 border-t border-slate-700">
+        <div className="lg:hidden mt-4 pt-4 border-t border-slate-700" data-testid="mobile-navigation">
           <div className="space-y-3">
             {/* Mobile Organization Switcher */}
             <div className="sm:hidden">

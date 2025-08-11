@@ -258,6 +258,7 @@ export const BRDUpload: React.FC = () => {
                   ? 'border-indigo-400 bg-indigo-50' 
                   : 'border-gray-300 hover:border-gray-400'
               }`}
+              data-testid="brd-upload-dropzone"
             >
               <Upload className={`w-12 h-12 mx-auto mb-4 ${
                 isDragOver ? 'text-indigo-500' : 'text-gray-400'
@@ -279,6 +280,7 @@ export const BRDUpload: React.FC = () => {
                     onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
                     className="hidden"
                     disabled={isUploading}
+                    data-testid="brd-file-input"
                   />
                 </label>
               </div>
@@ -299,7 +301,7 @@ export const BRDUpload: React.FC = () => {
               </div>
               <div className="p-6 space-y-4">
                 {files.map((file) => (
-                  <div key={file.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={file.id} className="border border-gray-200 rounded-lg p-4" data-testid="uploaded-file-item">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-3 flex-1">
                         {getStatusIcon(file.status)}
@@ -312,7 +314,7 @@ export const BRDUpload: React.FC = () => {
                               {formatFileSize(file.size)}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1" data-testid={`file-status-${file.id}`}>
                             {getStatusText(file)}
                           </p>
                           {(file.status === 'uploading' || file.status === 'processing') && (
@@ -321,12 +323,13 @@ export const BRDUpload: React.FC = () => {
                                 <div 
                                   className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
                                   style={{ width: `${file.progress}%` }}
+                                  data-testid="file-upload-progress"
                                 />
                               </div>
                             </div>
                           )}
                           {file.status === 'completed' && file.processingResult && (
-                            <div className="mt-3 p-3 bg-green-50 rounded-lg">
+                            <div className="mt-3 p-3 bg-green-50 rounded-lg" data-testid="brd-analysis-results">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                                 <div>
                                   <div className="font-medium text-green-800">Pages</div>
@@ -338,7 +341,7 @@ export const BRDUpload: React.FC = () => {
                                 </div>
                                 <div>
                                   <div className="font-medium text-green-800">Status</div>
-                                  <div className="text-green-600">Ready for Project Creation</div>
+                                  <div className="text-green-600" data-testid="processing-status">Ready for Project Creation</div>
                                 </div>
                               </div>
                               <div className="mt-2">
@@ -356,12 +359,14 @@ export const BRDUpload: React.FC = () => {
                               onClick={() => viewProcessingResults(file)}
                               className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
                               title="View processing results"
+                              data-testid="view-results-btn"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => createProjectFromBRD(file)}
                               className="inline-flex items-center space-x-1 px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200 transition-colors"
+                              data-testid="convert-to-project-btn"
                             >
                               <span>Create Project</span>
                               <ArrowRight className="w-3 h-3" />
@@ -372,6 +377,7 @@ export const BRDUpload: React.FC = () => {
                           onClick={() => removeFile(file.id)}
                           className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                           title="Remove file"
+                          data-testid="remove-file-btn"
                         >
                           <X className="w-4 h-4" />
                         </button>
