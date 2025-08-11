@@ -4,6 +4,7 @@ import { HeroSection } from '../components/landing/HeroSection';
 import { ProblemSection } from '../components/landing/ProblemSection';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
 import { OutcomesSection } from '../components/landing/OutcomesSection';
+import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { SolutionsSection } from '../components/landing/SolutionsSection';
 import { PricingSection } from '../components/landing/PricingSection';
 import { SecuritySection } from '../components/landing/SecuritySection';
@@ -47,6 +48,7 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
         <OutcomesSection />
         <ProblemSection />
         <FeaturesSection onScrollToSection={scrollToSection} />
+        <HowItWorksSection />
         <SolutionsSection />
         <PricingSection onDemoRequest={handleDemoRequest} />
         <SecuritySection />
