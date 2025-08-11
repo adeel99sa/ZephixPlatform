@@ -89,59 +89,43 @@ export const AboutSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Development Status */}
+        {/* Feature Demonstrations */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center space-x-3 mb-4">
               <Zap className="w-6 h-6 text-green-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Development Status</h3>
+              <h3 className="text-lg font-semibold text-gray-900">AI Intelligence</h3>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Platform Development</span>
-                <span className="font-semibold text-green-700">Production Ready</span>
+            <div className="aspect-video bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <div className="text-sm font-medium">6-8s GIF</div>
+                <div className="text-xs">AI-powered insights</div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-300" style={{ width: '85%' }}></div>
-              </div>
-              <p className="text-sm text-gray-600">
-                Multi-tenancy, AI chat, and navigation systems complete
-              </p>
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center space-x-3 mb-4">
               <Calendar className="w-6 h-6 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Development Timeline</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Project Management</h3>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Current Phase</span>
-                <span className="font-semibold text-blue-600">Enhancement Phase</span>
+            <div className="aspect-video bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <div className="text-sm font-medium">6-8s GIF</div>
+                <div className="text-xs">Workflow automation</div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-300" style={{ width: '75%' }}></div>
-              </div>
-              <p className="text-sm text-gray-600">
-                Completing team management and advanced features
-              </p>
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center space-x-3 mb-4">
               <TrendingUp className="w-6 h-6 text-purple-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Focus Areas</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Enterprise Features</h3>
             </div>
-            <div className="space-y-3">
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">AI Intelligence</div>
-                <div className="text-sm text-gray-600">Core platform capability</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-semibold text-gray-900">Enterprise Ready</div>
-                <div className="text-sm text-gray-600">Security and scalability</div>
+            <div className="aspect-video bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <div className="text-sm font-medium">6-8s GIF</div>
+                <div className="text-xs">Security & scalability</div>
               </div>
             </div>
           </div>
