@@ -152,46 +152,6 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
             <span className="text-sm font-medium">See full feature comparison</span>
           </div>
         </div>
-
-        {/* FAQ Section */}
-        <div className="mt-20">
-          <div className="text-center mb-12">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h3>
-            <p className="text-gray-600">Get answers to common questions about our pricing and plans</p>
-          </div>
-          
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">Can I change plans at any time?</h4>
-              <p className="text-gray-600">Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any billing adjustments.</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">Is there a setup fee?</h4>
-              <p className="text-gray-600">No setup fees. You can start using Zephix immediately with our free plan, and upgrade when you're ready for more features.</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">What payment methods do you accept?</h4>
-              <p className="text-gray-600">We accept all major credit cards, ACH transfers, and can accommodate annual invoicing for Enterprise customers.</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">Do you offer discounts for annual billing?</h4>
-              <p className="text-gray-600">Yes, we offer a 20% discount for annual billing on Professional and Enterprise plans.</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">What's included in the free trial?</h4>
-              <p className="text-gray-600">The free trial includes all Professional plan features for 14 days, with no credit card required to start.</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
-              <h4 className="font-semibold text-gray-900 mb-3">Can I cancel my subscription?</h4>
-              <p className="text-gray-600">Yes, you can cancel at any time. Your data will be available for 30 days after cancellation, and you can reactivate your account anytime.</p>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
