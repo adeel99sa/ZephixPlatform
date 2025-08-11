@@ -17,7 +17,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
 
   return (
     <section id="hero" className="relative hero-bg overflow-hidden">
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-2">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-0">
         <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           {/* Private Beta Badge */}
           <div className="mb-3">
@@ -25,17 +25,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
           </div>
           
           {/* Trust row */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <div className="flex flex-wrap justify-center gap-2">
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">SSO</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">RBAC</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Audit logs</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Encryption at rest and in transit</div>
           </div>
-          
-          {/* Main headline */}
-          <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight max-w-4xl mx-auto">
-            Turn a BRD into a project plan in 3 minutes.
-          </h1>
         </div>
       </div>
     </section>
