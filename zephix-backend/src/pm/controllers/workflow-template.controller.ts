@@ -31,7 +31,7 @@ import {
 
 @ApiTags('Workflow Templates')
 @ApiBearerAuth()
-@Controller('api/pm/workflow-templates')
+@Controller('pm/workflow-templates')
 @UseGuards(JwtAuthGuard, OrganizationGuard)
 export class WorkflowTemplateController {
   constructor(private readonly templateService: WorkflowTemplateService) {}
@@ -180,7 +180,7 @@ export class WorkflowTemplateController {
 
 @ApiTags('Workflow Instances')
 @ApiBearerAuth()
-@Controller('api/pm/workflow-instances')
+@Controller('pm/workflow-instances')
 @UseGuards(JwtAuthGuard, OrganizationGuard)
 export class WorkflowInstanceController {
   constructor(private readonly templateService: WorkflowTemplateService) {}

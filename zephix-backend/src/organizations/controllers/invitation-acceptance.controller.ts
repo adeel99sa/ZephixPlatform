@@ -16,7 +16,7 @@ import { InvitationService } from '../services/invitation.service';
 import { Organization } from '../entities/organization.entity';
 
 @ApiTags('Invitation Acceptance')
-@Controller('api/invitations')
+@Controller('invitations')
 export class InvitationAcceptanceController {
   constructor(private readonly invitationService: InvitationService) {}
 

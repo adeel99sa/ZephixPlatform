@@ -17,7 +17,7 @@ import { IntelligenceModule } from './intelligence/intelligence.module';
 import { ArchitectureModule } from './architecture/architecture.module';
 import { BRDModule } from './brd/brd.module';
 import { OrganizationsModule } from './organizations/organizations.module';
-import { HealthController } from './health/health.controller';
+import { HealthModule } from './health/health.module';
 
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -135,8 +135,9 @@ if (!(global as any).crypto) {
     ArchitectureModule,
     BRDModule,
     OrganizationsModule,
+    HealthModule,
   ],
-  controllers: [AppController, HealthController],
+  controllers: [AppController],
   providers: [
     AppService,
     {
