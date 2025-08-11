@@ -118,16 +118,10 @@ async function bootstrap() {
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
             frameSrc: ["'none'"],
-            upgradeInsecureRequests: [],
           },
         },
         crossOriginEmbedderPolicy: false, // Disable for API
         crossOriginResourcePolicy: { policy: "cross-origin" },
-        hsts: {
-          maxAge: 31536000, // 1 year
-          includeSubDomains: true,
-          preload: true,
-        },
         noSniff: true,
         frameguard: { action: 'deny' },
         xssFilter: true,
