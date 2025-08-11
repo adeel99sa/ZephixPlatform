@@ -1,0 +1,350 @@
+{
+  "projects": {
+    "banking": [
+      {
+        "id": "proj_bank_001",
+        "name": "Digital Banking Platform Modernization",
+        "description": "Complete overhaul of legacy banking systems to modern microservices architecture",
+        "status": "active",
+        "health": "on_track",
+        "priority": "high",
+        "budget": {
+          "allocated": 5000000,
+          "spent": 1250000,
+          "remaining": 3750000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2024-01-01",
+          "endDate": "2024-12-31",
+          "currentPhase": "Development",
+          "completionPercentage": 25
+        },
+        "team": {
+          "projectManager": "Patricia Manager",
+          "teamSize": 45,
+          "departments": ["IT", "Digital Banking", "Security", "Compliance"]
+        },
+        "milestones": [
+          {
+            "name": "Requirements Analysis",
+            "dueDate": "2024-02-01",
+            "status": "completed",
+            "deliverables": ["BRD", "Technical Specs", "Risk Assessment"]
+          },
+          {
+            "name": "Architecture Design",
+            "dueDate": "2024-03-15",
+            "status": "completed",
+            "deliverables": ["System Architecture", "API Design", "Security Framework"]
+          },
+          {
+            "name": "Core Banking Module",
+            "dueDate": "2024-06-30",
+            "status": "in_progress",
+            "completionPercentage": 60,
+            "blockers": ["Legacy data migration complexity"]
+          },
+          {
+            "name": "Security Implementation",
+            "dueDate": "2024-09-30",
+            "status": "not_started"
+          }
+        ],
+        "risks": [
+          {
+            "id": "risk_001",
+            "title": "Legacy System Dependencies",
+            "severity": "high",
+            "probability": "medium",
+            "impact": "Could delay migration by 2-3 months",
+            "mitigation": "Implement strangler pattern, maintain parallel systems",
+            "owner": "Tech Lead",
+            "status": "monitoring"
+          },
+          {
+            "id": "risk_002",
+            "title": "Regulatory Compliance Changes",
+            "severity": "high",
+            "probability": "low",
+            "impact": "Major rework of security modules",
+            "mitigation": "Regular compliance reviews, flexible architecture",
+            "owner": "Compliance Officer",
+            "status": "accepted"
+          }
+        ],
+        "kpis": {
+          "scheduleVariance": -2,
+          "costVariance": 5,
+          "qualityScore": 92,
+          "teamSatisfaction": 85
+        }
+      },
+      {
+        "id": "proj_bank_002",
+        "name": "Mobile Banking App Enhancement",
+        "description": "Add AI-powered features and biometric authentication to mobile banking",
+        "status": "active",
+        "health": "at_risk",
+        "priority": "medium",
+        "budget": {
+          "allocated": 1500000,
+          "spent": 800000,
+          "remaining": 700000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2024-02-01",
+          "endDate": "2024-08-31",
+          "currentPhase": "Development",
+          "completionPercentage": 45
+        },
+        "risks": [
+          {
+            "id": "risk_003",
+            "title": "Third-party API Delays",
+            "severity": "medium",
+            "probability": "high",
+            "impact": "Feature delivery delay",
+            "status": "active"
+          }
+        ],
+        "alerts": [
+          {
+            "type": "budget",
+            "message": "Budget utilization at 53% with only 45% completion",
+            "severity": "warning"
+          }
+        ]
+      }
+    ],
+    "manufacturing": [
+      {
+        "id": "proj_mfg_001",
+        "name": "Smart Factory Initiative",
+        "description": "IoT integration for real-time production monitoring and predictive maintenance",
+        "status": "active",
+        "health": "on_track",
+        "priority": "high",
+        "budget": {
+          "allocated": 8000000,
+          "spent": 2000000,
+          "remaining": 6000000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2024-01-15",
+          "endDate": "2025-06-30",
+          "currentPhase": "Pilot Implementation",
+          "completionPercentage": 15
+        },
+        "facilities": ["Detroit Plant", "Chicago Plant", "Atlanta Plant"],
+        "metrics": {
+          "sensorsDeployed": 234,
+          "dataPointsPerSecond": 10000,
+          "predictiveAccuracy": 87,
+          "downtimeReduction": 23
+        },
+        "milestones": [
+          {
+            "name": "Detroit Pilot",
+            "dueDate": "2024-05-15",
+            "status": "in_progress",
+            "completionPercentage": 40,
+            "metrics": {
+              "sensorsInstalled": 78,
+              "linesConnected": 2,
+              "dataFlowing": true
+            }
+          }
+        ],
+        "benefits": {
+          "realized": {
+            "downtimeSavings": 125000,
+            "qualityImprovement": 15,
+            "energySavings": 45000
+          },
+          "projected": {
+            "annualSavings": 3200000,
+            "roiMonths": 30
+          }
+        }
+      },
+      {
+        "id": "proj_mfg_002",
+        "name": "Supply Chain Optimization",
+        "description": "Blockchain-based supply chain tracking and optimization system",
+        "status": "active",
+        "health": "on_track",
+        "priority": "medium",
+        "budget": {
+          "allocated": 2500000,
+          "spent": 500000,
+          "remaining": 2000000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2024-02-01",
+          "endDate": "2024-10-31",
+          "currentPhase": "Design",
+          "completionPercentage": 20
+        },
+        "partners": ["Supplier A", "Supplier B", "Logistics Partner C"],
+        "blockchainMetrics": {
+          "nodesDeployed": 5,
+          "transactionsPerDay": 0,
+          "smartContractsActive": 0
+        }
+      }
+    ],
+    "realEstate": [
+      {
+        "id": "proj_re_001",
+        "name": "Property Management Platform",
+        "description": "Cloud-based platform for property management and tenant services",
+        "status": "active",
+        "health": "on_track",
+        "priority": "high",
+        "budget": {
+          "allocated": 3500000,
+          "spent": 1200000,
+          "remaining": 2300000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2024-01-01",
+          "endDate": "2024-09-30",
+          "currentPhase": "Beta Testing",
+          "completionPercentage": 35
+        },
+        "features": {
+          "completed": ["Tenant Portal", "Maintenance Requests", "Payment Processing"],
+          "inProgress": ["Mobile App", "Analytics Dashboard", "Document Management"],
+          "planned": ["AI Chatbot", "Virtual Tours", "IoT Integration"]
+        },
+        "userMetrics": {
+          "properties": 150,
+          "tenants": 3200,
+          "maintenanceRequests": 450,
+          "paymentVolume": 2500000
+        }
+      },
+      {
+        "id": "proj_re_002",
+        "name": "Smart Building Analytics",
+        "description": "IoT and AI system for building energy optimization and predictive maintenance",
+        "status": "at_risk",
+        "health": "needs_attention",
+        "priority": "high",
+        "budget": {
+          "allocated": 4000000,
+          "spent": 3200000,
+          "remaining": 800000,
+          "currency": "USD"
+        },
+        "timeline": {
+          "startDate": "2023-09-01",
+          "endDate": "2024-08-31",
+          "currentPhase": "Implementation",
+          "completionPercentage": 75,
+          "delayDays": 45
+        },
+        "issues": [
+          {
+            "type": "budget_overrun",
+            "description": "Hardware costs exceeded estimates by 40%",
+            "impact": "high",
+            "resolution": "Seeking additional funding"
+          },
+          {
+            "type": "technical",
+            "description": "Integration with legacy BMS systems",
+            "impact": "medium",
+            "resolution": "Custom adapters being developed"
+          }
+        ],
+        "buildings": {
+          "total": 12,
+          "connected": 8,
+          "sensorsDeployed": 2400,
+          "dataPointsCollected": 150000000
+        }
+      }
+    ]
+  },
+  "dashboardData": {
+    "overview": {
+      "totalProjects": 9,
+      "activeProjects": 8,
+      "completedProjects": 1,
+      "atRiskProjects": 3,
+      "totalBudget": 32700000,
+      "budgetUtilized": 10950000
+    },
+    "byIndustry": {
+      "banking": {
+        "projects": 3,
+        "budget": 9500000,
+        "avgCompletion": 35
+      },
+      "manufacturing": {
+        "projects": 3,
+        "budget": 12300000,
+        "avgCompletion": 25
+      },
+      "realEstate": {
+        "projects": 3,
+        "budget": 10900000,
+        "avgCompletion": 55
+      }
+    },
+    "timeline": {
+      "q1_2024": {
+        "milestonesPlanned": 12,
+        "milestonesCompleted": 8,
+        "onTimeDelivery": 67
+      },
+      "q2_2024": {
+        "milestonesPlanned": 15,
+        "milestonesCompleted": 0,
+        "projected": 80
+      }
+    },
+    "teamMetrics": {
+      "totalTeamMembers": 234,
+      "utilizationRate": 85,
+      "satisfactionScore": 82,
+      "topPerformers": ["Patricia Manager", "Diana Developer", "Alice Analyst"]
+    }
+  },
+  "recentActivities": [
+    {
+      "timestamp": "2024-01-15T14:30:00Z",
+      "project": "Digital Banking Platform Modernization",
+      "user": "Patricia Manager",
+      "action": "Updated milestone status",
+      "details": "Core Banking Module progress updated to 60%"
+    },
+    {
+      "timestamp": "2024-01-15T13:45:00Z",
+      "project": "Smart Factory Initiative",
+      "user": "Diana Developer",
+      "action": "Deployed sensor configuration",
+      "details": "78 new sensors online in Detroit facility"
+    },
+    {
+      "timestamp": "2024-01-15T12:00:00Z",
+      "project": "Smart Building Analytics",
+      "user": "Alice Analyst",
+      "action": "Flagged budget risk",
+      "details": "Budget utilization at 80% with 25% work remaining"
+    },
+    {
+      "timestamp": "2024-01-15T10:30:00Z",
+      "project": "Property Management Platform",
+      "user": "Steven Stakeholder",
+      "action": "Approved feature request",
+      "details": "Virtual tour functionality approved for Q3 development"
+    }
+  ]
+}

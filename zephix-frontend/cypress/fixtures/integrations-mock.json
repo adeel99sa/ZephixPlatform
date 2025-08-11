@@ -1,0 +1,429 @@
+{
+  "integrations": [
+    {
+      "id": "int_001",
+      "name": "Jira",
+      "type": "project_management",
+      "provider": "Atlassian",
+      "status": "connected",
+      "health": "healthy",
+      "lastSync": "2024-01-15T14:30:00Z",
+      "nextSync": "2024-01-15T15:30:00Z",
+      "syncFrequency": "1hour",
+      "configuration": {
+        "url": "https://enterprise-bank.atlassian.net",
+        "apiVersion": "3",
+        "projectKey": "BANK",
+        "authentication": {
+          "type": "oauth2",
+          "tokenExpiry": "2024-12-31T23:59:59Z"
+        },
+        "mapping": {
+          "projects": "issuetype = Epic",
+          "tasks": "issuetype in (Story, Task, Bug)",
+          "users": "project = BANK"
+        }
+      },
+      "statistics": {
+        "totalSyncs": 2456,
+        "successfulSyncs": 2450,
+        "failedSyncs": 6,
+        "lastError": null,
+        "itemsSynced": {
+          "projects": 45,
+          "tasks": 1234,
+          "users": 89,
+          "comments": 5678
+        }
+      },
+      "features": {
+        "bidirectionalSync": true,
+        "realTimeUpdates": true,
+        "customFieldMapping": true,
+        "attachmentSync": true,
+        "webhooksEnabled": true
+      },
+      "permissions": {
+        "read": ["projects", "issues", "users", "comments"],
+        "write": ["issues", "comments"],
+        "admin": ["webhooks", "configuration"]
+      }
+    },
+    {
+      "id": "int_002",
+      "name": "Slack",
+      "type": "communication",
+      "provider": "Slack Technologies",
+      "status": "connected",
+      "health": "healthy",
+      "lastSync": "2024-01-15T14:45:00Z",
+      "nextSync": "real-time",
+      "syncFrequency": "real-time",
+      "configuration": {
+        "workspaceId": "T0001BANK",
+        "workspaceName": "Enterprise Banking Corp",
+        "channels": [
+          {
+            "id": "C001PROJ",
+            "name": "#project-updates",
+            "type": "public"
+          },
+          {
+            "id": "C002ALERT",
+            "name": "#pm-alerts",
+            "type": "private"
+          },
+          {
+            "id": "C003EXEC",
+            "name": "#executive-reports",
+            "type": "private"
+          }
+        ],
+        "authentication": {
+          "type": "oauth2",
+          "scopes": ["chat:write", "channels:read", "users:read", "files:write"]
+        }
+      },
+      "statistics": {
+        "messagesPosted": 15678,
+        "notificationsSent": 8934,
+        "activeUsers": 234,
+        "activeChannels": 12
+      },
+      "features": {
+        "projectNotifications": true,
+        "milestoneAlerts": true,
+        "riskAlerts": true,
+        "customBotCommands": true,
+        "fileSharing": true,
+        "threadedConversations": true
+      },
+      "automations": [
+        {
+          "name": "Project Status Updates",
+          "trigger": "project.status.changed",
+          "action": "post to #project-updates"
+        },
+        {
+          "name": "High Risk Alerts",
+          "trigger": "risk.severity.high",
+          "action": "post to #pm-alerts with @channel"
+        }
+      ]
+    },
+    {
+      "id": "int_003",
+      "name": "GitHub",
+      "type": "version_control",
+      "provider": "GitHub Inc",
+      "status": "connected",
+      "health": "healthy",
+      "lastSync": "2024-01-15T14:00:00Z",
+      "nextSync": "webhook-driven",
+      "syncFrequency": "real-time",
+      "configuration": {
+        "organization": "enterprise-banking",
+        "repositories": [
+          "digital-platform",
+          "mobile-banking-app",
+          "fraud-detection-system"
+        ],
+        "authentication": {
+          "type": "personal_access_token",
+          "scopes": ["repo", "read:org", "write:discussion"]
+        },
+        "branch": {
+          "default": "main",
+          "protection": true
+        }
+      },
+      "statistics": {
+        "repositories": 3,
+        "commits": 12456,
+        "pullRequests": 1234,
+        "issues": 567,
+        "contributors": 45
+      },
+      "features": {
+        "automaticPRCreation": true,
+        "codeReviewIntegration": true,
+        "issueTracking": true,
+        "deploymentTracking": true,
+        "securityScanning": true
+      },
+      "webhooks": [
+        {
+          "event": "push",
+          "url": "https://api.zephix.com/webhooks/github/push"
+        },
+        {
+          "event": "pull_request",
+          "url": "https://api.zephix.com/webhooks/github/pr"
+        },
+        {
+          "event": "issues",
+          "url": "https://api.zephix.com/webhooks/github/issues"
+        }
+      ]
+    },
+    {
+      "id": "int_004",
+      "name": "Microsoft Teams",
+      "type": "communication",
+      "provider": "Microsoft",
+      "status": "disconnected",
+      "health": "disconnected",
+      "lastSync": null,
+      "nextSync": null,
+      "syncFrequency": null,
+      "configuration": {
+        "tenantId": null,
+        "authentication": {
+          "type": "oauth2",
+          "status": "not_configured"
+        }
+      },
+      "statistics": null,
+      "features": {
+        "projectNotifications": true,
+        "videoConferencing": true,
+        "fileSharing": true,
+        "channels": true,
+        "apps": true
+      },
+      "setupRequired": {
+        "steps": [
+          "Register app in Azure AD",
+          "Configure permissions",
+          "Add redirect URI",
+          "Generate client secret"
+        ],
+        "estimatedTime": "30 minutes",
+        "documentation": "https://docs.zephix.com/integrations/teams"
+      }
+    },
+    {
+      "id": "int_005",
+      "name": "GitLab",
+      "type": "version_control",
+      "provider": "GitLab Inc",
+      "status": "error",
+      "health": "unhealthy",
+      "lastSync": "2024-01-14T10:00:00Z",
+      "nextSync": null,
+      "syncFrequency": "30min",
+      "configuration": {
+        "url": "https://gitlab.manufacturing.com",
+        "authentication": {
+          "type": "personal_access_token",
+          "status": "expired"
+        }
+      },
+      "statistics": {
+        "lastSuccessfulSync": "2024-01-14T10:00:00Z",
+        "consecutiveFailures": 48,
+        "errorRate": "100%"
+      },
+      "error": {
+        "code": "AUTH_001",
+        "message": "Authentication failed: Access token expired",
+        "timestamp": "2024-01-15T14:30:00Z",
+        "resolution": "Please regenerate access token in GitLab settings"
+      },
+      "features": {
+        "mergeRequestIntegration": true,
+        "ciCdIntegration": true,
+        "issueTracking": true,
+        "wikiIntegration": false
+      }
+    },
+    {
+      "id": "int_006",
+      "name": "Azure DevOps",
+      "type": "project_management",
+      "provider": "Microsoft",
+      "status": "connected",
+      "health": "warning",
+      "lastSync": "2024-01-15T13:00:00Z",
+      "nextSync": "2024-01-15T15:00:00Z",
+      "syncFrequency": "2hours",
+      "configuration": {
+        "organization": "real-estate-innovations",
+        "project": "PropertyPlatform",
+        "authentication": {
+          "type": "personal_access_token",
+          "tokenExpiry": "2024-02-01T00:00:00Z"
+        }
+      },
+      "statistics": {
+        "workItems": 234,
+        "boards": 5,
+        "repos": 8,
+        "pipelines": 12,
+        "lastSyncDuration": "45s"
+      },
+      "warnings": [
+        {
+          "type": "token_expiry",
+          "message": "Access token will expire in 17 days",
+          "severity": "medium"
+        }
+      ],
+      "features": {
+        "workItemSync": true,
+        "boardsIntegration": true,
+        "reposIntegration": true,
+        "pipelinesIntegration": true,
+        "testPlansIntegration": false
+      }
+    },
+    {
+      "id": "int_007",
+      "name": "Confluence",
+      "type": "documentation",
+      "provider": "Atlassian",
+      "status": "connected",
+      "health": "healthy",
+      "lastSync": "2024-01-15T12:00:00Z",
+      "nextSync": "2024-01-15T18:00:00Z",
+      "syncFrequency": "6hours",
+      "configuration": {
+        "url": "https://enterprise-bank.atlassian.net/wiki",
+        "spaces": ["PROJ", "TECH", "BRD"],
+        "authentication": {
+          "type": "oauth2",
+          "linkedToJira": true
+        }
+      },
+      "statistics": {
+        "pages": 456,
+        "spaces": 3,
+        "attachments": 789,
+        "lastModified": "2024-01-15T11:45:00Z"
+      },
+      "features": {
+        "pageSync": true,
+        "attachmentSync": true,
+        "commentSync": true,
+        "templateSync": true,
+        "searchIntegration": true
+      }
+    },
+    {
+      "id": "int_008",
+      "name": "ServiceNow",
+      "type": "itsm",
+      "provider": "ServiceNow Inc",
+      "status": "pending",
+      "health": "pending",
+      "lastSync": null,
+      "nextSync": null,
+      "syncFrequency": null,
+      "configuration": {
+        "instance": "enterprisebank.service-now.com",
+        "authentication": {
+          "type": "basic",
+          "status": "pending_approval"
+        }
+      },
+      "pendingApproval": {
+        "requestedBy": "pm-test@zephix.com",
+        "requestedAt": "2024-01-10T10:00:00Z",
+        "approver": "admin@enterprisebank.com",
+        "reason": "Integration for incident management"
+      },
+      "features": {
+        "incidentManagement": true,
+        "changeManagement": true,
+        "problemManagement": true,
+        "cmdb": true,
+        "servicePortal": false
+      }
+    }
+  ],
+  "integrationTypes": {
+    "project_management": {
+      "providers": ["Jira", "Azure DevOps", "Asana", "Monday.com"],
+      "commonFeatures": ["Task sync", "Project sync", "User mapping", "Custom fields"]
+    },
+    "communication": {
+      "providers": ["Slack", "Microsoft Teams", "Discord", "Mattermost"],
+      "commonFeatures": ["Notifications", "Channels", "Direct messages", "File sharing"]
+    },
+    "version_control": {
+      "providers": ["GitHub", "GitLab", "Bitbucket", "Azure Repos"],
+      "commonFeatures": ["Code sync", "PR/MR tracking", "Issue linking", "Webhooks"]
+    },
+    "documentation": {
+      "providers": ["Confluence", "SharePoint", "Notion", "Google Docs"],
+      "commonFeatures": ["Page sync", "Search", "Attachments", "Permissions"]
+    },
+    "itsm": {
+      "providers": ["ServiceNow", "BMC Remedy", "Jira Service Desk"],
+      "commonFeatures": ["Incident management", "Change requests", "CMDB", "SLA tracking"]
+    }
+  },
+  "healthMetrics": {
+    "overall": {
+      "status": "warning",
+      "connected": 5,
+      "disconnected": 1,
+      "error": 1,
+      "pending": 1,
+      "healthScore": 75
+    },
+    "syncStatus": {
+      "lastHour": {
+        "successful": 45,
+        "failed": 2,
+        "pending": 3
+      },
+      "last24Hours": {
+        "successful": 1080,
+        "failed": 48,
+        "pending": 12
+      }
+    },
+    "performance": {
+      "averageSyncTime": "12.5s",
+      "p95SyncTime": "45s",
+      "apiCallsRemaining": {
+        "jira": 9500,
+        "github": 4800,
+        "slack": "unlimited"
+      }
+    }
+  },
+  "automationRules": [
+    {
+      "id": "rule_001",
+      "name": "Sync Jira to GitHub Issues",
+      "source": "Jira",
+      "target": "GitHub",
+      "trigger": "issue.created",
+      "conditions": ["issue.type = Bug", "issue.priority >= High"],
+      "actions": ["create GitHub issue", "add label", "assign to team"],
+      "enabled": true
+    },
+    {
+      "id": "rule_002",
+      "name": "Notify Slack on High Risk",
+      "source": "Zephix",
+      "target": "Slack",
+      "trigger": "risk.created",
+      "conditions": ["risk.severity = High", "risk.probability >= 0.7"],
+      "actions": ["post to #pm-alerts", "mention @pm-team"],
+      "enabled": true
+    },
+    {
+      "id": "rule_003",
+      "name": "Update Azure DevOps on Deploy",
+      "source": "GitHub",
+      "target": "Azure DevOps",
+      "trigger": "deployment.success",
+      "conditions": ["branch = main", "environment = production"],
+      "actions": ["update work item", "move to Done", "add comment"],
+      "enabled": true
+    }
+  ]
+}
