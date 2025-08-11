@@ -11,7 +11,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="footer-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid md:grid-cols-4 gap-8">
           {/* Logo and Description */}
@@ -22,7 +22,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               </div>
               <span className="text-xl font-bold">ZEPHIX</span>
             </Link>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <p className="text-footer text-sm leading-relaxed">
               AI-powered project management for enterprise teams.
             </p>
           </div>
@@ -34,7 +34,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <button
                   onClick={() => onScrollToSection('features')}
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Features
                 </button>
@@ -42,7 +42,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <button
                   onClick={() => onScrollToSection('pricing')}
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Pricing
                 </button>
@@ -50,7 +50,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/roadmap"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Roadmap
                 </Link>
@@ -58,7 +58,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/docs"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Documentation
                 </Link>
@@ -73,7 +73,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <button
                   onClick={() => onScrollToSection('about')}
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   About
                 </button>
@@ -81,7 +81,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <button
                   onClick={onContactRequest}
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Contact
                 </button>
@@ -89,19 +89,19 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/blog"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Blog
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/careers"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
-                >
-                  Careers
-                </Link>
-              </li>
+                              <li>
+                  <Link
+                    to="/careers"
+                    className="text-footer hover:text-white transition-colors text-sm"
+                  >
+                    Careers
+                  </Link>
+                </li>
             </ul>
           </div>
 
@@ -112,7 +112,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/privacy"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Privacy Policy
                 </Link>
@@ -120,7 +120,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/terms"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Terms of Service
                 </Link>
@@ -128,7 +128,7 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
               <li>
                 <Link
                   to="/security"
-                  className="text-gray-400 hover:text-white transition-colors text-sm"
+                  className="text-footer hover:text-white transition-colors text-sm"
                 >
                   Security
                 </Link>
@@ -138,8 +138,8 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection, onContactRequ
         </div>
 
         {/* Bottom Row */}
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">
+        <div className="border-t border-footer mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-footer text-sm">
             © {currentYear} Zephix. All rights reserved.
           </p>
 
