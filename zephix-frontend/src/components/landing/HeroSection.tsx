@@ -60,18 +60,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
           
           {/* Sub-headline */}
           <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Upload a BRD. Zephix extracts scope, builds a schedule with stage gates, and prepares an executive one pager.
+            AI-powered project management that transforms your business requirements into actionable plans instantly.
           </p>
-          
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <button onClick={handleSampleBRD} className="btn-primary">
-              Try a sample BRD
-            </button>
-            <button onClick={handleDemoRequest} className="btn-secondary">
-              Book a 15 minute demo
-            </button>
-          </div>
           
           {/* Proof blurb */}
           <p className="text-sm text-slate-300 opacity-80 max-w-2xl mx-auto">
