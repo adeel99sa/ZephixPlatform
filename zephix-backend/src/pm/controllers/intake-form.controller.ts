@@ -33,7 +33,7 @@ import { Request } from 'express';
 
 @ApiTags('Intake Forms')
 @ApiBearerAuth()
-@Controller('api/pm/intake')
+@Controller('pm/intake')
 export class IntakeFormController {
   constructor(private readonly intakeService: IntakeFormService) {}
 
@@ -215,7 +215,7 @@ export class IntakeFormController {
 }
 
 @ApiTags('Public Intake')
-@Controller('api/intake')
+@Controller('intake')
 export class PublicIntakeController {
   constructor(private readonly intakeService: IntakeFormService) {}
 

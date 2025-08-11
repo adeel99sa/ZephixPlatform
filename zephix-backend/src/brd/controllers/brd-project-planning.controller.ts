@@ -32,7 +32,7 @@ import { GeneratedProjectPlanResponseDto } from '../dto/brd-response.dto';
 @ApiTags('BRD Project Planning')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, OrganizationGuard)
-@Controller('brd/project-planning')
+@Controller('pm/brd/project-planning')
 export class BRDProjectPlanningController {
   constructor(
     private brdAnalysisService: BRDAnalysisService,
