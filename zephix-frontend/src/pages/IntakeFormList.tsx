@@ -16,7 +16,8 @@ import {
   Trash2,
   ExternalLink,
   BarChart3,
-  Share
+  Share,
+  Sparkles
 } from 'lucide-react';
 
 export const IntakeFormList: React.FC = () => {
@@ -43,6 +44,10 @@ export const IntakeFormList: React.FC = () => {
 
   const handleCreateForm = () => {
     navigate('/intake-forms/builder');
+  };
+
+  const handleAIDesigner = () => {
+    navigate('/intake-forms/ai-designer');
   };
 
   const handleEditForm = (form: IntakeForm) => {
@@ -90,10 +95,19 @@ export const IntakeFormList: React.FC = () => {
                 Create and manage public intake forms for collecting requests
               </p>
             </div>
-            <Button onClick={handleCreateForm} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Form
-            </Button>
+            <div className="flex space-x-3">
+              <Button 
+                onClick={handleAIDesigner} 
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Designer
+              </Button>
+              <Button onClick={handleCreateForm} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Form
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
