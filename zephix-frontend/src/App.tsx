@@ -45,6 +45,7 @@ const CareersPage = lazy(() => import('./pages/CareersPage').then(module => ({ d
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then(module => ({ default: module.PrivacyPage })));
 const TermsPage = lazy(() => import('./pages/TermsPage').then(module => ({ default: module.TermsPage })));
 const SecurityPage = lazy(() => import('./pages/SecurityPage').then(module => ({ default: module.SecurityPage })));
+const SampleBRDPage = lazy(() => import('./pages/SampleBRDPage').then(module => ({ default: module.SampleBRDPage })));
 
 // Loading component for Suspense fallback
 const PageLoader: React.FC = () => (
@@ -80,22 +81,6 @@ export default function App() {
       environment: import.meta.env.MODE,
       userAgent: navigator.userAgent,
       language: navigator.language,
-    });
-
-    // Add error logging for debugging
-    console.log('🚀 Zephix App initializing...');
-    console.log('📍 Current pathname:', window.location.pathname);
-    console.log('🔧 Environment:', import.meta.env.MODE);
-    
-    // Global error handler
-    window.addEventListener('error', (event) => {
-      console.error('🚨 Global error caught:', event.error);
-      console.error('📍 Error location:', event.filename, event.lineno, event.colno);
-    });
-
-    // Unhandled promise rejection handler
-    window.addEventListener('unhandledrejection', (event) => {
-      console.error('🚨 Unhandled promise rejection:', event.reason);
     });
   }, []);
 
@@ -231,6 +216,7 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/security" element={<SecurityPage />} />
+            <Route path="/sample-brd" element={<SampleBRDPage />} />
 
             {/* 404 Not Found fallback */}
             <Route path="*" element={<NotFound />} />
