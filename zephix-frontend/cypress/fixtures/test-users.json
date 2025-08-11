@@ -1,0 +1,389 @@
+{
+  "users": [
+    {
+      "id": "usr_001",
+      "email": "pm-test@zephix.com",
+      "password": "Test123!@#",
+      "name": "Patricia Manager",
+      "role": "project_manager",
+      "organization": {
+        "id": "org_001",
+        "name": "Enterprise Banking Corp",
+        "industry": "banking",
+        "size": "enterprise"
+      },
+      "permissions": [
+        "projects.create",
+        "projects.edit",
+        "projects.delete",
+        "projects.view_all",
+        "brd.upload",
+        "brd.analyze",
+        "reports.generate",
+        "reports.export",
+        "team.manage",
+        "integrations.configure"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Patricia+Manager",
+        "department": "Project Management Office",
+        "phone": "+1-555-0101",
+        "timezone": "America/New_York",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "inApp": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "pm-overview",
+        "theme": "light",
+        "dataExportFormat": "excel"
+      }
+    },
+    {
+      "id": "usr_002",
+      "email": "executive@zephix.com",
+      "password": "Test123!@#",
+      "name": "Edward Executive",
+      "role": "executive",
+      "organization": {
+        "id": "org_001",
+        "name": "Enterprise Banking Corp",
+        "industry": "banking",
+        "size": "enterprise"
+      },
+      "permissions": [
+        "projects.view_all",
+        "reports.view_executive",
+        "reports.export",
+        "analytics.view_all",
+        "budget.view",
+        "risk.view_high_level"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Edward+Executive",
+        "department": "C-Suite",
+        "title": "Chief Operating Officer",
+        "phone": "+1-555-0102",
+        "timezone": "America/New_York",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "slack": false,
+          "inApp": true,
+          "sms": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "executive-summary",
+        "theme": "dark",
+        "dataExportFormat": "pdf",
+        "reportFrequency": "weekly"
+      }
+    },
+    {
+      "id": "usr_003",
+      "email": "developer@zephix.com",
+      "password": "Test123!@#",
+      "name": "Diana Developer",
+      "role": "developer",
+      "organization": {
+        "id": "org_002",
+        "name": "Manufacturing Solutions Inc",
+        "industry": "manufacturing",
+        "size": "large"
+      },
+      "permissions": [
+        "projects.view_assigned",
+        "projects.update_status",
+        "tasks.create",
+        "tasks.update",
+        "code.commit",
+        "integrations.use",
+        "reports.view_technical"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Diana+Developer",
+        "department": "Engineering",
+        "title": "Senior Software Engineer",
+        "phone": "+1-555-0201",
+        "timezone": "America/Chicago",
+        "language": "en",
+        "skills": ["Java", "Python", "React", "AWS"],
+        "certifications": ["AWS Solutions Architect", "Scrum Developer"],
+        "notifications": {
+          "email": false,
+          "slack": true,
+          "inApp": true,
+          "github": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "developer-tasks",
+        "theme": "auto",
+        "codeEditor": "vscode",
+        "gitIntegration": "github"
+      }
+    },
+    {
+      "id": "usr_004",
+      "email": "analyst@zephix.com",
+      "password": "Test123!@#",
+      "name": "Alice Analyst",
+      "role": "business_analyst",
+      "organization": {
+        "id": "org_003",
+        "name": "Real Estate Innovations",
+        "industry": "real_estate",
+        "size": "medium"
+      },
+      "permissions": [
+        "projects.view_all",
+        "brd.create",
+        "brd.edit",
+        "requirements.manage",
+        "reports.create",
+        "reports.export",
+        "analytics.view",
+        "stakeholders.communicate"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Alice+Analyst",
+        "department": "Business Analysis",
+        "title": "Senior Business Analyst",
+        "phone": "+1-555-0301",
+        "timezone": "America/Los_Angeles",
+        "language": "en",
+        "certifications": ["CBAP", "PMI-PBA", "Six Sigma Green Belt"],
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "inApp": true,
+          "teams": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "requirements-overview",
+        "theme": "light",
+        "dataExportFormat": "excel",
+        "chartPreference": "interactive"
+      }
+    },
+    {
+      "id": "usr_005",
+      "email": "stakeholder@zephix.com",
+      "password": "Test123!@#",
+      "name": "Steven Stakeholder",
+      "role": "stakeholder",
+      "organization": {
+        "id": "org_001",
+        "name": "Enterprise Banking Corp",
+        "industry": "banking",
+        "size": "enterprise"
+      },
+      "permissions": [
+        "projects.view_specific",
+        "reports.view_summary",
+        "comments.create",
+        "documents.view",
+        "milestones.view"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Steven+Stakeholder",
+        "department": "Digital Banking",
+        "title": "Product Owner",
+        "phone": "+1-555-0103",
+        "timezone": "America/New_York",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "slack": false,
+          "inApp": false,
+          "milestoneAlerts": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "stakeholder-view",
+        "theme": "light",
+        "updateFrequency": "daily",
+        "viewMode": "simplified"
+      }
+    },
+    {
+      "id": "usr_006",
+      "email": "qa-test@zephix.com",
+      "password": "Test123!@#",
+      "name": "Quinn Quality",
+      "role": "quality_assurance",
+      "organization": {
+        "id": "org_002",
+        "name": "Manufacturing Solutions Inc",
+        "industry": "manufacturing",
+        "size": "large"
+      },
+      "permissions": [
+        "projects.view_assigned",
+        "testing.create",
+        "testing.execute",
+        "bugs.create",
+        "bugs.update",
+        "reports.quality",
+        "integrations.testing_tools"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Quinn+Quality",
+        "department": "Quality Assurance",
+        "title": "QA Lead",
+        "phone": "+1-555-0202",
+        "timezone": "America/Chicago",
+        "language": "en",
+        "certifications": ["ISTQB", "Certified Agile Tester"],
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "inApp": true,
+          "jira": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "qa-dashboard",
+        "theme": "light",
+        "testingFramework": "cypress",
+        "bugTracker": "jira"
+      }
+    },
+    {
+      "id": "usr_007",
+      "email": "admin@zephix.com",
+      "password": "Test123!@#",
+      "name": "Adam Administrator",
+      "role": "system_admin",
+      "organization": {
+        "id": "org_000",
+        "name": "Zephix Internal",
+        "industry": "technology",
+        "size": "enterprise"
+      },
+      "permissions": ["*"],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Adam+Administrator",
+        "department": "IT Administration",
+        "title": "System Administrator",
+        "phone": "+1-555-0001",
+        "timezone": "America/New_York",
+        "language": "en",
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "inApp": true,
+          "system": true,
+          "security": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "admin-console",
+        "theme": "dark",
+        "monitoringLevel": "verbose",
+        "alertThreshold": "warning"
+      }
+    },
+    {
+      "id": "usr_008",
+      "email": "consultant@zephix.com",
+      "password": "Test123!@#",
+      "name": "Carlos Consultant",
+      "role": "external_consultant",
+      "organization": {
+        "id": "org_004",
+        "name": "Strategic Consulting Partners",
+        "industry": "consulting",
+        "size": "small"
+      },
+      "permissions": [
+        "projects.view_specific",
+        "documents.view",
+        "reports.view_shared",
+        "comments.create",
+        "meetings.join"
+      ],
+      "profile": {
+        "avatar": "https://ui-avatars.com/api/?name=Carlos+Consultant",
+        "department": "External",
+        "title": "Senior Consultant",
+        "company": "Strategic Consulting Partners",
+        "phone": "+1-555-0401",
+        "timezone": "America/Denver",
+        "language": "en",
+        "contractEnd": "2024-12-31",
+        "notifications": {
+          "email": true,
+          "slack": false,
+          "inApp": true
+        }
+      },
+      "preferences": {
+        "defaultDashboard": "consultant-view",
+        "theme": "light",
+        "accessLevel": "restricted",
+        "dataRetention": "project-duration"
+      }
+    }
+  ],
+  "testSessions": [
+    {
+      "userId": "usr_001",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDAxIiwiZW1haWwiOiJwbS10ZXN0QHplcGhpeC5jb20iLCJyb2xlIjoicHJvamVjdF9tYW5hZ2VyIiwib3JnIjoib3JnXzAwMSIsImlhdCI6MTcwNDAwMDAwMCwiZXhwIjoxNzM1NjAwMDAwfQ.mock_signature_pm",
+      "refreshToken": "refresh_token_pm_001",
+      "expiresAt": "2025-12-31T23:59:59Z"
+    },
+    {
+      "userId": "usr_002",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c3JfMDAyIiwiZW1haWwiOiJleGVjdXRpdmVAemVwaGl4LmNvbSIsInJvbGUiOiJleGVjdXRpdmUiLCJvcmciOiJvcmdfMDAxIiwiaWF0IjoxNzA0MDAwMDAwLCJleHAiOjE3MzU2MDAwMDB9.mock_signature_exec",
+      "refreshToken": "refresh_token_exec_002",
+      "expiresAt": "2025-12-31T23:59:59Z"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "org_001",
+      "name": "Enterprise Banking Corp",
+      "industry": "banking",
+      "size": "enterprise",
+      "employees": 50000,
+      "settings": {
+        "ssoEnabled": true,
+        "mfaRequired": true,
+        "dataRetention": "7years",
+        "allowedDomains": ["enterprisebank.com", "ebc.com"]
+      }
+    },
+    {
+      "id": "org_002",
+      "name": "Manufacturing Solutions Inc",
+      "industry": "manufacturing",
+      "size": "large",
+      "employees": 10000,
+      "settings": {
+        "ssoEnabled": false,
+        "mfaRequired": false,
+        "dataRetention": "5years",
+        "allowedDomains": ["manufacturing-solutions.com"]
+      }
+    },
+    {
+      "id": "org_003",
+      "name": "Real Estate Innovations",
+      "industry": "real_estate",
+      "size": "medium",
+      "employees": 500,
+      "settings": {
+        "ssoEnabled": false,
+        "mfaRequired": true,
+        "dataRetention": "3years",
+        "allowedDomains": ["rei-properties.com"]
+      }
+    }
+  ]
+}
