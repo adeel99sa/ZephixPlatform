@@ -6,13 +6,13 @@ export const ProblemSection: React.FC = () => {
     {
       icon: Clock,
       title: "Manual Reporting Takes Hours",
-      description: "Even with Monday.com, I spend 4-6 hours/week on manual reporting and status updates.",
+      description: "Spending 4-6 hours/week on manual reporting and status updates.",
       color: "text-red-500"
     },
     {
       icon: FileText,
       title: "Document Management Chaos",
-      description: "SharePoint document storage with manual linking to project tools creates endless coordination overhead.",
+      description: "Document storage with manual linking to project tools creates endless coordination overhead.",
       color: "text-orange-500"
     },
     {
