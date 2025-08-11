@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, FileText, Calendar, CheckCircle, Clock, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Calendar, CheckCircle, Clock, Users, AlertTriangle, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const SampleBRDPage: React.FC = () => {
@@ -109,10 +109,22 @@ Priority: High
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Home</span>
-            </Link>
+            <div className="flex items-center space-x-6">
+              {/* Logo */}
+              <Link to="/" className="flex items-center space-x-2 text-gray-900 hover:text-indigo-600 transition-colors">
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">ZEPHIX</span>
+              </Link>
+              
+              {/* Back link */}
+              <Link to="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
+                <ArrowLeft className="w-5 h-5" />
+                <span>Back to Home</span>
+              </Link>
+            </div>
+            
             <div className="text-sm text-gray-500">
               Sample BRD Flow • No account required
             </div>
