@@ -3,11 +3,8 @@ import { Header } from '../components/landing/Header';
 import { HeroSection } from '../components/landing/HeroSection';
 import { ProblemSection } from '../components/landing/ProblemSection';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
-import { OutcomesSection } from '../components/landing/OutcomesSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
-import { SolutionsSection } from '../components/landing/SolutionsSection';
 import { PricingSection } from '../components/landing/PricingSection';
-import { SecuritySection } from '../components/landing/SecuritySection';
 import { Footer } from '../components/landing/Footer';
 import { DemoRequestModal } from '../components/modals/DemoRequestModal';
 import { ContactModal } from '../components/modals/ContactModal';
@@ -45,13 +42,10 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
       
       <main>
         <HeroSection onDemoRequest={handleDemoRequest} />
-        <OutcomesSection />
         <ProblemSection />
         <FeaturesSection onScrollToSection={scrollToSection} />
         <HowItWorksSection />
-        <SolutionsSection />
         <PricingSection onDemoRequest={handleDemoRequest} />
-        <SecuritySection />
       </main>
 
       <Footer 
