@@ -9,8 +9,9 @@
     "prebuild": "npm run build:metadata",
     "build": "nest build",
     "build:metadata": "echo \"export const BUILD_METADATA = { sha: '$(git rev-parse HEAD 2>/dev/null || echo \"unknown\")', timestamp: '$(date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\")' };\" > src/build-metadata.ts",
-    "start": "node dist/src/main.js",
-    "start:prod": "node dist/src/main.js",
+    "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
+    "start:railway": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "dev": "ts-node src/main.ts",
@@ -29,7 +30,8 @@
     "db:migrate:dev": "npm run migration:run:dev",
     "db:migrate:generate": "npm run migrate:generate",
     "postbuild": "echo 'Build completed successfully'",
-    "health:check": "curl -f http://localhost:${PORT:-3000}/api/health || exit 1"
+    "health:check": "curl -f http://localhost:${PORT:-3000}/api/health || exit 1",
+    "verify:railway": "./scripts/verify-railway-build.sh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
