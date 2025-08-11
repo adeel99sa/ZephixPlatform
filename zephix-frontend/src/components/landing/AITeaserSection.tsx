@@ -111,17 +111,6 @@ export const AITeaserSection: React.FC = () => {
             See results instantly
           </span>
         </div>
-        
-        {/* Enterprise Security Features */}
-        <div className="security-badges mt-12 pt-8 border-t border-white/20">
-          <p className="text-center text-sm text-white/80 mb-4">Enterprise-grade security built in</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">SSO</div>
-            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">RBAC</div>
-            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">Audit logs</div>
-            <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg text-sm font-medium text-white/90">Encryption at rest and in transit</div>
-          </div>
-        </div>
       </div>
     </section>
   );
