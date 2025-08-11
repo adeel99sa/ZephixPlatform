@@ -110,7 +110,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
             <div className="flex items-center justify-center space-x-8 opacity-60">
               <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Enterprise Ready</div>
               <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">AI-Powered</div>
-              <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">65% Complete</div>
             </div>
           </div>
         </div>
