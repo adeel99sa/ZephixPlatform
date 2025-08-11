@@ -2,16 +2,16 @@
 # NestJS TypeScript Application Build Configuration
 # 
 # @author Zephix Development Team
-# @version 2.1.0
+# @version 2.2.0
 
 [providers]
-node = "18"
+node = "20"
 
 [variables]
-NODE_VERSION = "18"
+NODE_VERSION = "20"
 NODE_ENV = "production"
 NIXPACKS_BUILDER = "true"
-# CRITICAL FIX: Ensure crypto module is available for Node.js v18+
+# CRITICAL FIX: Ensure crypto module is available for Node.js v20+
 NODE_OPTIONS = "--experimental-global-webcrypto"
 
 [phases.setup]
@@ -23,8 +23,18 @@ cmds = ["npm ci --omit=dev"]
 [phases.build]
 cmds = ["npm run build"]
 
+# CRITICAL FIX: Verify build output structure
+[phases.build.nixpacksConfig]
+cmds = [
+  "npm run build",
+  "ls -la dist/",
+  "find dist/ -name 'main.js'",
+  "npm prune --production"
+]
+
+# CRITICAL FIX: Use explicit start command with correct path
 [phases.start]
-cmd = "npm run start:prod"
+cmd = "node dist/main.js"
 
 # =============================================================================
 # BUILD OPTIMIZATION
@@ -40,8 +50,8 @@ cmds = [
 # RUNTIME CONFIGURATION
 # =============================================================================
 [phases.start.nixpacksConfig]
-# Use production start command with crypto support
-cmd = "node --experimental-global-webcrypto dist/main.js"
+# Use explicit start command with correct path
+cmd = "node dist/main.js"
 
 # =============================================================================
 # ENVIRONMENT VARIABLES
