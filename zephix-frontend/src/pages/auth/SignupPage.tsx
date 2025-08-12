@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Mail } from 'lucide-react';
-import { authApi } from '../../services/api';
 
-export const SignupPage: React.FC = () => {
+export function SignupPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -43,31 +42,42 @@ export const SignupPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const data = await authApi.register({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
-      // Store token for potential resend verification requests
-      if (data.accessToken) {
-        localStorage.setItem('token', data.accessToken);
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store token for potential resend verification requests
+        if (data.accessToken) {
+          localStorage.setItem('token', data.accessToken);
+        }
+        
+        setIsSubmitted(true);
+        
+        // Redirect to pending verification page or login
+        setTimeout(() => {
+          navigate('/login', {
+            state: {
+              message: 'Account created successfully! Please sign in.',
+            },
+          });
+        }, 2000);
+      } else {
+        setError(data.message || 'Registration failed. Please try again.');
       }
-      
-      setIsSubmitted(true);
-      
-      // Redirect to pending verification page
-      setTimeout(() => {
-        navigate('/auth/pending-verification', {
-          state: {
-            email: formData.email,
-            message: data.message,
-          },
-        });
-      }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError('Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -100,16 +110,16 @@ export const SignupPage: React.FC = () => {
           {isSubmitted ? (
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-blue-600" />
+                <CheckCircle2 className="w-8 h-8 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Account Created Successfully!
               </h3>
               <p className="text-gray-600 mb-4">
-                We've sent a verification email to <strong>{formData.email}</strong>
+                Welcome to Zephix! Your account has been created.
               </p>
               <p className="text-sm text-blue-600">
-                Redirecting to verification page...
+                Redirecting to login page...
               </p>
             </div>
           ) : (
@@ -247,10 +257,10 @@ export const SignupPage: React.FC = () => {
                   <Mail className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-blue-800 mb-1">
-                      Email Verification Required
+                      Enterprise Security
                     </p>
                     <p className="text-sm text-blue-700">
-                      For enterprise security, you'll need to verify your email address before you can log in. We'll send you a verification link immediately after registration.
+                      Your account will be created immediately and you can start using Zephix right away.
                     </p>
                   </div>
                 </div>
@@ -271,4 +281,4 @@ export const SignupPage: React.FC = () => {
       </div>
     </div>
   );
-};
+}

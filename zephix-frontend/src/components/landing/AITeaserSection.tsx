@@ -49,7 +49,7 @@ export const AITeaserSection: React.FC = () => {
         
         {/* Subheadline with value prop */}
         <p className="teaser-subheadline text-xl text-center mb-8 opacity-90 max-w-2xl mx-auto">
-          Upload your BRD or try our enterprise sample below. See AI generate an intelligent project plan in 60 seconds.
+          Upload your BRD or try our enterprise sample below. See AI generate an intelligent project plan for complex technical implementations.
         </p>
         
         {/* Enterprise sample preview card */}
@@ -58,27 +58,26 @@ export const AITeaserSection: React.FC = () => {
             <FileText className="w-6 h-6 text-white" />
             <span className="text-lg font-semibold">Enterprise Sample: Legacy System Data Migration</span>
           </div>
-          <div className="preview-stats grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="stat bg-white/5 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Document Size:</span>
-              </div>
-              <span className="stat-value text-xl font-bold">47 pages</span>
-            </div>
-            <div className="stat bg-white/5 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Project Budget:</span>
-              </div>
-              <span className="stat-value text-xl font-bold">$150,000</span>
-            </div>
-            <div className="stat bg-white/5 rounded-lg p-3">
+          <div className="preview-description mb-4">
+            <p className="text-white/90 text-sm leading-relaxed">
+              Complex enterprise project with multiple stakeholders, technical requirements, and integration challenges. 
+              Demonstrates AI-powered project planning for technical implementations.
+            </p>
+          </div>
+          <div className="preview-features grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="feature bg-white/5 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="w-4 h-4 text-white/70" />
-                <span className="stat-label text-sm opacity-80">Team Size:</span>
+                <span className="feature-label text-sm opacity-80">Multi-stakeholder</span>
               </div>
-              <span className="stat-value text-xl font-bold">6 members</span>
+              <span className="feature-value text-sm opacity-90">Cross-functional teams</span>
+            </div>
+            <div className="feature bg-white/5 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-4 h-4 text-white/70" />
+                <span className="feature-label text-sm opacity-80">Technical Scope</span>
+              </div>
+              <span className="feature-value text-sm opacity-90">System integration</span>
             </div>
           </div>
         </div>
@@ -90,8 +89,15 @@ export const AITeaserSection: React.FC = () => {
             onClick={handleCTAClick}
           >
             <Rocket className="w-6 h-6" />
-            See AI Generate Plan in 60 Seconds
+            Experience AI Project Planning
           </button>
+        </div>
+        
+        {/* Honest disclaimer */}
+        <div className="honest-disclaimer text-center mb-6">
+          <p className="text-white/70 text-sm max-w-lg mx-auto">
+            Processing time varies based on project complexity. Results are customized for your specific requirements and technical environment.
+          </p>
         </div>
         
         {/* Trust signals */}
@@ -108,7 +114,7 @@ export const AITeaserSection: React.FC = () => {
           <span className="hidden md:inline">•</span>
           <span className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            See results instantly
+            See intelligent project structure generation
           </span>
         </div>
       </div>

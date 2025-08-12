@@ -1,17 +1,26 @@
 import axios, { type AxiosResponse, type AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/authStore';
+import { useOrganizationStore } from '../stores/organizationStore';
 import { API_BASE_URL } from '../utils/constants';
 import type {
   AuthResponse,
   LoginCredentials,
   Project,
   CreateProjectData,
-  FeedbackData,
   User,
 } from '../types';
 import type { StoreError } from '../types/store';
 import { createError } from '../types/store';
+
+/**
+ * Environment-aware API configuration
+ */
+const isDev = import.meta.env.DEV;
+const isLocalDev = import.meta.env.VITE_LOCAL_DEV === 'true';
+const prodBase = import.meta.env.VITE_API_BASE_URL || 'https://api.getzephix.com/api';
+const devBase = isLocalDev ? 'http://localhost:3000/api' : '/api';
+const baseURL = isDev ? devBase : prodBase;
 
 /**
  * Custom API error class for better error handling
@@ -49,7 +58,8 @@ export class ApiError extends Error {
  */
 const createApiError = (error: AxiosError, endpoint: string, method: string): ApiError => {
   const status = error.response?.status || 0;
-  const message = error.response?.data?.message || error.message || 'API request failed';
+  const responseData = error.response?.data as any;
+  const message = responseData?.message || error.message || 'API request failed';
   const code = error.code || 'UNKNOWN_ERROR';
   
   return new ApiError(message, status, code, endpoint, method);
@@ -71,43 +81,96 @@ const convertToStoreError = (apiError: ApiError): StoreError => {
 
 // Create axios instance with enhanced configuration
 const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 30000, // 30 second timeout
+  baseURL,
+  timeout: isDev ? 30000 : 15000,
+  withCredentials: false
 });
 
-// Request interceptor to add auth token
+// Extend axios config to include metadata
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    metadata?: { startTime: number; retryCount: number };
+  }
+}
+
+// Request interceptor to add auth token and logging
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add organization ID header if available
+    const org = useOrganizationStore.getState().currentOrganization;
+    if (org?.id) {
+      config.headers['X-Org-Id'] = org.id;
+    }
+    
+    // Add request logging
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    config.metadata = { 
+      startTime: Date.now(), 
+      retryCount: config.metadata?.retryCount || 0 
+    };
+    
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Enhanced response interceptor for better error handling
+// Enhanced response interceptor with retry logic
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    const { response } = error;
+  async (error: AxiosError) => {
+    const { response, config } = error;
+    
+    // Check if we should retry
+    const shouldRetry = !error.response || (error.response.status >= 500 && error.response.status < 600);
+    const retryCount = config?.metadata?.retryCount || 0;
+    const maxRetries = isDev ? 1 : 2;
+    
+    if (shouldRetry && retryCount < maxRetries && config) {
+      const newRetryCount = retryCount + 1;
+      config.metadata = { ...config.metadata, retryCount: newRetryCount };
+      
+      console.warn(`Retrying request (${newRetryCount}/${maxRetries}): ${config.method?.toUpperCase()} ${config.url}`);
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, isDev ? 1000 : 2000));
+      
+      // Retry the request
+      return api.request(config);
+    }
+    
+    console.error('API Error:', {
+      url: config?.url,
+      method: config?.method,
+      status: response?.status,
+      statusText: response?.statusText,
+      data: response?.data,
+      error: error.message
+    });
     
     if (response?.status === 401) {
       useAuthStore.getState().clearAuth();
       toast.error('Session expired. Please log in again.');
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
+      return Promise.reject(error);
     } else if (response?.status === 403) {
       toast.error('You do not have permission to perform this action.');
     } else if (response?.status === 404) {
-      toast.error('Resource not found.');
+      console.error('404 Error for endpoint:', config?.url);
+      toast.error(`API endpoint not found: ${config?.url}`);
     } else if (response?.status >= 500) {
       toast.error('Server error. Please try again later.');
-    } else if (response?.data?.message) {
-      toast.error(response.data.message);
+    } else if (response?.data) {
+      const responseData = response.data as any;
+      if (responseData.message) {
+        toast.error(responseData.message);
+      } else {
+        toast.error('Something went wrong. Please try again.');
+      }
     } else {
       toast.error('Something went wrong. Please try again.');
     }
@@ -358,7 +421,7 @@ export const feedbackApi = {
    * @returns Promise resolving to feedback submission result with message and feedback ID
    * @throws {ApiError} When feedback submission fails
    */
-  submit: async (data: FeedbackData): Promise<{ message: string; feedbackId: string }> => {
+  submit: async (data: { type: string; content: string; metadata?: any }): Promise<{ message: string; feedbackId: string }> => {
     try {
       const response = await api.post('/feedback', data);
       return response.data;
@@ -512,10 +575,10 @@ export const brdApi = {
    */
   getBRD: async (brdId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/brd/${brdId}`);
+      const response = await api.get(`/brd/${brdId}`);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/${brdId}`, 'GET');
+      const apiError = createApiError(error as AxiosError, `/brd/${brdId}`, 'GET');
       throw apiError;
     }
   },
@@ -528,10 +591,10 @@ export const brdApi = {
    */
   getBRDAnalysis: async (brdId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/brd/project-planning/${brdId}/analysis`);
+      const response = await api.get(`/brd/project-planning/${brdId}/analysis`);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/${brdId}/analysis`, 'GET');
+      const apiError = createApiError(error as AxiosError, `/brd/project-planning/${brdId}/analysis`, 'GET');
       throw apiError;
     }
   },
@@ -545,10 +608,10 @@ export const brdApi = {
    */
   generateProjectPlan: async (brdId: string, data: { methodology: string }): Promise<any> => {
     try {
-      const response = await api.post(`/api/brd/project-planning/${brdId}/generate-plan`, data);
+      const response = await api.post(`/brd/project-planning/${brdId}/generate-plan`, data);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/${brdId}/generate-plan`, 'POST');
+      const apiError = createApiError(error as AxiosError, `/brd/project-planning/${brdId}/generate-plan`, 'POST');
       throw apiError;
     }
   },
@@ -562,10 +625,10 @@ export const brdApi = {
    */
   refinePlan: async (planId: string, data: { refinementRequest: string }): Promise<any> => {
     try {
-      const response = await api.post(`/api/brd/project-planning/plans/${planId}/refine`, data);
+      const response = await api.post(`/brd/project-planning/plans/${planId}/refine`, data);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/plans/${planId}/refine`, 'POST');
+      const apiError = createApiError(error as AxiosError, `/brd/project-planning/plans/${planId}/refine`, 'POST');
       throw apiError;
     }
   },
@@ -579,10 +642,10 @@ export const brdApi = {
    */
   createProjectFromPlan: async (planId: string, data: any): Promise<any> => {
     try {
-      const response = await api.post(`/api/brd/project-planning/plans/${planId}/create-project`, data);
+      const response = await api.post(`/brd/project-planning/plans/${planId}/create-project`, data);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/project-planning/plans/${planId}/create-project`, 'POST');
+      const apiError = createApiError(error as AxiosError, `/brd/project-planning/plans/${planId}/create-project`, 'POST');
       throw apiError;
     }
   },
@@ -595,10 +658,10 @@ export const brdApi = {
    */
   deleteBRD: async (brdId: string): Promise<any> => {
     try {
-      const response = await api.delete(`/api/brd/${brdId}`);
+      const response = await api.delete(`/brd/${brdId}`);
       return response.data;
     } catch (error) {
-      const apiError = createApiError(error as AxiosError, `/api/brd/${brdId}`, 'DELETE');
+      const apiError = createApiError(error as AxiosError, `/brd/${brdId}`, 'DELETE');
       throw apiError;
     }
   },
