@@ -23,7 +23,7 @@ import { IntegrationService } from './services/integration.service';
 import { ProjectInitiationModule } from './project-initiation/project-initiation.module';
 import { RiskManagementModule } from './risk-management/risk-management.module';
 import { StatusReportingModule } from './status-reporting/status-reporting.module';
-import { SharedModule } from '../shared/shared.module';
+// AccessControlModule removed - using built-in NestJS guards instead
 import { PMKnowledgeChunk } from './entities/pm-knowledge-chunk.entity';
 import { UserProject } from './entities/user-project.entity';
 import { ProjectTask } from './entities/project-task.entity';
@@ -55,7 +55,7 @@ import { FinancialIntegration } from './integrations/financial.integration';
     ProjectInitiationModule,
     RiskManagementModule,
     StatusReportingModule,
-    SharedModule,
+    // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([
       PMKnowledgeChunk,
       UserProject,

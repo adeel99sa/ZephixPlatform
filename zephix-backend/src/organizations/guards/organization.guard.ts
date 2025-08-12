@@ -23,16 +23,17 @@ export class OrganizationGuard implements CanActivate {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    // Extract organizationId from various sources with priority order
-    let organizationId = this.extractOrganizationId(request);
+    // Extract organization ID from headers or query params
+    const headerOrgId = request.headers['x-org-id'] as string;
+    const organizationId = headerOrgId || 
+      request.params.organizationId ||
+      request.params.id ||
+      request.query.organizationId as string ||
+      (user?.defaultOrganizationId || user?.organizationId);
 
-    // If no organizationId provided, try to get user's default organization from JWT claims
+    // If no organizationId provided, throw error
     if (!organizationId) {
-      organizationId = user.defaultOrganizationId || user.organizationId;
-      
-      if (!organizationId) {
-        throw new ForbiddenException('Organization context required');
-      }
+      throw new ForbiddenException('Organization context required');
     }
 
     // ENTERPRISE APPROACH: Validate from JWT claims and user object instead of database query
@@ -56,7 +57,7 @@ export class OrganizationGuard implements CanActivate {
   private extractOrganizationId(request: Request): string | null {
     // Priority order: params > headers > query > body
     return request.params?.organizationId ||
-           request.headers['x-organization-id'] as string ||
+           request.headers['x-org-id'] as string ||
            request.query?.organizationId as string ||
            request.body?.organizationId;
   }

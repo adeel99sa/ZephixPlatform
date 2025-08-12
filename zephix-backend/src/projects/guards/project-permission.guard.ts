@@ -3,19 +3,20 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TeamMember } from '../entities/team-member.entity';
 import { RoleType } from '../entities/role.entity';
+// Access control tokens removed - using built-in NestJS guards instead
+const TEAM_MEMBER_READ = 'team_member:read';
 
 @Injectable()
 export class ProjectPermissionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    @InjectRepository(TeamMember)
-    private teamMemberRepository: Repository<TeamMember>,
+    @Inject(TEAM_MEMBER_READ) private teamMemberRepository: Repository<TeamMember>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
