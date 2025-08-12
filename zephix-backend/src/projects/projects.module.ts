@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectsService } from './services/projects.service';
 import { RoleSeedService } from './services/role-seed.service';
 import { ProjectsController } from './controllers/projects.controller';
-import { SharedModule } from '../shared/shared.module';
 
 import { Project } from './entities/project.entity';
 import { Team } from './entities/team.entity';
@@ -14,7 +13,6 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 
 @Module({
   imports: [
-    SharedModule,
     TypeOrmModule.forFeature([Project, Team, TeamMember, Role, UserOrganization])
     // OrganizationsModule no longer needed - it's now Global
   ],

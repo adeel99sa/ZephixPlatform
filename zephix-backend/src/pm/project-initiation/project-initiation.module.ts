@@ -5,11 +5,11 @@ import { ProjectInitiationService } from './project-initiation.service';
 import { UserProject } from '../entities/user-project.entity';
 import { ProjectStakeholder } from '../entities/project-stakeholder.entity';
 import { ProjectRisk } from '../entities/project-risk.entity';
-import { SharedModule } from '../../shared/shared.module';
+// AccessControlModule removed - using built-in NestJS guards instead
 
 @Module({
   imports: [
-    SharedModule,
+    // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([
       UserProject,
       ProjectStakeholder,

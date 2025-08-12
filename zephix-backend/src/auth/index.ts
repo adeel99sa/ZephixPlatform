@@ -3,11 +3,9 @@
 
 // Guards
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
-export { LocalAuthGuard } from './guards/local-auth.guard';
 
 // Strategies
 export { JwtStrategy } from './strategies/jwt.strategy';
-export { LocalStrategy } from './strategies/local.strategy';
 
 // DTOs
 export { RegisterDto } from './dto/register.dto';
