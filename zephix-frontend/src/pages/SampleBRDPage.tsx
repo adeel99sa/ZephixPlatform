@@ -229,15 +229,15 @@ export const SampleBRDPage: React.FC = () => {
   // Enterprise sample data
   const enterpriseSampleData = {
     project: "Legacy System Data Migration",
-    brdPages: 47,
+    brdPages: "Comprehensive enterprise documentation",
     stakeholders: [
       "IT Operations Team", "Business Analysts", "End Users (Sales & Support)", 
       "Compliance Team", "External Vendor (CloudTech Solutions)", 
       "Executive Sponsors", "Security Team", "Quality Assurance"
     ],
-    timeline: "18 weeks (vs typical 24 weeks)",
-    budget: "$150,000",
-    teamSize: "6 members",
+    timeline: "Optimized project timeline",
+    budget: "Enterprise-scale investment",
+    teamSize: "Cross-functional team",
     risks: [
       { level: "High", item: "Data integrity during migration", mitigation: "Automated validation scripts" },
       { level: "Medium", item: "User training completion", mitigation: "Phased rollout approach" },
@@ -374,8 +374,8 @@ export const SampleBRDPage: React.FC = () => {
                 </h1>
                 
                 <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-12">
-                  Upload your BRD or try our enterprise sample below. 
-                  See AI generate an intelligent project plan in 60 seconds.
+                  Upload your BRD or try our enterprise samples below. 
+                  Experience how AI transforms complex requirements into actionable project plans.
                 </p>
 
                 <div className="space-y-4">
@@ -391,7 +391,7 @@ export const SampleBRDPage: React.FC = () => {
                   </motion.button>
                   
                   <div className="text-sm text-slate-400">
-                    No signup required • See results in 60 seconds
+                    No signup required • Real-time AI processing
                   </div>
                 </div>
 
@@ -409,7 +409,7 @@ export const SampleBRDPage: React.FC = () => {
                   <div className="grid md:grid-cols-3 gap-6 text-sm">
                     <div>
                       <span className="text-slate-400">Document Size:</span>
-                      <span className="block text-white font-medium">{enterpriseSampleData.brdPages} pages</span>
+                      <span className="block text-white font-medium">{enterpriseSampleData.brdPages}</span>
                     </div>
                     <div>
                       <span className="text-slate-400">Project Budget:</span>
