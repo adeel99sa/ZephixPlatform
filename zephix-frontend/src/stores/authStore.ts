@@ -377,7 +377,48 @@ export const useAuthStore = create<AuthState>()(
             success: result.success,
             data: result.success
           };
-        } catch (error) {
+        } catch (error: any) {
+          // If token is expired (401), try to refresh it
+          if (error?.status === 401) {
+            console.log('🔄 Token expired, attempting refresh...');
+            try {
+              const refreshResult = await authApi.refreshToken();
+              if (refreshResult.accessToken) {
+                // Update the token in store
+                const currentState = get();
+                set({
+                  ...currentState,
+                  token: refreshResult.accessToken,
+                  isAuthenticated: true,
+                });
+                
+                // Try to get current user again
+                const userResult = await get().getCurrentUser();
+                return {
+                  success: userResult.success,
+                  data: userResult.success
+                };
+              }
+            } catch (refreshError) {
+              console.log('❌ Token refresh failed, clearing auth state');
+              // If refresh fails, clear auth state
+              set({
+                user: null,
+                token: null,
+                isAuthenticated: false,
+                isLoading: false,
+                loadingAction: undefined,
+                loadingStartTime: undefined,
+                error: null,
+                errorTimestamp: undefined,
+              });
+              return {
+                success: false,
+                data: false
+              };
+            }
+          }
+          
           const errorMessage = error instanceof Error ? error.message : 'Auth check failed';
           const storeError = createError('auth', errorMessage, {
             reason: 'unauthorized',

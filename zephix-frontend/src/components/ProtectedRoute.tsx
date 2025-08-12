@@ -10,15 +10,29 @@ interface ProtectedRouteProps {
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     const verifyAuth = async () => {
-      if (!isAuthenticated) {
-        const isValid = await checkAuth();
-        if (!isValid) {
-          // Redirect to login with return URL
-          window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+      if (!isAuthenticated && !authChecked) {
+        try {
+          const isValid = await checkAuth();
+          setAuthChecked(true);
+          if (!isValid) {
+            // Only redirect if we're not already on the login page
+            if (!location.pathname.includes('/login')) {
+              window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+            }
+            return;
+          }
+        } catch (error) {
+          console.error('Auth verification failed:', error);
+          setAuthChecked(true);
+          // Only redirect if we're not already on the login page
+          if (!location.pathname.includes('/login')) {
+            window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+          }
           return;
         }
       }
@@ -26,7 +40,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     };
 
     verifyAuth();
-  }, [isAuthenticated, checkAuth, location.pathname]);
+  }, [isAuthenticated, checkAuth, location.pathname, authChecked]);
 
   // Show loading spinner while checking authentication
   if (isLoading || isChecking) {
@@ -37,8 +51,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // If not authenticated, redirect to login
-  if (!isAuthenticated) {
+  // If not authenticated and we've checked, redirect to login
+  if (!isAuthenticated && authChecked) {
     return <Navigate to="/login" replace />;
   }
 
