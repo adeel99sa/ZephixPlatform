@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -24,6 +22,9 @@ import { SharedModule } from '../shared/shared.module';
  *
  * Provides JWT-based authentication with bcrypt password hashing.
  *
+ * ENTERPRISE APPROACH: JWT module is now global in app.module.ts
+ * This eliminates circular dependencies and module duplication.
+ *
  * MICROSERVICE EXTRACTION NOTES:
  * - This entire module can be moved to a dedicated auth microservice
  * - JWT configuration should be shared across services
@@ -36,16 +37,7 @@ import { SharedModule } from '../shared/shared.module';
     TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification]),
     SharedModule,
     PassportModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
-        signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // ENTERPRISE APPROACH: JWT module is now global - no need to import here
   ],
   controllers: [AuthController, OrganizationSignupController],
   providers: [

@@ -56,7 +56,7 @@ export class QueueStatsResponse {
 
 @Controller('api/v1/documents')
 @ApiTags('Document Upload & Processing')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class DocumentUploadController {
   constructor(

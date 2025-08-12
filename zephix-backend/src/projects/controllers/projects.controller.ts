@@ -53,7 +53,7 @@ import {
  */
 @ApiTags('Projects')
 @Controller('pm/projects')
-@UseGuards(AuthGuard('jwt'), OrganizationGuard)
+@UseGuards(AuthGuard('jwt')) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}

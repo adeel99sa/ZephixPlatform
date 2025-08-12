@@ -37,7 +37,8 @@
     "db:migrate:generate": "npm run migrate:generate",
     "postbuild": "echo 'Build completed successfully'",
     "health:check": "curl -f http://localhost:${PORT:-3000}/api/health || exit 1",
-    "verify:railway": "./scripts/verify-railway-build.sh"
+    "verify:railway": "./scripts/verify-railway-build.sh",
+    "validate:deployment": "ts-node scripts/validate-deployment.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
