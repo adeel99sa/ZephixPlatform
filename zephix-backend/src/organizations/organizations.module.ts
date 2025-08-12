@@ -6,8 +6,6 @@ import { TeamManagementService } from './services/team-management.service';
 import { OrganizationsController } from './controllers/organizations.controller';
 import { TeamManagementController } from './controllers/team-management.controller';
 import { InvitationAcceptanceController } from './controllers/invitation-acceptance.controller';
-import { OrganizationGuard } from './guards/organization.guard';
-import { RolesGuard } from './guards/roles.guard';
 import { Organization, UserOrganization, Invitation } from './entities';
 import { User } from '../users/entities/user.entity';
 import { SharedModule } from '../shared/shared.module';
@@ -16,7 +14,7 @@ import { SharedModule } from '../shared/shared.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Organization, UserOrganization, Invitation, User]),
-    SharedModule,
+    SharedModule, // For EmailService used by InvitationService
     // ENTERPRISE APPROACH: Remove JWT module duplication - it's already global in app.module.ts
   ],
   controllers: [
@@ -28,15 +26,11 @@ import { SharedModule } from '../shared/shared.module';
     OrganizationsService,
     InvitationService,
     TeamManagementService,
-    OrganizationGuard,
-    RolesGuard,
   ],
   exports: [
     OrganizationsService,
     InvitationService,
     TeamManagementService,
-    OrganizationGuard,
-    RolesGuard,
     TypeOrmModule, // Export the TypeORM repositories
   ],
 })

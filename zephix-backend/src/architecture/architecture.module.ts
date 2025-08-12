@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ArchitectureController } from './architecture.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
+// AccessControlModule removed - using built-in NestJS guards instead
 import { ArchitectureDerivationService } from './architecture-derivation.service';
-import { SharedModule } from '../shared/shared.module';
-import { ObservabilityModule } from '../observability/observability.module';
+import { ArchitectureController } from './architecture.controller';
 
 @Module({
   imports: [
-    SharedModule,
-    ObservabilityModule,
+    // AccessControlModule removed - using built-in NestJS guards instead
+    TypeOrmModule.forFeature([]),
   ],
   controllers: [ArchitectureController],
   providers: [ArchitectureDerivationService],
