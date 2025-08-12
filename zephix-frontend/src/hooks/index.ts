@@ -3,6 +3,7 @@ export { useProjectSelection } from './useProjectSelection';
 export { useUser } from './useUser';
 export { useDocumentProcessing } from './useDocumentProcessing';
 export { useProjectGeneration } from './useProjectGeneration';
+export { useAIRecommendations } from './useAIRecommendations';
 export { useFeedback } from './useFeedback';
 export { useProjectInitiation } from './useProjectInitiation';
 export { useStatusReporting } from './useStatusReporting';

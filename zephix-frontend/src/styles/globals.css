@@ -38,6 +38,14 @@
   /* Dark hero and footer helpers */
   .hero-bg { background: var(--hero); color: #FFFFFF; }
   .footer-bg { background: var(--footer); color: #CBD5E1; }
+
+  /* Line clamp utility */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 @layer components {
