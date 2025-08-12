@@ -13,6 +13,8 @@ const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ 
 const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
 const EmailVerificationPage = lazy(() => import('./pages/auth/EmailVerificationPage').then(module => ({ default: module.default })));
 const PendingVerificationPage = lazy(() => import('./pages/auth/PendingVerificationPage').then(module => ({ default: module.default })));
+const AIMappingPage = lazy(() => import('./pages/AIMappingPage').then(module => ({ default: module.AIMappingPage })));
+const AISuggestionsDemoPage = lazy(() => import('./pages/AISuggestionsDemoPage').then(module => ({ default: module.AISuggestionsDemoPage })));
 
 // Document Intelligence
 const DocumentIntelligencePage = lazy(() => import('./pages/intelligence/DocumentIntelligencePage').then(module => ({ default: module.default })));
@@ -25,9 +27,6 @@ const OrganizationSettings = lazy(() => import('./pages/organizations/Organizati
 const BRDUpload = lazy(() => import('./pages/brd/BRDUpload').then(module => ({ default: module.default })));
 const BRDDetails = lazy(() => import('./pages/brd/BRDDetails').then(module => ({ default: module.default })));
 const BRDProjectPlanning = lazy(() => import('./pages/brd/BRDProjectPlanning').then(module => ({ default: module.default })));
-
-// AI Mapping Interface
-const AIMappingPage = lazy(() => import('./pages/AIMappingPage').then(module => ({ default: module.AIMappingPage })));
 
 // Project Management
 const ProjectStatusPage = lazy(() => import('./pages/pm/project/[id]/status').then(module => ({ default: module.default })));
@@ -154,6 +153,13 @@ export default function App() {
             <Route path="/ai-mapping" element={
               <ProtectedLayout currentPage="AI Mapping Interface">
                 <AIMappingPage />
+              </ProtectedLayout>
+            } />
+
+            {/* AI Suggestions Demo */}
+            <Route path="/ai-suggestions-demo" element={
+              <ProtectedLayout currentPage="AI Suggestions Demo">
+                <AISuggestionsDemoPage />
               </ProtectedLayout>
             } />
 
