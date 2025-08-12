@@ -1,6 +1,7 @@
 import React, { useState, memo } from 'react';
 import { Header } from '../components/landing/Header';
 import { HeroSection } from '../components/landing/HeroSection';
+import { AITeaserSection } from '../components/landing/AITeaserSection';
 import { ProblemSection } from '../components/landing/ProblemSection';
 import { FeaturesSection } from '../components/landing/FeaturesSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
@@ -43,6 +44,7 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
       
       <main>
         <HeroSection onDemoRequest={handleDemoRequest} />
+        <AITeaserSection />
         <ProblemSection />
         <FeaturesSection onScrollToSection={scrollToSection} />
         <HowItWorksSection />
