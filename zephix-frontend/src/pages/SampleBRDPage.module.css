@@ -1,0 +1,197 @@
+/* AI Theater Demo Responsive Styles */
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
+  50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile-first responsive design */
+@media (max-width: 768px) {
+  /* Adjust neural network visualization for mobile */
+  .neural-network-container {
+    transform: scale(0.7);
+    margin: -20px;
+  }
+
+  /* Stack processing columns on mobile */
+  .processing-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Adjust text sizes for mobile */
+  .hero-title {
+    font-size: 2.5rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem !important;
+  }
+
+  /* Mobile-friendly buttons */
+  .cta-button {
+    width: 100%;
+    padding: 1rem !important;
+    font-size: 1rem !important;
+  }
+
+  /* Adjust cards for mobile */
+  .result-card {
+    padding: 1rem !important;
+  }
+
+  /* Mobile timeline */
+  .timeline-item {
+    font-size: 0.875rem !important;
+    padding: 0.75rem !important;
+  }
+
+  /* Mobile team grid */
+  .team-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Competitive comparison mobile */
+  .competitive-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Adjust spacing */
+  .section-spacing {
+    padding: 2rem 1rem !important;
+  }
+
+  /* Mobile confetti optimization */
+  .confetti-particle {
+    width: 4px !important;
+    height: 4px !important;
+  }
+}
+
+/* Tablet responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .neural-network-container {
+    transform: scale(0.85);
+  }
+
+  .hero-title {
+    font-size: 3rem !important;
+  }
+
+  .processing-grid {
+    gap: 1.5rem !important;
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Large screens optimization */
+@media (min-width: 1440px) {
+  .main-container {
+    max-width: 1280px !important;
+  }
+
+  .neural-network-container {
+    transform: scale(1.1);
+  }
+}
+
+/* Dark mode optimizations */
+@media (prefers-color-scheme: dark) {
+  .gradient-background {
+    opacity: 0.8;
+  }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch-friendly interactive elements */
+@media (hover: none) and (pointer: coarse) {
+  .interactive-element {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .hover-effect:hover {
+    transform: none !important;
+  }
+}
+
+/* Performance optimizations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.backdrop-blur-optimized {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Loading states */
+.skeleton-loader {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus states for accessibility */
+.focus-visible:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-friendly {
+    color: black !important;
+    background: white !important;
+  }
+}

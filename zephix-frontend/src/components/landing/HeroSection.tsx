@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, ArrowRight, Play, Target, FileText } from 'lucide-react';
+import { Zap, Target } from 'lucide-react';
 import { StatusBadge } from '../ui/StatusBadge';
 
 interface HeroSectionProps {
@@ -13,32 +13,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
     setIsVisible(true);
   }, []);
 
-  const handleDemoRequest = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDemoRequest();
-  };
 
-  const handleSampleBRD = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Analytics tracking
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'click', {
-        event_category: 'Hero CTA',
-        event_label: 'Try a sample BRD',
-        value: 1
-      });
-    }
-    
-    // Navigate to sample BRD flow
-    window.open('/sample-brd', '_blank');
-  };
 
   return (
-    <section id="hero" className="relative min-h-screen hero-bg overflow-hidden">
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16">
+    <section id="hero" className="relative hero-bg overflow-hidden">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-0">
         <div className={`text-center transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
           {/* Private Beta Badge */}
           <div className="mb-3">
@@ -46,50 +25,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onDemoRequest }) => {
           </div>
           
           {/* Trust row */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
+          <div className="flex flex-wrap justify-center gap-2">
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">SSO</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">RBAC</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Audit logs</div>
             <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-medium text-slate-300">Encryption at rest and in transit</div>
-          </div>
-          
-          {/* Main headline */}
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight max-w-4xl mx-auto">
-            Turn a BRD into a project plan in 3 minutes.
-          </h1>
-          
-          {/* Sub-headline */}
-          <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Upload a BRD. Zephix extracts scope, builds a schedule with stage gates, and prepares an executive one pager.
-          </p>
-          
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <button onClick={handleSampleBRD} className="btn-primary">
-              Try a sample BRD
-            </button>
-            <button onClick={handleDemoRequest} className="btn-secondary">
-              Book a 15 minute demo
-            </button>
-          </div>
-          
-          {/* Proof blurb */}
-          <p className="text-sm text-slate-300 opacity-80 max-w-2xl mx-auto">
-            Time to first plan under 3 minutes in internal tests. Details in Changelog.
-          </p>
-          
-          {/* Video placeholder - centered below content */}
-          <div className="mt-12 flex justify-center">
-            <div className="relative w-full max-w-2xl">
-              <div className="aspect-video bg-gradient-to-br from-white/10 to-white/5 rounded-2xl border border-white/20 flex items-center justify-center">
-                <div className="text-center text-white/60">
-                  <Play className="w-16 h-16 mx-auto mb-4" />
-                  <div className="text-lg font-medium">Short Product Video</div>
-                  <div className="text-sm">BRD to plan in under 12 seconds</div>
-                  <div className="text-xs mt-2">Autoplay • Loop • No controls</div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
