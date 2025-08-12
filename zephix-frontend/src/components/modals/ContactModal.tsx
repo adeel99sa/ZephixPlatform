@@ -158,12 +158,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
                   />
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-sm text-blue-700">
-                    <strong>Note:</strong> This is a demo form. In production, this would integrate with 
-                    your backend API and email service.
-                  </p>
-                </div>
+
 
                 <div className="flex space-x-3 pt-4">
                   <button
