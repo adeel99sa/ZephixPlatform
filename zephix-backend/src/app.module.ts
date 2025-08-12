@@ -2,12 +2,14 @@ import { Module, ValidationPipe, MiddlewareConsumer, NestModule } from '@nestjs/
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 
 // Import crypto explicitly for Node.js versions that require it
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
 import { ObservabilityModule } from './observability/observability.module';
@@ -40,6 +42,20 @@ if (!(global as any).crypto) {
       isGlobal: true,
       load: [configuration],
     }),
+    
+    // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('jwt.secret'),
+        signOptions: {
+          expiresIn: configService.get<string>('jwt.expiresIn') || '24h',
+        },
+      }),
+      inject: [ConfigService],
+      global: true, // Make JWT available globally
+    }),
+    
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -100,9 +116,12 @@ if (!(global as any).crypto) {
       },
       inject: [ConfigService],
     }),
-    AuthModule,
-    ProjectsModule,
-    SharedModule,
+    
+    // CRITICAL: Import order to avoid circular dependencies
+    SharedModule,        // First - no dependencies
+    OrganizationsModule, // Second - depends on SharedModule
+    ProjectsModule,      // Third - depends on OrganizationsModule
+    AuthModule,          // Last - depends on OrganizationsModule and ProjectsModule
     ObservabilityModule,
     HealthModule,
   ],

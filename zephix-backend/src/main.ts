@@ -56,50 +56,15 @@ async function bootstrap() {
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
-    // Enable CORS BEFORE Helmet - use configuration service for environment-specific settings
-    const corsConfig = configService.get('security.cors');
-    const allowedOrigins = corsConfig.allowedOrigins 
-      ? corsConfig.allowedOrigins.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-    
-    logger.log(`🌐 CORS allowed origins: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'All origins (dev mode)'}`);
-    
+    // Enable CORS - Simplified for same origin
     app.enableCors({
-      origin: (origin, callback) => {
-        // Allow requests with no origin (e.g., mobile apps, Postman)
-        if (!origin) return callback(null, true);
-        
-        // In development, allow all origins if no origins specified
-        const isDevelopment = configService.get('environment') === 'development';
-        if (isDevelopment && allowedOrigins.length === 0) {
-          return callback(null, true);
-        }
-        
-        // Enhanced origin matching for production domains
-        const productionOrigins = [
-          'https://getzephix.com',
-          'https://www.getzephix.com',
-          /\.railway\.app$/,
-        ];
-        
-        // Check if origin is in allowed list or production origins
-        if (allowedOrigins.includes(origin) || 
-            productionOrigins.some(allowedOrigin => 
-              typeof allowedOrigin === 'string' ? allowedOrigin === origin : allowedOrigin.test(origin)
-            )) {
-          return callback(null, true);
-        }
-        
-        // Reject origin
-        logger.warn(`🚫 CORS rejected origin: ${origin}`);
-        return callback(new Error(`Origin ${origin} not allowed by CORS policy`), false);
-      },
+      origin: ['https://getzephix.com', 'https://www.getzephix.com'],
       credentials: true,
       methods: 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
       allowedHeaders: 'Authorization,Content-Type,Accept,Origin,X-Requested-With',
       exposedHeaders: 'X-RateLimit-Limit,X-RateLimit-Remaining,X-RateLimit-Reset',
-      optionsSuccessStatus: 200, // Some legacy browsers choke on 204
-      maxAge: 86400, // 24 hours preflight cache
+      optionsSuccessStatus: 200,
+      maxAge: 86400,
     });
 
     // Apply Helmet security headers AFTER CORS

@@ -10,11 +10,12 @@ import { Project } from './entities/project.entity';
 import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
 import { Role } from './entities/role.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
 @Module({
   imports: [
     SharedModule,
-    TypeOrmModule.forFeature([Project, Team, TeamMember, Role])
+    TypeOrmModule.forFeature([Project, Team, TeamMember, Role, UserOrganization])
     // OrganizationsModule no longer needed - it's now Global
   ],
   controllers: [ProjectsController],

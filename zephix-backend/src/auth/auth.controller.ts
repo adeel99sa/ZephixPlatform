@@ -10,6 +10,8 @@ import {
   Param,
   Ip,
   Headers,
+  Options,
+  Header,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -77,6 +79,27 @@ export class AuthController {
       accessToken: result.accessToken,
       requiresEmailVerification: result.requiresEmailVerification,
     };
+  }
+
+  @Get('test')
+  @HttpCode(HttpStatus.OK)
+  async testEndpoint() {
+    return {
+      message: 'Auth endpoint is accessible',
+      timestamp: new Date().toISOString(),
+      status: 'ok'
+    };
+  }
+
+  @Options('login')
+  @HttpCode(204)
+  @Header('Access-Control-Allow-Origin', 'https://getzephix.com')
+  @Header('Access-Control-Allow-Credentials', 'true')
+  @Header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  @Header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  optionsLogin() {
+    // This method handles CORS preflight requests
+    return;
   }
 
   @Post('login')

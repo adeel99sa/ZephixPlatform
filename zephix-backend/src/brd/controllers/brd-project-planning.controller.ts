@@ -31,7 +31,7 @@ import { GeneratedProjectPlanResponseDto } from '../dto/brd-response.dto';
 
 @ApiTags('BRD Project Planning')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @Controller('pm/brd/project-planning')
 export class BRDProjectPlanningController {
   constructor(
