@@ -68,4 +68,102 @@
   .badge-warning { background: #FFFBEB; color: #92400E; }
   .badge-danger { background: #FEF2F2; color: #7F1D1D; }
   .badge-info { background: var(--primary-50); color: #1E3A8A; }
+
+  /* AI Mapping Interface Styles */
+  .ai-mapping-interface {
+    @apply max-w-7xl mx-auto;
+  }
+
+  .interface-header {
+    @apply text-center mb-8;
+  }
+
+  .workflow-progress {
+    @apply flex items-center justify-center;
+  }
+
+  .workflow-progress .step {
+    @apply flex flex-col items-center;
+  }
+
+  .workflow-progress .step-number {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-2;
+    background: #E5E7EB;
+    color: #6B7280;
+  }
+
+  .workflow-progress .step.current .step-number {
+    background: #3B82F6;
+    color: #FFFFFF;
+  }
+
+  .workflow-progress .step.completed .step-number {
+    background: #10B981;
+    color: #FFFFFF;
+  }
+
+  .workflow-progress .step-connector {
+    @apply w-16 h-0.5 bg-gray-300 mx-4;
+  }
+
+  .workflow-progress .step.completed + .step-connector {
+    @apply bg-green-300;
+  }
+
+  .workflow-progress .step-label {
+    @apply text-xs text-gray-600 font-medium;
+  }
+
+  .workflow-progress .step.current .step-label {
+    @apply text-blue-600 font-semibold;
+  }
+
+  .workflow-progress .step.completed .step-label {
+    @apply text-green-600 font-semibold;
+  }
+
+  .interface-content {
+    @apply mt-8;
+  }
+
+  .error-banner {
+    @apply bg-red-50 border-red-200 text-red-800;
+  }
+
+  /* File Upload Zone Styles */
+  .file-upload-zone {
+    @apply w-full;
+  }
+
+  /* Document Review Interface Styles */
+  .document-review-interface {
+    @apply w-full;
+  }
+
+  /* BRD Editor Panel Styles */
+  .brd-editor-panel {
+    @apply w-full;
+  }
+
+  .brd-section {
+    @apply mb-6;
+  }
+
+  .section-header {
+    @apply flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors;
+  }
+
+  .section-content {
+    @apply p-4 border border-gray-200 rounded-lg bg-white;
+  }
+
+  /* Document Viewer Panel Styles */
+  .document-viewer-panel {
+    @apply w-full;
+  }
+
+  /* Project Generation Confirmation Styles */
+  .project-generation-confirmation {
+    @apply w-full;
+  }
 }
