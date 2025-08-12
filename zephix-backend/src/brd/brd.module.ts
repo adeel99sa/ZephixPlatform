@@ -9,10 +9,11 @@ import { BRDService } from './services/brd.service';
 import { BRDAnalysisService } from './services/brd-analysis.service';
 import { BRDRepository } from './repositories/brd.repository';
 import { SharedModule } from '../shared/shared.module';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BRD, BRDAnalysis, GeneratedProjectPlan]),
+    TypeOrmModule.forFeature([BRD, BRDAnalysis, GeneratedProjectPlan, UserOrganization]),
     SharedModule,
   ],
   controllers: [BRDController, BRDProjectPlanningController],
