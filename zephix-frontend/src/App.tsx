@@ -26,6 +26,9 @@ const BRDUpload = lazy(() => import('./pages/brd/BRDUpload').then(module => ({ d
 const BRDDetails = lazy(() => import('./pages/brd/BRDDetails').then(module => ({ default: module.default })));
 const BRDProjectPlanning = lazy(() => import('./pages/brd/BRDProjectPlanning').then(module => ({ default: module.default })));
 
+// AI Mapping Interface
+const AIMappingPage = lazy(() => import('./pages/AIMappingPage').then(module => ({ default: module.AIMappingPage })));
+
 // Project Management
 const ProjectStatusPage = lazy(() => import('./pages/pm/project/[id]/status').then(module => ({ default: module.default })));
 
@@ -144,6 +147,13 @@ export default function App() {
             <Route path="/brd/:brdId/project-planning" element={
               <ProtectedLayout currentPage="BRD Project Planning">
                 <BRDProjectPlanning />
+              </ProtectedLayout>
+            } />
+
+            {/* AI Mapping Interface */}
+            <Route path="/ai-mapping" element={
+              <ProtectedLayout currentPage="AI Mapping Interface">
+                <AIMappingPage />
               </ProtectedLayout>
             } />
 

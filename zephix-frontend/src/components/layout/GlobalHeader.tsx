@@ -25,6 +25,7 @@ interface GlobalHeaderProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Projects', href: '/projects', icon: FolderIcon },
+  { name: 'AI Mapping', href: '/ai-mapping', icon: SparklesIcon },
   { name: 'Workflows', href: '/workflow-templates', icon: ClipboardDocumentListIcon },
   { name: 'Intake', href: '/intake-forms', icon: DocumentTextIcon },
   { name: 'Intelligence', href: '/intelligence', icon: LightBulbIcon },
@@ -56,6 +57,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
     const breadcrumbMap: Record<string, string> = {
       'dashboard': 'Dashboard',
       'projects': 'Projects',
+      'ai-mapping': 'AI Mapping Interface',
       'workflow-templates': 'Workflow Templates',
       'intake-forms': 'Intake Forms',
       'intelligence': 'AI Intelligence',
