@@ -11,21 +11,21 @@ export const HowItWorksSection: React.FC = () => {
       title: "Upload Your BRD",
       description: "Drop your Business Requirements Document - any format, any size",
       icon: Upload,
-      duration: "5 seconds",
+      duration: "Quick upload",
       before: {
         title: "The Old Way: Manual Analysis",
         items: [
-          { icon: Clock, text: "6+ hours reading through documents", type: "problem" },
+          { icon: Clock, text: "Hours reading through documents", type: "problem" },
           { icon: AlertTriangle, text: "Missing critical requirements", type: "problem" },
           { icon: Users, text: "Unclear stakeholder mapping", type: "problem" }
         ]
       },
       after: {
-        title: "Zephix AI: Instant Intelligence",
+        title: "Zephix AI: Intelligent Analysis",
         items: [
-          { icon: CheckCircle2, text: "15 core requirements extracted", type: "solution" },
-          { icon: CheckCircle2, text: "8 stakeholders automatically mapped", type: "solution" },
-          { icon: CheckCircle2, text: "3 critical dependencies identified", type: "solution" }
+          { icon: CheckCircle2, text: "Core requirements extracted", type: "solution" },
+          { icon: CheckCircle2, text: "Stakeholders automatically mapped", type: "solution" },
+          { icon: CheckCircle2, text: "Critical dependencies identified", type: "solution" }
         ]
       }
     },
@@ -33,21 +33,21 @@ export const HowItWorksSection: React.FC = () => {
       title: "AI Generates Your Plan",
       description: "Watch as intelligent algorithms create your complete project blueprint",
       icon: Zap,
-      duration: "30 seconds",
+      duration: "Processing time varies",
       before: {
         title: "Traditional Planning: Manual Labor",
         items: [
-          { icon: Clock, text: "2-3 weeks creating project plans", type: "problem" },
+          { icon: Clock, text: "Weeks creating project plans", type: "problem" },
           { icon: AlertTriangle, text: "Inconsistent task breakdowns", type: "problem" },
           { icon: Users, text: "Resource conflicts and bottlenecks", type: "problem" }
         ]
       },
       after: {
-        title: "AI-Powered Planning: Instant Excellence",
+        title: "AI-Powered Planning: Intelligent Structure",
         items: [
-          { icon: CheckCircle2, text: "47 tasks across 5 phases generated", type: "solution" },
-          { icon: CheckCircle2, text: "Optimal 8-week critical path found", type: "solution" },
-          { icon: CheckCircle2, text: "Team of 6 perfectly balanced", type: "solution" }
+          { icon: CheckCircle2, text: "Comprehensive task breakdown generated", type: "solution" },
+          { icon: CheckCircle2, text: "Optimized project phases identified", type: "solution" },
+          { icon: CheckCircle2, text: "Resource requirements mapped", type: "solution" }
         ]
       }
     },
@@ -55,12 +55,12 @@ export const HowItWorksSection: React.FC = () => {
       title: "Execute With Confidence",
       description: "Download your execution-ready plan and start leading, not managing",
       icon: Download,
-      duration: "Forever",
+      duration: "Ongoing support",
       before: {
         title: "Typical PM Reality: Constant Fire-Fighting",
         items: [
           { icon: AlertTriangle, text: "Reactive problem solving", type: "problem" },
-          { icon: Clock, text: "60% time on admin work", type: "problem" },
+          { icon: Clock, text: "Excessive time on admin work", type: "problem" },
           { icon: Users, text: "Team confusion and delays", type: "problem" }
         ]
       },
@@ -68,7 +68,7 @@ export const HowItWorksSection: React.FC = () => {
         title: "Strategic Leadership: Proactive Success",
         items: [
           { icon: CheckCircle2, text: "Proactive risk mitigation", type: "solution" },
-          { icon: CheckCircle2, text: "85% less administrative overhead", type: "solution" },
+          { icon: CheckCircle2, text: "Reduced administrative overhead", type: "solution" },
           { icon: CheckCircle2, text: "Team clarity and momentum", type: "solution" }
         ]
       }
