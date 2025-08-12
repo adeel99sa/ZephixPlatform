@@ -26,6 +26,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { JwtService } from '@nestjs/jwt';
 
 /**
  * Authentication Controller
@@ -45,6 +46,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailVerificationService: EmailVerificationService,
+    private readonly jwtService: JwtService,
   ) {}
 
   @Post('register')
@@ -91,6 +93,39 @@ export class AuthController {
         lastName: result.user.lastName,
       },
       accessToken: result.accessToken,
+    };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({ status: 200, description: 'Logout successful' })
+  async logout() {
+    // In a stateless JWT system, logout is handled client-side
+    // But we can add server-side token blacklisting here if needed
+    return {
+      message: 'Logout successful',
+    };
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid token' })
+  async refreshToken(@CurrentUser() user: User) {
+    // Generate new access token
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      emailVerified: user.isEmailVerified,
+    });
+
+    return {
+      message: 'Token refreshed successfully',
+      accessToken,
     };
   }
 

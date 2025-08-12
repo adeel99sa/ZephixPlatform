@@ -189,6 +189,21 @@ export const authApi = {
       throw apiError;
     }
   },
+
+  /**
+   * Refresh the current access token
+   * @returns Promise resolving to new access token
+   * @throws {ApiError} When token refresh fails
+   */
+  refreshToken: async (): Promise<{ accessToken: string }> => {
+    try {
+      const response = await api.post('/auth/refresh');
+      return response.data;
+    } catch (error) {
+      const apiError = createApiError(error as AxiosError, '/auth/refresh', 'POST');
+      throw apiError;
+    }
+  },
 };
 
 /**
