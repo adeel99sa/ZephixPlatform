@@ -1,0 +1,286 @@
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  MessageBody,
+  ConnectedSocket,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
+import { WsJwtGuard } from '../auth/guards/ws-jwt.guard';
+import { CollaborationService } from './collaboration.service';
+import { UserPresenceService } from './user-presence.service';
+import { CommentService } from './comment.service';
+import { ActivityFeedService } from './activity-feed.service';
+import { Logger } from '@nestjs/common';
+
+@WebSocketGateway({
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  },
+  namespace: '/collaboration',
+})
+@UseGuards(WsJwtGuard)
+export class CollaborationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
+  private readonly logger = new Logger(CollaborationGateway.name);
+
+  constructor(
+    private readonly collaborationService: CollaborationService,
+    private readonly userPresenceService: UserPresenceService,
+    private readonly commentService: CommentService,
+    private readonly activityFeedService: ActivityFeedService,
+  ) {}
+
+  async handleConnection(client: Socket) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) {
+        client.disconnect();
+        return;
+      }
+
+      this.logger.log(`Client connected: ${user.id} (${user.email})`);
+      
+      // Set user presence as online
+      await this.userPresenceService.setUserOnline(user.id, client.id);
+      
+      // Join user to their organization room
+      if (user.organizationId) {
+        client.join(`org:${user.organizationId}`);
+        this.logger.log(`User ${user.id} joined organization room: ${user.organizationId}`);
+      }
+
+      // Emit user joined event to organization
+      if (user.organizationId) {
+        this.server.to(`org:${user.organizationId}`).emit('user:joined', {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`Connection error: ${error.message}`);
+      client.disconnect();
+    }
+  }
+
+  async handleDisconnect(client: Socket) {
+    try {
+      const user = client.handshake.auth.user;
+      if (user) {
+        this.logger.log(`Client disconnected: ${user.id} (${user.email})`);
+        
+        // Set user presence as offline
+        await this.userPresenceService.setUserOffline(user.id);
+        
+        // Emit user left event to organization
+        if (user.organizationId) {
+          this.server.to(`org:${user.organizationId}`).emit('user:left', {
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+            timestamp: new Date(),
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Disconnect error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('join:project')
+  async handleJoinProject(
+    @MessageBody() data: { projectId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { projectId } = data;
+      
+      // Join project room
+      client.join(`project:${projectId}`);
+      
+      // Get project members and emit to client
+      const members = await this.collaborationService.getProjectMembers(projectId);
+      client.emit('project:members', members);
+      
+      this.logger.log(`User ${user.id} joined project room: ${projectId}`);
+    } catch (error) {
+      this.logger.error(`Join project error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('leave:project')
+  async handleLeaveProject(
+    @MessageBody() data: { projectId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { projectId } = data;
+      
+      // Leave project room
+      client.leave(`project:${projectId}`);
+      
+      this.logger.log(`User ${user.id} left project room: ${projectId}`);
+    } catch (error) {
+      this.logger.error(`Leave project error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('comment:add')
+  async handleAddComment(
+    @MessageBody() data: { projectId: string; content: string; parentId?: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { projectId, content, parentId } = data;
+      
+      // Create comment
+      const comment = await this.commentService.createComment({
+        projectId,
+        userId: user.id,
+        content,
+        parentId,
+      });
+      
+      // Emit to all users in the project room
+      this.server.to(`project:${projectId}`).emit('comment:added', {
+        ...comment,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+      
+      // Log activity
+      await this.activityFeedService.logActivity({
+        projectId,
+        userId: user.id,
+        type: 'comment_added',
+        description: `Added a comment`,
+        metadata: { commentId: comment.id },
+      });
+      
+    } catch (error) {
+      this.logger.error(`Add comment error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('comment:update')
+  async handleUpdateComment(
+    @MessageBody() data: { commentId: string; content: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { commentId, content } = data;
+      
+      // Update comment
+      const comment = await this.commentService.updateComment(commentId, user.id, content);
+      
+      // Emit to all users in the project room
+      this.server.to(`project:${comment.projectId}`).emit('comment:updated', {
+        ...comment,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+      
+    } catch (error) {
+      this.logger.error(`Update comment error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('comment:delete')
+  async handleDeleteComment(
+    @MessageBody() data: { commentId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { commentId } = data;
+      
+      // Delete comment
+      const comment = await this.commentService.deleteComment(commentId, user.id);
+      
+      // Emit to all users in the project room
+      this.server.to(`project:${comment.projectId}`).emit('comment:deleted', {
+        commentId,
+        projectId: comment.projectId,
+      });
+      
+    } catch (error) {
+      this.logger.error(`Delete comment error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('typing:start')
+  async handleTypingStart(
+    @MessageBody() data: { projectId: string; type: 'comment' | 'description' },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { projectId, type } = data;
+      
+      // Emit typing indicator to other users in the project room
+      client.to(`project:${projectId}`).emit('typing:started', {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        type,
+        timestamp: new Date(),
+      });
+      
+    } catch (error) {
+      this.logger.error(`Typing start error: ${error.message}`);
+    }
+  }
+
+  @SubscribeMessage('typing:stop')
+  async handleTypingStop(
+    @MessageBody() data: { projectId: string; type: 'comment' | 'description' },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const user = client.handshake.auth.user;
+      if (!user) return;
+
+      const { projectId, type } = data;
+      
+      // Emit typing stop indicator to other users in the project room
+      client.to(`project:${projectId}`).emit('typing:stopped', {
+        userId: user.id,
+        type,
+        timestamp: new Date(),
+      });
+      
+    } catch (error) {
+      this.logger.error(`Typing stop error: ${error.message}`);
+    }
+  }
+}
