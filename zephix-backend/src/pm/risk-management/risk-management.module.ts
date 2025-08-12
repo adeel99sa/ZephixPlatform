@@ -6,19 +6,12 @@ import { Risk } from '../entities/risk.entity';
 import { RiskAssessment } from '../entities/risk-assessment.entity';
 import { RiskResponse } from '../entities/risk-response.entity';
 import { RiskMonitoring } from '../entities/risk-monitoring.entity';
-import { Project } from '../../projects/entities/project.entity';
-import { SharedModule } from '../../shared/shared.module';
+// AccessControlModule removed - using built-in NestJS guards instead
 
 @Module({
   imports: [
-    SharedModule,
-    TypeOrmModule.forFeature([
-      Risk,
-      RiskAssessment,
-      RiskResponse,
-      RiskMonitoring,
-      Project,
-    ]),
+    // AccessControlModule removed - using built-in NestJS guards instead
+    TypeOrmModule.forFeature([Risk, RiskAssessment, RiskResponse, RiskMonitoring]),
   ],
   controllers: [RiskManagementController],
   providers: [RiskManagementService],

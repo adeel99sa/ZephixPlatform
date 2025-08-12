@@ -1,19 +1,25 @@
-import { Params } from 'nestjs-pino';
-import { Request } from 'express';
-import { RequestWithId } from './request-id.middleware';
+// src/observability/logger.config.ts - Enterprise Logger Configuration
+import { Request, Response } from 'express';
+import { ReqId } from 'pino-http';
 
-export const pinoConfig: Params = {
+// Enterprise Request Interface
+export interface RequestWithId extends Request {
+  id: string;
+  user?: any;
+  organization?: any;
+}
+
+// Enterprise Logger Configuration
+export const loggerConfig = {
   pinoHttp: {
-    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-    transport: process.env.NODE_ENV === 'production' 
-      ? undefined 
-      : {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            singleLine: true,
-          },
-        },
+    level: process.env.LOG_LEVEL || 'info',
+    transport: process.env.NODE_ENV === 'development' ? {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        singleLine: true,
+      },
+    } : undefined,
     serializers: {
       req: (req: RequestWithId) => ({
         id: req.id,
@@ -21,51 +27,43 @@ export const pinoConfig: Params = {
         url: req.url,
         query: req.query,
         params: req.params,
-        // Don't log sensitive data like authorization headers
         headers: {
           'user-agent': req.headers['user-agent'],
           'content-type': req.headers['content-type'],
           'x-request-id': req.headers['x-request-id'],
         },
-        remoteAddress: req.connection?.remoteAddress,
-        remotePort: req.connection?.remotePort,
+        remoteAddress: req.socket?.remoteAddress,
+        remotePort: req.socket?.remotePort,
       }),
-      res: (res: any) => ({
+      res: (res: Response) => ({
         statusCode: res.statusCode,
         headers: {
-          'content-type': res.getHeader ? res.getHeader('content-type') : res.headers?.['content-type'],
-          'content-length': res.getHeader ? res.getHeader('content-length') : res.headers?.['content-length'],
-          'x-request-id': res.getHeader ? res.getHeader('x-request-id') : res.headers?.['x-request-id'],
+          'content-type': res.getHeader('content-type'),
+          'content-length': res.getHeader('content-length'),
         },
       }),
     },
     customProps: (req: RequestWithId) => ({
       requestId: req.id,
-      organizationId: (req as any).user?.organizationId,
-      userId: (req as any).user?.sub,
+      organizationId: req.organization?.id,
+      userId: req.user?.id,
     }),
-    // Auto-logging for HTTP requests
-    autoLogging: {
-      ignore: (req: Request) => {
-        // Don't log health checks and metrics endpoints
-        return req.url === '/health' || req.url === '/api/metrics';
-      },
-    },
-    customLogLevel: (req: Request, res: any, err?: Error) => {
-      if (res.statusCode >= 400 && res.statusCode < 500) {
-        return 'warn';
-      } else if (res.statusCode >= 500 || err) {
-        return 'error';
-      } else if (res.statusCode >= 300 && res.statusCode < 400) {
-        return 'silent';
-      }
+    customLogLevel: (req: RequestWithId, res: Response, err?: Error) => {
+      if (res.statusCode >= 400 && res.statusCode < 500) return 'warn';
+      if (res.statusCode >= 500 || err) return 'error';
+      if (res.statusCode >= 300 && res.statusCode < 400) return 'info';
       return 'info';
     },
-    customSuccessMessage: (req: RequestWithId, res: any) => {
+    customSuccessMessage: (req: RequestWithId, res: Response) => {
       return `${req.method} ${req.url} completed`;
     },
-    customErrorMessage: (req: RequestWithId, res: any, err: Error) => {
+    customErrorMessage: (req: RequestWithId, res: Response, err: Error) => {
       return `${req.method} ${req.url} failed: ${err.message}`;
     },
+    // Enterprise: Include request ID in all logs
+    genReqId: (req: RequestWithId) => req.id || req.headers['x-request-id'] as string,
   },
 };
+
+// Export pinoConfig for compatibility
+export const pinoConfig = loggerConfig;

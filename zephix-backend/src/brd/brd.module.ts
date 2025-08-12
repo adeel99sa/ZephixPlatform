@@ -8,13 +8,13 @@ import { BRDProjectPlanningController } from './controllers/brd-project-planning
 import { BRDService } from './services/brd.service';
 import { BRDAnalysisService } from './services/brd-analysis.service';
 import { BRDRepository } from './repositories/brd.repository';
-import { SharedModule } from '../shared/shared.module';
+// AccessControlModule removed - using built-in NestJS guards instead
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([BRD, BRDAnalysis, GeneratedProjectPlan, UserOrganization]),
-    SharedModule,
+    // AccessControlModule removed - using built-in NestJS guards instead
   ],
   controllers: [BRDController, BRDProjectPlanningController],
   providers: [

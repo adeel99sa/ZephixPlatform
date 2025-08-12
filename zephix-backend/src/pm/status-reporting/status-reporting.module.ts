@@ -2,34 +2,18 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatusReportingController } from './status-reporting.controller';
 import { StatusReportingService } from '../services/status-reporting.service';
-import { StatusReport } from './entities/status-report.entity';
-import { ProjectMetrics } from '../entities/project-metrics.entity';
-import { PerformanceBaseline } from '../entities/performance-baseline.entity';
-import { AlertConfiguration } from '../entities/alert-configuration.entity';
-import { ManualUpdate } from '../entities/manual-update.entity';
-import { StakeholderCommunication } from '../entities/stakeholder-communication.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { TeamMember } from '../../projects/entities/team-member.entity';
-import { SharedModule } from '../../shared/shared.module';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+// AccessControlModule removed - using built-in NestJS guards instead
 
 @Module({
   imports: [
-    SharedModule,
-    TypeOrmModule.forFeature([
-      StatusReport,
-      ProjectMetrics,
-      PerformanceBaseline,
-      AlertConfiguration,
-      ManualUpdate,
-      StakeholderCommunication,
-      Project,
-      TeamMember,
-    ]),
+    // AccessControlModule removed - using built-in NestJS guards instead
+    TypeOrmModule.forFeature([Project, TeamMember, UserOrganization]),
   ],
   controllers: [StatusReportingController],
-  providers: [
-    StatusReportingService,
-  ],
-  exports: [],
+  providers: [StatusReportingService],
+  exports: [StatusReportingService],
 })
 export class StatusReportingModule {}

@@ -80,7 +80,7 @@ describe('OrganizationGuard', () => {
       };
 
       mockRequest.user = mockUser;
-      mockRequest.headers['x-organization-id'] = 'org-123';
+      mockRequest.headers['x-org-id'] = 'org-123';
 
       const result = await guard.canActivate(mockContext);
 
@@ -264,7 +264,7 @@ describe('OrganizationGuard', () => {
     describe('extractOrganizationId', () => {
       it('should return organizationId from params with highest priority', () => {
         mockRequest.params.organizationId = 'org-params';
-        mockRequest.headers['x-organization-id'] = 'org-headers';
+        mockRequest.headers['x-org-id'] = 'org-headers';
         mockRequest.query.organizationId = 'org-query';
         mockRequest.body.organizationId = 'org-body';
 
@@ -274,7 +274,7 @@ describe('OrganizationGuard', () => {
       });
 
       it('should return organizationId from headers when params not available', () => {
-        mockRequest.headers['x-organization-id'] = 'org-headers';
+        mockRequest.headers['x-org-id'] = 'org-headers';
         mockRequest.query.organizationId = 'org-query';
         mockRequest.body.organizationId = 'org-body';
 

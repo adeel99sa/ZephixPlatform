@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
+// AccessControlModule removed - using built-in NestJS guards instead
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 
@@ -119,8 +120,8 @@ if (!(global as any).crypto) {
     
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule,        // First - no dependencies
-    OrganizationsModule, // Second - depends on SharedModule
-    ProjectsModule,      // Third - depends on OrganizationsModule
+    OrganizationsModule, // Third - depends on SharedModule
+    ProjectsModule,      // Fourth - depends on OrganizationsModule
     AuthModule,          // Last - depends on OrganizationsModule and ProjectsModule
     ObservabilityModule,
     HealthModule,
@@ -134,7 +135,7 @@ if (!(global as any).crypto) {
     },
   ],
 })
-export class AppModule implements NestModule {
+export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(RequestIdMiddleware, MetricsMiddleware)

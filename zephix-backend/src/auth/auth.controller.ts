@@ -25,7 +25,7 @@ import {
   VerificationStatusResponseDto 
 } from './dto/email-verification-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
+// Local auth guard removed - using JWT strategy instead
 import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
@@ -104,8 +104,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LocalAuthGuard)
-  async login(@Request() req, @Body() loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto) {
     const result = await this.authService.login(loginDto);
     return {
       message: 'Login successful',
