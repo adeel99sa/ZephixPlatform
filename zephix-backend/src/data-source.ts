@@ -1,3 +1,4 @@
+// src/data-source.ts - Enterprise-Grade PostgreSQL Configuration
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 
@@ -7,7 +8,7 @@ config();
 // Environment configuration for migration
 const dbConfig = {
   url: process.env.DATABASE_URL, // Railway provides this
-  // Fallback for local development
+  // Fallback for local development only when DATABASE_URL is not available
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432', 10),
   username: process.env.DB_USERNAME || 'zephix_user',
@@ -17,11 +18,14 @@ const dbConfig = {
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: dbConfig.host,
-  port: dbConfig.port,
-  username: dbConfig.username,
-  password: dbConfig.password,
-  database: dbConfig.database,
+  // Use DATABASE_URL if available, otherwise fall back to individual parameters
+  ...(dbConfig.url ? { url: dbConfig.url } : {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    username: dbConfig.username,
+    password: dbConfig.password,
+    database: dbConfig.database,
+  }),
   entities: [
     'src/users/entities/*.entity.ts',
     'src/auth/entities/*.entity.ts',
