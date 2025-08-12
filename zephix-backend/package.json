@@ -26,6 +26,8 @@
     "check:user": "node scripts/check-user.js",
     "verify:email": "node scripts/verify-user-email.js",
     "check:email-config": "node scripts/check-email-config.js",
+    "test:login": "node scripts/test-user-login.js",
+    "test:auth:direct": "node scripts/test-user-auth-direct.js",
     "migration:run": "ts-node -r tsconfig-paths/register scripts/run-migrations-production.ts",
     "migration:run:dev": "ts-node -r tsconfig-paths/register scripts/run-migrations.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
