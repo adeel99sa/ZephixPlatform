@@ -44,6 +44,7 @@ import { IntakeForm } from './entities/intake-form.entity';
 import { IntakeSubmission } from './entities/intake-submission.entity';
 import { Project } from '../projects/entities/project.entity';
 import { TeamMember } from '../projects/entities/team-member.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { JiraIntegration } from './integrations/jira.integration';
 import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
@@ -69,6 +70,7 @@ import { FinancialIntegration } from './integrations/financial.integration';
       RiskMonitoring,
       Project,
       TeamMember,
+      UserOrganization,
       // Workflow Framework Entities
       WorkflowTemplate,
       WorkflowInstance,
