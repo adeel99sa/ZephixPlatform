@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserOrganization } from '../entities/user-organization.entity';
 import { Organization } from '../entities/organization.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import { TeamMemberResponseDto, UpdateMemberRoleDto } from '../dto';
 
 @Injectable()
