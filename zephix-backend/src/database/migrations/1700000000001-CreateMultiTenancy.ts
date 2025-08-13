@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateMultiTenancy1755044972000 implements MigrationInterface {
-  name = 'CreateMultiTenancy1755044972000';
+export class CreateMultiTenancy1700000000001 implements MigrationInterface {
+  name = 'CreateMultiTenancy1700000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create Organizations table (handle existing table gracefully)
