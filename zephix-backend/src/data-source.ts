@@ -1,30 +1,34 @@
-import { DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
-import { User } from './modules/users/entities/user.entity';
-import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
+// Load environment variables from .env file
 config();
 
-const configService = new ConfigService();
-
-export const AppDataSource = new DataSource({
+export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
+  
+  // Relying on DATABASE_URL is standard for cloud providers like Railway
   url: process.env.DATABASE_URL,
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-  entities: [
-    User,
-    RefreshToken,
-    'dist/**/*.entity.js',
-    'src/**/*.entity.ts'
-  ],
-  migrations: ['dist/database/migrations/*.js', 'src/database/migrations/*.ts'],
-  subscribers: [],
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+  
+  // Set SSL configuration for production environments
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } 
+    : false,
+  
+  // Log queries only when not in production
+  logging: process.env.NODE_ENV !== 'production',
+  
+  // This is the critical fix. This pattern automatically finds all files
+  // in your project ending in .entity.ts (for dev) or .entity.js (for prod).
+  entities: [__dirname + '/modules/**/*.entity{.ts,.js}'],
+  
+  // A robust path for finding migration files
+  migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+
+  // It's crucial that synchronize is false for production
+  synchronize: false, 
+};
+
+const AppDataSource = new DataSource(dataSourceOptions);
+
+export default AppDataSource;
