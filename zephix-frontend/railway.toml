@@ -2,19 +2,20 @@
 # Explicitly configured to use Dockerfile and prevent npm script auto-detection
 
 [build]
-builder = "nixpacks"
-buildCommand = "npm ci && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "./Dockerfile"
 
 [deploy]
-startCommand = "npm run preview"
+startCommand = ""
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 [environments.production]
-buildCommand = "npm ci && npm run build"
-startCommand = "npm run preview"
+builder = "DOCKERFILE"
+dockerfilePath = "./Dockerfile"
+startCommand = ""
 
 # Environment variables
 [variables]
