@@ -52,7 +52,9 @@ export const LoginPage: React.FC = () => {
       
       setIsSubmitted(true);
       setTimeout(() => {
-        navigate('/dashboard');
+        // Check if there's a return URL from ProtectedRoute
+        const returnUrl = location.state?.from?.pathname || '/dashboard';
+        navigate(returnUrl);
       }, 1500);
     } catch (err: any) {
       if (err.status === 403 && err.message?.includes('Email verification required')) {
