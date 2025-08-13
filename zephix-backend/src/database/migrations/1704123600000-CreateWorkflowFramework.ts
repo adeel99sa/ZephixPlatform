@@ -173,43 +173,43 @@ export class CreateWorkflowFramework1704123600000
     // Add foreign key constraints
     await queryRunner.query(`
       ALTER TABLE "workflow_templates" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_template_organization" 
+      ADD CONSTRAINT "FK_workflow_template_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_organization" 
+      ADD CONSTRAINT "FK_workflow_instance_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_template" 
+      ADD CONSTRAINT "FK_workflow_instance_template" 
       FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_assigned_user" 
+      ADD CONSTRAINT "FK_workflow_instance_assigned_user" 
       FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL
     `);
 
     await queryRunner.query(`
       ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_workflow_instance_creator" 
+      ADD CONSTRAINT "FK_workflow_instance_creator" 
       FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_intake_form_organization" 
+      ADD CONSTRAINT "FK_intake_form_organization" 
       FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT IF NOT EXISTS "FK_intake_form_workflow" 
+      ADD CONSTRAINT "FK_intake_form_workflow" 
       FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL
     `);
 
