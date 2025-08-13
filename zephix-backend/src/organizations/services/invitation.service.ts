@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { Invitation } from '../entities/invitation.entity';
 import { Organization } from '../entities/organization.entity';
 import { UserOrganization } from '../entities/user-organization.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import {
   EmailService,
   InvitationEmailData,

@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EmailVerification } from '../entities/email-verification.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import { EmailService } from '../../shared/services/email.service';
 import { randomBytes } from 'crypto';
 
@@ -141,7 +141,7 @@ export class EmailVerificationService {
     // Update user as verified
     const user = verification.user;
     user.isEmailVerified = true;
-    user.emailVerifiedAt = new Date();
+    user.isEmailVerified = true;
     await this.userRepository.save(user);
 
     this.logger.log(`Email verified for user ${user.email}`);

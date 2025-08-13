@@ -11,7 +11,7 @@ import {
 import { Organization } from '../../organizations/entities/organization.entity';
 import { IntakeForm } from './intake-form.entity';
 import { WorkflowInstance } from './workflow-instance.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 
 export interface SubmissionData {
   formData: Record<string, any>;

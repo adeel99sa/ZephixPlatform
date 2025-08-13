@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { DataSource } from 'typeorm';
 
 // Import all entities that need repository mocking
-import { User } from './users/entities/user.entity';
+import { User } from "./modules/users/entities/user.entity"
 import { Project } from './projects/entities/project.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';

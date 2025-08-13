@@ -14,7 +14,7 @@ import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { AddTeamMemberDto } from '../dto/add-team-member.dto';
 import { UpdateTeamMemberDto } from '../dto/update-team-member.dto';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 
 @Injectable()
 export class ProjectsService {
