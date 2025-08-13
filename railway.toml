@@ -66,6 +66,7 @@ source = "zephix-frontend"
 # Build configuration for React TypeScript with Docker
 [services.frontend.build]
 builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 # Deployment configuration
 [services.frontend.deploy]
