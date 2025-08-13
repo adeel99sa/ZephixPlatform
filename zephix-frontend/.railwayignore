@@ -3,8 +3,8 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
-# Build artifacts
-dist/
+# Build artifacts (keeping dist/ for Railway deployment)
+# dist/
 build/
 *.log
 
