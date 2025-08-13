@@ -12,7 +12,10 @@ export class GitHubIntegration {
     this.org = this.configService.get<string>('GITHUB_ORG') || '';
   }
 
-  async collectRepositoryData(repoName: string, dateRange: { start: Date; end: Date }) {
+  async collectRepositoryData(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       this.logger.log(`Collecting GitHub data for repository ${repoName}`);
 
@@ -34,7 +37,10 @@ export class GitHubIntegration {
     }
   }
 
-  async getCommitMetrics(repoName: string, dateRange: { start: Date; end: Date }) {
+  async getCommitMetrics(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call GitHub API
       const commitData = await this.getMockCommitData(repoName, dateRange);
@@ -45,7 +51,10 @@ export class GitHubIntegration {
     }
   }
 
-  async getPullRequestMetrics(repoName: string, dateRange: { start: Date; end: Date }) {
+  async getPullRequestMetrics(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call GitHub API
       const prData = await this.getMockPullRequestData(repoName, dateRange);
@@ -78,9 +87,12 @@ export class GitHubIntegration {
     }
   }
 
-  private async getMockGitHubData(repoName: string, dateRange: { start: Date; end: Date }) {
+  private async getMockGitHubData(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     return {
       commits: {
@@ -201,7 +213,10 @@ export class GitHubIntegration {
     };
   }
 
-  private async getMockCommitData(repoName: string, dateRange: { start: Date; end: Date }) {
+  private async getMockCommitData(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 156,
       thisWeek: 23,
@@ -227,7 +242,10 @@ export class GitHubIntegration {
     };
   }
 
-  private async getMockPullRequestData(repoName: string, dateRange: { start: Date; end: Date }) {
+  private async getMockPullRequestData(
+    repoName: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       open: 8,
       merged: 34,

@@ -1,16 +1,21 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, Between } from 'typeorm';
 import { IntakeForm } from '../entities/intake-form.entity';
 import { IntakeSubmission } from '../entities/intake-submission.entity';
 import { WorkflowTemplate } from '../entities/workflow-template.entity';
-import { 
-  CreateIntakeFormDto, 
+import {
+  CreateIntakeFormDto,
   UpdateIntakeFormDto,
   IntakeSubmissionDto,
   ProcessIntakeDto,
   SubmissionListQueryDto,
-  BulkSubmissionActionDto
+  BulkSubmissionActionDto,
 } from '../dto/intake-form.dto';
 import { WorkflowTemplateService } from './workflow-template.service';
 import { IntegrationService } from './integration.service';
@@ -36,14 +41,17 @@ export class IntakeFormService {
       order: { createdAt: 'DESC' },
     });
 
-    return forms.map(form => ({
+    return forms.map((form) => ({
       ...form,
       submissionCount: form.submissions?.length || 0,
       lastSubmissionAt: form.analytics?.lastSubmissionAt,
     }));
   }
 
-  async getFormById(organizationId: string, formId: string): Promise<IntakeForm> {
+  async getFormById(
+    organizationId: string,
+    formId: string,
+  ): Promise<IntakeForm> {
     const form = await this.formRepository.findOne({
       where: { id: formId, organizationId },
       relations: ['targetWorkflow', 'submissions'],
@@ -56,13 +64,22 @@ export class IntakeFormService {
     return form;
   }
 
-  async createForm(organizationId: string, createDto: CreateIntakeFormDto, userId: string): Promise<IntakeForm> {
+  async createForm(
+    organizationId: string,
+    createDto: CreateIntakeFormDto,
+    userId: string,
+  ): Promise<IntakeForm> {
     // Generate unique slug if not provided or validate existing slug
-    const slug = await this.generateUniqueSlug(createDto.slug || createDto.name);
+    const slug = await this.generateUniqueSlug(
+      createDto.slug || createDto.name,
+    );
 
     // Validate target workflow if provided
     if (createDto.targetWorkflowId) {
-      await this.workflowService.findById(organizationId, createDto.targetWorkflowId);
+      await this.workflowService.findById(
+        organizationId,
+        createDto.targetWorkflowId,
+      );
     }
 
     // Validate form schema
@@ -79,20 +96,20 @@ export class IntakeFormService {
       },
     } as any);
 
-    return await this.formRepository.save(form) as any;
+    return (await this.formRepository.save(form)) as any;
   }
 
   async updateForm(
-    organizationId: string, 
-    formId: string, 
-    updateDto: UpdateIntakeFormDto
+    organizationId: string,
+    formId: string,
+    updateDto: UpdateIntakeFormDto,
   ): Promise<IntakeForm> {
     const form = await this.getFormById(organizationId, formId);
 
     // Validate slug uniqueness if changed
     if (updateDto.slug && updateDto.slug !== form.slug) {
       const slugExists = await this.formRepository.findOne({
-        where: { slug: updateDto.slug }
+        where: { slug: updateDto.slug },
       });
       if (slugExists) {
         throw new ConflictException('Slug already exists');
@@ -100,8 +117,14 @@ export class IntakeFormService {
     }
 
     // Validate target workflow if changed
-    if (updateDto.targetWorkflowId && updateDto.targetWorkflowId !== form.targetWorkflowId) {
-      await this.workflowService.findById(organizationId, updateDto.targetWorkflowId);
+    if (
+      updateDto.targetWorkflowId &&
+      updateDto.targetWorkflowId !== form.targetWorkflowId
+    ) {
+      await this.workflowService.findById(
+        organizationId,
+        updateDto.targetWorkflowId,
+      );
     }
 
     // Validate form schema if provided
@@ -118,11 +141,13 @@ export class IntakeFormService {
 
     // Check if there are pending submissions
     const pendingSubmissions = await this.submissionRepository.count({
-      where: { formId, status: 'pending' }
+      where: { formId, status: 'pending' },
     });
 
     if (pendingSubmissions > 0) {
-      throw new ConflictException('Cannot delete form with pending submissions');
+      throw new ConflictException(
+        'Cannot delete form with pending submissions',
+      );
     }
 
     await this.formRepository.remove(form);
@@ -144,11 +169,18 @@ export class IntakeFormService {
     return form;
   }
 
-  async submitIntake(slug: string, submissionDto: IntakeSubmissionDto, userId?: string): Promise<IntakeSubmission> {
+  async submitIntake(
+    slug: string,
+    submissionDto: IntakeSubmissionDto,
+    userId?: string,
+  ): Promise<IntakeSubmission> {
     const form = await this.getPublicForm(slug);
 
     // Validate submission data against form schema
-    const validationErrors = this.validateSubmissionData(form, submissionDto.formData);
+    const validationErrors = this.validateSubmissionData(
+      form,
+      submissionDto.formData,
+    );
     if (validationErrors.length > 0) {
       throw new BadRequestException({
         message: 'Validation failed',
@@ -178,7 +210,9 @@ export class IntakeFormService {
       dueDate: submissionDto.dueDate ? new Date(submissionDto.dueDate) : null,
     } as any);
 
-    const savedSubmission = await this.submissionRepository.save(submission) as any;
+    const savedSubmission = (await this.submissionRepository.save(
+      submission,
+    )) as any;
 
     // Update form analytics
     form.incrementSubmissions();
@@ -210,7 +244,7 @@ export class IntakeFormService {
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       dateFrom,
-      dateTo
+      dateTo,
     } = query;
 
     const where: FindOptionsWhere<IntakeSubmission> = {
@@ -240,7 +274,7 @@ export class IntakeFormService {
     if (dateFrom || dateTo) {
       where.createdAt = Between(
         dateFrom ? new Date(dateFrom) : new Date('1970-01-01'),
-        dateTo ? new Date(dateTo) : new Date()
+        dateTo ? new Date(dateTo) : new Date(),
       );
     }
 
@@ -263,10 +297,19 @@ export class IntakeFormService {
     };
   }
 
-  async getSubmissionById(organizationId: string, submissionId: string): Promise<IntakeSubmission> {
+  async getSubmissionById(
+    organizationId: string,
+    submissionId: string,
+  ): Promise<IntakeSubmission> {
     const submission = await this.submissionRepository.findOne({
       where: { id: submissionId, organizationId },
-      relations: ['form', 'submitter', 'assignedUser', 'processor', 'workflowInstance'],
+      relations: [
+        'form',
+        'submitter',
+        'assignedUser',
+        'processor',
+        'workflowInstance',
+      ],
     });
 
     if (!submission) {
@@ -280,12 +323,17 @@ export class IntakeFormService {
     organizationId: string,
     submissionId: string,
     processDto: ProcessIntakeDto,
-    userId: string
+    userId: string,
   ): Promise<IntakeSubmission> {
-    const submission = await this.getSubmissionById(organizationId, submissionId);
+    const submission = await this.getSubmissionById(
+      organizationId,
+      submissionId,
+    );
 
     if (!submission.canBeProcessed()) {
-      throw new BadRequestException('Submission cannot be processed in its current state');
+      throw new BadRequestException(
+        'Submission cannot be processed in its current state',
+      );
     }
 
     // Mark as processing
@@ -300,7 +348,8 @@ export class IntakeFormService {
           {
             templateId: processDto.workflowTemplateId,
             title: processDto.projectTitle || submission.title,
-            description: processDto.projectDescription || submission.description,
+            description:
+              processDto.projectDescription || submission.description,
             data: {
               sourceType: 'intake',
               sourceId: submission.id,
@@ -309,7 +358,7 @@ export class IntakeFormService {
             assignedTo: processDto.assignTo,
             priority: submission.priority as any,
           },
-          userId
+          userId,
         );
 
         submission.workflowInstanceId = workflowInstance.id;
@@ -335,13 +384,16 @@ export class IntakeFormService {
   async bulkAction(
     organizationId: string,
     bulkActionDto: BulkSubmissionActionDto,
-    userId: string
+    userId: string,
   ): Promise<{ success: number; failed: number; errors: string[] }> {
     const results = { success: 0, failed: 0, errors: [] };
 
     for (const submissionId of bulkActionDto.submissionIds) {
       try {
-        const submission = await this.getSubmissionById(organizationId, submissionId);
+        const submission = await this.getSubmissionById(
+          organizationId,
+          submissionId,
+        );
 
         switch (bulkActionDto.action) {
           case 'assign':
@@ -374,7 +426,9 @@ export class IntakeFormService {
         results.success++;
       } catch (error) {
         results.failed++;
-        results.errors.push(`Failed to process ${submissionId}: ${error.message}` as never);
+        results.errors.push(
+          `Failed to process ${submissionId}: ${error.message}` as never,
+        );
       }
     }
 
@@ -383,7 +437,7 @@ export class IntakeFormService {
 
   // Private helper methods
   private async generateUniqueSlug(name: string): Promise<string> {
-    let baseSlug = slugify(name, { lower: true, strict: true });
+    const baseSlug = slugify(name, { lower: true, strict: true });
     let slug = baseSlug;
     let counter = 1;
 
@@ -396,11 +450,19 @@ export class IntakeFormService {
   }
 
   private validateFormSchema(schema: any): void {
-    if (!schema.fields || !Array.isArray(schema.fields) || schema.fields.length === 0) {
+    if (
+      !schema.fields ||
+      !Array.isArray(schema.fields) ||
+      schema.fields.length === 0
+    ) {
       throw new BadRequestException('Form must have at least one field');
     }
 
-    if (!schema.sections || !Array.isArray(schema.sections) || schema.sections.length === 0) {
+    if (
+      !schema.sections ||
+      !Array.isArray(schema.sections) ||
+      schema.sections.length === 0
+    ) {
       throw new BadRequestException('Form must have at least one section');
     }
 
@@ -414,17 +476,22 @@ export class IntakeFormService {
     }
 
     // Validate section field references
-    const allFieldIds = new Set(schema.fields.map(f => f.id));
+    const allFieldIds = new Set(schema.fields.map((f) => f.id));
     for (const section of schema.sections) {
       for (const fieldId of section.fields) {
         if (!allFieldIds.has(fieldId)) {
-          throw new BadRequestException(`Section references unknown field: ${fieldId}`);
+          throw new BadRequestException(
+            `Section references unknown field: ${fieldId}`,
+          );
         }
       }
     }
   }
 
-  private validateSubmissionData(form: IntakeForm, formData: Record<string, any>): string[] {
+  private validateSubmissionData(
+    form: IntakeForm,
+    formData: Record<string, any>,
+  ): string[] {
     const errors: string[] = [];
 
     for (const field of form.formSchema.fields) {
@@ -441,15 +508,26 @@ export class IntakeFormService {
     return errors;
   }
 
-  private extractSubmitterInfo(submissionDto: IntakeSubmissionDto, userId?: string) {
+  private extractSubmitterInfo(
+    submissionDto: IntakeSubmissionDto,
+    userId?: string,
+  ) {
     return {
-      submitterName: submissionDto.submitterName || submissionDto.formData.name || submissionDto.formData.fullName,
-      submitterEmail: submissionDto.submitterEmail || submissionDto.formData.email,
-      submitterPhone: submissionDto.submitterPhone || submissionDto.formData.phone,
+      submitterName:
+        submissionDto.submitterName ||
+        submissionDto.formData.name ||
+        submissionDto.formData.fullName,
+      submitterEmail:
+        submissionDto.submitterEmail || submissionDto.formData.email,
+      submitterPhone:
+        submissionDto.submitterPhone || submissionDto.formData.phone,
     };
   }
 
-  private async processAutoAssignments(form: IntakeForm, submission: IntakeSubmission): Promise<void> {
+  private async processAutoAssignments(
+    form: IntakeForm,
+    submission: IntakeSubmission,
+  ): Promise<void> {
     if (!form.settings.autoAssign?.enabled) {
       return;
     }
@@ -460,7 +538,9 @@ export class IntakeFormService {
     if (form.settings.autoAssign.rules) {
       for (const rule of form.settings.autoAssign.rules) {
         const fieldValue = submission.getFormValue(rule.field);
-        if (this.evaluateAssignmentRule(fieldValue, rule.operator, rule.value)) {
+        if (
+          this.evaluateAssignmentRule(fieldValue, rule.operator, rule.value)
+        ) {
           assignTo = rule.assignTo;
           break;
         }
@@ -477,12 +557,18 @@ export class IntakeFormService {
     }
   }
 
-  private evaluateAssignmentRule(fieldValue: any, operator: string, ruleValue: any): boolean {
+  private evaluateAssignmentRule(
+    fieldValue: any,
+    operator: string,
+    ruleValue: any,
+  ): boolean {
     switch (operator) {
       case 'equals':
         return fieldValue === ruleValue;
       case 'contains':
-        return String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
+        return String(fieldValue)
+          .toLowerCase()
+          .includes(String(ruleValue).toLowerCase());
       case 'greater_than':
         return Number(fieldValue) > Number(ruleValue);
       case 'less_than':
@@ -492,7 +578,10 @@ export class IntakeFormService {
     }
   }
 
-  private async triggerIntegrations(form: IntakeForm, submission: IntakeSubmission): Promise<void> {
+  private async triggerIntegrations(
+    form: IntakeForm,
+    submission: IntakeSubmission,
+  ): Promise<void> {
     const integrations = form.settings.integrations;
     if (!integrations) return;
 
@@ -509,7 +598,10 @@ export class IntakeFormService {
     // Slack webhook
     if (integrations.slackWebhook) {
       try {
-        await this.integrationService.sendSlackNotification(integrations.slackWebhook, payload);
+        await this.integrationService.sendSlackNotification(
+          integrations.slackWebhook,
+          payload,
+        );
         submission.addAutomationResult('integration', {
           type: 'slack',
           endpoint: integrations.slackWebhook,
@@ -528,7 +620,10 @@ export class IntakeFormService {
     // Teams webhook
     if (integrations.teamsWebhook) {
       try {
-        await this.integrationService.sendTeamsNotification(integrations.teamsWebhook, payload);
+        await this.integrationService.sendTeamsNotification(
+          integrations.teamsWebhook,
+          payload,
+        );
         submission.addAutomationResult('integration', {
           type: 'teams',
           endpoint: integrations.teamsWebhook,
@@ -548,7 +643,11 @@ export class IntakeFormService {
     if (integrations.customWebhooks) {
       for (const webhook of integrations.customWebhooks) {
         try {
-          await this.integrationService.sendCustomWebhook(webhook.url, payload, webhook.headers);
+          await this.integrationService.sendCustomWebhook(
+            webhook.url,
+            payload,
+            webhook.headers,
+          );
           submission.addAutomationResult('integration', {
             type: 'custom_webhook',
             endpoint: webhook.url,
@@ -568,7 +667,10 @@ export class IntakeFormService {
     await this.submissionRepository.save(submission);
   }
 
-  private async autoCreateWorkflowInstance(form: IntakeForm, submission: IntakeSubmission): Promise<void> {
+  private async autoCreateWorkflowInstance(
+    form: IntakeForm,
+    submission: IntakeSubmission,
+  ): Promise<void> {
     if (!form.targetWorkflowId) return;
 
     try {
@@ -577,7 +679,9 @@ export class IntakeFormService {
         {
           templateId: form.targetWorkflowId,
           title: submission.title,
-          description: submission.description || `Auto-created from intake form: ${form.name}`,
+          description:
+            submission.description ||
+            `Auto-created from intake form: ${form.name}`,
           data: {
             sourceType: 'intake',
             sourceId: submission.id,
@@ -586,7 +690,7 @@ export class IntakeFormService {
           assignedTo: submission.assignedTo,
           priority: submission.priority as any,
         },
-        submission.submittedBy || 'system'
+        submission.submittedBy || 'system',
       );
 
       submission.workflowInstanceId = workflowInstance.id;

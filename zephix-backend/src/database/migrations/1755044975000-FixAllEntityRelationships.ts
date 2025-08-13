@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixAllEntityRelationships1755044975000 implements MigrationInterface {
+export class FixAllEntityRelationships1755044975000
+  implements MigrationInterface
+{
   name = 'FixAllEntityRelationships1755044975000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -8,16 +10,18 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
 
     // Step 1: Fix projects table - add missing columns
     console.log('📝 Adding missing columns to projects table...');
-    
+
     // Check if columns exist before adding
     const projectColumns = await queryRunner.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'projects'
     `);
-    
-    const existingProjectColumns = projectColumns.map((col: any) => col.column_name);
-    
+
+    const existingProjectColumns = projectColumns.map(
+      (col: any) => col.column_name,
+    );
+
     if (!existingProjectColumns.includes('startDate')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -25,7 +29,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added startDate column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('endDate')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -33,7 +37,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added endDate column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('estimatedEndDate')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -41,7 +45,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added estimatedEndDate column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('organizationId')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -49,7 +53,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added organizationId column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('projectManagerId')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -57,7 +61,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added projectManagerId column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('actualCost')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -65,7 +69,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added actualCost column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('riskLevel')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -73,7 +77,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added riskLevel column to projects');
     }
-    
+
     if (!existingProjectColumns.includes('createdById')) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -84,15 +88,15 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
 
     // Step 2: Fix teams table - add missing projectId column
     console.log('📝 Adding missing projectId column to teams table...');
-    
+
     const teamColumns = await queryRunner.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'teams'
     `);
-    
+
     const existingTeamColumns = teamColumns.map((col: any) => col.column_name);
-    
+
     if (!existingTeamColumns.includes('projectId')) {
       await queryRunner.query(`
         ALTER TABLE teams 
@@ -103,7 +107,7 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
 
     // Step 3: Add foreign key constraints
     console.log('🔗 Adding foreign key constraints...');
-    
+
     // Check if foreign keys exist
     const existingFKs = await queryRunner.query(`
       SELECT 
@@ -119,12 +123,14 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       WHERE tc.constraint_type = 'FOREIGN KEY' 
         AND tc.table_name IN ('projects', 'teams')
     `);
-    
+
     // Add projects.organizationId FK
-    const orgFKExists = existingFKs.find((fk: any) => 
-      fk.column_name === 'organizationId' && fk.foreign_table_name === 'organizations'
+    const orgFKExists = existingFKs.find(
+      (fk: any) =>
+        fk.column_name === 'organizationId' &&
+        fk.foreign_table_name === 'organizations',
     );
-    
+
     if (!orgFKExists) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -133,12 +139,13 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added organizationId foreign key to projects');
     }
-    
+
     // Add projects.createdById FK
-    const createdByFKExists = existingFKs.find((fk: any) => 
-      fk.column_name === 'createdById' && fk.foreign_table_name === 'users'
+    const createdByFKExists = existingFKs.find(
+      (fk: any) =>
+        fk.column_name === 'createdById' && fk.foreign_table_name === 'users',
     );
-    
+
     if (!createdByFKExists) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -147,12 +154,14 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added createdById foreign key to projects');
     }
-    
+
     // Add projects.projectManagerId FK
-    const pmFKExists = existingFKs.find((fk: any) => 
-      fk.column_name === 'projectManagerId' && fk.foreign_table_name === 'users'
+    const pmFKExists = existingFKs.find(
+      (fk: any) =>
+        fk.column_name === 'projectManagerId' &&
+        fk.foreign_table_name === 'users',
     );
-    
+
     if (!pmFKExists) {
       await queryRunner.query(`
         ALTER TABLE projects 
@@ -161,12 +170,13 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
       `);
       console.log('✅ Added projectManagerId foreign key to projects');
     }
-    
+
     // Add teams.projectId FK
-    const teamProjectFKExists = existingFKs.find((fk: any) => 
-      fk.column_name === 'projectId' && fk.foreign_table_name === 'projects'
+    const teamProjectFKExists = existingFKs.find(
+      (fk: any) =>
+        fk.column_name === 'projectId' && fk.foreign_table_name === 'projects',
     );
-    
+
     if (!teamProjectFKExists) {
       await queryRunner.query(`
         ALTER TABLE teams 
@@ -178,27 +188,27 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
 
     // Step 4: Add indexes for performance
     console.log('📊 Adding performance indexes...');
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_projects_organization" ON projects("organizationId")
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_projects_created_by" ON projects("createdById")
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_projects_project_manager" ON projects("projectManagerId")
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_teams_project" ON teams("projectId")
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_projects_status" ON projects(status)
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_projects_priority" ON projects(priority)
     `);
@@ -213,15 +223,15 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
     await queryRunner.query(`
       ALTER TABLE projects DROP CONSTRAINT IF EXISTS "FK_projects_organization"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP CONSTRAINT IF EXISTS "FK_projects_created_by"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP CONSTRAINT IF EXISTS "FK_projects_project_manager"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE teams DROP CONSTRAINT IF EXISTS "FK_teams_project"
     `);
@@ -230,23 +240,23 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_projects_organization"
     `);
-    
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_projects_created_by"
     `);
-    
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_projects_project_manager"
     `);
-    
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_teams_project"
     `);
-    
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_projects_status"
     `);
-    
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_projects_priority"
     `);
@@ -255,35 +265,35 @@ export class FixAllEntityRelationships1755044975000 implements MigrationInterfac
     await queryRunner.query(`
       ALTER TABLE teams DROP COLUMN IF EXISTS "projectId"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "createdById"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "riskLevel"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "actualCost"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "projectManagerId"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "organizationId"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "estimatedEndDate"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "endDate"
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE projects DROP COLUMN IF EXISTS "startDate"
     `);

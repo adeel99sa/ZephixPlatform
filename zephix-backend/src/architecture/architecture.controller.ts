@@ -1,13 +1,29 @@
-import { Controller, Post, Body, UseGuards, Request, Get, Param, Res, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Get,
+  Param,
+  Res,
+  HttpStatus,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ArchitectureDerivationService } from './architecture-derivation.service';
-import { 
-  DeriveArchitectureDto, 
-  ArchitectureReviewDto, 
+import {
+  DeriveArchitectureDto,
+  ArchitectureReviewDto,
   ArchitectureDerivationResponseDto,
-  ArchitectureBundleResponseDto 
+  ArchitectureBundleResponseDto,
 } from './dto/architecture-derivation.dto';
 import { MetricsService } from '../observability/metrics.service';
 import { LoggerService } from '../observability/logger.service';
@@ -26,18 +42,21 @@ export class ArchitectureController {
     private loggerService: LoggerService,
     private telemetryService: TelemetryService,
   ) {
-    this.logger = this.loggerService.createServiceLogger('ArchitectureController');
+    this.logger = this.loggerService.createServiceLogger(
+      'ArchitectureController',
+    );
   }
 
   @Post('derive')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Derive architecture from BRD',
-    description: 'Analyze a Business Requirements Document and generate comprehensive architecture artifacts including drivers, constraints, options, C4 diagrams, ADRs, and threat model.'
+    description:
+      'Analyze a Business Requirements Document and generate comprehensive architecture artifacts including drivers, constraints, options, C4 diagrams, ADRs, and threat model.',
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Architecture successfully derived',
-    type: ArchitectureDerivationResponseDto 
+    type: ArchitectureDerivationResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid BRD data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -69,12 +88,17 @@ export class ArchitectureController {
           });
 
           const startTime = Date.now();
-          const derivation = await this.architectureService.deriveArchitecture(deriveDto);
+          const derivation =
+            await this.architectureService.deriveArchitecture(deriveDto);
           const duration = Date.now() - startTime;
 
           // Record metrics
-          this.metricsService.incrementLlmRequests('anthropic', 'claude-3-sonnet', 'success');
-          
+          this.metricsService.incrementLlmRequests(
+            'anthropic',
+            'claude-3-sonnet',
+            'success',
+          );
+
           logger.info('Architecture derivation completed');
 
           // Return response with 202 status for async processing
@@ -84,11 +108,13 @@ export class ArchitectureController {
             message: 'Architecture derivation completed successfully',
             ...derivation,
           });
-
         } catch (error) {
-          this.metricsService.incrementError('architecture_derivation', 'architecture-controller');
+          this.metricsService.incrementError(
+            'architecture_derivation',
+            'architecture-controller',
+          );
           this.telemetryService.recordException(error);
-          
+
           logger.error('Architecture derivation failed', error);
 
           res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
@@ -102,21 +128,25 @@ export class ArchitectureController {
       {
         'operation.name': 'derive-architecture',
         'brd.id': deriveDto.id,
-      }
+      },
     );
   }
 
   @Get(':id/bundle')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get architecture bundle',
-    description: 'Retrieve the complete architecture bundle including summary, diagrams, ADRs, and risk analysis.'
+    description:
+      'Retrieve the complete architecture bundle including summary, diagrams, ADRs, and risk analysis.',
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Architecture bundle retrieved successfully',
-    type: ArchitectureBundleResponseDto 
+    type: ArchitectureBundleResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Architecture derivation not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Architecture derivation not found',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getArchitectureBundle(
     @Param('id', ParseUUIDPipe) derivationId: string,
@@ -147,23 +177,32 @@ export class ArchitectureController {
             key_drivers: [],
             constraints: [],
             architecture_options: [],
-            selected_option: { option: 'A', rationale: 'Mock', decision_criteria: [] },
+            selected_option: {
+              option: 'A',
+              rationale: 'Mock',
+              decision_criteria: [],
+            },
             c4_diagrams: { context: '', container: '', component: '' },
             adrs: [],
             threat_model: [],
             open_questions: [],
           } as any;
 
-          const bundle = await this.architectureService.generateArchitectureBundle(mockDerivation);
+          const bundle =
+            await this.architectureService.generateArchitectureBundle(
+              mockDerivation,
+            );
 
           logger.info('Architecture bundle retrieved successfully');
 
           return bundle;
-
         } catch (error) {
-          this.metricsService.incrementError('architecture_bundle_retrieval', 'architecture-controller');
+          this.metricsService.incrementError(
+            'architecture_bundle_retrieval',
+            'architecture-controller',
+          );
           this.telemetryService.recordException(error);
-          
+
           logger.error('Failed to retrieve architecture bundle', error);
 
           throw error;
@@ -172,17 +211,21 @@ export class ArchitectureController {
       {
         'operation.name': 'get-architecture-bundle',
         'derivation.id': derivationId,
-      }
+      },
     );
   }
 
   @Post(':id/review')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Review architecture derivation',
-    description: 'Submit a review for an architecture derivation (approve, request changes, or reject).'
+    description:
+      'Submit a review for an architecture derivation (approve, request changes, or reject).',
   })
   @ApiResponse({ status: 200, description: 'Review submitted successfully' })
-  @ApiResponse({ status: 404, description: 'Architecture derivation not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Architecture derivation not found',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async reviewArchitecture(
@@ -218,8 +261,12 @@ export class ArchitectureController {
 
           const reviewResult = {
             id: derivationId,
-            status: reviewDto.decision === 'approve' ? 'approved' : 
-                   reviewDto.decision === 'request_changes' ? 'changes_requested' : 'rejected',
+            status:
+              reviewDto.decision === 'approve'
+                ? 'approved'
+                : reviewDto.decision === 'request_changes'
+                  ? 'changes_requested'
+                  : 'rejected',
             reviewed_by: req.user?.id,
             reviewed_at: new Date().toISOString(),
             comments: reviewDto.comments,
@@ -229,17 +276,23 @@ export class ArchitectureController {
           logger.info('Architecture review processed successfully');
 
           // Record metrics
-          this.metricsService.incrementLlmRequests('anthropic', 'claude-3-sonnet', 'success');
+          this.metricsService.incrementLlmRequests(
+            'anthropic',
+            'claude-3-sonnet',
+            'success',
+          );
 
           return {
             message: 'Review submitted successfully',
             ...reviewResult,
           };
-
         } catch (error) {
-          this.metricsService.incrementError('architecture_review', 'architecture-controller');
+          this.metricsService.incrementError(
+            'architecture_review',
+            'architecture-controller',
+          );
           this.telemetryService.recordException(error);
-          
+
           logger.error('Architecture review failed', error);
 
           throw error;
@@ -249,18 +302,28 @@ export class ArchitectureController {
         'operation.name': 'review-architecture',
         'derivation.id': derivationId,
         'review.decision': reviewDto.decision,
-      }
+      },
     );
   }
 
   @Post(':id/publish')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Publish approved architecture',
-    description: 'Publish an approved architecture derivation, making it available for project creation and export.'
+    description:
+      'Publish an approved architecture derivation, making it available for project creation and export.',
   })
-  @ApiResponse({ status: 200, description: 'Architecture published successfully' })
-  @ApiResponse({ status: 404, description: 'Architecture derivation not found' })
-  @ApiResponse({ status: 400, description: 'Architecture not approved for publishing' })
+  @ApiResponse({
+    status: 200,
+    description: 'Architecture published successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Architecture derivation not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Architecture not approved for publishing',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async publishArchitecture(
     @Param('id', ParseUUIDPipe) derivationId: string,
@@ -305,11 +368,13 @@ export class ArchitectureController {
             message: 'Architecture published successfully',
             ...publishResult,
           };
-
         } catch (error) {
-          this.metricsService.incrementError('architecture_publish', 'architecture-controller');
+          this.metricsService.incrementError(
+            'architecture_publish',
+            'architecture-controller',
+          );
           this.telemetryService.recordException(error);
-          
+
           logger.error('Architecture publishing failed', error);
 
           throw error;
@@ -318,7 +383,7 @@ export class ArchitectureController {
       {
         'operation.name': 'publish-architecture',
         'derivation.id': derivationId,
-      }
+      },
     );
   }
 }

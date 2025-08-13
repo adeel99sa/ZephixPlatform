@@ -1,4 +1,14 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { RiskResponse } from './risk-response.entity';
@@ -29,9 +39,20 @@ export class Risk {
   @Column('text')
   description: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ['technical', 'resource', 'schedule', 'budget', 'scope', 'quality', 'external', 'stakeholder', 'regulatory', 'market'],
+  @Column({
+    type: 'enum',
+    enum: [
+      'technical',
+      'resource',
+      'schedule',
+      'budget',
+      'scope',
+      'quality',
+      'external',
+      'stakeholder',
+      'regulatory',
+      'market',
+    ],
   })
   category: string;
 
@@ -56,17 +77,24 @@ export class Risk {
   @Column('decimal', { precision: 4, scale: 1 })
   riskScore: number; // Calculated: probability * impact
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['very-low', 'low', 'medium', 'high', 'very-high'],
   })
   riskLevel: string;
 
   // Risk Status and Lifecycle
-  @Column({ 
-    type: 'enum', 
-    enum: ['identified', 'active', 'monitoring', 'resolved', 'closed', 'escalated'],
-    default: 'identified'
+  @Column({
+    type: 'enum',
+    enum: [
+      'identified',
+      'active',
+      'monitoring',
+      'resolved',
+      'closed',
+      'escalated',
+    ],
+    default: 'identified',
   })
   status: string;
 
@@ -116,10 +144,16 @@ export class Risk {
   };
 
   // Risk Source and Confidence
-  @Column({ 
-    type: 'enum', 
-    enum: ['ai-identified', 'manual-entry', 'stakeholder-feedback', 'historical-analysis', 'external-scan'],
-    default: 'manual-entry'
+  @Column({
+    type: 'enum',
+    enum: [
+      'ai-identified',
+      'manual-entry',
+      'stakeholder-feedback',
+      'historical-analysis',
+      'external-scan',
+    ],
+    default: 'manual-entry',
   })
   source: string;
 
@@ -163,9 +197,9 @@ export class Risk {
   // @JoinColumn({ name: 'projectId' })
   // project: Project;
 
-  @OneToMany(() => RiskResponse, response => response.risk)
+  @OneToMany(() => RiskResponse, (response) => response.risk)
   responses: RiskResponse[];
 
-  @OneToMany(() => RiskMonitoring, monitoring => monitoring.risk)
+  @OneToMany(() => RiskMonitoring, (monitoring) => monitoring.risk)
   monitoring: RiskMonitoring[];
 }

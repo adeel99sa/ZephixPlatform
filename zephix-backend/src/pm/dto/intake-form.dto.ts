@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsObject, IsArray, ValidateNested, IsUUID, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsObject,
+  IsArray,
+  ValidateNested,
+  IsUUID,
+  IsEmail,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -11,10 +21,36 @@ export class FormFieldDto {
   @IsString()
   label: string;
 
-  @ApiProperty({ 
-    enum: ['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'file', 'checkbox', 'radio', 'url', 'email', 'phone'] 
+  @ApiProperty({
+    enum: [
+      'text',
+      'textarea',
+      'number',
+      'date',
+      'select',
+      'multiselect',
+      'file',
+      'checkbox',
+      'radio',
+      'url',
+      'email',
+      'phone',
+    ],
   })
-  @IsEnum(['text', 'textarea', 'number', 'date', 'select', 'multiselect', 'file', 'checkbox', 'radio', 'url', 'email', 'phone'])
+  @IsEnum([
+    'text',
+    'textarea',
+    'number',
+    'date',
+    'select',
+    'multiselect',
+    'file',
+    'checkbox',
+    'radio',
+    'url',
+    'email',
+    'phone',
+  ])
   type: string;
 
   @ApiProperty()
@@ -55,7 +91,12 @@ export class FormFieldDto {
   @IsOptional()
   conditional?: {
     field: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
+    operator:
+      | 'equals'
+      | 'not_equals'
+      | 'contains'
+      | 'greater_than'
+      | 'less_than';
     value: any;
   };
 }
@@ -364,7 +405,9 @@ export class SubmissionListQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: ['pending', 'processing', 'processed', 'rejected', 'cancelled'] })
+  @ApiPropertyOptional({
+    enum: ['pending', 'processing', 'processed', 'rejected', 'cancelled'],
+  })
   @IsOptional()
   @IsEnum(['pending', 'processing', 'processed', 'rejected', 'cancelled'])
   status?: string;
@@ -422,7 +465,9 @@ export class BulkSubmissionActionDto {
   @IsArray()
   submissionIds: string[];
 
-  @ApiProperty({ enum: ['assign', 'process', 'reject', 'delete', 'change_priority'] })
+  @ApiProperty({
+    enum: ['assign', 'process', 'reject', 'delete', 'change_priority'],
+  })
   @IsEnum(['assign', 'process', 'reject', 'delete', 'change_priority'])
   action: string;
 

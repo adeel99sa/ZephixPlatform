@@ -1,4 +1,10 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
 export class CreateDashboardSystem1710000000000 implements MigrationInterface {
   name = 'CreateDashboardSystem1710000000000';
@@ -344,7 +350,14 @@ export class CreateDashboardSystem1710000000000 implements MigrationInterface {
           {
             name: 'size',
             type: 'enum',
-            enum: ['small', 'medium', 'large', 'xlarge', 'full_width', 'custom'],
+            enum: [
+              'small',
+              'medium',
+              'large',
+              'xlarge',
+              'full_width',
+              'custom',
+            ],
             default: "'medium'",
           },
           {
@@ -767,10 +780,15 @@ export class CreateDashboardSystem1710000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys first
-    const dashboardPermissionsTable = await queryRunner.getTable('dashboard_permissions');
-    const dashboardWidgetsTable = await queryRunner.getTable('dashboard_widgets');
+    const dashboardPermissionsTable = await queryRunner.getTable(
+      'dashboard_permissions',
+    );
+    const dashboardWidgetsTable =
+      await queryRunner.getTable('dashboard_widgets');
     const dashboardsTable = await queryRunner.getTable('dashboards');
-    const dashboardTemplatesTable = await queryRunner.getTable('dashboard_templates');
+    const dashboardTemplatesTable = await queryRunner.getTable(
+      'dashboard_templates',
+    );
 
     if (dashboardPermissionsTable) {
       const foreignKeys = dashboardPermissionsTable.foreignKeys;

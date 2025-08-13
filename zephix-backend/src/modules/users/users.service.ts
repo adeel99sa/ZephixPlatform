@@ -15,7 +15,9 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email: email.toLowerCase() } });
+    return this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
   }
 
   async create(userData: Partial<User>): Promise<User> {

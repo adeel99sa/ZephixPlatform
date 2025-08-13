@@ -5,26 +5,18 @@ import { EmailService } from './services/email.service';
 
 /**
  * SharedModule
- * 
+ *
  * Centralizes shared stateless services that are used across multiple modules.
  * This module no longer contains guards or data layer dependencies to avoid
  * circular dependencies and maintain clean separation of concerns.
- * 
+ *
  * Services included:
  * - ClaudeService: AI service for LLM interactions
  * - LLMProviderService: LLM provider with data retention controls
  * - EmailService: Email sending service for notifications
  */
 @Module({
-  providers: [
-    LLMProviderService,
-    ClaudeService,
-    EmailService,
-  ],
-  exports: [
-    LLMProviderService,
-    ClaudeService,
-    EmailService,
-  ],
+  providers: [LLMProviderService, ClaudeService, EmailService],
+  exports: [LLMProviderService, ClaudeService, EmailService],
 })
 export class SharedModule {}

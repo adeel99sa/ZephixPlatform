@@ -1,5 +1,10 @@
 import { Controller, Get, Header } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiExcludeEndpoint } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiExcludeEndpoint,
+} from '@nestjs/swagger';
 import { MetricsService } from './metrics.service';
 
 @ApiTags('Observability')
@@ -11,7 +16,8 @@ export class MetricsController {
   @ApiExcludeEndpoint() // Exclude from Swagger docs for security
   @ApiOperation({
     summary: 'Prometheus metrics endpoint',
-    description: 'Exposes application metrics in Prometheus format for monitoring and alerting',
+    description:
+      'Exposes application metrics in Prometheus format for monitoring and alerting',
   })
   @ApiResponse({
     status: 200,
@@ -39,7 +45,8 @@ brd_operations_total{operation="create",status="success",organizationId="org-1"}
   @Get('health/metrics')
   @ApiOperation({
     summary: 'Metrics health check',
-    description: 'Returns basic health information about the metrics collection system',
+    description:
+      'Returns basic health information about the metrics collection system',
   })
   @ApiResponse({
     status: 200,

@@ -81,20 +81,35 @@ export class StatusReportingService {
     userId: string,
   ): Promise<StatusReportOutput> {
     try {
-      this.logger.log(`Generating status report for project ${input.projectId}`);
+      this.logger.log(
+        `Generating status report for project ${input.projectId}`,
+      );
 
       // 1. Collect data from multiple sources
-      const projectData = await this.collectProjectData(input.projectId, input.reportingPeriod);
-      
+      const projectData = await this.collectProjectData(
+        input.projectId,
+        input.reportingPeriod,
+      );
+
       // 2. Analyze performance metrics
-      const performanceAnalysis = await this.analyzePerformance(input.projectId, input.reportingPeriod);
-      
+      const performanceAnalysis = await this.analyzePerformance(
+        input.projectId,
+        input.reportingPeriod,
+      );
+
       // 3. Generate AI-powered insights
-      const aiInsights = await this.generateAIInsights(projectData, performanceAnalysis, input.stakeholderAudience);
-      
+      const aiInsights = await this.generateAIInsights(
+        projectData,
+        performanceAnalysis,
+        input.stakeholderAudience,
+      );
+
       // 4. Calculate health score and status
-      const healthMetrics = await this.calculateHealthMetrics(input.projectId, performanceAnalysis);
-      
+      const healthMetrics = await this.calculateHealthMetrics(
+        input.projectId,
+        performanceAnalysis,
+      );
+
       // 5. Generate stakeholder-specific content
       const stakeholderContent = await this.generateStakeholderContent(
         projectData,
@@ -136,15 +151,19 @@ export class StatusReportingService {
         costPerformanceIndex: performanceAnalysis.costPerformanceIndex,
         schedulePerformanceIndex: performanceAnalysis.schedulePerformanceIndex,
         createdBy: userId,
-        summary: stakeholderContent.executiveSummary.keyAccomplishments.join(', '),
+        summary:
+          stakeholderContent.executiveSummary.keyAccomplishments.join(', '),
         accomplishments: stakeholderContent.achievements.milestones.join(', '),
         challenges: stakeholderContent.riskAndIssues.criticalRisks.join(', '),
-        nextSteps: stakeholderContent.executiveSummary.nextPeriodFocus.join(', '),
-        risksIssues: stakeholderContent.riskAndIssues.mitigationStrategies.join(', '),
+        nextSteps:
+          stakeholderContent.executiveSummary.nextPeriodFocus.join(', '),
+        risksIssues:
+          stakeholderContent.riskAndIssues.mitigationStrategies.join(', '),
         schedulePerformance: performanceAnalysis.schedulePerformanceIndex,
         budgetPerformance: performanceAnalysis.costPerformanceIndex,
         scopePerformance: performanceAnalysis.scopeCompletion,
-        qualityPerformance: performanceAnalysis.qualityMetrics?.overallQuality || 0.8,
+        qualityPerformance:
+          performanceAnalysis.qualityMetrics?.overallQuality || 0.8,
         resourcePerformance: 0.8, // Placeholder
         stakeholderSatisfaction: 0.8, // Placeholder
         teamSatisfaction: 0.8, // Placeholder
@@ -154,7 +173,9 @@ export class StatusReportingService {
 
       const savedReport = await this.statusReportRepository.save(statusReport);
 
-      this.logger.log(`Status report generated successfully: ${savedReport.id}`);
+      this.logger.log(
+        `Status report generated successfully: ${savedReport.id}`,
+      );
 
       return {
         reportId: savedReport.id,
@@ -193,7 +214,10 @@ export class StatusReportingService {
     }
   }
 
-  async getPerformanceTrends(projectId: string, period: string = '30'): Promise<any[]> {
+  async getPerformanceTrends(
+    projectId: string,
+    period: string = '30',
+  ): Promise<any[]> {
     try {
       const endDate = new Date();
       const startDate = new Date();
@@ -217,7 +241,11 @@ export class StatusReportingService {
     }
   }
 
-  async exportReport(reportId: string, format: string, stakeholderType: string): Promise<any> {
+  async exportReport(
+    reportId: string,
+    format: string,
+    stakeholderType: string,
+  ): Promise<any> {
     try {
       const report = await this.statusReportRepository.findOne({
         where: { id: reportId },
@@ -228,7 +256,11 @@ export class StatusReportingService {
       }
 
       // Generate export based on format and stakeholder type
-      const exportData = await this.generateExport(report, format, stakeholderType);
+      const exportData = await this.generateExport(
+        report,
+        format,
+        stakeholderType,
+      );
 
       return {
         success: true,
@@ -242,7 +274,10 @@ export class StatusReportingService {
     }
   }
 
-  private async collectProjectData(projectId: string, reportingPeriod: any): Promise<any> {
+  private async collectProjectData(
+    projectId: string,
+    reportingPeriod: any,
+  ): Promise<any> {
     // Collect data from multiple sources
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
@@ -268,15 +303,16 @@ export class StatusReportingService {
       },
     });
 
-    const stakeholderCommunications = await this.stakeholderCommunicationRepository.find({
-      where: {
-        projectId,
-        createdAt: {
-          $gte: new Date(reportingPeriod.startDate),
-          $lte: new Date(reportingPeriod.endDate),
-        } as any,
-      },
-    });
+    const stakeholderCommunications =
+      await this.stakeholderCommunicationRepository.find({
+        where: {
+          projectId,
+          createdAt: {
+            $gte: new Date(reportingPeriod.startDate),
+            $lte: new Date(reportingPeriod.endDate),
+          } as any,
+        },
+      });
 
     return {
       project,
@@ -286,7 +322,10 @@ export class StatusReportingService {
     };
   }
 
-  private async analyzePerformance(projectId: string, reportingPeriod: any): Promise<any> {
+  private async analyzePerformance(
+    projectId: string,
+    reportingPeriod: any,
+  ): Promise<any> {
     const metrics = await this.projectMetricsRepository.find({
       where: {
         projectId,
@@ -313,11 +352,19 @@ export class StatusReportingService {
     };
   }
 
-  private async generateAIInsights(projectData: any, performanceAnalysis: any, stakeholderAudience: string): Promise<any> {
-    const prompt = this.buildAIPrompt(projectData, performanceAnalysis, stakeholderAudience);
-    
+  private async generateAIInsights(
+    projectData: any,
+    performanceAnalysis: any,
+    stakeholderAudience: string,
+  ): Promise<any> {
+    const prompt = this.buildAIPrompt(
+      projectData,
+      performanceAnalysis,
+      stakeholderAudience,
+    );
+
     const aiResponse = await this.claudeService.analyzeProjectData(prompt);
-    
+
     return {
       predictiveInsights: aiResponse.predictiveInsights,
       recommendations: aiResponse.recommendations,
@@ -326,7 +373,10 @@ export class StatusReportingService {
     };
   }
 
-  private async calculateHealthMetrics(projectId: string, performanceAnalysis: any): Promise<{
+  private async calculateHealthMetrics(
+    projectId: string,
+    performanceAnalysis: any,
+  ): Promise<{
     healthScore: number;
     overallStatus: 'green' | 'yellow' | 'red';
     activeRisks: number;
@@ -334,9 +384,10 @@ export class StatusReportingService {
   }> {
     // Calculate overall health score based on multiple factors
     const healthScore = this.calculateOverallHealthScore(performanceAnalysis);
-    
-    const overallStatus: 'green' | 'yellow' | 'red' = healthScore >= 80 ? 'green' : healthScore >= 60 ? 'yellow' : 'red';
-    
+
+    const overallStatus: 'green' | 'yellow' | 'red' =
+      healthScore >= 80 ? 'green' : healthScore >= 60 ? 'yellow' : 'red';
+
     return {
       healthScore,
       overallStatus,
@@ -354,25 +405,52 @@ export class StatusReportingService {
     // Generate content tailored to specific stakeholder audience
     switch (stakeholderAudience) {
       case 'executive':
-        return this.generateExecutiveContent(projectData, performanceAnalysis, aiInsights);
+        return this.generateExecutiveContent(
+          projectData,
+          performanceAnalysis,
+          aiInsights,
+        );
       case 'sponsor':
-        return this.generateSponsorContent(projectData, performanceAnalysis, aiInsights);
+        return this.generateSponsorContent(
+          projectData,
+          performanceAnalysis,
+          aiInsights,
+        );
       case 'team':
-        return this.generateTeamContent(projectData, performanceAnalysis, aiInsights);
+        return this.generateTeamContent(
+          projectData,
+          performanceAnalysis,
+          aiInsights,
+        );
       case 'client':
-        return this.generateClientContent(projectData, performanceAnalysis, aiInsights);
+        return this.generateClientContent(
+          projectData,
+          performanceAnalysis,
+          aiInsights,
+        );
       default:
-        return this.generateGeneralContent(projectData, performanceAnalysis, aiInsights);
+        return this.generateGeneralContent(
+          projectData,
+          performanceAnalysis,
+          aiInsights,
+        );
     }
   }
 
-  private generateExecutiveContent(projectData: any, performanceAnalysis: any, aiInsights: any): any {
+  private generateExecutiveContent(
+    projectData: any,
+    performanceAnalysis: any,
+    aiInsights: any,
+  ): any {
     return {
       executiveSummary: {
         overallStatus: performanceAnalysis.overallStatus,
         healthScore: performanceAnalysis.healthScore,
         keyAccomplishments: this.extractKeyAccomplishments(projectData),
-        criticalIssues: this.extractCriticalIssues(projectData, performanceAnalysis),
+        criticalIssues: this.extractCriticalIssues(
+          projectData,
+          performanceAnalysis,
+        ),
         nextPeriodFocus: aiInsights.predictiveInsights.nextPeriodFocus,
         executiveActions: aiInsights.recommendations.executiveActions,
       },
@@ -395,13 +473,20 @@ export class StatusReportingService {
     };
   }
 
-  private generateSponsorContent(projectData: any, performanceAnalysis: any, aiInsights: any): any {
+  private generateSponsorContent(
+    projectData: any,
+    performanceAnalysis: any,
+    aiInsights: any,
+  ): any {
     return {
       executiveSummary: {
         overallStatus: performanceAnalysis.overallStatus,
         healthScore: performanceAnalysis.healthScore,
         keyAccomplishments: this.extractKeyAccomplishments(projectData),
-        criticalIssues: this.extractCriticalIssues(projectData, performanceAnalysis),
+        criticalIssues: this.extractCriticalIssues(
+          projectData,
+          performanceAnalysis,
+        ),
         nextPeriodFocus: aiInsights.predictiveInsights.nextPeriodFocus,
         executiveActions: aiInsights.recommendations.sponsorActions,
       },
@@ -424,13 +509,20 @@ export class StatusReportingService {
     };
   }
 
-  private generateTeamContent(projectData: any, performanceAnalysis: any, aiInsights: any): any {
+  private generateTeamContent(
+    projectData: any,
+    performanceAnalysis: any,
+    aiInsights: any,
+  ): any {
     return {
       executiveSummary: {
         overallStatus: performanceAnalysis.overallStatus,
         healthScore: performanceAnalysis.healthScore,
         keyAccomplishments: this.extractKeyAccomplishments(projectData),
-        criticalIssues: this.extractCriticalIssues(projectData, performanceAnalysis),
+        criticalIssues: this.extractCriticalIssues(
+          projectData,
+          performanceAnalysis,
+        ),
         nextPeriodFocus: aiInsights.predictiveInsights.nextPeriodFocus,
         executiveActions: aiInsights.recommendations.teamActions,
       },
@@ -453,13 +545,20 @@ export class StatusReportingService {
     };
   }
 
-  private generateClientContent(projectData: any, performanceAnalysis: any, aiInsights: any): any {
+  private generateClientContent(
+    projectData: any,
+    performanceAnalysis: any,
+    aiInsights: any,
+  ): any {
     return {
       executiveSummary: {
         overallStatus: performanceAnalysis.overallStatus,
         healthScore: performanceAnalysis.healthScore,
         keyAccomplishments: this.extractKeyAccomplishments(projectData),
-        criticalIssues: this.extractCriticalIssues(projectData, performanceAnalysis),
+        criticalIssues: this.extractCriticalIssues(
+          projectData,
+          performanceAnalysis,
+        ),
         nextPeriodFocus: aiInsights.predictiveInsights.nextPeriodFocus,
         executiveActions: aiInsights.recommendations.clientActions,
       },
@@ -482,13 +581,20 @@ export class StatusReportingService {
     };
   }
 
-  private generateGeneralContent(projectData: any, performanceAnalysis: any, aiInsights: any): any {
+  private generateGeneralContent(
+    projectData: any,
+    performanceAnalysis: any,
+    aiInsights: any,
+  ): any {
     return {
       executiveSummary: {
         overallStatus: performanceAnalysis.overallStatus,
         healthScore: performanceAnalysis.healthScore,
         keyAccomplishments: this.extractKeyAccomplishments(projectData),
-        criticalIssues: this.extractCriticalIssues(projectData, performanceAnalysis),
+        criticalIssues: this.extractCriticalIssues(
+          projectData,
+          performanceAnalysis,
+        ),
         nextPeriodFocus: aiInsights.predictiveInsights.nextPeriodFocus,
         executiveActions: aiInsights.recommendations.generalActions,
       },
@@ -511,7 +617,11 @@ export class StatusReportingService {
     };
   }
 
-  private buildAIPrompt(projectData: any, performanceAnalysis: any, stakeholderAudience: string): string {
+  private buildAIPrompt(
+    projectData: any,
+    performanceAnalysis: any,
+    stakeholderAudience: string,
+  ): string {
     return `
     Analyze the following project data and generate intelligent insights for ${stakeholderAudience} stakeholders:
     
@@ -542,14 +652,14 @@ export class StatusReportingService {
     const weights = {
       schedule: 0.25,
       budget: 0.25,
-      scope: 0.20,
+      scope: 0.2,
       quality: 0.15,
       risk: 0.15,
     };
 
     let healthScore = 0;
     for (const [factor, value] of Object.entries(factors)) {
-      healthScore += (value * weights[factor as keyof typeof weights]);
+      healthScore += value * weights[factor as keyof typeof weights];
     }
 
     return Math.round(healthScore * 100);
@@ -585,7 +695,7 @@ export class StatusReportingService {
     return {
       overallQuality: 0.85,
       defectRate: 0.05,
-      testCoverage: 0.90,
+      testCoverage: 0.9,
     };
   }
 
@@ -608,7 +718,10 @@ export class StatusReportingService {
     ];
   }
 
-  private extractCriticalIssues(projectData: any, performanceAnalysis: any): string[] {
+  private extractCriticalIssues(
+    projectData: any,
+    performanceAnalysis: any,
+  ): string[] {
     // Extract critical issues from project data and performance analysis
     return [
       'Resource constraints affecting timeline',
@@ -646,10 +759,12 @@ export class StatusReportingService {
   }
 
   private aggregateByType(metrics: any[], type: string): any {
-    const typeMetrics = metrics.filter(m => m.metricType === type);
+    const typeMetrics = metrics.filter((m) => m.metricType === type);
     return {
       count: typeMetrics.length,
-      average: typeMetrics.reduce((sum, m) => sum + m.metricValue, 0) / typeMetrics.length,
+      average:
+        typeMetrics.reduce((sum, m) => sum + m.metricValue, 0) /
+        typeMetrics.length,
       latest: typeMetrics[0]?.metricValue,
     };
   }
@@ -679,7 +794,7 @@ export class StatusReportingService {
 
   private analyzeTrends(metrics: any[]): any[] {
     // Analyze trends from metrics
-    return metrics.map(metric => ({
+    return metrics.map((metric) => ({
       date: metric.metricDate,
       type: metric.metricType,
       value: metric.metricValue,
@@ -687,7 +802,11 @@ export class StatusReportingService {
     }));
   }
 
-  private async generateExport(report: any, format: string, stakeholderType: string): Promise<any> {
+  private async generateExport(
+    report: any,
+    format: string,
+    stakeholderType: string,
+  ): Promise<any> {
     // Generate export file
     return {
       downloadUrl: `/api/pm/status-reporting/exports/${report.id}.${format}`,

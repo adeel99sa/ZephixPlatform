@@ -10,7 +10,11 @@ import { Repository } from 'typeorm';
 import { Organization } from '../entities/organization.entity';
 import { UserOrganization } from '../entities/user-organization.entity';
 import { User } from '../../users/entities/user.entity';
-import { CreateOrganizationDto, UpdateOrganizationDto, InviteUserDto } from '../dto';
+import {
+  CreateOrganizationDto,
+  UpdateOrganizationDto,
+  InviteUserDto,
+} from '../dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -23,7 +27,10 @@ export class OrganizationsService {
     private userRepository: Repository<User>,
   ) {}
 
-  async create(createOrgDto: CreateOrganizationDto, creatorUserId: string): Promise<Organization> {
+  async create(
+    createOrgDto: CreateOrganizationDto,
+    creatorUserId: string,
+  ): Promise<Organization> {
     // Generate slug if not provided
     let slug = createOrgDto.slug;
     if (!slug) {
@@ -31,7 +38,9 @@ export class OrganizationsService {
     }
 
     // Check if slug already exists
-    const existingOrg = await this.organizationRepository.findOne({ where: { slug } });
+    const existingOrg = await this.organizationRepository.findOne({
+      where: { slug },
+    });
     if (existingOrg) {
       throw new ConflictException('Organization with this slug already exists');
     }
@@ -40,10 +49,13 @@ export class OrganizationsService {
     const organization = this.organizationRepository.create({
       ...createOrgDto,
       slug,
-      trialEndsAt: createOrgDto.trialEndsAt ? new Date(createOrgDto.trialEndsAt) : undefined,
+      trialEndsAt: createOrgDto.trialEndsAt
+        ? new Date(createOrgDto.trialEndsAt)
+        : undefined,
     });
 
-    const savedOrganization = await this.organizationRepository.save(organization);
+    const savedOrganization =
+      await this.organizationRepository.save(organization);
 
     // Add creator as owner
     const userOrganization = this.userOrganizationRepository.create({
@@ -67,8 +79,8 @@ export class OrganizationsService {
     });
 
     return userOrganizations
-      .map(uo => uo.organization)
-      .filter(org => org.isActive());
+      .map((uo) => uo.organization)
+      .filter((org) => org.isActive());
   }
 
   async findOne(id: string): Promise<Organization> {
@@ -95,7 +107,9 @@ export class OrganizationsService {
     });
 
     if (!userOrg || !userOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can update organization settings');
+      throw new ForbiddenException(
+        'Only organization admins can update organization settings',
+      );
     }
 
     const organization = await this.findOne(id);
@@ -106,7 +120,9 @@ export class OrganizationsService {
         where: { slug: updateOrgDto.slug },
       });
       if (existingOrg) {
-        throw new ConflictException('Organization with this slug already exists');
+        throw new ConflictException(
+          'Organization with this slug already exists',
+        );
       }
     }
 
@@ -134,7 +150,9 @@ export class OrganizationsService {
     }
 
     // Check if user already exists
-    let user = await this.userRepository.findOne({ where: { email: inviteDto.email } });
+    let user = await this.userRepository.findOne({
+      where: { email: inviteDto.email },
+    });
 
     // If user doesn't exist, create a placeholder (they'll complete registration on first login)
     if (!user) {
@@ -155,7 +173,9 @@ export class OrganizationsService {
 
     if (existingUserOrg) {
       if (existingUserOrg.isActive) {
-        throw new ConflictException('User is already a member of this organization');
+        throw new ConflictException(
+          'User is already a member of this organization',
+        );
       } else {
         // Reactivate the user
         existingUserOrg.isActive = true;
@@ -226,7 +246,9 @@ export class OrganizationsService {
     });
 
     if (!updaterUserOrg || !updaterUserOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can update user roles');
+      throw new ForbiddenException(
+        'Only organization admins can update user roles',
+      );
     }
 
     // Find user to update
@@ -246,7 +268,10 @@ export class OrganizationsService {
     await this.userOrganizationRepository.save(userToUpdate);
   }
 
-  async switchOrganization(userId: string, organizationId: string): Promise<Organization> {
+  async switchOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<Organization> {
     const userOrg = await this.userOrganizationRepository.findOne({
       where: { userId, organizationId, isActive: true },
       relations: ['organization'],

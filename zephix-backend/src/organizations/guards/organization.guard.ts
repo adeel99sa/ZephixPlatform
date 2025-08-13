@@ -25,11 +25,13 @@ export class OrganizationGuard implements CanActivate {
 
     // Extract organization ID from headers or query params
     const headerOrgId = request.headers['x-org-id'] as string;
-    const organizationId = headerOrgId || 
+    const organizationId =
+      headerOrgId ||
       request.params.organizationId ||
       request.params.id ||
-      request.query.organizationId as string ||
-      (user?.defaultOrganizationId || user?.organizationId);
+      (request.query.organizationId as string) ||
+      user?.defaultOrganizationId ||
+      user?.organizationId;
 
     // If no organizationId provided, throw error
     if (!organizationId) {
@@ -42,13 +44,16 @@ export class OrganizationGuard implements CanActivate {
 
     if (!hasAccess) {
       throw new ForbiddenException(
-        `Access denied for organization: ${organizationId}`
+        `Access denied for organization: ${organizationId}`,
       );
     }
 
     // Store organization context in request for controllers to use
     request.organizationId = organizationId;
-    request.userOrganization = this.getUserOrganizationFromClaims(user, organizationId);
+    request.userOrganization = this.getUserOrganizationFromClaims(
+      user,
+      organizationId,
+    );
     request.organizationRole = this.getUserRoleFromClaims(user, organizationId);
 
     return true;
@@ -56,13 +61,18 @@ export class OrganizationGuard implements CanActivate {
 
   private extractOrganizationId(request: Request): string | null {
     // Priority order: params > headers > query > body
-    return request.params?.organizationId ||
-           request.headers['x-org-id'] as string ||
-           request.query?.organizationId as string ||
-           request.body?.organizationId;
+    return (
+      request.params?.organizationId ||
+      (request.headers['x-org-id'] as string) ||
+      (request.query?.organizationId as string) ||
+      request.body?.organizationId
+    );
   }
 
-  private validateUserOrganizationAccess(user: any, organizationId: string): boolean {
+  private validateUserOrganizationAccess(
+    user: any,
+    organizationId: string,
+  ): boolean {
     // Check if user has direct organization access
     if (user.organizationId === organizationId) {
       return true;
@@ -70,38 +80,42 @@ export class OrganizationGuard implements CanActivate {
 
     // Check if user has access through organizations array (from JWT claims)
     if (user.organizations && Array.isArray(user.organizations)) {
-      return user.organizations.some((org: any) => 
-        org.id === organizationId || 
-        org.organizationId === organizationId
+      return user.organizations.some(
+        (org: any) =>
+          org.id === organizationId || org.organizationId === organizationId,
       );
     }
 
     // Check if user has access through userOrganizations array
     if (user.userOrganizations && Array.isArray(user.userOrganizations)) {
-      return user.userOrganizations.some((userOrg: any) => 
-        userOrg.organizationId === organizationId && 
-        userOrg.isActive !== false
+      return user.userOrganizations.some(
+        (userOrg: any) =>
+          userOrg.organizationId === organizationId &&
+          userOrg.isActive !== false,
       );
     }
 
     return false;
   }
 
-  private getUserOrganizationFromClaims(user: any, organizationId: string): any {
+  private getUserOrganizationFromClaims(
+    user: any,
+    organizationId: string,
+  ): any {
     // Try to get from userOrganizations array first
     if (user.userOrganizations && Array.isArray(user.userOrganizations)) {
-      return user.userOrganizations.find((userOrg: any) => 
-        userOrg.organizationId === organizationId
+      return user.userOrganizations.find(
+        (userOrg: any) => userOrg.organizationId === organizationId,
       );
     }
 
     // Fallback to organizations array
     if (user.organizations && Array.isArray(user.organizations)) {
-      const org = user.organizations.find((org: any) => 
-        org.id === organizationId || 
-        org.organizationId === organizationId
+      const org = user.organizations.find(
+        (org: any) =>
+          org.id === organizationId || org.organizationId === organizationId,
       );
-      
+
       if (org) {
         return {
           organizationId: org.id || org.organizationId,

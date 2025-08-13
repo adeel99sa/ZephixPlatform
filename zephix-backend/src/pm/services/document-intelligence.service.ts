@@ -16,23 +16,29 @@ export class ZephixIntelligentDocumentProcessor {
   // MAIN PROCESSING ENGINE: Document → Professional PM Intelligence
   async processProjectDocument(
     document: Interfaces.ProjectDocument,
-    organizationContext: Interfaces.OrganizationContext
+    organizationContext: Interfaces.OrganizationContext,
   ): Promise<Interfaces.PMDocumentAnalysis> {
     this.logger.log('Processing project document with intelligent analysis');
 
     try {
       // STEP 1: Extract Standard BRD Components or Document Elements
       const documentAnalysis = await this.extractDocumentElements(document);
-      
+
       // STEP 2: Apply Professional PM Framework Analysis
-      const pmAnalysis = await this.applyPMFramework(documentAnalysis, document);
-      
+      const pmAnalysis = await this.applyPMFramework(
+        documentAnalysis,
+        document,
+      );
+
       // STEP 3: Analyze People, Process, Business Dimensions
       const dimensionAnalysis = await this.performDimensionAnalysis(pmAnalysis);
-      
+
       // STEP 4: Methodology Recommendation Based on Project Characteristics
-      const methodologyRec = await this.recommendMethodology(dimensionAnalysis, organizationContext);
-      
+      const methodologyRec = await this.recommendMethodology(
+        dimensionAnalysis,
+        organizationContext,
+      );
+
       return {
         peopleAnalysis: {
           stakeholderMap: [],
@@ -100,7 +106,7 @@ export class ZephixIntelligentDocumentProcessor {
           changeManagement: [],
           environmentalFactors: [],
         },
-        methodologyAnalysis: methodologyRec
+        methodologyAnalysis: methodologyRec,
       };
     } catch (error) {
       this.logger.error('Error processing project document:', error);
@@ -109,7 +115,9 @@ export class ZephixIntelligentDocumentProcessor {
   }
 
   // STEP 1: Document Element Extraction
-  private async extractDocumentElements(document: Interfaces.ProjectDocument): Promise<Interfaces.BRDAnalysis> {
+  private async extractDocumentElements(
+    document: Interfaces.ProjectDocument,
+  ): Promise<Interfaces.BRDAnalysis> {
     const prompt = `
     You are an expert project manager analyzing a project document. Extract key project elements:
     
@@ -163,14 +171,14 @@ export class ZephixIntelligentDocumentProcessor {
     Extract these elements and provide structured analysis in JSON format.
     Focus on actionable project management insights.
     `;
-    
+
     return await this.callAIIntelligenceEngine(prompt);
   }
 
   // STEP 2: Professional PM Framework Analysis
   private async applyPMFramework(
-    documentAnalysis: Interfaces.BRDAnalysis, 
-    document: Interfaces.ProjectDocument
+    documentAnalysis: Interfaces.BRDAnalysis,
+    document: Interfaces.ProjectDocument,
   ): Promise<Interfaces.PMFrameworkAnalysis> {
     const prompt = `
     Apply professional project management analysis to this project:
@@ -227,12 +235,14 @@ export class ZephixIntelligentDocumentProcessor {
     
     Provide professional PM recommendations for each area.
     `;
-    
+
     return await this.callAIIntelligenceEngine(prompt);
   }
 
   // STEP 3: Multi-Dimensional Analysis
-  private async performDimensionAnalysis(pmAnalysis: Interfaces.PMFrameworkAnalysis): Promise<Interfaces.DimensionAnalysis> {
+  private async performDimensionAnalysis(
+    pmAnalysis: Interfaces.PMFrameworkAnalysis,
+  ): Promise<Interfaces.DimensionAnalysis> {
     const prompt = `
     Analyze this project across three key dimensions:
     
@@ -264,9 +274,9 @@ export class ZephixIntelligentDocumentProcessor {
     
     Provide dimension-specific insights and recommendations.
     `;
-    
+
     const result = await this.callAIIntelligenceEngine(prompt);
-    
+
     // Return properly structured dimension analysis
     return {
       people: {
@@ -299,7 +309,7 @@ export class ZephixIntelligentDocumentProcessor {
   // STEP 4: Methodology Recommendation
   private async recommendMethodology(
     dimensionAnalysis: Interfaces.DimensionAnalysis,
-    orgContext: Interfaces.OrganizationContext
+    orgContext: Interfaces.OrganizationContext,
   ): Promise<Interfaces.MethodologyRecommendation> {
     const prompt = `
     Recommend the optimal project management approach based on project characteristics:
@@ -341,7 +351,7 @@ export class ZephixIntelligentDocumentProcessor {
     
     Provide specific methodology recommendation with implementation guidance.
     `;
-    
+
     return await this.callAIIntelligenceEngine(prompt);
   }
 
@@ -358,14 +368,15 @@ export class ZephixIntelligentDocumentProcessor {
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': 'dummy-key', // Will be replaced by LLMProviderService
-          'anthropic-version': '2023-06-01'
+          'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
           model: 'claude-3-sonnet-20240229',
           max_tokens: 4000,
-          messages: [{
-            role: 'user',
-            content: `${prompt}
+          messages: [
+            {
+              role: 'user',
+              content: `${prompt}
             
             IMPORTANT: You are a professional project management expert with knowledge of:
             - Industry standard project management practices
@@ -377,35 +388,38 @@ export class ZephixIntelligentDocumentProcessor {
             Base recommendations on established industry practices and professional experience.
             Provide actionable, practical insights that can be implemented immediately.
             
-            Return your response as valid JSON that can be parsed directly.`
-          }]
-        })
+            Return your response as valid JSON that can be parsed directly.`,
+            },
+          ],
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`AI API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `AI API request failed: ${response.status} ${response.statusText}`,
+        );
       }
 
       const data = await response.json();
-      
+
       if (!data.content || !data.content[0] || !data.content[0].text) {
         throw new Error('Invalid response format from AI service');
       }
 
       const content = data.content[0].text;
-      
+
       try {
         return JSON.parse(content);
       } catch (parseError) {
         this.logger.error('Failed to parse AI response as JSON:', parseError);
         this.logger.debug('Raw AI response:', content);
-        
+
         // Fallback: try to extract JSON from the response
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           return JSON.parse(jsonMatch[0]);
         }
-        
+
         throw new Error('AI response could not be parsed as JSON');
       }
     } catch (error) {
@@ -420,7 +434,7 @@ export class ZephixIntelligentDocumentProcessor {
       if (file.mimetype === 'text/plain' || file.mimetype === 'text/markdown') {
         return file.buffer.toString('utf-8');
       }
-      
+
       // For other file types, you might need additional processing
       // This is a simplified version - in production you'd want proper file parsing
       return file.buffer.toString('utf-8');
@@ -433,16 +447,31 @@ export class ZephixIntelligentDocumentProcessor {
   // Utility method to detect document type from filename
   detectDocumentType(filename: string): Interfaces.ProjectDocument['type'] {
     const lowerFilename = filename.toLowerCase();
-    
-    if (lowerFilename.includes('brd') || lowerFilename.includes('business_requirements')) {
+
+    if (
+      lowerFilename.includes('brd') ||
+      lowerFilename.includes('business_requirements')
+    ) {
       return 'BRD';
-    } else if (lowerFilename.includes('charter') || lowerFilename.includes('project_charter')) {
+    } else if (
+      lowerFilename.includes('charter') ||
+      lowerFilename.includes('project_charter')
+    ) {
       return 'PROJECT_CHARTER';
-    } else if (lowerFilename.includes('requirements') || lowerFilename.includes('req')) {
+    } else if (
+      lowerFilename.includes('requirements') ||
+      lowerFilename.includes('req')
+    ) {
       return 'REQUIREMENTS';
-    } else if (lowerFilename.includes('technical') || lowerFilename.includes('spec')) {
+    } else if (
+      lowerFilename.includes('technical') ||
+      lowerFilename.includes('spec')
+    ) {
       return 'TECHNICAL_SPEC';
-    } else if (lowerFilename.includes('meeting') || lowerFilename.includes('notes')) {
+    } else if (
+      lowerFilename.includes('meeting') ||
+      lowerFilename.includes('notes')
+    ) {
       return 'MEETING_NOTES';
     } else {
       return 'OTHER';
@@ -453,13 +482,13 @@ export class ZephixIntelligentDocumentProcessor {
   async processDocumentUpload(
     file: Express.Multer.File,
     documentType: Interfaces.ProjectDocument['type'],
-    organizationContext: Interfaces.OrganizationContext
+    organizationContext: Interfaces.OrganizationContext,
   ): Promise<Interfaces.DocumentUploadResponse> {
     const startTime = Date.now();
-    
+
     try {
       const fileContent = await this.extractFileContent(file);
-      
+
       const document: Interfaces.ProjectDocument = {
         type: documentType,
         content: fileContent,
@@ -467,11 +496,14 @@ export class ZephixIntelligentDocumentProcessor {
           source: file.originalname,
           uploadDate: new Date(),
           fileSize: file.size,
-          mimeType: file.mimetype
-        }
+          mimeType: file.mimetype,
+        },
       };
 
-      const analysis = await this.processProjectDocument(document, organizationContext);
+      const analysis = await this.processProjectDocument(
+        document,
+        organizationContext,
+      );
       const processingTime = Date.now() - startTime;
 
       return {
@@ -479,7 +511,7 @@ export class ZephixIntelligentDocumentProcessor {
         documentId: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         analysis,
         processingTime,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     } catch (error) {
       this.logger.error('Error processing document upload:', error);

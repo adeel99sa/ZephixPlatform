@@ -84,12 +84,10 @@ export class BRDAnalysis {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => BRD, brd => brd.analyses)
+  @ManyToOne(() => BRD, (brd) => brd.analyses)
   @JoinColumn({ name: 'brdId' })
   brd: BRD;
 
-  @OneToMany(() => GeneratedProjectPlan, plan => plan.brdAnalysis)
+  @OneToMany(() => GeneratedProjectPlan, (plan) => plan.brdAnalysis)
   generatedPlans: GeneratedProjectPlan[];
 }
-
-

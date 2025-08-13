@@ -1,13 +1,13 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UploadedFile, 
-  UseInterceptors, 
+import {
+  Controller,
+  Post,
+  Body,
+  UploadedFile,
+  UseInterceptors,
   BadRequestException,
   Logger,
   HttpStatus,
-  HttpCode
+  HttpCode,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZephixIntelligentDocumentProcessor } from '../services/document-intelligence.service';
@@ -19,31 +19,31 @@ export class DocumentIntelligenceController {
   private readonly logger = new Logger(DocumentIntelligenceController.name);
 
   constructor(
-    private readonly documentProcessor: ZephixIntelligentDocumentProcessor
+    private readonly documentProcessor: ZephixIntelligentDocumentProcessor,
   ) {}
 
   @Post('pm-document-analysis')
   @HttpCode(HttpStatus.OK)
   async analyzeDocument(
-    @Body() request: Interfaces.DocumentAnalysisRequest
+    @Body() request: Interfaces.DocumentAnalysisRequest,
   ): Promise<Interfaces.DocumentAnalysisResponse> {
     this.logger.log('Processing document analysis request');
 
     try {
       const startTime = Date.now();
-      
+
       const analysis = await this.documentProcessor.processProjectDocument(
         request.document,
-        request.organizationContext
+        request.organizationContext,
       );
-      
+
       const processingTime = Date.now() - startTime;
 
       return {
         success: true,
         analysis,
         processingTime,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     } catch (error) {
       this.logger.error('Error processing document analysis:', error);
@@ -52,33 +52,36 @@ export class DocumentIntelligenceController {
   }
 
   @Post('pm-document-upload')
-  @UseInterceptors(FileInterceptor('file', {
-    limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit
-    },
-    fileFilter: (req, file, callback) => {
-      const allowedMimeTypes = [
-        'text/plain',
-        'text/markdown',
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/msword'
-      ];
-      
-      if (allowedMimeTypes.includes(file.mimetype)) {
-        callback(null, true);
-      } else {
-        callback(new BadRequestException('Invalid file type'), false);
-      }
-    }
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+      },
+      fileFilter: (req, file, callback) => {
+        const allowedMimeTypes = [
+          'text/plain',
+          'text/markdown',
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/msword',
+        ];
+
+        if (allowedMimeTypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(new BadRequestException('Invalid file type'), false);
+        }
+      },
+    }),
+  )
   @HttpCode(HttpStatus.OK)
   async uploadAndAnalyzeDocument(
     @UploadedFile() file: Express.Multer.File,
-    @Body() request: {
+    @Body()
+    request: {
       documentType: Interfaces.ProjectDocument['type'];
       organizationContext: Interfaces.OrganizationContext;
-    }
+    },
   ): Promise<Interfaces.DocumentUploadResponse> {
     this.logger.log('Processing document upload and analysis');
 
@@ -90,7 +93,7 @@ export class DocumentIntelligenceController {
       return await this.documentProcessor.processDocumentUpload(
         file,
         request.documentType,
-        request.organizationContext
+        request.organizationContext,
       );
     } catch (error) {
       this.logger.error('Error processing document upload:', error);
@@ -101,10 +104,11 @@ export class DocumentIntelligenceController {
   @Post('pm-document-batch-analysis')
   @HttpCode(HttpStatus.OK)
   async analyzeMultipleDocuments(
-    @Body() request: {
+    @Body()
+    request: {
       documents: Interfaces.ProjectDocument[];
       organizationContext: Interfaces.OrganizationContext;
-    }
+    },
   ): Promise<{
     success: boolean;
     analyses: Interfaces.PMDocumentAnalysis[];
@@ -120,7 +124,7 @@ export class DocumentIntelligenceController {
       for (const document of request.documents) {
         const analysis = await this.documentProcessor.processProjectDocument(
           document,
-          request.organizationContext
+          request.organizationContext,
         );
         analyses.push(analysis);
       }
@@ -131,7 +135,7 @@ export class DocumentIntelligenceController {
         success: true,
         analyses,
         processingTime,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     } catch (error) {
       this.logger.error('Error processing batch document analysis:', error);
@@ -142,11 +146,12 @@ export class DocumentIntelligenceController {
   @Post('pm-document-comparison')
   @HttpCode(HttpStatus.OK)
   async compareDocuments(
-    @Body() request: {
+    @Body()
+    request: {
       document1: Interfaces.ProjectDocument;
       document2: Interfaces.ProjectDocument;
       organizationContext: Interfaces.OrganizationContext;
-    }
+    },
   ): Promise<{
     success: boolean;
     comparison: {
@@ -162,15 +167,15 @@ export class DocumentIntelligenceController {
 
     try {
       const startTime = Date.now();
-      
+
       const analysis1 = await this.documentProcessor.processProjectDocument(
         request.document1,
-        request.organizationContext
+        request.organizationContext,
       );
-      
+
       const analysis2 = await this.documentProcessor.processProjectDocument(
         request.document2,
-        request.organizationContext
+        request.organizationContext,
       );
 
       // Simple comparison logic - in production you'd want more sophisticated comparison
@@ -178,21 +183,21 @@ export class DocumentIntelligenceController {
         similarities: [
           'Both documents contain project objectives',
           'Both documents include stakeholder information',
-          'Both documents have scope definitions'
+          'Both documents have scope definitions',
         ],
         differences: [
           'Document 1 focuses more on technical requirements',
-          'Document 2 emphasizes business value more strongly'
+          'Document 2 emphasizes business value more strongly',
         ],
         conflicts: [
           'Timeline constraints may conflict between documents',
-          'Resource allocation differs significantly'
+          'Resource allocation differs significantly',
         ],
         recommendations: [
           'Align timeline expectations between documents',
           'Reconcile resource requirements',
-          'Establish clear priority matrix'
-        ]
+          'Establish clear priority matrix',
+        ],
       };
 
       const processingTime = Date.now() - startTime;
@@ -201,7 +206,7 @@ export class DocumentIntelligenceController {
         success: true,
         comparison,
         processingTime,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     } catch (error) {
       this.logger.error('Error processing document comparison:', error);
@@ -212,11 +217,12 @@ export class DocumentIntelligenceController {
   @Post('pm-document-insights')
   @HttpCode(HttpStatus.OK)
   async generateDocumentInsights(
-    @Body() request: {
+    @Body()
+    request: {
       document: Interfaces.ProjectDocument;
       organizationContext: Interfaces.OrganizationContext;
       insightType: 'risks' | 'opportunities' | 'gaps' | 'recommendations';
-    }
+    },
   ): Promise<{
     success: boolean;
     insights: {
@@ -232,10 +238,10 @@ export class DocumentIntelligenceController {
 
     try {
       const startTime = Date.now();
-      
+
       const analysis = await this.documentProcessor.processProjectDocument(
         request.document,
-        request.organizationContext
+        request.organizationContext,
       );
 
       let insights;
@@ -243,25 +249,38 @@ export class DocumentIntelligenceController {
         case 'risks':
           insights = {
             type: 'Risk Analysis',
-            items: analysis.processAnalysis.identifiedRisks.map(risk => risk.description),
+            items: analysis.processAnalysis.identifiedRisks.map(
+              (risk) => risk.description,
+            ),
             priority: 'high',
-            actionableSteps: analysis.processAnalysis.mitigationPlans.map(plan => plan.strategy)
+            actionableSteps: analysis.processAnalysis.mitigationPlans.map(
+              (plan) => plan.strategy,
+            ),
           };
           break;
         case 'opportunities':
           insights = {
             type: 'Opportunity Analysis',
-            items: analysis.businessAnalysis.businessValue.map(value => value.description),
+            items: analysis.businessAnalysis.businessValue.map(
+              (value) => value.description,
+            ),
             priority: 'medium',
-            actionableSteps: ['Leverage identified business value drivers', 'Focus on high-impact opportunities']
+            actionableSteps: [
+              'Leverage identified business value drivers',
+              'Focus on high-impact opportunities',
+            ],
           };
           break;
         case 'gaps':
           insights = {
             type: 'Gap Analysis',
-            items: analysis.processAnalysis.skillGaps.map(gap => `${gap.skill}: ${gap.gap}`),
+            items: analysis.processAnalysis.skillGaps.map(
+              (gap) => `${gap.skill}: ${gap.gap}`,
+            ),
             priority: 'medium',
-            actionableSteps: analysis.processAnalysis.skillGaps.map(gap => gap.trainingNeeds).flat()
+            actionableSteps: analysis.processAnalysis.skillGaps
+              .map((gap) => gap.trainingNeeds)
+              .flat(),
           };
           break;
         case 'recommendations':
@@ -269,7 +288,11 @@ export class DocumentIntelligenceController {
             type: 'Recommendations',
             items: analysis.methodologyAnalysis.reasoning,
             priority: 'high',
-            actionableSteps: ['Implement recommended methodology', 'Follow lifecycle phases', 'Adapt to organizational context']
+            actionableSteps: [
+              'Implement recommended methodology',
+              'Follow lifecycle phases',
+              'Adapt to organizational context',
+            ],
           };
           break;
         default:
@@ -282,7 +305,7 @@ export class DocumentIntelligenceController {
         success: true,
         insights,
         processingTime,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
     } catch (error) {
       this.logger.error('Error generating document insights:', error);
