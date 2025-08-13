@@ -26,7 +26,17 @@ export interface RiskData {
   id: string;
   title: string;
   description: string;
-  category: 'technical' | 'resource' | 'schedule' | 'budget' | 'scope' | 'quality' | 'external' | 'stakeholder' | 'regulatory' | 'market';
+  category:
+    | 'technical'
+    | 'resource'
+    | 'schedule'
+    | 'budget'
+    | 'scope'
+    | 'quality'
+    | 'external'
+    | 'stakeholder'
+    | 'regulatory'
+    | 'market';
   subcategory?: string;
   probability: {
     score: number; // 1-5 scale
@@ -69,7 +79,12 @@ export interface RiskData {
     affectedWorkPackages: string[];
     impactedStakeholders: string[];
   };
-  source: 'ai-identified' | 'manual-entry' | 'stakeholder-feedback' | 'historical-analysis' | 'external-scan';
+  source:
+    | 'ai-identified'
+    | 'manual-entry'
+    | 'stakeholder-feedback'
+    | 'historical-analysis'
+    | 'external-scan';
   confidence: number;
 }
 
@@ -201,27 +216,36 @@ export class RiskManagementService {
     try {
       // Step 1: Comprehensive Risk Identification
       const identifiedRisks = await this.identifyRisks(input);
-      
+
       // Step 2: Professional Risk Assessment
       const assessedRisks = await this.assessRisks(identifiedRisks, input);
-      
+
       // Step 3: Risk Response Planning
-      const responseStrategies = await this.generateResponseStrategies(assessedRisks);
-      
+      const responseStrategies =
+        await this.generateResponseStrategies(assessedRisks);
+
       // Step 4: Risk Impact Forecasting
-      const riskForecasting = await this.forecastRiskImpacts(assessedRisks, input.projectId);
-      
+      const riskForecasting = await this.forecastRiskImpacts(
+        assessedRisks,
+        input.projectId,
+      );
+
       // Step 5: Generate Analysis Output
       const analysisOutput = await this.generateRiskAnalysis(
         assessedRisks,
         responseStrategies,
         riskForecasting,
-        input.projectId
+        input.projectId,
       );
-      
+
       // Step 6: Persist Risk Data
-      await this.persistRiskAnalysis(assessedRisks, responseStrategies, input.projectId, userId);
-      
+      await this.persistRiskAnalysis(
+        assessedRisks,
+        responseStrategies,
+        input.projectId,
+        userId,
+      );
+
       return analysisOutput;
     } catch (error) {
       throw new Error(`Risk analysis failed: ${error.message}`);
@@ -297,7 +321,10 @@ export class RiskManagementService {
     return await this.claudeService.analyze(prompt);
   }
 
-  private async assessRisks(risks: any[], input: RiskIdentificationInput): Promise<RiskData[]> {
+  private async assessRisks(
+    risks: any[],
+    input: RiskIdentificationInput,
+  ): Promise<RiskData[]> {
     const prompt = `
     Perform professional risk assessment on the following identified risks:
 
@@ -353,7 +380,9 @@ export class RiskManagementService {
     return await this.claudeService.analyze(prompt);
   }
 
-  private async generateResponseStrategies(risks: RiskData[]): Promise<RiskResponsePlan[]> {
+  private async generateResponseStrategies(
+    risks: RiskData[],
+  ): Promise<RiskResponsePlan[]> {
     const prompt = `
     Generate professional risk response strategies for these assessed risks:
 
@@ -480,16 +509,22 @@ export class RiskManagementService {
     projectId: string,
   ): Promise<RiskAnalysisOutput> {
     // Calculate risk distribution
-    const riskDistribution = risks.reduce((acc, risk) => {
-      acc[risk.riskLevel] = (acc[risk.riskLevel] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const riskDistribution = risks.reduce(
+      (acc, risk) => {
+        acc[risk.riskLevel] = (acc[risk.riskLevel] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Calculate category breakdown
-    const categoryBreakdown = risks.reduce((acc, risk) => {
-      acc[risk.category] = (acc[risk.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const categoryBreakdown = risks.reduce(
+      (acc, risk) => {
+        acc[risk.category] = (acc[risk.category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     // Create risk matrix
     const riskMatrix = this.createRiskMatrix(risks);
@@ -546,8 +581,8 @@ export class RiskManagementService {
     return {
       riskSummary: {
         totalRisks: risks.length,
-        newRisks: risks.filter(r => r.source === 'ai-identified').length,
-        activeRisks: risks.filter(r => r.riskLevel !== 'very-low').length,
+        newRisks: risks.filter((r) => r.source === 'ai-identified').length,
+        activeRisks: risks.filter((r) => r.riskLevel !== 'very-low').length,
         closedRisks: 0, // Would come from historical data
         riskDistribution: {
           veryHigh: riskDistribution['very-high'] || 0,
@@ -568,8 +603,8 @@ export class RiskManagementService {
 
   private createRiskMatrix(risks: RiskData[]): Record<string, any[]> {
     const matrix: Record<string, any[]> = {};
-    
-    risks.forEach(risk => {
+
+    risks.forEach((risk) => {
       const key = `${risk.probability.score}-${risk.impact.overall}`;
       if (!matrix[key]) {
         matrix[key] = [];
@@ -624,11 +659,11 @@ export class RiskManagementService {
         },
         createdBy: userId,
       });
-      
+
       const savedRisk = await this.riskRepository.save(risk);
 
       // Save response plan if exists
-      const responseForRisk = responses.find(r => r.riskId === riskData.id);
+      const responseForRisk = responses.find((r) => r.riskId === riskData.id);
       if (responseForRisk) {
         const riskResponse = this.riskResponseRepository.create({
           riskId: savedRisk.id,
@@ -636,21 +671,27 @@ export class RiskManagementService {
           rationale: responseForRisk.rationale,
           description: '',
           actions: responseForRisk.actions,
-          contingencyPlan: responseForRisk.contingencyPlan ? {
-            description: responseForRisk.contingencyPlan.description,
-            triggerConditions: responseForRisk.contingencyPlan.triggerConditions,
-            activationCriteria: [],
-            actions: responseForRisk.contingencyPlan.actions,
-            requiredResources: responseForRisk.contingencyPlan.requiredResources.map(resource => ({
-              type: 'other' as const,
-              description: resource,
-              quantity: 1,
-              cost: 0
-            })),
-            estimatedCost: responseForRisk.contingencyPlan.estimatedCost,
-            timeline: 'TBD',
-            decisionAuthority: 'Project Manager'
-          } : undefined,
+          contingencyPlan: responseForRisk.contingencyPlan
+            ? {
+                description: responseForRisk.contingencyPlan.description,
+                triggerConditions:
+                  responseForRisk.contingencyPlan.triggerConditions,
+                activationCriteria: [],
+                actions: responseForRisk.contingencyPlan.actions,
+                requiredResources:
+                  responseForRisk.contingencyPlan.requiredResources.map(
+                    (resource) => ({
+                      type: 'other' as const,
+                      description: resource,
+                      quantity: 1,
+                      cost: 0,
+                    }),
+                  ),
+                estimatedCost: responseForRisk.contingencyPlan.estimatedCost,
+                timeline: 'TBD',
+                decisionAuthority: 'Project Manager',
+              }
+            : undefined,
           transferDetails: responseForRisk.transferDetails,
           monitoring: responseForRisk.monitoring,
           effectiveness: responseForRisk.effectiveness,
@@ -663,7 +704,7 @@ export class RiskManagementService {
           },
           createdBy: userId,
         });
-        
+
         await this.riskResponseRepository.save(riskResponse);
       }
     }
@@ -680,8 +721,10 @@ export class RiskManagementService {
       risks,
       summary: {
         total: risks.length,
-        highPriority: risks.filter(r => r.riskLevel === 'high' || r.riskLevel === 'very-high').length,
-        active: risks.filter(r => r.status === 'active').length,
+        highPriority: risks.filter(
+          (r) => r.riskLevel === 'high' || r.riskLevel === 'very-high',
+        ).length,
+        active: risks.filter((r) => r.status === 'active').length,
       },
     };
   }

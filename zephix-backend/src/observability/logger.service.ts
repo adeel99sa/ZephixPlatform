@@ -7,9 +7,10 @@ export class LoggerService {
   private readonly logger: pino.Logger;
 
   constructor(private configService: ConfigService) {
-    const environment = this.configService.get<string>('environment') || 'development';
+    const environment =
+      this.configService.get<string>('environment') || 'development';
     const logLevel = this.configService.get<string>('LOG_LEVEL') || 'info';
-    
+
     this.logger = pino({
       level: logLevel,
       formatters: {
@@ -18,7 +19,7 @@ export class LoggerService {
         },
       },
       timestamp: pino.stdTimeFunctions.isoTime,
-      ...(environment === 'development' 
+      ...(environment === 'development'
         ? {
             transport: {
               target: 'pino-pretty',
@@ -32,8 +33,7 @@ export class LoggerService {
         : {
             // Production: JSON logging
             serializers: pino.stdSerializers,
-          }
-      ),
+          }),
     });
   }
 
@@ -42,7 +42,10 @@ export class LoggerService {
   }
 
   // Create child logger with request context
-  createRequestLogger(requestId: string, additionalContext?: Record<string, any>): pino.Logger {
+  createRequestLogger(
+    requestId: string,
+    additionalContext?: Record<string, any>,
+  ): pino.Logger {
     return this.logger.child({
       requestId,
       ...additionalContext,
@@ -50,7 +53,10 @@ export class LoggerService {
   }
 
   // Create child logger with service context
-  createServiceLogger(service: string, additionalContext?: Record<string, any>): pino.Logger {
+  createServiceLogger(
+    service: string,
+    additionalContext?: Record<string, any>,
+  ): pino.Logger {
     return this.logger.child({
       service,
       ...additionalContext,
@@ -63,14 +69,17 @@ export class LoggerService {
 
   error(message: string, error?: Error | any, meta?: any) {
     if (error instanceof Error) {
-      this.logger.error({
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
+      this.logger.error(
+        {
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          },
+          ...meta,
         },
-        ...meta,
-      }, message);
+        message,
+      );
     } else {
       this.logger.error({ error, ...meta }, message);
     }

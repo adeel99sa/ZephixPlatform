@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserProject } from './user-project.entity';
@@ -26,7 +35,12 @@ export class Program {
   description: string;
 
   @Column({ type: 'varchar', length: 50, default: 'initiating' })
-  status: 'initiating' | 'planning' | 'executing' | 'monitoring_controlling' | 'closing';
+  status:
+    | 'initiating'
+    | 'planning'
+    | 'executing'
+    | 'monitoring_controlling'
+    | 'closing';
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   totalBudget: number;
@@ -57,6 +71,6 @@ export class Program {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => UserProject, project => project.programId)
+  @OneToMany(() => UserProject, (project) => project.programId)
   projects: UserProject[];
 }

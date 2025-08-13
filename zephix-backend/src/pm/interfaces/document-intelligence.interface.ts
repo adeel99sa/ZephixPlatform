@@ -3,7 +3,13 @@
 
 export interface ProjectDocument {
   id?: string;
-  type: 'BRD' | 'PROJECT_CHARTER' | 'REQUIREMENTS' | 'TECHNICAL_SPEC' | 'MEETING_NOTES' | 'OTHER';
+  type:
+    | 'BRD'
+    | 'PROJECT_CHARTER'
+    | 'REQUIREMENTS'
+    | 'TECHNICAL_SPEC'
+    | 'MEETING_NOTES'
+    | 'OTHER';
   content: string;
   metadata: {
     source: string;
@@ -32,35 +38,35 @@ export interface BRDAnalysis {
     expectedOutcomes: string[];
     sponsorship: string;
   };
-  
+
   projectObjectives: {
     businessObjectives: string[];
     technicalObjectives: string[];
     successCriteria: string[];
     kpis: KPI[];
   };
-  
+
   projectScope: {
     inScope: string[];
     outOfScope: string[];
     assumptions: string[];
     boundaries: string[];
   };
-  
+
   businessRequirements: {
     functionalRequirements: Requirement[];
     nonFunctionalRequirements: Requirement[];
     businessRules: BusinessRule[];
     acceptanceCriteria: AcceptanceCriteria[];
   };
-  
+
   keyStakeholders: {
     sponsors: Stakeholder[];
     businessUsers: Stakeholder[];
     technicalTeam: Stakeholder[];
     externalParties: Stakeholder[];
   };
-  
+
   projectConstraints: {
     timeConstraints: TimeConstraint[];
     budgetConstraints: BudgetConstraint[];
@@ -68,7 +74,7 @@ export interface BRDAnalysis {
     technicalConstraints: TechnicalConstraint[];
     regulatoryConstraints: RegulatoryConstraint[];
   };
-  
+
   costBenefitAnalysis: {
     implementationCosts: Cost[];
     operationalCosts: Cost[];
@@ -88,51 +94,51 @@ export interface PMDocumentAnalysis {
     communicationStrategy: CommunicationPlan[];
     organizationalFactors: OrgFactor[];
   };
-  
+
   // PROJECT PROCESSES (Planning, Execution, Control)
   processAnalysis: {
     // Project Integration
     projectOverview: ProjectSummary;
     integrationPoints: IntegrationNeed[];
-    
-    // Scope Management  
+
+    // Scope Management
     scopeDefinition: ScopeElement[];
     deliverables: Deliverable[];
     workBreakdown: WBSRecommendation;
-    
+
     // Time Management
     activities: Activity[];
     dependencies: Dependency[];
     timelineEstimate: TimelineAnalysis;
     criticalFactors: CriticalElement[];
-    
+
     // Cost Management
     budgetAnalysis: BudgetBreakdown;
     resourceCosts: ResourceCost[];
     financialRisks: FinancialRisk[];
-    
+
     // Quality Management
     qualityRequirements: QualityStandard[];
     qualityMetrics: QualityMeasure[];
-    
+
     // Risk Management
     identifiedRisks: RiskItem[];
     riskAssessment: RiskAnalysis[];
     mitigationPlans: MitigationStrategy[];
-    
+
     // Resource Management
     resourceNeeds: ResourceRequirement[];
     skillGaps: SkillGap[];
-    
+
     // Communications
     communicationPlan: CommunicationStrategy;
     reportingNeeds: ReportingRequirement[];
-    
+
     // Procurement
     vendorNeeds: VendorRequirement[];
     contractStrategy: ContractApproach[];
   };
-  
+
   // BUSINESS CONTEXT (Value, Compliance, Environment)
   businessAnalysis: {
     businessValue: ValueProposition[];
@@ -141,7 +147,7 @@ export interface PMDocumentAnalysis {
     changeManagement: ChangeStrategy[];
     environmentalFactors: EnvironmentalFactor[];
   };
-  
+
   // METHODOLOGY RECOMMENDATIONS
   methodologyAnalysis: {
     recommendedApproach: 'PLAN_DRIVEN' | 'AGILE' | 'HYBRID';
@@ -236,7 +242,12 @@ export interface Cost {
   description: string;
   amount: number;
   currency: string;
-  category: 'development' | 'infrastructure' | 'licensing' | 'training' | 'maintenance';
+  category:
+    | 'development'
+    | 'infrastructure'
+    | 'licensing'
+    | 'training'
+    | 'maintenance';
   timing: string;
 }
 
@@ -282,7 +293,11 @@ export interface TeamSkill {
 }
 
 export interface LeadershipRequirement {
-  leadershipType: 'project_manager' | 'technical_lead' | 'business_analyst' | 'stakeholder_manager';
+  leadershipType:
+    | 'project_manager'
+    | 'technical_lead'
+    | 'business_analyst'
+    | 'stakeholder_manager';
   skills: string[];
   experience: string;
   responsibilities: string[];
@@ -354,7 +369,11 @@ export interface Activity {
 export interface Dependency {
   from: string;
   to: string;
-  type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
+  type:
+    | 'finish_to_start'
+    | 'start_to_start'
+    | 'finish_to_finish'
+    | 'start_to_finish';
   lag: number;
   critical: boolean;
 }
@@ -428,7 +447,13 @@ export interface RiskItem {
   description: string;
   probability: number;
   impact: 'low' | 'medium' | 'high' | 'critical';
-  category: 'technical' | 'schedule' | 'cost' | 'quality' | 'resource' | 'external';
+  category:
+    | 'technical'
+    | 'schedule'
+    | 'cost'
+    | 'quality'
+    | 'resource'
+    | 'external';
 }
 
 export interface RiskAnalysis {

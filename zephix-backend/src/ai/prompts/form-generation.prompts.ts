@@ -303,7 +303,7 @@ Return JSON:
   "strengths": ["what's working well"],
   "recommendations": ["specific improvements"]
 }
-`
+`,
 };
 
 export const CONVERSATION_PROMPTS = {
@@ -351,7 +351,7 @@ Your form looks great! Here's what I can help you with next:
 ✅ **Integrate**: Set up notifications and workflows
 
 What would you like to do next?
-`
+`,
 };
 
 export const DEPARTMENT_SPECIFIC_PROMPTS = {
@@ -413,5 +413,5 @@ For operations forms, typically include:
 - Stakeholder impact
 - Change management needs
 - Success criteria
-`
+`,
 };

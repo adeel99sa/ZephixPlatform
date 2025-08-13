@@ -63,9 +63,15 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
     );
 
     // Create indexes for performance
-    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId");`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`);
-    await queryRunner.query(`CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId");`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`,
+    );
 
     // Create GIN index for JSONB payload
     await queryRunner.query(`
@@ -143,17 +149,27 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop triggers
-    await queryRunner.query(`DROP TRIGGER IF EXISTS update_brds_updated_at ON brds;`);
-    await queryRunner.query(`DROP TRIGGER IF EXISTS update_brd_search_vector_trigger ON brds;`);
-    
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS update_brds_updated_at ON brds;`,
+    );
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS update_brd_search_vector_trigger ON brds;`,
+    );
+
     // Drop functions
-    await queryRunner.query(`DROP FUNCTION IF EXISTS update_updated_at_column();`);
-    await queryRunner.query(`DROP FUNCTION IF EXISTS update_brd_search_vector();`);
-    
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS update_updated_at_column();`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS update_brd_search_vector();`,
+    );
+
     // Drop RLS policies
     await queryRunner.query(`DROP POLICY IF EXISTS brds_admin_access ON brds;`);
-    await queryRunner.query(`DROP POLICY IF EXISTS brds_tenant_isolation ON brds;`);
-    
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS brds_tenant_isolation ON brds;`,
+    );
+
     // Drop table (this will also drop all indexes)
     await queryRunner.dropTable('brds');
   }

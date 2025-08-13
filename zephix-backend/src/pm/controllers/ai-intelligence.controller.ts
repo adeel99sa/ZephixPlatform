@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ZephixAIIntelligenceService } from '../services/zephix-ai-intelligence.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import * as Interfaces from '../interfaces/project-intelligence.interface';
@@ -45,79 +53,98 @@ export interface LearnFromOutcomesRequest {
 @Controller('ai-intelligence')
 @UseGuards(JwtAuthGuard)
 export class AIIntelligenceController {
-  constructor(private readonly aiIntelligenceService: ZephixAIIntelligenceService) {}
+  constructor(
+    private readonly aiIntelligenceService: ZephixAIIntelligenceService,
+  ) {}
 
   @Post('analyze-project-context')
-  async analyzeProjectContext(@Body() request: AnalyzeProjectContextRequest): Promise<Interfaces.ProjectIntelligence> {
+  async analyzeProjectContext(
+    @Body() request: AnalyzeProjectContextRequest,
+  ): Promise<Interfaces.ProjectIntelligence> {
     return this.aiIntelligenceService.analyzeProjectContext(
       request.documents,
       request.projectContext,
-      request.organizationContext
+      request.organizationContext,
     );
   }
 
   @Post('process-documents')
-  async processDocuments(@Body() request: ProcessDocumentsRequest): Promise<Interfaces.DocumentIntelligence> {
+  async processDocuments(
+    @Body() request: ProcessDocumentsRequest,
+  ): Promise<Interfaces.DocumentIntelligence> {
     return this.aiIntelligenceService.processDocuments(request.documents);
   }
 
   @Post('create-adaptive-plan')
-  async createAdaptiveProjectPlan(@Body() request: CreateAdaptivePlanRequest): Promise<Interfaces.AdaptivePlanner> {
+  async createAdaptiveProjectPlan(
+    @Body() request: CreateAdaptivePlanRequest,
+  ): Promise<Interfaces.AdaptivePlanner> {
     return this.aiIntelligenceService.createAdaptiveProjectPlan(
       request.projectIntelligence,
       request.organizationContext,
-      request.historicalData
+      request.historicalData,
     );
   }
 
   @Post('optimize-resources')
-  async optimizeResources(@Body() request: OptimizeResourcesRequest): Promise<Interfaces.ResourceIntelligence> {
+  async optimizeResources(
+    @Body() request: OptimizeResourcesRequest,
+  ): Promise<Interfaces.ResourceIntelligence> {
     return this.aiIntelligenceService.optimizeResources(
       request.teamMembers,
       request.projectRequirements,
-      request.organizationalConstraints
+      request.organizationalConstraints,
     );
   }
 
   @Post('monitor-project-health')
-  async monitorProjectHealth(@Body() request: MonitorProjectHealthRequest): Promise<Interfaces.ProjectHealthAI> {
+  async monitorProjectHealth(
+    @Body() request: MonitorProjectHealthRequest,
+  ): Promise<Interfaces.ProjectHealthAI> {
     return this.aiIntelligenceService.monitorProjectHealth(request.projectData);
   }
 
   @Post('generate-intelligent-communication')
-  async generateIntelligentCommunication(@Body() request: GenerateCommunicationRequest): Promise<Interfaces.CommunicationAI> {
+  async generateIntelligentCommunication(
+    @Body() request: GenerateCommunicationRequest,
+  ): Promise<Interfaces.CommunicationAI> {
     return this.aiIntelligenceService.generateIntelligentCommunication(
       request.stakeholders,
       request.projectStatus,
-      request.communicationPreferences
+      request.communicationPreferences,
     );
   }
 
   @Post('learn-from-outcomes')
-  async learnFromProjectOutcomes(@Body() request: LearnFromOutcomesRequest): Promise<Interfaces.LearningEngine> {
+  async learnFromProjectOutcomes(
+    @Body() request: LearnFromOutcomesRequest,
+  ): Promise<Interfaces.LearningEngine> {
     return this.aiIntelligenceService.learnFromProjectOutcomes(
       request.completedProjects,
       request.userInteractions,
-      request.industryData
+      request.industryData,
     );
   }
 
   @Post('comprehensive-project-analysis')
-  async comprehensiveProjectAnalysis(@Body() request: {
-    documents: any[];
-    projectContext: Interfaces.ProjectContext;
-    organizationContext: Interfaces.OrgContext;
-    projectData: Interfaces.ProjectData;
-    teamMembers: any[];
-    projectRequirements: any[];
-    organizationalConstraints: any[];
-    stakeholders: any[];
-    projectStatus: any;
-    communicationPreferences: any;
-    completedProjects: Interfaces.HistoricalProject[];
-    userInteractions: any[];
-    industryData: any;
-  }): Promise<{
+  async comprehensiveProjectAnalysis(
+    @Body()
+    request: {
+      documents: any[];
+      projectContext: Interfaces.ProjectContext;
+      organizationContext: Interfaces.OrgContext;
+      projectData: Interfaces.ProjectData;
+      teamMembers: any[];
+      projectRequirements: any[];
+      organizationalConstraints: any[];
+      stakeholders: any[];
+      projectStatus: any;
+      communicationPreferences: any;
+      completedProjects: Interfaces.HistoricalProject[];
+      userInteractions: any[];
+      industryData: any;
+    },
+  ): Promise<{
     projectIntelligence: Interfaces.ProjectIntelligence;
     documentIntelligence: Interfaces.DocumentIntelligence;
     adaptivePlanner: Interfaces.AdaptivePlanner;
@@ -138,33 +165,33 @@ export class AIIntelligenceController {
       this.aiIntelligenceService.analyzeProjectContext(
         request.documents,
         request.projectContext,
-        request.organizationContext
+        request.organizationContext,
       ),
       this.aiIntelligenceService.processDocuments(request.documents),
       this.aiIntelligenceService.createAdaptiveProjectPlan(
         await this.aiIntelligenceService.analyzeProjectContext(
           request.documents,
           request.projectContext,
-          request.organizationContext
+          request.organizationContext,
         ),
         request.organizationContext,
-        request.completedProjects
+        request.completedProjects,
       ),
       this.aiIntelligenceService.optimizeResources(
         request.teamMembers,
         request.projectRequirements,
-        request.organizationalConstraints
+        request.organizationalConstraints,
       ),
       this.aiIntelligenceService.monitorProjectHealth(request.projectData),
       this.aiIntelligenceService.generateIntelligentCommunication(
         request.stakeholders,
         request.projectStatus,
-        request.communicationPreferences
+        request.communicationPreferences,
       ),
       this.aiIntelligenceService.learnFromProjectOutcomes(
         request.completedProjects,
         request.userInteractions,
-        request.industryData
+        request.industryData,
       ),
     ]);
 
@@ -206,7 +233,10 @@ export class AIIntelligenceController {
           earlyWarningSignals: ['Integration challenges'],
         },
       ],
-      mitigationStrategies: ['Regular stakeholder communication', 'Technical spikes'],
+      mitigationStrategies: [
+        'Regular stakeholder communication',
+        'Technical spikes',
+      ],
       aiInsights: {
         similarProjectHistory: [],
         potentialBottlenecks: ['Resource constraints'],
@@ -218,8 +248,18 @@ export class AIIntelligenceController {
 
     return {
       projectIntelligence,
-      healthScore: { overall: 85, schedule: 80, budget: 90, quality: 85, risk: 70, stakeholder: 80 },
-      recommendations: ['Monitor schedule closely', 'Enhance stakeholder communication'],
+      healthScore: {
+        overall: 85,
+        schedule: 80,
+        budget: 90,
+        quality: 85,
+        risk: 70,
+        stakeholder: 80,
+      },
+      recommendations: [
+        'Monitor schedule closely',
+        'Enhance stakeholder communication',
+      ],
     };
   }
 

@@ -6,8 +6,12 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Skip pgvector extension for Railway deployment - not available in standard PostgreSQL
     // This prevents deployment failures while maintaining table structure
-    console.log('⚠️  Skipping pgvector extension - not available in Railway PostgreSQL');
-    console.log('   Embedding functionality will be limited but tables will be created');
+    console.log(
+      '⚠️  Skipping pgvector extension - not available in Railway PostgreSQL',
+    );
+    console.log(
+      '   Embedding functionality will be limited but tables will be created',
+    );
 
     // Create PM Knowledge Chunks table (handle existing table gracefully)
     await queryRunner.query(`
@@ -139,41 +143,99 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     `);
 
     // Create indexes for performance (handle existing indexes gracefully)
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_domain_subdomain ON pm_knowledge_chunks (domain, subdomain)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_methodology_process_group ON pm_knowledge_chunks (methodology, process_group)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_user_id_status ON user_projects (user_id, status)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_portfolio_id ON user_projects (portfolio_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_projects_program_id ON user_projects (program_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_tasks_project_id_status ON project_tasks (project_id, status)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_tasks_parent_task_id ON project_tasks (parent_task_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_risks_project_id_risk_score ON project_risks (project_id, risk_score DESC)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_stakeholders_project_id_influence_interest ON project_stakeholders (project_id, influence, interest)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios (user_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_programs_user_id ON programs (user_id)`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_domain_subdomain ON pm_knowledge_chunks (domain, subdomain)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_pm_knowledge_chunks_methodology_process_group ON pm_knowledge_chunks (methodology, process_group)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_projects_user_id_status ON user_projects (user_id, status)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_projects_portfolio_id ON user_projects (portfolio_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_projects_program_id ON user_projects (program_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_tasks_project_id_status ON project_tasks (project_id, status)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_tasks_parent_task_id ON project_tasks (parent_task_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_risks_project_id_risk_score ON project_risks (project_id, risk_score DESC)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_stakeholders_project_id_influence_interest ON project_stakeholders (project_id, influence, interest)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios (user_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_programs_user_id ON programs (user_id)`,
+    );
 
     // Add foreign key constraints (handle existing constraints gracefully)
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_portfolio_id FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_program_id FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL`);
-    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_parent_task_id FOREIGN KEY (parent_task_id) REFERENCES project_tasks(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_risks ADD CONSTRAINT IF NOT EXISTS fk_project_risks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_stakeholders ADD CONSTRAINT IF NOT EXISTS fk_project_stakeholders_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE portfolios ADD CONSTRAINT IF NOT EXISTS fk_portfolios_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE programs ADD CONSTRAINT IF NOT EXISTS fk_programs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`);
+    await queryRunner.query(
+      `ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_portfolio_id FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE user_projects ADD CONSTRAINT IF NOT EXISTS fk_user_projects_program_id FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_tasks ADD CONSTRAINT IF NOT EXISTS fk_project_tasks_parent_task_id FOREIGN KEY (parent_task_id) REFERENCES project_tasks(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_risks ADD CONSTRAINT IF NOT EXISTS fk_project_risks_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_stakeholders ADD CONSTRAINT IF NOT EXISTS fk_project_stakeholders_project_id FOREIGN KEY (project_id) REFERENCES user_projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE portfolios ADD CONSTRAINT IF NOT EXISTS fk_portfolios_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE programs ADD CONSTRAINT IF NOT EXISTS fk_programs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key constraints
-    await queryRunner.query(`ALTER TABLE project_stakeholders DROP CONSTRAINT IF EXISTS fk_project_stakeholders_project_id`);
-    await queryRunner.query(`ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS fk_project_risks_project_id`);
-    await queryRunner.query(`ALTER TABLE project_tasks DROP CONSTRAINT IF EXISTS fk_project_tasks_parent_task_id`);
-    await queryRunner.query(`ALTER TABLE project_tasks DROP CONSTRAINT IF EXISTS fk_project_tasks_project_id`);
-    await queryRunner.query(`ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_program_id`);
-    await queryRunner.query(`ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_portfolio_id`);
-    await queryRunner.query(`ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_user_id`);
-    await queryRunner.query(`ALTER TABLE programs DROP CONSTRAINT IF EXISTS fk_programs_user_id`);
-    await queryRunner.query(`ALTER TABLE portfolios DROP CONSTRAINT IF EXISTS fk_portfolios_user_id`);
+    await queryRunner.query(
+      `ALTER TABLE project_stakeholders DROP CONSTRAINT IF EXISTS fk_project_stakeholders_project_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_risks DROP CONSTRAINT IF EXISTS fk_project_risks_project_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_tasks DROP CONSTRAINT IF EXISTS fk_project_tasks_parent_task_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_tasks DROP CONSTRAINT IF EXISTS fk_project_tasks_project_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_program_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_portfolio_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE user_projects DROP CONSTRAINT IF EXISTS fk_user_projects_user_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE programs DROP CONSTRAINT IF EXISTS fk_programs_user_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE portfolios DROP CONSTRAINT IF EXISTS fk_portfolios_user_id`,
+    );
 
     // Drop tables
     await queryRunner.query(`DROP TABLE IF EXISTS project_stakeholders`);
@@ -185,6 +247,8 @@ export class CreatePMTables1700000000002 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS pm_knowledge_chunks`);
 
     // Skip pgvector extension drop - not used in Railway deployment
-    console.log('⚠️  Skipping pgvector extension drop - not used in Railway deployment');
+    console.log(
+      '⚠️  Skipping pgvector extension drop - not used in Railway deployment',
+    );
   }
 }

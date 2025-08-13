@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateStatusReportingTables1700000000003 implements MigrationInterface {
+export class CreateStatusReportingTables1700000000003
+  implements MigrationInterface
+{
   name = 'CreateStatusReportingTables1700000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -100,29 +102,63 @@ export class CreateStatusReportingTables1700000000003 implements MigrationInterf
     `);
 
     // Add foreign key constraints (handle existing constraints gracefully)
-    await queryRunner.query(`ALTER TABLE status_reports ADD CONSTRAINT IF NOT EXISTS fk_status_reports_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE project_metrics ADD CONSTRAINT IF NOT EXISTS fk_project_metrics_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE performance_baselines ADD CONSTRAINT IF NOT EXISTS fk_performance_baselines_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE alert_configurations ADD CONSTRAINT IF NOT EXISTS fk_alert_configurations_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE manual_updates ADD CONSTRAINT IF NOT EXISTS fk_manual_updates_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`);
+    await queryRunner.query(
+      `ALTER TABLE status_reports ADD CONSTRAINT IF NOT EXISTS fk_status_reports_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_metrics ADD CONSTRAINT IF NOT EXISTS fk_project_metrics_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE performance_baselines ADD CONSTRAINT IF NOT EXISTS fk_performance_baselines_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE alert_configurations ADD CONSTRAINT IF NOT EXISTS fk_alert_configurations_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE manual_updates ADD CONSTRAINT IF NOT EXISTS fk_manual_updates_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+    );
 
     // Create indexes (handle existing indexes gracefully)
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_status_reports_project_id ON status_reports (project_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_status_reports_period ON status_reports (reporting_period_start, reporting_period_end)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_metrics_project_id ON project_metrics (project_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_project_metrics_date ON project_metrics (metric_date)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_performance_baselines_project_id ON performance_baselines (project_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_alert_configurations_project_id ON alert_configurations (project_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_manual_updates_project_id ON manual_updates (project_id)`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_status_reports_project_id ON status_reports (project_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_status_reports_period ON status_reports (reporting_period_start, reporting_period_end)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_metrics_project_id ON project_metrics (project_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_project_metrics_date ON project_metrics (metric_date)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_performance_baselines_project_id ON performance_baselines (project_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_alert_configurations_project_id ON alert_configurations (project_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_manual_updates_project_id ON manual_updates (project_id)`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key constraints
-    await queryRunner.query(`ALTER TABLE manual_updates DROP CONSTRAINT IF EXISTS fk_manual_updates_project`);
-    await queryRunner.query(`ALTER TABLE alert_configurations DROP CONSTRAINT IF EXISTS fk_alert_configurations_project`);
-    await queryRunner.query(`ALTER TABLE performance_baselines DROP CONSTRAINT IF EXISTS fk_performance_baselines_project`);
-    await queryRunner.query(`ALTER TABLE project_metrics DROP CONSTRAINT IF EXISTS fk_project_metrics_project`);
-    await queryRunner.query(`ALTER TABLE status_reports DROP CONSTRAINT IF EXISTS fk_status_reports_project`);
+    await queryRunner.query(
+      `ALTER TABLE manual_updates DROP CONSTRAINT IF EXISTS fk_manual_updates_project`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE alert_configurations DROP CONSTRAINT IF EXISTS fk_alert_configurations_project`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE performance_baselines DROP CONSTRAINT IF EXISTS fk_performance_baselines_project`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE project_metrics DROP CONSTRAINT IF EXISTS fk_project_metrics_project`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE status_reports DROP CONSTRAINT IF EXISTS fk_status_reports_project`,
+    );
 
     // Drop tables
     await queryRunner.query(`DROP TABLE IF EXISTS manual_updates`);

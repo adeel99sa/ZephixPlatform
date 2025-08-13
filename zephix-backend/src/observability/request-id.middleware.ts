@@ -13,10 +13,10 @@ export class RequestIdMiddleware implements NestMiddleware {
   use(req: RequestWithId, res: Response, next: NextFunction) {
     // Enterprise: Generate or use existing request ID
     req.id = (req.headers['x-request-id'] as string) || uuidv4();
-    
+
     // Enterprise: Set response header for tracing
     res.setHeader('x-request-id', req.id);
-    
+
     next();
   }
 }

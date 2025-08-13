@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 
 @Entity('users')
@@ -30,7 +37,7 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];
 
   @CreateDateColumn()

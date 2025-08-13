@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 
 @Entity('pm_knowledge_chunks')
@@ -28,7 +36,12 @@ export class PMKnowledgeChunk {
   methodology: 'predictive' | 'agile' | 'hybrid' | 'universal';
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  processGroup: 'initiating' | 'planning' | 'executing' | 'monitoring_controlling' | 'closing';
+  processGroup:
+    | 'initiating'
+    | 'planning'
+    | 'executing'
+    | 'monitoring_controlling'
+    | 'closing';
 
   @Column({ type: 'text', nullable: true })
   embedding: string; // Store as JSON string for now, will be converted to vector after pgvector is installed

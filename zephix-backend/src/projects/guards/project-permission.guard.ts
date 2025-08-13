@@ -16,7 +16,8 @@ const TEAM_MEMBER_READ = 'team_member:read';
 export class ProjectPermissionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    @Inject(TEAM_MEMBER_READ) private teamMemberRepository: Repository<TeamMember>,
+    @Inject(TEAM_MEMBER_READ)
+    private teamMemberRepository: Repository<TeamMember>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

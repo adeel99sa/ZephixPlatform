@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Risk } from './risk.entity';
 
 @Entity('risk_responses')
@@ -11,8 +20,8 @@ export class RiskResponse {
   @Column('uuid')
   riskId: string;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['avoid', 'transfer', 'mitigate', 'accept'],
   })
   strategy: string;
@@ -101,10 +110,10 @@ export class RiskResponse {
     lessonsLearned: string[];
   };
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['draft', 'approved', 'active', 'completed', 'cancelled'],
-    default: 'draft'
+    default: 'draft',
   })
   status: string;
 
@@ -142,7 +151,7 @@ export class RiskResponse {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Risk, risk => risk.responses)
+  @ManyToOne(() => Risk, (risk) => risk.responses)
   @JoinColumn({ name: 'riskId' })
   risk: Risk;
 }

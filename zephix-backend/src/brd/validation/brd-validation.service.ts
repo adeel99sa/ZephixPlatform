@@ -23,25 +23,25 @@ export class BRDValidationService {
 
   validate(payload: Record<string, any>): ValidationResult {
     const errors: string[] = [];
-    
+
     // Validate metadata
     if (!payload.metadata?.title || payload.metadata.title.length < 3) {
       errors.push('Title must be at least 3 characters long');
     }
-    
+
     if (!payload.metadata?.summary || payload.metadata.summary.length < 10) {
       errors.push('Summary must be at least 10 characters long');
     }
-    
+
     // Validate business context
     if (!payload.businessContext?.problemStatement) {
       errors.push('Problem statement is required');
     }
-    
+
     if (!payload.businessContext?.businessObjective) {
       errors.push('Business objective is required');
     }
-    
+
     return {
       valid: errors.length === 0,
       errors,
@@ -55,16 +55,18 @@ export class BRDValidationService {
       'businessContext.problemStatement',
       'businessContext.businessObjective',
     ];
-    
-    const missingRequired = requiredFields.filter(field => {
+
+    const missingRequired = requiredFields.filter((field) => {
       const value = field.split('.').reduce((obj, key) => obj?.[key], payload);
       return !value || (typeof value === 'string' && value.trim().length === 0);
     });
-    
+
     const totalFields = requiredFields.length;
     const completedFields = totalFields - missingRequired.length;
-    const completionPercentage = Math.round((completedFields / totalFields) * 100);
-    
+    const completionPercentage = Math.round(
+      (completedFields / totalFields) * 100,
+    );
+
     return {
       totalFields,
       completedFields,
@@ -81,7 +83,11 @@ export class BRDValidationService {
         summary: { type: 'string', required: true, minLength: 10 },
         industry: { type: 'string', required: false },
         department: { type: 'string', required: false },
-        priority: { type: 'string', required: false, enum: ['Low', 'Medium', 'High', 'Critical'] },
+        priority: {
+          type: 'string',
+          required: false,
+          enum: ['Low', 'Medium', 'High', 'Critical'],
+        },
       },
       businessContext: {
         problemStatement: { type: 'string', required: true },

@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsUrl, Length, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUrl,
+  Length,
+  IsDateString,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateOrganizationDto {

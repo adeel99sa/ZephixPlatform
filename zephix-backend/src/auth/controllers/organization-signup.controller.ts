@@ -7,12 +7,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { OrganizationSignupService } from '../services/organization-signup.service';
 import { OrganizationSignupDto } from '../dto/organization-signup.dto';
 
@@ -27,7 +22,8 @@ export class OrganizationSignupController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Sign up with new organization',
-    description: 'Creates a new user and organization, with the user as the owner',
+    description:
+      'Creates a new user and organization, with the user as the owner',
   })
   @ApiResponse({
     status: 201,
@@ -83,7 +79,8 @@ export class OrganizationSignupController {
     },
   })
   async checkSlugAvailability(@Query('slug') slug: string) {
-    const available = await this.organizationSignupService.checkSlugAvailability(slug);
+    const available =
+      await this.organizationSignupService.checkSlugAvailability(slug);
     return {
       available,
       slug,

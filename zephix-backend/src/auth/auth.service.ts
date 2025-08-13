@@ -40,7 +40,11 @@ export class AuthService {
     registerDto: RegisterDto,
     ipAddress?: string,
     userAgent?: string,
-  ): Promise<{ user: User; accessToken: string; requiresEmailVerification: boolean }> {
+  ): Promise<{
+    user: User;
+    accessToken: string;
+    requiresEmailVerification: boolean;
+  }> {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user exists
@@ -80,8 +84,8 @@ export class AuthService {
       emailVerified: savedUser.isEmailVerified,
     });
 
-    return { 
-      user: savedUser, 
+    return {
+      user: savedUser,
       accessToken,
       requiresEmailVerification: true,
     };

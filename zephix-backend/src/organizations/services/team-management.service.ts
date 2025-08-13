@@ -22,7 +22,10 @@ export class TeamManagementService {
     private userRepository: Repository<User>,
   ) {}
 
-  async getTeamMembers(organizationId: string, userId: string): Promise<TeamMemberResponseDto[]> {
+  async getTeamMembers(
+    organizationId: string,
+    userId: string,
+  ): Promise<TeamMemberResponseDto[]> {
     // Verify user belongs to organization
     const userOrg = await this.userOrganizationRepository.findOne({
       where: { organizationId, userId, isActive: true },
@@ -38,7 +41,7 @@ export class TeamManagementService {
       order: { joinedAt: 'ASC' },
     });
 
-    return teamMembers.map(member => ({
+    return teamMembers.map((member) => ({
       id: member.id,
       user: {
         id: member.user.id,
@@ -64,7 +67,9 @@ export class TeamManagementService {
     });
 
     if (!updaterUserOrg || !updaterUserOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can update member roles');
+      throw new ForbiddenException(
+        'Only organization admins can update member roles',
+      );
     }
 
     // Find the member to update
@@ -79,7 +84,9 @@ export class TeamManagementService {
 
     // Prevent changing owner role or changing to owner
     if (memberUserOrg.role === 'owner') {
-      throw new ForbiddenException('Cannot change the role of an organization owner');
+      throw new ForbiddenException(
+        'Cannot change the role of an organization owner',
+      );
     }
 
     // Note: owner role is not part of the UpdateMemberRoleDto enum, so this check is not needed
@@ -87,7 +94,9 @@ export class TeamManagementService {
 
     // Prevent non-owners from changing admin roles
     if (memberUserOrg.role === 'admin' && !updaterUserOrg.isOwner()) {
-      throw new ForbiddenException('Only organization owners can change admin roles');
+      throw new ForbiddenException(
+        'Only organization owners can change admin roles',
+      );
     }
 
     // Update the role
@@ -119,7 +128,9 @@ export class TeamManagementService {
     });
 
     if (!removerUserOrg || !removerUserOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can remove team members');
+      throw new ForbiddenException(
+        'Only organization admins can remove team members',
+      );
     }
 
     // Find the member to remove
@@ -139,12 +150,16 @@ export class TeamManagementService {
 
     // Prevent non-owners from removing admins
     if (memberUserOrg.role === 'admin' && !removerUserOrg.isOwner()) {
-      throw new ForbiddenException('Only organization owners can remove admins');
+      throw new ForbiddenException(
+        'Only organization owners can remove admins',
+      );
     }
 
     // Prevent self-removal (use a separate endpoint for leaving organization)
     if (memberUserOrg.userId === removerUserId) {
-      throw new ForbiddenException('Use the leave organization endpoint to remove yourself');
+      throw new ForbiddenException(
+        'Use the leave organization endpoint to remove yourself',
+      );
     }
 
     // Check if this is the last admin (excluding owner)
@@ -164,8 +179,14 @@ export class TeamManagementService {
       },
     });
 
-    if (memberUserOrg.role === 'admin' && adminCount === 1 && ownerCount === 0) {
-      throw new ConflictException('Cannot remove the last admin from the organization');
+    if (
+      memberUserOrg.role === 'admin' &&
+      adminCount === 1 &&
+      ownerCount === 0
+    ) {
+      throw new ConflictException(
+        'Cannot remove the last admin from the organization',
+      );
     }
 
     // Deactivate the member (soft delete)
@@ -222,7 +243,9 @@ export class TeamManagementService {
       });
 
       if (adminCount === 1 && ownerCount === 0) {
-        throw new ConflictException('Cannot leave as the last admin. Assign another admin first.');
+        throw new ConflictException(
+          'Cannot leave as the last admin. Assign another admin first.',
+        );
       }
     }
 
@@ -244,7 +267,9 @@ export class TeamManagementService {
     });
 
     if (!currentOwnerOrg || !currentOwnerOrg.isOwner()) {
-      throw new ForbiddenException('Only organization owner can transfer ownership');
+      throw new ForbiddenException(
+        'Only organization owner can transfer ownership',
+      );
     }
 
     // Verify new owner is a member
@@ -253,7 +278,9 @@ export class TeamManagementService {
     });
 
     if (!newOwnerOrg) {
-      throw new NotFoundException('New owner must be a current member of the organization');
+      throw new NotFoundException(
+        'New owner must be a current member of the organization',
+      );
     }
 
     // Transfer ownership

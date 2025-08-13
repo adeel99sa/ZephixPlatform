@@ -21,13 +21,15 @@ const dbConfig = {
 const AppDataSource = new DataSource({
   type: 'postgres',
   // Use DATABASE_URL if available, otherwise fall back to individual parameters
-  ...(dbConfig.url ? { url: dbConfig.url } : {
-    host: dbConfig.host,
-    port: dbConfig.port,
-    username: dbConfig.username,
-    password: dbConfig.password,
-    database: dbConfig.database,
-  }),
+  ...(dbConfig.url
+    ? { url: dbConfig.url }
+    : {
+        host: dbConfig.host,
+        port: dbConfig.port,
+        username: dbConfig.username,
+        password: dbConfig.password,
+        database: dbConfig.database,
+      }),
   entities: [User, RefreshToken],
   migrations: [
     'src/database/migrations/*.ts',
@@ -38,7 +40,8 @@ const AppDataSource = new DataSource({
   migrationsTableName: 'migrations',
   synchronize: false,
   logging: true,
-  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
 });
 
 export default AppDataSource;

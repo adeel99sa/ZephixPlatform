@@ -8,22 +8,22 @@ async function runMigration() {
 
   try {
     console.log('Running multi-tenancy migration...');
-    await dataSource.runMigrations({ 
+    await dataSource.runMigrations({
       transaction: 'each',
-      fake: false 
+      fake: false,
     });
     console.log('✅ Multi-tenancy migration completed successfully!');
 
     // Create a sample organization and user for testing
     console.log('Creating sample organization...');
-    
+
     const organizationRepo = dataSource.getRepository('Organization');
     const userOrganizationRepo = dataSource.getRepository('UserOrganization');
     const userRepo = dataSource.getRepository('User');
 
     // Check if we have any organizations
     const existingOrg = await organizationRepo.findOne({ where: {} });
-    
+
     if (!existingOrg) {
       // Create sample organization
       const sampleOrg = await organizationRepo.save({
@@ -31,21 +31,21 @@ async function runMigration() {
         slug: 'acme-corp',
         status: 'active',
         description: 'Sample organization for testing',
-        settings: { timezone: 'UTC', currency: 'USD' }
+        settings: { timezone: 'UTC', currency: 'USD' },
       });
 
       console.log(`✅ Created sample organization: ${sampleOrg.name}`);
 
       // Associate existing users with the organization
       const users = await userRepo.find({ take: 5 }); // Get first 5 users
-      
+
       for (const user of users) {
         await userOrganizationRepo.save({
           userId: user.id,
           organizationId: sampleOrg.id,
           role: 'owner', // Make first user owner, others admin
           isActive: true,
-          joinedAt: new Date()
+          joinedAt: new Date(),
         });
       }
 
@@ -54,7 +54,7 @@ async function runMigration() {
       // Update existing projects to belong to this organization
       const projectRepo = dataSource.getRepository('Project');
       await projectRepo.update({}, { organizationId: sampleOrg.id });
-      
+
       const teams = dataSource.getRepository('Team');
       await teams.update({}, { organizationId: sampleOrg.id });
 
@@ -65,7 +65,6 @@ async function runMigration() {
     } else {
       console.log('Organization already exists, skipping sample data creation');
     }
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;

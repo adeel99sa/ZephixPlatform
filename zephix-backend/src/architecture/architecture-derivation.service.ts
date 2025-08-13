@@ -115,7 +115,13 @@ export interface ArchitectureDerivationResult {
   threat_model: Array<{
     asset: string;
     threat: string;
-    stride_category: 'spoofing' | 'tampering' | 'repudiation' | 'information_disclosure' | 'denial_of_service' | 'elevation_of_privilege';
+    stride_category:
+      | 'spoofing'
+      | 'tampering'
+      | 'repudiation'
+      | 'information_disclosure'
+      | 'denial_of_service'
+      | 'elevation_of_privilege';
     impact: 'high' | 'medium' | 'low';
     likelihood: 'high' | 'medium' | 'low';
     mitigation: string;
@@ -145,32 +151,48 @@ export class ArchitectureDerivationService {
     private metricsService: MetricsService,
   ) {}
 
-  async deriveArchitecture(brd: BRDAnalysisInput): Promise<ArchitectureDerivationResult> {
+  async deriveArchitecture(
+    brd: BRDAnalysisInput,
+  ): Promise<ArchitectureDerivationResult> {
     this.logger.log(`Starting architecture derivation for BRD: ${brd.id}`);
-    
+
     try {
       const startTime = Date.now();
 
       // Step 1: Extract drivers and constraints
-      const driversAndConstraints = await this.extractDriversAndConstraints(brd);
-      
+      const driversAndConstraints =
+        await this.extractDriversAndConstraints(brd);
+
       // Step 2: Generate architecture options
-      const architectureOptions = await this.generateArchitectureOptions(brd, driversAndConstraints);
-      
+      const architectureOptions = await this.generateArchitectureOptions(
+        brd,
+        driversAndConstraints,
+      );
+
       // Step 3: Select best option
-      const selectedOption = await this.selectArchitectureOption(brd, architectureOptions);
-      
+      const selectedOption = await this.selectArchitectureOption(
+        brd,
+        architectureOptions,
+      );
+
       // Step 4: Generate C4 diagrams
       const c4Diagrams = await this.generateC4Diagrams(brd, selectedOption);
-      
+
       // Step 5: Generate ADRs
-      const adrs = await this.generateADRs(brd, selectedOption, architectureOptions);
-      
+      const adrs = await this.generateADRs(
+        brd,
+        selectedOption,
+        architectureOptions,
+      );
+
       // Step 6: Generate threat model
       const threatModel = await this.generateThreatModel(brd, selectedOption);
-      
+
       // Step 7: Generate open questions
-      const openQuestions = await this.generateOpenQuestions(brd, selectedOption);
+      const openQuestions = await this.generateOpenQuestions(
+        brd,
+        selectedOption,
+      );
 
       const result: ArchitectureDerivationResult = {
         analysis_metadata: {
@@ -190,14 +212,25 @@ export class ArchitectureDerivationService {
       };
 
       const duration = (Date.now() - startTime) / 1000;
-      this.metricsService.incrementLlmRequests('anthropic', 'claude-3-sonnet', 'success');
-      this.logger.log(`Architecture derivation completed in ${duration}s for BRD: ${brd.id}`);
+      this.metricsService.incrementLlmRequests(
+        'anthropic',
+        'claude-3-sonnet',
+        'success',
+      );
+      this.logger.log(
+        `Architecture derivation completed in ${duration}s for BRD: ${brd.id}`,
+      );
 
       return result;
-
     } catch (error) {
-      this.logger.error(`Architecture derivation failed for BRD: ${brd.id}`, error);
-      this.metricsService.incrementError('architecture_derivation', 'architecture-service');
+      this.logger.error(
+        `Architecture derivation failed for BRD: ${brd.id}`,
+        error,
+      );
+      this.metricsService.incrementError(
+        'architecture_derivation',
+        'architecture-service',
+      );
       throw error;
     }
   }
@@ -248,14 +281,18 @@ Focus on architectural significance. Avoid inventing private data or company-spe
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect with expertise in enterprise architecture analysis. Extract only architecturally significant drivers and constraints from requirements. Keep content vendor-neutral and avoid private data.',
+      systemPrompt:
+        'You are a principal architect with expertise in enterprise architecture analysis. Extract only architecturally significant drivers and constraints from requirements. Keep content vendor-neutral and avoid private data.',
       maxTokens: 2000,
     });
 
     return JSON.parse(response.content);
   }
 
-  private async generateArchitectureOptions(brd: BRDAnalysisInput, driversAndConstraints: any) {
+  private async generateArchitectureOptions(
+    brd: BRDAnalysisInput,
+    driversAndConstraints: any,
+  ) {
     const prompt = `As a principal architect, generate 3 distinct architecture options (A, B, C) for this system.
 
 Project Context:
@@ -264,10 +301,10 @@ Project Context:
 - Solution: ${brd.overview.proposed_solution}
 
 Key Drivers:
-${driversAndConstraints.drivers.map(d => `- ${d.driver}: ${d.impact}`).join('\n')}
+${driversAndConstraints.drivers.map((d) => `- ${d.driver}: ${d.impact}`).join('\n')}
 
 Key Constraints:
-${driversAndConstraints.constraints.map(c => `- ${c.constraint}: ${c.rationale}`).join('\n')}
+${driversAndConstraints.constraints.map((c) => `- ${c.constraint}: ${c.rationale}`).join('\n')}
 
 Non-Functional Requirements:
 - Performance: ${brd.non_functional_requirements.performance.response_time_ms}ms, ${brd.non_functional_requirements.performance.throughput_requests_per_second} RPS, ${brd.non_functional_requirements.performance.concurrent_users} users
@@ -302,7 +339,8 @@ Keep vendor-neutral. No private company data.`;
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect creating distinct architecture options. Focus on different architectural patterns and trade-offs. Keep content vendor-neutral.',
+      systemPrompt:
+        'You are a principal architect creating distinct architecture options. Focus on different architectural patterns and trade-offs. Keep content vendor-neutral.',
       maxTokens: 3000,
     });
 
@@ -310,7 +348,10 @@ Keep vendor-neutral. No private company data.`;
     return parsed.options;
   }
 
-  private async selectArchitectureOption(brd: BRDAnalysisInput, options: any[]) {
+  private async selectArchitectureOption(
+    brd: BRDAnalysisInput,
+    options: any[],
+  ) {
     const prompt = `As a principal architect, select the best architecture option for this project.
 
 Project Context:
@@ -318,16 +359,20 @@ Project Context:
 - Timeline: ${brd.timeline.milestones.length} milestones starting ${brd.timeline.project_start}
 
 Architecture Options:
-${options.map(opt => `
+${options
+  .map(
+    (opt) => `
 Option ${opt.option}: ${opt.name}
 Description: ${opt.description}
 Pros: ${opt.pros.join(', ')}
 Cons: ${opt.cons.join(', ')}
 Complexity: ${opt.complexity}, Cost: ${opt.cost}, Risk: ${opt.risk}
-`).join('\n')}
+`,
+  )
+  .join('\n')}
 
 Key Project Risks:
-${brd.risks.map(r => `- ${r.description} (${r.impact} impact, ${r.probability} probability)`).join('\n')}
+${brd.risks.map((r) => `- ${r.description} (${r.impact} impact, ${r.probability} probability)`).join('\n')}
 
 Select the most appropriate option considering:
 1. Business objectives and timeline
@@ -344,7 +389,8 @@ Respond with JSON:
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect making architecture decisions. Base decisions on objective criteria and project context.',
+      systemPrompt:
+        'You are a principal architect making architecture decisions. Base decisions on objective criteria and project context.',
       maxTokens: 1500,
     });
 
@@ -363,7 +409,10 @@ Project: ${brd.title}
 Selected Architecture: ${selectedOption.rationale}
 
 Functional Requirements Summary:
-${brd.functional_requirements.slice(0, 5).map(req => `- ${req.title}: ${req.description}`).join('\n')}
+${brd.functional_requirements
+  .slice(0, 5)
+  .map((req) => `- ${req.title}: ${req.description}`)
+  .join('\n')}
 
 Stakeholders:
 - Business Owner: ${brd.stakeholders.business_owner}
@@ -391,14 +440,19 @@ Use proper C4-PlantUML syntax with @startuml/@enduml tags.`;
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect creating C4 diagrams. Use standard C4-PlantUML syntax. Keep names generic and avoid private data.',
+      systemPrompt:
+        'You are a principal architect creating C4 diagrams. Use standard C4-PlantUML syntax. Keep names generic and avoid private data.',
       maxTokens: 4000,
     });
 
     return JSON.parse(response.content);
   }
 
-  private async generateADRs(brd: BRDAnalysisInput, selectedOption: any, options: any[]) {
+  private async generateADRs(
+    brd: BRDAnalysisInput,
+    selectedOption: any,
+    options: any[],
+  ) {
     const prompt = `Generate Architecture Decision Records (ADRs) for key architectural decisions.
 
 Project: ${brd.title}
@@ -406,7 +460,7 @@ Selected Architecture: Option ${selectedOption.option}
 Rationale: ${selectedOption.rationale}
 
 Architecture Options Considered:
-${options.map(opt => `${opt.option}: ${opt.name} - ${opt.description}`).join('\n')}
+${options.map((opt) => `${opt.option}: ${opt.name} - ${opt.description}`).join('\n')}
 
 Key Constraints:
 ${brd.scope.constraints.join('\n')}
@@ -444,7 +498,8 @@ Keep content vendor-neutral and avoid company-specific details.`;
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect writing ADRs. Focus on significant architectural decisions with clear rationale.',
+      systemPrompt:
+        'You are a principal architect writing ADRs. Focus on significant architectural decisions with clear rationale.',
       maxTokens: 3000,
     });
 
@@ -452,7 +507,10 @@ Keep content vendor-neutral and avoid company-specific details.`;
     return parsed.adrs;
   }
 
-  private async generateThreatModel(brd: BRDAnalysisInput, selectedOption: any) {
+  private async generateThreatModel(
+    brd: BRDAnalysisInput,
+    selectedOption: any,
+  ) {
     const prompt = `Generate a threat model using STRIDE methodology for this system.
 
 Project: ${brd.title}
@@ -464,7 +522,7 @@ Security Requirements:
 - Audit Logging: ${brd.non_functional_requirements.security.audit_logging}
 
 Key Assets to Protect:
-${brd.functional_requirements.map(req => `- ${req.title}`).join('\n')}
+${brd.functional_requirements.map((req) => `- ${req.title}`).join('\n')}
 
 Generate threat model entries using STRIDE categories:
 - Spoofing: Identity threats
@@ -502,7 +560,8 @@ Focus on realistic threats. Avoid company-specific vulnerabilities.`;
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a security architect performing threat modeling. Use STRIDE methodology systematically. Keep threats realistic and generic.',
+      systemPrompt:
+        'You are a security architect performing threat modeling. Use STRIDE methodology systematically. Keep threats realistic and generic.',
       maxTokens: 3000,
     });
 
@@ -510,7 +569,10 @@ Focus on realistic threats. Avoid company-specific vulnerabilities.`;
     return parsed.threats;
   }
 
-  private async generateOpenQuestions(brd: BRDAnalysisInput, selectedOption: any) {
+  private async generateOpenQuestions(
+    brd: BRDAnalysisInput,
+    selectedOption: any,
+  ) {
     const prompt = `Identify open questions for stakeholders based on the BRD analysis and selected architecture.
 
 Project: ${brd.title}
@@ -555,7 +617,8 @@ Focus on architecture-impacting questions. Avoid company-specific details.`;
 
     const response = await this.llmProvider.sendRequest({
       prompt,
-      systemPrompt: 'You are a principal architect identifying clarification questions. Focus on questions that impact architectural decisions.',
+      systemPrompt:
+        'You are a principal architect identifying clarification questions. Focus on questions that impact architectural decisions.',
       maxTokens: 2000,
     });
 
@@ -563,24 +626,26 @@ Focus on architecture-impacting questions. Avoid company-specific details.`;
     return parsed.questions;
   }
 
-  async generateArchitectureBundle(derivation: ArchitectureDerivationResult): Promise<ArchitectureBundle> {
+  async generateArchitectureBundle(
+    derivation: ArchitectureDerivationResult,
+  ): Promise<ArchitectureBundle> {
     // Generate architecture_summary.md
     const summary = this.generateArchitectureSummary(derivation);
-    
+
     // Generate diagram files
     const diagrams = {
       'context.puml': derivation.c4_diagrams.context,
       'container.puml': derivation.c4_diagrams.container,
       'component.puml': derivation.c4_diagrams.component,
     };
-    
+
     // Generate ADR files
     const adrs: Record<string, string> = {};
-    derivation.adrs.forEach(adr => {
+    derivation.adrs.forEach((adr) => {
       const filename = `${adr.id.toLowerCase()}-${adr.title.toLowerCase().replace(/\s+/g, '-')}.md`;
       adrs[filename] = this.generateADRMarkdown(adr);
     });
-    
+
     // Generate risks.json
     const risks = {
       threat_model: derivation.threat_model,
@@ -596,7 +661,9 @@ Focus on architecture-impacting questions. Avoid company-specific details.`;
     };
   }
 
-  private generateArchitectureSummary(derivation: ArchitectureDerivationResult): string {
+  private generateArchitectureSummary(
+    derivation: ArchitectureDerivationResult,
+  ): string {
     return `# Architecture Summary
 
 **Generated:** ${derivation.analysis_metadata.generated_at}
@@ -605,38 +672,47 @@ Focus on architecture-impacting questions. Avoid company-specific details.`;
 
 ## Key Drivers
 
-${derivation.key_drivers.map(driver => 
-  `### ${driver.category.charAt(0).toUpperCase() + driver.category.slice(1)} Driver
+${derivation.key_drivers
+  .map(
+    (driver) =>
+      `### ${driver.category.charAt(0).toUpperCase() + driver.category.slice(1)} Driver
 - **Driver:** ${driver.driver}
-- **Impact:** ${driver.impact}`
-).join('\n\n')}
+- **Impact:** ${driver.impact}`,
+  )
+  .join('\n\n')}
 
 ## Constraints
 
-${derivation.constraints.map(constraint =>
-  `### ${constraint.type.charAt(0).toUpperCase() + constraint.type.slice(1)} Constraint
+${derivation.constraints
+  .map(
+    (constraint) =>
+      `### ${constraint.type.charAt(0).toUpperCase() + constraint.type.slice(1)} Constraint
 - **Constraint:** ${constraint.constraint}
-- **Rationale:** ${constraint.rationale}`
-).join('\n\n')}
+- **Rationale:** ${constraint.rationale}`,
+  )
+  .join('\n\n')}
 
 ## Architecture Options Evaluated
 
-${derivation.architecture_options.map(option =>
-  `### Option ${option.option}: ${option.name}
+${derivation.architecture_options
+  .map(
+    (option) =>
+      `### Option ${option.option}: ${option.name}
 
 **Description:** ${option.description}
 
 **Pros:**
-${option.pros.map(pro => `- ${pro}`).join('\n')}
+${option.pros.map((pro) => `- ${pro}`).join('\n')}
 
 **Cons:**
-${option.cons.map(con => `- ${con}`).join('\n')}
+${option.cons.map((con) => `- ${con}`).join('\n')}
 
 **Assessment:**
 - Complexity: ${option.complexity}
 - Cost: ${option.cost}
-- Risk: ${option.risk}`
-).join('\n\n')}
+- Risk: ${option.risk}`,
+  )
+  .join('\n\n')}
 
 ## Selected Architecture
 
@@ -645,7 +721,7 @@ ${option.cons.map(con => `- ${con}`).join('\n')}
 **Rationale:** ${derivation.selected_option.rationale}
 
 **Decision Criteria:**
-${derivation.selected_option.decision_criteria.map(criteria => `- ${criteria}`).join('\n')}
+${derivation.selected_option.decision_criteria.map((criteria) => `- ${criteria}`).join('\n')}
 
 ## Architecture Diagrams
 
@@ -656,20 +732,27 @@ The following C4 diagrams are provided in the diagrams/ folder:
 
 ## Architecture Decision Records
 
-${derivation.adrs.map(adr => `- [${adr.id}](./adrs/${adr.id.toLowerCase()}-${adr.title.toLowerCase().replace(/\s+/g, '-')}.md): ${adr.title}`).join('\n')}
+${derivation.adrs.map((adr) => `- [${adr.id}](./adrs/${adr.id.toLowerCase()}-${adr.title.toLowerCase().replace(/\s+/g, '-')}.md): ${adr.title}`).join('\n')}
 
 ## Security Considerations
 
 See \`risks.json\` for detailed threat model with STRIDE analysis.
 
 **Key Security Measures:**
-${derivation.threat_model.filter(t => t.status === 'mitigated').map(t => `- ${t.mitigation}`).join('\n')}
+${derivation.threat_model
+  .filter((t) => t.status === 'mitigated')
+  .map((t) => `- ${t.mitigation}`)
+  .join('\n')}
 
 ## Open Questions
 
-${derivation.open_questions.filter(q => q.urgency === 'high').map(q => 
-  `- **${q.category.toUpperCase()}:** ${q.question} *(${q.stakeholder})*`
-).join('\n')}
+${derivation.open_questions
+  .filter((q) => q.urgency === 'high')
+  .map(
+    (q) =>
+      `- **${q.category.toUpperCase()}:** ${q.question} *(${q.stakeholder})*`,
+  )
+  .join('\n')}
 
 ---
 *Generated by Zephix AI Architecture Service*

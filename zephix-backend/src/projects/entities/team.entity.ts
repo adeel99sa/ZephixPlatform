@@ -34,7 +34,7 @@ export class Team {
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
 
-  @OneToOne(() => Project, project => project.team, { onDelete: 'CASCADE' })
+  @OneToOne(() => Project, (project) => project.team, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'project_id' })
   project: Project;
 

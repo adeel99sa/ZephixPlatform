@@ -13,19 +13,16 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BRD, BRDAnalysis, GeneratedProjectPlan, UserOrganization]),
+    TypeOrmModule.forFeature([
+      BRD,
+      BRDAnalysis,
+      GeneratedProjectPlan,
+      UserOrganization,
+    ]),
     // AccessControlModule removed - using built-in NestJS guards instead
   ],
   controllers: [BRDController, BRDProjectPlanningController],
-  providers: [
-    BRDService,
-    BRDAnalysisService,
-    BRDRepository,
-  ],
-  exports: [
-    BRDService,
-    BRDAnalysisService,
-    BRDRepository,
-  ],
+  providers: [BRDService, BRDAnalysisService, BRDRepository],
+  exports: [BRDService, BRDAnalysisService, BRDRepository],
 })
 export class BRDModule {}

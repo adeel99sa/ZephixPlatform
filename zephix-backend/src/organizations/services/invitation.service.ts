@@ -13,7 +13,10 @@ import { Invitation } from '../entities/invitation.entity';
 import { Organization } from '../entities/organization.entity';
 import { UserOrganization } from '../entities/user-organization.entity';
 import { User } from '../../users/entities/user.entity';
-import { EmailService, InvitationEmailData } from '../../shared/services/email.service';
+import {
+  EmailService,
+  InvitationEmailData,
+} from '../../shared/services/email.service';
 import { InviteTeamMemberDto, InvitationResponseDto } from '../dto';
 import { randomBytes } from 'crypto';
 
@@ -45,7 +48,9 @@ export class InvitationService {
     });
 
     if (!inviterUserOrg || !inviterUserOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can invite team members');
+      throw new ForbiddenException(
+        'Only organization admins can invite team members',
+      );
     }
 
     // Check if user is already in the organization
@@ -59,7 +64,9 @@ export class InvitationService {
       });
 
       if (existingUserOrg && existingUserOrg.isActive) {
-        throw new ConflictException('User is already a member of this organization');
+        throw new ConflictException(
+          'User is already a member of this organization',
+        );
       }
     }
 
@@ -73,7 +80,9 @@ export class InvitationService {
     });
 
     if (existingInvitation && existingInvitation.isPending()) {
-      throw new ConflictException('A pending invitation already exists for this email');
+      throw new ConflictException(
+        'A pending invitation already exists for this email',
+      );
     }
 
     // Cancel any existing expired/pending invitations
@@ -131,7 +140,10 @@ export class InvitationService {
     };
   }
 
-  async acceptInvitation(token: string, userId?: string): Promise<{
+  async acceptInvitation(
+    token: string,
+    userId?: string,
+  ): Promise<{
     success: boolean;
     organization: Organization;
     requiresSignup: boolean;
@@ -146,7 +158,9 @@ export class InvitationService {
     }
 
     if (!invitation.canBeAccepted()) {
-      throw new BadRequestException('Invitation has expired or is no longer valid');
+      throw new BadRequestException(
+        'Invitation has expired or is no longer valid',
+      );
     }
 
     // Check if user exists
@@ -227,14 +241,19 @@ export class InvitationService {
     };
   }
 
-  async getOrganizationInvitations(organizationId: string, userId: string): Promise<InvitationResponseDto[]> {
+  async getOrganizationInvitations(
+    organizationId: string,
+    userId: string,
+  ): Promise<InvitationResponseDto[]> {
     // Verify user has permission to view invitations
     const userOrg = await this.userOrganizationRepository.findOne({
       where: { organizationId, userId, isActive: true },
     });
 
     if (!userOrg || !userOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can view invitations');
+      throw new ForbiddenException(
+        'Only organization admins can view invitations',
+      );
     }
 
     const invitations = await this.invitationRepository.find({
@@ -244,11 +263,16 @@ export class InvitationService {
     });
 
     return Promise.all(
-      invitations.map(invitation => this.getInvitationResponseDto(invitation.id))
+      invitations.map((invitation) =>
+        this.getInvitationResponseDto(invitation.id),
+      ),
     );
   }
 
-  async resendInvitation(invitationId: string, userId: string): Promise<{ success: boolean }> {
+  async resendInvitation(
+    invitationId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
     const invitation = await this.invitationRepository.findOne({
       where: { id: invitationId },
       relations: ['organization', 'invitedBy'],
@@ -260,11 +284,17 @@ export class InvitationService {
 
     // Verify user has permission
     const userOrg = await this.userOrganizationRepository.findOne({
-      where: { organizationId: invitation.organizationId, userId, isActive: true },
+      where: {
+        organizationId: invitation.organizationId,
+        userId,
+        isActive: true,
+      },
     });
 
     if (!userOrg || !userOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can resend invitations');
+      throw new ForbiddenException(
+        'Only organization admins can resend invitations',
+      );
     }
 
     if (!invitation.canBeResent()) {
@@ -300,7 +330,10 @@ export class InvitationService {
     return { success: true };
   }
 
-  async cancelInvitation(invitationId: string, userId: string): Promise<{ success: boolean }> {
+  async cancelInvitation(
+    invitationId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
     const invitation = await this.invitationRepository.findOne({
       where: { id: invitationId },
     });
@@ -311,11 +344,17 @@ export class InvitationService {
 
     // Verify user has permission
     const userOrg = await this.userOrganizationRepository.findOne({
-      where: { organizationId: invitation.organizationId, userId, isActive: true },
+      where: {
+        organizationId: invitation.organizationId,
+        userId,
+        isActive: true,
+      },
     });
 
     if (!userOrg || !userOrg.isAdmin()) {
-      throw new ForbiddenException('Only organization admins can cancel invitations');
+      throw new ForbiddenException(
+        'Only organization admins can cancel invitations',
+      );
     }
 
     invitation.status = 'cancelled';
@@ -335,7 +374,9 @@ export class InvitationService {
     return randomBytes(32).toString('hex');
   }
 
-  private async getInvitationResponseDto(invitationId: string): Promise<InvitationResponseDto> {
+  private async getInvitationResponseDto(
+    invitationId: string,
+  ): Promise<InvitationResponseDto> {
     const invitation = await this.invitationRepository.findOne({
       where: { id: invitationId },
       relations: ['invitedBy'],

@@ -1,5 +1,21 @@
-import { Controller, Post, Body, Get, Param, UseGuards, Request } from '@nestjs/common';
-import { AIPMAssistantService, ProjectContext, PMResponse, ProjectHealthReport, PortfolioRecommendations, RiskPredictions, CommunicationPlan } from '../services/ai-pm-assistant.service';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  AIPMAssistantService,
+  ProjectContext,
+  PMResponse,
+  ProjectHealthReport,
+  PortfolioRecommendations,
+  RiskPredictions,
+  CommunicationPlan,
+} from '../services/ai-pm-assistant.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 export class PMQuestionDto {
@@ -63,30 +79,39 @@ export class AIPMAssistantController {
   constructor(private readonly aiPMAssistantService: AIPMAssistantService) {}
 
   @Post('ask')
-  async askPMQuestion(@Body() dto: PMQuestionDto, @Request() req): Promise<PMResponse> {
+  async askPMQuestion(
+    @Body() dto: PMQuestionDto,
+    @Request() req,
+  ): Promise<PMResponse> {
     const userId = req.user.id;
     const context = dto.context ? { ...dto.context, userId } : { userId };
-    
+
     return this.aiPMAssistantService.askPMQuestion(dto.question, context);
   }
 
   @Post('analyze-project')
-  async analyzeProject(@Body() dto: ProjectAnalysisDto, @Request() req): Promise<ProjectHealthReport> {
+  async analyzeProject(
+    @Body() dto: ProjectAnalysisDto,
+    @Request() req,
+  ): Promise<ProjectHealthReport> {
     const userId = req.user.id;
-    
+
     // Verify project belongs to user
     // This would be implemented with proper authorization
-    
+
     return this.aiPMAssistantService.analyzeProjectHealth(dto.projectId);
   }
 
   @Post('generate-plan')
-  async generateProjectPlan(@Body() dto: GeneratePlanDto, @Request() req): Promise<any> {
+  async generateProjectPlan(
+    @Body() dto: GeneratePlanDto,
+    @Request() req,
+  ): Promise<any> {
     const userId = req.user.id;
-    
+
     // Generate comprehensive project plan based on input
     const plan = await this.generateComprehensivePlan(dto, userId);
-    
+
     return {
       projectPlan: plan,
       recommendations: this.generatePlanRecommendations(dto),
@@ -95,39 +120,51 @@ export class AIPMAssistantController {
   }
 
   @Post('optimize-portfolio')
-  async optimizePortfolio(@Body() dto: PortfolioDto, @Request() req): Promise<PortfolioRecommendations> {
+  async optimizePortfolio(
+    @Body() dto: PortfolioDto,
+    @Request() req,
+  ): Promise<PortfolioRecommendations> {
     const userId = req.user.id;
-    
+
     // Verify portfolio belongs to user
     // This would be implemented with proper authorization
-    
+
     return this.aiPMAssistantService.optimizePortfolio(dto.portfolioId);
   }
 
   @Post('risk-analysis')
-  async analyzeRisks(@Body() dto: RiskAnalysisDto, @Request() req): Promise<RiskPredictions> {
+  async analyzeRisks(
+    @Body() dto: RiskAnalysisDto,
+    @Request() req,
+  ): Promise<RiskPredictions> {
     const userId = req.user.id;
-    
+
     return this.aiPMAssistantService.predictProjectRisks(dto.projectData);
   }
 
   @Post('stakeholder-plan')
-  async createStakeholderPlan(@Body() dto: StakeholderDto, @Request() req): Promise<CommunicationPlan> {
+  async createStakeholderPlan(
+    @Body() dto: StakeholderDto,
+    @Request() req,
+  ): Promise<CommunicationPlan> {
     const userId = req.user.id;
-    
+
     // Verify project belongs to user
     // This would be implemented with proper authorization
-    
+
     return this.aiPMAssistantService.generateStakeholderUpdates(dto.projectId);
   }
 
   @Post('progress-report')
-  async generateProgressReport(@Body() dto: ProgressReportDto, @Request() req): Promise<any> {
+  async generateProgressReport(
+    @Body() dto: ProgressReportDto,
+    @Request() req,
+  ): Promise<any> {
     const userId = req.user.id;
-    
+
     // Generate automated progress report
     const report = await this.generateAutomatedReport(dto, userId);
-    
+
     return {
       report,
       metrics: this.calculateReportMetrics(dto),
@@ -136,12 +173,15 @@ export class AIPMAssistantController {
   }
 
   @Post('next-actions')
-  async getNextActions(@Body() dto: NextActionsDto, @Request() req): Promise<any> {
+  async getNextActions(
+    @Body() dto: NextActionsDto,
+    @Request() req,
+  ): Promise<any> {
     const userId = req.user.id;
-    
+
     // Get smart recommendations for next actions
     const actions = await this.getSmartRecommendations(dto, userId);
-    
+
     return {
       actions,
       priority: dto.priority || 'medium',
@@ -151,12 +191,15 @@ export class AIPMAssistantController {
   }
 
   @Get('knowledge/:domain')
-  async getPMKnowledge(@Param('domain') domain: string, @Request() req): Promise<any> {
+  async getPMKnowledge(
+    @Param('domain') domain: string,
+    @Request() req,
+  ): Promise<any> {
     const userId = req.user.id;
-    
+
     // Get relevant PM knowledge for the domain
     const knowledge = await this.getDomainKnowledge(domain);
-    
+
     return {
       domain,
       knowledge,
@@ -173,22 +216,25 @@ export class AIPMAssistantController {
       message: 'AI Chat Service is working!',
       capabilities: [
         'Project Analysis',
-        'Resource Optimization', 
+        'Resource Optimization',
         'Risk Assessment',
         'Communication Planning',
-        'Health Monitoring'
+        'Health Monitoring',
       ],
-      status: 'ready'
+      status: 'ready',
     };
   }
 
   @Get('templates/:type')
-  async getPMTemplates(@Param('type') type: string, @Request() req): Promise<any> {
+  async getPMTemplates(
+    @Param('type') type: string,
+    @Request() req,
+  ): Promise<any> {
     const userId = req.user.id;
-    
+
     // Get PM templates based on type
     const templates = await this.getTemplatesByType(type);
-    
+
     return {
       type,
       templates,
@@ -197,7 +243,10 @@ export class AIPMAssistantController {
   }
 
   // Helper methods for plan generation and analysis
-  private async generateComprehensivePlan(dto: GeneratePlanDto, userId: string): Promise<any> {
+  private async generateComprehensivePlan(
+    dto: GeneratePlanDto,
+    userId: string,
+  ): Promise<any> {
     const plan = {
       projectName: dto.projectName,
       description: dto.description,
@@ -207,7 +256,7 @@ export class AIPMAssistantController {
       timeline: dto.timeline,
       teamSize: dto.teamSize,
       complexity: dto.complexity,
-      
+
       // Generated components
       workBreakdownStructure: this.generateWBS(dto),
       riskRegister: this.generateRiskRegister(dto),
@@ -215,48 +264,50 @@ export class AIPMAssistantController {
       communicationPlan: this.generateCommunicationPlan(dto),
       qualityPlan: this.generateQualityPlan(dto),
       procurementPlan: this.generateProcurementPlan(dto),
-      
+
       // Timeline and milestones
       projectTimeline: this.generateTimeline(dto),
       milestones: this.generateMilestones(dto),
-      
+
       // Resource allocation
       resourceAllocation: this.generateResourceAllocation(dto),
       costEstimate: this.generateCostEstimate(dto),
-      
+
       // Quality and risk management
       qualityMetrics: this.generateQualityMetrics(dto),
       riskMitigationStrategies: this.generateRiskMitigationStrategies(dto),
-      
+
       // Stakeholder management
       stakeholderEngagementPlan: this.generateStakeholderEngagementPlan(dto),
       communicationSchedule: this.generateCommunicationSchedule(dto),
     };
-    
+
     return plan;
   }
 
   private generatePlanRecommendations(dto: GeneratePlanDto): string[] {
     const recommendations: string[] = [];
-    
+
     if (dto.complexity === 'high') {
       recommendations.push('Consider breaking down into smaller sub-projects');
       recommendations.push('Implement robust risk management framework');
       recommendations.push('Establish clear escalation procedures');
     }
-    
+
     if (dto.methodology === 'agile') {
       recommendations.push('Set up sprint planning and retrospectives');
       recommendations.push('Implement continuous integration practices');
       recommendations.push('Establish product backlog management');
     }
-    
+
     if (dto.teamSize && dto.teamSize > 10) {
-      recommendations.push('Consider team structure and communication channels');
+      recommendations.push(
+        'Consider team structure and communication channels',
+      );
       recommendations.push('Implement regular team building activities');
       recommendations.push('Establish clear roles and responsibilities');
     }
-    
+
     return recommendations;
   }
 
@@ -270,7 +321,10 @@ export class AIPMAssistantController {
     ];
   }
 
-  private async generateAutomatedReport(dto: ProgressReportDto, userId: string): Promise<any> {
+  private async generateAutomatedReport(
+    dto: ProgressReportDto,
+    userId: string,
+  ): Promise<any> {
     const report = {
       reportType: dto.reportType || 'weekly',
       generatedAt: new Date(),
@@ -280,7 +334,7 @@ export class AIPMAssistantController {
       nextPeriodPlan: await this.generateNextPeriodPlan(dto.projectId),
       recommendations: await this.generateReportRecommendations(dto),
     };
-    
+
     return report;
   }
 
@@ -303,7 +357,10 @@ export class AIPMAssistantController {
     ];
   }
 
-  private async getSmartRecommendations(dto: NextActionsDto, userId: string): Promise<any[]> {
+  private async getSmartRecommendations(
+    dto: NextActionsDto,
+    userId: string,
+  ): Promise<any[]> {
     const actions = [
       {
         action: 'Schedule stakeholder review meeting',
@@ -327,7 +384,7 @@ export class AIPMAssistantController {
         dependencies: [],
       },
     ];
-    
+
     return actions;
   }
 
@@ -336,7 +393,7 @@ export class AIPMAssistantController {
       const hours = parseInt(action.effort.split(' ')[0]);
       return sum + hours;
     }, 0);
-    
+
     return {
       totalHours: totalEffort,
       estimatedDays: Math.ceil(totalEffort / 8),
@@ -392,15 +449,23 @@ export class AIPMAssistantController {
         'Project Dashboard Template',
       ],
     };
-    
+
     return templates[type] || [];
   }
 
   private getCustomizationOptions(type: string): any {
     return {
       'project-plan': ['methodology', 'complexity', 'team-size', 'timeline'],
-      'risk-register': ['risk-categories', 'probability-scales', 'impact-scales'],
-      'stakeholder-register': ['stakeholder-types', 'influence-levels', 'communication-preferences'],
+      'risk-register': [
+        'risk-categories',
+        'probability-scales',
+        'impact-scales',
+      ],
+      'stakeholder-register': [
+        'stakeholder-types',
+        'influence-levels',
+        'communication-preferences',
+      ],
       'progress-report': ['metrics', 'frequency', 'audience'],
     };
   }
@@ -462,15 +527,30 @@ export class AIPMAssistantController {
 
   private generateQualityPlan(dto: GeneratePlanDto): any {
     return {
-      qualityObjectives: ['Meet stakeholder requirements', 'Achieve project goals'],
-      qualityMetrics: ['Customer satisfaction', 'Defect rate', 'Timeline adherence'],
-      qualityAssurance: ['Regular reviews', 'Testing procedures', 'Documentation standards'],
+      qualityObjectives: [
+        'Meet stakeholder requirements',
+        'Achieve project goals',
+      ],
+      qualityMetrics: [
+        'Customer satisfaction',
+        'Defect rate',
+        'Timeline adherence',
+      ],
+      qualityAssurance: [
+        'Regular reviews',
+        'Testing procedures',
+        'Documentation standards',
+      ],
     };
   }
 
   private generateProcurementPlan(dto: GeneratePlanDto): any {
     return {
-      procurementNeeds: ['External consultants', 'Software licenses', 'Hardware'],
+      procurementNeeds: [
+        'External consultants',
+        'Software licenses',
+        'Hardware',
+      ],
       procurementSchedule: this.generateProcurementSchedule(dto),
       vendorManagement: this.generateVendorManagementPlan(dto),
     };
@@ -532,7 +612,11 @@ export class AIPMAssistantController {
 
   private generateStakeholderEngagementPlan(dto: GeneratePlanDto): any {
     return {
-      engagementStrategies: ['Regular updates', 'Stakeholder meetings', 'Feedback collection'],
+      engagementStrategies: [
+        'Regular updates',
+        'Stakeholder meetings',
+        'Feedback collection',
+      ],
       communicationChannels: ['Email', 'Meetings', 'Reports', 'Dashboard'],
       engagementSchedule: this.generateEngagementSchedule(dto),
     };

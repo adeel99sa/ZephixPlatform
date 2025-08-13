@@ -56,7 +56,7 @@ export class BRD {
   updated_at: Date;
 
   // Relations
-  @OneToMany(() => BRDAnalysis, analysis => analysis.brd)
+  @OneToMany(() => BRDAnalysis, (analysis) => analysis.brd)
   analyses: BRDAnalysis[];
 
   // Helper methods to extract data from payload
@@ -96,7 +96,7 @@ export class BRD {
   isComplete(): boolean {
     const metadata = this.payload?.metadata;
     const businessContext = this.payload?.businessContext;
-    
+
     return !!(
       metadata?.title &&
       metadata?.summary &&

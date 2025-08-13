@@ -95,7 +95,11 @@ export class ProjectsController {
     @CurrentOrg() organizationId: string,
   ): Promise<ProjectCreationResponseDto> {
     try {
-      const project = await this.projectsService.create(createProjectDto, user, organizationId);
+      const project = await this.projectsService.create(
+        createProjectDto,
+        user,
+        organizationId,
+      );
       return {
         message: 'Project created successfully',
         project,

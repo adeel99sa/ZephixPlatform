@@ -142,7 +142,7 @@ export class GeneratedProjectPlan {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => BRDAnalysis, analysis => analysis.generatedPlans)
+  @ManyToOne(() => BRDAnalysis, (analysis) => analysis.generatedPlans)
   @JoinColumn({ name: 'brdAnalysisId' })
   brdAnalysis: BRDAnalysis;
 }

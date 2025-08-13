@@ -24,7 +24,7 @@ export class EmailService {
 
   private initializeTransporter() {
     const emailConfig = this.configService.get('email');
-    
+
     if (emailConfig?.smtp?.host) {
       // Production SMTP configuration
       this.transporter = nodemailer.createTransport({
@@ -53,13 +53,15 @@ export class EmailService {
     html: string;
   }): Promise<void> {
     const options = {
-      from: this.configService.get<string>('email.fromAddress') || 'noreply@zephix.com',
+      from:
+        this.configService.get<string>('email.fromAddress') ||
+        'noreply@zephix.com',
       ...mailOptions,
     };
 
     try {
       const info = await this.transporter.sendMail(options);
-      
+
       if ((this.transporter.options as any).streamTransport) {
         // Development mode - log the email
         this.logger.log('=== EMAIL SENT (DEVELOPMENT MODE) ===');
@@ -67,7 +69,9 @@ export class EmailService {
         this.logger.log(`Subject: ${options.subject}`);
         this.logger.log('====================================');
       } else {
-        this.logger.log(`Email sent to ${options.to}, messageId: ${info.messageId}`);
+        this.logger.log(
+          `Email sent to ${options.to}, messageId: ${info.messageId}`,
+        );
       }
     } catch (error) {
       this.logger.error(`Failed to send email to ${options.to}:`, error);
@@ -76,18 +80,22 @@ export class EmailService {
   }
 
   async sendInvitationEmail(data: InvitationEmailData): Promise<void> {
-    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
+    const frontendUrl =
+      this.configService.get<string>('app.frontendUrl') ||
+      'http://localhost:5173';
     const invitationUrl = `${frontendUrl}/invite/${data.invitationToken}`;
-    
+
     const subject = `You're invited to join ${data.organizationName} on Zephix`;
-    
+
     const html = this.generateInvitationEmailTemplate({
       ...data,
       invitationUrl,
     });
 
     const mailOptions = {
-      from: this.configService.get<string>('email.fromAddress') || 'noreply@zephix.com',
+      from:
+        this.configService.get<string>('email.fromAddress') ||
+        'noreply@zephix.com',
       to: data.recipientEmail,
       subject,
       html,
@@ -95,7 +103,7 @@ export class EmailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      
+
       if ((this.transporter.options as any).streamTransport) {
         // Development mode - log the email
         this.logger.log('=== INVITATION EMAIL (DEVELOPMENT MODE) ===');
@@ -105,17 +113,26 @@ export class EmailService {
         this.logger.log(`Expires: ${data.expiresAt.toISOString()}`);
         this.logger.log('==========================================');
       } else {
-        this.logger.log(`Invitation email sent to ${data.recipientEmail}, messageId: ${info.messageId}`);
+        this.logger.log(
+          `Invitation email sent to ${data.recipientEmail}, messageId: ${info.messageId}`,
+        );
       }
     } catch (error) {
-      this.logger.error(`Failed to send invitation email to ${data.recipientEmail}:`, error);
+      this.logger.error(
+        `Failed to send invitation email to ${data.recipientEmail}:`,
+        error,
+      );
       throw new Error('Failed to send invitation email');
     }
   }
 
-  private generateInvitationEmailTemplate(data: InvitationEmailData & { invitationUrl: string }): string {
-    const expiresInHours = Math.ceil((data.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
-    
+  private generateInvitationEmailTemplate(
+    data: InvitationEmailData & { invitationUrl: string },
+  ): string {
+    const expiresInHours = Math.ceil(
+      (data.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60),
+    );
+
     return `
       <!DOCTYPE html>
       <html>
@@ -148,12 +165,16 @@ export class EmailService {
             
             <p><strong>${data.inviterName}</strong> has invited you to join <strong>${data.organizationName}</strong> as a <span class="role-badge">${data.role.toUpperCase()}</span> on Zephix.</p>
             
-            ${data.message ? `
+            ${
+              data.message
+                ? `
               <div class="message-box">
                 <strong>Personal message:</strong><br>
                 "${data.message}"
               </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <p>Zephix is a modern project management platform that helps teams collaborate effectively and deliver projects on time.</p>
             
