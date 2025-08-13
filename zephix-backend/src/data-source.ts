@@ -1,7 +1,7 @@
 // src/data-source.ts - Enterprise-Grade PostgreSQL Configuration
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
-import { User } from './users/entities/user.entity';
+import { User } from "./modules/users/entities/user.entity"
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
 // Load environment variables

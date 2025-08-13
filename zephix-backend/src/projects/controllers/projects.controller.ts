@@ -28,7 +28,7 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 import { AddTeamMemberDto } from '../dto/add-team-member.dto';
 import { UpdateTeamMemberDto } from '../dto/update-team-member.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import { RequirePermissions } from '../decorators/project-permissions.decorator';
 import { RoleType } from '../entities/role.entity';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';

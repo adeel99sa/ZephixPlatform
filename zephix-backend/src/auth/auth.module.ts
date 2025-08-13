@@ -7,7 +7,7 @@ import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { EmailVerificationService } from './services/email-verification.service';
-import { User } from '../users/entities/user.entity';
+import { User } from "../modules/users/entities/user.entity"
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
