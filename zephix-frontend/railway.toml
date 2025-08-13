@@ -1,9 +1,6 @@
-# Zephix Frontend - Enterprise Railway Configuration
-# Explicitly configured to use Dockerfile and prevent npm script auto-detection
-
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "./Dockerfile"
+dockerfilePath = "./Dockerfile.railway"
 
 [deploy]
 startCommand = ""
@@ -11,27 +8,3 @@ healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
-
-[environments.production]
-builder = "DOCKERFILE"
-dockerfilePath = "./Dockerfile"
-startCommand = ""
-
-# Environment variables
-[variables]
-NODE_ENV = "production"
-PORT = "80"
-VITE_API_BASE_URL = "https://getzephix.com/api"
-VITE_APP_NAME = "Zephix AI"
-VITE_APP_VERSION = "2.0.0"
-
-# Resource allocation
-[resources]
-cpu = "0.25"
-memory = "256MB"
-
-# Explicitly declare this is NOT a Node.js service
-[metadata]
-type = "static"
-framework = "nginx"
-language = "none"
