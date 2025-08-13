@@ -2,14 +2,10 @@
 
 ## Required Secrets
 
-### 1. CR_PAT (GitHub Container Registry Personal Access Token)
+### 1. GITHUB_TOKEN (Automatically Available)
 - **Purpose**: Authenticate with GitHub Container Registry (GHCR)
-- **Scope**: `write:packages` permission
-- **How to create**:
-  1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-  2. Generate new token
-  3. Select `write:packages` scope
-  4. Copy the token value
+- **Scope**: Automatically has `packages: write` permission when workflow has `permissions: packages: write`
+- **No setup required**: This token is automatically provided by GitHub Actions
 
 ### 2. RAILWAY_TOKEN (Optional - for CI/CD deploys)
 - **Purpose**: Allow GitHub Actions to trigger Railway deployments
