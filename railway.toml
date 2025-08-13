@@ -10,7 +10,7 @@
 # @version 2.1.0
 
 [build]
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
 
 # =============================================================================
 # BACKEND SERVICE CONFIGURATION
@@ -26,8 +26,7 @@ source = "zephix-backend"
 
 # Build configuration for NestJS TypeScript
 [services.backend.build]
-builder = "NIXPACKS"
-nixpacksConfigPath = "nixpacks.toml"
+builder = "DOCKERFILE"
 
 # Deployment configuration
 [services.backend.deploy]
@@ -67,7 +66,6 @@ source = "zephix-frontend"
 # Build configuration for React TypeScript with Docker
 [services.frontend.build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
 
 # Deployment configuration
 [services.frontend.deploy]
