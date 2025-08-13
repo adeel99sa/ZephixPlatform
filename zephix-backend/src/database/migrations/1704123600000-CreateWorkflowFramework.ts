@@ -107,223 +107,336 @@ export class CreateWorkflowFramework1704123600000
 
     // Create indexes for better performance
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_template_organization" ON "workflow_templates" ("organizationId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_template_organization" ON "workflow_templates" ("organizationId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_template_type" ON "workflow_templates" ("type")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_template_type" ON "workflow_templates" ("type")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_template_active" ON "workflow_templates" ("isActive")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_template_active" ON "workflow_templates" ("isActive")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_template_default" ON "workflow_templates" ("isDefault")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_template_default" ON "workflow_templates" ("isDefault")`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_organization" ON "workflow_instances" ("organizationId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_organization" ON "workflow_instances" ("organizationId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_template" ON "workflow_instances" ("templateId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_template" ON "workflow_instances" ("templateId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_status" ON "workflow_instances" ("status")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_status" ON "workflow_instances" ("status")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_assigned" ON "workflow_instances" ("assignedTo")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_assigned" ON "workflow_instances" ("assignedTo")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_created_by" ON "workflow_instances" ("createdBy")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_created_by" ON "workflow_instances" ("createdBy")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_workflow_instance_created_at" ON "workflow_instances" ("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_workflow_instance_created_at" ON "workflow_instances" ("createdAt")`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_form_organization" ON "intake_forms" ("organizationId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_form_organization" ON "intake_forms" ("organizationId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_form_slug" ON "intake_forms" ("slug")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_form_slug" ON "intake_forms" ("slug")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_form_active" ON "intake_forms" ("isActive")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_form_active" ON "intake_forms" ("isActive")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_form_public" ON "intake_forms" ("isPublic")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_form_public" ON "intake_forms" ("isPublic")`,
     );
 
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_organization" ON "intake_submissions" ("organizationId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_organization" ON "intake_submissions" ("organizationId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_form" ON "intake_submissions" ("formId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_form" ON "intake_submissions" ("formId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_status" ON "intake_submissions" ("status")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_status" ON "intake_submissions" ("status")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_assigned" ON "intake_submissions" ("assignedTo")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_assigned" ON "intake_submissions" ("assignedTo")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_workflow" ON "intake_submissions" ("workflowInstanceId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_workflow" ON "intake_submissions" ("workflowInstanceId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_intake_submission_created_at" ON "intake_submissions" ("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_intake_submission_created_at" ON "intake_submissions" ("createdAt")`,
     );
 
-    // Add foreign key constraints
-    await queryRunner.query(`
-      ALTER TABLE "workflow_templates" 
-      ADD CONSTRAINT "FK_workflow_template_organization" 
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
-    `);
+    // Add foreign key constraints safely
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'workflow_templates',
+      'FK_workflow_template_organization',
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_organization" 
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_organization',
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_template" 
-      FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_template',
+      `FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_assigned_user" 
-      FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_assigned_user',
+      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "workflow_instances" 
-      ADD CONSTRAINT "FK_workflow_instance_creator" 
-      FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_creator',
+      `FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT "FK_intake_form_organization" 
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_forms',
+      'FK_intake_form_organization',
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_forms" 
-      ADD CONSTRAINT "FK_intake_form_workflow" 
-      FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_forms',
+      'FK_intake_form_workflow',
+      `FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_organization" 
-      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_organization',
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_form" 
-      FOREIGN KEY ("formId") REFERENCES "intake_forms"("id") ON DELETE CASCADE
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_form',
+      `FOREIGN KEY ("formId") REFERENCES "intake_forms"("id") ON DELETE CASCADE`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_submitter" 
-      FOREIGN KEY ("submittedBy") REFERENCES "users"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_submitter',
+      `FOREIGN KEY ("submittedBy") REFERENCES "users"("id") ON DELETE SET NULL`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_assigned_user" 
-      FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_assigned_user',
+      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_processor" 
-      FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_processor',
+      `FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL`
+    );
 
-    await queryRunner.query(`
-      ALTER TABLE "intake_submissions" 
-      ADD CONSTRAINT "FK_intake_submission_workflow" 
-      FOREIGN KEY ("workflowInstanceId") REFERENCES "workflow_instances"("id") ON DELETE SET NULL
-    `);
+    await this.addConstraintIfNotExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_workflow',
+      `FOREIGN KEY ("workflowInstanceId") REFERENCES "workflow_instances"("id") ON DELETE SET NULL`
+    );
+  }
+
+  // Helper method to safely add constraints
+  private async addConstraintIfNotExists(
+    queryRunner: QueryRunner,
+    tableName: string,
+    constraintName: string,
+    constraintDefinition: string
+  ): Promise<void> {
+    try {
+      // Check if constraint already exists
+      const constraintExists = await queryRunner.query(`
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = $1 AND table_name = $2
+      `, [constraintName, tableName]);
+
+      if (constraintExists.length === 0) {
+        // Add constraint only if it doesn't exist
+        await queryRunner.query(`
+          ALTER TABLE "${tableName}" 
+          ADD CONSTRAINT "${constraintName}" 
+          ${constraintDefinition}
+        `);
+      }
+    } catch (error) {
+      // Log constraint addition error but don't fail the migration
+      console.warn(`Warning: Could not add constraint ${constraintName} to ${tableName}:`, error.message);
+    }
+  }
+
+  // Helper method to safely drop constraints
+  private async dropConstraintIfExists(
+    queryRunner: QueryRunner,
+    tableName: string,
+    constraintName: string
+  ): Promise<void> {
+    try {
+      // Check if constraint exists before dropping
+      const constraintExists = await queryRunner.query(`
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = $1 AND table_name = $2
+      `, [constraintName, tableName]);
+
+      if (constraintExists.length > 0) {
+        // Drop constraint only if it exists
+        await queryRunner.query(`
+          ALTER TABLE "${tableName}" DROP CONSTRAINT "${constraintName}"
+        `);
+      }
+    } catch (error) {
+      // Log constraint drop error but don't fail the migration
+      console.warn(`Warning: Could not drop constraint ${constraintName} from ${tableName}:`, error.message);
+    }
+  }
+
+  // Helper method to safely drop indexes
+  private async dropIndexIfExists(
+    queryRunner: QueryRunner,
+    indexName: string
+  ): Promise<void> {
+    try {
+      // Check if index exists before dropping
+      const indexExists = await queryRunner.query(`
+        SELECT 1 FROM pg_indexes WHERE indexname = $1
+      `, [indexName]);
+
+      if (indexExists.length > 0) {
+        // Drop index only if it exists
+        await queryRunner.query(`DROP INDEX IF EXISTS "${indexName}"`);
+      }
+    } catch (error) {
+      // Log index drop error but don't fail the migration
+      console.warn(`Warning: Could not drop index ${indexName}:`, error.message);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop foreign key constraints first
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_workflow"`,
+    // Drop foreign key constraints safely
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_workflow'
     );
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_processor"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_processor'
     );
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_assigned_user"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_assigned_user'
     );
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_submitter"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_submitter'
     );
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_form"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_form'
     );
-    await queryRunner.query(
-      `ALTER TABLE "intake_submissions" DROP CONSTRAINT "FK_intake_submission_organization"`,
-    );
-
-    await queryRunner.query(
-      `ALTER TABLE "intake_forms" DROP CONSTRAINT "FK_intake_form_workflow"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "intake_forms" DROP CONSTRAINT "FK_intake_form_organization"`,
-    );
-
-    await queryRunner.query(
-      `ALTER TABLE "workflow_instances" DROP CONSTRAINT "FK_workflow_instance_creator"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "workflow_instances" DROP CONSTRAINT "FK_workflow_instance_assigned_user"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "workflow_instances" DROP CONSTRAINT "FK_workflow_instance_template"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "workflow_instances" DROP CONSTRAINT "FK_workflow_instance_organization"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_submissions',
+      'FK_intake_submission_organization'
     );
 
-    await queryRunner.query(
-      `ALTER TABLE "workflow_templates" DROP CONSTRAINT "FK_workflow_template_organization"`,
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_forms',
+      'FK_intake_form_workflow'
+    );
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'intake_forms',
+      'FK_intake_form_organization'
     );
 
-    // Drop indexes
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_created_at"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_workflow"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_assigned"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_status"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_form"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_submission_organization"`);
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_creator'
+    );
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_assigned_user'
+    );
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_template'
+    );
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'workflow_instances',
+      'FK_workflow_instance_organization'
+    );
 
-    await queryRunner.query(`DROP INDEX "IDX_intake_form_public"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_form_active"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_form_slug"`);
-    await queryRunner.query(`DROP INDEX "IDX_intake_form_organization"`);
+    await this.dropConstraintIfExists(
+      queryRunner,
+      'workflow_templates',
+      'FK_workflow_template_organization'
+    );
 
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_created_at"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_created_by"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_assigned"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_status"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_template"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_instance_organization"`);
+    // Drop indexes safely
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_created_at');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_workflow');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_assigned');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_status');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_form');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_organization');
 
-    await queryRunner.query(`DROP INDEX "IDX_workflow_template_default"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_template_active"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_template_type"`);
-    await queryRunner.query(`DROP INDEX "IDX_workflow_template_organization"`);
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_public');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_active');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_slug');
+    await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_organization');
+
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_created_at');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_created_by');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_assigned');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_status');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_template');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_organization');
+
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_default');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_active');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_type');
+    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_organization');
 
     // Drop tables
-    await queryRunner.query(`DROP TABLE "intake_submissions"`);
-    await queryRunner.query(`DROP TABLE "intake_forms"`);
-    await queryRunner.query(`DROP TABLE "workflow_instances"`);
-    await queryRunner.query(`DROP TABLE "workflow_templates"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "intake_submissions"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "intake_forms"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "workflow_instances"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "workflow_templates"`);
   }
 }
