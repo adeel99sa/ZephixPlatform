@@ -12,7 +12,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Team } from './team.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 
 export enum ProjectStatus {
   PLANNING = 'planning',
