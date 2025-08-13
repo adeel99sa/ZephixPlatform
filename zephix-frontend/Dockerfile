@@ -35,10 +35,6 @@ RUN apk add --no-cache --update \
     curl \
     && rm -rf /var/cache/apk/*
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S -D -H -u 1001 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx
-
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
@@ -49,7 +45,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY start-nginx.sh /start-nginx.sh
 RUN chmod +x /start-nginx.sh
 
-# Set proper ownership for security
+# Set proper ownership for security (nginx user already exists)
 RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 
 # Create health check directory
@@ -66,7 +62,7 @@ USER nginx
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+    CMD curl -f http://localhost/ || exit 1
 
 # Use startup script to handle PORT environment variable
 # This ensures Railway doesn't try to run npm start
