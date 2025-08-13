@@ -44,7 +44,11 @@
     "verify:railway": "./scripts/verify-railway-build.sh",
     "validate:deployment": "ts-node scripts/validate-deployment.ts",
     "dep:cycles": "tsc -p tsconfig.build.json && madge dist --circular",
-    "test:guards": "npm test -- --testPathPattern='(organization|project-permission).guard.spec.ts' --verbose"
+    "test:guards": "npm test -- --testPathPattern='(organization|project-permission).guard.spec.ts' --verbose",
+    "auth:diagnose": "ts-node scripts/auth-diagnostics.ts",
+    "auth:diagnose:browser": "node scripts/browser-auth-diagnostics.js",
+    "auth:diagnose:full": "chmod +x scripts/run-auth-diagnostics.sh && ./scripts/run-auth-diagnostics.sh",
+    "auth:test": "npm run auth:diagnose && npm run auth:diagnose:browser"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
