@@ -10,40 +10,15 @@ node = "18"
 [variables]
 NODE_VERSION = "18"
 NODE_ENV = "production"
-NIXPACKS_BUILDER = "true"
 
 [phases.setup]
-cmds = ["npm ci --omit=dev"]
+nixPkgs = ["nodejs", "npm"]
 
 [phases.install]
-cmds = ["npm ci --omit=dev"]
+cmds = ["npm ci"]
 
 [phases.build]
 cmds = ["npm run build"]
 
-[phases.start]
-cmd = "npm run serve"
-
-# =============================================================================
-# BUILD OPTIMIZATION
-# =============================================================================
-[phases.build.nixpacksConfig]
-# Ensure Vite build process
-cmds = [
-  "npm run build",
-  "npm prune --production"
-]
-
-# =============================================================================
-# RUNTIME CONFIGURATION
-# =============================================================================
-[phases.start.nixpacksConfig]
-# Use serve command for static file serving
-cmd = "serve dist -l $PORT"
-
-# =============================================================================
-# ENVIRONMENT VARIABLES
-# =============================================================================
-[variables.nixpacksConfig]
-NODE_ENV = "production"
-PORT = "3000"
+[start]
+cmd = "npm run start"
