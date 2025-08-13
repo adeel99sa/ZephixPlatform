@@ -10,7 +10,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { User } from '../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';

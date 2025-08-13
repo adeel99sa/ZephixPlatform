@@ -16,7 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { User } from '../../users/entities/user.entity';
+import { User } from "../../modules/users/entities/user.entity"
 import { InvitationService } from '../services/invitation.service';
 import { Organization } from '../entities/organization.entity';
 
