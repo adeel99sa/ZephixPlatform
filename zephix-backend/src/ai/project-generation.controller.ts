@@ -48,7 +48,10 @@ export class ProjectGenerationController {
 
   @Post('generate-from-brd/:documentId')
   @ApiOperation({ summary: 'Generate a project plan from a processed BRD' })
-  @ApiParam({ name: 'documentId', description: 'Document ID from BRD processing' })
+  @ApiParam({
+    name: 'documentId',
+    description: 'Document ID from BRD processing',
+  })
   @ApiBody({ type: GenerateProjectRequest })
   @ApiResponse({
     status: 202,
@@ -66,25 +69,29 @@ export class ProjectGenerationController {
   ): Promise<ProjectGenerationResponse> {
     // Validate that the document exists and is processed
     const organizationId = req.user.organizationId;
-    
+
     // For now, return a placeholder response
     // In the next phase, this will:
     // 1. Validate the BRD data
     // 2. Generate project structure based on methodology
     // 3. Create tasks, epics, and dependencies
     // 4. Return the generated project ID
-    
+
     return {
       projectId: `project-${Date.now()}`, // Placeholder
       status: 'generating',
-      message: 'Project generation started. This feature will be implemented in the next phase.',
+      message:
+        'Project generation started. This feature will be implemented in the next phase.',
       estimatedCompletionTime: 30, // 30 seconds placeholder
     };
   }
 
   @Get('generation-status/:projectId')
   @ApiOperation({ summary: 'Check the status of project generation' })
-  @ApiParam({ name: 'projectId', description: 'Project ID from generation request' })
+  @ApiParam({
+    name: 'projectId',
+    description: 'Project ID from generation request',
+  })
   @ApiResponse({
     status: 200,
     description: 'Generation status retrieved successfully',

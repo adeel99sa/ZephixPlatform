@@ -46,7 +46,9 @@ export class IntakeSubmission {
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
 
-  @ManyToOne(() => IntakeForm, form => form.submissions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => IntakeForm, (form) => form.submissions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'formId' })
   form: IntakeForm;
 
@@ -59,10 +61,10 @@ export class IntakeSubmission {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['pending', 'processing', 'processed', 'rejected', 'cancelled'],
-    default: 'pending'
+    default: 'pending',
   })
   status: string;
 
@@ -112,7 +114,11 @@ export class IntakeSubmission {
   @Column('uuid', { nullable: true })
   workflowInstanceId: string;
 
-  @Column({ type: 'enum', enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' })
+  @Column({
+    type: 'enum',
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium',
+  })
   priority: string;
 
   @Column({ type: 'jsonb', default: [] })
@@ -155,7 +161,11 @@ export class IntakeSubmission {
   // Helper methods
   getSubmitterIdentifier(): string {
     if (this.submitter) {
-      return this.submitter.email || `${this.submitter.firstName} ${this.submitter.lastName}`.trim() || 'Unknown User';
+      return (
+        this.submitter.email ||
+        `${this.submitter.firstName} ${this.submitter.lastName}`.trim() ||
+        'Unknown User'
+      );
     }
     return this.submitterEmail || this.submitterName || 'Anonymous';
   }
@@ -176,12 +186,14 @@ export class IntakeSubmission {
   }
 
   getAttachmentsForField(fieldId: string): any[] {
-    const fieldAttachments = this.data.attachments?.find(att => att.fieldId === fieldId);
+    const fieldAttachments = this.data.attachments?.find(
+      (att) => att.fieldId === fieldId,
+    );
     return fieldAttachments?.files || [];
   }
 
   getAllAttachments(): any[] {
-    return this.data.attachments?.flatMap(att => att.files) || [];
+    return this.data.attachments?.flatMap((att) => att.files) || [];
   }
 
   isProcessed(): boolean {
@@ -209,12 +221,15 @@ export class IntakeSubmission {
     return this.data.metadata.timeToComplete || null;
   }
 
-  addAutomationResult(type: 'notification' | 'integration' | 'assignment', result: any): void {
+  addAutomationResult(
+    type: 'notification' | 'integration' | 'assignment',
+    result: any,
+  ): void {
     if (!this.automationResults) {
       this.automationResults = {};
     }
 
-    const key = `${type}s` as keyof typeof this.automationResults;
+    const key = `${type}s`;
     if (!this.automationResults[key]) {
       this.automationResults[key] = [];
     }

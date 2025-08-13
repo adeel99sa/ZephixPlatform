@@ -36,7 +36,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto) {
     const result = await this.authService.login(loginDto);
-    
+
     if (!result) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -52,7 +52,10 @@ export class AuthController {
   @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Create new user account' })
   @ApiResponse({ status: 201, description: 'Account created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid input or email already exists' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or email already exists',
+  })
   async signup(@Body() signupDto: SignupDto) {
     try {
       return await this.authService.signup(signupDto);
@@ -77,9 +80,9 @@ export class AuthController {
     if (!userId) {
       throw new UnauthorizedException('User not authenticated');
     }
-    
+
     const user = await this.authService.getUserById(userId);
-    
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -96,8 +99,10 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
-    const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
-    
+    const result = await this.authService.refreshToken(
+      refreshTokenDto.refreshToken,
+    );
+
     if (!result) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -118,7 +123,7 @@ export class AuthController {
     if (!userId) {
       throw new UnauthorizedException('User not authenticated');
     }
-    
+
     await this.authService.logout(userId);
     return { message: 'Logout successful' };
   }

@@ -13,7 +13,12 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { RolesGuard } from '../../organizations/guards/roles.guard';
@@ -65,10 +70,7 @@ export class IntakeFormController {
   @ApiResponse({ status: 200, description: 'Form retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
   @UseGuards(JwtAuthGuard, OrganizationGuard)
-  async getForm(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async getForm(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.intakeService.getFormById(orgId, id);
   }
 
@@ -90,21 +92,24 @@ export class IntakeFormController {
   @ApiOperation({ summary: 'Delete intake form' })
   @ApiResponse({ status: 204, description: 'Form deleted successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
-  @ApiResponse({ status: 409, description: 'Cannot delete form with pending submissions' })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot delete form with pending submissions',
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, OrganizationGuard, RolesGuard)
   @Roles('admin', 'owner')
-  async deleteForm(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteForm(@CurrentOrg() orgId: string, @Param('id') id: string) {
     await this.intakeService.deleteForm(orgId, id);
   }
 
   // Submission management routes
   @Get('submissions')
   @ApiOperation({ summary: 'List intake submissions' })
-  @ApiResponse({ status: 200, description: 'Submissions retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Submissions retrieved successfully',
+  })
   @UseGuards(JwtAuthGuard, OrganizationGuard)
   async getSubmissions(
     @CurrentOrg() orgId: string,
@@ -115,20 +120,26 @@ export class IntakeFormController {
 
   @Get('submissions/:id')
   @ApiOperation({ summary: 'Get intake submission by ID' })
-  @ApiResponse({ status: 200, description: 'Submission retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Submission retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Submission not found' })
   @UseGuards(JwtAuthGuard, OrganizationGuard)
-  async getSubmission(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async getSubmission(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.intakeService.getSubmissionById(orgId, id);
   }
 
   @Post('submissions/:id/process')
   @ApiOperation({ summary: 'Process intake submission into project' })
-  @ApiResponse({ status: 200, description: 'Submission processed successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot process submission in current state' })
+  @ApiResponse({
+    status: 200,
+    description: 'Submission processed successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot process submission in current state',
+  })
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, OrganizationGuard)
   async processIntake(
@@ -137,7 +148,12 @@ export class IntakeFormController {
     @Param('id') id: string,
     @Body() processDto: ProcessIntakeDto,
   ) {
-    return this.intakeService.processIntoProject(orgId, id, processDto, user.id);
+    return this.intakeService.processIntoProject(
+      orgId,
+      id,
+      processDto,
+      user.id,
+    );
   }
 
   @Post('submissions/bulk-action')
@@ -162,7 +178,9 @@ export class IntakeFormController {
     @Param('id') formId: string,
   ) {
     const form = await this.intakeService.getFormById(orgId, formId);
-    const submissions = await this.intakeService.getSubmissions(orgId, { formId });
+    const submissions = await this.intakeService.getSubmissions(orgId, {
+      formId,
+    });
 
     const analytics = {
       formId: form.id,
@@ -171,22 +189,30 @@ export class IntakeFormController {
       totalSubmissions: form.analytics?.totalSubmissions || 0,
       conversionRate: form.analytics?.conversionRate || 0,
       submissionsByStatus: this.calculateSubmissionsByStatus(submissions.data),
-      submissionsByPriority: this.calculateSubmissionsByPriority(submissions.data),
-      averageCompletionTime: this.calculateAverageCompletionTime(submissions.data),
+      submissionsByPriority: this.calculateSubmissionsByPriority(
+        submissions.data,
+      ),
+      averageCompletionTime: this.calculateAverageCompletionTime(
+        submissions.data,
+      ),
       peakSubmissionHours: this.calculatePeakSubmissionHours(submissions.data),
     };
 
     return analytics;
   }
 
-  private calculateSubmissionsByStatus(submissions: any[]): Record<string, number> {
+  private calculateSubmissionsByStatus(
+    submissions: any[],
+  ): Record<string, number> {
     return submissions.reduce((acc, sub) => {
       acc[sub.status] = (acc[sub.status] || 0) + 1;
       return acc;
     }, {});
   }
 
-  private calculateSubmissionsByPriority(submissions: any[]): Record<string, number> {
+  private calculateSubmissionsByPriority(
+    submissions: any[],
+  ): Record<string, number> {
     return submissions.reduce((acc, sub) => {
       acc[sub.priority || 'medium'] = (acc[sub.priority || 'medium'] || 0) + 1;
       return acc;
@@ -194,18 +220,21 @@ export class IntakeFormController {
   }
 
   private calculateAverageCompletionTime(submissions: any[]): number {
-    const completed = submissions.filter(s => s.completedAt);
+    const completed = submissions.filter((s) => s.completedAt);
     if (completed.length === 0) return 0;
-    
+
     const totalTime = completed.reduce((acc, sub) => {
-      const diff = new Date(sub.completedAt).getTime() - new Date(sub.createdAt).getTime();
+      const diff =
+        new Date(sub.completedAt).getTime() - new Date(sub.createdAt).getTime();
       return acc + diff;
     }, 0);
-    
+
     return Math.round(totalTime / completed.length / (1000 * 60 * 60)); // hours
   }
 
-  private calculatePeakSubmissionHours(submissions: any[]): Record<string, number> {
+  private calculatePeakSubmissionHours(
+    submissions: any[],
+  ): Record<string, number> {
     return submissions.reduce((acc, sub) => {
       const hour = new Date(sub.createdAt).getHours();
       acc[hour] = (acc[hour] || 0) + 1;
@@ -225,7 +254,7 @@ export class PublicIntakeController {
   @ApiResponse({ status: 404, description: 'Form not found or not accessible' })
   async getPublicForm(@Param('slug') slug: string) {
     const form = await this.intakeService.getPublicForm(slug);
-    
+
     // Remove sensitive information before returning
     const { analytics, settings, ...publicForm } = form;
     return {
@@ -264,7 +293,11 @@ export class PublicIntakeController {
     // Check if user is authenticated (optional)
     const userId = (request as any).user?.id;
 
-    const submission = await this.intakeService.submitIntake(slug, enrichedSubmission, userId);
+    const submission = await this.intakeService.submitIntake(
+      slug,
+      enrichedSubmission,
+      userId,
+    );
 
     // Return minimal response to prevent data leakage
     return {
@@ -272,7 +305,8 @@ export class PublicIntakeController {
       title: submission.title,
       status: submission.status,
       submittedAt: submission.createdAt,
-      confirmationMessage: 'Thank you for your submission. We will review it and get back to you soon.',
+      confirmationMessage:
+        'Thank you for your submission. We will review it and get back to you soon.',
     };
   }
 
@@ -286,5 +320,3 @@ export class PublicIntakeController {
     ).replace('::ffff:', '');
   }
 }
-
-

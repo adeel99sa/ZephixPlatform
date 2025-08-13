@@ -12,7 +12,10 @@ export class TeamsIntegration {
     this.apiToken = this.configService.get<string>('TEAMS_API_TOKEN') || '';
   }
 
-  async collectTeamsData(projectId: string, dateRange: { start: Date; end: Date }) {
+  async collectTeamsData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       this.logger.log(`Collecting Teams data for project ${projectId}`);
 
@@ -33,18 +36,29 @@ export class TeamsIntegration {
     }
   }
 
-  async getCommunicationMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getCommunicationMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call Teams API
-      const communicationData = await this.getMockCommunicationData(projectId, dateRange);
+      const communicationData = await this.getMockCommunicationData(
+        projectId,
+        dateRange,
+      );
       return communicationData;
     } catch (error) {
-      this.logger.error(`Failed to get communication metrics: ${error.message}`);
+      this.logger.error(
+        `Failed to get communication metrics: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  async getMeetingMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getMeetingMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call Teams API
       const meetingData = await this.getMockMeetingData(projectId, dateRange);
@@ -55,13 +69,21 @@ export class TeamsIntegration {
     }
   }
 
-  async getCollaborationMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getCollaborationMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call Teams API
-      const collaborationData = await this.getMockCollaborationData(projectId, dateRange);
+      const collaborationData = await this.getMockCollaborationData(
+        projectId,
+        dateRange,
+      );
       return collaborationData;
     } catch (error) {
-      this.logger.error(`Failed to get collaboration metrics: ${error.message}`);
+      this.logger.error(
+        `Failed to get collaboration metrics: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -69,25 +91,32 @@ export class TeamsIntegration {
   async sendStatusUpdate(projectId: string, updateData: any) {
     try {
       // Mock implementation - in real scenario, this would send to Teams webhook
-      this.logger.log(`Sending status update to Teams for project ${projectId}`);
-      
+      this.logger.log(
+        `Sending status update to Teams for project ${projectId}`,
+      );
+
       // Simulate sending to Teams webhook
       await this.sendToTeamsWebhook(updateData);
-      
+
       return {
         success: true,
         message: 'Status update sent to Teams successfully',
         timestamp: new Date(),
       };
     } catch (error) {
-      this.logger.error(`Failed to send status update to Teams: ${error.message}`);
+      this.logger.error(
+        `Failed to send status update to Teams: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  private async getMockTeamsData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockTeamsData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     return {
       communications: {
@@ -249,7 +278,10 @@ export class TeamsIntegration {
     };
   }
 
-  private async getMockCommunicationData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockCommunicationData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       messages: {
         total: 234,
@@ -286,7 +318,10 @@ export class TeamsIntegration {
     };
   }
 
-  private async getMockMeetingData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockMeetingData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 15,
       thisWeek: 3,
@@ -331,7 +366,10 @@ export class TeamsIntegration {
     };
   }
 
-  private async getMockCollaborationData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockCollaborationData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       files: {
         total: 45,
@@ -363,9 +401,9 @@ export class TeamsIntegration {
   private async sendToTeamsWebhook(updateData: any): Promise<void> {
     // Mock implementation - in real scenario, this would send to Teams webhook
     this.logger.log('Sending to Teams webhook:', updateData);
-    
+
     // Simulate webhook call
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
   async getChannelMetrics(projectId: string) {
@@ -476,7 +514,9 @@ export class TeamsIntegration {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to get user engagement metrics: ${error.message}`);
+      this.logger.error(
+        `Failed to get user engagement metrics: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -516,7 +556,9 @@ export class TeamsIntegration {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to get file collaboration metrics: ${error.message}`);
+      this.logger.error(
+        `Failed to get file collaboration metrics: ${error.message}`,
+      );
       throw error;
     }
   }

@@ -15,7 +15,10 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { StatusReportingService } from '../services/status-reporting.service';
-import type { StatusReportInput, StatusReportOutput } from '../services/status-reporting.service';
+import type {
+  StatusReportInput,
+  StatusReportOutput,
+} from '../services/status-reporting.service';
 
 @ApiTags('Status Reporting')
 @Controller('pm/status-reporting')
@@ -52,7 +55,9 @@ export class StatusReportingController {
         reportId: result.reportId,
       };
     } catch (error) {
-      throw new BadRequestException(`Report generation failed: ${error.message}`);
+      throw new BadRequestException(
+        `Report generation failed: ${error.message}`,
+      );
     }
   }
 
@@ -68,19 +73,25 @@ export class StatusReportingController {
     try {
       // Calculate real-time project health metrics
       const metrics = await this.calculateProjectHealthMetrics(projectId);
-      
+
       return {
         success: true,
         data: metrics,
       };
     } catch (error) {
-      throw new NotFoundException(`Project metrics not found: ${error.message}`);
+      throw new NotFoundException(
+        `Project metrics not found: ${error.message}`,
+      );
     }
   }
 
   @Get(':projectId/trends')
   @ApiOperation({ summary: 'Get performance trends analysis' })
-  @ApiQuery({ name: 'period', required: false, description: 'Time period for trends' })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    description: 'Time period for trends',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Performance trends retrieved successfully',
@@ -91,7 +102,7 @@ export class StatusReportingController {
   ): Promise<{ success: boolean; data: any[] }> {
     try {
       const trends = await this.getProjectTrends(projectId, period);
-      
+
       return {
         success: true,
         data: trends,
@@ -103,7 +114,11 @@ export class StatusReportingController {
 
   @Get(':projectId/reports')
   @ApiOperation({ summary: 'Get status report history' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of reports to return' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of reports to return',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Report history retrieved successfully',
@@ -113,8 +128,9 @@ export class StatusReportingController {
     @Query('limit') limit?: string,
   ): Promise<{ success: boolean; data: any[] }> {
     try {
-      const reports = await this.statusReportingService.getProjectMetrics(projectId);
-      
+      const reports =
+        await this.statusReportingService.getProjectMetrics(projectId);
+
       return {
         success: true,
         data: reports,
@@ -135,7 +151,7 @@ export class StatusReportingController {
   ): Promise<{ success: boolean; data: any }> {
     try {
       const risks = await this.getRiskAssessmentData(projectId);
-      
+
       return {
         success: true,
         data: risks,
@@ -153,7 +169,8 @@ export class StatusReportingController {
   })
   async exportReport(
     @Param('reportId') reportId: string,
-    @Body() options: { format: 'pdf' | 'pptx' | 'excel'; stakeholderType: string },
+    @Body()
+    options: { format: 'pdf' | 'pptx' | 'excel'; stakeholderType: string },
   ): Promise<{ success: boolean; downloadUrl: string }> {
     try {
       const downloadUrl = await this.statusReportingService.exportReport(
@@ -161,7 +178,7 @@ export class StatusReportingController {
         options.format,
         options.stakeholderType,
       );
-      
+
       return {
         success: true,
         downloadUrl,
@@ -183,11 +200,11 @@ export class StatusReportingController {
     @Param('reportId2') reportId2: string,
   ): Promise<{ success: boolean; data: any }> {
     try {
-      const comparison = await this.generateComparisonReport(
-        projectId,
-        [reportId1, reportId2],
-      );
-      
+      const comparison = await this.generateComparisonReport(projectId, [
+        reportId1,
+        reportId2,
+      ]);
+
       return {
         success: true,
         data: comparison,
@@ -208,13 +225,15 @@ export class StatusReportingController {
   ): Promise<{ success: boolean; data: any }> {
     try {
       const summary = await this.generateDashboardSummary(projectId);
-      
+
       return {
         success: true,
         data: summary,
       };
     } catch (error) {
-      throw new NotFoundException(`Dashboard summary not available: ${error.message}`);
+      throw new NotFoundException(
+        `Dashboard summary not available: ${error.message}`,
+      );
     }
   }
 
@@ -226,7 +245,8 @@ export class StatusReportingController {
   })
   async configureAlerts(
     @Param('projectId') projectId: string,
-    @Body() alertConfig: {
+    @Body()
+    alertConfig: {
       scheduleVarianceThreshold: number;
       budgetVarianceThreshold: number;
       riskLevelThreshold: string;
@@ -237,13 +257,15 @@ export class StatusReportingController {
     try {
       // Save alert configuration
       await this.saveAlertConfiguration(projectId, alertConfig);
-      
+
       return {
         success: true,
         message: 'Alert configuration updated successfully',
       };
     } catch (error) {
-      throw new BadRequestException(`Alert configuration failed: ${error.message}`);
+      throw new BadRequestException(
+        `Alert configuration failed: ${error.message}`,
+      );
     }
   }
 
@@ -258,13 +280,15 @@ export class StatusReportingController {
   ): Promise<{ success: boolean; data: any }> {
     try {
       const forecasting = await this.generateProjectForecasting(projectId);
-      
+
       return {
         success: true,
         data: forecasting,
       };
     } catch (error) {
-      throw new NotFoundException(`Forecasting data not available: ${error.message}`);
+      throw new NotFoundException(
+        `Forecasting data not available: ${error.message}`,
+      );
     }
   }
 
@@ -276,8 +300,15 @@ export class StatusReportingController {
   })
   async submitManualUpdate(
     @Param('projectId') projectId: string,
-    @Body() update: {
-      category: 'schedule' | 'budget' | 'scope' | 'quality' | 'risk' | 'stakeholder';
+    @Body()
+    update: {
+      category:
+        | 'schedule'
+        | 'budget'
+        | 'scope'
+        | 'quality'
+        | 'risk'
+        | 'stakeholder';
       description: string;
       impact: 'positive' | 'negative' | 'neutral';
       quantitativeData?: any;
@@ -287,7 +318,7 @@ export class StatusReportingController {
   ): Promise<{ success: boolean; message: string }> {
     try {
       await this.processManualUpdate(projectId, update, req.user.id);
-      
+
       return {
         success: true,
         message: 'Manual update processed successfully',
@@ -305,20 +336,23 @@ export class StatusReportingController {
   })
   async getStakeholderView(
     @Param('projectId') projectId: string,
-    @Param('stakeholderType') stakeholderType: 'executive' | 'sponsor' | 'team' | 'client',
+    @Param('stakeholderType')
+    stakeholderType: 'executive' | 'sponsor' | 'team' | 'client',
   ): Promise<{ success: boolean; data: any }> {
     try {
       const stakeholderData = await this.generateStakeholderSpecificView(
         projectId,
         stakeholderType,
       );
-      
+
       return {
         success: true,
         data: stakeholderData,
       };
     } catch (error) {
-      throw new NotFoundException(`Stakeholder view not available: ${error.message}`);
+      throw new NotFoundException(
+        `Stakeholder view not available: ${error.message}`,
+      );
     }
   }
 
@@ -354,7 +388,10 @@ export class StatusReportingController {
     };
   }
 
-  private async getProjectTrends(projectId: string, period?: string): Promise<any[]> {
+  private async getProjectTrends(
+    projectId: string,
+    period?: string,
+  ): Promise<any[]> {
     // Generate trend data based on historical reports
     return [
       {
@@ -687,7 +724,13 @@ export class AlertConfigurationDto {
 }
 
 export class ManualUpdateDto {
-  category: 'schedule' | 'budget' | 'scope' | 'quality' | 'risk' | 'stakeholder';
+  category:
+    | 'schedule'
+    | 'budget'
+    | 'scope'
+    | 'quality'
+    | 'risk'
+    | 'stakeholder';
   description: string;
   impact: 'positive' | 'negative' | 'neutral';
   quantitativeData?: any;

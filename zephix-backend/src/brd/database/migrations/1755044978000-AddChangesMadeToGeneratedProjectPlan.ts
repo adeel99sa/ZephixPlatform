@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddChangesMadeToGeneratedProjectPlan1755044978000 implements MigrationInterface {
+export class AddChangesMadeToGeneratedProjectPlan1755044978000
+  implements MigrationInterface
+{
   name = 'AddChangesMadeToGeneratedProjectPlan1755044978000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

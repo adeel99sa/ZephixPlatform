@@ -9,9 +9,18 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { OrganizationsService } from '../services/organizations.service';
-import { CreateOrganizationDto, UpdateOrganizationDto, InviteUserDto } from '../dto';
+import {
+  CreateOrganizationDto,
+  UpdateOrganizationDto,
+  InviteUserDto,
+} from '../dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { RolesGuard } from '../guards/roles.guard';
@@ -27,14 +36,23 @@ export class OrganizationsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new organization' })
-  @ApiResponse({ status: 201, description: 'Organization created successfully' })
-  async create(@Body() createOrganizationDto: CreateOrganizationDto, @Request() req) {
+  @ApiResponse({
+    status: 201,
+    description: 'Organization created successfully',
+  })
+  async create(
+    @Body() createOrganizationDto: CreateOrganizationDto,
+    @Request() req,
+  ) {
     return this.organizationsService.create(createOrganizationDto, req.user.id);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all organizations for the current user' })
-  @ApiResponse({ status: 200, description: 'User organizations retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'User organizations retrieved successfully',
+  })
   async findAll(@Request() req) {
     return this.organizationsService.findByUser(req.user.id);
   }
@@ -42,7 +60,10 @@ export class OrganizationsController {
   @Get(':id')
   @UseGuards(OrganizationGuard)
   @ApiOperation({ summary: 'Get organization details' })
-  @ApiResponse({ status: 200, description: 'Organization details retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization details retrieved successfully',
+  })
   async findOne(@Param('id') id: string) {
     return this.organizationsService.findOne(id);
   }
@@ -51,13 +72,20 @@ export class OrganizationsController {
   @UseGuards(OrganizationGuard, RolesGuard)
   @Roles('admin')
   @ApiOperation({ summary: 'Update organization' })
-  @ApiResponse({ status: 200, description: 'Organization updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization updated successfully',
+  })
   async update(
     @Param('id') id: string,
     @Body() updateOrganizationDto: UpdateOrganizationDto,
     @Request() req,
   ) {
-    return this.organizationsService.update(id, updateOrganizationDto, req.user.id);
+    return this.organizationsService.update(
+      id,
+      updateOrganizationDto,
+      req.user.id,
+    );
   }
 
   @Post(':id/invite')
@@ -83,7 +111,11 @@ export class OrganizationsController {
     @Param('userId') userId: string,
     @Request() req,
   ) {
-    await this.organizationsService.removeUser(organizationId, userId, req.user.id);
+    await this.organizationsService.removeUser(
+      organizationId,
+      userId,
+      req.user.id,
+    );
     return { message: 'User removed successfully' };
   }
 
@@ -109,7 +141,10 @@ export class OrganizationsController {
 
   @Post(':id/switch')
   @ApiOperation({ summary: 'Switch to a different organization' })
-  @ApiResponse({ status: 200, description: 'Organization switched successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization switched successfully',
+  })
   async switchOrganization(@Param('id') id: string, @Request() req) {
     return this.organizationsService.switchOrganization(req.user.id, id);
   }

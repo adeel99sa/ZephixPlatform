@@ -41,12 +41,30 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
 
     // Create indexes (handle existing indexes gracefully)
     const indexes = [
-      { name: 'IDX_brds_organizationId', query: `CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId")` },
-      { name: 'IDX_brds_status', query: `CREATE INDEX "IDX_brds_status" ON "brds" ("status")` },
-      { name: 'IDX_brds_organizationId_status', query: `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status")` },
-      { name: 'IDX_brds_organizationId_project_id', query: `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id")` },
-      { name: 'brds_payload_gin', query: `CREATE INDEX "brds_payload_gin" ON "brds" USING gin("payload")` },
-      { name: 'brds_search_idx', query: `CREATE INDEX "brds_search_idx" ON "brds" USING gin("search_vector")` }
+      {
+        name: 'IDX_brds_organizationId',
+        query: `CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId")`,
+      },
+      {
+        name: 'IDX_brds_status',
+        query: `CREATE INDEX "IDX_brds_status" ON "brds" ("status")`,
+      },
+      {
+        name: 'IDX_brds_organizationId_status',
+        query: `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status")`,
+      },
+      {
+        name: 'IDX_brds_organizationId_project_id',
+        query: `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id")`,
+      },
+      {
+        name: 'brds_payload_gin',
+        query: `CREATE INDEX "brds_payload_gin" ON "brds" USING gin("payload")`,
+      },
+      {
+        name: 'brds_search_idx',
+        query: `CREATE INDEX "brds_search_idx" ON "brds" USING gin("search_vector")`,
+      },
     ];
 
     for (const index of indexes) {
@@ -83,7 +101,9 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
     `);
 
     // Create trigger to automatically update search_vector (handle existing trigger gracefully)
-    await queryRunner.query(`DROP TRIGGER IF EXISTS brd_search_vector_trigger ON "brds"`);
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS brd_search_vector_trigger ON "brds"`,
+    );
     await queryRunner.query(`
       CREATE TRIGGER brd_search_vector_trigger
       BEFORE INSERT OR UPDATE ON "brds"
@@ -125,9 +145,13 @@ export class CreateBRDTable1703001000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop trigger and function
-    await queryRunner.query(`DROP TRIGGER IF EXISTS brd_search_vector_trigger ON "brds"`);
-    await queryRunner.query(`DROP FUNCTION IF EXISTS update_brd_search_vector()`);
-    
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS brd_search_vector_trigger ON "brds"`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS update_brd_search_vector()`,
+    );
+
     // Drop table (this will automatically drop all indexes and constraints)
     await queryRunner.query(`DROP TABLE IF EXISTS "brds"`);
   }

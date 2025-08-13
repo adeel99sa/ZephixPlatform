@@ -11,7 +11,12 @@ import { RiskMonitoring } from '../entities/risk-monitoring.entity';
 @Module({
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
-    TypeOrmModule.forFeature([Risk, RiskAssessment, RiskResponse, RiskMonitoring]),
+    TypeOrmModule.forFeature([
+      Risk,
+      RiskAssessment,
+      RiskResponse,
+      RiskMonitoring,
+    ]),
   ],
   controllers: [RiskManagementController],
   providers: [RiskManagementService],

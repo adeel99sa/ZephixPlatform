@@ -1,10 +1,18 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LLMProviderService } from '../../ai/llm-provider.service';
 import { BRD_ANALYSIS_PROMPTS } from '../../ai/prompts/brd-analysis.prompts';
 import { BRDAnalysis } from '../entities/brd-analysis.entity';
-import { GeneratedProjectPlan, ProjectMethodology } from '../entities/generated-project-plan.entity';
+import {
+  GeneratedProjectPlan,
+  ProjectMethodology,
+} from '../entities/generated-project-plan.entity';
 import { BRD } from '../entities/brd.entity';
 
 export interface ExtractedElements {
@@ -72,22 +80,33 @@ export class BRDAnalysisService {
     private llmProvider: LLMProviderService,
   ) {}
 
-  async analyzeBRD(brdId: string, organizationId: string, analyzedBy: string): Promise<BRDAnalysisResult> {
-    this.logger.log(`Starting BRD analysis for BRD ${brdId} in organization ${organizationId}`);
+  async analyzeBRD(
+    brdId: string,
+    organizationId: string,
+    analyzedBy: string,
+  ): Promise<BRDAnalysisResult> {
+    this.logger.log(
+      `Starting BRD analysis for BRD ${brdId} in organization ${organizationId}`,
+    );
 
     const brd = await this.brdRepository.findOne({
-      where: { id: brdId, organizationId }
+      where: { id: brdId, organizationId },
     });
 
     if (!brd) {
-      throw new NotFoundException(`BRD with ID ${brdId} not found in organization ${organizationId}`);
+      throw new NotFoundException(
+        `BRD with ID ${brdId} not found in organization ${organizationId}`,
+      );
     }
 
     const startTime = Date.now();
 
     try {
       const extractedElements = await this.extractKeyElements(brd.payload);
-      const analysisMetadata = await this.analyzeDocumentQuality(extractedElements, brd.payload);
+      const analysisMetadata = await this.analyzeDocumentQuality(
+        extractedElements,
+        brd.payload,
+      );
 
       const analysis = this.brdAnalysisRepository.create({
         brdId,
@@ -100,7 +119,9 @@ export class BRDAnalysisService {
       const savedAnalysis = await this.brdAnalysisRepository.save(analysis);
 
       const processingTime = Date.now() - startTime;
-      this.logger.log(`BRD analysis completed in ${processingTime}ms with confidence ${analysisMetadata.confidence}`);
+      this.logger.log(
+        `BRD analysis completed in ${processingTime}ms with confidence ${analysisMetadata.confidence}`,
+      );
 
       return {
         id: savedAnalysis.id,
@@ -117,43 +138,67 @@ export class BRDAnalysisService {
     analysisResult: BRDAnalysisResult,
     methodology: ProjectMethodology,
     organizationId: string,
-    generatedBy: string
+    generatedBy: string,
   ): Promise<GeneratedProjectPlan> {
-    this.logger.log(`Generating ${methodology} project plan for analysis ${analysisResult.id}`);
+    this.logger.log(
+      `Generating ${methodology} project plan for analysis ${analysisResult.id}`,
+    );
 
     try {
       let planStructure: any;
 
       // Try AI-generated plan first, fallback to template-based generation
       try {
-        planStructure = await this.generateAIPoweredPlan(analysisResult.extractedElements, methodology);
+        planStructure = await this.generateAIPoweredPlan(
+          analysisResult.extractedElements,
+          methodology,
+        );
       } catch (aiError) {
-        this.logger.warn('AI plan generation failed, falling back to template-based generation:', aiError);
-        
+        this.logger.warn(
+          'AI plan generation failed, falling back to template-based generation:',
+          aiError,
+        );
+
         switch (methodology) {
           case ProjectMethodology.WATERFALL:
-            planStructure = this.generateWaterfallPlan(analysisResult.extractedElements);
+            planStructure = this.generateWaterfallPlan(
+              analysisResult.extractedElements,
+            );
             break;
           case ProjectMethodology.AGILE:
-            planStructure = this.generateAgilePlan(analysisResult.extractedElements);
+            planStructure = this.generateAgilePlan(
+              analysisResult.extractedElements,
+            );
             break;
           case ProjectMethodology.HYBRID:
-            planStructure = this.generateHybridPlan(analysisResult.extractedElements);
+            planStructure = this.generateHybridPlan(
+              analysisResult.extractedElements,
+            );
             break;
           default:
-            throw new BadRequestException(`Unsupported methodology: ${methodology}`);
+            throw new BadRequestException(
+              `Unsupported methodology: ${methodology}`,
+            );
         }
       }
 
-      const resourcePlan = this.generateResourcePlan(analysisResult.extractedElements, methodology);
-      const riskRegister = this.generateRiskRegister(analysisResult.extractedElements);
+      const resourcePlan = this.generateResourcePlan(
+        analysisResult.extractedElements,
+        methodology,
+      );
+      const riskRegister = this.generateRiskRegister(
+        analysisResult.extractedElements,
+      );
 
       const generationMetadata = {
         confidence: analysisResult.analysisMetadata.confidence,
         methodology,
         alternativesConsidered: this.getAlternativeMethodologies(methodology),
         assumptions: analysisResult.extractedElements.scope.assumptions,
-        recommendations: this.generateRecommendations(methodology, analysisResult.extractedElements),
+        recommendations: this.generateRecommendations(
+          methodology,
+          analysisResult.extractedElements,
+        ),
       };
 
       const projectPlan = this.generatedProjectPlanRepository.create({
@@ -167,18 +212,26 @@ export class BRDAnalysisService {
         generatedBy,
       });
 
-      const savedPlan = await this.generatedProjectPlanRepository.save(projectPlan);
-      this.logger.log(`Project plan generated successfully with ID ${savedPlan.id}`);
+      const savedPlan =
+        await this.generatedProjectPlanRepository.save(projectPlan);
+      this.logger.log(
+        `Project plan generated successfully with ID ${savedPlan.id}`,
+      );
       return savedPlan;
     } catch (error) {
       this.logger.error(`Project plan generation failed:`, error);
-      throw new BadRequestException(`Failed to generate project plan: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to generate project plan: ${error.message}`,
+      );
     }
   }
 
-  async refinePlan(planId: string, refinementRequest: string): Promise<GeneratedProjectPlan> {
+  async refinePlan(
+    planId: string,
+    refinementRequest: string,
+  ): Promise<GeneratedProjectPlan> {
     const plan = await this.generatedProjectPlanRepository.findOne({
-      where: { id: planId }
+      where: { id: planId },
     });
 
     if (!plan) {
@@ -205,21 +258,23 @@ export class BRDAnalysisService {
       const response = await this.llmProvider.sendRequest({
         prompt: refinementPrompt,
         temperature: 0.3,
-        maxTokens: 4000
+        maxTokens: 4000,
       });
       const refinementResult = JSON.parse(response.content);
 
       plan.planStructure = refinementResult.updatedPlanStructure;
-      
+
       if (!plan.changesMade) {
         plan.changesMade = [];
       }
-      
+
       plan.changesMade.push({
         refinementRequest,
-        changes: refinementResult.changesSummary || ['Plan updated based on request'],
+        changes: refinementResult.changesSummary || [
+          'Plan updated based on request',
+        ],
         timestamp: new Date(),
-        confidence: 0.85
+        confidence: 0.85,
       });
 
       return await this.generatedProjectPlanRepository.save(plan);
@@ -229,7 +284,10 @@ export class BRDAnalysisService {
     }
   }
 
-  async getAnalysisById(id: string, organizationId: string): Promise<BRDAnalysis> {
+  async getAnalysisById(
+    id: string,
+    organizationId: string,
+  ): Promise<BRDAnalysis> {
     const analysis = await this.brdAnalysisRepository.findOne({
       where: { id, organizationId },
       relations: ['brd'],
@@ -242,14 +300,19 @@ export class BRDAnalysisService {
     return analysis;
   }
 
-  async getGeneratedPlanById(id: string, organizationId: string): Promise<GeneratedProjectPlan> {
+  async getGeneratedPlanById(
+    id: string,
+    organizationId: string,
+  ): Promise<GeneratedProjectPlan> {
     const plan = await this.generatedProjectPlanRepository.findOne({
       where: { id, organizationId },
       relations: ['brdAnalysis'],
     });
 
     if (!plan) {
-      throw new NotFoundException(`Generated Project Plan with ID ${id} not found`);
+      throw new NotFoundException(
+        `Generated Project Plan with ID ${id} not found`,
+      );
     }
 
     return plan;
@@ -272,31 +335,43 @@ export class BRDAnalysisService {
     };
   }
 
-  async getAnalysisByBRD(brdId: string, organizationId: string): Promise<BRDAnalysis[]> {
+  async getAnalysisByBRD(
+    brdId: string,
+    organizationId: string,
+  ): Promise<BRDAnalysis[]> {
     return this.brdAnalysisRepository.find({
       where: { brdId, organizationId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async listAnalysesByBRD(brdId: string, organizationId: string): Promise<BRDAnalysis[]> {
+  async listAnalysesByBRD(
+    brdId: string,
+    organizationId: string,
+  ): Promise<BRDAnalysis[]> {
     return this.brdAnalysisRepository.find({
       where: { brdId, organizationId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async listGeneratedPlansByAnalysis(analysisId: string, organizationId: string): Promise<GeneratedProjectPlan[]> {
+  async listGeneratedPlansByAnalysis(
+    analysisId: string,
+    organizationId: string,
+  ): Promise<GeneratedProjectPlan[]> {
     return this.generatedProjectPlanRepository.find({
       where: { brdAnalysisId: analysisId, organizationId },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async getGeneratedPlans(brdId: string, organizationId: string): Promise<GeneratedProjectPlan[]> {
+  async getGeneratedPlans(
+    brdId: string,
+    organizationId: string,
+  ): Promise<GeneratedProjectPlan[]> {
     const analyses = await this.getAnalysisByBRD(brdId, organizationId);
     const allPlans: GeneratedProjectPlan[] = [];
-    
+
     for (const analysis of analyses) {
       const plans = await this.generatedProjectPlanRepository.find({
         where: { brdAnalysisId: analysis.id, organizationId },
@@ -304,13 +379,18 @@ export class BRDAnalysisService {
       });
       allPlans.push(...plans);
     }
-    
+
     return allPlans;
   }
 
-  async createProjectFromPlan(planId: string, projectData: any, organizationId: string, userId: string): Promise<any> {
+  async createProjectFromPlan(
+    planId: string,
+    projectData: any,
+    organizationId: string,
+    userId: string,
+  ): Promise<any> {
     const plan = await this.getGeneratedPlanById(planId, organizationId);
-    
+
     if (!plan) {
       throw new NotFoundException(`Project plan ${planId} not found`);
     }
@@ -328,18 +408,25 @@ export class BRDAnalysisService {
       planData: plan,
     };
 
-    this.logger.log(`Project created from plan ${planId}: ${project.projectId}`);
+    this.logger.log(
+      `Project created from plan ${planId}: ${project.projectId}`,
+    );
     return project;
   }
 
-  private async extractKeyElements(brdContent: Record<string, any>): Promise<ExtractedElements> {
-    const prompt = BRD_ANALYSIS_PROMPTS.analyzeBRD.replace('{brdContent}', JSON.stringify(brdContent));
-    
+  private async extractKeyElements(
+    brdContent: Record<string, any>,
+  ): Promise<ExtractedElements> {
+    const prompt = BRD_ANALYSIS_PROMPTS.analyzeBRD.replace(
+      '{brdContent}',
+      JSON.stringify(brdContent),
+    );
+
     try {
       const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
-        maxTokens: 4000
+        maxTokens: 4000,
       });
       const extracted = JSON.parse(response.content);
       return this.validateAndNormalizeExtractedElements(extracted);
@@ -349,7 +436,10 @@ export class BRDAnalysisService {
     }
   }
 
-  private async generateAIPoweredPlan(elements: ExtractedElements, methodology: ProjectMethodology): Promise<any> {
+  private async generateAIPoweredPlan(
+    elements: ExtractedElements,
+    methodology: ProjectMethodology,
+  ): Promise<any> {
     const prompt = BRD_ANALYSIS_PROMPTS.generateProjectPlan
       .replace('{analysisData}', JSON.stringify(elements))
       .replace('{methodology}', methodology);
@@ -358,20 +448,22 @@ export class BRDAnalysisService {
       const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
-        maxTokens: 6000
+        maxTokens: 6000,
       });
-      
+
       const aiPlan = JSON.parse(response.content);
-      
+
       // Validate and structure the AI response
       return {
-        projectStructure: aiPlan.projectStructure || this.generateFallbackStructure(methodology, elements),
+        projectStructure:
+          aiPlan.projectStructure ||
+          this.generateFallbackStructure(methodology, elements),
         taskBreakdown: aiPlan.taskBreakdown || [],
         resourcePlanning: aiPlan.resourcePlanning || {},
         timeline: aiPlan.timeline || {},
         riskRegister: aiPlan.riskRegister || [],
         confidence: aiPlan.confidence || 0.8,
-        alternativesConsidered: aiPlan.alternativesConsidered || []
+        alternativesConsidered: aiPlan.alternativesConsidered || [],
       };
     } catch (error) {
       this.logger.error('AI plan generation failed:', error);
@@ -379,7 +471,10 @@ export class BRDAnalysisService {
     }
   }
 
-  private generateFallbackStructure(methodology: ProjectMethodology, elements: ExtractedElements): any {
+  private generateFallbackStructure(
+    methodology: ProjectMethodology,
+    elements: ExtractedElements,
+  ): any {
     switch (methodology) {
       case ProjectMethodology.WATERFALL:
         return this.generateWaterfallPlan(elements);
@@ -398,30 +493,36 @@ export class BRDAnalysisService {
     recommendations: string[];
     readinessAssessment: 'ready' | 'needs-work' | 'not-ready';
   }> {
-    const prompt = BRD_ANALYSIS_PROMPTS.validateBRD.replace('{brdContent}', JSON.stringify(brdContent));
+    const prompt = BRD_ANALYSIS_PROMPTS.validateBRD.replace(
+      '{brdContent}',
+      JSON.stringify(brdContent),
+    );
 
     try {
       const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.2,
-        maxTokens: 3000
+        maxTokens: 3000,
       });
 
       const validationResult = JSON.parse(response.content);
-      
+
       return {
         qualityScore: validationResult.overallQualityScore || 0,
         criticalGaps: validationResult.criticalGaps || [],
         recommendations: validationResult.recommendations || [],
-        readinessAssessment: validationResult.readinessAssessment || 'needs-work'
+        readinessAssessment:
+          validationResult.readinessAssessment || 'needs-work',
       };
     } catch (error) {
       this.logger.error('BRD validation failed:', error);
       return {
         qualityScore: 0.5,
         criticalGaps: ['Unable to validate BRD due to processing error'],
-        recommendations: ['Review BRD manually and ensure all required sections are complete'],
-        readinessAssessment: 'needs-work'
+        recommendations: [
+          'Review BRD manually and ensure all required sections are complete',
+        ],
+        readinessAssessment: 'needs-work',
       };
     }
   }
@@ -437,27 +538,31 @@ export class BRDAnalysisService {
     acceptanceCriteria: Record<string, string[]>;
     confidence: number;
   }> {
-    const prompt = BRD_ANALYSIS_PROMPTS.extractRequirements.replace('{brdContent}', JSON.stringify(brdContent));
+    const prompt = BRD_ANALYSIS_PROMPTS.extractRequirements.replace(
+      '{brdContent}',
+      JSON.stringify(brdContent),
+    );
 
     try {
       const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
-        maxTokens: 5000
+        maxTokens: 5000,
       });
 
       const requirementsResult = JSON.parse(response.content);
-      
+
       return {
         functionalRequirements: requirementsResult.functionalRequirements || [],
-        nonFunctionalRequirements: requirementsResult.nonFunctionalRequirements || [],
+        nonFunctionalRequirements:
+          requirementsResult.nonFunctionalRequirements || [],
         technicalRequirements: requirementsResult.technicalRequirements || [],
         businessRules: requirementsResult.businessRules || [],
         interfaceRequirements: requirementsResult.interfaceRequirements || [],
         priorityLevels: requirementsResult.priorityLevels || [],
         dependencies: requirementsResult.dependencies || [],
         acceptanceCriteria: requirementsResult.acceptanceCriteria || {},
-        confidence: requirementsResult.confidence || 0.7
+        confidence: requirementsResult.confidence || 0.7,
       };
     } catch (error) {
       this.logger.error('Requirements extraction failed:', error);
@@ -470,7 +575,7 @@ export class BRDAnalysisService {
         priorityLevels: {},
         dependencies: [],
         acceptanceCriteria: {},
-        confidence: 0.5
+        confidence: 0.5,
       };
     }
   }
@@ -479,7 +584,7 @@ export class BRDAnalysisService {
     analysisData: any,
     requirementsData: any,
     teamSize: number,
-    experienceLevel: 'junior' | 'mid' | 'senior'
+    experienceLevel: 'junior' | 'mid' | 'senior',
   ): Promise<{
     developmentEffort: Record<string, number>;
     projectManagement: Record<string, number>;
@@ -506,11 +611,11 @@ export class BRDAnalysisService {
       const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.2,
-        maxTokens: 4000
+        maxTokens: 4000,
       });
 
       const effortResult = JSON.parse(response.content);
-      
+
       return {
         developmentEffort: effortResult.developmentEffort || {},
         projectManagement: effortResult.projectManagement || {},
@@ -520,12 +625,12 @@ export class BRDAnalysisService {
           bufferPercentage: 20,
           riskMitigationHours: 40,
           integrationComplexityFactor: 1.2,
-          learningCurveAdjustment: 1.1
+          learningCurveAdjustment: 1.1,
         },
         totalProjectDuration: effortResult.totalProjectDuration || 0,
         confidenceIntervals: effortResult.confidenceIntervals || {},
         riskFactors: effortResult.riskFactors || [],
-        recommendations: effortResult.recommendations || []
+        recommendations: effortResult.recommendations || [],
       };
     } catch (error) {
       this.logger.error('Effort estimation failed:', error);
@@ -538,26 +643,42 @@ export class BRDAnalysisService {
           bufferPercentage: 20,
           riskMitigationHours: 40,
           integrationComplexityFactor: 1.2,
-          learningCurveAdjustment: 1.1
+          learningCurveAdjustment: 1.1,
         },
         totalProjectDuration: 0,
         confidenceIntervals: {},
         riskFactors: ['Unable to estimate effort due to processing error'],
-        recommendations: ['Review requirements manually and estimate effort based on team experience']
+        recommendations: [
+          'Review requirements manually and estimate effort based on team experience',
+        ],
       };
     }
   }
 
-  private validateAndNormalizeExtractedElements(extracted: any): ExtractedElements {
+  private validateAndNormalizeExtractedElements(
+    extracted: any,
+  ): ExtractedElements {
     return {
-      objectives: Array.isArray(extracted.objectives) ? extracted.objectives : [],
+      objectives: Array.isArray(extracted.objectives)
+        ? extracted.objectives
+        : [],
       scope: {
-        inclusions: Array.isArray(extracted.scope?.inclusions) ? extracted.scope.inclusions : [],
-        exclusions: Array.isArray(extracted.scope?.exclusions) ? extracted.scope.exclusions : [],
-        assumptions: Array.isArray(extracted.scope?.assumptions) ? extracted.scope.assumptions : [],
+        inclusions: Array.isArray(extracted.scope?.inclusions)
+          ? extracted.scope.inclusions
+          : [],
+        exclusions: Array.isArray(extracted.scope?.exclusions)
+          ? extracted.scope.exclusions
+          : [],
+        assumptions: Array.isArray(extracted.scope?.assumptions)
+          ? extracted.scope.assumptions
+          : [],
       },
-      deliverables: Array.isArray(extracted.deliverables) ? extracted.deliverables : [],
-      stakeholders: Array.isArray(extracted.stakeholders) ? extracted.stakeholders : [],
+      deliverables: Array.isArray(extracted.deliverables)
+        ? extracted.deliverables
+        : [],
+      stakeholders: Array.isArray(extracted.stakeholders)
+        ? extracted.stakeholders
+        : [],
       constraints: extracted.constraints || {
         timeline: '',
         budget: '',
@@ -566,15 +687,25 @@ export class BRDAnalysisService {
         regulatory: [],
       },
       risks: Array.isArray(extracted.risks) ? extracted.risks : [],
-      successCriteria: Array.isArray(extracted.successCriteria) ? extracted.successCriteria : [],
+      successCriteria: Array.isArray(extracted.successCriteria)
+        ? extracted.successCriteria
+        : [],
     };
   }
 
-  private fallbackExtraction(brdContent: Record<string, any>): ExtractedElements {
+  private fallbackExtraction(
+    brdContent: Record<string, any>,
+  ): ExtractedElements {
     return {
-      objectives: [brdContent.businessContext?.businessObjective || 'Business objective not specified'],
+      objectives: [
+        brdContent.businessContext?.businessObjective ||
+          'Business objective not specified',
+      ],
       scope: {
-        inclusions: [brdContent.businessContext?.problemStatement || 'Problem statement not specified'],
+        inclusions: [
+          brdContent.businessContext?.problemStatement ||
+            'Problem statement not specified',
+        ],
         exclusions: [],
         assumptions: [],
       },
@@ -592,7 +723,10 @@ export class BRDAnalysisService {
     };
   }
 
-  private async analyzeDocumentQuality(extractedElements: ExtractedElements, brdContent: Record<string, any>): Promise<{
+  private async analyzeDocumentQuality(
+    extractedElements: ExtractedElements,
+    brdContent: Record<string, any>,
+  ): Promise<{
     confidence: number;
     processingTime: number;
     documentQuality: 'high' | 'medium' | 'low';
@@ -602,9 +736,12 @@ export class BRDAnalysisService {
     const missingElements: string[] = [];
     const suggestions: string[] = [];
 
-    if (!extractedElements.objectives.length) missingElements.push('Project objectives');
-    if (!extractedElements.scope.inclusions.length) missingElements.push('Scope definition');
-    if (!extractedElements.deliverables.length) missingElements.push('Deliverables');
+    if (!extractedElements.objectives.length)
+      missingElements.push('Project objectives');
+    if (!extractedElements.scope.inclusions.length)
+      missingElements.push('Scope definition');
+    if (!extractedElements.deliverables.length)
+      missingElements.push('Deliverables');
 
     const totalElements = 8;
     const presentElements = totalElements - missingElements.length;
@@ -638,8 +775,14 @@ export class BRDAnalysisService {
           duration: 2,
           dependencies: [],
           deliverables: ['Project Charter'],
-          milestones: [{ name: 'Project Approval', date: 'T+2 weeks', criteria: ['Approval received'] }],
-        }
+          milestones: [
+            {
+              name: 'Project Approval',
+              date: 'T+2 weeks',
+              criteria: ['Approval received'],
+            },
+          ],
+        },
       ],
       tasks: [
         {
@@ -650,8 +793,8 @@ export class BRDAnalysisService {
           dependencies: [],
           assignedRole: 'Project Manager',
           phase: 'phase-1',
-        }
-      ]
+        },
+      ],
     };
   }
 
@@ -665,8 +808,8 @@ export class BRDAnalysisService {
           priority: 1,
           storyPoints: 21,
           acceptanceCriteria: ['Meets requirements'],
-          userStories: []
-        }
+          userStories: [],
+        },
       ],
       tasks: [
         {
@@ -677,8 +820,8 @@ export class BRDAnalysisService {
           dependencies: [],
           assignedRole: 'Developer',
           epic: 'epic-1',
-        }
-      ]
+        },
+      ],
     };
   }
 
@@ -692,8 +835,14 @@ export class BRDAnalysisService {
           duration: 3,
           dependencies: [],
           deliverables: ['Project Plan'],
-          milestones: [{ name: 'Planning Complete', date: 'T+3 weeks', criteria: ['Plan approved'] }],
-        }
+          milestones: [
+            {
+              name: 'Planning Complete',
+              date: 'T+3 weeks',
+              criteria: ['Plan approved'],
+            },
+          ],
+        },
       ],
       epics: [
         {
@@ -703,8 +852,8 @@ export class BRDAnalysisService {
           priority: 1,
           storyPoints: 34,
           acceptanceCriteria: ['Quality standards met'],
-          userStories: []
-        }
+          userStories: [],
+        },
       ],
       tasks: [
         {
@@ -716,12 +865,15 @@ export class BRDAnalysisService {
           assignedRole: 'Project Manager',
           phase: 'phase-1',
           epic: 'epic-1',
-        }
-      ]
+        },
+      ],
     };
   }
 
-  private generateResourcePlan(elements: ExtractedElements, methodology: ProjectMethodology): any {
+  private generateResourcePlan(
+    elements: ExtractedElements,
+    methodology: ProjectMethodology,
+  ): any {
     return {
       roles: [
         {
@@ -729,11 +881,13 @@ export class BRDAnalysisService {
           skillsRequired: ['Project Management', 'Leadership'],
           timeCommitment: 'Full-time',
           duration: 'Project duration',
-        }
+        },
       ],
       timeline: {
         startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0],
         criticalPath: ['Planning', 'Development', 'Testing'],
         bufferTime: 2,
       },
@@ -744,7 +898,7 @@ export class BRDAnalysisService {
             category: 'Personnel',
             amount: 70000,
             description: 'Team costs',
-          }
+          },
         ],
       },
     };
@@ -762,25 +916,30 @@ export class BRDAnalysisService {
         mitigation: 'Implement change control',
         contingency: 'Add buffer time',
         owner: 'Project Manager',
-      }
+      },
     ];
   }
 
-  private getAlternativeMethodologies(currentMethodology: ProjectMethodology): string[] {
+  private getAlternativeMethodologies(
+    currentMethodology: ProjectMethodology,
+  ): string[] {
     const alternatives = {
       [ProjectMethodology.WATERFALL]: ['Agile', 'Hybrid'],
       [ProjectMethodology.AGILE]: ['Waterfall', 'Hybrid'],
       [ProjectMethodology.HYBRID]: ['Waterfall', 'Agile'],
     };
-    
+
     return alternatives[currentMethodology] || [];
   }
 
-  private generateRecommendations(methodology: ProjectMethodology, elements: ExtractedElements): string[] {
+  private generateRecommendations(
+    methodology: ProjectMethodology,
+    elements: ExtractedElements,
+  ): string[] {
     return [
       'Ensure regular stakeholder communication',
       'Implement proper change management',
-      'Plan for adequate testing phases'
+      'Plan for adequate testing phases',
     ];
   }
 }

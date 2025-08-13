@@ -43,9 +43,15 @@ export class ProjectInitiationController {
       }
 
       // Validate file type
-      const allowedTypes = ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedTypes = [
+        'text/plain',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
       if (!allowedTypes.includes(file.mimetype)) {
-        throw new BadRequestException(`Unsupported file type: ${file.mimetype}. Supported types: ${allowedTypes.join(', ')}`);
+        throw new BadRequestException(
+          `Unsupported file type: ${file.mimetype}. Supported types: ${allowedTypes.join(', ')}`,
+        );
       }
 
       // Validate file size (10MB limit)
@@ -67,7 +73,10 @@ export class ProjectInitiationController {
         data: result,
       };
     } catch (error) {
-      this.logger.error(`Document analysis failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Document analysis failed: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -103,7 +112,10 @@ export class ProjectInitiationController {
     try {
       this.logger.log(`Updating charter for project: ${projectId}`);
 
-      const charter = await this.projectInitiationService.updateCharter(projectId, updates);
+      const charter = await this.projectInitiationService.updateCharter(
+        projectId,
+        updates,
+      );
 
       return {
         success: true,
@@ -111,13 +123,19 @@ export class ProjectInitiationController {
         data: charter,
       };
     } catch (error) {
-      this.logger.error(`Failed to update charter: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update charter: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
   @Get(':projectId/dashboard/metrics')
-  async getDashboardMetrics(@Param('projectId') projectId: string, @Request() req: any) {
+  async getDashboardMetrics(
+    @Param('projectId') projectId: string,
+    @Request() req: any,
+  ) {
     try {
       this.logger.log(`Getting dashboard metrics for project: ${projectId}`);
 
@@ -136,7 +154,10 @@ export class ProjectInitiationController {
         data: metrics,
       };
     } catch (error) {
-      this.logger.error(`Failed to get dashboard metrics: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get dashboard metrics: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -148,7 +169,9 @@ export class ProjectInitiationController {
     @Request() req: any,
   ) {
     try {
-      this.logger.log(`Exporting project: ${projectId} in format: ${exportOptions.format}`);
+      this.logger.log(
+        `Exporting project: ${projectId} in format: ${exportOptions.format}`,
+      );
 
       const exportResult = await this.projectInitiationService.exportProject(
         projectId,
@@ -161,13 +184,19 @@ export class ProjectInitiationController {
         data: exportResult,
       };
     } catch (error) {
-      this.logger.error(`Failed to export project: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to export project: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
   @Get(':projectId/stakeholders')
-  async getStakeholders(@Param('projectId') projectId: string, @Request() req: any) {
+  async getStakeholders(
+    @Param('projectId') projectId: string,
+    @Request() req: any,
+  ) {
     try {
       this.logger.log(`Getting stakeholders for project: ${projectId}`);
 
@@ -183,11 +212,15 @@ export class ProjectInitiationController {
         data: {
           stakeholders: project.stakeholders || [],
           raciMatrix: project.metadata?.stakeholders?.raciMatrix || [],
-          influenceInterestGrid: project.metadata?.stakeholders?.influenceInterestGrid || {},
+          influenceInterestGrid:
+            project.metadata?.stakeholders?.influenceInterestGrid || {},
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to get stakeholders: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get stakeholders: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -255,17 +288,31 @@ export class ProjectInitiationController {
     if (project.metadata?.charter) {
       const charter = project.metadata.charter;
       const charterFields = [
-        'projectTitle', 'businessCase', 'projectObjectives', 'successCriteria',
-        'scope', 'assumptions', 'constraints', 'highLevelTimeline', 'budgetEstimate'
+        'projectTitle',
+        'businessCase',
+        'projectObjectives',
+        'successCriteria',
+        'scope',
+        'assumptions',
+        'constraints',
+        'highLevelTimeline',
+        'budgetEstimate',
       ];
-      const completedFields = charterFields.filter(field => charter[field] && 
-        (Array.isArray(charter[field]) ? charter[field].length > 0 : true));
-      metrics.charterCompleteness = (completedFields.length / charterFields.length) * 100;
+      const completedFields = charterFields.filter(
+        (field) =>
+          charter[field] &&
+          (Array.isArray(charter[field]) ? charter[field].length > 0 : true),
+      );
+      metrics.charterCompleteness =
+        (completedFields.length / charterFields.length) * 100;
     }
 
     // Calculate stakeholder analysis completeness
     if (project.stakeholders && project.stakeholders.length > 0) {
-      metrics.stakeholderAnalysis = Math.min(100, project.stakeholders.length * 20);
+      metrics.stakeholderAnalysis = Math.min(
+        100,
+        project.stakeholders.length * 20,
+      );
     }
 
     // Calculate risk assessment completeness
@@ -281,10 +328,16 @@ export class ProjectInitiationController {
 
     // Calculate recommendations completeness
     if (project.metadata?.recommendations) {
-      const recommendationFields = ['methodology', 'teamSize', 'criticalSuccessFactors'];
-      const completedFields = recommendationFields.filter(field => 
-        project.metadata.recommendations[field]);
-      metrics.recommendations = (completedFields.length / recommendationFields.length) * 100;
+      const recommendationFields = [
+        'methodology',
+        'teamSize',
+        'criticalSuccessFactors',
+      ];
+      const completedFields = recommendationFields.filter(
+        (field) => project.metadata.recommendations[field],
+      );
+      metrics.recommendations =
+        (completedFields.length / recommendationFields.length) * 100;
     }
 
     // Calculate overall readiness
@@ -297,7 +350,7 @@ export class ProjectInitiationController {
     };
 
     metrics.overallReadiness = Object.keys(weights).reduce((total, key) => {
-      return total + (metrics[key] * weights[key]);
+      return total + metrics[key] * weights[key];
     }, 0);
 
     return metrics;

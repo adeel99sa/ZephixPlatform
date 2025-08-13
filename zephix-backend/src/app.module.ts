@@ -1,4 +1,9 @@
-import { Module, ValidationPipe, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import {
+  Module,
+  ValidationPipe,
+  MiddlewareConsumer,
+  NestModule,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
@@ -44,7 +49,7 @@ if (!(global as any).crypto) {
       isGlobal: true,
       load: [configuration],
     }),
-    
+
     // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -57,7 +62,7 @@ if (!(global as any).crypto) {
       inject: [ConfigService],
       global: true, // Make JWT available globally
     }),
-    
+
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -69,12 +74,26 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role, RefreshToken],
+            entities: [
+              User,
+              Organization,
+              UserOrganization,
+              Project,
+              Team,
+              TeamMember,
+              Role,
+              RefreshToken,
+            ],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: false, // Migrations controlled manually for safety
-            logging: isProduction ? ['error', 'warn'] : configService.get('database.logging'),
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            logging: isProduction
+              ? ['error', 'warn']
+              : configService.get('database.logging'),
+            ssl:
+              process.env.NODE_ENV === 'production'
+                ? { rejectUnauthorized: false }
+                : false,
             extra: {
               max: 10, // Connection pool size for Railway limits
               min: 2,
@@ -100,7 +119,16 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role, RefreshToken],
+            entities: [
+              User,
+              Organization,
+              UserOrganization,
+              Project,
+              Team,
+              TeamMember,
+              Role,
+              RefreshToken,
+            ],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
@@ -118,12 +146,12 @@ if (!(global as any).crypto) {
       },
       inject: [ConfigService],
     }),
-    
+
     // CRITICAL: Import order to avoid circular dependencies
-    SharedModule,        // First - no dependencies
+    SharedModule, // First - no dependencies
     OrganizationsModule, // Third - depends on SharedModule
-    ProjectsModule,      // Fourth - depends on OrganizationsModule
-    AuthModule,          // Last - depends on OrganizationsModule and ProjectsModule
+    ProjectsModule, // Fourth - depends on OrganizationsModule
+    AuthModule, // Last - depends on OrganizationsModule and ProjectsModule
     ObservabilityModule,
     HealthModule,
   ],
@@ -138,8 +166,6 @@ if (!(global as any).crypto) {
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RequestIdMiddleware, MetricsMiddleware)
-      .forRoutes('*');
+    consumer.apply(RequestIdMiddleware, MetricsMiddleware).forRoutes('*');
   }
 }

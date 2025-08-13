@@ -36,7 +36,10 @@ export default () => ({
       enabled: process.env.RATE_LIMIT_ENABLED === 'true',
       windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10), // 1 minute
       max: parseInt(process.env.RATE_LIMIT_MAX || '60', 10), // 60 requests per minute per IP
-      authWindowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+      authWindowMs: parseInt(
+        process.env.AUTH_RATE_LIMIT_WINDOW_MS || '900000',
+        10,
+      ), // 15 minutes
       authMax: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5', 10), // 5 auth attempts per 15 minutes
     },
     helmet: {
@@ -48,12 +51,15 @@ export default () => ({
     model: process.env.ANTHROPIC_MODEL || 'claude-3-sonnet-20240229',
     maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS || '4000', 10),
     apiVersion: process.env.ANTHROPIC_API_VERSION || '2023-06-01',
-    dataRetentionOptOut: process.env.ANTHROPIC_DATA_RETENTION_OPT_OUT === 'true',
-    enableDataCollection: process.env.ANTHROPIC_ENABLE_DATA_COLLECTION === 'true',
+    dataRetentionOptOut:
+      process.env.ANTHROPIC_DATA_RETENTION_OPT_OUT === 'true',
+    enableDataCollection:
+      process.env.ANTHROPIC_ENABLE_DATA_COLLECTION === 'true',
   },
   llm: {
     provider: process.env.LLM_PROVIDER || 'anthropic',
-    enforceNoDataRetention: process.env.LLM_ENFORCE_NO_DATA_RETENTION !== 'false', // Default true
+    enforceNoDataRetention:
+      process.env.LLM_ENFORCE_NO_DATA_RETENTION !== 'false', // Default true
     logProviderSettings: process.env.LLM_LOG_PROVIDER_SETTINGS !== 'false', // Default true
     validateOnStartup: process.env.LLM_VALIDATE_ON_STARTUP !== 'false', // Default true
   },

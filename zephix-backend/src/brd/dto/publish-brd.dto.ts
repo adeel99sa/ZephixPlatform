@@ -1,7 +1,4 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { BRDStatus } from '../entities/brd.entity';
 

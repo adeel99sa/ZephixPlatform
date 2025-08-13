@@ -8,9 +8,7 @@ import { pinoConfig } from './logger.config';
 
 @Global()
 @Module({
-  imports: [
-    LoggerModule.forRoot(pinoConfig),
-  ],
+  imports: [LoggerModule.forRoot(pinoConfig)],
   providers: [MetricsService, LoggerService, TelemetryService],
   controllers: [MetricsController],
   exports: [MetricsService, LoggerService, TelemetryService, LoggerModule],

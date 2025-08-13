@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAIGenerationToIntakeForms1735598000000 implements MigrationInterface {
+export class AddAIGenerationToIntakeForms1735598000000
+  implements MigrationInterface
+{
   name = 'AddAIGenerationToIntakeForms1735598000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

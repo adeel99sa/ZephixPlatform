@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateBRDAnalysisTables1703002000000 implements MigrationInterface {
+export class CreateBRDAnalysisTables1703002000000
+  implements MigrationInterface
+{
   name = 'CreateBRDAnalysisTables1703002000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -29,10 +31,22 @@ export class CreateBRDAnalysisTables1703002000000 implements MigrationInterface 
 
     // Create indexes for brd_analyses (handle existing indexes gracefully)
     const brdAnalysesIndexes = [
-      { name: 'IDX_brd_analyses_organizationId', query: `CREATE INDEX "IDX_brd_analyses_organizationId" ON "brd_analyses" ("organizationId")` },
-      { name: 'IDX_brd_analyses_brdId', query: `CREATE INDEX "IDX_brd_analyses_brdId" ON "brd_analyses" ("brdId")` },
-      { name: 'IDX_brd_analyses_analyzedBy', query: `CREATE INDEX "IDX_brd_analyses_analyzedBy" ON "brd_analyses" ("analyzedBy")` },
-      { name: 'IDX_brd_analyses_organizationId_brdId', query: `CREATE INDEX "IDX_brd_analyses_organizationId_brdId" ON "brd_analyses" ("organizationId", "brdId")` }
+      {
+        name: 'IDX_brd_analyses_organizationId',
+        query: `CREATE INDEX "IDX_brd_analyses_organizationId" ON "brd_analyses" ("organizationId")`,
+      },
+      {
+        name: 'IDX_brd_analyses_brdId',
+        query: `CREATE INDEX "IDX_brd_analyses_brdId" ON "brd_analyses" ("brdId")`,
+      },
+      {
+        name: 'IDX_brd_analyses_analyzedBy',
+        query: `CREATE INDEX "IDX_brd_analyses_analyzedBy" ON "brd_analyses" ("analyzedBy")`,
+      },
+      {
+        name: 'IDX_brd_analyses_organizationId_brdId',
+        query: `CREATE INDEX "IDX_brd_analyses_organizationId_brdId" ON "brd_analyses" ("organizationId", "brdId")`,
+      },
     ];
 
     for (const index of brdAnalysesIndexes) {
@@ -77,11 +91,26 @@ export class CreateBRDAnalysisTables1703002000000 implements MigrationInterface 
 
     // Create indexes for generated_project_plans (handle existing indexes gracefully)
     const generatedProjectPlansIndexes = [
-      { name: 'IDX_generated_project_plans_organizationId', query: `CREATE INDEX "IDX_generated_project_plans_organizationId" ON "generated_project_plans" ("organizationId")` },
-      { name: 'IDX_generated_project_plans_brdAnalysisId', query: `CREATE INDEX "IDX_generated_project_plans_brdAnalysisId" ON "generated_project_plans" ("brdAnalysisId")` },
-      { name: 'IDX_generated_project_plans_methodology', query: `CREATE INDEX "IDX_generated_project_plans_methodology" ON "generated_project_plans" ("methodology")` },
-      { name: 'IDX_generated_project_plans_generatedBy', query: `CREATE INDEX "IDX_generated_project_plans_generatedBy" ON "generated_project_plans" ("generatedBy")` },
-      { name: 'IDX_generated_project_plans_organizationId_brdAnalysisId', query: `CREATE INDEX "IDX_generated_project_plans_organizationId_brdAnalysisId" ON "generated_project_plans" ("organizationId", "brdAnalysisId")` }
+      {
+        name: 'IDX_generated_project_plans_organizationId',
+        query: `CREATE INDEX "IDX_generated_project_plans_organizationId" ON "generated_project_plans" ("organizationId")`,
+      },
+      {
+        name: 'IDX_generated_project_plans_brdAnalysisId',
+        query: `CREATE INDEX "IDX_generated_project_plans_brdAnalysisId" ON "generated_project_plans" ("brdAnalysisId")`,
+      },
+      {
+        name: 'IDX_generated_project_plans_methodology',
+        query: `CREATE INDEX "IDX_generated_project_plans_methodology" ON "generated_project_plans" ("methodology")`,
+      },
+      {
+        name: 'IDX_generated_project_plans_generatedBy',
+        query: `CREATE INDEX "IDX_generated_project_plans_generatedBy" ON "generated_project_plans" ("generatedBy")`,
+      },
+      {
+        name: 'IDX_generated_project_plans_organizationId_brdAnalysisId',
+        query: `CREATE INDEX "IDX_generated_project_plans_organizationId_brdAnalysisId" ON "generated_project_plans" ("organizationId", "brdAnalysisId")`,
+      },
     ];
 
     for (const index of generatedProjectPlansIndexes) {
@@ -98,12 +127,36 @@ export class CreateBRDAnalysisTables1703002000000 implements MigrationInterface 
 
     // Add foreign key constraints (handle existing constraints gracefully)
     const fkConstraints = [
-      { table: 'brd_analyses', name: 'FK_brd_analyses_brdId', query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_brdId" FOREIGN KEY ("brdId") REFERENCES "brds"("id") ON DELETE CASCADE` },
-      { table: 'brd_analyses', name: 'FK_brd_analyses_organizationId', query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_organizationId" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE` },
-      { table: 'brd_analyses', name: 'FK_brd_analyses_analyzedBy', query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_analyzedBy" FOREIGN KEY ("analyzedBy") REFERENCES "users"("id") ON DELETE CASCADE` },
-      { table: 'generated_project_plans', name: 'FK_generated_project_plans_brdAnalysisId', query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_brdAnalysisId" FOREIGN KEY ("brdAnalysisId") REFERENCES "brd_analyses"("id") ON DELETE CASCADE` },
-      { table: 'generated_project_plans', name: 'FK_generated_project_plans_organizationId', query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_organizationId" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE` },
-      { table: 'generated_project_plans', name: 'FK_generated_project_plans_generatedBy', query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_generatedBy" FOREIGN KEY ("generatedBy") REFERENCES "users"("id") ON DELETE CASCADE` }
+      {
+        table: 'brd_analyses',
+        name: 'FK_brd_analyses_brdId',
+        query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_brdId" FOREIGN KEY ("brdId") REFERENCES "brds"("id") ON DELETE CASCADE`,
+      },
+      {
+        table: 'brd_analyses',
+        name: 'FK_brd_analyses_organizationId',
+        query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_organizationId" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
+      },
+      {
+        table: 'brd_analyses',
+        name: 'FK_brd_analyses_analyzedBy',
+        query: `ALTER TABLE "brd_analyses" ADD CONSTRAINT "FK_brd_analyses_analyzedBy" FOREIGN KEY ("analyzedBy") REFERENCES "users"("id") ON DELETE CASCADE`,
+      },
+      {
+        table: 'generated_project_plans',
+        name: 'FK_generated_project_plans_brdAnalysisId',
+        query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_brdAnalysisId" FOREIGN KEY ("brdAnalysisId") REFERENCES "brd_analyses"("id") ON DELETE CASCADE`,
+      },
+      {
+        table: 'generated_project_plans',
+        name: 'FK_generated_project_plans_organizationId',
+        query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_organizationId" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
+      },
+      {
+        table: 'generated_project_plans',
+        name: 'FK_generated_project_plans_generatedBy',
+        query: `ALTER TABLE "generated_project_plans" ADD CONSTRAINT "FK_generated_project_plans_generatedBy" FOREIGN KEY ("generatedBy") REFERENCES "users"("id") ON DELETE CASCADE`,
+      },
     ];
 
     for (const constraint of fkConstraints) {
@@ -122,13 +175,25 @@ export class CreateBRDAnalysisTables1703002000000 implements MigrationInterface 
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key constraints
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_generatedBy"`);
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_organizationId"`);
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_brdAnalysisId"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_analyzedBy"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_organizationId"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_brdId"`);
-    
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_generatedBy"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_organizationId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_brdAnalysisId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_analyzedBy"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_organizationId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_brdId"`,
+    );
+
     // Drop tables (this will automatically drop all indexes and constraints)
     await queryRunner.query(`DROP TABLE IF EXISTS "generated_project_plans"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "brd_analyses"`);

@@ -19,8 +19,10 @@ export class TelemetryService implements OnModuleInit {
 
   private initializeSDK() {
     const serviceName = 'zephix-backend';
-    const serviceVersion = this.configService.get<string>('npm_package_version') || '1.0.0';
-    const environment = this.configService.get<string>('environment') || 'development';
+    const serviceVersion =
+      this.configService.get<string>('npm_package_version') || '1.0.0';
+    const environment =
+      this.configService.get<string>('environment') || 'development';
 
     this.sdk = new NodeSDK({
       resource: resourceFromAttributes({
@@ -49,7 +51,7 @@ export class TelemetryService implements OnModuleInit {
         new ExpressInstrumentation({
           // Add request ID to spans
           requestHook: (span, info) => {
-            const req = info.request as any;
+            const req = info.request;
             if (req.requestId) {
               span.setAttributes({
                 'request.id': req.requestId,
@@ -82,10 +84,10 @@ export class TelemetryService implements OnModuleInit {
   async traceFunction<T>(
     name: string,
     fn: () => Promise<T> | T,
-    attributes?: Record<string, any>
+    attributes?: Record<string, any>,
   ): Promise<T> {
     const span = this.createSpan(name, attributes);
-    
+
     try {
       const result = await fn();
       span.setStatus({ code: SpanStatusCode.OK });
@@ -95,7 +97,9 @@ export class TelemetryService implements OnModuleInit {
         code: SpanStatusCode.ERROR,
         message: error instanceof Error ? error.message : 'Unknown error',
       });
-      span.recordException(error instanceof Error ? error : new Error(String(error)));
+      span.recordException(
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     } finally {
       span.end();

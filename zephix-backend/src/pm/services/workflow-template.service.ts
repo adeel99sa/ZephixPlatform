@@ -1,16 +1,22 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In } from 'typeorm';
 import { WorkflowTemplate } from '../entities/workflow-template.entity';
 import { WorkflowInstance } from '../entities/workflow-instance.entity';
-import { 
-  CreateWorkflowTemplateDto, 
-  UpdateWorkflowTemplateDto, 
+import {
+  CreateWorkflowTemplateDto,
+  UpdateWorkflowTemplateDto,
   CloneWorkflowTemplateDto,
   TemplateListQueryDto,
   CreateWorkflowInstanceDto,
   UpdateWorkflowInstanceDto,
-  WorkflowActionDto
+  WorkflowActionDto,
 } from '../dto/workflow-template.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -23,16 +29,19 @@ export class WorkflowTemplateService {
     private instanceRepository: Repository<WorkflowInstance>,
   ) {}
 
-  async findByOrganization(organizationId: string, query: TemplateListQueryDto) {
-    const { 
-      search, 
-      type, 
-      isActive, 
+  async findByOrganization(
+    organizationId: string,
+    query: TemplateListQueryDto,
+  ) {
+    const {
+      search,
+      type,
+      isActive,
       isDefault,
-      page = 1, 
+      page = 1,
       limit = 20,
       sortBy = 'createdAt',
-      sortOrder = 'DESC'
+      sortOrder = 'DESC',
     } = query;
 
     const where: FindOptionsWhere<WorkflowTemplate> = {
@@ -64,7 +73,7 @@ export class WorkflowTemplateService {
     });
 
     return {
-      data: templates.map(template => ({
+      data: templates.map((template) => ({
         ...template,
         instanceCount: template.instances?.length || 0,
       })),
@@ -77,7 +86,10 @@ export class WorkflowTemplateService {
     };
   }
 
-  async findById(organizationId: string, templateId: string): Promise<WorkflowTemplate> {
+  async findById(
+    organizationId: string,
+    templateId: string,
+  ): Promise<WorkflowTemplate> {
     const template = await this.templateRepository.findOne({
       where: { id: templateId, organizationId },
       relations: ['instances'],
@@ -90,10 +102,14 @@ export class WorkflowTemplateService {
     return template;
   }
 
-  async create(organizationId: string, createDto: CreateWorkflowTemplateDto, userId: string): Promise<WorkflowTemplate> {
+  async create(
+    organizationId: string,
+    createDto: CreateWorkflowTemplateDto,
+    userId: string,
+  ): Promise<WorkflowTemplate> {
     // Validate stage configuration
     this.validateStageConfiguration(createDto.configuration.stages);
-    
+
     // Check if setting as default and handle existing defaults
     if (createDto.isDefault) {
       await this.clearExistingDefaults(organizationId, createDto.type);
@@ -110,14 +126,14 @@ export class WorkflowTemplateService {
       },
     } as any);
 
-    return await this.templateRepository.save(template) as any;
+    return (await this.templateRepository.save(template)) as any;
   }
 
   async update(
-    organizationId: string, 
-    templateId: string, 
+    organizationId: string,
+    templateId: string,
     updateDto: UpdateWorkflowTemplateDto,
-    userId: string
+    userId: string,
   ): Promise<WorkflowTemplate> {
     const template = await this.findById(organizationId, templateId);
 
@@ -145,10 +161,10 @@ export class WorkflowTemplateService {
   }
 
   async clone(
-    organizationId: string, 
-    templateId: string, 
+    organizationId: string,
+    templateId: string,
     cloneDto: CloneWorkflowTemplateDto,
-    userId: string
+    userId: string,
   ): Promise<WorkflowTemplate> {
     const originalTemplate = await this.findById(organizationId, templateId);
 
@@ -172,27 +188,35 @@ export class WorkflowTemplateService {
     return await this.templateRepository.save(clonedTemplate);
   }
 
-  async activate(organizationId: string, templateId: string): Promise<WorkflowTemplate> {
+  async activate(
+    organizationId: string,
+    templateId: string,
+  ): Promise<WorkflowTemplate> {
     const template = await this.findById(organizationId, templateId);
-    
+
     template.isActive = true;
     return await this.templateRepository.save(template);
   }
 
-  async deactivate(organizationId: string, templateId: string): Promise<WorkflowTemplate> {
+  async deactivate(
+    organizationId: string,
+    templateId: string,
+  ): Promise<WorkflowTemplate> {
     const template = await this.findById(organizationId, templateId);
-    
+
     // Check if there are active instances
     const activeInstanceCount = await this.instanceRepository.count({
-      where: { 
-        templateId, 
+      where: {
+        templateId,
         organizationId,
-        status: In(['active', 'processing'])
-      }
+        status: In(['active', 'processing']),
+      },
     });
 
     if (activeInstanceCount > 0) {
-      throw new ConflictException('Cannot deactivate template with active instances');
+      throw new ConflictException(
+        'Cannot deactivate template with active instances',
+      );
     }
 
     template.isActive = false;
@@ -201,14 +225,16 @@ export class WorkflowTemplateService {
 
   async delete(organizationId: string, templateId: string): Promise<void> {
     const template = await this.findById(organizationId, templateId);
-    
+
     // Check if there are any instances
     const instanceCount = await this.instanceRepository.count({
-      where: { templateId, organizationId }
+      where: { templateId, organizationId },
     });
 
     if (instanceCount > 0) {
-      throw new ConflictException('Cannot delete template with existing instances');
+      throw new ConflictException(
+        'Cannot delete template with existing instances',
+      );
     }
 
     await this.templateRepository.remove(template);
@@ -225,12 +251,14 @@ export class WorkflowTemplateService {
   async createInstance(
     organizationId: string,
     createDto: CreateWorkflowInstanceDto,
-    userId: string
+    userId: string,
   ): Promise<WorkflowInstance> {
     const template = await this.findById(organizationId, createDto.templateId);
 
     if (!template.isActive) {
-      throw new BadRequestException('Cannot create instance from inactive template');
+      throw new BadRequestException(
+        'Cannot create instance from inactive template',
+      );
     }
 
     const firstStage = template.configuration.stages[0];
@@ -244,15 +272,17 @@ export class WorkflowTemplateService {
       currentStage: firstStage.id,
       createdBy: userId,
       dueDate: createDto.dueDate ? new Date(createDto.dueDate) : null,
-      stageHistory: [{
-        stageId: firstStage.id,
-        enteredAt: new Date(),
-        actor: userId,
-        notes: 'Workflow instance created',
-      }],
+      stageHistory: [
+        {
+          stageId: firstStage.id,
+          enteredAt: new Date(),
+          actor: userId,
+          notes: 'Workflow instance created',
+        },
+      ],
     } as any);
 
-    return await this.instanceRepository.save(instance) as any;
+    return (await this.instanceRepository.save(instance)) as any;
   }
 
   async findInstances(organizationId: string, query: any) {
@@ -264,7 +294,7 @@ export class WorkflowTemplateService {
       page = 1,
       limit = 20,
       sortBy = 'createdAt',
-      sortOrder = 'DESC'
+      sortOrder = 'DESC',
     } = query;
 
     const where: FindOptionsWhere<WorkflowInstance> = {
@@ -306,7 +336,10 @@ export class WorkflowTemplateService {
     };
   }
 
-  async findInstanceById(organizationId: string, instanceId: string): Promise<WorkflowInstance> {
+  async findInstanceById(
+    organizationId: string,
+    instanceId: string,
+  ): Promise<WorkflowInstance> {
     const instance = await this.instanceRepository.findOne({
       where: { id: instanceId, organizationId },
       relations: ['template', 'assignedUser', 'creator'],
@@ -322,7 +355,7 @@ export class WorkflowTemplateService {
   async updateInstance(
     organizationId: string,
     instanceId: string,
-    updateDto: UpdateWorkflowInstanceDto
+    updateDto: UpdateWorkflowInstanceDto,
   ): Promise<WorkflowInstance> {
     const instance = await this.findInstanceById(organizationId, instanceId);
 
@@ -339,31 +372,51 @@ export class WorkflowTemplateService {
     organizationId: string,
     instanceId: string,
     actionDto: WorkflowActionDto,
-    userId: string
+    userId: string,
   ): Promise<WorkflowInstance> {
     const instance = await this.findInstanceById(organizationId, instanceId);
     const template = await this.findById(organizationId, instance.templateId);
 
     switch (actionDto.action) {
       case 'approve':
-        return await this.approveStage(instance, template, userId, actionDto.comments);
-      
+        return await this.approveStage(
+          instance,
+          template,
+          userId,
+          actionDto.comments,
+        );
+
       case 'reject':
-        return await this.rejectStage(instance, template, userId, actionDto.comments);
-      
+        return await this.rejectStage(
+          instance,
+          template,
+          userId,
+          actionDto.comments,
+        );
+
       case 'move_to_stage':
         if (!actionDto.targetStageId) {
-          throw new BadRequestException('Target stage ID is required for move action');
+          throw new BadRequestException(
+            'Target stage ID is required for move action',
+          );
         }
-        return await this.moveToStage(instance, template, actionDto.targetStageId, userId, actionDto.comments);
-      
+        return await this.moveToStage(
+          instance,
+          template,
+          actionDto.targetStageId,
+          userId,
+          actionDto.comments,
+        );
+
       case 'assign':
         if (!actionDto.assignTo) {
-          throw new BadRequestException('User ID is required for assign action');
+          throw new BadRequestException(
+            'User ID is required for assign action',
+          );
         }
         instance.assignedTo = actionDto.assignTo;
         return await this.instanceRepository.save(instance);
-      
+
       default:
         throw new BadRequestException('Invalid action');
     }
@@ -384,10 +437,13 @@ export class WorkflowTemplateService {
     }
   }
 
-  private async clearExistingDefaults(organizationId: string, type: string): Promise<void> {
+  private async clearExistingDefaults(
+    organizationId: string,
+    type: string,
+  ): Promise<void> {
     await this.templateRepository.update(
       { organizationId, type, isDefault: true },
-      { isDefault: false }
+      { isDefault: false },
     );
   }
 
@@ -401,11 +457,11 @@ export class WorkflowTemplateService {
     instance: WorkflowInstance,
     template: WorkflowTemplate,
     userId: string,
-    comments?: string
+    comments?: string,
   ): Promise<WorkflowInstance> {
     // Add approval record
     instance.approvals.push({
-      stageId: instance.currentStage!,
+      stageId: instance.currentStage,
       approverId: userId,
       status: 'approved',
       comments,
@@ -414,14 +470,20 @@ export class WorkflowTemplateService {
 
     // Check if we can move to next stage
     if (instance.canProgressToNextStage()) {
-      const nextStage = template.getNextStage(instance.currentStage!);
+      const nextStage = template.getNextStage(instance.currentStage);
       if (nextStage) {
-        return await this.moveToStage(instance, template, nextStage.id, userId, 'Auto-progressed after approval');
+        return await this.moveToStage(
+          instance,
+          template,
+          nextStage.id,
+          userId,
+          'Auto-progressed after approval',
+        );
       } else {
         // No next stage, mark as completed
         instance.status = 'completed';
         instance.stageHistory.push({
-          stageId: instance.currentStage!,
+          stageId: instance.currentStage,
           enteredAt: instance.getCurrentStageEntry()?.enteredAt || new Date(),
           exitedAt: new Date(),
           actor: userId,
@@ -437,11 +499,11 @@ export class WorkflowTemplateService {
     instance: WorkflowInstance,
     template: WorkflowTemplate,
     userId: string,
-    comments?: string
+    comments?: string,
   ): Promise<WorkflowInstance> {
     // Add rejection record
     instance.approvals.push({
-      stageId: instance.currentStage!,
+      stageId: instance.currentStage,
       approverId: userId,
       status: 'rejected',
       comments,
@@ -449,9 +511,15 @@ export class WorkflowTemplateService {
     });
 
     // Move to previous stage or mark as failed
-    const previousStage = template.getPreviousStage(instance.currentStage!);
+    const previousStage = template.getPreviousStage(instance.currentStage);
     if (previousStage) {
-      return await this.moveToStage(instance, template, previousStage.id, userId, `Rejected: ${comments}`);
+      return await this.moveToStage(
+        instance,
+        template,
+        previousStage.id,
+        userId,
+        `Rejected: ${comments}`,
+      );
     } else {
       instance.status = 'failed';
     }
@@ -464,7 +532,7 @@ export class WorkflowTemplateService {
     template: WorkflowTemplate,
     targetStageId: string,
     userId: string,
-    notes?: string
+    notes?: string,
   ): Promise<WorkflowInstance> {
     const targetStage = template.getStageById(targetStageId);
     if (!targetStage) {

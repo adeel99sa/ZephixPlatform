@@ -1,5 +1,18 @@
-import { Controller, Post, Body, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { AIChatService, AIAnalysisRequest, ChatResponse, ChatContext } from '../services/ai-chat.service';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  AIChatService,
+  AIAnalysisRequest,
+  ChatResponse,
+  ChatContext,
+} from '../services/ai-chat.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 export interface SendMessageRequest {
@@ -30,7 +43,9 @@ export class AIChatController {
   }
 
   @Post('send-message')
-  async sendMessage(@Body() request: SendMessageRequest): Promise<ChatResponse> {
+  async sendMessage(
+    @Body() request: SendMessageRequest,
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: request.message,
       context: request.context as ChatContext,
@@ -42,11 +57,19 @@ export class AIChatController {
   }
 
   @Post('analyze-project')
-  async analyzeProject(@Body() request: {
-    projectId: string;
-    context: ChatContext;
-    analysisType?: 'comprehensive' | 'health' | 'risk' | 'resource' | 'communication';
-  }): Promise<ChatResponse> {
+  async analyzeProject(
+    @Body()
+    request: {
+      projectId: string;
+      context: ChatContext;
+      analysisType?:
+        | 'comprehensive'
+        | 'health'
+        | 'risk'
+        | 'resource'
+        | 'communication';
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Analyze this project with ${request.analysisType || 'comprehensive'} analysis`,
       context: request.context,
@@ -57,17 +80,20 @@ export class AIChatController {
   }
 
   @Post('create-project')
-  async createProject(@Body() request: {
-    projectDetails: {
-      name: string;
-      description?: string;
-      type?: string;
-      timeline?: string;
-      budget?: number;
-      teamSize?: number;
-    };
-    context: ChatContext;
-  }): Promise<ChatResponse> {
+  async createProject(
+    @Body()
+    request: {
+      projectDetails: {
+        name: string;
+        description?: string;
+        type?: string;
+        timeline?: string;
+        budget?: number;
+        teamSize?: number;
+      };
+      context: ChatContext;
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Create a new project: ${request.projectDetails.name} - ${request.projectDetails.description || ''}`,
       context: request.context,
@@ -78,11 +104,14 @@ export class AIChatController {
   }
 
   @Post('optimize-resources')
-  async optimizeResources(@Body() request: {
-    projectId: string;
-    context: ChatContext;
-    optimizationType?: 'team' | 'workload' | 'skills' | 'budget';
-  }): Promise<ChatResponse> {
+  async optimizeResources(
+    @Body()
+    request: {
+      projectId: string;
+      context: ChatContext;
+      optimizationType?: 'team' | 'workload' | 'skills' | 'budget';
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Optimize ${request.optimizationType || 'team'} resources for this project`,
       context: request.context,
@@ -93,11 +122,19 @@ export class AIChatController {
   }
 
   @Post('assess-risks')
-  async assessRisks(@Body() request: {
-    projectId: string;
-    context: ChatContext;
-    riskType?: 'technical' | 'schedule' | 'budget' | 'stakeholder' | 'comprehensive';
-  }): Promise<ChatResponse> {
+  async assessRisks(
+    @Body()
+    request: {
+      projectId: string;
+      context: ChatContext;
+      riskType?:
+        | 'technical'
+        | 'schedule'
+        | 'budget'
+        | 'stakeholder'
+        | 'comprehensive';
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Assess ${request.riskType || 'comprehensive'} risks for this project`,
       context: request.context,
@@ -108,11 +145,14 @@ export class AIChatController {
   }
 
   @Post('plan-communication')
-  async planCommunication(@Body() request: {
-    projectId: string;
-    context: ChatContext;
-    communicationType?: 'stakeholder' | 'team' | 'executive' | 'client';
-  }): Promise<ChatResponse> {
+  async planCommunication(
+    @Body()
+    request: {
+      projectId: string;
+      context: ChatContext;
+      communicationType?: 'stakeholder' | 'team' | 'executive' | 'client';
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Plan ${request.communicationType || 'stakeholder'} communication for this project`,
       context: request.context,
@@ -123,15 +163,21 @@ export class AIChatController {
   }
 
   @Post('monitor-health')
-  async monitorHealth(@Body() request: {
-    projectId: string;
-    context: ChatContext;
-    healthMetrics?: string[];
-  }): Promise<ChatResponse> {
+  async monitorHealth(
+    @Body()
+    request: {
+      projectId: string;
+      context: ChatContext;
+      healthMetrics?: string[];
+    },
+  ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Monitor project health and provide status update`,
       context: request.context,
-      projectData: { projectId: request.projectId, healthMetrics: request.healthMetrics },
+      projectData: {
+        projectId: request.projectId,
+        healthMetrics: request.healthMetrics,
+      },
     };
 
     return this.aiChatService.processMessage(aiRequest);
@@ -156,7 +202,7 @@ export class AIChatController {
         'Stakeholder Management',
         'Performance Analytics',
         'Methodology Recommendations',
-        'Training and Skill Gap Analysis'
+        'Training and Skill Gap Analysis',
       ],
       intents: [
         'project_analysis',
@@ -165,7 +211,7 @@ export class AIChatController {
         'risk_assessment',
         'communication_planning',
         'health_monitoring',
-        'general_question'
+        'general_question',
       ],
       features: [
         'Natural language processing',
@@ -175,7 +221,7 @@ export class AIChatController {
         'Suggested actions',
         'Follow-up questions',
         'Real-time analysis',
-        'Predictive recommendations'
+        'Predictive recommendations',
       ],
       examples: [
         'Analyze my current project and identify potential risks',
@@ -184,8 +230,8 @@ export class AIChatController {
         'Assess the risks in my compliance project',
         'Plan stakeholder communication for my business process project',
         'Monitor the health of my analytics project',
-        'What methodology should I use for my integration project?'
-      ]
+        'What methodology should I use for my integration project?',
+      ],
     };
   }
 
@@ -209,7 +255,7 @@ export class AIChatController {
           description: 'Get comprehensive project analysis with AI insights',
           icon: '📊',
           category: 'analysis',
-          message: 'Analyze my current project and provide insights'
+          message: 'Analyze my current project and provide insights',
         },
         {
           id: 'create_project',
@@ -217,7 +263,7 @@ export class AIChatController {
           description: 'Start a new project with AI-powered planning',
           icon: '🚀',
           category: 'creation',
-          message: 'Help me create a new project'
+          message: 'Help me create a new project',
         },
         {
           id: 'optimize_resources',
@@ -225,7 +271,7 @@ export class AIChatController {
           description: 'Optimize team allocation and identify skill gaps',
           icon: '⚡',
           category: 'optimization',
-          message: 'Optimize resources for my project'
+          message: 'Optimize resources for my project',
         },
         {
           id: 'assess_risks',
@@ -233,7 +279,7 @@ export class AIChatController {
           description: 'Identify and analyze project risks',
           icon: '⚠️',
           category: 'risk',
-          message: 'Assess risks in my project'
+          message: 'Assess risks in my project',
         },
         {
           id: 'plan_communication',
@@ -241,7 +287,7 @@ export class AIChatController {
           description: 'Create stakeholder communication plans',
           icon: '📢',
           category: 'communication',
-          message: 'Plan communication for my project'
+          message: 'Plan communication for my project',
         },
         {
           id: 'monitor_health',
@@ -249,7 +295,7 @@ export class AIChatController {
           description: 'Track project health and performance',
           icon: '📈',
           category: 'monitoring',
-          message: 'Monitor the health of my project'
+          message: 'Monitor the health of my project',
         },
         {
           id: 'generate_report',
@@ -257,7 +303,7 @@ export class AIChatController {
           description: 'Create detailed project reports',
           icon: '📋',
           category: 'reporting',
-          message: 'Generate a comprehensive project report'
+          message: 'Generate a comprehensive project report',
         },
         {
           id: 'schedule_meeting',
@@ -265,9 +311,9 @@ export class AIChatController {
           description: 'Set up project review meetings',
           icon: '📅',
           category: 'meetings',
-          message: 'Schedule a project review meeting'
-        }
-      ]
+          message: 'Schedule a project review meeting',
+        },
+      ],
     };
   }
 
@@ -288,10 +334,11 @@ export class AIChatController {
         {
           type: 'analysis',
           title: 'Deep Dive Analysis',
-          description: 'Perform comprehensive project analysis with AI insights',
+          description:
+            'Perform comprehensive project analysis with AI insights',
           priority: 'high',
           impact: 'High - Provides actionable insights',
-          effort: 'Low - Automated analysis'
+          effort: 'Low - Automated analysis',
         },
         {
           type: 'optimization',
@@ -299,7 +346,7 @@ export class AIChatController {
           description: 'Optimize team allocation and identify skill gaps',
           priority: 'medium',
           impact: 'Medium - Improves efficiency',
-          effort: 'Medium - Requires team input'
+          effort: 'Medium - Requires team input',
         },
         {
           type: 'risk',
@@ -307,7 +354,7 @@ export class AIChatController {
           description: 'Identify and analyze potential project risks',
           priority: 'high',
           impact: 'High - Prevents issues',
-          effort: 'Low - Automated assessment'
+          effort: 'Low - Automated assessment',
         },
         {
           type: 'communication',
@@ -315,7 +362,7 @@ export class AIChatController {
           description: 'Create stakeholder communication strategy',
           priority: 'medium',
           impact: 'Medium - Improves collaboration',
-          effort: 'Low - Automated planning'
+          effort: 'Low - Automated planning',
         },
         {
           type: 'monitoring',
@@ -323,9 +370,9 @@ export class AIChatController {
           description: 'Set up automated project health tracking',
           priority: 'medium',
           impact: 'Medium - Early warning system',
-          effort: 'Low - Automated monitoring'
-        }
-      ]
+          effort: 'Low - Automated monitoring',
+        },
+      ],
     };
   }
 
@@ -349,19 +396,19 @@ export class AIChatController {
         keyRisks: [
           'Technical integration complexity',
           'Stakeholder resistance to change',
-          'Resource constraints'
+          'Resource constraints',
         ],
         optimizationOpportunities: [
           'Implement skill-based task assignment',
           'Establish stakeholder communication matrix',
-          'Create resource allocation plan'
+          'Create resource allocation plan',
         ],
         successFactors: [
           'Clear project objectives',
           'Strong stakeholder engagement',
-          'Technical expertise availability'
-        ]
-      }
+          'Technical expertise availability',
+        ],
+      },
     };
   }
 }
