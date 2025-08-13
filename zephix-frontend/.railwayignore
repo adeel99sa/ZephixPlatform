@@ -1,5 +1,5 @@
-# Docker files
-Dockerfile
+# Docker files (keeping Dockerfile for Railway deployment)
+# Dockerfile
 docker-compose.yml
 .dockerignore
 
@@ -7,6 +7,10 @@ docker-compose.yml
 # dist/
 build/
 *.log
+
+# Nginx configuration files (needed for Railway deployment)
+# nginx.conf
+# start-nginx.sh
 
 # Dependencies
 node_modules/
