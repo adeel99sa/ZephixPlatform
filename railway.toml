@@ -9,9 +9,6 @@
 # @author Zephix Development Team
 # @version 2.1.0
 
-[build]
-builder = "DOCKERFILE"
-
 # =============================================================================
 # BACKEND SERVICE CONFIGURATION
 # =============================================================================
@@ -27,10 +24,11 @@ source = "zephix-backend"
 # Build configuration for NestJS TypeScript
 [services.backend.build]
 builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.backend"
 
 # Deployment configuration
 [services.backend.deploy]
-startCommand = "npm run start:prod"
+startCommand = "npm run start:railway"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
@@ -118,8 +116,6 @@ POSTGRES_WAL_BUFFERS = "4MB"
 POSTGRES_DEFAULT_STATISTICS_TARGET = "100"
 POSTGRES_RANDOM_PAGE_COST = "1.1"
 POSTGRES_EFFECTIVE_IO_CONCURRENCY = "200"
-POSTGRES_WORK_MEM = "4MB"
-POSTGRES_MAINTENANCE_WORK_MEM = "32MB"
 POSTGRES_AUTOVACUUM_MAX_WORKERS = "3"
 POSTGRES_AUTOVACUUM_NAPTIME = "60"
 POSTGRES_LOG_STATEMENT = "all"
