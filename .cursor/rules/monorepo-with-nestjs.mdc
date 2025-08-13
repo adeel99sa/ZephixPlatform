@@ -3,18 +3,7 @@ alwaysApply: true
 ---
 
 You are working in a monorepo with NestJS (TypeORM/Postgres) and React/TS.
-Non-negotiables:
-• Generate and run TypeORM migrations for every entity change.
-• No provider may be exported by a module unless it is declared there. Move reusable providers to SharedModule.
-• Controllers must use DTOs with class-validator and enable global ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }).
-• All routes behind /api/pm/** require JWT auth and organization scoping.
-• Implement RBAC (roles: owner, admin, pm, viewer) and enforce via custom decorator/guard.
-• New services must include unit tests; new flows need e2e tests.
-• Log with pino, attach x-request-id, emit basic OTel traces, and return normalized error shapes.
-• For uploads/exports/LLM calls, use BullMQ queues; HTTP handlers enqueue and return 202 + status endpoints.
-• Frontend uses TanStack Query + a typed API client; errors surface via a toast and error boundary.
-• Keep secrets in env; never hardcode; add .env.example.
-• Write a ci.md step-by-step for local dev, migration, and verification.You are working in a monorepo with NestJS (TypeORM/Postgres) and React/TS.
+
 Non-negotiables:
 • Generate and run TypeORM migrations for every entity change.
 • No provider may be exported by a module unless it is declared there. Move reusable providers to SharedModule.
@@ -27,3 +16,4 @@ Non-negotiables:
 • Frontend uses TanStack Query + a typed API client; errors surface via a toast and error boundary.
 • Keep secrets in env; never hardcode; add .env.example.
 • Write a ci.md step-by-step for local dev, migration, and verification.
+• When using Railway MCP for deployment, verify changes are pushed to GitHub before deployment.
