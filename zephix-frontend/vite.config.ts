@@ -18,8 +18,15 @@ export default defineConfig({
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
         },
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.endsWith('.css')) {
+            return 'assets/[name]-[hash][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        },
       },
     },
+    cssCodeSplit: true,
   },
   server: {
     port: 5173,
@@ -58,8 +65,5 @@ export default defineConfig({
   // Enhanced development options
   define: {
     __DEV__: true,
-  },
-  esbuild: {
-    jsxInject: `import React from 'react'`,
   },
 })
