@@ -28,6 +28,7 @@ import { Project } from './projects/entities/project.entity';
 import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
+import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -68,7 +69,7 @@ if (!(global as any).crypto) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role],
+            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role, RefreshToken],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: false, // Migrations controlled manually for safety
@@ -99,7 +100,7 @@ if (!(global as any).crypto) {
             username: configService.get('database.username'),
             password: configService.get('database.password'),
             database: configService.get('database.database'),
-            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role],
+            entities: [User, Organization, UserOrganization, Project, Team, TeamMember, Role, RefreshToken],
             migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
