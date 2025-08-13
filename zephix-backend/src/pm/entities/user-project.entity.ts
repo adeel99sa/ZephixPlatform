@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { ProjectTask } from './project-task.entity';
@@ -32,7 +41,14 @@ export class UserProject {
   methodology: 'predictive' | 'agile' | 'hybrid' | 'universal';
 
   @Column({ type: 'varchar', length: 50, default: 'planning' })
-  status: 'initiating' | 'planning' | 'executing' | 'monitoring_controlling' | 'closing' | 'on_hold' | 'cancelled';
+  status:
+    | 'initiating'
+    | 'planning'
+    | 'executing'
+    | 'monitoring_controlling'
+    | 'closing'
+    | 'on_hold'
+    | 'cancelled';
 
   @Column({ type: 'date', nullable: true })
   startDate: Date;
@@ -63,12 +79,12 @@ export class UserProject {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => ProjectTask, task => task.project)
+  @OneToMany(() => ProjectTask, (task) => task.project)
   tasks: ProjectTask[];
 
-  @OneToMany(() => ProjectRisk, risk => risk.project)
+  @OneToMany(() => ProjectRisk, (risk) => risk.project)
   risks: ProjectRisk[];
 
-  @OneToMany(() => ProjectStakeholder, stakeholder => stakeholder.project)
+  @OneToMany(() => ProjectStakeholder, (stakeholder) => stakeholder.project)
   stakeholders: ProjectStakeholder[];
 }

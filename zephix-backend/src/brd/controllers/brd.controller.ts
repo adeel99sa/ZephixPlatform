@@ -25,9 +25,9 @@ import { OrganizationGuard } from '../../organizations/guards/organization.guard
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 import { BRDService } from '../services/brd.service';
 import { BRDAnalysisService } from '../services/brd-analysis.service';
-import { 
-  CreateBRDDto, 
-  UpdateBRDDto, 
+import {
+  CreateBRDDto,
+  UpdateBRDDto,
   PublishBRDDto,
   BRDResponseDto,
   BRDListResponseDto,
@@ -54,9 +54,10 @@ export class BRDController {
   ) {}
 
   @Post()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Create a new BRD',
-    description: 'Creates a new Business Requirements Document with the provided payload structure'
+    description:
+      'Creates a new Business Requirements Document with the provided payload structure',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -81,7 +82,7 @@ export class BRDController {
     @CurrentOrg() organizationId: string,
   ): Promise<BRDCreateResponseDto> {
     const brd = await this.brdService.create(createBRDDto);
-    
+
     return {
       id: brd.id,
       version: brd.version,
@@ -92,26 +93,61 @@ export class BRDController {
   @Get()
   @ApiOperation({
     summary: 'List BRDs with filtering and pagination',
-    description: 'Retrieves a paginated list of BRDs with optional filtering by status, project, and search query'
+    description:
+      'Retrieves a paginated list of BRDs with optional filtering by status, project, and search query',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'BRDs retrieved successfully',
     type: BRDListResponseDto,
   })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20)' })
-  @ApiQuery({ name: 'status', required: false, enum: BRDStatus, description: 'Filter by status' })
-  @ApiQuery({ name: 'project_id', required: false, type: String, description: 'Filter by project ID' })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query for full-text search' })
-  @ApiQuery({ name: 'sort', required: false, type: String, description: 'Sort field (created_at, updated_at, version, status)' })
-  @ApiQuery({ name: 'order', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: BRDStatus,
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'project_id',
+    required: false,
+    type: String,
+    description: 'Filter by project ID',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search query for full-text search',
+  })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    type: String,
+    description: 'Sort field (created_at, updated_at, version, status)',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    enum: ['ASC', 'DESC'],
+    description: 'Sort order',
+  })
   async findAll(
     @Query() queryDto: BRDListQueryDto,
     @Req() req: any,
     @CurrentOrg() organizationId: string,
   ): Promise<BRDListResponseDto> {
-    
     const options = {
       organizationId: organizationId,
       page: queryDto.page || 1,
@@ -126,7 +162,7 @@ export class BRDController {
     const result = await this.brdService.findMany(options);
 
     return {
-      data: result.data.map(brd => this.mapToResponseDto(brd)),
+      data: result.data.map((brd) => this.mapToResponseDto(brd)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -137,15 +173,26 @@ export class BRDController {
   @Get('search')
   @ApiOperation({
     summary: 'Search BRDs using full-text search',
-    description: 'Performs a full-text search across BRD content using PostgreSQL full-text search'
+    description:
+      'Performs a full-text search across BRD content using PostgreSQL full-text search',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Search results retrieved successfully',
     type: [BRDResponseDto],
   })
-  @ApiQuery({ name: 'q', required: true, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum results (default: 10)' })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Maximum results (default: 10)',
+  })
   async search(
     @Query('q') query: string,
     @Query('limit') limit: number = 10,
@@ -153,14 +200,15 @@ export class BRDController {
   ): Promise<BRDResponseDto[]> {
     const organizationId = req.user.organizationId;
     const brds = await this.brdService.search(organizationId, query, limit);
-    
-    return brds.map(brd => this.mapToResponseDto(brd));
+
+    return brds.map((brd) => this.mapToResponseDto(brd));
   }
 
   @Get('statistics')
   @ApiOperation({
     summary: 'Get BRD statistics for the tenant',
-    description: 'Retrieves summary statistics including counts by status and recent activity'
+    description:
+      'Retrieves summary statistics including counts by status and recent activity',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -174,7 +222,7 @@ export class BRDController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get BRD by ID',
-    description: 'Retrieves a specific BRD by its unique identifier'
+    description: 'Retrieves a specific BRD by its unique identifier',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -192,14 +240,15 @@ export class BRDController {
   ): Promise<BRDResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.findById(id, organizationId);
-    
+
     return this.mapToResponseDto(brd);
   }
 
   @Put(':id')
   @ApiOperation({
     summary: 'Update BRD',
-    description: 'Updates an existing BRD with new payload data. Only draft and in-review BRDs can be updated.'
+    description:
+      'Updates an existing BRD with new payload data. Only draft and in-review BRDs can be updated.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -222,7 +271,7 @@ export class BRDController {
   ): Promise<BRDUpdateResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.update(id, organizationId, updateBRDDto);
-    
+
     return {
       id: brd.id,
       version: brd.version,
@@ -233,7 +282,7 @@ export class BRDController {
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete BRD',
-    description: 'Deletes a BRD. Only draft BRDs can be deleted.'
+    description: 'Deletes a BRD. Only draft BRDs can be deleted.',
   })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
@@ -259,7 +308,8 @@ export class BRDController {
   @Post(':id/submit')
   @ApiOperation({
     summary: 'Submit BRD for review',
-    description: 'Submits a draft BRD for review. BRD must be complete before submission.'
+    description:
+      'Submits a draft BRD for review. BRD must be complete before submission.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -277,14 +327,14 @@ export class BRDController {
   ): Promise<BRDResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.submitForReview(id, organizationId);
-    
+
     return this.mapToResponseDto(brd);
   }
 
   @Post(':id/approve')
   @ApiOperation({
     summary: 'Approve BRD',
-    description: 'Approves a BRD that is in review status'
+    description: 'Approves a BRD that is in review status',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -298,14 +348,14 @@ export class BRDController {
   ): Promise<BRDResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.approve(id, organizationId);
-    
+
     return this.mapToResponseDto(brd);
   }
 
   @Post(':id/publish')
   @ApiOperation({
     summary: 'Publish BRD',
-    description: 'Publishes an approved BRD'
+    description: 'Publishes an approved BRD',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -320,21 +370,25 @@ export class BRDController {
   ): Promise<BRDResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.publish(id, organizationId);
-    
+
     return this.mapToResponseDto(brd);
   }
 
   @Post(':id/duplicate')
   @ApiOperation({
     summary: 'Duplicate BRD',
-    description: 'Creates a copy of an existing BRD with optional new title'
+    description: 'Creates a copy of an existing BRD with optional new title',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'BRD duplicated successfully',
     type: BRDCreateResponseDto,
   })
-  @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier to duplicate' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'BRD unique identifier to duplicate',
+  })
   async duplicate(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { title?: string },
@@ -342,7 +396,7 @@ export class BRDController {
   ): Promise<BRDCreateResponseDto> {
     const organizationId = req.user.organizationId;
     const brd = await this.brdService.duplicate(id, organizationId, body.title);
-    
+
     return {
       id: brd.id,
       version: brd.version,
@@ -353,7 +407,8 @@ export class BRDController {
   @Get(':id/validation')
   @ApiOperation({
     summary: 'Get BRD validation summary',
-    description: 'Retrieves validation status and completion percentage for a BRD'
+    description:
+      'Retrieves validation status and completion percentage for a BRD',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -371,28 +426,33 @@ export class BRDController {
   @Get('project/:projectId')
   @ApiOperation({
     summary: 'Get BRDs by project',
-    description: 'Retrieves all BRDs associated with a specific project'
+    description: 'Retrieves all BRDs associated with a specific project',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Project BRDs retrieved successfully',
     type: [BRDResponseDto],
   })
-  @ApiParam({ name: 'projectId', type: String, description: 'Project unique identifier' })
+  @ApiParam({
+    name: 'projectId',
+    type: String,
+    description: 'Project unique identifier',
+  })
   async findByProject(
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Req() req: any,
   ): Promise<BRDResponseDto[]> {
     const organizationId = req.user.organizationId;
     const brds = await this.brdService.findByProject(projectId, organizationId);
-    
-    return brds.map(brd => this.mapToResponseDto(brd));
+
+    return brds.map((brd) => this.mapToResponseDto(brd));
   }
 
   @Post(':id/analyze')
   @ApiOperation({
     summary: 'Analyze BRD with AI',
-    description: 'Performs AI-powered analysis of a BRD to extract key elements and insights'
+    description:
+      'Performs AI-powered analysis of a BRD to extract key elements and insights',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -411,16 +471,21 @@ export class BRDController {
   ): Promise<BRDAnalysisResponseDto> {
     const organizationId = req.user.organizationId;
     const userId = req.user.id;
-    
-    const analysis = await this.brdAnalysisService.analyzeBRD(id, organizationId, userId);
-    
+
+    const analysis = await this.brdAnalysisService.analyzeBRD(
+      id,
+      organizationId,
+      userId,
+    );
+
     return this.mapToAnalysisResponseDto(analysis);
   }
 
   @Post('analysis/:analysisId/generate-plan')
   @ApiOperation({
     summary: 'Generate project plan from BRD analysis',
-    description: 'Generates a methodology-specific project plan based on BRD analysis results'
+    description:
+      'Generates a methodology-specific project plan based on BRD analysis results',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -431,7 +496,11 @@ export class BRDController {
     status: HttpStatus.NOT_FOUND,
     description: 'BRD analysis not found',
   })
-  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  @ApiParam({
+    name: 'analysisId',
+    type: String,
+    description: 'BRD analysis unique identifier',
+  })
   async generateProjectPlan(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
     @Body() generateDto: GenerateProjectPlanDto,
@@ -439,24 +508,31 @@ export class BRDController {
   ): Promise<GeneratedProjectPlanResponseDto> {
     const organizationId = req.user.organizationId;
     const userId = req.user.id;
-    
+
     // Get the analysis first
-    const analysis = await this.brdAnalysisService.getAnalysisById(analysisId, organizationId);
-    
+    const analysis = await this.brdAnalysisService.getAnalysisById(
+      analysisId,
+      organizationId,
+    );
+
     const projectPlan = await this.brdAnalysisService.generateProjectPlan(
-      { id: analysis.id, extractedElements: analysis.extractedElements, analysisMetadata: analysis.analysisMetadata },
+      {
+        id: analysis.id,
+        extractedElements: analysis.extractedElements,
+        analysisMetadata: analysis.analysisMetadata,
+      },
       generateDto.methodology,
       organizationId,
-      userId
+      userId,
     );
-    
+
     return this.mapToProjectPlanResponseDto(projectPlan);
   }
 
   @Get('analysis/:analysisId')
   @ApiOperation({
     summary: 'Get BRD analysis by ID',
-    description: 'Retrieves a specific BRD analysis by its unique identifier'
+    description: 'Retrieves a specific BRD analysis by its unique identifier',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -467,37 +543,52 @@ export class BRDController {
     status: HttpStatus.NOT_FOUND,
     description: 'BRD analysis not found',
   })
-  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  @ApiParam({
+    name: 'analysisId',
+    type: String,
+    description: 'BRD analysis unique identifier',
+  })
   async getAnalysisById(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
     @Req() req: any,
   ): Promise<BRDAnalysisResponseDto> {
     const organizationId = req.user.organizationId;
-    const analysis = await this.brdAnalysisService.getAnalysisById(analysisId, organizationId);
-    
+    const analysis = await this.brdAnalysisService.getAnalysisById(
+      analysisId,
+      organizationId,
+    );
+
     return this.mapToAnalysisResponseDto(analysis);
   }
 
   @Get('analysis/:analysisId/project-plans')
   @ApiOperation({
     summary: 'Get project plans by BRD analysis',
-    description: 'Retrieves all project plans generated from a specific BRD analysis'
+    description:
+      'Retrieves all project plans generated from a specific BRD analysis',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Project plans retrieved successfully',
     type: GeneratedProjectPlanListResponseDto,
   })
-  @ApiParam({ name: 'analysisId', type: String, description: 'BRD analysis unique identifier' })
+  @ApiParam({
+    name: 'analysisId',
+    type: String,
+    description: 'BRD analysis unique identifier',
+  })
   async getProjectPlansByAnalysis(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
     @Req() req: any,
   ): Promise<GeneratedProjectPlanListResponseDto> {
     const organizationId = req.user.organizationId;
-    const plans = await this.brdAnalysisService.listGeneratedPlansByAnalysis(analysisId, organizationId);
-    
+    const plans = await this.brdAnalysisService.listGeneratedPlansByAnalysis(
+      analysisId,
+      organizationId,
+    );
+
     return {
-      data: plans.map(plan => this.mapToProjectPlanResponseDto(plan)),
+      data: plans.map((plan) => this.mapToProjectPlanResponseDto(plan)),
       total: plans.length,
       page: 1,
       limit: plans.length,
@@ -508,7 +599,7 @@ export class BRDController {
   @Get(':id/analyses')
   @ApiOperation({
     summary: 'Get BRD analyses by BRD ID',
-    description: 'Retrieves all analyses performed on a specific BRD'
+    description: 'Retrieves all analyses performed on a specific BRD',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -521,10 +612,13 @@ export class BRDController {
     @Req() req: any,
   ): Promise<BRDAnalysisListResponseDto> {
     const organizationId = req.user.organizationId;
-    const analyses = await this.brdAnalysisService.listAnalysesByBRD(id, organizationId);
-    
+    const analyses = await this.brdAnalysisService.listAnalysesByBRD(
+      id,
+      organizationId,
+    );
+
     return {
-      data: analyses.map(analysis => this.mapToAnalysisResponseDto(analysis)),
+      data: analyses.map((analysis) => this.mapToAnalysisResponseDto(analysis)),
       total: analyses.length,
       page: 1,
       limit: analyses.length,
@@ -535,7 +629,8 @@ export class BRDController {
   @Get('project-plans/:planId')
   @ApiOperation({
     summary: 'Get generated project plan by ID',
-    description: 'Retrieves a specific generated project plan by its unique identifier'
+    description:
+      'Retrieves a specific generated project plan by its unique identifier',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -546,14 +641,21 @@ export class BRDController {
     status: HttpStatus.NOT_FOUND,
     description: 'Project plan not found',
   })
-  @ApiParam({ name: 'planId', type: String, description: 'Project plan unique identifier' })
+  @ApiParam({
+    name: 'planId',
+    type: String,
+    description: 'Project plan unique identifier',
+  })
   async getProjectPlanById(
     @Param('planId', ParseUUIDPipe) planId: string,
     @Req() req: any,
   ): Promise<GeneratedProjectPlanResponseDto> {
     const organizationId = req.user.organizationId;
-    const plan = await this.brdAnalysisService.getGeneratedPlanById(planId, organizationId);
-    
+    const plan = await this.brdAnalysisService.getGeneratedPlanById(
+      planId,
+      organizationId,
+    );
+
     return this.mapToProjectPlanResponseDto(plan);
   }
 
@@ -595,7 +697,9 @@ export class BRDController {
   /**
    * Helper method to map generated project plan entity to response DTO
    */
-  private mapToProjectPlanResponseDto(plan: any): GeneratedProjectPlanResponseDto {
+  private mapToProjectPlanResponseDto(
+    plan: any,
+  ): GeneratedProjectPlanResponseDto {
     return {
       id: plan.id,
       brdAnalysisId: plan.brdAnalysisId,

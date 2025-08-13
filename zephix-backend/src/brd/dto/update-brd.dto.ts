@@ -1,8 +1,4 @@
-import {
-  IsObject,
-  IsOptional,
-  IsNotEmpty,
-} from 'class-validator';
+import { IsObject, IsOptional, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateBRDDto {
@@ -11,7 +7,8 @@ export class UpdateBRDDto {
     example: {
       metadata: {
         title: 'Updated Customer Portal Enhancement',
-        summary: 'Enhanced customer portal with additional self-service features',
+        summary:
+          'Enhanced customer portal with additional self-service features',
         version: '1.1.0',
         department: 'Product',
         industry: 'Technology',
@@ -23,14 +20,17 @@ export class UpdateBRDDto {
         },
       },
       businessContext: {
-        problemStatement: 'Current customer portal lacks comprehensive self-service functionality',
-        businessObjective: 'Significantly improve customer experience and reduce support costs by 40%',
+        problemStatement:
+          'Current customer portal lacks comprehensive self-service functionality',
+        businessObjective:
+          'Significantly improve customer experience and reduce support costs by 40%',
       },
       functionalRequirements: [
         {
           id: 'FR-001',
           title: 'Enhanced User Authentication',
-          description: 'Users must be able to securely authenticate with MFA support',
+          description:
+            'Users must be able to securely authenticate with MFA support',
           priority: 'Must Have',
           category: 'Security',
           acceptanceCriteria: [

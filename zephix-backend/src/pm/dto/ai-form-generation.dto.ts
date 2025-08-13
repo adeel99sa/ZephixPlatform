@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsArray, IsObject, MinLength, IsEnum, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsObject,
+  MinLength,
+  IsEnum,
+  IsBoolean,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { FormSchema } from '../entities/intake-form.entity';
 
@@ -38,7 +49,9 @@ export class RefineFormDto {
   existingForm: any;
 
   @IsString()
-  @MinLength(5, { message: 'Refinement request must be at least 5 characters long' })
+  @MinLength(5, {
+    message: 'Refinement request must be at least 5 characters long',
+  })
   refinementRequest: string;
 
   @IsOptional()
@@ -250,7 +263,12 @@ export interface FormAnalysisResult {
 
 export interface ConversationResponse {
   message: string;
-  type: 'acknowledgment' | 'clarification' | 'generation' | 'refinement' | 'error';
+  type:
+    | 'acknowledgment'
+    | 'clarification'
+    | 'generation'
+    | 'refinement'
+    | 'error';
   data?: any;
   suggestions?: string[];
   nextSteps?: string[];
@@ -274,12 +292,12 @@ export const FormStructureValidationSchema = {
   fields: 'array',
   sections: 'array',
   layout: ['single_column', 'two_column', 'tabs'],
-  styling: 'object'
+  styling: 'object',
 };
 
 export const WorkflowConfigValidationSchema = {
   approvalChain: 'array',
   assignmentRules: 'array',
   notifications: 'array',
-  automationTriggers: 'array'
+  automationTriggers: 'array',
 };

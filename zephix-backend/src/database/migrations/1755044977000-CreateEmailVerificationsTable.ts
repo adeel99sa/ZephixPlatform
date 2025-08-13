@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateEmailVerificationsTable1755044977000 implements MigrationInterface {
+export class CreateEmailVerificationsTable1755044977000
+  implements MigrationInterface
+{
   name = 'CreateEmailVerificationsTable1755044977000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -52,7 +54,9 @@ export class CreateEmailVerificationsTable1755044977000 implements MigrationInte
         FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
       `);
 
-      console.log('✅ Created email_verifications table with all constraints and indexes');
+      console.log(
+        '✅ Created email_verifications table with all constraints and indexes',
+      );
     } else {
       console.log('ℹ️  email_verifications table already exists');
     }

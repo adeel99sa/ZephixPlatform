@@ -10,7 +10,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -68,7 +73,11 @@ export class TeamManagementController {
     @CurrentUser() user: User,
     @Body() inviteDto: InviteTeamMemberDto,
   ): Promise<{ success: boolean; invitation: InvitationResponseDto }> {
-    return this.invitationService.inviteTeamMember(organizationId, inviteDto, user.id);
+    return this.invitationService.inviteTeamMember(
+      organizationId,
+      inviteDto,
+      user.id,
+    );
   }
 
   @Get('invitations')
@@ -82,7 +91,10 @@ export class TeamManagementController {
     @CurrentOrganization() organizationId: string,
     @CurrentUser() user: User,
   ): Promise<InvitationResponseDto[]> {
-    return this.invitationService.getOrganizationInvitations(organizationId, user.id);
+    return this.invitationService.getOrganizationInvitations(
+      organizationId,
+      user.id,
+    );
   }
 
   @Post('invitations/:invitationId/resend')
@@ -161,7 +173,11 @@ export class TeamManagementController {
     @Param('memberId') memberId: string,
     @CurrentUser() user: User,
   ): Promise<{ success: boolean }> {
-    return this.teamManagementService.removeMember(organizationId, memberId, user.id);
+    return this.teamManagementService.removeMember(
+      organizationId,
+      memberId,
+      user.id,
+    );
   }
 
   @Post('leave')
@@ -180,7 +196,10 @@ export class TeamManagementController {
     @CurrentOrganization() organizationId: string,
     @CurrentUser() user: User,
   ): Promise<{ success: boolean }> {
-    return this.teamManagementService.leaveOrganization(organizationId, user.id);
+    return this.teamManagementService.leaveOrganization(
+      organizationId,
+      user.id,
+    );
   }
 
   @Post('transfer-ownership/:newOwnerUserId')
@@ -200,6 +219,10 @@ export class TeamManagementController {
     @Param('newOwnerUserId') newOwnerUserId: string,
     @CurrentUser() user: User,
   ): Promise<{ success: boolean }> {
-    return this.teamManagementService.transferOwnership(organizationId, newOwnerUserId, user.id);
+    return this.teamManagementService.transferOwnership(
+      organizationId,
+      newOwnerUserId,
+      user.id,
+    );
   }
 }

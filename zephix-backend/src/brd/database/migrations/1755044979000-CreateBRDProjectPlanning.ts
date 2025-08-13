@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateBRDProjectPlanning1755044979000 implements MigrationInterface {
+export class CreateBRDProjectPlanning1755044979000
+  implements MigrationInterface
+{
   name = 'CreateBRDProjectPlanning1755044979000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -73,13 +75,27 @@ export class CreateBRDProjectPlanning1755044979000 implements MigrationInterface
     `);
 
     // Add indexes for performance
-    await queryRunner.query(`CREATE INDEX "IDX_brd_analyses_brd" ON "brd_analyses" ("brdId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_brd_analyses_org" ON "brd_analyses" ("organizationId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_brd_analyses_analyzed_by" ON "brd_analyses" ("analyzedBy")`);
-    await queryRunner.query(`CREATE INDEX "IDX_generated_plans_analysis" ON "generated_project_plans" ("brdAnalysisId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_generated_plans_methodology" ON "generated_project_plans" ("methodology")`);
-    await queryRunner.query(`CREATE INDEX "IDX_generated_plans_org" ON "generated_project_plans" ("organizationId")`);
-    await queryRunner.query(`CREATE INDEX "IDX_generated_plans_generated_by" ON "generated_project_plans" ("generatedBy")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brd_analyses_brd" ON "brd_analyses" ("brdId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brd_analyses_org" ON "brd_analyses" ("organizationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brd_analyses_analyzed_by" ON "brd_analyses" ("analyzedBy")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_generated_plans_analysis" ON "generated_project_plans" ("brdAnalysisId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_generated_plans_methodology" ON "generated_project_plans" ("methodology")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_generated_plans_org" ON "generated_project_plans" ("organizationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_generated_plans_generated_by" ON "generated_project_plans" ("generatedBy")`,
+    );
 
     // Create GIN indexes for JSONB columns
     await queryRunner.query(`
@@ -111,26 +127,52 @@ export class CreateBRDProjectPlanning1755044979000 implements MigrationInterface
     // Drop indexes
     await queryRunner.query(`DROP INDEX IF EXISTS "brd_analyses_elements_gin"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "brd_analyses_metadata_gin"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "generated_plans_structure_gin"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "generated_plans_resource_gin"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "generated_plans_structure_gin"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "generated_plans_resource_gin"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "generated_plans_risk_gin"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "generated_plans_metadata_gin"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "generated_plans_metadata_gin"`,
+    );
 
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_brd_analyses_brd"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_brd_analyses_org"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_brd_analyses_analyzed_by"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_generated_plans_analysis"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_generated_plans_methodology"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_brd_analyses_analyzed_by"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_generated_plans_analysis"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_generated_plans_methodology"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_generated_plans_org"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_generated_plans_generated_by"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_generated_plans_generated_by"`,
+    );
 
     // Drop foreign key constraints
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_user"`);
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_organization"`);
-    await queryRunner.query(`ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_analysis"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_user"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_organization"`);
-    await queryRunner.query(`ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_brd"`);
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_user"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_organization"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "generated_project_plans" DROP CONSTRAINT IF EXISTS "FK_generated_project_plans_analysis"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_user"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_organization"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "brd_analyses" DROP CONSTRAINT IF EXISTS "FK_brd_analyses_brd"`,
+    );
 
     // Drop tables
     await queryRunner.query(`DROP TABLE "generated_project_plans"`);

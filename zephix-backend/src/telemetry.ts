@@ -46,7 +46,7 @@ if (isTracingEnabled) {
       new ExpressInstrumentation({
         // Add request ID to spans
         requestHook: (span, info) => {
-          const req = info.request as any;
+          const req = info.request;
           if (req.id) {
             span.setAttributes({
               'request.id': req.id,
@@ -62,12 +62,13 @@ if (isTracingEnabled) {
 
   // Start the SDK
   sdk.start();
-  
+
   console.log('🔭 OpenTelemetry SDK initialized');
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
-    sdk.shutdown()
+    sdk
+      .shutdown()
       .then(() => console.log('OpenTelemetry terminated'))
       .catch((error) => console.log('Error terminating OpenTelemetry', error))
       .finally(() => process.exit(0));

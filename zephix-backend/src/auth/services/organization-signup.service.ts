@@ -98,7 +98,8 @@ export class OrganizationSignupService {
       },
     });
 
-    const savedOrganization = await this.organizationRepository.save(organization);
+    const savedOrganization =
+      await this.organizationRepository.save(organization);
 
     // Create user-organization relationship (user becomes owner)
     const userOrganization = this.userOrganizationRepository.create({
@@ -112,11 +113,11 @@ export class OrganizationSignupService {
     await this.userOrganizationRepository.save(userOrganization);
 
     // Generate JWT token
-    const payload = { 
-      sub: savedUser.id, 
+    const payload = {
+      sub: savedUser.id,
       email: savedUser.email,
       organizationId: savedOrganization.id,
-      role: 'owner'
+      role: 'owner',
     };
     const access_token = this.jwtService.sign(payload);
 

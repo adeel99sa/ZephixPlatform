@@ -15,7 +15,7 @@ export class HealthController {
   @ApiOperation({ summary: 'Health check endpoint' })
   async check() {
     const isDbConnected = this.dataSource.isInitialized;
-    
+
     return {
       status: isDbConnected ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),

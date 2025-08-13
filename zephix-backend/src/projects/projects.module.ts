@@ -13,7 +13,13 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, Team, TeamMember, Role, UserOrganization])
+    TypeOrmModule.forFeature([
+      Project,
+      Team,
+      TeamMember,
+      Role,
+      UserOrganization,
+    ]),
     // OrganizationsModule no longer needed - it's now Global
   ],
   controllers: [ProjectsController],

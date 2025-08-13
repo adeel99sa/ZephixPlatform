@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
@@ -7,10 +12,10 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles) {
       return true;
@@ -20,7 +25,9 @@ export class RolesGuard implements CanActivate {
     const userRole = request.organizationRole;
 
     if (!userRole) {
-      throw new ForbiddenException('User role not found in organization context');
+      throw new ForbiddenException(
+        'User role not found in organization context',
+      );
     }
 
     // Role hierarchy: owner > admin > pm > viewer
@@ -32,7 +39,9 @@ export class RolesGuard implements CanActivate {
     };
 
     const userRoleLevel = roleHierarchy[userRole] || 0;
-    const requiredLevel = Math.max(...requiredRoles.map(role => roleHierarchy[role] || 0));
+    const requiredLevel = Math.max(
+      ...requiredRoles.map((role) => roleHierarchy[role] || 0),
+    );
 
     if (userRoleLevel < requiredLevel) {
       throw new ForbiddenException(

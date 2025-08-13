@@ -1,8 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { trace } from '@opentelemetry/api';
 import { MetricsService } from '../../observability/metrics.service';
-import { BRDRepository, BRDListOptions, BRDListResult } from '../repositories/brd.repository';
+import {
+  BRDRepository,
+  BRDListOptions,
+  BRDListResult,
+} from '../repositories/brd.repository';
 import { BRD, BRDStatus } from '../entities/brd.entity';
 import { CreateBRDDto, UpdateBRDDto } from '../dto';
 
@@ -24,11 +33,14 @@ export class BRDService {
   async create(createBRDDto: CreateBRDDto): Promise<BRD> {
     return this.tracer.startActiveSpan('brd.create', async (span) => {
       try {
-        this.logger.info({ 
-          organizationId: createBRDDto.organizationId,
-          project_id: createBRDDto.project_id,
-          title: createBRDDto.payload?.metadata?.title,
-        }, 'Creating new BRD');
+        this.logger.info(
+          {
+            organizationId: createBRDDto.organizationId,
+            project_id: createBRDDto.project_id,
+            title: createBRDDto.payload?.metadata?.title,
+          },
+          'Creating new BRD',
+        );
 
         // Add span attributes
         span.setAttributes({
@@ -55,25 +67,43 @@ export class BRDService {
         await this.brdRepository.updateSearchVector(brd.id, brd.organizationId);
 
         // Record metrics
-        this.metricsService.recordBRDOperation('create', 'success', createBRDDto.organizationId);
-        
-        this.logger.info({ 
-          brd_id: brd.id,
-          organizationId: brd.organizationId,
-          title: brd.getTitle(),
-        }, 'BRD created successfully');
+        this.metricsService.recordBRDOperation(
+          'create',
+          'success',
+          createBRDDto.organizationId,
+        );
+
+        this.logger.info(
+          {
+            brd_id: brd.id,
+            organizationId: brd.organizationId,
+            title: brd.getTitle(),
+          },
+          'BRD created successfully',
+        );
 
         span.setStatus({ code: 1 }); // OK
         return brd;
       } catch (error) {
-        this.logger.error({ 
-          error: error.message,
-          organizationId: createBRDDto.organizationId,
-        }, 'Failed to create BRD');
+        this.logger.error(
+          {
+            error: error.message,
+            organizationId: createBRDDto.organizationId,
+          },
+          'Failed to create BRD',
+        );
 
-        this.metricsService.recordBRDOperation('create', 'error', createBRDDto.organizationId);
-        this.metricsService.recordError('brd_creation_failed', 'brd-service', createBRDDto.organizationId);
-        
+        this.metricsService.recordBRDOperation(
+          'create',
+          'error',
+          createBRDDto.organizationId,
+        );
+        this.metricsService.recordError(
+          'brd_creation_failed',
+          'brd-service',
+          createBRDDto.organizationId,
+        );
+
         span.recordException(error);
         span.setStatus({ code: 2, message: error.message }); // ERROR
         throw error;
@@ -97,7 +127,11 @@ export class BRDService {
   /**
    * Update BRD
    */
-  async update(id: string, organizationId: string, updateBRDDto: UpdateBRDDto): Promise<BRD> {
+  async update(
+    id: string,
+    organizationId: string,
+    updateBRDDto: UpdateBRDDto,
+  ): Promise<BRD> {
     const brd = await this.findById(id, organizationId);
 
     // Check if BRD can be edited
@@ -117,7 +151,10 @@ export class BRDService {
     }
 
     // Update search vector
-    await this.brdRepository.updateSearchVector(updatedBRD.id, updatedBRD.organizationId);
+    await this.brdRepository.updateSearchVector(
+      updatedBRD.id,
+      updatedBRD.organizationId,
+    );
 
     return updatedBRD;
   }
@@ -149,19 +186,26 @@ export class BRDService {
   /**
    * Change BRD status (workflow management)
    */
-  async changeStatus(id: string, organizationId: string, newStatus: BRDStatus): Promise<BRD> {
+  async changeStatus(
+    id: string,
+    organizationId: string,
+    newStatus: BRDStatus,
+  ): Promise<BRD> {
     return this.tracer.startActiveSpan('brd.changeStatus', async (span) => {
       try {
         // Get current BRD to track status transition
         const currentBRD = await this.findById(id, organizationId);
         const oldStatus = currentBRD.status;
 
-        this.logger.info({ 
-          brd_id: id,
-          organizationId,
-          old_status: oldStatus,
-          new_status: newStatus,
-        }, 'Changing BRD status');
+        this.logger.info(
+          {
+            brd_id: id,
+            organizationId,
+            old_status: oldStatus,
+            new_status: newStatus,
+          },
+          'Changing BRD status',
+        );
 
         span.setAttributes({
           'brd.id': id,
@@ -170,32 +214,50 @@ export class BRDService {
           'brd.new_status': newStatus,
         });
 
-        const brd = await this.brdRepository.changeStatus(id, organizationId, newStatus);
+        const brd = await this.brdRepository.changeStatus(
+          id,
+          organizationId,
+          newStatus,
+        );
         if (!brd) {
           throw new NotFoundException(`BRD with ID ${id} not found`);
         }
 
         // Record status transition metrics
-        this.metricsService.recordBRDStatusTransition(oldStatus, newStatus, organizationId);
-        
-        this.logger.info({ 
-          brd_id: id,
+        this.metricsService.recordBRDStatusTransition(
+          oldStatus,
+          newStatus,
           organizationId,
-          status_transition: `${oldStatus} -> ${newStatus}`,
-        }, 'BRD status changed successfully');
+        );
+
+        this.logger.info(
+          {
+            brd_id: id,
+            organizationId,
+            status_transition: `${oldStatus} -> ${newStatus}`,
+          },
+          'BRD status changed successfully',
+        );
 
         span.setStatus({ code: 1 }); // OK
         return brd;
       } catch (error) {
-        this.logger.error({ 
-          error: error.message,
-          brd_id: id,
-          organizationId,
-          new_status: newStatus,
-        }, 'Failed to change BRD status');
+        this.logger.error(
+          {
+            error: error.message,
+            brd_id: id,
+            organizationId,
+            new_status: newStatus,
+          },
+          'Failed to change BRD status',
+        );
 
-        this.metricsService.recordError('brd_status_change_failed', 'brd-service', organizationId);
-        
+        this.metricsService.recordError(
+          'brd_status_change_failed',
+          'brd-service',
+          organizationId,
+        );
+
         span.recordException(error);
         span.setStatus({ code: 2, message: error.message }); // ERROR
         throw error;
@@ -213,7 +275,9 @@ export class BRDService {
 
     // Validate BRD is complete before submission
     if (!brd.isComplete()) {
-      throw new BadRequestException('BRD must be complete before submission for review');
+      throw new BadRequestException(
+        'BRD must be complete before submission for review',
+      );
     }
 
     return this.changeStatus(id, organizationId, BRDStatus.IN_REVIEW);
@@ -243,16 +307,23 @@ export class BRDService {
   /**
    * Search BRDs
    */
-  async search(organizationId: string, query: string, limit = 10): Promise<BRD[]> {
+  async search(
+    organizationId: string,
+    query: string,
+    limit = 10,
+  ): Promise<BRD[]> {
     return this.tracer.startActiveSpan('brd.search', async (span) => {
       const startTime = Date.now();
-      
+
       try {
-        this.logger.info({ 
-          organizationId,
-          query,
-          limit,
-        }, 'Searching BRDs');
+        this.logger.info(
+          {
+            organizationId,
+            query,
+            limit,
+          },
+          'Searching BRDs',
+        );
 
         span.setAttributes({
           'brd.organizationId': organizationId,
@@ -260,18 +331,33 @@ export class BRDService {
           'search.limit': limit,
         });
 
-        const results = await this.brdRepository.search(organizationId, query, limit);
-        
-        const duration = (Date.now() - startTime) / 1000;
-        this.metricsService.recordSearchQuery('fulltext', duration, organizationId);
-        this.metricsService.recordBRDOperation('search', 'success', organizationId);
-
-        this.logger.info({ 
+        const results = await this.brdRepository.search(
           organizationId,
           query,
-          results_count: results.length,
-          duration_ms: Date.now() - startTime,
-        }, 'BRD search completed');
+          limit,
+        );
+
+        const duration = (Date.now() - startTime) / 1000;
+        this.metricsService.recordSearchQuery(
+          'fulltext',
+          duration,
+          organizationId,
+        );
+        this.metricsService.recordBRDOperation(
+          'search',
+          'success',
+          organizationId,
+        );
+
+        this.logger.info(
+          {
+            organizationId,
+            query,
+            results_count: results.length,
+            duration_ms: Date.now() - startTime,
+          },
+          'BRD search completed',
+        );
 
         span.setAttributes({
           'search.results_count': results.length,
@@ -282,15 +368,30 @@ export class BRDService {
         return results;
       } catch (error) {
         const duration = (Date.now() - startTime) / 1000;
-        this.metricsService.recordSearchQuery('fulltext', duration, organizationId);
-        this.metricsService.recordBRDOperation('search', 'error', organizationId);
-        this.metricsService.recordError('brd_search_failed', 'brd-service', organizationId);
-
-        this.logger.error({ 
-          error: error.message,
+        this.metricsService.recordSearchQuery(
+          'fulltext',
+          duration,
           organizationId,
-          query,
-        }, 'BRD search failed');
+        );
+        this.metricsService.recordBRDOperation(
+          'search',
+          'error',
+          organizationId,
+        );
+        this.metricsService.recordError(
+          'brd_search_failed',
+          'brd-service',
+          organizationId,
+        );
+
+        this.logger.error(
+          {
+            error: error.message,
+            organizationId,
+            query,
+          },
+          'BRD search failed',
+        );
 
         span.recordException(error);
         span.setStatus({ code: 2, message: error.message }); // ERROR
@@ -304,7 +405,10 @@ export class BRDService {
   /**
    * Get BRDs by project
    */
-  async findByProject(project_id: string, organizationId: string): Promise<BRD[]> {
+  async findByProject(
+    project_id: string,
+    organizationId: string,
+  ): Promise<BRD[]> {
     return this.brdRepository.findByProject(project_id, organizationId);
   }
 
@@ -326,7 +430,9 @@ export class BRDService {
     }
 
     if (!payload.businessContext) {
-      throw new BadRequestException('Payload must contain businessContext section');
+      throw new BadRequestException(
+        'Payload must contain businessContext section',
+      );
     }
 
     // Validate title length
@@ -336,16 +442,29 @@ export class BRDService {
 
     // Validate required business context fields
     const businessContext = payload.businessContext;
-    if (businessContext.problemStatement && businessContext.problemStatement.length > 2000) {
-      throw new BadRequestException('Problem statement cannot exceed 2000 characters');
+    if (
+      businessContext.problemStatement &&
+      businessContext.problemStatement.length > 2000
+    ) {
+      throw new BadRequestException(
+        'Problem statement cannot exceed 2000 characters',
+      );
     }
 
-    if (businessContext.businessObjective && businessContext.businessObjective.length > 2000) {
-      throw new BadRequestException('Business objective cannot exceed 2000 characters');
+    if (
+      businessContext.businessObjective &&
+      businessContext.businessObjective.length > 2000
+    ) {
+      throw new BadRequestException(
+        'Business objective cannot exceed 2000 characters',
+      );
     }
 
     // Validate functional requirements if present
-    if (payload.functionalRequirements && !Array.isArray(payload.functionalRequirements)) {
+    if (
+      payload.functionalRequirements &&
+      !Array.isArray(payload.functionalRequirements)
+    ) {
       throw new BadRequestException('Functional requirements must be an array');
     }
 
@@ -392,14 +511,22 @@ export class BRDService {
     organizationId: string,
     newStatus: BRDStatus,
   ): Promise<{ updated: number }> {
-    const updated = await this.brdRepository.bulkUpdateStatus(ids, organizationId, newStatus);
+    const updated = await this.brdRepository.bulkUpdateStatus(
+      ids,
+      organizationId,
+      newStatus,
+    );
     return { updated };
   }
 
   /**
    * Duplicate BRD
    */
-  async duplicate(id: string, organizationId: string, newTitle?: string): Promise<BRD> {
+  async duplicate(
+    id: string,
+    organizationId: string,
+    newTitle?: string,
+  ): Promise<BRD> {
     const originalBRD = await this.findById(id, organizationId);
 
     // Create a copy of the payload with updated metadata
@@ -424,7 +551,7 @@ export class BRDService {
    */
   async getValidationSummary(id: string, organizationId: string) {
     const brd = await this.findById(id, organizationId);
-    
+
     const errors: string[] = [];
     const warnings: string[] = [];
 

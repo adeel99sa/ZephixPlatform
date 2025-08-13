@@ -103,7 +103,7 @@ export class DocumentUploadController {
       fileFilter: (req, file, callback) => {
         const allowedTypes = ['.docx', '.pdf'];
         const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
-        
+
         if (!fileExtension || !allowedTypes.includes(`.${fileExtension}`)) {
           return callback(
             new BadRequestException(
@@ -112,7 +112,7 @@ export class DocumentUploadController {
             false,
           );
         }
-        
+
         callback(null, true);
       },
     }),
@@ -138,21 +138,26 @@ export class DocumentUploadController {
 
     try {
       // Add document processing job to queue
-      const jobId = await this.documentProcessingQueue.addDocumentProcessingJob({
-        documentId,
-        filename: file.originalname,
-        fileBuffer: file.buffer,
-        organizationId,
-        userId,
-      });
+      const jobId = await this.documentProcessingQueue.addDocumentProcessingJob(
+        {
+          documentId,
+          filename: file.originalname,
+          fileBuffer: file.buffer,
+          organizationId,
+          userId,
+        },
+      );
 
       return {
         jobId,
         documentId,
-        message: 'Document accepted for processing. Use the job ID to check status.',
+        message:
+          'Document accepted for processing. Use the job ID to check status.',
       };
     } catch (error) {
-      throw new BadRequestException(`Failed to queue document for processing: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to queue document for processing: ${error.message}`,
+      );
     }
   }
 
@@ -168,9 +173,11 @@ export class DocumentUploadController {
     status: 404,
     description: 'Job not found',
   })
-  async getJobStatus(@Param('jobId') jobId: string): Promise<JobStatusResponse> {
+  async getJobStatus(
+    @Param('jobId') jobId: string,
+  ): Promise<JobStatusResponse> {
     const status = await this.documentProcessingQueue.getJobStatus(jobId);
-    
+
     if (!status) {
       throw new BadRequestException('Job not found');
     }
@@ -191,17 +198,21 @@ export class DocumentUploadController {
   })
   async getDocumentResults(@Param('jobId') jobId: string): Promise<any> {
     const status = await this.documentProcessingQueue.getJobStatus(jobId);
-    
+
     if (!status) {
       throw new BadRequestException('Job not found');
     }
 
     if (status.status !== 'completed') {
-      throw new BadRequestException(`Job is not completed. Current status: ${status.status}`);
+      throw new BadRequestException(
+        `Job is not completed. Current status: ${status.status}`,
+      );
     }
 
     if (!status.result?.parsedDocument) {
-      throw new BadRequestException('No parsed document available for this job');
+      throw new BadRequestException(
+        'No parsed document available for this job',
+      );
     }
 
     return {
@@ -218,7 +229,11 @@ export class DocumentUploadController {
   @ApiOperation({ summary: 'Search for similar content within a document' })
   @ApiParam({ name: 'documentId', description: 'Document ID to search within' })
   @ApiQuery({ name: 'query', description: 'Search query text' })
-  @ApiQuery({ name: 'topK', description: 'Number of results to return', required: false })
+  @ApiQuery({
+    name: 'topK',
+    description: 'Number of results to return',
+    required: false,
+  })
   @ApiResponse({
     status: 200,
     description: 'Search results retrieved successfully',
@@ -246,7 +261,9 @@ export class DocumentUploadController {
   }
 
   @Get('organization/:organizationId/jobs')
-  @ApiOperation({ summary: 'Get all document processing jobs for an organization' })
+  @ApiOperation({
+    summary: 'Get all document processing jobs for an organization',
+  })
   @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiResponse({
     status: 200,
@@ -262,7 +279,9 @@ export class DocumentUploadController {
       throw new BadRequestException('Access denied to organization jobs');
     }
 
-    return await this.documentProcessingQueue.getOrganizationJobs(organizationId);
+    return await this.documentProcessingQueue.getOrganizationJobs(
+      organizationId,
+    );
   }
 
   @Get('queue/stats')
@@ -287,7 +306,7 @@ export class DocumentUploadController {
     indexStats?: any;
   }> {
     const isReady = this.vectorDatabaseService.isReady();
-    
+
     if (isReady) {
       const indexStats = await this.vectorDatabaseService.getIndexStats();
       return { isReady, indexStats };
@@ -315,14 +334,14 @@ export class DocumentUploadController {
 
     return {
       documentParser: { status: 'ready' },
-      embedding: { 
+      embedding: {
         status: 'ready',
-        config: { model: 'text-embedding-3-large' }
+        config: { model: 'text-embedding-3-large' },
       },
       vectorDatabase: { status: vectorDbStatus ? 'ready' : 'not_configured' },
-      queue: { 
+      queue: {
         status: 'ready',
-        stats: queueStats
+        stats: queueStats,
       },
     };
   }

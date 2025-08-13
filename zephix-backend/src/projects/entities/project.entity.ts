@@ -1,15 +1,15 @@
 // src/projects/entities/project.entity.ts
 // FIXED: Added missing properties and relationships
 
-import { 
-  Entity, 
-  PrimaryGeneratedColumn, 
-  Column, 
-  CreateDateColumn, 
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
   ManyToOne,
-  JoinColumn
+  JoinColumn,
 } from 'typeorm';
 import { Team } from './team.entity';
 import { User } from '../../users/entities/user.entity';
@@ -47,17 +47,17 @@ export class Project {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectStatus, 
-    default: ProjectStatus.PLANNING 
+  @Column({
+    type: 'enum',
+    enum: ProjectStatus,
+    default: ProjectStatus.PLANNING,
   })
   status: ProjectStatus;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ProjectPriority, 
-    default: ProjectPriority.MEDIUM 
+  @Column({
+    type: 'enum',
+    enum: ProjectPriority,
+    default: ProjectPriority.MEDIUM,
   })
   priority: ProjectPriority;
 
@@ -81,15 +81,21 @@ export class Project {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   budget: number;
 
-  @Column({ name: 'actual_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'actual_cost',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   actualCost: number;
 
   // Risk level (you'll want this for PM)
-  @Column({ 
+  @Column({
     name: 'risk_level',
-    type: 'enum', 
-    enum: RiskLevel, 
-    default: RiskLevel.MEDIUM 
+    type: 'enum',
+    enum: RiskLevel,
+    default: RiskLevel.MEDIUM,
   })
   riskLevel: RiskLevel;
 
@@ -103,7 +109,7 @@ export class Project {
   updatedAt: Date;
 
   // Relationships
-  @OneToOne(() => Team, team => team.project, { cascade: true })
+  @OneToOne(() => Team, (team) => team.project, { cascade: true })
   team: Team;
 
   @ManyToOne(() => User, { nullable: true })

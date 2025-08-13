@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,7 +39,15 @@ export class AuthService {
     // Find user by email
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'firstName', 'lastName', 'role', 'isActive'],
+      select: [
+        'id',
+        'email',
+        'password',
+        'firstName',
+        'lastName',
+        'role',
+        'isActive',
+      ],
     });
 
     if (!user || !user.isActive) {
@@ -77,7 +90,8 @@ export class AuthService {
    * Create new user account
    */
   async signup(signupDto: SignupDto) {
-    const { email, password, firstName, lastName, organizationName } = signupDto;
+    const { email, password, firstName, lastName, organizationName } =
+      signupDto;
 
     // Check if user exists
     const existingUser = await this.userRepository.findOne({
@@ -162,7 +176,7 @@ export class AuthService {
     // Revoke all refresh tokens for user
     await this.refreshTokenRepository.update(
       { user: { id: userId }, isRevoked: false },
-      { isRevoked: true }
+      { isRevoked: true },
     );
 
     this.logger.log(`User logged out: ${userId}`);
@@ -174,7 +188,15 @@ export class AuthService {
   async getUserById(userId: string) {
     return this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'firstName', 'lastName', 'role', 'createdAt', 'updatedAt'],
+      select: [
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'role',
+        'createdAt',
+        'updatedAt',
+      ],
     });
   }
 
@@ -184,7 +206,15 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'firstName', 'lastName', 'role', 'isActive'],
+      select: [
+        'id',
+        'email',
+        'password',
+        'firstName',
+        'lastName',
+        'role',
+        'isActive',
+      ],
     });
 
     if (!user || !user.isActive) {
@@ -251,11 +281,16 @@ export class AuthService {
     const unit = match[2];
 
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 3600;
-      case 'd': return value * 86400;
-      default: return 900;
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'd':
+        return value * 86400;
+      default:
+        return 900;
     }
   }
 }

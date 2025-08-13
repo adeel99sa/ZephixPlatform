@@ -13,16 +13,21 @@ import {
   Options,
   Header,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { 
-  EmailVerificationResponseDto, 
-  VerificationStatusResponseDto 
+import {
+  EmailVerificationResponseDto,
+  VerificationStatusResponseDto,
 } from './dto/email-verification-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 // Local auth guard removed - using JWT strategy instead
@@ -64,9 +69,13 @@ export class AuthController {
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    const result = await this.authService.register(registerDto, ipAddress, userAgent);
+    const result = await this.authService.register(
+      registerDto,
+      ipAddress,
+      userAgent,
+    );
     return {
-      message: result.requiresEmailVerification 
+      message: result.requiresEmailVerification
         ? 'Registration successful! Please check your email to verify your account before logging in.'
         : 'User registered successfully',
       user: {
@@ -87,7 +96,7 @@ export class AuthController {
     return {
       message: 'Auth endpoint is accessible',
       timestamp: new Date().toISOString(),
-      status: 'ok'
+      status: 'ok',
     };
   }
 
@@ -188,7 +197,8 @@ export class AuthController {
 
     return {
       success: result.success,
-      message: 'Email verified successfully! You can now log in to your account.',
+      message:
+        'Email verified successfully! You can now log in to your account.',
       user: {
         id: result.user.id,
         email: result.user.email,

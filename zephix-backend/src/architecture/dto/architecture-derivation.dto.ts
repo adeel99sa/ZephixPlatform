@@ -1,4 +1,15 @@
-import { IsString, IsUUID, IsNotEmpty, IsObject, IsArray, IsEnum, IsOptional, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsNotEmpty,
+  IsObject,
+  IsArray,
+  IsEnum,
+  IsOptional,
+  ValidateNested,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -84,7 +95,10 @@ export class FunctionalRequirementDto {
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ description: 'Priority level', enum: ['high', 'medium', 'low'] })
+  @ApiProperty({
+    description: 'Priority level',
+    enum: ['high', 'medium', 'low'],
+  })
   @IsEnum(['high', 'medium', 'low'])
   priority: 'high' | 'medium' | 'low';
 
@@ -209,7 +223,10 @@ export class RiskDto {
   @IsEnum(['high', 'medium', 'low'])
   impact: 'high' | 'medium' | 'low';
 
-  @ApiProperty({ description: 'Risk probability', enum: ['high', 'medium', 'low'] })
+  @ApiProperty({
+    description: 'Risk probability',
+    enum: ['high', 'medium', 'low'],
+  })
   @IsEnum(['high', 'medium', 'low'])
   probability: 'high' | 'medium' | 'low';
 
@@ -244,7 +261,10 @@ export class DeriveArchitectureDto {
   @Type(() => BRDStakeholdersDto)
   stakeholders: BRDStakeholdersDto;
 
-  @ApiProperty({ description: 'Functional requirements', type: [FunctionalRequirementDto] })
+  @ApiProperty({
+    description: 'Functional requirements',
+    type: [FunctionalRequirementDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => FunctionalRequirementDto)
@@ -272,7 +292,10 @@ export class ArchitectureReviewDto {
   @IsUUID()
   derivation_id: string;
 
-  @ApiProperty({ description: 'Review decision', enum: ['approve', 'request_changes', 'reject'] })
+  @ApiProperty({
+    description: 'Review decision',
+    enum: ['approve', 'request_changes', 'reject'],
+  })
   @IsEnum(['approve', 'request_changes', 'reject'])
   decision: 'approve' | 'request_changes' | 'reject';
 
@@ -281,7 +304,11 @@ export class ArchitectureReviewDto {
   @IsString()
   comments?: string;
 
-  @ApiProperty({ description: 'Requested changes', type: [String], required: false })
+  @ApiProperty({
+    description: 'Requested changes',
+    type: [String],
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -354,7 +381,13 @@ export class ArchitectureDerivationResponseDto {
   threat_model: Array<{
     asset: string;
     threat: string;
-    stride_category: 'spoofing' | 'tampering' | 'repudiation' | 'information_disclosure' | 'denial_of_service' | 'elevation_of_privilege';
+    stride_category:
+      | 'spoofing'
+      | 'tampering'
+      | 'repudiation'
+      | 'information_disclosure'
+      | 'denial_of_service'
+      | 'elevation_of_privilege';
     impact: 'high' | 'medium' | 'low';
     likelihood: 'high' | 'medium' | 'low';
     mitigation: string;

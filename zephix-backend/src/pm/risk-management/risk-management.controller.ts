@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Put, Body, Param, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { RiskManagementService } from './risk-management.service';
 import type { RiskIdentificationInput } from './risk-management.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';

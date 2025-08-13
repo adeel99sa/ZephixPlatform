@@ -46,8 +46,10 @@ export class BRDResponseDto {
         priority: 'High',
       },
       businessContext: {
-        problemStatement: 'Current customer portal lacks self-service functionality',
-        businessObjective: 'Improve customer experience and reduce support costs',
+        problemStatement:
+          'Current customer portal lacks self-service functionality',
+        businessObjective:
+          'Improve customer experience and reduce support costs',
       },
       functionalRequirements: [],
     },

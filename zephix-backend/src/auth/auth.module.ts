@@ -33,7 +33,12 @@ import { SharedModule } from '../shared/shared.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification]),
+    TypeOrmModule.forFeature([
+      User,
+      Organization,
+      UserOrganization,
+      EmailVerification,
+    ]),
     PassportModule,
     SharedModule, // For EmailService used by EmailVerificationService
     // ENTERPRISE APPROACH: JWT module is now global - no need to import here
@@ -46,11 +51,6 @@ import { SharedModule } from '../shared/shared.module';
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [
-    AuthService,
-    EmailVerificationService,
-    JwtAuthGuard,
-    JwtStrategy,
-  ],
+  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy],
 })
 export class AuthModule {}

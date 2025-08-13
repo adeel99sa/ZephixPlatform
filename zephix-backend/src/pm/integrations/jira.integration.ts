@@ -14,7 +14,10 @@ export class JiraIntegration {
     this.email = this.configService.get<string>('JIRA_EMAIL') || '';
   }
 
-  async collectProjectData(projectKey: string, dateRange: { start: Date; end: Date }) {
+  async collectProjectData(
+    projectKey: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       this.logger.log(`Collecting Jira data for project ${projectKey}`);
 
@@ -36,7 +39,10 @@ export class JiraIntegration {
     }
   }
 
-  async getProjectIssues(projectKey: string, dateRange: { start: Date; end: Date }) {
+  async getProjectIssues(
+    projectKey: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call Jira REST API
       const issues = await this.getMockIssues(projectKey, dateRange);
@@ -69,9 +75,12 @@ export class JiraIntegration {
     }
   }
 
-  private async getMockJiraData(projectKey: string, dateRange: { start: Date; end: Date }) {
+  private async getMockJiraData(
+    projectKey: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     return {
       issues: {
@@ -151,7 +160,10 @@ export class JiraIntegration {
     };
   }
 
-  private async getMockIssues(projectKey: string, dateRange: { start: Date; end: Date }) {
+  private async getMockIssues(
+    projectKey: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 45,
       completed: 32,
@@ -201,7 +213,7 @@ export class JiraIntegration {
       storyPoints: number;
       issues: number;
     }> = [];
-    
+
     for (let i = 0; i < period; i++) {
       velocities.push({
         sprint: `Sprint ${period - i}`,
@@ -213,7 +225,8 @@ export class JiraIntegration {
 
     return {
       velocities,
-      averageVelocity: velocities.reduce((sum, v) => sum + v.velocity, 0) / velocities.length,
+      averageVelocity:
+        velocities.reduce((sum, v) => sum + v.velocity, 0) / velocities.length,
       trend: 'stable',
       predictability: 0.85,
     };
@@ -260,7 +273,7 @@ export class JiraIntegration {
       return {
         totalCapacity: 240, // hours per sprint
         availableCapacity: 216, // hours per sprint
-        utilization: 0.90,
+        utilization: 0.9,
         teamMembers: [
           { name: 'John Doe', role: 'Developer', capacity: 40 },
           { name: 'Jane Smith', role: 'Developer', capacity: 40 },

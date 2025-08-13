@@ -43,7 +43,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!orgSlugIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_ORGANIZATION_SLUG" ON "organizations" ("slug")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_ORGANIZATION_SLUG" ON "organizations" ("slug")`,
+      );
     }
 
     const orgStatusIndexExists = await queryRunner.query(`
@@ -53,7 +55,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!orgStatusIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_ORGANIZATION_STATUS" ON "organizations" ("status")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_ORGANIZATION_STATUS" ON "organizations" ("status")`,
+      );
     }
 
     // Create Users table (handle existing table gracefully)
@@ -91,7 +95,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!usersEmailIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USERS_EMAIL" ON "users" ("email")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USERS_EMAIL" ON "users" ("email")`,
+      );
     }
 
     const usersActiveIndexExists = await queryRunner.query(`
@@ -101,7 +107,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!usersActiveIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USERS_ACTIVE" ON "users" ("isActive")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USERS_ACTIVE" ON "users" ("isActive")`,
+      );
     }
 
     // Create UserOrganizations junction table (handle existing table gracefully)
@@ -139,7 +147,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!userOrgUserIdIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USER_ORG_USER_ID" ON "user_organizations" ("userId")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USER_ORG_USER_ID" ON "user_organizations" ("userId")`,
+      );
     }
 
     const userOrgOrgIdIndexExists = await queryRunner.query(`
@@ -149,7 +159,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!userOrgOrgIdIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USER_ORG_ORG_ID" ON "user_organizations" ("organizationId")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USER_ORG_ORG_ID" ON "user_organizations" ("organizationId")`,
+      );
     }
 
     const userOrgActiveIndexExists = await queryRunner.query(`
@@ -159,7 +171,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!userOrgActiveIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USER_ORG_ACTIVE" ON "user_organizations" ("isActive")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USER_ORG_ACTIVE" ON "user_organizations" ("isActive")`,
+      );
     }
 
     const userOrgRoleIndexExists = await queryRunner.query(`
@@ -169,7 +183,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (!userOrgRoleIndexExists[0].exists) {
-      await queryRunner.query(`CREATE INDEX "IDX_USER_ORG_ROLE" ON "user_organizations" ("role")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_USER_ORG_ROLE" ON "user_organizations" ("role")`,
+      );
     }
 
     // Add foreign key constraints (handle existing constraints gracefully)
@@ -210,7 +226,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
     // Add organizationId column to existing tenant entities
     const tenantTables = [
       'projects',
-      'teams', 
+      'teams',
       'team_members',
       'portfolios',
       'programs',
@@ -224,7 +240,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       'risks',
       'risk_assessments',
       'risk_responses',
-      'risk_monitoring'
+      'risk_monitoring',
     ];
 
     for (const table of tenantTables) {
@@ -273,7 +289,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
 
     // Handle BRD tables specifically - they need tenant_id to organizationId migration
     const brdTables = ['brds', 'brd_analyses', 'generated_project_plans'];
-    
+
     for (const table of brdTables) {
       // Check if table exists
       const tableExists = await queryRunner.query(`
@@ -465,7 +481,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (usersFkExists[0].exists) {
-      await queryRunner.query(`ALTER TABLE "users" DROP CONSTRAINT "FK_users_organizationId"`);
+      await queryRunner.query(
+        `ALTER TABLE "users" DROP CONSTRAINT "FK_users_organizationId"`,
+      );
     }
 
     const userOrgOrgIdFkExists = await queryRunner.query(`
@@ -477,7 +495,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (userOrgOrgIdFkExists[0].exists) {
-      await queryRunner.query(`ALTER TABLE "user_organizations" DROP CONSTRAINT "FK_user_organizations_organizationId"`);
+      await queryRunner.query(
+        `ALTER TABLE "user_organizations" DROP CONSTRAINT "FK_user_organizations_organizationId"`,
+      );
     }
 
     const userOrgUserIdFkExists = await queryRunner.query(`
@@ -489,7 +509,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       )
     `);
     if (userOrgUserIdFkExists[0].exists) {
-      await queryRunner.query(`ALTER TABLE "user_organizations" DROP CONSTRAINT "FK_user_organizations_userId"`);
+      await queryRunner.query(
+        `ALTER TABLE "user_organizations" DROP CONSTRAINT "FK_user_organizations_userId"`,
+      );
     }
 
     // Drop BRD table foreign key constraints
@@ -504,7 +526,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
         )
       `);
       if (brdTableFkExists[0].exists) {
-        await queryRunner.query(`ALTER TABLE "${table}" DROP CONSTRAINT "FK_${table}_organizationId"`);
+        await queryRunner.query(
+          `ALTER TABLE "${table}" DROP CONSTRAINT "FK_${table}_organizationId"`,
+        );
       }
     }
 
@@ -553,7 +577,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
     // Remove organizationId columns from tenant tables
     const tenantTables = [
       'projects',
-      'teams', 
+      'teams',
       'team_members',
       'portfolios',
       'programs',
@@ -567,7 +591,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
       'risks',
       'risk_assessments',
       'risk_responses',
-      'risk_monitoring'
+      'risk_monitoring',
     ];
 
     for (const table of tenantTables) {
@@ -602,7 +626,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
           if (indexExists[0].exists) {
             await queryRunner.query(`DROP INDEX "${indexName}"`);
           }
-          
+
           // Remove column
           await queryRunner.query(`
             ALTER TABLE "${table}" 
@@ -643,7 +667,7 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
           if (indexExists[0].exists) {
             await queryRunner.query(`DROP INDEX "${indexName}"`);
           }
-          
+
           const brdTableFkExists = await queryRunner.query(`
             SELECT EXISTS (
               SELECT FROM information_schema.table_constraints 
@@ -653,7 +677,9 @@ export class CreateMultiTenancy1755044972000 implements MigrationInterface {
             )
           `);
           if (brdTableFkExists[0].exists) {
-            await queryRunner.query(`ALTER TABLE "${table}" DROP CONSTRAINT "FK_${table}_organizationId"`);
+            await queryRunner.query(
+              `ALTER TABLE "${table}" DROP CONSTRAINT "FK_${table}_organizationId"`,
+            );
           }
 
           // Add back tenant_id column

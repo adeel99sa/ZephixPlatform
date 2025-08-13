@@ -13,7 +13,7 @@ export class ClaudeService {
       return {
         analysis: 'AI analysis unavailable - provider not configured',
         confidence: 0.0,
-        recommendations: []
+        recommendations: [],
       };
     }
 
@@ -28,8 +28,9 @@ Please provide:
 3. Specific recommendations for risk mitigation
 
 Return your response as valid JSON.`,
-      systemPrompt: 'You are a professional risk management expert. Analyze project risks and provide actionable insights based on industry best practices.',
-      maxTokens: 2000
+      systemPrompt:
+        'You are a professional risk management expert. Analyze project risks and provide actionable insights based on industry best practices.',
+      maxTokens: 2000,
     };
 
     try {
@@ -40,7 +41,7 @@ Return your response as valid JSON.`,
       return {
         analysis: 'Analysis failed due to technical error',
         confidence: 0.0,
-        recommendations: ['Review input data and try again']
+        recommendations: ['Review input data and try again'],
       };
     }
   }
@@ -51,7 +52,7 @@ Return your response as valid JSON.`,
       return {
         insights: [],
         riskFactors: [],
-        recommendations: []
+        recommendations: [],
       };
     }
 
@@ -66,8 +67,9 @@ Please provide:
 3. Actionable recommendations
 
 Return your response as valid JSON.`,
-      systemPrompt: 'You are a senior project manager with expertise in risk identification and assessment. Provide comprehensive risk insights.',
-      maxTokens: 3000
+      systemPrompt:
+        'You are a senior project manager with expertise in risk identification and assessment. Provide comprehensive risk insights.',
+      maxTokens: 3000,
     };
 
     try {
@@ -78,7 +80,7 @@ Return your response as valid JSON.`,
       return {
         insights: [],
         riskFactors: [],
-        recommendations: ['Unable to generate insights due to technical error']
+        recommendations: ['Unable to generate insights due to technical error'],
       };
     }
   }
@@ -89,7 +91,7 @@ Return your response as valid JSON.`,
       return {
         analysis: 'Risk assessment unavailable - provider not configured',
         findings: [],
-        suggestions: []
+        suggestions: [],
       };
     }
 
@@ -104,8 +106,9 @@ Please provide:
 3. Specific suggestions for improvement
 
 Return your response as valid JSON.`,
-      systemPrompt: 'You are a certified risk management professional. Analyze risk assessments and provide expert recommendations.',
-      maxTokens: 2500
+      systemPrompt:
+        'You are a certified risk management professional. Analyze risk assessments and provide expert recommendations.',
+      maxTokens: 2500,
     };
 
     try {
@@ -116,7 +119,7 @@ Return your response as valid JSON.`,
       return {
         analysis: 'Assessment processing failed due to technical error',
         findings: [],
-        suggestions: ['Review assessment data and try again']
+        suggestions: ['Review assessment data and try again'],
       };
     }
   }
@@ -127,14 +130,15 @@ Return your response as valid JSON.`,
       return {
         analysis: 'AI analysis unavailable - provider not configured',
         confidence: 0.0,
-        recommendations: []
+        recommendations: [],
       };
     }
 
     const request: LLMRequest = {
       prompt: prompt,
-      systemPrompt: 'You are a professional project management expert. Provide thorough analysis and actionable recommendations.',
-      maxTokens: 3000
+      systemPrompt:
+        'You are a professional project management expert. Provide thorough analysis and actionable recommendations.',
+      maxTokens: 3000,
     };
 
     try {
@@ -143,14 +147,14 @@ Return your response as valid JSON.`,
         analysis: response.content,
         confidence: 0.8,
         recommendations: [],
-        usage: response.usage
+        usage: response.usage,
       };
     } catch (error) {
       this.logger.error('General analysis failed:', error);
       return {
         analysis: 'Analysis failed due to technical error',
         confidence: 0.0,
-        recommendations: ['Please try again or contact support']
+        recommendations: ['Please try again or contact support'],
       };
     }
   }
@@ -161,7 +165,7 @@ Return your response as valid JSON.`,
       return {
         analysis: 'Project analysis unavailable - provider not configured',
         insights: [],
-        recommendations: []
+        recommendations: [],
       };
     }
 
@@ -176,8 +180,9 @@ Please provide:
 3. Specific recommendations for improvement
 
 Return your response as valid JSON.`,
-      systemPrompt: 'You are an experienced project manager. Analyze project data and provide strategic insights and recommendations.',
-      maxTokens: 3000
+      systemPrompt:
+        'You are an experienced project manager. Analyze project data and provide strategic insights and recommendations.',
+      maxTokens: 3000,
     };
 
     try {
@@ -188,7 +193,7 @@ Return your response as valid JSON.`,
       return {
         analysis: 'Project analysis failed due to technical error',
         insights: [],
-        recommendations: ['Review project data and try again']
+        recommendations: ['Review project data and try again'],
       };
     }
   }

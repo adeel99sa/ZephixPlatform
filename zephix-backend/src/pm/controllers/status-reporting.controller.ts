@@ -50,7 +50,9 @@ interface ConfigureAlertsDto {
 @Controller('pm/status-reporting')
 @UseGuards(JwtAuthGuard)
 export class StatusReportingController {
-  constructor(private readonly statusReportingService: StatusReportingService) {}
+  constructor(
+    private readonly statusReportingService: StatusReportingService,
+  ) {}
 
   @Get('projects/:projectId/metrics')
   @UseGuards(ProjectPermissionGuard)
@@ -62,7 +64,8 @@ export class StatusReportingController {
     @Query('metricType') metricType?: string,
   ) {
     try {
-      const metrics = await this.statusReportingService.getProjectMetrics(projectId);
+      const metrics =
+        await this.statusReportingService.getProjectMetrics(projectId);
       return {
         success: true,
         data: metrics,
@@ -87,7 +90,10 @@ export class StatusReportingController {
     @Query('metricType') metricType?: string,
   ) {
     try {
-      const trends = await this.statusReportingService.getPerformanceTrends(projectId, period);
+      const trends = await this.statusReportingService.getPerformanceTrends(
+        projectId,
+        period,
+      );
       return {
         success: true,
         data: trends,
@@ -162,24 +168,30 @@ export class StatusReportingController {
   @Post('generate-report')
   @UseGuards(ProjectPermissionGuard)
   @RequirePermissions(RoleType.EDITOR)
-  async generateReport(@Body() generateReportDto: GenerateReportDto, @Request() req: any) {
+  async generateReport(
+    @Body() generateReportDto: GenerateReportDto,
+    @Request() req: any,
+  ) {
     try {
-      const report = await this.statusReportingService.generateStatusReport({
-        projectId: generateReportDto.projectId,
-        reportingPeriod: {
-          startDate: generateReportDto.reportingPeriodStart,
-          endDate: generateReportDto.reportingPeriodEnd,
+      const report = await this.statusReportingService.generateStatusReport(
+        {
+          projectId: generateReportDto.projectId,
+          reportingPeriod: {
+            startDate: generateReportDto.reportingPeriodStart,
+            endDate: generateReportDto.reportingPeriodEnd,
+          },
+          stakeholderAudience: generateReportDto.stakeholderAudience,
+          reportFormat: generateReportDto.reportFormat,
+          dataSourcesConfig: {
+            includeJira: true,
+            includeGitHub: true,
+            includeTeamsData: true,
+            includeBudgetData: true,
+            includeManualUpdates: true,
+          },
         },
-        stakeholderAudience: generateReportDto.stakeholderAudience,
-        reportFormat: generateReportDto.reportFormat,
-        dataSourcesConfig: {
-          includeJira: true,
-          includeGitHub: true,
-          includeTeamsData: true,
-          includeBudgetData: true,
-          includeManualUpdates: true,
-        },
-      }, req.user.id);
+        req.user.id,
+      );
       return {
         success: true,
         data: report,

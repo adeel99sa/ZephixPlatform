@@ -13,7 +13,12 @@ import { SharedModule } from '../shared/shared.module';
 @Global() // Make OrganizationsModule globally available
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Organization, UserOrganization, Invitation, User]),
+    TypeOrmModule.forFeature([
+      Organization,
+      UserOrganization,
+      Invitation,
+      User,
+    ]),
     SharedModule, // For EmailService used by InvitationService
     // ENTERPRISE APPROACH: Remove JWT module duplication - it's already global in app.module.ts
   ],
@@ -22,11 +27,7 @@ import { SharedModule } from '../shared/shared.module';
     TeamManagementController,
     InvitationAcceptanceController,
   ],
-  providers: [
-    OrganizationsService,
-    InvitationService,
-    TeamManagementService,
-  ],
+  providers: [OrganizationsService, InvitationService, TeamManagementService],
   exports: [
     OrganizationsService,
     InvitationService,

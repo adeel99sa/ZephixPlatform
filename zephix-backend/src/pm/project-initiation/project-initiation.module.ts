@@ -10,11 +10,7 @@ import { ProjectRisk } from '../entities/project-risk.entity';
 @Module({
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
-    TypeOrmModule.forFeature([
-      UserProject,
-      ProjectStakeholder,
-      ProjectRisk,
-    ]),
+    TypeOrmModule.forFeature([UserProject, ProjectStakeholder, ProjectRisk]),
   ],
   controllers: [ProjectInitiationController],
   providers: [ProjectInitiationService],
