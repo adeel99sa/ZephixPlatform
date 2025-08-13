@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Risk } from './risk.entity';
 
 @Entity('risk_monitoring')
@@ -14,10 +23,10 @@ export class RiskMonitoring {
   @Column('date')
   monitoringDate: Date;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['daily', 'weekly', 'bi-weekly', 'monthly'],
-    default: 'weekly'
+    default: 'weekly',
   })
   monitoringFrequency: string;
 
@@ -59,17 +68,17 @@ export class RiskMonitoring {
   };
 
   // Alert Management
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['none', 'information', 'warning', 'critical', 'emergency'],
-    default: 'none'
+    default: 'none',
   })
   alertLevel: string;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['active', 'acknowledged', 'resolved', 'false-positive'],
-    nullable: true
+    nullable: true,
   })
   alertStatus: string;
 
@@ -130,7 +139,7 @@ export class RiskMonitoring {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Risk, risk => risk.monitoring)
+  @ManyToOne(() => Risk, (risk) => risk.monitoring)
   @JoinColumn({ name: 'riskId' })
   risk: Risk;
 }

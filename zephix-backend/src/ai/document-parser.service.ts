@@ -6,7 +6,14 @@ import { Readable } from 'stream';
 
 export interface DocumentChunk {
   content: string;
-  type: 'paragraph' | 'h1' | 'h2' | 'h3' | 'list_item' | 'table_cell' | 'heading';
+  type:
+    | 'paragraph'
+    | 'h1'
+    | 'h2'
+    | 'h3'
+    | 'list_item'
+    | 'table_cell'
+    | 'heading';
   metadata: {
     source_document_id: string;
     page_number?: number;
@@ -51,13 +58,15 @@ export class DocumentParserService {
     documentId: string,
   ): Promise<ParseResult> {
     const startTime = Date.now();
-    
+
     try {
-      this.logger.log(`Starting document parsing for ${filename} (${documentId})`);
-      
+      this.logger.log(
+        `Starting document parsing for ${filename} (${documentId})`,
+      );
+
       const fileExtension = this.getFileExtension(filename);
       let chunks: DocumentChunk[] = [];
-      
+
       switch (fileExtension.toLowerCase()) {
         case 'docx':
           chunks = await this.parseDocx(fileBuffer, documentId);
@@ -68,9 +77,9 @@ export class DocumentParserService {
         default:
           throw new Error(`Unsupported file format: ${fileExtension}`);
       }
-      
+
       const processingTime = Date.now() - startTime;
-      
+
       const parsedDocument: ParsedDocument = {
         documentId,
         filename,
@@ -82,11 +91,11 @@ export class DocumentParserService {
           extractedAt: new Date(),
         },
       };
-      
+
       this.logger.log(
         `Successfully parsed ${filename}: ${chunks.length} chunks in ${processingTime}ms`,
       );
-      
+
       return {
         success: true,
         document: parsedDocument,
@@ -98,7 +107,7 @@ export class DocumentParserService {
         `Failed to parse document ${filename}: ${error.message}`,
         error.stack,
       );
-      
+
       return {
         success: false,
         error: error.message,
@@ -110,21 +119,24 @@ export class DocumentParserService {
   /**
    * Parse .docx files using mammoth.js
    */
-  private async parseDocx(fileBuffer: Buffer, documentId: string): Promise<DocumentChunk[]> {
+  private async parseDocx(
+    fileBuffer: Buffer,
+    documentId: string,
+  ): Promise<DocumentChunk[]> {
     const result = await mammoth.extractRawText({ buffer: fileBuffer });
     const text = result.value;
-    
+
     // Split text into paragraphs and identify structure
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const lines = text.split('\n').filter((line) => line.trim().length > 0);
     const chunks: DocumentChunk[] = [];
     let currentHeading = '';
     let sectionLevel = 0;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       if (line.length === 0) continue;
-      
+
       // Detect headings based on length and formatting patterns
       if (this.isHeading(line, lines, i)) {
         if (line.length < 50) {
@@ -137,7 +149,7 @@ export class DocumentParserService {
           } else {
             sectionLevel = 3; // H3
           }
-          
+
           chunks.push({
             content: line,
             type: 'heading',
@@ -181,28 +193,31 @@ export class DocumentParserService {
         });
       }
     }
-    
+
     return chunks;
   }
 
   /**
    * Parse .pdf files using pdf-parse
    */
-  private async parsePdf(fileBuffer: Buffer, documentId: string): Promise<DocumentChunk[]> {
+  private async parsePdf(
+    fileBuffer: Buffer,
+    documentId: string,
+  ): Promise<DocumentChunk[]> {
     const data = await pdfParse(fileBuffer);
     const text = data.text;
-    
+
     // Split text into paragraphs and identify structure
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    const lines = text.split('\n').filter((line) => line.trim().length > 0);
     const chunks: DocumentChunk[] = [];
     let currentHeading = '';
     let sectionLevel = 0;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       if (line.length === 0) continue;
-      
+
       // Detect headings based on length and formatting patterns
       if (this.isHeading(line, lines, i)) {
         if (line.length < 50) {
@@ -215,7 +230,7 @@ export class DocumentParserService {
           } else {
             sectionLevel = 3; // H3
           }
-          
+
           chunks.push({
             content: line,
             type: 'heading',
@@ -259,14 +274,18 @@ export class DocumentParserService {
         });
       }
     }
-    
+
     return chunks;
   }
 
   /**
    * Detect if a line is likely a heading
    */
-  private isHeading(line: string, allLines: string[], currentIndex: number): boolean {
+  private isHeading(
+    line: string,
+    allLines: string[],
+    currentIndex: number,
+  ): boolean {
     // Short lines are more likely to be headings
     if (line.length < 50) {
       // Check if next line is longer (indicating this is a heading followed by content)
@@ -276,13 +295,13 @@ export class DocumentParserService {
           return true;
         }
       }
-      
+
       // Check for common heading patterns
       if (line.endsWith(':') || line.match(/^[A-Z][^.!?]*$/)) {
         return true;
       }
     }
-    
+
     return false;
   }
 
@@ -290,7 +309,10 @@ export class DocumentParserService {
    * Detect if a line is a list item
    */
   private isListItem(line: string): boolean {
-    return line.match(/^[\s]*[•\-\*]\s/) !== null || line.match(/^[\s]*\d+\.\s/) !== null;
+    return (
+      line.match(/^[\s]*[•\-\*]\s/) !== null ||
+      line.match(/^[\s]*\d+\.\s/) !== null
+    );
   }
 
   /**
@@ -306,16 +328,16 @@ export class DocumentParserService {
   validateFile(file: Express.Multer.File): { valid: boolean; error?: string } {
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = ['.docx', '.pdf'];
-    
+
     if (file.size > maxSize) {
       return { valid: false, error: 'File size exceeds 10MB limit' };
     }
-    
+
     const fileExtension = this.getFileExtension(file.originalname);
     if (!allowedTypes.includes(`.${fileExtension.toLowerCase()}`)) {
       return { valid: false, error: `Unsupported file type: ${fileExtension}` };
     }
-    
+
     return { valid: true };
   }
 }

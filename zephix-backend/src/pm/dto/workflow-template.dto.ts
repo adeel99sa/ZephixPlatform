@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsObject, IsArray, ValidateNested, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsObject,
+  IsArray,
+  ValidateNested,
+  IsUUID,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -11,7 +20,9 @@ export class WorkflowStageDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ enum: ['intake_stage', 'project_phase', 'approval_gate', 'orr_section'] })
+  @ApiProperty({
+    enum: ['intake_stage', 'project_phase', 'approval_gate', 'orr_section'],
+  })
   @IsEnum(['intake_stage', 'project_phase', 'approval_gate', 'orr_section'])
   type: string;
 
@@ -52,10 +63,32 @@ export class WorkflowFieldDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ 
-    enum: ['text', 'number', 'date', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'url', 'email'] 
+  @ApiProperty({
+    enum: [
+      'text',
+      'number',
+      'date',
+      'select',
+      'multiselect',
+      'file',
+      'textarea',
+      'checkbox',
+      'url',
+      'email',
+    ],
   })
-  @IsEnum(['text', 'number', 'date', 'select', 'multiselect', 'file', 'textarea', 'checkbox', 'url', 'email'])
+  @IsEnum([
+    'text',
+    'number',
+    'date',
+    'select',
+    'multiselect',
+    'file',
+    'textarea',
+    'checkbox',
+    'url',
+    'email',
+  ])
   type: string;
 
   @ApiProperty()
@@ -342,7 +375,9 @@ export class UpdateWorkflowInstanceDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ enum: ['active', 'completed', 'cancelled', 'on_hold', 'failed'] })
+  @ApiPropertyOptional({
+    enum: ['active', 'completed', 'cancelled', 'on_hold', 'failed'],
+  })
   @IsEnum(['active', 'completed', 'cancelled', 'on_hold', 'failed'])
   @IsOptional()
   status?: string;

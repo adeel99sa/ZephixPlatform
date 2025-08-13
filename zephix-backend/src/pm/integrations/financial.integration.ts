@@ -12,7 +12,10 @@ export class FinancialIntegration {
     this.apiKey = this.configService.get<string>('FINANCIAL_API_KEY') || '';
   }
 
-  async collectFinancialData(projectId: string, dateRange: { start: Date; end: Date }) {
+  async collectFinancialData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       this.logger.log(`Collecting financial data for project ${projectId}`);
 
@@ -34,7 +37,10 @@ export class FinancialIntegration {
     }
   }
 
-  async getBudgetMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getBudgetMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call financial API
       const budgetData = await this.getMockBudgetData(projectId, dateRange);
@@ -45,7 +51,10 @@ export class FinancialIntegration {
     }
   }
 
-  async getExpenseMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getExpenseMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call financial API
       const expenseData = await this.getMockExpenseData(projectId, dateRange);
@@ -56,7 +65,10 @@ export class FinancialIntegration {
     }
   }
 
-  async getRevenueMetrics(projectId: string, dateRange: { start: Date; end: Date }) {
+  async getRevenueMetrics(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     try {
       // Mock implementation - in real scenario, this would call financial API
       const revenueData = await this.getMockRevenueData(projectId, dateRange);
@@ -78,9 +90,12 @@ export class FinancialIntegration {
     }
   }
 
-  private async getMockFinancialData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockFinancialData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     return {
       budget: {
@@ -184,7 +199,10 @@ export class FinancialIntegration {
     };
   }
 
-  private async getMockBudgetData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockBudgetData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 500000,
       allocated: 375000,
@@ -206,7 +224,10 @@ export class FinancialIntegration {
     };
   }
 
-  private async getMockExpenseData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockExpenseData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 375000,
       thisPeriod: 125000,
@@ -231,7 +252,10 @@ export class FinancialIntegration {
     };
   }
 
-  private async getMockRevenueData(projectId: string, dateRange: { start: Date; end: Date }) {
+  private async getMockRevenueData(
+    projectId: string,
+    dateRange: { start: Date; end: Date },
+  ) {
     return {
       total: 600000,
       recognized: 450000,
@@ -306,7 +330,9 @@ export class FinancialIntegration {
         ],
       };
     } catch (error) {
-      this.logger.error(`Failed to get cost variance analysis: ${error.message}`);
+      this.logger.error(
+        `Failed to get cost variance analysis: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -378,13 +404,15 @@ export class FinancialIntegration {
         roi: 0.35,
         paybackPeriod: 18,
         breakEvenPoint: new Date(Date.now() + 6 * 30 * 24 * 60 * 60 * 1000),
-        contributionMargin: 0.40,
+        contributionMargin: 0.4,
         operatingLeverage: 1.5,
         returnOnAssets: 0.28,
         returnOnEquity: 0.42,
       };
     } catch (error) {
-      this.logger.error(`Failed to get profitability metrics: ${error.message}`);
+      this.logger.error(
+        `Failed to get profitability metrics: ${error.message}`,
+      );
       throw error;
     }
   }

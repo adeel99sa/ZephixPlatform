@@ -11,7 +11,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { RolesGuard } from '../../organizations/guards/roles.guard';
@@ -48,7 +53,10 @@ export class WorkflowTemplateController {
 
   @Get('defaults')
   @ApiOperation({ summary: 'Get default workflow templates' })
-  @ApiResponse({ status: 200, description: 'Default templates retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Default templates retrieved successfully',
+  })
   async getDefaults(@CurrentOrg() orgId: string) {
     return this.templateService.getDefaultTemplates(orgId);
   }
@@ -57,10 +65,7 @@ export class WorkflowTemplateController {
   @ApiOperation({ summary: 'Get workflow template by ID' })
   @ApiResponse({ status: 200, description: 'Template retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  async findOne(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async findOne(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.templateService.findById(orgId, id);
   }
 
@@ -112,24 +117,24 @@ export class WorkflowTemplateController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('admin', 'owner')
-  async activate(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async activate(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.templateService.activate(orgId, id);
   }
 
   @Post(':id/deactivate')
   @ApiOperation({ summary: 'Deactivate workflow template' })
-  @ApiResponse({ status: 200, description: 'Template deactivated successfully' })
-  @ApiResponse({ status: 409, description: 'Cannot deactivate template with active instances' })
+  @ApiResponse({
+    status: 200,
+    description: 'Template deactivated successfully',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot deactivate template with active instances',
+  })
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('admin', 'owner')
-  async deactivate(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async deactivate(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.templateService.deactivate(orgId, id);
   }
 
@@ -137,14 +142,14 @@ export class WorkflowTemplateController {
   @ApiOperation({ summary: 'Delete workflow template' })
   @ApiResponse({ status: 204, description: 'Template deleted successfully' })
   @ApiResponse({ status: 404, description: 'Template not found' })
-  @ApiResponse({ status: 409, description: 'Cannot delete template with existing instances' })
+  @ApiResponse({
+    status: 409,
+    description: 'Cannot delete template with existing instances',
+  })
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(RolesGuard)
   @Roles('admin', 'owner')
-  async delete(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async delete(@CurrentOrg() orgId: string, @Param('id') id: string) {
     await this.templateService.delete(orgId, id);
   }
 
@@ -188,10 +193,7 @@ export class WorkflowInstanceController {
   @Get()
   @ApiOperation({ summary: 'List organization workflow instances' })
   @ApiResponse({ status: 200, description: 'Instances retrieved successfully' })
-  async findAll(
-    @CurrentOrg() orgId: string,
-    @Query() query: any,
-  ) {
+  async findAll(@CurrentOrg() orgId: string, @Query() query: any) {
     return this.templateService.findInstances(orgId, query);
   }
 
@@ -199,10 +201,7 @@ export class WorkflowInstanceController {
   @ApiOperation({ summary: 'Get workflow instance by ID' })
   @ApiResponse({ status: 200, description: 'Instance retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Instance not found' })
-  async findOne(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async findOne(@CurrentOrg() orgId: string, @Param('id') id: string) {
     return this.templateService.findInstanceById(orgId, id);
   }
 
@@ -235,10 +234,7 @@ export class WorkflowInstanceController {
   @Get(':id/history')
   @ApiOperation({ summary: 'Get workflow instance stage history' })
   @ApiResponse({ status: 200, description: 'History retrieved successfully' })
-  async getHistory(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async getHistory(@CurrentOrg() orgId: string, @Param('id') id: string) {
     const instance = await this.templateService.findInstanceById(orgId, id);
     return {
       instanceId: instance.id,
@@ -253,10 +249,7 @@ export class WorkflowInstanceController {
   @Get(':id/metrics')
   @ApiOperation({ summary: 'Get workflow instance metrics' })
   @ApiResponse({ status: 200, description: 'Metrics retrieved successfully' })
-  async getMetrics(
-    @CurrentOrg() orgId: string,
-    @Param('id') id: string,
-  ) {
+  async getMetrics(@CurrentOrg() orgId: string, @Param('id') id: string) {
     const instance = await this.templateService.findInstanceById(orgId, id);
     return {
       instanceId: instance.id,

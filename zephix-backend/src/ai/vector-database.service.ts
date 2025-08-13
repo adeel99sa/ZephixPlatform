@@ -50,7 +50,9 @@ export class VectorDatabaseService implements OnModuleInit {
   private isConfigured = false;
 
   constructor(private configService: ConfigService) {
-    this.indexName = this.configService.get<string>('PINECONE_INDEX_NAME') || 'zephix-documents';
+    this.indexName =
+      this.configService.get<string>('PINECONE_INDEX_NAME') ||
+      'zephix-documents';
   }
 
   async onModuleInit() {
@@ -63,10 +65,14 @@ export class VectorDatabaseService implements OnModuleInit {
   private async initializePinecone() {
     try {
       const apiKey = this.configService.get<string>('PINECONE_API_KEY');
-      const environment = this.configService.get<string>('PINECONE_ENVIRONMENT');
+      const environment = this.configService.get<string>(
+        'PINECONE_ENVIRONMENT',
+      );
 
       if (!apiKey || !environment) {
-        this.logger.warn('Pinecone configuration missing. Vector database features will be disabled.');
+        this.logger.warn(
+          'Pinecone configuration missing. Vector database features will be disabled.',
+        );
         return;
       }
 
@@ -76,13 +82,15 @@ export class VectorDatabaseService implements OnModuleInit {
 
       // Test connection by listing indexes
       const indexes = await this.pinecone.listIndexes();
-      this.logger.log(`Connected to Pinecone. Available indexes: ${indexes.indexes?.map(i => i.name).join(', ') || 'none'}`);
+      this.logger.log(
+        `Connected to Pinecone. Available indexes: ${indexes.indexes?.map((i) => i.name).join(', ') || 'none'}`,
+      );
 
       // Ensure our index exists
       // Note: Index creation is now handled manually through Pinecone console
       // this.ensureIndexExists();
       this.isConfigured = true;
-      
+
       this.logger.log('Vector database service initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Pinecone:', error.message);
@@ -96,11 +104,13 @@ export class VectorDatabaseService implements OnModuleInit {
   private async ensureIndexExists() {
     try {
       const indexes = await this.pinecone.listIndexes();
-      const indexExists = indexes.indexes?.some(index => index.name === this.indexName) || false;
+      const indexExists =
+        indexes.indexes?.some((index) => index.name === this.indexName) ||
+        false;
 
       if (!indexExists) {
         this.logger.log(`Creating Pinecone index: ${this.indexName}`);
-        
+
         await this.pinecone.createIndex({
           name: this.indexName,
           dimension: 1536, // OpenAI text-embedding-3-large dimension
@@ -117,7 +127,10 @@ export class VectorDatabaseService implements OnModuleInit {
         await this.waitForIndexReady();
       }
     } catch (error) {
-      this.logger.error(`Failed to create/verify index ${this.indexName}:`, error.message);
+      this.logger.error(
+        `Failed to create/verify index ${this.indexName}:`,
+        error.message,
+      );
       throw error;
     }
   }
@@ -133,24 +146,29 @@ export class VectorDatabaseService implements OnModuleInit {
       try {
         const index = this.pinecone.index(this.indexName);
         const stats = await index.describeIndexStats();
-        
+
         // Check if index is ready (this may vary based on Pinecone API version)
-        if (true) { // Assume ready for now
+        if (true) {
+          // Assume ready for now
           this.logger.log(`Index ${this.indexName} is ready`);
           return;
         }
-        
-        this.logger.log(`Waiting for index ${this.indexName} to be ready... (attempt ${attempts + 1})`);
-        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+
+        this.logger.log(
+          `Waiting for index ${this.indexName} to be ready... (attempt ${attempts + 1})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
         attempts++;
       } catch (error) {
         this.logger.warn(`Error checking index status: ${error.message}`);
         attempts++;
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
       }
     }
 
-    throw new Error(`Index ${this.indexName} failed to become ready after ${maxAttempts} attempts`);
+    throw new Error(
+      `Index ${this.indexName} failed to become ready after ${maxAttempts} attempts`,
+    );
   }
 
   /**
@@ -170,7 +188,9 @@ export class VectorDatabaseService implements OnModuleInit {
     }
 
     try {
-      this.logger.log(`Storing ${chunks.length} chunks for document ${documentId}`);
+      this.logger.log(
+        `Storing ${chunks.length} chunks for document ${documentId}`,
+      );
 
       const index = this.pinecone.index(this.indexName);
       const vectors: VectorEmbedding[] = [];
@@ -215,27 +235,37 @@ export class VectorDatabaseService implements OnModuleInit {
 
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
-        
+
         try {
           await index.upsert(batch);
           storedCount += batch.length;
-          
-          this.logger.log(`Stored batch ${Math.floor(i / batchSize) + 1}: ${batch.length} vectors`);
+
+          this.logger.log(
+            `Stored batch ${Math.floor(i / batchSize) + 1}: ${batch.length} vectors`,
+          );
         } catch (batchError) {
-          this.logger.error(`Failed to store batch ${Math.floor(i / batchSize) + 1}:`, batchError.message);
+          this.logger.error(
+            `Failed to store batch ${Math.floor(i / batchSize) + 1}:`,
+            batchError.message,
+          );
           // Continue with next batch
         }
       }
 
-      this.logger.log(`Successfully stored ${storedCount}/${vectors.length} vectors for document ${documentId}`);
+      this.logger.log(
+        `Successfully stored ${storedCount}/${vectors.length} vectors for document ${documentId}`,
+      );
 
       return {
         success: true,
         storedCount,
       };
     } catch (error) {
-      this.logger.error(`Failed to store document chunks: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Failed to store document chunks: ${error.message}`,
+        error.stack,
+      );
+
       return {
         success: false,
         error: error.message,
@@ -252,13 +282,15 @@ export class VectorDatabaseService implements OnModuleInit {
     searchQuery: SearchQuery,
   ): Promise<SearchResult[]> {
     if (!this.isConfigured) {
-      this.logger.warn('Vector database not configured, returning empty search results');
+      this.logger.warn(
+        'Vector database not configured, returning empty search results',
+      );
       return [];
     }
 
     try {
       const index = this.pinecone.index(this.indexName);
-      
+
       const searchOptions: any = {
         vector: queryEmbedding,
         topK: searchQuery.topK || 10,
@@ -268,30 +300,35 @@ export class VectorDatabaseService implements OnModuleInit {
       // Add filters if specified
       if (searchQuery.filter) {
         searchOptions.filter = {};
-        
+
         if (searchQuery.filter.source_document_id) {
-          searchOptions.filter.source_document_id = { $eq: searchQuery.filter.source_document_id };
+          searchOptions.filter.source_document_id = {
+            $eq: searchQuery.filter.source_document_id,
+          };
         }
-        
+
         if (searchQuery.filter.type) {
           searchOptions.filter.type = { $eq: searchQuery.filter.type };
         }
-        
+
         if (searchQuery.filter.section_level !== undefined) {
-          searchOptions.filter.section_level = { $eq: searchQuery.filter.section_level };
+          searchOptions.filter.section_level = {
+            $eq: searchQuery.filter.section_level,
+          };
         }
       }
 
       const searchResponse = await index.query(searchOptions);
-      
-      const results: SearchResult[] = searchResponse.matches?.map(match => ({
-        id: match.id,
-        score: match.score || 0,
-        metadata: match.metadata as any,
-      })) || [];
+
+      const results: SearchResult[] =
+        searchResponse.matches?.map((match) => ({
+          id: match.id,
+          score: match.score || 0,
+          metadata: match.metadata as any,
+        })) || [];
 
       this.logger.log(`Search completed: ${results.length} results found`);
-      
+
       return results;
     } catch (error) {
       this.logger.error(`Search failed: ${error.message}`, error.stack);
@@ -302,7 +339,9 @@ export class VectorDatabaseService implements OnModuleInit {
   /**
    * Delete all vectors for a specific document
    */
-  async deleteDocumentVectors(documentId: string): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  async deleteDocumentVectors(
+    documentId: string,
+  ): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     if (!this.isConfigured) {
       return {
         success: false,
@@ -313,7 +352,7 @@ export class VectorDatabaseService implements OnModuleInit {
 
     try {
       const index = this.pinecone.index(this.indexName);
-      
+
       // Delete vectors by metadata filter
       await index.deleteMany({
         filter: {
@@ -322,14 +361,17 @@ export class VectorDatabaseService implements OnModuleInit {
       });
 
       this.logger.log(`Deleted all vectors for document ${documentId}`);
-      
+
       return {
         success: true,
         deletedCount: -1, // Pinecone doesn't return exact count
       };
     } catch (error) {
-      this.logger.error(`Failed to delete document vectors: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Failed to delete document vectors: ${error.message}`,
+        error.stack,
+      );
+
       return {
         success: false,
         error: error.message,

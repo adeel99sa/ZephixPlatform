@@ -8,7 +8,12 @@ import {
   HttpStatus,
   Optional,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User } from '../../users/entities/user.entity';
@@ -54,15 +59,15 @@ export class InvitationAcceptanceController {
   @ApiResponse({ status: 404, description: 'Invitation not found' })
   async getInvitationDetails(@Param('token') token: string) {
     const invitation = await this.invitationService.getInvitationByToken(token);
-    
+
     if (!invitation) {
       return { error: 'Invitation not found' };
     }
 
     if (!invitation.canBeAccepted()) {
-      return { 
+      return {
         error: 'Invitation has expired or is no longer valid',
-        expired: true 
+        expired: true,
       };
     }
 
@@ -75,10 +80,12 @@ export class InvitationAcceptanceController {
         slug: invitation.organization.slug,
         description: invitation.organization.description,
       },
-      invitedBy: invitation.invitedBy ? {
-        firstName: invitation.invitedBy.firstName,
-        lastName: invitation.invitedBy.lastName,
-      } : null,
+      invitedBy: invitation.invitedBy
+        ? {
+            firstName: invitation.invitedBy.firstName,
+            lastName: invitation.invitedBy.lastName,
+          }
+        : null,
       expiresAt: invitation.expiresAt,
       message: invitation.message,
     };
@@ -120,9 +127,9 @@ export class InvitationAcceptanceController {
   }
 
   @Post(':token/accept-anonymous')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Check invitation for anonymous user',
-    description: 'Returns invitation details and whether signup is required'
+    description: 'Returns invitation details and whether signup is required',
   })
   @ApiResponse({
     status: 200,

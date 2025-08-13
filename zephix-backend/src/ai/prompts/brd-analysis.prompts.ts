@@ -353,5 +353,5 @@ Return JSON with:
 - Assurance and control activities
 - Tools and techniques
 - Implementation timeline
-`
+`,
 };

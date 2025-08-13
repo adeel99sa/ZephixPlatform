@@ -31,29 +31,45 @@ export class ProjectInitiationService {
     userId: string,
   ): Promise<any> {
     try {
-      this.logger.log(`Starting document analysis for user: ${userId}, type: ${type}`);
+      this.logger.log(
+        `Starting document analysis for user: ${userId}, type: ${type}`,
+      );
 
       // Extract text from document
       const documentText = await this.extractTextFromDocument(file);
-      
+
       // Analyze document with Claude
-      const analysisPrompt = this.buildAnalysisPrompt(type, documentText, organizationContext);
+      const analysisPrompt = this.buildAnalysisPrompt(
+        type,
+        documentText,
+        organizationContext,
+      );
       const analysis = await this.claudeService.analyze(analysisPrompt);
 
       // Create project from analysis
-      const project = await this.createProjectFromAnalysis(analysis, userId, type);
+      const project = await this.createProjectFromAnalysis(
+        analysis,
+        userId,
+        type,
+      );
 
       // Generate project charter
       const charter = await this.generateProjectCharter(analysis, project.id);
 
       // Generate stakeholder analysis
-      const stakeholders = await this.generateStakeholderAnalysis(analysis, project.id);
+      const stakeholders = await this.generateStakeholderAnalysis(
+        analysis,
+        project.id,
+      );
 
       // Generate risk assessment
       const risks = await this.generateRiskAssessment(analysis, project.id);
 
       // Generate WBS structure
-      const wbsStructure = await this.generateWBSStructure(analysis, project.id);
+      const wbsStructure = await this.generateWBSStructure(
+        analysis,
+        project.id,
+      );
 
       // Update project with all generated data
       await this.updateProjectWithInitiationData(project.id, {
@@ -74,23 +90,34 @@ export class ProjectInitiationService {
         recommendations: analysis.recommendations,
       };
     } catch (error) {
-      this.logger.error(`Document analysis failed: ${error.message}`, error.stack);
-      throw new BadRequestException(`Document analysis failed: ${error.message}`);
+      this.logger.error(
+        `Document analysis failed: ${error.message}`,
+        error.stack,
+      );
+      throw new BadRequestException(
+        `Document analysis failed: ${error.message}`,
+      );
     }
   }
 
-  private async extractTextFromDocument(file: Express.Multer.File): Promise<string> {
+  private async extractTextFromDocument(
+    file: Express.Multer.File,
+  ): Promise<string> {
     // For now, we'll assume the file contains text
     // In production, you'd use libraries like pdf-parse, mammoth, etc.
     if (file.mimetype === 'text/plain') {
       return file.buffer.toString('utf-8');
     }
-    
+
     // For other file types, you'd implement specific extractors
     throw new BadRequestException(`Unsupported file type: ${file.mimetype}`);
   }
 
-  private buildAnalysisPrompt(type: string, documentText: string, orgContext: any): string {
+  private buildAnalysisPrompt(
+    type: string,
+    documentText: string,
+    orgContext: any,
+  ): string {
     return `
 You are an expert Project Management Professional (PMP) with 20+ years of experience in enterprise project management. 
 Analyze the following ${type} document and extract key project information to create a comprehensive project initiation package.
@@ -186,7 +213,11 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
 `;
   }
 
-  private async createProjectFromAnalysis(analysis: any, userId: string, type: string): Promise<UserProject> {
+  private async createProjectFromAnalysis(
+    analysis: any,
+    userId: string,
+    type: string,
+  ): Promise<UserProject> {
     const project = this.projectRepository.create({
       userId,
       name: analysis.projectTitle,
@@ -208,22 +239,31 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
 
   private parseBudget(budgetRange: string): number | undefined {
     if (!budgetRange) return undefined;
-    
+
     // Extract the average from a range like "$500K - $750K"
     const match = budgetRange.match(/\$?(\d+(?:\.\d+)?)([KMB])?/g);
     if (match && match.length >= 2) {
-      const values = match.map(val => {
+      const values = match.map((val) => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
-        const multiplier = val.includes('K') ? 1000 : val.includes('M') ? 1000000 : val.includes('B') ? 1000000000 : 1;
+        const multiplier = val.includes('K')
+          ? 1000
+          : val.includes('M')
+            ? 1000000
+            : val.includes('B')
+              ? 1000000000
+              : 1;
         return num * multiplier;
       });
       return (values[0] + values[1]) / 2;
     }
-    
+
     return undefined;
   }
 
-  private async generateProjectCharter(analysis: any, projectId: string): Promise<any> {
+  private async generateProjectCharter(
+    analysis: any,
+    projectId: string,
+  ): Promise<any> {
     const charter = {
       projectTitle: analysis.projectTitle,
       businessCase: analysis.businessCase,
@@ -242,11 +282,14 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
     return charter;
   }
 
-  private async generateStakeholderAnalysis(analysis: any, projectId: string): Promise<any> {
+  private async generateStakeholderAnalysis(
+    analysis: any,
+    projectId: string,
+  ): Promise<any> {
     const stakeholders = analysis.stakeholders || [];
-    
+
     // Save stakeholders to database
-    const stakeholderEntities = stakeholders.map(stakeholder => 
+    const stakeholderEntities = stakeholders.map((stakeholder) =>
       this.stakeholderRepository.create({
         projectId,
         name: stakeholder.name,
@@ -259,16 +302,17 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
         metadata: {
           communicationNeeds: stakeholder.communicationNeeds,
         },
-      })
+      }),
     );
 
     await this.stakeholderRepository.save(stakeholderEntities);
 
     // Generate RACI matrix
     const raciMatrix = this.generateRACIMatrix(stakeholders);
-    
+
     // Generate influence-interest grid
-    const influenceInterestGrid = this.generateInfluenceInterestGrid(stakeholders);
+    const influenceInterestGrid =
+      this.generateInfluenceInterestGrid(stakeholders);
 
     return {
       stakeholders,
@@ -283,28 +327,47 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
     return [
       {
         activity: 'Project Planning',
-        responsible: stakeholders.filter(s => s.category === 'champion').map(s => s.name),
-        accountable: stakeholders.find(s => s.role.includes('Manager'))?.name || 'Project Manager',
-        consulted: stakeholders.filter(s => s.category === 'supporter').map(s => s.name),
-        informed: stakeholders.filter(s => s.category === 'neutral').map(s => s.name),
+        responsible: stakeholders
+          .filter((s) => s.category === 'champion')
+          .map((s) => s.name),
+        accountable:
+          stakeholders.find((s) => s.role.includes('Manager'))?.name ||
+          'Project Manager',
+        consulted: stakeholders
+          .filter((s) => s.category === 'supporter')
+          .map((s) => s.name),
+        informed: stakeholders
+          .filter((s) => s.category === 'neutral')
+          .map((s) => s.name),
       },
     ];
   }
 
   private generateInfluenceInterestGrid(stakeholders: any[]): any {
     return {
-      manageClosely: stakeholders.filter(s => s.influence === 'high' && s.interest === 'high').map(s => s.name),
-      keepSatisfied: stakeholders.filter(s => s.influence === 'high' && s.interest === 'low').map(s => s.name),
-      keepInformed: stakeholders.filter(s => s.influence === 'low' && s.interest === 'high').map(s => s.name),
-      monitor: stakeholders.filter(s => s.influence === 'low' && s.interest === 'low').map(s => s.name),
+      manageClosely: stakeholders
+        .filter((s) => s.influence === 'high' && s.interest === 'high')
+        .map((s) => s.name),
+      keepSatisfied: stakeholders
+        .filter((s) => s.influence === 'high' && s.interest === 'low')
+        .map((s) => s.name),
+      keepInformed: stakeholders
+        .filter((s) => s.influence === 'low' && s.interest === 'high')
+        .map((s) => s.name),
+      monitor: stakeholders
+        .filter((s) => s.influence === 'low' && s.interest === 'low')
+        .map((s) => s.name),
     };
   }
 
-  private async generateRiskAssessment(analysis: any, projectId: string): Promise<any> {
+  private async generateRiskAssessment(
+    analysis: any,
+    projectId: string,
+  ): Promise<any> {
     const risks = analysis.risks || [];
-    
+
     // Save risks to database
-    const riskEntities = risks.map(risk => 
+    const riskEntities = risks.map((risk) =>
       this.riskRepository.create({
         projectId,
         category: risk.category,
@@ -318,7 +381,7 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
           responseActions: risk.responseActions,
           triggerConditions: risk.triggerConditions,
         },
-      })
+      }),
     );
 
     await this.riskRepository.save(riskEntities);
@@ -327,33 +390,41 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
       risks,
       riskSummary: {
         totalRisks: risks.length,
-        highRisks: risks.filter(r => r.riskLevel === 'high').length,
-        mediumRisks: risks.filter(r => r.riskLevel === 'medium').length,
-        lowRisks: risks.filter(r => r.riskLevel === 'low').length,
+        highRisks: risks.filter((r) => r.riskLevel === 'high').length,
+        mediumRisks: risks.filter((r) => r.riskLevel === 'medium').length,
+        lowRisks: risks.filter((r) => r.riskLevel === 'low').length,
       },
     };
   }
 
-  private async generateWBSStructure(analysis: any, projectId: string): Promise<any> {
-    return analysis.wbsStructure || {
-      level1: [
-        {
-          name: 'Project Initiation',
-          description: 'Project setup and charter development',
-          level2: [
-            {
-              name: 'Stakeholder Analysis',
-              description: 'Identify and analyze project stakeholders',
-              deliverables: ['Stakeholder register', 'RACI matrix'],
-              dependencies: [],
-            },
-          ],
-        },
-      ],
-    };
+  private async generateWBSStructure(
+    analysis: any,
+    projectId: string,
+  ): Promise<any> {
+    return (
+      analysis.wbsStructure || {
+        level1: [
+          {
+            name: 'Project Initiation',
+            description: 'Project setup and charter development',
+            level2: [
+              {
+                name: 'Stakeholder Analysis',
+                description: 'Identify and analyze project stakeholders',
+                deliverables: ['Stakeholder register', 'RACI matrix'],
+                dependencies: [],
+              },
+            ],
+          },
+        ],
+      }
+    );
   }
 
-  private async updateProjectWithInitiationData(projectId: string, data: any): Promise<void> {
+  private async updateProjectWithInitiationData(
+    projectId: string,
+    data: any,
+  ): Promise<void> {
     await this.projectRepository.update(projectId, {
       metadata: {
         ...data,
@@ -378,7 +449,7 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
 
   async updateCharter(projectId: string, updates: any): Promise<any> {
     const project = await this.getProject(projectId);
-    
+
     const updatedMetadata = {
       ...project.metadata,
       charter: {
@@ -396,7 +467,7 @@ Ensure all responses are professional, enterprise-grade, and follow PMI standard
 
   async exportProject(projectId: string, format: string): Promise<any> {
     const project = await this.getProject(projectId);
-    
+
     // This would integrate with a document generation service
     // For now, return the project data in the requested format
     return {

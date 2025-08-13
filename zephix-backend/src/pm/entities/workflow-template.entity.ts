@@ -32,7 +32,17 @@ export interface WorkflowStage {
 export interface WorkflowField {
   id: string;
   name: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'file' | 'textarea' | 'checkbox' | 'url' | 'email';
+  type:
+    | 'text'
+    | 'number'
+    | 'date'
+    | 'select'
+    | 'multiselect'
+    | 'file'
+    | 'textarea'
+    | 'checkbox'
+    | 'url'
+    | 'email';
   required: boolean;
   options?: string[];
   validation?: Record<string, any>;
@@ -78,10 +88,10 @@ export class WorkflowTemplate {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['intake', 'project', 'orr', 'custom'],
-    default: 'custom'
+    default: 'custom',
   })
   type: string;
 
@@ -106,7 +116,7 @@ export class WorkflowTemplate {
     category: string;
   };
 
-  @OneToMany(() => WorkflowInstance, instance => instance.template)
+  @OneToMany(() => WorkflowInstance, (instance) => instance.template)
   instances: WorkflowInstance[];
 
   @CreateDateColumn()
@@ -117,11 +127,11 @@ export class WorkflowTemplate {
 
   // Helper methods
   getStageById(stageId: string): WorkflowStage | undefined {
-    return this.configuration.stages.find(stage => stage.id === stageId);
+    return this.configuration.stages.find((stage) => stage.id === stageId);
   }
 
   getFieldById(fieldId: string): WorkflowField | undefined {
-    return this.configuration.fields.find(field => field.id === fieldId);
+    return this.configuration.fields.find((field) => field.id === fieldId);
   }
 
   isStageRequired(stageId: string): boolean {
@@ -130,15 +140,22 @@ export class WorkflowTemplate {
   }
 
   getNextStage(currentStageId: string): WorkflowStage | null {
-    const currentIndex = this.configuration.stages.findIndex(s => s.id === currentStageId);
-    if (currentIndex === -1 || currentIndex >= this.configuration.stages.length - 1) {
+    const currentIndex = this.configuration.stages.findIndex(
+      (s) => s.id === currentStageId,
+    );
+    if (
+      currentIndex === -1 ||
+      currentIndex >= this.configuration.stages.length - 1
+    ) {
       return null;
     }
     return this.configuration.stages[currentIndex + 1];
   }
 
   getPreviousStage(currentStageId: string): WorkflowStage | null {
-    const currentIndex = this.configuration.stages.findIndex(s => s.id === currentStageId);
+    const currentIndex = this.configuration.stages.findIndex(
+      (s) => s.id === currentStageId,
+    );
     if (currentIndex <= 0) {
       return null;
     }

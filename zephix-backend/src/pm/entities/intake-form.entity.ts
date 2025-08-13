@@ -16,7 +16,19 @@ import { IntakeSubmission } from './intake-submission.entity';
 export interface FormField {
   id: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'file' | 'checkbox' | 'radio' | 'url' | 'email' | 'phone';
+  type:
+    | 'text'
+    | 'textarea'
+    | 'number'
+    | 'date'
+    | 'select'
+    | 'multiselect'
+    | 'file'
+    | 'checkbox'
+    | 'radio'
+    | 'url'
+    | 'email'
+    | 'phone';
   required: boolean;
   options?: string[];
   validation?: {
@@ -30,7 +42,12 @@ export interface FormField {
   defaultValue?: any;
   conditional?: {
     field: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
+    operator:
+      | 'equals'
+      | 'not_equals'
+      | 'contains'
+      | 'greater_than'
+      | 'less_than';
     value: any;
   };
 }
@@ -193,7 +210,7 @@ export class IntakeForm {
     };
   };
 
-  @OneToMany(() => IntakeSubmission, submission => submission.form)
+  @OneToMany(() => IntakeSubmission, (submission) => submission.form)
   submissions: IntakeSubmission[];
 
   @CreateDateColumn()
@@ -204,24 +221,30 @@ export class IntakeForm {
 
   // Helper methods
   getFieldById(fieldId: string): FormField | undefined {
-    return this.formSchema.fields.find(field => field.id === fieldId);
+    return this.formSchema.fields.find((field) => field.id === fieldId);
   }
 
   getSectionById(sectionId: string): FormSection | undefined {
-    return this.formSchema.sections.find(section => section.id === sectionId);
+    return this.formSchema.sections.find((section) => section.id === sectionId);
   }
 
   getRequiredFields(): FormField[] {
-    return this.formSchema.fields.filter(field => field.required);
+    return this.formSchema.fields.filter((field) => field.required);
   }
 
-  validateFieldValue(fieldId: string, value: any): { isValid: boolean; error?: string } {
+  validateFieldValue(
+    fieldId: string,
+    value: any,
+  ): { isValid: boolean; error?: string } {
     const field = this.getFieldById(fieldId);
     if (!field) {
       return { isValid: false, error: 'Field not found' };
     }
 
-    if (field.required && (value === null || value === undefined || value === '')) {
+    if (
+      field.required &&
+      (value === null || value === undefined || value === '')
+    ) {
       return { isValid: false, error: `${field.label} is required` };
     }
 
@@ -229,14 +252,24 @@ export class IntakeForm {
       const { min, max, pattern, message } = field.validation;
 
       if (min !== undefined && value < min) {
-        return { isValid: false, error: message || `Value must be at least ${min}` };
+        return {
+          isValid: false,
+          error: message || `Value must be at least ${min}`,
+        };
       }
 
       if (max !== undefined && value > max) {
-        return { isValid: false, error: message || `Value must be at most ${max}` };
+        return {
+          isValid: false,
+          error: message || `Value must be at most ${max}`,
+        };
       }
 
-      if (pattern && typeof value === 'string' && !new RegExp(pattern).test(value)) {
+      if (
+        pattern &&
+        typeof value === 'string' &&
+        !new RegExp(pattern).test(value)
+      ) {
         return { isValid: false, error: message || 'Invalid format' };
       }
     }
@@ -257,7 +290,9 @@ export class IntakeForm {
       case 'not_equals':
         return fieldValue !== value;
       case 'contains':
-        return Array.isArray(fieldValue) ? fieldValue.includes(value) : String(fieldValue).includes(value);
+        return Array.isArray(fieldValue)
+          ? fieldValue.includes(value)
+          : String(fieldValue).includes(value);
       case 'greater_than':
         return Number(fieldValue) > Number(value);
       case 'less_than':
@@ -273,20 +308,29 @@ export class IntakeForm {
 
   incrementViews(): void {
     if (!this.analytics) {
-      this.analytics = { totalViews: 0, totalSubmissions: 0, conversionRate: 0 };
+      this.analytics = {
+        totalViews: 0,
+        totalSubmissions: 0,
+        conversionRate: 0,
+      };
     }
     this.analytics.totalViews++;
   }
 
   incrementSubmissions(): void {
     if (!this.analytics) {
-      this.analytics = { totalViews: 0, totalSubmissions: 0, conversionRate: 0 };
+      this.analytics = {
+        totalViews: 0,
+        totalSubmissions: 0,
+        conversionRate: 0,
+      };
     }
     this.analytics.totalSubmissions++;
     this.analytics.lastSubmissionAt = new Date();
-    this.analytics.conversionRate = this.analytics.totalViews > 0 
-      ? (this.analytics.totalSubmissions / this.analytics.totalViews) * 100 
-      : 0;
+    this.analytics.conversionRate =
+      this.analytics.totalViews > 0
+        ? (this.analytics.totalSubmissions / this.analytics.totalViews) * 100
+        : 0;
   }
 
   // AI-specific helper methods
@@ -298,20 +342,24 @@ export class IntakeForm {
     return this.aiGenerationContext?.confidence || 0;
   }
 
-  addRefinementHistory(request: string, changes: any, confidence: number): void {
+  addRefinementHistory(
+    request: string,
+    changes: any,
+    confidence: number,
+  ): void {
     if (!this.aiGenerationContext) {
       return;
     }
-    
+
     if (!this.aiGenerationContext.refinementHistory) {
       this.aiGenerationContext.refinementHistory = [];
     }
-    
+
     this.aiGenerationContext.refinementHistory.push({
       request,
       changes,
       timestamp: new Date(),
-      confidence
+      confidence,
     });
   }
 
@@ -319,7 +367,9 @@ export class IntakeForm {
     if (!this.aiGenerationContext?.refinementHistory?.length) {
       return null;
     }
-    return this.aiGenerationContext.refinementHistory[this.aiGenerationContext.refinementHistory.length - 1];
+    return this.aiGenerationContext.refinementHistory[
+      this.aiGenerationContext.refinementHistory.length - 1
+    ];
   }
 
   hasIntelligentFeatures(): boolean {
@@ -327,11 +377,15 @@ export class IntakeForm {
   }
 
   getSmartValidationForField(fieldId: string): any {
-    return this.intelligentFeatures?.smartValidation?.find(v => v.fieldId === fieldId);
+    return this.intelligentFeatures?.smartValidation?.find(
+      (v) => v.fieldId === fieldId,
+    );
   }
 
   getConditionalLogicForField(fieldId: string): any {
-    return this.intelligentFeatures?.conditionalLogic?.find(c => c.fieldId === fieldId);
+    return this.intelligentFeatures?.conditionalLogic?.find(
+      (c) => c.fieldId === fieldId,
+    );
   }
 
   getSuggestedIntegrations(): string[] {
@@ -342,7 +396,9 @@ export class IntakeForm {
     return this.intelligentFeatures?.workflowConfiguration;
   }
 
-  updateAIGenerationContext(updates: Partial<NonNullable<IntakeForm['aiGenerationContext']>>): void {
+  updateAIGenerationContext(
+    updates: Partial<NonNullable<IntakeForm['aiGenerationContext']>>,
+  ): void {
     if (!this.aiGenerationContext) {
       this.aiGenerationContext = {
         originalDescription: '',
@@ -353,10 +409,10 @@ export class IntakeForm {
         processingTime: 0,
         modelUsed: '',
         complexity: 'moderate',
-        detectedPatterns: []
+        detectedPatterns: [],
       };
     }
-    
+
     Object.assign(this.aiGenerationContext, updates);
   }
 }

@@ -12,9 +12,16 @@ export class IntegrationService {
     private templateRepository: Repository<WorkflowTemplate>,
   ) {}
 
-  async triggerWebhook(organizationId: string, event: string, payload: any): Promise<void> {
-    const integrations = await this.getActiveIntegrations(organizationId, event);
-    
+  async triggerWebhook(
+    organizationId: string,
+    event: string,
+    payload: any,
+  ): Promise<void> {
+    const integrations = await this.getActiveIntegrations(
+      organizationId,
+      event,
+    );
+
     for (const integration of integrations) {
       try {
         await this.executeWebhook(integration, payload);
@@ -125,9 +132,9 @@ export class IntegrationService {
   }
 
   async sendCustomWebhook(
-    url: string, 
-    payload: any, 
-    headers?: Record<string, string>
+    url: string,
+    payload: any,
+    headers?: Record<string, string>,
   ): Promise<void> {
     const customHeaders = {
       'Content-Type': 'application/json',
@@ -140,12 +147,14 @@ export class IntegrationService {
   }
 
   async sendEmailNotification(
-    recipients: string[], 
-    subject: string, 
-    payload: any
+    recipients: string[],
+    subject: string,
+    payload: any,
   ): Promise<void> {
     // This would integrate with your email service (SendGrid, SES, etc.)
-    this.logger.log(`Email notification would be sent to: ${recipients.join(', ')}`);
+    this.logger.log(
+      `Email notification would be sent to: ${recipients.join(', ')}`,
+    );
     this.logger.log(`Subject: ${subject}`);
     this.logger.log(`Payload: ${JSON.stringify(payload, null, 2)}`);
   }
@@ -153,7 +162,7 @@ export class IntegrationService {
   async executeAutomation(
     organizationId: string,
     automation: any,
-    context: any
+    context: any,
   ): Promise<void> {
     const { trigger, action, conditions } = automation;
 
@@ -167,39 +176,45 @@ export class IntegrationService {
         case 'send_notification':
           await this.handleNotificationAction(automation, context);
           break;
-        
+
         case 'webhook':
           await this.handleWebhookAction(automation, context);
           break;
-        
+
         case 'move_to_stage':
           await this.handleStageTransitionAction(automation, context);
           break;
-        
+
         case 'assign_user':
           await this.handleAssignmentAction(automation, context);
           break;
-        
+
         default:
           this.logger.warn(`Unknown automation action: ${action}`);
       }
     } catch (error) {
-      this.logger.error(`Automation execution failed for action ${action}`, error);
+      this.logger.error(
+        `Automation execution failed for action ${action}`,
+        error,
+      );
       throw error;
     }
   }
 
   // Private helper methods
-  private async getActiveIntegrations(organizationId: string, event: string): Promise<any[]> {
+  private async getActiveIntegrations(
+    organizationId: string,
+    event: string,
+  ): Promise<any[]> {
     const templates = await this.templateRepository.find({
       where: { organizationId, isActive: true },
     });
 
     const integrations: any[] = [];
 
-    templates.forEach(template => {
+    templates.forEach((template) => {
       if (template.configuration.integrations) {
-        template.configuration.integrations.forEach(integration => {
+        template.configuration.integrations.forEach((integration) => {
           if (integration.events.includes(event)) {
             integrations.push(integration);
           }
@@ -211,8 +226,11 @@ export class IntegrationService {
   }
 
   private async executeWebhook(integration: any, payload: any): Promise<void> {
-    const transformedPayload = this.transformPayload(payload, integration.payload_template);
-    
+    const transformedPayload = this.transformPayload(
+      payload,
+      integration.payload_template,
+    );
+
     const headers = {
       'Content-Type': 'application/json',
       'X-Zephix-Event': integration.events[0], // First event in the list
@@ -220,7 +238,11 @@ export class IntegrationService {
       ...integration.headers,
     };
 
-    await this.sendWebhookRequest(integration.endpoint, transformedPayload, headers);
+    await this.sendWebhookRequest(
+      integration.endpoint,
+      transformedPayload,
+      headers,
+    );
   }
 
   private transformPayload(payload: any, template: Record<string, any>): any {
@@ -231,7 +253,11 @@ export class IntegrationService {
     const transformedPayload = {};
 
     for (const [key, value] of Object.entries(template)) {
-      if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
+      if (
+        typeof value === 'string' &&
+        value.startsWith('{{') &&
+        value.endsWith('}}')
+      ) {
         // Template variable like {{title}} or {{data.formData.email}}
         const path = value.slice(2, -2).trim();
         transformedPayload[key] = this.getNestedValue(payload, path);
@@ -250,9 +276,9 @@ export class IntegrationService {
   }
 
   private async sendWebhookRequest(
-    url: string, 
-    payload: any, 
-    headers: Record<string, string> = {}
+    url: string,
+    payload: any,
+    headers: Record<string, string> = {},
   ): Promise<void> {
     const defaultHeaders = {
       'Content-Type': 'application/json',
@@ -266,20 +292,25 @@ export class IntegrationService {
     });
 
     if (!response.ok) {
-      throw new Error(`Webhook failed with status ${response.status}: ${response.statusText}`);
+      throw new Error(
+        `Webhook failed with status ${response.status}: ${response.statusText}`,
+      );
     }
 
     this.logger.log(`Webhook successfully sent to ${url}`);
   }
 
-  private evaluateConditions(conditions: Record<string, any>, context: any): boolean {
+  private evaluateConditions(
+    conditions: Record<string, any>,
+    context: any,
+  ): boolean {
     if (!conditions || Object.keys(conditions).length === 0) {
       return true; // No conditions means always execute
     }
 
     for (const [field, expectedValue] of Object.entries(conditions)) {
       const actualValue = this.getNestedValue(context, field);
-      
+
       if (typeof expectedValue === 'object' && expectedValue.operator) {
         // Complex condition with operator
         if (!this.evaluateOperatorCondition(actualValue, expectedValue)) {
@@ -319,20 +350,27 @@ export class IntegrationService {
     }
   }
 
-  private async handleNotificationAction(automation: any, context: any): Promise<void> {
+  private async handleNotificationAction(
+    automation: any,
+    context: any,
+  ): Promise<void> {
     const { recipients, template, subject } = automation.config || {};
-    
+
     if (!recipients || !template) {
       throw new Error('Notification action requires recipients and template');
     }
 
-    const emailSubject = subject || `Notification from ${context.organizationName || 'Zephix'}`;
+    const emailSubject =
+      subject || `Notification from ${context.organizationName || 'Zephix'}`;
     await this.sendEmailNotification(recipients, emailSubject, context);
   }
 
-  private async handleWebhookAction(automation: any, context: any): Promise<void> {
+  private async handleWebhookAction(
+    automation: any,
+    context: any,
+  ): Promise<void> {
     const { url, headers, payload_template } = automation.config || {};
-    
+
     if (!url) {
       throw new Error('Webhook action requires URL');
     }
@@ -340,14 +378,24 @@ export class IntegrationService {
     await this.sendCustomWebhook(url, context, headers);
   }
 
-  private async handleStageTransitionAction(automation: any, context: any): Promise<void> {
+  private async handleStageTransitionAction(
+    automation: any,
+    context: any,
+  ): Promise<void> {
     // This would integrate with the workflow service to move to next stage
-    this.logger.log(`Stage transition automation triggered for instance ${context.instanceId}`);
+    this.logger.log(
+      `Stage transition automation triggered for instance ${context.instanceId}`,
+    );
   }
 
-  private async handleAssignmentAction(automation: any, context: any): Promise<void> {
+  private async handleAssignmentAction(
+    automation: any,
+    context: any,
+  ): Promise<void> {
     // This would integrate with the workflow service to assign users
-    this.logger.log(`Assignment automation triggered for instance ${context.instanceId}`);
+    this.logger.log(
+      `Assignment automation triggered for instance ${context.instanceId}`,
+    );
   }
 }
 

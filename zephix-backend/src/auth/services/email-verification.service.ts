@@ -46,9 +46,9 @@ export class EmailVerificationService {
     const hourInMs = 60 * 60 * 1000;
 
     if (currentTime - lastSent < hourInMs / 3) {
-      const attempts = Array.from(this.verificationRateLimit.entries())
-        .filter(([key]) => key.startsWith(`verification_${user.id}_`))
-        .length;
+      const attempts = Array.from(this.verificationRateLimit.entries()).filter(
+        ([key]) => key.startsWith(`verification_${user.id}_`),
+      ).length;
 
       if (attempts >= 3) {
         throw new HttpException(
@@ -99,7 +99,10 @@ export class EmailVerificationService {
       this.logger.log(`Verification email sent to ${user.email}`);
       return { success: true, token };
     } catch (error) {
-      this.logger.error(`Failed to send verification email to ${user.email}:`, error);
+      this.logger.error(
+        `Failed to send verification email to ${user.email}:`,
+        error,
+      );
       throw new BadRequestException('Failed to send verification email');
     }
   }
@@ -191,7 +194,9 @@ export class EmailVerificationService {
     };
   }
 
-  async getVerificationByToken(token: string): Promise<EmailVerification | null> {
+  async getVerificationByToken(
+    token: string,
+  ): Promise<EmailVerification | null> {
     return this.verificationRepository.findOne({
       where: { token },
       relations: ['user'],
@@ -202,19 +207,25 @@ export class EmailVerificationService {
     return randomBytes(32).toString('hex');
   }
 
-  private async sendVerificationEmailTemplate(data: VerificationEmailData): Promise<void> {
-    const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:5173';
+  private async sendVerificationEmailTemplate(
+    data: VerificationEmailData,
+  ): Promise<void> {
+    const frontendUrl =
+      this.configService.get<string>('app.frontendUrl') ||
+      'http://localhost:5173';
     const verificationUrl = `${frontendUrl}/verify-email/${data.verificationToken}`;
-    
+
     const subject = 'Verify your email address - Zephix';
-    
+
     const html = this.generateVerificationEmailTemplate({
       ...data,
       verificationUrl,
     });
 
     const mailOptions = {
-      from: this.configService.get<string>('email.fromAddress') || 'noreply@zephix.com',
+      from:
+        this.configService.get<string>('email.fromAddress') ||
+        'noreply@zephix.com',
       to: data.recipientEmail,
       subject,
       html,
@@ -224,7 +235,9 @@ export class EmailVerificationService {
     await this.emailService.sendEmail(mailOptions);
   }
 
-  private generateVerificationEmailTemplate(data: VerificationEmailData & { verificationUrl: string }): string {
+  private generateVerificationEmailTemplate(
+    data: VerificationEmailData & { verificationUrl: string },
+  ): string {
     return `
       <!DOCTYPE html>
       <html>

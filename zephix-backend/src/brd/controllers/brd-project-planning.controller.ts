@@ -26,7 +26,10 @@ import {
   ProjectPlanRefinementResponseDto,
   ProjectCreationResponseDto,
 } from '../dto/brd-project-planning.dto';
-import { BRDAnalysisResponseDto, GenerateProjectPlanDto } from '../dto/brd-analysis.dto';
+import {
+  BRDAnalysisResponseDto,
+  GenerateProjectPlanDto,
+} from '../dto/brd-analysis.dto';
 import { GeneratedProjectPlanResponseDto } from '../dto/brd-response.dto';
 
 @ApiTags('BRD Project Planning')
@@ -42,7 +45,8 @@ export class BRDProjectPlanningController {
   @Post(':brdId/analyze')
   @ApiOperation({
     summary: 'Analyze BRD for project planning',
-    description: 'Performs comprehensive analysis of a BRD to extract key elements for project planning'
+    description:
+      'Performs comprehensive analysis of a BRD to extract key elements for project planning',
   })
   @ApiParam({ name: 'brdId', description: 'ID of the BRD to analyze' })
   @ApiResponse({
@@ -61,7 +65,7 @@ export class BRDProjectPlanningController {
   async analyzeBRD(
     @Param('brdId', ParseUUIDPipe) brdId: string,
     @CurrentOrg() orgId: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     return this.brdAnalysisService.analyzeBRD(brdId, orgId, user.id);
   }
@@ -69,7 +73,8 @@ export class BRDProjectPlanningController {
   @Post(':brdId/generate-plan')
   @ApiOperation({
     summary: 'Generate project plan from BRD analysis',
-    description: 'Creates a comprehensive project plan based on BRD analysis and specified methodology'
+    description:
+      'Creates a comprehensive project plan based on BRD analysis and specified methodology',
   })
   @ApiParam({ name: 'brdId', description: 'ID of the BRD' })
   @ApiResponse({
@@ -89,21 +94,21 @@ export class BRDProjectPlanningController {
     @Param('brdId', ParseUUIDPipe) brdId: string,
     @Body() dto: GenerateProjectPlanDto,
     @CurrentOrg() orgId: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     const analysis = await this.brdAnalysisService.getLatestAnalysis(brdId);
     return this.brdAnalysisService.generateProjectPlan(
       analysis,
       dto.methodology,
       orgId,
-      user.id
+      user.id,
     );
   }
 
   @Get(':brdId/analysis')
   @ApiOperation({
     summary: 'Get BRD analysis results',
-    description: 'Retrieves all analysis results for a specific BRD'
+    description: 'Retrieves all analysis results for a specific BRD',
   })
   @ApiParam({ name: 'brdId', description: 'ID of the BRD' })
   @ApiResponse({
@@ -117,7 +122,7 @@ export class BRDProjectPlanningController {
   })
   async getBRDAnalysis(
     @Param('brdId', ParseUUIDPipe) brdId: string,
-    @CurrentOrg() orgId: string
+    @CurrentOrg() orgId: string,
   ) {
     return this.brdAnalysisService.getAnalysisByBRD(brdId, orgId);
   }
@@ -125,7 +130,7 @@ export class BRDProjectPlanningController {
   @Get(':brdId/plans')
   @ApiOperation({
     summary: 'Get generated project plans',
-    description: 'Retrieves all generated project plans for a specific BRD'
+    description: 'Retrieves all generated project plans for a specific BRD',
   })
   @ApiParam({ name: 'brdId', description: 'ID of the BRD' })
   @ApiResponse({
@@ -139,7 +144,7 @@ export class BRDProjectPlanningController {
   })
   async getGeneratedPlans(
     @Param('brdId', ParseUUIDPipe) brdId: string,
-    @CurrentOrg() orgId: string
+    @CurrentOrg() orgId: string,
   ) {
     return this.brdAnalysisService.getGeneratedPlans(brdId, orgId);
   }
@@ -147,7 +152,7 @@ export class BRDProjectPlanningController {
   @Post('plans/:planId/refine')
   @ApiOperation({
     summary: 'Refine project plan',
-    description: 'Refines an existing project plan based on refinement request'
+    description: 'Refines an existing project plan based on refinement request',
   })
   @ApiParam({ name: 'planId', description: 'ID of the project plan to refine' })
   @ApiResponse({
@@ -166,13 +171,13 @@ export class BRDProjectPlanningController {
   async refinePlan(
     @Param('planId', ParseUUIDPipe) planId: string,
     @Body() dto: RefinePlanDto,
-    @CurrentOrg() orgId: string
+    @CurrentOrg() orgId: string,
   ) {
     const refinedPlan = await this.brdAnalysisService.refinePlan(
       planId,
-      dto.refinementRequest
+      dto.refinementRequest,
     );
-    
+
     return {
       id: refinedPlan.id,
       originalPlanId: planId,
@@ -186,7 +191,7 @@ export class BRDProjectPlanningController {
   @Post('plans/:planId/create-project')
   @ApiOperation({
     summary: 'Create project from plan',
-    description: 'Creates a new project based on a generated project plan'
+    description: 'Creates a new project based on a generated project plan',
   })
   @ApiParam({ name: 'planId', description: 'ID of the project plan' })
   @ApiResponse({
@@ -206,15 +211,15 @@ export class BRDProjectPlanningController {
     @Param('planId', ParseUUIDPipe) planId: string,
     @Body() dto: CreateProjectFromPlanDto,
     @CurrentOrg() orgId: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     const result = await this.brdAnalysisService.createProjectFromPlan(
       planId,
       dto,
       orgId,
-      user.id
+      user.id,
     );
-    
+
     return {
       projectId: result.id,
       projectName: result.name,

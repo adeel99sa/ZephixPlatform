@@ -58,7 +58,11 @@ export class BRDRepository {
   /**
    * Update BRD with organization isolation
    */
-  async update(id: string, organizationId: string, updateData: Partial<BRD>): Promise<BRD | null> {
+  async update(
+    id: string,
+    organizationId: string,
+    updateData: Partial<BRD>,
+  ): Promise<BRD | null> {
     const result = await this.repository
       .createQueryBuilder()
       .update(BRD)
@@ -67,7 +71,10 @@ export class BRDRepository {
         version: () => 'version + 1',
         updated_at: new Date(),
       })
-      .where('id = :id AND organizationId = :organizationId', { id, organizationId })
+      .where('id = :id AND organizationId = :organizationId', {
+        id,
+        organizationId,
+      })
       .execute();
 
     if (result.affected === 0) {
@@ -92,8 +99,10 @@ export class BRDRepository {
       order = 'DESC',
     } = options;
 
-    const queryBuilder = this.createBaseQueryBuilder()
-      .where('brd.organizationId = :organizationId', { organizationId });
+    const queryBuilder = this.createBaseQueryBuilder().where(
+      'brd.organizationId = :organizationId',
+      { organizationId },
+    );
 
     // Apply filters
     if (status) {
@@ -111,10 +120,10 @@ export class BRDRepository {
           brd.search_vector @@ plainto_tsquery('english', :search) OR
           brd.payload::text ILIKE :searchPattern
         )`,
-        { 
+        {
           search,
-          searchPattern: `%${search}%`
-        }
+          searchPattern: `%${search}%`,
+        },
       );
     }
 
@@ -156,7 +165,11 @@ export class BRDRepository {
   /**
    * Change BRD status with workflow validation
    */
-  async changeStatus(id: string, organizationId: string, newStatus: BRDStatus): Promise<BRD | null> {
+  async changeStatus(
+    id: string,
+    organizationId: string,
+    newStatus: BRDStatus,
+  ): Promise<BRD | null> {
     const brd = await this.findById(id, organizationId);
     if (!brd) {
       return null;
@@ -191,10 +204,13 @@ export class BRDRepository {
       .groupBy('brd.status')
       .getRawMany();
 
-    const by_status = Object.values(BRDStatus).reduce((acc, status) => {
-      acc[status] = 0;
-      return acc;
-    }, {} as Record<BRDStatus, number>);
+    const by_status = Object.values(BRDStatus).reduce(
+      (acc, status) => {
+        acc[status] = 0;
+        return acc;
+      },
+      {} as Record<BRDStatus, number>,
+    );
 
     statusCounts.forEach(({ status, count }) => {
       by_status[status as BRDStatus] = parseInt(count, 10);
@@ -217,7 +233,11 @@ export class BRDRepository {
   /**
    * Search BRDs using full-text search
    */
-  async search(organizationId: string, query: string, limit = 10): Promise<BRD[]> {
+  async search(
+    organizationId: string,
+    query: string,
+    limit = 10,
+  ): Promise<BRD[]> {
     return this.repository
       .createQueryBuilder('brd')
       .where('brd.organizationId = :organizationId', { organizationId })
@@ -244,7 +264,7 @@ export class BRDRepository {
       )
       WHERE id = $1 AND organizationId = $2
       `,
-      [id, organizationId]
+      [id, organizationId],
     );
   }
 
@@ -278,7 +298,10 @@ export class BRDRepository {
         status: newStatus,
         updated_at: new Date(),
       })
-      .where('id IN (:...ids) AND organizationId = :organizationId', { ids, organizationId })
+      .where('id IN (:...ids) AND organizationId = :organizationId', {
+        ids,
+        organizationId,
+      })
       .execute();
 
     return result.affected || 0;
@@ -287,7 +310,10 @@ export class BRDRepository {
   /**
    * Get BRDs by project with tenant isolation
    */
-  async findByProject(project_id: string, organizationId: string): Promise<BRD[]> {
+  async findByProject(
+    project_id: string,
+    organizationId: string,
+  ): Promise<BRD[]> {
     return this.repository.find({
       where: {
         project_id,
@@ -302,7 +328,10 @@ export class BRDRepository {
   /**
    * Archive old BRDs (soft delete equivalent)
    */
-  async archiveOldBRDs(organizationId: string, daysOld: number): Promise<number> {
+  async archiveOldBRDs(
+    organizationId: string,
+    daysOld: number,
+  ): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
@@ -319,7 +348,7 @@ export class BRDRepository {
           organizationId,
           status: BRDStatus.DRAFT,
           cutoffDate,
-        }
+        },
       )
       .execute();
 

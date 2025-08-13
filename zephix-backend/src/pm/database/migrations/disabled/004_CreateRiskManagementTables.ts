@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateRiskManagementTables1704000004000 implements MigrationInterface {
+export class CreateRiskManagementTables1704000004000
+  implements MigrationInterface
+{
   name = 'CreateRiskManagementTables1704000004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -94,25 +96,51 @@ export class CreateRiskManagementTables1704000004000 implements MigrationInterfa
     `);
 
     // Create indexes (handle existing indexes gracefully)
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskScore" ON risks ("projectId", "riskScore")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskLevel" ON risks ("projectId", "riskLevel")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_assessments_riskId_assessmentDate" ON risk_assessments ("riskId", "assessmentDate")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_responses_riskId_strategy" ON risk_responses ("riskId", strategy)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_risk_monitoring_riskId_monitoringDate" ON risk_monitoring ("riskId", "monitoringDate")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskScore" ON risks ("projectId", "riskScore")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_risks_projectId_riskLevel" ON risks ("projectId", "riskLevel")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_risk_assessments_riskId_assessmentDate" ON risk_assessments ("riskId", "assessmentDate")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_risk_responses_riskId_strategy" ON risk_responses ("riskId", strategy)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_risk_monitoring_riskId_monitoringDate" ON risk_monitoring ("riskId", "monitoringDate")`,
+    );
 
     // Add foreign key constraints (handle existing constraints gracefully)
-    await queryRunner.query(`ALTER TABLE risks ADD CONSTRAINT IF NOT EXISTS fk_risks_project_id FOREIGN KEY ("projectId") REFERENCES projects(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE risk_assessments ADD CONSTRAINT IF NOT EXISTS fk_risk_assessments_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE risk_responses ADD CONSTRAINT IF NOT EXISTS fk_risk_responses_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE risk_monitoring ADD CONSTRAINT IF NOT EXISTS fk_risk_monitoring_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`);
+    await queryRunner.query(
+      `ALTER TABLE risks ADD CONSTRAINT IF NOT EXISTS fk_risks_project_id FOREIGN KEY ("projectId") REFERENCES projects(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risk_assessments ADD CONSTRAINT IF NOT EXISTS fk_risk_assessments_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risk_responses ADD CONSTRAINT IF NOT EXISTS fk_risk_responses_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risk_monitoring ADD CONSTRAINT IF NOT EXISTS fk_risk_monitoring_risk_id FOREIGN KEY ("riskId") REFERENCES risks(id) ON DELETE CASCADE`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key constraints
-    await queryRunner.query(`ALTER TABLE risk_monitoring DROP CONSTRAINT IF EXISTS fk_risk_monitoring_risk_id`);
-    await queryRunner.query(`ALTER TABLE risk_responses DROP CONSTRAINT IF EXISTS fk_risk_responses_risk_id`);
-    await queryRunner.query(`ALTER TABLE risk_assessments DROP CONSTRAINT IF EXISTS fk_risk_assessments_risk_id`);
-    await queryRunner.query(`ALTER TABLE risks DROP CONSTRAINT IF EXISTS fk_risks_project_id`);
+    await queryRunner.query(
+      `ALTER TABLE risk_monitoring DROP CONSTRAINT IF EXISTS fk_risk_monitoring_risk_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risk_responses DROP CONSTRAINT IF EXISTS fk_risk_responses_risk_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risk_assessments DROP CONSTRAINT IF EXISTS fk_risk_assessments_risk_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE risks DROP CONSTRAINT IF EXISTS fk_risks_project_id`,
+    );
 
     // Drop tables
     await queryRunner.query(`DROP TABLE IF EXISTS risk_monitoring`);

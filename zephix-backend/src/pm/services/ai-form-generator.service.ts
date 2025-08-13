@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LLMProviderService } from '../../ai/llm-provider.service';
-import { FormField, FormSection, FormSchema } from '../entities/intake-form.entity';
+import {
+  FormField,
+  FormSection,
+  FormSchema,
+} from '../entities/intake-form.entity';
 
 export interface FormFieldAnalysis {
   suggestedFields: {
@@ -72,42 +76,59 @@ export interface GeneratedFormResult {
 export class AIFormGeneratorService {
   private readonly logger = new Logger(AIFormGeneratorService.name);
 
-  constructor(
-    private llmProvider: LLMProviderService,
-  ) {}
+  constructor(private llmProvider: LLMProviderService) {}
 
   async generateFormFromDescription(
-    description: string, 
+    description: string,
     organizationId: string,
     options?: {
       department?: string;
       projectType?: string;
       requiredIntegrations?: string[];
-    }
+    },
   ): Promise<GeneratedFormResult> {
     const startTime = Date.now();
-    
-    this.logger.log(`🎯 Generating form from natural language description for org ${organizationId}`);
-    
+
+    this.logger.log(
+      `🎯 Generating form from natural language description for org ${organizationId}`,
+    );
+
     try {
       // Analyze the description to extract requirements
       const analysis = await this.analyzeDescription(description, options);
-      
+
       // Generate the form structure using AI
-      const formGeneration = await this.generateFormStructure(description, analysis, options);
-      
+      const formGeneration = await this.generateFormStructure(
+        description,
+        analysis,
+        options,
+      );
+
       // Generate workflow configuration
-      const workflowConfig = await this.generateWorkflowLogic(formGeneration.formStructure, description, options);
-      
+      const workflowConfig = await this.generateWorkflowLogic(
+        formGeneration.formStructure,
+        description,
+        options,
+      );
+
       // Generate intelligent features
-      const intelligentFeatures = await this.generateIntelligentFeatures(formGeneration.formStructure, description);
-      
+      const intelligentFeatures = await this.generateIntelligentFeatures(
+        formGeneration.formStructure,
+        description,
+      );
+
       // Calculate confidence score
-      const confidence = this.calculateConfidenceScore(formGeneration, analysis);
-      
+      const confidence = this.calculateConfidenceScore(
+        formGeneration,
+        analysis,
+      );
+
       // Generate improvement suggestions
-      const improvements = await this.generateImprovementSuggestions(formGeneration.formStructure, description);
-      
+      const improvements = await this.generateImprovementSuggestions(
+        formGeneration.formStructure,
+        description,
+      );
+
       const result: GeneratedFormResult = {
         formStructure: formGeneration.formStructure,
         workflowConfiguration: workflowConfig,
@@ -119,12 +140,14 @@ export class AIFormGeneratorService {
           processingTime: Date.now() - startTime,
           modelUsed: this.llmProvider.getProviderSettings().model,
           complexity: analysis.estimatedComplexity,
-          detectedPatterns: this.extractPatterns(description)
-        }
+          detectedPatterns: this.extractPatterns(description),
+        },
       };
 
-      this.logger.log(`✅ Form generation completed in ${result.generationMetadata.processingTime}ms with ${confidence * 100}% confidence`);
-      
+      this.logger.log(
+        `✅ Form generation completed in ${result.generationMetadata.processingTime}ms with ${confidence * 100}% confidence`,
+      );
+
       return result;
     } catch (error) {
       this.logger.error(`❌ Form generation failed: ${error.message}`);
@@ -133,33 +156,42 @@ export class AIFormGeneratorService {
   }
 
   async refineForm(
-    existingForm: GeneratedFormResult, 
-    refinementRequest: string
+    existingForm: GeneratedFormResult,
+    refinementRequest: string,
   ): Promise<GeneratedFormResult> {
     this.logger.log(`🔄 Refining existing form based on user request`);
-    
+
     try {
-      const refinementPrompt = this.buildRefinementPrompt(existingForm, refinementRequest);
-      
+      const refinementPrompt = this.buildRefinementPrompt(
+        existingForm,
+        refinementRequest,
+      );
+
       const llmResponse = await this.llmProvider.sendRequest({
         prompt: refinementPrompt,
-        systemPrompt: 'You are an expert form designer that refines existing forms based on user feedback. Maintain form integrity while applying requested changes.',
+        systemPrompt:
+          'You are an expert form designer that refines existing forms based on user feedback. Maintain form integrity while applying requested changes.',
         temperature: 0.3,
-        maxTokens: 3000
+        maxTokens: 3000,
       });
 
       const refinedStructure = this.parseAIResponse(llmResponse.content);
-      
+
       // Merge refinements with existing form
       const updatedForm: GeneratedFormResult = {
         ...existingForm,
         formStructure: refinedStructure.formStructure,
-        confidence: Math.min(existingForm.confidence * 0.95, refinedStructure.confidence || 0.8),
-        suggestedImprovements: refinedStructure.suggestedImprovements || existingForm.suggestedImprovements,
+        confidence: Math.min(
+          existingForm.confidence * 0.95,
+          refinedStructure.confidence || 0.8,
+        ),
+        suggestedImprovements:
+          refinedStructure.suggestedImprovements ||
+          existingForm.suggestedImprovements,
         generationMetadata: {
           ...existingForm.generationMetadata,
           processingTime: Date.now() - Date.now(), // Reset for this operation
-        }
+        },
       };
 
       this.logger.log(`✅ Form refinement completed`);
@@ -170,7 +202,10 @@ export class AIFormGeneratorService {
     }
   }
 
-  private async analyzeDescription(description: string, options?: any): Promise<FormFieldAnalysis> {
+  private async analyzeDescription(
+    description: string,
+    options?: any,
+  ): Promise<FormFieldAnalysis> {
     const analysisPrompt = `
 Analyze this project intake form description and extract key requirements:
 
@@ -205,16 +240,16 @@ Return JSON with structure:
     const response = await this.llmProvider.sendRequest({
       prompt: analysisPrompt,
       temperature: 0.2,
-      maxTokens: 2000
+      maxTokens: 2000,
     });
 
     return this.parseAnalysisResponse(response.content);
   }
 
   private async generateFormStructure(
-    description: string, 
-    analysis: FormFieldAnalysis, 
-    options?: any
+    description: string,
+    analysis: FormFieldAnalysis,
+    options?: any,
   ): Promise<{ formStructure: FormSchema; confidence: number }> {
     const generationPrompt = `
 Create a comprehensive intake form structure based on this description:
@@ -273,16 +308,16 @@ Return JSON structure:
     const response = await this.llmProvider.sendRequest({
       prompt: generationPrompt,
       temperature: 0.1,
-      maxTokens: 4000
+      maxTokens: 4000,
     });
 
     return this.parseFormStructureResponse(response.content);
   }
 
   private async generateWorkflowLogic(
-    formStructure: FormSchema, 
-    description: string, 
-    options?: any
+    formStructure: FormSchema,
+    description: string,
+    options?: any,
   ): Promise<WorkflowConfiguration> {
     const workflowPrompt = `
 Based on this form structure and description, suggest an appropriate workflow:
@@ -333,95 +368,130 @@ Return JSON:
     const response = await this.llmProvider.sendRequest({
       prompt: workflowPrompt,
       temperature: 0.2,
-      maxTokens: 2000
+      maxTokens: 2000,
     });
 
     return this.parseWorkflowResponse(response.content);
   }
 
-  private async generateIntelligentFeatures(formStructure: FormSchema, description: string) {
+  private async generateIntelligentFeatures(
+    formStructure: FormSchema,
+    description: string,
+  ) {
     // Generate conditional logic, validation rules, and integration suggestions
     return {
       conditionalLogic: [],
-      validationRules: formStructure.fields.filter(f => f.validation).map(field => ({
-        fieldId: field.id,
-        rule: field.validation?.pattern || 'required',
-        message: field.validation?.message || `${field.label} is required`
-      })),
+      validationRules: formStructure.fields
+        .filter((f) => f.validation)
+        .map((field) => ({
+          fieldId: field.id,
+          rule: field.validation?.pattern || 'required',
+          message: field.validation?.message || `${field.label} is required`,
+        })),
       integrationSuggestions: this.suggestIntegrations(description),
-      autoFieldTypes: formStructure.fields.reduce((acc, field) => {
-        acc[field.id] = field.type;
-        return acc;
-      }, {} as Record<string, string>)
+      autoFieldTypes: formStructure.fields.reduce(
+        (acc, field) => {
+          acc[field.id] = field.type;
+          return acc;
+        },
+        {} as Record<string, string>,
+      ),
     };
   }
 
-  private async generateImprovementSuggestions(formStructure: FormSchema, description: string): Promise<string[]> {
+  private async generateImprovementSuggestions(
+    formStructure: FormSchema,
+    description: string,
+  ): Promise<string[]> {
     const suggestions: string[] = [];
-    
+
     // Analyze form completeness
     if (formStructure.fields.length < 3) {
-      suggestions.push("Consider adding more fields to capture comprehensive project information");
+      suggestions.push(
+        'Consider adding more fields to capture comprehensive project information',
+      );
     }
-    
-    if (!formStructure.fields.some(f => f.type === 'date')) {
-      suggestions.push("Add a deadline or timeline field to help with project planning");
+
+    if (!formStructure.fields.some((f) => f.type === 'date')) {
+      suggestions.push(
+        'Add a deadline or timeline field to help with project planning',
+      );
     }
-    
-    if (!formStructure.fields.some(f => f.type === 'select' && f.label.toLowerCase().includes('priority'))) {
-      suggestions.push("Include a priority level field to help with request triage");
+
+    if (
+      !formStructure.fields.some(
+        (f) =>
+          f.type === 'select' && f.label.toLowerCase().includes('priority'),
+      )
+    ) {
+      suggestions.push(
+        'Include a priority level field to help with request triage',
+      );
     }
-    
-    if (!formStructure.fields.some(f => f.type === 'file')) {
-      suggestions.push("Consider adding file upload for supporting documents");
+
+    if (!formStructure.fields.some((f) => f.type === 'file')) {
+      suggestions.push('Consider adding file upload for supporting documents');
     }
 
     return suggestions;
   }
 
-  private calculateConfidenceScore(generation: any, analysis: FormFieldAnalysis): number {
+  private calculateConfidenceScore(
+    generation: any,
+    analysis: FormFieldAnalysis,
+  ): number {
     let confidence = 0.8; // Base confidence
-    
+
     // Increase confidence based on field coverage
-    const requiredFieldsCovered = analysis.suggestedFields.filter(f => 
-      generation.formStructure.fields.some((gf: FormField) => 
-        gf.label.toLowerCase().includes(f.label.toLowerCase())
-      )
+    const requiredFieldsCovered = analysis.suggestedFields.filter((f) =>
+      generation.formStructure.fields.some((gf: FormField) =>
+        gf.label.toLowerCase().includes(f.label.toLowerCase()),
+      ),
     ).length;
-    
-    const coverageRatio = requiredFieldsCovered / Math.max(analysis.suggestedFields.length, 1);
-    confidence += (coverageRatio * 0.15);
-    
+
+    const coverageRatio =
+      requiredFieldsCovered / Math.max(analysis.suggestedFields.length, 1);
+    confidence += coverageRatio * 0.15;
+
     // Adjust based on complexity
     if (analysis.estimatedComplexity === 'simple') confidence += 0.05;
     if (analysis.estimatedComplexity === 'complex') confidence -= 0.05;
-    
+
     return Math.min(Math.max(confidence, 0.3), 0.98);
   }
 
   private extractPatterns(description: string): string[] {
     const patterns: string[] = [];
-    
-    if (description.toLowerCase().includes('budget')) patterns.push('financial');
-    if (description.toLowerCase().includes('deadline')) patterns.push('timeline');
-    if (description.toLowerCase().includes('approval')) patterns.push('approval_workflow');
-    if (description.toLowerCase().includes('marketing')) patterns.push('marketing_project');
-    if (description.toLowerCase().includes('urgent')) patterns.push('priority_handling');
-    
+
+    if (description.toLowerCase().includes('budget'))
+      patterns.push('financial');
+    if (description.toLowerCase().includes('deadline'))
+      patterns.push('timeline');
+    if (description.toLowerCase().includes('approval'))
+      patterns.push('approval_workflow');
+    if (description.toLowerCase().includes('marketing'))
+      patterns.push('marketing_project');
+    if (description.toLowerCase().includes('urgent'))
+      patterns.push('priority_handling');
+
     return patterns;
   }
 
   private suggestIntegrations(description: string): string[] {
     const integrations: string[] = [];
-    
+
     if (description.toLowerCase().includes('slack')) integrations.push('slack');
     if (description.toLowerCase().includes('jira')) integrations.push('jira');
-    if (description.toLowerCase().includes('email')) integrations.push('email_notifications');
-    
+    if (description.toLowerCase().includes('email'))
+      integrations.push('email_notifications');
+
     return integrations;
   }
 
-  private buildRefinementPrompt(existingForm: GeneratedFormResult, refinementRequest: string): string {
+  private buildRefinementPrompt(
+    existingForm: GeneratedFormResult,
+    refinementRequest: string,
+  ): string {
     return `
 Refine this existing form based on the user's request:
 
@@ -459,15 +529,18 @@ Return the complete updated form structure in the same JSON format.
       suggestedFields: parsed.suggestedFields || [],
       detectedDepartment: parsed.detectedDepartment,
       estimatedComplexity: parsed.estimatedComplexity || 'moderate',
-      suggestedWorkflow: parsed.suggestedWorkflow
+      suggestedWorkflow: parsed.suggestedWorkflow,
     };
   }
 
-  private parseFormStructureResponse(content: string): { formStructure: FormSchema; confidence: number } {
+  private parseFormStructureResponse(content: string): {
+    formStructure: FormSchema;
+    confidence: number;
+  } {
     const parsed = this.parseAIResponse(content);
     return {
       formStructure: parsed.formStructure,
-      confidence: parsed.confidence || 0.8
+      confidence: parsed.confidence || 0.8,
     };
   }
 
@@ -477,7 +550,7 @@ Return the complete updated form structure in the same JSON format.
       approvalChain: parsed.approvalChain || [],
       assignmentRules: parsed.assignmentRules || [],
       notifications: parsed.notifications || [],
-      automationTriggers: parsed.automationTriggers || []
+      automationTriggers: parsed.automationTriggers || [],
     };
   }
 }

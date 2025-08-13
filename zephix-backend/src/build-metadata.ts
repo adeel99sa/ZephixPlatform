@@ -1,1 +1,4 @@
-export const BUILD_METADATA = { sha: '2f2ad8365b4278b440e7fa4d38c4cdecab906231', timestamp: '2025-08-13T04:26:43.3NZ' };
+export const BUILD_METADATA = {
+  sha: '0cc56b605306c997dc8b57d2be8c15ec267eefef',
+  timestamp: '2025-08-13T15:49:40.3NZ',
+};

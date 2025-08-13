@@ -7,7 +7,8 @@ export class IntelligenceController {
   @Get()
   @ApiOperation({
     summary: 'Intelligence Overview',
-    description: 'Provides an overview of available AI intelligence services and endpoints',
+    description:
+      'Provides an overview of available AI intelligence services and endpoints',
   })
   @ApiResponse({
     status: 200,
@@ -44,7 +45,8 @@ export class IntelligenceController {
       timestamp: new Date().toISOString(),
       services: {
         'ai-intelligence': {
-          description: 'Comprehensive AI-powered project intelligence and analysis',
+          description:
+            'Comprehensive AI-powered project intelligence and analysis',
           baseUrl: '/ai-intelligence',
           endpoints: [
             'POST /analyze-project-context - Analyze project context and generate intelligence',
@@ -61,7 +63,8 @@ export class IntelligenceController {
           ],
         },
         'ai-chat': {
-          description: 'AI-powered chat interface for project management assistance',
+          description:
+            'AI-powered chat interface for project management assistance',
           baseUrl: '/ai-chat',
           endpoints: [
             'POST /stream - Stream AI chat responses',
@@ -78,8 +81,9 @@ export class IntelligenceController {
             'POST /risk-assessment - Assess project risks',
           ],
         },
-        'brd': {
-          description: 'Business Requirements Document management with AI insights',
+        brd: {
+          description:
+            'Business Requirements Document management with AI insights',
           baseUrl: '/api/pm/brds',
           endpoints: [
             'GET / - List BRDs',
@@ -93,7 +97,8 @@ export class IntelligenceController {
         },
       },
       usage: {
-        authentication: 'Most endpoints require JWT authentication via Authorization: Bearer <token>',
+        authentication:
+          'Most endpoints require JWT authentication via Authorization: Bearer <token>',
         contentType: 'application/json',
         cors: 'CORS is enabled for development',
       },

@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { register, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
+import {
+  register,
+  Counter,
+  Histogram,
+  Gauge,
+  collectDefaultMetrics,
+} from 'prom-client';
 
 @Injectable()
 export class MetricsService {
@@ -170,16 +176,16 @@ export class MetricsService {
       organizationId: organizationId || 'unknown',
     });
 
-    this.databaseQueryDuration.observe(
-      { operation, table },
-      duration,
-    );
+    this.databaseQueryDuration.observe({ operation, table }, duration);
   }
 
   /**
    * Record authentication attempt metrics
    */
-  recordAuthAttempt(result: 'success' | 'failure', organizationId?: string): void {
+  recordAuthAttempt(
+    result: 'success' | 'failure',
+    organizationId?: string,
+  ): void {
     this.authAttemptsTotal.inc({
       result,
       organizationId: organizationId || 'unknown',
@@ -212,7 +218,10 @@ export class MetricsService {
   /**
    * Record queue job metrics
    */
-  recordQueueJob(queueName: string, status: 'completed' | 'failed' | 'delayed'): void {
+  recordQueueJob(
+    queueName: string,
+    status: 'completed' | 'failed' | 'delayed',
+  ): void {
     this.queueJobsTotal.inc({
       queue: queueName,
       status,
@@ -234,11 +243,15 @@ export class MetricsService {
   }
 
   // Legacy methods for backward compatibility with existing services
-  
+
   /**
    * Increment LLM request counter (legacy method)
    */
-  incrementLlmRequests(provider: string, model: string, status: 'success' | 'error'): void {
+  incrementLlmRequests(
+    provider: string,
+    model: string,
+    status: 'success' | 'error',
+  ): void {
     // Map to existing counter with different labels
     this.errorsTotal.inc({
       type: `llm_${status}`,
@@ -261,7 +274,12 @@ export class MetricsService {
   /**
    * Increment LLM token usage (legacy method)
    */
-  incrementLlmTokens(provider: string, model: string, type: 'input' | 'output', count: number): void {
+  incrementLlmTokens(
+    provider: string,
+    model: string,
+    type: 'input' | 'output',
+    count: number,
+  ): void {
     // This could be implemented as a gauge or counter depending on needs
     // For now, we'll skip this to avoid complexity
   }

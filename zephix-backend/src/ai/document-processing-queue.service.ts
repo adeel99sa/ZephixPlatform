@@ -1,7 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, Job } from 'bullmq';
-import { DocumentParserService, ParsedDocument } from './document-parser.service';
+import {
+  DocumentParserService,
+  ParsedDocument,
+} from './document-parser.service';
 import { EmbeddingService } from './embedding.service';
 import { VectorDatabaseService } from './vector-database.service';
 
@@ -104,27 +107,36 @@ export class DocumentProcessingQueueService implements OnModuleInit {
     );
 
     // Handle worker events
-    this.worker.on('completed', (job: Job, result: DocumentProcessingResult) => {
-      this.logger.log(`Job ${job.id} completed successfully for document ${result.documentId}`);
-    });
+    this.worker.on(
+      'completed',
+      (job: Job, result: DocumentProcessingResult) => {
+        this.logger.log(
+          `Job ${job.id} completed successfully for document ${result.documentId}`,
+        );
+      },
+    );
 
     this.worker.on('failed', (job: Job, error: Error) => {
-      this.logger.error(`Job ${job.id} failed for document ${job.data.documentId}: ${error.message}`);
+      this.logger.error(
+        `Job ${job.id} failed for document ${job.data.documentId}: ${error.message}`,
+      );
     });
 
     this.worker.on('error', (error: Error) => {
       this.logger.error(`Worker error: ${error.message}`, error.stack);
     });
 
-    this.logger.log(`Document processing worker initialized with concurrency: ${this.concurrency}`);
+    this.logger.log(
+      `Document processing worker initialized with concurrency: ${this.concurrency}`,
+    );
   }
-
-
 
   /**
    * Add a document processing job to the queue
    */
-  async addDocumentProcessingJob(jobData: DocumentProcessingJob): Promise<string> {
+  async addDocumentProcessingJob(
+    jobData: DocumentProcessingJob,
+  ): Promise<string> {
     try {
       const job = await this.queue.add('process-document', jobData, {
         jobId: jobData.documentId,
@@ -132,11 +144,16 @@ export class DocumentProcessingQueueService implements OnModuleInit {
         delay: 0,
       });
 
-      this.logger.log(`Added document processing job: ${job.id} for ${jobData.filename}`);
-      
+      this.logger.log(
+        `Added document processing job: ${job.id} for ${jobData.filename}`,
+      );
+
       return job.id as string;
     } catch (error) {
-      this.logger.error(`Failed to add document processing job: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to add document processing job: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -147,7 +164,7 @@ export class DocumentProcessingQueueService implements OnModuleInit {
   async getJobStatus(jobId: string): Promise<JobStatus | null> {
     try {
       const job = await this.queue.getJob(jobId);
-      
+
       if (!job) {
         return null;
       }
@@ -170,7 +187,9 @@ export class DocumentProcessingQueueService implements OnModuleInit {
 
       return status;
     } catch (error) {
-      this.logger.error(`Failed to get job status for ${jobId}: ${error.message}`);
+      this.logger.error(
+        `Failed to get job status for ${jobId}: ${error.message}`,
+      );
       return null;
     }
   }
@@ -178,16 +197,23 @@ export class DocumentProcessingQueueService implements OnModuleInit {
   /**
    * Get all jobs for a specific organization
    */
-  async getOrganizationJobs(organizationId: string, limit: number = 50): Promise<JobStatus[]> {
+  async getOrganizationJobs(
+    organizationId: string,
+    limit: number = 50,
+  ): Promise<JobStatus[]> {
     try {
-      const jobs = await this.queue.getJobs(['waiting', 'active', 'completed', 'failed'], 0, limit);
-      
-      const organizationJobs = jobs.filter(job => 
-        job.data.organizationId === organizationId
+      const jobs = await this.queue.getJobs(
+        ['waiting', 'active', 'completed', 'failed'],
+        0,
+        limit,
+      );
+
+      const organizationJobs = jobs.filter(
+        (job) => job.data.organizationId === organizationId,
       );
 
       const jobStatuses: JobStatus[] = [];
-      
+
       for (const job of organizationJobs) {
         const status = await this.getJobStatus(job.id as string);
         if (status) {
@@ -195,7 +221,9 @@ export class DocumentProcessingQueueService implements OnModuleInit {
         }
       }
 
-      return jobStatuses.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return jobStatuses.sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
     } catch (error) {
       this.logger.error(`Failed to get organization jobs: ${error.message}`);
       return [];
@@ -208,7 +236,7 @@ export class DocumentProcessingQueueService implements OnModuleInit {
   async cancelJob(jobId: string): Promise<boolean> {
     try {
       const job = await this.queue.getJob(jobId);
-      
+
       if (!job) {
         return false;
       }
@@ -219,7 +247,7 @@ export class DocumentProcessingQueueService implements OnModuleInit {
 
       await job.remove();
       this.logger.log(`Cancelled job: ${jobId}`);
-      
+
       return true;
     } catch (error) {
       this.logger.error(`Failed to cancel job ${jobId}: ${error.message}`);
@@ -268,9 +296,12 @@ export class DocumentProcessingQueueService implements OnModuleInit {
   /**
    * Process a document (worker function)
    */
-  private async processDocument(job: Job<DocumentProcessingJob>): Promise<DocumentProcessingResult> {
+  private async processDocument(
+    job: Job<DocumentProcessingJob>,
+  ): Promise<DocumentProcessingResult> {
     const startTime = Date.now();
-    const { documentId, filename, fileBuffer, organizationId, userId } = job.data;
+    const { documentId, filename, fileBuffer, organizationId, userId } =
+      job.data;
 
     try {
       this.logger.log(`Processing document: ${filename} (${documentId})`);
@@ -297,7 +328,9 @@ export class DocumentProcessingQueueService implements OnModuleInit {
       );
 
       if (embeddings.length !== parseResult.document.chunks.length) {
-        throw new Error(`Embedding generation mismatch: expected ${parseResult.document.chunks.length}, got ${embeddings.length}`);
+        throw new Error(
+          `Embedding generation mismatch: expected ${parseResult.document.chunks.length}, got ${embeddings.length}`,
+        );
       }
 
       await job.updateProgress(70);
@@ -332,7 +365,7 @@ export class DocumentProcessingQueueService implements OnModuleInit {
       return result;
     } catch (error) {
       const processingTime = Date.now() - startTime;
-      
+
       this.logger.error(
         `Failed to process document ${documentId}: ${error.message}`,
         error.stack,
@@ -352,7 +385,9 @@ export class DocumentProcessingQueueService implements OnModuleInit {
   /**
    * Convert job state to string status
    */
-  private async getJobStatusString(job: Job): Promise<'pending' | 'processing' | 'completed' | 'failed'> {
+  private async getJobStatusString(
+    job: Job,
+  ): Promise<'pending' | 'processing' | 'completed' | 'failed'> {
     if (await job.isCompleted()) return 'completed';
     if (await job.isFailed()) return 'failed';
     if (await job.isActive()) return 'processing';

@@ -1,11 +1,11 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class StatusReporting1755044971817 implements MigrationInterface {
-    name = 'StatusReporting1755044971817'
+  name = 'StatusReporting1755044971817';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Create status_reports table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create status_reports table
+    await queryRunner.query(`
             CREATE TABLE "status_reports" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "project_id" uuid NOT NULL,
@@ -21,8 +21,8 @@ export class StatusReporting1755044971817 implements MigrationInterface {
             )
         `);
 
-        // Add foreign key constraint
-        await queryRunner.query(`
+    // Add foreign key constraint
+    await queryRunner.query(`
             ALTER TABLE "status_reports" 
             ADD CONSTRAINT "FK_status_reports_project" 
             FOREIGN KEY ("project_id") 
@@ -31,33 +31,35 @@ export class StatusReporting1755044971817 implements MigrationInterface {
             ON UPDATE NO ACTION
         `);
 
-        // Create indexes
-        await queryRunner.query(`
+    // Create indexes
+    await queryRunner.query(`
             CREATE INDEX "IDX_status_reports_project_id" 
             ON "status_reports" ("project_id")
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX "IDX_status_reports_report_date" 
             ON "status_reports" ("report_date")
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE INDEX "IDX_status_reports_status" 
             ON "status_reports" ("status")
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop indexes
-        await queryRunner.query(`DROP INDEX "IDX_status_reports_status"`);
-        await queryRunner.query(`DROP INDEX "IDX_status_reports_report_date"`);
-        await queryRunner.query(`DROP INDEX "IDX_status_reports_project_id"`);
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop indexes
+    await queryRunner.query(`DROP INDEX "IDX_status_reports_status"`);
+    await queryRunner.query(`DROP INDEX "IDX_status_reports_report_date"`);
+    await queryRunner.query(`DROP INDEX "IDX_status_reports_project_id"`);
 
-        // Drop foreign key constraint
-        await queryRunner.query(`ALTER TABLE "status_reports" DROP CONSTRAINT "FK_status_reports_project"`);
+    // Drop foreign key constraint
+    await queryRunner.query(
+      `ALTER TABLE "status_reports" DROP CONSTRAINT "FK_status_reports_project"`,
+    );
 
-        // Drop table
-        await queryRunner.query(`DROP TABLE "status_reports"`);
-    }
+    // Drop table
+    await queryRunner.query(`DROP TABLE "status_reports"`);
+  }
 }

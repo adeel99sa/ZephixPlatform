@@ -7,8 +7,14 @@ import { DocumentIntelligenceController } from './controllers/document-intellige
 import { IntakeDesignerController } from './controllers/intake-designer.controller';
 
 // Workflow Framework Controllers
-import { WorkflowTemplateController, WorkflowInstanceController } from './controllers/workflow-template.controller';
-import { IntakeFormController, PublicIntakeController } from './controllers/intake-form.controller';
+import {
+  WorkflowTemplateController,
+  WorkflowInstanceController,
+} from './controllers/workflow-template.controller';
+import {
+  IntakeFormController,
+  PublicIntakeController,
+} from './controllers/intake-form.controller';
 
 import { AIPMAssistantService } from './services/ai-pm-assistant.service';
 import { ZephixAIIntelligenceService } from './services/zephix-ai-intelligence.service';
@@ -79,8 +85,8 @@ import { FinancialIntegration } from './integrations/financial.integration';
     ]),
   ],
   controllers: [
-    AIPMAssistantController, 
-    AIIntelligenceController, 
+    AIPMAssistantController,
+    AIIntelligenceController,
     AIChatController,
     DocumentIntelligenceController,
     IntakeDesignerController,
@@ -91,8 +97,8 @@ import { FinancialIntegration } from './integrations/financial.integration';
     PublicIntakeController,
   ],
   providers: [
-    AIPMAssistantService, 
-    ZephixAIIntelligenceService, 
+    AIPMAssistantService,
+    ZephixAIIntelligenceService,
     AIChatService,
     ZephixIntelligentDocumentProcessor,
     AIFormGeneratorService,
@@ -106,8 +112,8 @@ import { FinancialIntegration } from './integrations/financial.integration';
     IntegrationService,
   ],
   exports: [
-    AIPMAssistantService, 
-    ZephixAIIntelligenceService, 
+    AIPMAssistantService,
+    ZephixAIIntelligenceService,
     AIChatService,
     ZephixIntelligentDocumentProcessor,
     AIFormGeneratorService,

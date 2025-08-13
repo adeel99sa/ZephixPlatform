@@ -1,6 +1,13 @@
 // Core AI Intelligence Engine Interfaces
 export interface ProjectIntelligence {
-  projectType: 'infrastructure' | 'software_development' | 'business_process' | 'compliance' | 'integration' | 'analytics' | 'custom';
+  projectType:
+    | 'infrastructure'
+    | 'software_development'
+    | 'business_process'
+    | 'compliance'
+    | 'integration'
+    | 'analytics'
+    | 'custom';
   complexityFactors: {
     stakeholderCount: number;
     technicalComponents: string[];
@@ -8,7 +15,12 @@ export interface ProjectIntelligence {
     timelineConstraints: string[];
     budgetConstraints: string[];
   };
-  suggestedMethodology: 'agile' | 'waterfall' | 'hybrid' | 'lean' | 'custom_blend';
+  suggestedMethodology:
+    | 'agile'
+    | 'waterfall'
+    | 'hybrid'
+    | 'lean'
+    | 'custom_blend';
   identifiedRisks: RiskPattern[];
   mitigationStrategies: string[];
   aiInsights: {
@@ -70,7 +82,12 @@ export interface DocumentIntelligence {
 
 export interface ConflictAnalysis {
   conflictId: string;
-  conflictType: 'requirement' | 'constraint' | 'timeline' | 'budget' | 'stakeholder';
+  conflictType:
+    | 'requirement'
+    | 'constraint'
+    | 'timeline'
+    | 'budget'
+    | 'stakeholder';
   description: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   resolution: string;

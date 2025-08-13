@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 
 @Entity('risk_assessments')
@@ -14,8 +23,8 @@ export class RiskAssessment {
   @Column('date')
   assessmentDate: Date;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['initial', 'periodic', 'triggered', 'milestone', 'ad-hoc'],
   })
   assessmentType: string;
@@ -134,10 +143,10 @@ export class RiskAssessment {
   @Column('timestamp', { nullable: true })
   reviewedAt: Date;
 
-  @Column({ 
-    type: 'enum', 
+  @Column({
+    type: 'enum',
     enum: ['draft', 'in-review', 'approved', 'published'],
-    default: 'draft'
+    default: 'draft',
   })
   status: string;
 

@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserProject } from './user-project.entity';
@@ -51,6 +60,6 @@ export class Portfolio {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @OneToMany(() => UserProject, project => project.portfolioId)
+  @OneToMany(() => UserProject, (project) => project.portfolioId)
   projects: UserProject[];
 }

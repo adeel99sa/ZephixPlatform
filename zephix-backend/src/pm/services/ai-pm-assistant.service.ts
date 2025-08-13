@@ -75,16 +75,26 @@ export class AIPMAssistantService {
     private stakeholderRepository: Repository<ProjectStakeholder>,
   ) {}
 
-  async askPMQuestion(question: string, context?: ProjectContext): Promise<PMResponse> {
+  async askPMQuestion(
+    question: string,
+    context?: ProjectContext,
+  ): Promise<PMResponse> {
     this.logger.log(`Processing PM question: ${question}`);
 
     try {
       // Get relevant knowledge chunks based on question and context
-      const knowledgeChunks = await this.getRelevantKnowledge(question, context);
-      
+      const knowledgeChunks = await this.getRelevantKnowledge(
+        question,
+        context,
+      );
+
       // Generate comprehensive response using AI
-      const response = await this.generatePMResponse(question, knowledgeChunks, context);
-      
+      const response = await this.generatePMResponse(
+        question,
+        knowledgeChunks,
+        context,
+      );
+
       return response;
     } catch (error) {
       this.logger.error('Error processing PM question:', error);
@@ -122,13 +132,16 @@ export class AIPMAssistantService {
       ]);
 
       // Generate recommendations
-      const recommendations = await this.generateHealthRecommendations(project, {
-        scheduleHealth,
-        budgetHealth,
-        qualityHealth,
-        riskHealth,
-        stakeholderHealth,
-      });
+      const recommendations = await this.generateHealthRecommendations(
+        project,
+        {
+          scheduleHealth,
+          budgetHealth,
+          qualityHealth,
+          riskHealth,
+          stakeholderHealth,
+        },
+      );
 
       return {
         overallHealth,
@@ -146,7 +159,9 @@ export class AIPMAssistantService {
     }
   }
 
-  async optimizePortfolio(portfolioId: string): Promise<PortfolioRecommendations> {
+  async optimizePortfolio(
+    portfolioId: string,
+  ): Promise<PortfolioRecommendations> {
     this.logger.log(`Optimizing portfolio: ${portfolioId}`);
 
     try {
@@ -181,10 +196,13 @@ export class AIPMAssistantService {
     try {
       // Analyze project characteristics
       const riskFactors = this.analyzeRiskFactors(projectData);
-      
+
       // Use AI to predict risks based on patterns
-      const predictions = await this.generateRiskPredictions(projectData, riskFactors);
-      
+      const predictions = await this.generateRiskPredictions(
+        projectData,
+        riskFactors,
+      );
+
       return predictions;
     } catch (error) {
       this.logger.error('Error predicting project risks:', error);
@@ -192,7 +210,9 @@ export class AIPMAssistantService {
     }
   }
 
-  async generateStakeholderUpdates(projectId: string): Promise<CommunicationPlan> {
+  async generateStakeholderUpdates(
+    projectId: string,
+  ): Promise<CommunicationPlan> {
     this.logger.log(`Generating stakeholder updates for project: ${projectId}`);
 
     try {
@@ -206,14 +226,15 @@ export class AIPMAssistantService {
       }
 
       // Generate personalized updates for each stakeholder
-      const stakeholderUpdates = await this.generatePersonalizedUpdates(project);
-      
+      const stakeholderUpdates =
+        await this.generatePersonalizedUpdates(project);
+
       // Create communication schedule
       const communicationSchedule = this.createCommunicationSchedule(project);
-      
+
       // Define escalation procedures
       const escalationProcedures = this.defineEscalationProcedures(project);
-      
+
       // Generate reporting templates
       const reportingTemplates = this.generateReportingTemplates(project);
 
@@ -229,19 +250,24 @@ export class AIPMAssistantService {
     }
   }
 
-  private async getRelevantKnowledge(question: string, context?: ProjectContext): Promise<PMKnowledgeChunk[]> {
+  private async getRelevantKnowledge(
+    question: string,
+    context?: ProjectContext,
+  ): Promise<PMKnowledgeChunk[]> {
     // This would integrate with OpenAI embeddings for semantic search
     // For now, return relevant chunks based on keywords
     const query = this.pmKnowledgeRepository.createQueryBuilder('chunk');
-    
+
     if (context?.domain) {
       query.andWhere('chunk.domain = :domain', { domain: context.domain });
     }
-    
+
     if (context?.methodology) {
-      query.andWhere('chunk.methodology = :methodology', { methodology: context.methodology });
+      query.andWhere('chunk.methodology = :methodology', {
+        methodology: context.methodology,
+      });
     }
-    
+
     return query.limit(10).getMany();
   }
 
@@ -252,11 +278,14 @@ export class AIPMAssistantService {
   ): Promise<PMResponse> {
     // This would integrate with Claude API for intelligent responses
     // For now, return a structured response based on knowledge chunks
-    
+
     const answer = `Based on PMI best practices and the provided context, here's my analysis: ${question}`;
     const confidence = 0.85;
-    const sources = knowledgeChunks.map(chunk => chunk.source);
-    const recommendations = ['Implement regular status reviews', 'Establish clear communication channels'];
+    const sources = knowledgeChunks.map((chunk) => chunk.source);
+    const recommendations = [
+      'Implement regular status reviews',
+      'Establish clear communication channels',
+    ];
     const nextActions = ['Schedule stakeholder meeting', 'Update project plan'];
 
     return {
@@ -271,60 +300,83 @@ export class AIPMAssistantService {
   private calculateScheduleHealth(project: UserProject): number {
     // Calculate schedule performance index
     const tasks = project.tasks || [];
-    const completedTasks = tasks.filter(task => task.status === 'completed').length;
+    const completedTasks = tasks.filter(
+      (task) => task.status === 'completed',
+    ).length;
     const totalTasks = tasks.length;
-    
+
     return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 100;
   }
 
   private calculateBudgetHealth(project: UserProject): number {
     // Calculate cost performance index
     const tasks = project.tasks || [];
-    const estimatedHours = tasks.reduce((sum, task) => sum + (task.estimatedHours || 0), 0);
-    const actualHours = tasks.reduce((sum, task) => sum + (task.actualHours || 0), 0);
-    
-    return estimatedHours > 0 ? Math.min(100, (estimatedHours / actualHours) * 100) : 100;
+    const estimatedHours = tasks.reduce(
+      (sum, task) => sum + (task.estimatedHours || 0),
+      0,
+    );
+    const actualHours = tasks.reduce(
+      (sum, task) => sum + (task.actualHours || 0),
+      0,
+    );
+
+    return estimatedHours > 0
+      ? Math.min(100, (estimatedHours / actualHours) * 100)
+      : 100;
   }
 
   private calculateQualityHealth(project: UserProject): number {
     // Calculate quality metrics based on task completion and stakeholder satisfaction
     const tasks = project.tasks || [];
-    const completedTasks = tasks.filter(task => task.status === 'completed').length;
+    const completedTasks = tasks.filter(
+      (task) => task.status === 'completed',
+    ).length;
     const totalTasks = tasks.length;
-    
+
     return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 100;
   }
 
   private calculateRiskHealth(project: UserProject): number {
     // Calculate risk health based on risk scores and mitigation status
     const risks = project.risks || [];
-    const highRisks = risks.filter(risk => risk.riskScore && risk.riskScore > 7).length;
-    const mitigatedRisks = risks.filter(risk => risk.status === 'mitigated').length;
+    const highRisks = risks.filter(
+      (risk) => risk.riskScore && risk.riskScore > 7,
+    ).length;
+    const mitigatedRisks = risks.filter(
+      (risk) => risk.status === 'mitigated',
+    ).length;
     const totalRisks = risks.length;
-    
+
     if (totalRisks === 0) return 100;
-    
+
     const riskScore = ((totalRisks - highRisks) / totalRisks) * 100;
     const mitigationScore = (mitigatedRisks / totalRisks) * 100;
-    
+
     return (riskScore + mitigationScore) / 2;
   }
 
   private calculateStakeholderHealth(project: UserProject): number {
     // Calculate stakeholder satisfaction and engagement
     const stakeholders = project.stakeholders || [];
-    const highInfluenceStakeholders = stakeholders.filter(s => s.influence === 'high').length;
-    const engagedStakeholders = stakeholders.filter(s => s.engagementStrategy).length;
+    const highInfluenceStakeholders = stakeholders.filter(
+      (s) => s.influence === 'high',
+    ).length;
+    const engagedStakeholders = stakeholders.filter(
+      (s) => s.engagementStrategy,
+    ).length;
     const totalStakeholders = stakeholders.length;
-    
+
     if (totalStakeholders === 0) return 100;
-    
+
     return (engagedStakeholders / totalStakeholders) * 100;
   }
 
-  private determineOverallHealth(healthScores: number[]): 'excellent' | 'good' | 'fair' | 'poor' | 'critical' {
-    const averageHealth = healthScores.reduce((sum, score) => sum + score, 0) / healthScores.length;
-    
+  private determineOverallHealth(
+    healthScores: number[],
+  ): 'excellent' | 'good' | 'fair' | 'poor' | 'critical' {
+    const averageHealth =
+      healthScores.reduce((sum, score) => sum + score, 0) / healthScores.length;
+
     if (averageHealth >= 90) return 'excellent';
     if (averageHealth >= 75) return 'good';
     if (averageHealth >= 60) return 'fair';
@@ -334,47 +386,58 @@ export class AIPMAssistantService {
 
   private identifyIssues(project: UserProject): string[] {
     const issues: string[] = [];
-    
+
     // Check for schedule issues
-    const overdueTasks = project.tasks?.filter(task => 
-      task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed'
-    ) || [];
-    
+    const overdueTasks =
+      project.tasks?.filter(
+        (task) =>
+          task.dueDate &&
+          new Date(task.dueDate) < new Date() &&
+          task.status !== 'completed',
+      ) || [];
+
     if (overdueTasks.length > 0) {
       issues.push(`${overdueTasks.length} tasks are overdue`);
     }
-    
+
     // Check for risk issues
-    const highRisks = project.risks?.filter(risk => risk.riskScore && risk.riskScore > 7) || [];
+    const highRisks =
+      project.risks?.filter((risk) => risk.riskScore && risk.riskScore > 7) ||
+      [];
     if (highRisks.length > 0) {
       issues.push(`${highRisks.length} high-risk items need attention`);
     }
-    
+
     return issues;
   }
 
-  private async generateHealthRecommendations(project: UserProject, healthScores: any): Promise<string[]> {
+  private async generateHealthRecommendations(
+    project: UserProject,
+    healthScores: any,
+  ): Promise<string[]> {
     const recommendations: string[] = [];
-    
+
     if (healthScores.scheduleHealth < 75) {
       recommendations.push('Implement daily stand-ups to track progress');
       recommendations.push('Review and update project schedule weekly');
     }
-    
+
     if (healthScores.budgetHealth < 75) {
       recommendations.push('Conduct weekly budget reviews');
       recommendations.push('Implement cost control measures');
     }
-    
+
     if (healthScores.riskHealth < 75) {
       recommendations.push('Develop risk mitigation strategies');
       recommendations.push('Schedule regular risk review meetings');
     }
-    
+
     return recommendations;
   }
 
-  private analyzeResourceAllocation(projects: UserProject[]): Record<string, any> {
+  private analyzeResourceAllocation(
+    projects: UserProject[],
+  ): Record<string, any> {
     // Analyze resource allocation across projects
     const resourceAnalysis = {
       totalBudget: projects.reduce((sum, p) => sum + (p.budget || 0), 0),
@@ -382,74 +445,76 @@ export class AIPMAssistantService {
       resourceUtilization: this.calculateResourceUtilization(projects),
       recommendations: this.generateResourceRecommendations(projects),
     };
-    
+
     return resourceAnalysis;
   }
 
   private identifyPortfolioRisks(projects: UserProject[]): string[] {
     const portfolioRisks: string[] = [];
-    
+
     // Identify cross-project risks
-    const highRiskProjects = projects.filter(p => 
-      p.risks?.some(r => r.riskScore && r.riskScore > 7)
+    const highRiskProjects = projects.filter((p) =>
+      p.risks?.some((r) => r.riskScore && r.riskScore > 7),
     );
-    
+
     if (highRiskProjects.length > 0) {
-      portfolioRisks.push(`Monitor ${highRiskProjects.length} high-risk projects closely`);
+      portfolioRisks.push(
+        `Monitor ${highRiskProjects.length} high-risk projects closely`,
+      );
     }
-    
+
     // Resource conflicts
     const resourceConflicts = this.identifyResourceConflicts(projects);
     if (resourceConflicts.length > 0) {
       portfolioRisks.push(...resourceConflicts);
     }
-    
+
     return portfolioRisks;
   }
 
   private optimizePortfolioSchedule(projects: UserProject[]): string[] {
     const optimizations: string[] = [];
-    
+
     // Identify schedule conflicts
     const scheduleConflicts = this.identifyScheduleConflicts(projects);
     if (scheduleConflicts.length > 0) {
       optimizations.push(...scheduleConflicts);
     }
-    
+
     // Suggest schedule optimizations
     optimizations.push('Implement staggered project start dates');
     optimizations.push('Establish shared milestone calendar');
-    
+
     return optimizations;
   }
 
   private optimizePortfolioBudget(projects: UserProject[]): string[] {
     const optimizations: string[] = [];
-    
+
     const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
     const budgetUtilization = this.calculateBudgetUtilization(projects);
-    
+
     if (budgetUtilization > 90) {
       optimizations.push('Consider budget reallocation across projects');
     }
-    
+
     optimizations.push('Implement monthly budget reviews');
     optimizations.push('Establish contingency fund');
-    
+
     return optimizations;
   }
 
   private suggestPriorityAdjustments(projects: UserProject[]): string[] {
     const adjustments: string[] = [];
-    
+
     // Analyze project priorities based on business value and risk
     const priorityAnalysis = this.analyzeProjectPriorities(projects);
-    
+
     if (priorityAnalysis.needsReprioritization) {
       adjustments.push('Reassess project priorities based on business value');
       adjustments.push('Consider delaying low-priority, high-risk projects');
     }
-    
+
     return adjustments;
   }
 
@@ -463,14 +528,26 @@ export class AIPMAssistantService {
     };
   }
 
-  private async generateRiskPredictions(projectData: any, riskFactors: any): Promise<RiskPredictions> {
+  private async generateRiskPredictions(
+    projectData: any,
+    riskFactors: any,
+  ): Promise<RiskPredictions> {
     // Use AI to predict risks based on patterns and factors
     const highRiskItems = this.identifyHighRiskItems(projectData, riskFactors);
-    const mediumRiskItems = this.identifyMediumRiskItems(projectData, riskFactors);
-    const earlyWarningSignals = this.identifyEarlyWarningSignals(projectData, riskFactors);
+    const mediumRiskItems = this.identifyMediumRiskItems(
+      projectData,
+      riskFactors,
+    );
+    const earlyWarningSignals = this.identifyEarlyWarningSignals(
+      projectData,
+      riskFactors,
+    );
     const mitigationStrategies = this.generateMitigationStrategies(riskFactors);
-    const probabilityScores = this.calculateProbabilityScores(projectData, riskFactors);
-    
+    const probabilityScores = this.calculateProbabilityScores(
+      projectData,
+      riskFactors,
+    );
+
     return {
       highRiskItems,
       mediumRiskItems,
@@ -480,9 +557,11 @@ export class AIPMAssistantService {
     };
   }
 
-  private async generatePersonalizedUpdates(project: UserProject): Promise<Record<string, any>> {
+  private async generatePersonalizedUpdates(
+    project: UserProject,
+  ): Promise<Record<string, any>> {
     const updates: Record<string, any> = {};
-    
+
     for (const stakeholder of project.stakeholders || []) {
       updates[stakeholder.name] = {
         role: stakeholder.role,
@@ -492,11 +571,13 @@ export class AIPMAssistantService {
         nextActions: this.generateStakeholderActions(project, stakeholder),
       };
     }
-    
+
     return updates;
   }
 
-  private createCommunicationSchedule(project: UserProject): Record<string, any> {
+  private createCommunicationSchedule(
+    project: UserProject,
+  ): Record<string, any> {
     return {
       weeklyUpdates: this.scheduleWeeklyUpdates(project),
       monthlyReviews: this.scheduleMonthlyReviews(project),
@@ -586,7 +667,10 @@ export class AIPMAssistantService {
     ];
   }
 
-  private identifyMediumRiskItems(projectData: any, riskFactors: any): string[] {
+  private identifyMediumRiskItems(
+    projectData: any,
+    riskFactors: any,
+  ): string[] {
     return [
       'Schedule dependencies',
       'Budget fluctuations',
@@ -594,7 +678,10 @@ export class AIPMAssistantService {
     ];
   }
 
-  private identifyEarlyWarningSignals(projectData: any, riskFactors: any): string[] {
+  private identifyEarlyWarningSignals(
+    projectData: any,
+    riskFactors: any,
+  ): string[] {
     return [
       'Delayed milestone completions',
       'Increased stakeholder concerns',
@@ -610,7 +697,10 @@ export class AIPMAssistantService {
     ];
   }
 
-  private calculateProbabilityScores(projectData: any, riskFactors: any): Record<string, number> {
+  private calculateProbabilityScores(
+    projectData: any,
+    riskFactors: any,
+  ): Record<string, number> {
     return {
       'Technology Risk': 0.7,
       'Schedule Risk': 0.5,
@@ -619,11 +709,17 @@ export class AIPMAssistantService {
     };
   }
 
-  private generateStakeholderSpecificUpdate(project: UserProject, stakeholder: ProjectStakeholder): string {
+  private generateStakeholderSpecificUpdate(
+    project: UserProject,
+    stakeholder: ProjectStakeholder,
+  ): string {
     return `Project ${project.name} is progressing well. Current status: ${project.status}. Key updates for ${stakeholder.role} role.`;
   }
 
-  private generateStakeholderActions(project: UserProject, stakeholder: ProjectStakeholder): string[] {
+  private generateStakeholderActions(
+    project: UserProject,
+    stakeholder: ProjectStakeholder,
+  ): string[] {
     return [
       'Review project status',
       'Provide feedback on deliverables',
@@ -634,7 +730,7 @@ export class AIPMAssistantService {
   private scheduleWeeklyUpdates(project: UserProject): any {
     return {
       frequency: 'Weekly',
-      participants: project.stakeholders?.map(s => s.name) || [],
+      participants: project.stakeholders?.map((s) => s.name) || [],
       format: 'Status report with key metrics',
     };
   }
@@ -642,7 +738,10 @@ export class AIPMAssistantService {
   private scheduleMonthlyReviews(project: UserProject): any {
     return {
       frequency: 'Monthly',
-      participants: project.stakeholders?.filter(s => s.influence === 'high').map(s => s.name) || [],
+      participants:
+        project.stakeholders
+          ?.filter((s) => s.influence === 'high')
+          .map((s) => s.name) || [],
       format: 'Executive summary with recommendations',
     };
   }
