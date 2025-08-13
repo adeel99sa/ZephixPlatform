@@ -1,6 +1,8 @@
 // src/data-source.ts - Enterprise-Grade PostgreSQL Configuration
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { User } from './users/entities/user.entity';
+import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 
 // Load environment variables
 config();
@@ -26,18 +28,7 @@ const AppDataSource = new DataSource({
     password: dbConfig.password,
     database: dbConfig.database,
   }),
-  entities: [
-    'src/modules/users/entities/*.entity.ts',
-    'src/modules/auth/entities/*.entity.ts',
-    'src/users/entities/*.entity.ts',
-    'src/auth/entities/*.entity.ts',
-    'src/organizations/entities/*.entity.ts',
-    'src/projects/entities/*.entity.ts',
-    'src/pm/entities/*.entity.ts',
-    'src/pm/status-reporting/entities/*.entity.ts',
-    'src/feedback/entities/*.entity.ts',
-    'src/brd/entities/*.entity.ts',
-  ],
+  entities: [User, RefreshToken],
   migrations: [
     'src/database/migrations/*.ts',
     'src/projects/database/migrations/*.ts',

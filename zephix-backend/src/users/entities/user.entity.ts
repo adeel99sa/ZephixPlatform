@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { TeamMember } from '../../projects/entities/team-member.entity';
+import { RefreshToken } from '../../modules/auth/entities/refresh-token.entity';
 
 @Entity('users')
 export class User {
@@ -51,4 +52,9 @@ export class User {
     cascade: true,
   })
   teamMembers: TeamMember[];
+
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user, {
+    cascade: true,
+  })
+  refreshTokens: RefreshToken[];
 }
