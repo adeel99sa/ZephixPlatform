@@ -5,11 +5,11 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Install ALL dependencies (including dev dependencies for build)
-COPY package*.json ./
+COPY zephix-frontend/package*.json ./
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy source code (only frontend files)
+COPY zephix-frontend/ .
 
 # Set build environment variables with defaults
 ARG VITE_API_URL=https://api.getzephix.com
