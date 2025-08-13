@@ -4,9 +4,9 @@ FROM node:20-alpine AS build
 # Set working directory
 WORKDIR /app
 
-# Install dependencies first (better caching)
+# Install ALL dependencies (including dev dependencies for build)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy source code
 COPY . .
