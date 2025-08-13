@@ -27,6 +27,8 @@ const AppDataSource = new DataSource({
     database: dbConfig.database,
   }),
   entities: [
+    'src/modules/users/entities/*.entity.ts',
+    'src/modules/auth/entities/*.entity.ts',
     'src/users/entities/*.entity.ts',
     'src/auth/entities/*.entity.ts',
     'src/organizations/entities/*.entity.ts',

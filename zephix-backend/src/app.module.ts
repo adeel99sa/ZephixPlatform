@@ -8,7 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
-import { AuthModule } from './auth/auth.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
@@ -21,7 +21,7 @@ import { RequestIdMiddleware } from './observability/request-id.middleware';
 import { MetricsMiddleware } from './observability/metrics.middleware';
 
 // Import ONLY essential entities for authentication
-import { User } from './users/entities/user.entity';
+import { User } from './modules/users/entities/user.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { UserOrganization } from './organizations/entities/user-organization.entity';
 import { Project } from './projects/entities/project.entity';
