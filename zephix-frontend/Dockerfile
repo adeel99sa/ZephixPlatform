@@ -34,5 +34,10 @@ RUN chmod +x /start-nginx.sh
 # Expose port 80 for HTTP (Railway will handle port mapping)
 EXPOSE 80
 
+# Set the working directory to nginx html directory
+WORKDIR /usr/share/nginx/html
+
 # Use startup script to handle PORT environment variable
-CMD ["/start-nginx.sh"]
+# This ensures Railway doesn't try to run npm start
+ENTRYPOINT ["/start-nginx.sh"]
+CMD []
