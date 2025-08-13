@@ -1,11 +1,10 @@
 import "reflect-metadata";
-import { DataSource } from "typeorm";
-import { dataSource } from "../data-source";
+import AppDataSource from "../data-source";
 
 async function main() {
-  await dataSource.initialize();
-  await dataSource.runMigrations();
-  await dataSource.destroy();
+  await AppDataSource.initialize();
+  await AppDataSource.runMigrations();
+  await AppDataSource.destroy();
   console.log("migrations complete");
 }
 
