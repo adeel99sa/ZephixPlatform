@@ -1,0 +1,41 @@
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { RefreshToken } from '../../auth/entities/refresh-token.entity';
+
+@Entity('users')
+export class User {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({ select: false })
+  password: string;
+
+  @Column()
+  firstName: string;
+
+  @Column()
+  lastName: string;
+
+  @Column({ default: 'user' })
+  role: string;
+
+  @Column({ nullable: true })
+  organizationId?: string;
+
+  @Column({ nullable: true })
+  profilePicture?: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
+  refreshTokens: RefreshToken[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
