@@ -1,0 +1,26 @@
+# Root Railway Configuration - Force nixpacks usage
+# This file overrides any Docker detection and forces nixpacks
+
+[build]
+builder = "nixpacks"
+
+# Global build variables
+[build.variables]
+DISABLE_DOCKER = "true"
+FORCE_NIXPACKS = "true"
+BUILDER_OVERRIDE = "nixpacks"
+
+# Force nixpacks for all services
+[deploy]
+builder = "nixpacks"
+
+# Service-specific overrides
+[[services]]
+name = "zephix-backend"
+builder = "nixpacks"
+rootDirectory = "zephix-backend"
+
+[[services]]
+name = "zephix-frontend"
+builder = "nixpacks"
+rootDirectory = "zephix-frontend"
