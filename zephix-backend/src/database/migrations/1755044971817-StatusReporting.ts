@@ -4,6 +4,22 @@ export class StatusReporting1755044971817 implements MigrationInterface {
   name = 'StatusReporting1755044971817';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Check if status_reports table already exists
+    const tableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'status_reports'
+      )
+    `);
+
+    if (tableExists[0].exists) {
+      console.log('✅ status_reports table already exists - skipping creation');
+      return;
+    }
+
+    console.log('➕ Creating status_reports table...');
+    
     // Create status_reports table
     await queryRunner.query(`
             CREATE TABLE "status_reports" (
@@ -49,15 +65,39 @@ export class StatusReporting1755044971817 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop indexes
-    await queryRunner.query(`DROP INDEX "IDX_status_reports_status"`);
-    await queryRunner.query(`DROP INDEX "IDX_status_reports_report_date"`);
-    await queryRunner.query(`DROP INDEX "IDX_status_reports_project_id"`);
+    // Check if status_reports table exists before trying to drop it
+    const tableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'status_reports'
+      )
+    `);
 
-    // Drop foreign key constraint
-    await queryRunner.query(
-      `ALTER TABLE "status_reports" DROP CONSTRAINT "FK_status_reports_project"`,
-    );
+    if (!tableExists[0].exists) {
+      console.log('❌ status_reports table does not exist - nothing to drop');
+      return;
+    }
+
+    console.log('🗑️ Dropping status_reports table...');
+
+    // Drop indexes (handle case where they might not exist)
+    try {
+      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_status"`);
+      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_report_date"`);
+      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_project_id"`);
+    } catch (error) {
+      console.log('⚠️ Error dropping indexes:', error.message);
+    }
+
+    // Drop foreign key constraint (handle case where it might not exist)
+    try {
+      await queryRunner.query(
+        `ALTER TABLE "status_reports" DROP CONSTRAINT IF EXISTS "FK_status_reports_project"`,
+      );
+    } catch (error) {
+      console.log('⚠️ Error dropping foreign key constraint:', error.message);
+    }
 
     // Drop table
     await queryRunner.query(`DROP TABLE "status_reports"`);
