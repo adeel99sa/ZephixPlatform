@@ -22,9 +22,21 @@ export class CreateAuthTables1700000000002 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "users" ADD "role" character varying NOT NULL DEFAULT 'user'`,
     );
-    await queryRunner.query(
-      `ALTER TABLE "users" ADD "organizationId" character varying`,
-    );
+    // Check if organizationId column already exists before adding it
+    const organizationIdExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'users' 
+        AND column_name = 'organizationId'
+      )
+    `);
+
+    if (!organizationIdExists[0].exists) {
+      await queryRunner.query(
+        `ALTER TABLE "users" ADD "organizationId" character varying`,
+      );
+    }
     await queryRunner.query(
       `ALTER TABLE "users" ADD "profilePicture" character varying`,
     );
@@ -38,7 +50,19 @@ export class CreateAuthTables1700000000002 implements MigrationInterface {
       `ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_610102b60fea1455310ccd299de"`,
     );
     await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "profilePicture"`);
-    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "organizationId"`);
+    // Check if organizationId column exists before dropping it
+    const organizationIdExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'users' 
+        AND column_name = 'organizationId'
+      )
+    `);
+
+    if (organizationIdExists[0].exists) {
+      await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "organizationId"`);
+    }
     await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "role"`);
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN "emailVerifiedAt"`,
