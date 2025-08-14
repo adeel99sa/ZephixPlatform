@@ -5,6 +5,15 @@ import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
 
+// Define the health check interface
+interface HealthCheck {
+  name: string;
+  status: 'healthy' | 'unhealthy';
+  critical: boolean;
+  details: string;
+  error?: string;
+}
+
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
@@ -79,8 +88,8 @@ export class HealthController {
     });
   }
 
-  private async performHealthChecks() {
-    const checks = [];
+  private async performHealthChecks(): Promise<HealthCheck[]> {
+    const checks: HealthCheck[] = [];
 
     // Database connectivity check
     try {
