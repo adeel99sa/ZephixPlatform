@@ -9,3 +9,5 @@ tests/
 *.spec.ts
 storybook/
 cypress/
+Dockerfile*
+.dockerignore
