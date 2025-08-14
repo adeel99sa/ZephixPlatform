@@ -4,8 +4,8 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "npm run start",
-    "healthcheckPath": "/",
+    "startCommand": "npm run start:railway",
+    "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "on_failure",
     "restartPolicyMaxRetries": 3
