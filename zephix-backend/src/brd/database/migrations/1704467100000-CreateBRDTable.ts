@@ -64,23 +64,23 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
 
     // Create indexes for performance
     await queryRunner.query(
-      `CREATE INDEX "IDX_brds_organizationId" ON "brds" ("organizationId");`,
+      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`,
+      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`,
+      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`,
     );
 
     // Create GIN index for JSONB payload
     await queryRunner.query(`
-      CREATE INDEX "brds_payload_gin" ON "brds" USING GIN ("payload");
+      CREATE INDEX IF NOT EXISTS "brds_payload_gin" ON "brds" USING GIN ("payload");
     `);
 
     // Create GIN index for full-text search
     await queryRunner.query(`
-      CREATE INDEX "brds_search_idx" ON "brds" USING GIN ("search_vector");
+      CREATE INDEX IF NOT EXISTS "brds_search_idx" ON "brds" USING GIN ("search_vector");
     `);
 
     // Create trigger to automatically update search_vector
