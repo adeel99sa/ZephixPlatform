@@ -1,3 +1,4 @@
+# Force nixpacks usage - override Docker detection
 [phases.setup]
 nixPkgs = ["nodejs_20", "yarn"]
 
@@ -9,3 +10,8 @@ cmds = ["npm run build"]
 
 [start]
 cmd = "npm run start:railway"
+
+# Explicitly disable Docker
+[phases.setup.variables]
+DISABLE_DOCKER = "true"
+FORCE_NIXPACKS = "true"

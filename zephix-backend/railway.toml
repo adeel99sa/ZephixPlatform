@@ -1,0 +1,15 @@
+# Force nixpacks usage - override Docker detection
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm run start:railway"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+
+# Explicitly disable Docker
+[build.variables]
+DISABLE_DOCKER = "true"
+FORCE_NIXPACKS = "true"
+BUILDER_OVERRIDE = "nixpacks"
