@@ -7,3 +7,5 @@ test/
 tests/
 *.test.ts
 *.spec.ts
+Dockerfile*
+.dockerignore
