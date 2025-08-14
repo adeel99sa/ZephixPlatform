@@ -34,6 +34,7 @@
     "test:auth:direct": "node scripts/test-user-auth-direct.js",
     "migration:run": "node dist/scripts/run-migrations.js",
     "migration:run:dev": "ts-node -r tsconfig-paths/register scripts/run-migrations.ts",
+    "fix:migrations": "node scripts/fix-migration-state.js",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source.ts",
     "migrate:generate": "ts-node -r tsconfig-paths/register scripts/migrate-generate.ts",
     "db:migrate": "npm run migration:run",
