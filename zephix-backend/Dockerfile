@@ -1,22 +1,25 @@
-# build
+# Zephix Backend - Railway-Optimized Dockerfile
+# This Dockerfile is designed to work with Railway's root directory setting
+# Railway sets the build context to zephix-backend/, so we don't need to copy from subdirectories
+
 FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package files first for better caching
-COPY zephix-backend/package*.json ./
+COPY package*.json ./
 RUN npm ci
 
-# Copy the entire backend source
-COPY zephix-backend/ .
+# Copy the entire source (Railway is already in zephix-backend directory)
+COPY . .
 RUN npm run build
 
-# run
+# production stage
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
 # Copy package files and install production dependencies
-COPY zephix-backend/package*.json ./
+COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Copy built application
