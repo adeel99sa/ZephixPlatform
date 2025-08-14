@@ -1,11 +1,58 @@
+# Dependencies
 node_modules/
-.git/
-.env
-*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
 coverage/
+
+# Testing
 test/
 tests/
 *.test.ts
 *.spec.ts
+
+# Environment
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.backup
+.env.backup2
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker (ensure no Docker builds)
 Dockerfile*
 .dockerignore
+docker-compose*
+dockerfile*
+
+# Railway specific
+.railwayignore
+railway-*.json
+railway-*.toml
+
+# Temporary files
+*.backup
+*.tmp
+*.temp
