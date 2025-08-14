@@ -1,0 +1,15 @@
+# Force Railway to use nixpacks instead of Docker
+Dockerfile*
+.dockerignore
+docker-compose*
+dockerfile*
+
+# Ignore all Docker-related files
+**/Dockerfile*
+**/.dockerignore
+**/docker-compose*
+**/dockerfile*
+
+# Ensure nixpacks is used
+# This file forces Railway to use nixpacks configuration
+# instead of auto-detecting Dockerfiles

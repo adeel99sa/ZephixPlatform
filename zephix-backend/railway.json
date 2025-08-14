@@ -12,36 +12,20 @@
     "restartPolicyMaxRetries": 3,
     "sleepMode": false
   },
-  "advanced": {
-    "referenceResolution": "strict",
-    "integrityValidation": {
-      "enabled": true,
-      "interval": "5m",
-      "checksum": "sha256"
-    },
-    "buildContext": {
-      "rootDirectory": "zephix-backend",
-      "validateStructure": true,
-      "requiredFiles": [
-        "package.json",
-        "src/main.ts",
-        "tsconfig.json"
-      ]
-    },
-    "deployment": {
-      "strategy": "blue-green",
-      "rollback": {
-        "enabled": true,
-        "automatic": true,
-        "threshold": 3
+  "nixpacks": {
+    "phases": {
+      "setup": {
+        "nixPkgs": ["nodejs_20", "yarn"]
       },
-      "healthCheck": {
-        "initialDelay": 30,
-        "period": 10,
-        "timeout": 5,
-        "successThreshold": 1,
-        "failureThreshold": 3
+      "install": {
+        "cmds": ["npm ci"]
+      },
+      "build": {
+        "cmds": ["npm run build"]
       }
+    },
+    "start": {
+      "cmd": "npm run start:railway"
     }
   }
 }
