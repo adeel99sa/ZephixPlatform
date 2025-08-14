@@ -20,11 +20,11 @@ export class StatusReporting1755044971817 implements MigrationInterface {
 
     console.log('➕ Creating status_reports table...');
     
-    // Create status_reports table
+    // Create status_reports table (removed project_id foreign key reference)
     await queryRunner.query(`
             CREATE TABLE "status_reports" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "project_id" uuid NOT NULL,
+                "organization_id" uuid,
                 "report_date" date NOT NULL,
                 "status" character varying NOT NULL DEFAULT 'draft',
                 "summary" text,
@@ -37,20 +37,33 @@ export class StatusReporting1755044971817 implements MigrationInterface {
             )
         `);
 
-    // Add foreign key constraint
-    await queryRunner.query(`
-            ALTER TABLE "status_reports" 
-            ADD CONSTRAINT "FK_status_reports_project" 
-            FOREIGN KEY ("project_id") 
-            REFERENCES "projects"("id") 
-            ON DELETE CASCADE 
-            ON UPDATE NO ACTION
-        `);
+    // Add foreign key constraint to organizations table (which actually exists)
+    const organizationsTableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'organizations'
+      )
+    `);
+
+    if (organizationsTableExists[0].exists) {
+      await queryRunner.query(`
+              ALTER TABLE "status_reports" 
+              ADD CONSTRAINT "FK_status_reports_organization" 
+              FOREIGN KEY ("organization_id") 
+              REFERENCES "organizations"("id") 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION
+          `);
+      console.log('✅ Added foreign key constraint to organizations');
+    } else {
+      console.log('⚠️ Organizations table not found - skipping foreign key constraint');
+    }
 
     // Create indexes
     await queryRunner.query(`
-            CREATE INDEX "IDX_status_reports_project_id" 
-            ON "status_reports" ("project_id")
+            CREATE INDEX "IDX_status_reports_organization_id" 
+            ON "status_reports" ("organization_id")
         `);
 
     await queryRunner.query(`
@@ -62,6 +75,8 @@ export class StatusReporting1755044971817 implements MigrationInterface {
             CREATE INDEX "IDX_status_reports_status" 
             ON "status_reports" ("status")
         `);
+
+    console.log('✅ Status reports table and indexes created successfully');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -85,7 +100,7 @@ export class StatusReporting1755044971817 implements MigrationInterface {
     try {
       await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_status"`);
       await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_report_date"`);
-      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_project_id"`);
+      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_organization_id"`);
     } catch (error) {
       console.log('⚠️ Error dropping indexes:', error.message);
     }
@@ -93,7 +108,7 @@ export class StatusReporting1755044971817 implements MigrationInterface {
     // Drop foreign key constraint (handle case where it might not exist)
     try {
       await queryRunner.query(
-        `ALTER TABLE "status_reports" DROP CONSTRAINT IF EXISTS "FK_status_reports_project"`,
+        `ALTER TABLE "status_reports" DROP CONSTRAINT IF EXISTS "FK_status_reports_organization"`,
       );
     } catch (error) {
       console.log('⚠️ Error dropping foreign key constraint:', error.message);
@@ -101,5 +116,6 @@ export class StatusReporting1755044971817 implements MigrationInterface {
 
     // Drop table
     await queryRunner.query(`DROP TABLE "status_reports"`);
+    console.log('✅ Status reports table dropped successfully');
   }
 }
