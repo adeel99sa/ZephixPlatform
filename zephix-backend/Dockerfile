@@ -1,20 +1,21 @@
 # Multi-stage production Dockerfile for Zephix Backend
 # This file is required by the GitHub Actions CI/CD pipeline
+# Build context is repository root, so paths must include zephix-backend/
 
 FROM node:20.19.0-alpine AS builder
 
 WORKDIR /app
 
 # Copy package and config files for caching
-COPY package*.json ./
-COPY tsconfig*.json ./
+COPY zephix-backend/package*.json ./
+COPY zephix-backend/tsconfig*.json ./
 
 # Install dependencies
 RUN npm ci --prefer-offline --no-audit
 
 # Copy source code
-COPY src ./src
-COPY scripts ./scripts
+COPY zephix-backend/src ./src
+COPY zephix-backend/scripts ./scripts
 
 # Build the application
 RUN npm run build
@@ -28,7 +29,7 @@ WORKDIR /app
 RUN apk add --no-cache curl dumb-init
 
 # Copy package files
-COPY package*.json ./
+COPY zephix-backend/package*.json ./
 
 # Install production dependencies
 RUN npm ci --only=production --prefer-offline --no-audit && \
