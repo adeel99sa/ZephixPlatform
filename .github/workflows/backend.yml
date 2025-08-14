@@ -28,8 +28,8 @@ jobs:
             type=raw,value=main,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: zephix-backend/Dockerfile
+          context: ./zephix-backend
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
