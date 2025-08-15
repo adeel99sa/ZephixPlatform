@@ -1,0 +1,29 @@
+# Zephix Monorepo - Root Railway Configuration
+# This file ensures proper monorepo handling and service isolation
+
+[build]
+# Root-level build configuration for monorepo
+builder = "nixpacks"
+
+# Monorepo-specific build variables
+[build.variables]
+DISABLE_DOCKER = "true"
+FORCE_NIXPACKS = "true"
+BUILDER_OVERRIDE = "nixpacks"
+MONOREPO_ROOT = "true"
+
+# Service discovery and isolation
+[services]
+backend = "zephix-backend"
+frontend = "zephix-frontend"
+
+# Global environment variables
+[env]
+NODE_ENV = "production"
+RAILWAY_PROJECT_ID = "zephix-app"
+RAILWAY_SERVICE_ID = "root"
+
+# Health check endpoints for service discovery
+[healthcheck]
+backend = "/api/health"
+frontend = "/"
