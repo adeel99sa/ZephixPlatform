@@ -188,6 +188,46 @@ export class CreateMultiTenancy1700000000001 implements MigrationInterface {
       );
     }
 
+    // Create Projects table if it doesn't exist
+    const projectsTableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'projects'
+      )
+    `);
+
+    if (!projectsTableExists[0].exists) {
+      await queryRunner.query(`
+        CREATE TABLE "projects" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "name" character varying(255) NOT NULL,
+          "description" text,
+          "status" character varying NOT NULL DEFAULT 'planning',
+          "priority" character varying NOT NULL DEFAULT 'medium',
+          "start_date" timestamp,
+          "end_date" timestamp,
+          "estimated_end_date" timestamp,
+          "organization_id" uuid,
+          "project_manager_id" uuid,
+          "budget" numeric(10,2),
+          "actual_cost" numeric(10,2),
+          "risk_level" character varying NOT NULL DEFAULT 'medium',
+          "created_by_id" uuid,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_projects" PRIMARY KEY ("id"),
+          CONSTRAINT "CHK_project_status" CHECK ("status" IN ('planning', 'active', 'on-hold', 'completed', 'cancelled')),
+          CONSTRAINT "CHK_project_priority" CHECK ("priority" IN ('low', 'medium', 'high', 'critical')),
+          CONSTRAINT "CHK_project_risk" CHECK ("risk_level" IN ('low', 'medium', 'high', 'critical'))
+        )
+      `);
+
+      // Create indexes for projects
+      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_STATUS" ON "projects" ("status")`);
+      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_PRIORITY" ON "projects" ("priority")`);
+      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_CREATED_AT" ON "projects" ("createdAt")`);
+    }
+
     // Add foreign key constraints (handle existing constraints gracefully)
     const userOrgUserIdFkExists = await queryRunner.query(`
       SELECT EXISTS (
@@ -532,18 +572,17 @@ export class CreateMultiTenancy1700000000001 implements MigrationInterface {
       }
     }
 
-    // Drop indexes
-    const usersIndexExists = await queryRunner.query(`
+    // Drop tables (including projects table)
+    const projectsTableExists = await queryRunner.query(`
       SELECT EXISTS (
-        SELECT FROM pg_indexes 
-        WHERE indexname = 'IDX_USERS_ORG_ID'
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'projects'
       )
     `);
-    if (usersIndexExists[0].exists) {
-      await queryRunner.query(`DROP INDEX "IDX_USERS_ORG_ID"`);
+    if (projectsTableExists[0].exists) {
+      await queryRunner.query(`DROP TABLE "projects"`);
     }
 
-    // Drop tables
     const userOrgTableExists = await queryRunner.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
