@@ -1,0 +1,176 @@
+import { MigrationInterface, QueryRunner, Table, Index } from 'typeorm';
+
+export class CreateBRDTable1704467100000 implements MigrationInterface {
+  name = 'CreateBRDTable1704467100000';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create the BRDs table
+    await queryRunner.createTable(
+      new Table({
+        name: 'brds',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            generationStrategy: 'uuid',
+            default: 'gen_random_uuid()',
+          },
+          {
+            name: 'organizationId',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'project_id',
+            type: 'uuid',
+            isNullable: true,
+          },
+          {
+            name: 'version',
+            type: 'integer',
+            default: 1,
+          },
+          {
+            name: 'status',
+            type: 'enum',
+            enum: ['draft', 'in_review', 'approved', 'published'],
+            default: "'draft'",
+          },
+          {
+            name: 'payload',
+            type: 'jsonb',
+            isNullable: false,
+          },
+          {
+            name: 'search_vector',
+            type: 'tsvector',
+            isNullable: true,
+          },
+          {
+            name: 'created_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+          },
+          {
+            name: 'updated_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+          },
+        ],
+      }),
+      true,
+    );
+
+    // Create indexes for performance
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_brds_organizationId_project_id" ON "brds" ("organizationId", "project_id");`,
+    );
+
+    // Create GIN index for JSONB payload
+    await queryRunner.query(`
+      CREATE INDEX "brds_payload_gin" ON "brds" USING GIN ("payload");
+    `);
+
+    // Create GIN index for full-text search
+    await queryRunner.query(`
+      CREATE INDEX "brds_search_idx" ON "brds" USING GIN ("search_vector");
+    `);
+
+    // Create trigger to automatically update search_vector
+    await queryRunner.query(`
+      CREATE OR REPLACE FUNCTION update_brd_search_vector()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.search_vector := to_tsvector('english', 
+          COALESCE(NEW.payload->>'metadata'->>'title', '') || ' ' ||
+          COALESCE(NEW.payload->>'metadata'->>'summary', '') || ' ' ||
+          COALESCE(NEW.payload->>'businessContext'->>'problemStatement', '') || ' ' ||
+          COALESCE(NEW.payload->>'businessContext'->>'businessObjective', '') || ' ' ||
+          COALESCE(NEW.payload->>'metadata'->>'industry', '') || ' ' ||
+          COALESCE(NEW.payload->>'metadata'->>'department', '')
+        );
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await queryRunner.query(`
+      CREATE TRIGGER update_brd_search_vector_trigger
+        BEFORE INSERT OR UPDATE ON brds
+        FOR EACH ROW
+        EXECUTE FUNCTION update_brd_search_vector();
+    `);
+
+    // Create trigger to automatically update updated_at
+    await queryRunner.query(`
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await queryRunner.query(`
+      CREATE TRIGGER update_brds_updated_at
+        BEFORE UPDATE ON brds
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    // Add Row Level Security (RLS) for tenant isolation
+    await queryRunner.query(`
+      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+    `);
+
+    // Create RLS policy for tenant isolation
+    await queryRunner.query(`
+      CREATE POLICY brds_tenant_isolation ON brds
+        FOR ALL
+        USING (organizationId = current_setting('app.current_organization_id', true)::uuid);
+    `);
+
+    // Create policy for superuser access (for admin operations)
+    await queryRunner.query(`
+      CREATE POLICY brds_admin_access ON brds
+        FOR ALL
+        TO postgres
+        USING (true);
+    `);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop triggers
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS update_brds_updated_at ON brds;`,
+    );
+    await queryRunner.query(
+      `DROP TRIGGER IF EXISTS update_brd_search_vector_trigger ON brds;`,
+    );
+
+    // Drop functions
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS update_updated_at_column();`,
+    );
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS update_brd_search_vector();`,
+    );
+
+    // Drop RLS policies
+    await queryRunner.query(`DROP POLICY IF EXISTS brds_admin_access ON brds;`);
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS brds_tenant_isolation ON brds;`,
+    );
+
+    // Drop table (this will also drop all indexes)
+    await queryRunner.dropTable('brds');
+  }
+}
