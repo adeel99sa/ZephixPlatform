@@ -1,8 +1,8 @@
 # Zephix Frontend - Nixpacks Configuration
-# Explicit build configuration to prevent Docker detection
+# Simplified configuration to avoid conflicts
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "yarn"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = ["npm ci"]
@@ -12,14 +12,3 @@ cmds = ["npm run build"]
 
 [start]
 cmd = "npm run preview"
-
-[variables]
-NODE_ENV = "production"
-PORT = "3000"
-
-# Force nixpacks usage
-BUILDER = "nixpacks"
-RAILWAY_BUILDER = "nixpacks"
-USE_NIXPACKS = "true"
-DISABLE_DOCKER = "true"
-FORCE_NIXPACKS = "true"
