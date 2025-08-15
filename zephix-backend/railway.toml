@@ -2,7 +2,7 @@
 # Forces nixpacks usage and overrides auto-detection
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci --only=production && npm run build"
+buildCommand = "npm ci --omit=dev && npm run build"
 
 [deploy]
 startCommand = "npm run start:railway"
@@ -16,12 +16,16 @@ restartPolicyMaxRetries = 3
 NODE_ENV = "production"
 PORT = "3000"
 
-# Build variables to force nixpacks
+# Build variables to force nixpacks - STRONG ENFORCEMENT
 [build.variables]
 DISABLE_DOCKER = "true"
 FORCE_NIXPACKS = "true"
 BUILDER_OVERRIDE = "nixpacks"
 NIXPACKS_NODE_VERSION = "20"
+RAILWAY_BUILDER = "nixpacks"
+BUILDER = "nixpacks"
+USE_NIXPACKS = "true"
+NO_DOCKER = "true"
 
 # Health check configuration
 [deploy.healthcheck]
@@ -29,3 +33,7 @@ path = "/api/health"
 timeout = 300
 interval = 30
 retries = 3
+
+# Explicitly disable Docker detection
+[build.docker]
+enabled = false
