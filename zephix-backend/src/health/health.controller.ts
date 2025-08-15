@@ -98,26 +98,79 @@ export class HealthController {
         // Test actual query execution
         await this.dataSource.query('SELECT 1');
         checks.push({
-          name: 'database',
+          name: 'Database Connection',
           status: 'healthy',
           critical: true,
-          details: 'Connected and responsive'
+          details: 'Database connection established and queries executing',
         });
+
+        // Check required tables exist
+        const requiredTables = ['users', 'organizations', 'projects', 'brds'];
+        for (const table of requiredTables) {
+          try {
+            const result = await this.dataSource.query(
+              "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
+              [table]
+            );
+            const exists = result[0].exists;
+            checks.push({
+              name: `Table: ${table}`,
+              status: exists ? 'healthy' : 'unhealthy',
+              critical: table === 'users' || table === 'organizations', // Core tables are critical
+              details: exists ? `Table ${table} exists` : `Table ${table} is missing`,
+              error: exists ? undefined : `Table ${table} not found in public schema`,
+            });
+          } catch (tableError) {
+            checks.push({
+              name: `Table: ${table}`,
+              status: 'unhealthy',
+              critical: table === 'users' || table === 'organizations',
+              details: `Error checking table ${table}`,
+              error: tableError.message,
+            });
+          }
+        }
+
+        // Check foreign key constraints
+        try {
+          const foreignKeys = await this.dataSource.query(`
+            SELECT COUNT(*) as count FROM information_schema.table_constraints 
+            WHERE constraint_type = 'FOREIGN KEY' AND table_schema = 'public'
+          `);
+          const fkCount = parseInt(foreignKeys[0].count);
+          checks.push({
+            name: 'Foreign Key Constraints',
+            status: fkCount > 0 ? 'healthy' : 'unhealthy',
+            critical: false,
+            details: `${fkCount} foreign key constraints found`,
+            error: fkCount === 0 ? 'No foreign key constraints found' : undefined,
+          });
+        } catch (fkError) {
+          checks.push({
+            name: 'Foreign Key Constraints',
+            status: 'unhealthy',
+            critical: false,
+            details: 'Error checking foreign key constraints',
+            error: fkError.message,
+          });
+        }
+
       } else {
         checks.push({
-          name: 'database',
+          name: 'Database Connection',
           status: 'unhealthy',
           critical: true,
-          details: 'Not initialized'
+          details: 'Database not initialized',
+          error: 'DataSource not initialized',
         });
       }
     } catch (error) {
       checks.push({
-        name: 'database',
+        name: 'Database Connection',
         status: 'unhealthy',
         critical: true,
-        details: `Connection failed: ${error.message}`,
-        error: error.message
+        details: 'Database connection failed',
+        error: error.message,
       });
     }
 

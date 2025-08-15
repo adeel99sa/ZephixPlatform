@@ -104,6 +104,7 @@ if (!(global as any).crypto) {
               acquireTimeout: 60000,
               timeout: 60000,
             },
+            migrationsTransactionMode: 'each', // Each migration in its own transaction
             retryAttempts: 15, // More retries for Railway platform stability
             retryDelay: 5000, // 5s delay between retries
             connectTimeoutMS: 60000, // 60s connection timeout
