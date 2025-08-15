@@ -152,21 +152,6 @@ async function bootstrap() {
       }),
     );
 
-    // ENHANCED: Global exception filter for better error handling
-    app.useGlobalFilters(
-      new GlobalExceptionFilter(logger),
-    );
-
-    // ENHANCED: Global interceptor for request logging
-    app.useGlobalInterceptors(
-      new RequestLoggingInterceptor(logger),
-    );
-
-    // ENHANCED: Global guard for organization scoping
-    app.useGlobalGuards(
-      new OrganizationScopeGuard(logger),
-    );
-
     // Get port from environment or configuration
     const port = configService.get('port') || process.env.PORT || 3000;
     
