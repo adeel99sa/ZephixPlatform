@@ -20,6 +20,7 @@ import { SharedModule } from './shared/shared.module';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
+import { QueueModule } from './queue/queue.module';
 
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -63,7 +64,8 @@ if (!(global as any).crypto) {
       global: true, // Make JWT available globally
     }),
 
-    TypeOrmModule.forRootAsync({
+    // Gate DatabaseModule behind environment flag for local development
+    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const databaseUrl = process.env.DATABASE_URL;
@@ -148,15 +150,18 @@ if (!(global as any).crypto) {
         }
       },
       inject: [ConfigService],
-    }),
+    })] : []),
 
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
-    OrganizationsModule, // Third - depends on SharedModule
-    ProjectsModule, // Fourth - depends on OrganizationsModule
-    AuthModule, // Last - depends on OrganizationsModule and ProjectsModule
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      OrganizationsModule, // Third - depends on SharedModule
+      ProjectsModule, // Fourth - depends on OrganizationsModule
+      AuthModule, // Last - depends on OrganizationsModule and ProjectsModule
+    ] : []),
     ObservabilityModule,
     HealthModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [
