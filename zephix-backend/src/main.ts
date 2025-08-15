@@ -30,9 +30,7 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
 
     // Run migrations conditionally based on environment variable
-    const runMigrationsOnBoot = configService.get<boolean>(
-      'database.runMigrationsOnBoot',
-    );
+    const runMigrationsOnBoot = false; // DISABLED: Never run migrations on boot in production
     if (runMigrationsOnBoot) {
       logger.log('Running database migrations...');
       try {
@@ -52,7 +50,7 @@ async function bootstrap() {
         logger.warn('Application will start without running migrations');
       }
     } else {
-      logger.log('Skipping database migrations (RUN_MIGRATIONS_ON_BOOT=false)');
+      logger.log('Migrations disabled on boot - run manually via CLI');
     }
 
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
