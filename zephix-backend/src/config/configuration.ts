@@ -7,9 +7,10 @@ export default () => ({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    synchronize: true, // Enable synchronization to create tables
+    synchronize: false, // NEVER enable synchronize in production
     logging: process.env.DB_LOGGING === 'true',
-    runMigrationsOnBoot: process.env.RUN_MIGRATIONS_ON_BOOT === 'true',
+    runMigrationsOnBoot: false, // DISABLED: Never run migrations on boot
+    migrationsTransactionMode: 'each', // Each migration runs in its own transaction
   },
   jwt: {
     secret: process.env.JWT_SECRET,
