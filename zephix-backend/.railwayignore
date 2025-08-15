@@ -1,55 +1,12 @@
-# Zephix Backend - Service-Specific Railway Ignore
-# Ensures only backend-specific files are deployed
-
-# Force nixpacks usage
-Dockerfile*
-.dockerignore
-docker-compose*
-dockerfile*
-
-# Development and test files
-**/*.test.ts
-**/*.spec.ts
-**/*.test.js
-**/*.spec.js
-**/test/
-**/tests/
-**/__tests__/
-**/coverage/
-**/.nyc_output/
-
-# Documentation
-**/*.md
-**/docs/
-**/README*
-
-# Configuration files (keep only essential)
-**/.eslintrc*
-**/.prettierrc*
-**/jest.config*
-**/tsconfig.json
-**/tsconfig.build.json
-
-# Source maps and development artifacts
-**/*.map
-**/.tsbuildinfo
-
-# Logs and temporary files
-**/logs/
-**/*.log
-**/tmp/
-**/temp/
-
-# Environment files
-**/.env*
-**/.env.local
-**/.env.development
-**/.env.test
-
-# Keep only production-ready files
-**/src/
-**/dist/
-**/package.json
-**/package-lock.json
-**/railway.toml
-**/nixpacks.toml
+# Minimal Railway ignore for NestJS backend
+.env*
+*.log
+.DS_Store
+temp-disabled/
+*.md
+docs/
+coverage/
+.nyc_output/
+test/
+tests/
+__tests__/
