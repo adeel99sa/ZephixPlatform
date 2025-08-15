@@ -1,92 +1,53 @@
-# Zephix Monorepo - Railway Ignore Configuration
-# Forces nixpacks usage and ensures proper service isolation
+# Railway Deployment Exclusions
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Force Railway to use nixpacks instead of Docker
-Dockerfile*
-.dockerignore
-docker-compose*
-dockerfile*
-**/Dockerfile*
-**/.dockerignore
-**/docker-compose*
-**/dockerfile*
+# Development files
+.env.local
+.env.development
+*.development.*
+.development
 
-# Ensure nixpacks is used
-# This file forces Railway to use nixpacks configuration
-# instead of auto-detecting Dockerfiles
+# Testing
+coverage/
+.nyc_output/
+test/
+tests/
+__tests__/
+*.test.*
+*.spec.*
 
-# Service isolation - prevent cross-service dependencies
-packages/
-node_modules/
-**/node_modules/
-**/dist/
-**/build/
-**/.next/
-**/.nuxt/
+# Documentation
+docs/
+*.md
+README*
+LICENSE
+CHANGELOG*
 
-# Development and test files
-**/*.test.ts
-**/*.spec.ts
-**/*.test.js
-**/*.spec.js
-**/test/
-**/tests/
-**/__tests__/
-**/coverage/
-**/.nyc_output/
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Documentation and non-essential files
-**/*.md
-**/docs/
-**/README*
-**/.git/
-**/.github/
-**/.vscode/
-**/.idea/
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Environment and configuration files
-**/.env*
-**/.env.local
-**/.env.development
-**/.env.test
-**/.env.production
-
-# Logs and temporary files
-**/logs/
-**/*.log
-**/tmp/
-**/temp/
-
-# Lock files (keep only root level)
-**/package-lock.json
-**/yarn.lock
-**/pnpm-lock.yaml
-
-# Ensure only essential files are deployed
-**/scripts/
-**/tools/
-**/ci/
-**/.eslintrc*
-**/.prettierrc*
-**/tsconfig*
-**/jest.config*
-**/vite.config*
-**/webpack.config*
-
-# AGGRESSIVE DOCKER PREVENTION
-**/Dockerfile*
-**/.dockerignore
-**/docker-compose*
-**/dockerfile*
-**/Dockerfile
-**/.dockerignore
-**/docker-compose.yml
-**/docker-compose.yaml
-**/docker-compose.override.yml
-**/docker-compose.override.yaml
-
-# Railway configuration conflicts
-**/railway.json
-**/railway-*.json
-**/railway-debug.json
-**/railway-advanced.json
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
