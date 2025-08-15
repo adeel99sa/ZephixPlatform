@@ -11,7 +11,12 @@ export class RoleSeedService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.seedRoles();
+    try {
+      await this.seedRoles();
+    } catch (error) {
+      console.log('⚠️ Role seeding skipped:', error.message);
+      // Don't crash the app - just log and continue
+    }
   }
 
   private async seedRoles() {
