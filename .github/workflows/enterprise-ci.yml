@@ -1,0 +1,286 @@
+name: Enterprise CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * *' # Daily security scan at 2 AM
+
+env:
+  NODE_VERSION: '20.x'
+  POSTGRES_VERSION: '15'
+
+jobs:
+  security-scan:
+    name: Security & Compliance Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, typescript
+          queries: security-extended, security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Checkov for IaC
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform,kubernetes,dockerfile,githubactions
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'checkov-results.sarif'
+
+  backend-test:
+    name: Backend Testing & Quality
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Run linting
+        working-directory: zephix-backend
+        run: npm run lint
+
+      - name: Run type checking
+        working-directory: zephix-backend
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        working-directory: zephix-backend
+        run: npm run test:cov
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          DB_DATABASE: zephix_test
+          JWT_SECRET: test-secret-key
+
+      - name: Run e2e tests
+        working-directory: zephix-backend
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          DB_DATABASE: zephix_test
+          JWT_SECRET: test-secret-key
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: zephix-backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+
+  frontend-test:
+    name: Frontend Testing & Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Run linting
+        working-directory: zephix-frontend
+        run: npm run lint
+
+      - name: Run type checking
+        working-directory: zephix-frontend
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        working-directory: zephix-frontend
+        run: npm run test:coverage
+        env:
+          CI: true
+
+      - name: Run Storybook build
+        working-directory: zephix-frontend
+        run: npm run storybook:ci
+
+      - name: Run accessibility tests
+        working-directory: zephix-frontend
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          file: zephix-frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  build-and-deploy:
+    name: Build & Deploy
+    needs: [security-scan, backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          npm run build
+          npm run build:metadata
+
+      - name: Build frontend
+        working-directory: zephix-frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      - name: Deploy to Railway (Staging)
+        if: github.ref == 'refs/heads/develop'
+        uses: railway/deploy@v1
+        with:
+          service: zephix-backend-staging
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy to Railway (Production)
+        if: github.ref == 'refs/heads/main'
+        uses: railway/deploy@v1
+        with:
+          service: zephix-backend-production
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+  performance-test:
+    name: Performance & Load Testing
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Artillery
+        run: npm install -g artillery
+
+      - name: Run performance tests
+        run: |
+          artillery run zephix-backend/scripts/performance-test.yml
+        env:
+          API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: artillery-report.json
+
+  security-compliance:
+    name: Security Compliance Report
+    runs-on: ubuntu-latest
+    needs: [security-scan, build-and-deploy]
+    if: always()
+    
+    steps:
+      - name: Generate compliance report
+        run: |
+          echo "## Security Compliance Report" > compliance-report.md
+          echo "Generated: $(date)" >> compliance-report.md
+          echo "" >> compliance-report.md
+          echo "### Vulnerabilities Found: ${{ needs.security-scan.result }}" >> compliance-report.md
+          echo "### Build Status: ${{ needs.build-and-deploy.result }}" >> compliance-report.md
+          
+      - name: Upload compliance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report
+          path: compliance-report.md
+
+

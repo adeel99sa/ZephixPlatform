@@ -1,12 +1,9 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": { "outDir": "./dist" },
-  "include": ["src/**/*"],
   "exclude": [
-    "node_modules",
-    "dist",
+    "src/**/*.spec.ts",
+    "src/**/*.e2e-spec.ts",
     "test",
-    "**/*.spec.ts",
-    "**/*.d.ts"
+    "src/database/migration-runner.service.ts",
+    "src/database/migration-runner.service.ts.backup"
   ]
 }
