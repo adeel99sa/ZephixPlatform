@@ -84,7 +84,8 @@ if (!(global as any).crypto) {
               Role,
               RefreshToken,
             ],
-            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
+            // FIXED: Use explicit migration paths instead of broken pattern
+            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
             synchronize: false, // Never use synchronize in production
             migrationsRun: false, // Migrations controlled manually for safety
             logging: isProduction
@@ -130,7 +131,8 @@ if (!(global as any).crypto) {
               Role,
               RefreshToken,
             ],
-            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
+            // FIXED: Use explicit migration paths instead of broken pattern
+            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
             synchronize: configService.get('database.synchronize'),
             logging: configService.get('database.logging'),
             extra: {

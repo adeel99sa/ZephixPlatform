@@ -1,10 +1,61 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run migration:run && npm run start:prod"
-# Remove health check entirely to prevent Railway from stopping the service
-restartPolicyType = "always"
+startCommand = "npm run start:railway"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
 
-[env]
+[deploy.envs]
 NODE_ENV = "production"
+RUN_MIGRATIONS_ON_BOOT = "false"
+MIGRATIONS_TRANSACTION_MODE = "each"
+DB_RETRY_ATTEMPTS = "15"
+DB_RETRY_DELAY = "5000"
+DB_CONNECT_TIMEOUT = "60000"
+DB_ACQUIRE_TIMEOUT = "60000"
+
+# Railway-specific database optimizations
+[deploy.envs.database]
+MAX_CONNECTIONS = "10"
+MIN_CONNECTIONS = "2"
+IDLE_TIMEOUT = "10000"
+KEEP_ALIVE = "true"
+FORCE_IPV4 = "true"
+
+# Security settings for Railway
+[deploy.envs.security]
+HELMET_ENABLED = "true"
+CORS_ALLOWED_ORIGINS = "*"
+RATE_LIMIT_ENABLED = "true"
+RATE_LIMIT_WINDOW_MS = "60000"
+RATE_LIMIT_MAX = "100"
+AUTH_RATE_LIMIT_WINDOW_MS = "900000"
+AUTH_RATE_LIMIT_MAX = "5"
+
+# Observability for Railway
+[deploy.envs.observability]
+LOG_LEVEL = "info"
+METRICS_ENABLED = "true"
+OTEL_ENABLED = "true"
+OTEL_SERVICE_NAME = "zephix-backend"
+OTEL_SERVICE_VERSION = "1.0.0"
+
+# Migration configuration
+[deploy.envs.migrations]
+AUTO_RUN_ON_BOOT = "false"
+TRANSACTION_MODE = "each"
+RETRY_ATTEMPTS = "15"
+RETRY_DELAY = "5000"
+TIMEOUT_MS = "300000"
+
+# Health check configuration
+[deploy.envs.health]
+ENDPOINT = "/api/health"
+TIMEOUT = "30"
+INTERVAL = "60"
+RETRIES = "3"
+START_PERIOD = "120"
