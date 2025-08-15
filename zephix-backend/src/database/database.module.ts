@@ -1,51 +1,36 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MigrationRunnerService } from './migration-runner.service';
+import { Module } from '@nestjs/common'
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm'
+import { ConfigModule } from '@nestjs/config'
+import type { LoggerOptions } from 'typeorm'
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
-        const isProduction = process.env.NODE_ENV === 'production';
-        const databaseUrl = process.env.DATABASE_URL;
+      useFactory: (): TypeOrmModuleOptions => {
+        const isProd = process.env.NODE_ENV === 'production'
+        const databaseUrl = process.env.DATABASE_URL as string
+        const logging: boolean | LoggerOptions = isProd ? (['error', 'warn'] as LoggerOptions) : true
 
         return {
           type: 'postgres',
           url: databaseUrl,
           autoLoadEntities: true,
           synchronize: false,
-          // Railway-specific optimizations
+          logging,
+          ssl: isProd ? { rejectUnauthorized: false } : false,
+          migrationsTransactionMode: 'each',
+          migrations: [__dirname + '/migrations/*.{ts,js}'],
           extra: {
             max: 10,
-            min: 2,
-            acquire: 60000,
-            idle: 10000,
-            family: 4, // Force IPv4 for Railway
-            connectionLimit: 10,
-            acquireTimeout: 60000,
-            timeout: 60000,
+            idleTimeoutMillis: 60000,
+            connectionTimeoutMillis: 60000,
             keepAlive: true,
-            keepAliveInitialDelay: 30000,
-          },
-          retryAttempts: 15,
-          retryDelay: 5000,
-          connectTimeoutMS: 60000,
-          acquireTimeoutMillis: 60000,
-          keepConnectionAlive: true,
-          ssl: isProduction ? true : false,
-          logging: isProduction ? ['error', 'warn'] : true,
-          migrationsTransactionMode: 'each',
-          // Migration configuration
-          migrations: [__dirname + '/migrations/*.{ts,js}'],
-          migrationsRun: false,
-        };
-      },
-      inject: [ConfigService],
-    }),
-  ],
-  providers: [MigrationRunnerService],
-  exports: [MigrationRunnerService],
+            keepAliveInitialDelayMillis: 10000
+          }
+        }
+      }
+    })
+  ]
 })
 export class DatabaseModule {}
