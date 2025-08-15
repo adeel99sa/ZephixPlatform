@@ -52,3 +52,4 @@ dockerfile*
 **/package.json
 **/package-lock.json
 **/railway.toml
+**/nixpacks.toml
