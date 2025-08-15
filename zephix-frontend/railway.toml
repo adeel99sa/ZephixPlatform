@@ -1,39 +1,11 @@
-# Zephix Frontend - Explicit Railway Configuration
-# Forces nixpacks usage and overrides auto-detection
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci && npm run build"
 
 [deploy]
-startCommand = "npm run preview"
+startCommand = "npm run start"
 healthcheckPath = "/"
 healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyType = "always"
 
-# Environment configuration
 [env]
 NODE_ENV = "production"
-PORT = "3000"
-
-# Build variables to force nixpacks - STRONG ENFORCEMENT
-[build.variables]
-DISABLE_DOCKER = "true"
-FORCE_NIXPACKS = "true"
-BUILDER_OVERRIDE = "nixpacks"
-NIXPACKS_NODE_VERSION = "20"
-RAILWAY_BUILDER = "nixpacks"
-BUILDER = "nixpacks"
-USE_NIXPACKS = "true"
-NO_DOCKER = "true"
-
-# Health check configuration
-[deploy.healthcheck]
-path = "/"
-timeout = 300
-interval = 30
-retries = 3
-
-# Explicitly disable Docker detection
-[build.docker]
-enabled = false
