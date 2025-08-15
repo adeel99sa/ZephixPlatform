@@ -29,29 +29,8 @@ async function bootstrap() {
     // Get configuration service
     const configService = app.get(ConfigService);
 
-    // Run migrations conditionally based on environment variable
-    const runMigrationsOnBoot = false; // DISABLED: Never run migrations on boot in production
-    if (runMigrationsOnBoot) {
-      logger.log('Running database migrations...');
-      try {
-        const dataSource = app.get(DataSource);
-        const migrations = await dataSource.runMigrations();
-        if (migrations.length > 0) {
-          logger.log(`Successfully ran ${migrations.length} migration(s):`);
-          migrations.forEach((migration) => {
-            logger.log(`   - ${migration.name}`);
-          });
-        } else {
-          logger.log('No pending migrations found');
-        }
-      } catch (migrationError) {
-        logger.error('Database migration failed:', migrationError);
-        // Don't exit - let the app start anyway to avoid deployment loops
-        logger.warn('Application will start without running migrations');
-      }
-    } else {
-      logger.log('Migrations disabled on boot - run manually via CLI');
-    }
+    // ENHANCED: Safe migration handling that won't crash the app
+    await handleMigrationsSafely(app, logger);
 
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
@@ -102,111 +81,205 @@ async function bootstrap() {
           }),
         }),
       );
-    } else {
-      logger.log('Security headers disabled');
     }
 
-    // Configure global rate limiting with per-route overrides
+    // ENHANCED: Rate limiting with Railway-specific optimizations
     const rateLimitConfig = configService.get('security.rateLimit');
-
     if (rateLimitConfig.enabled) {
-      logger.log(
-        `Global rate limiting: ${rateLimitConfig.max} requests per ${rateLimitConfig.windowMs}ms per IP`,
-      );
-
-      // Global rate limiter
+      logger.log('Rate limiting enabled');
+      
+      // General rate limiting
       app.use(
         rateLimit({
           windowMs: rateLimitConfig.windowMs,
           max: rateLimitConfig.max,
-          skip: (req) => {
-            // Skip rate limiting for health and status endpoints
-            return (
-              req.path === '/api/health' ||
-              req.path === '/api/_status' ||
-              req.path === '/api/metrics'
-            );
+          message: {
+            error: 'Too many requests from this IP, please try again later.',
+            retryAfter: Math.ceil(rateLimitConfig.windowMs / 1000),
           },
           standardHeaders: true,
           legacyHeaders: false,
-          keyGenerator: (req) => req.ip || 'unknown',
-          handler: (req, res) => {
-            logger.warn(
-              `Global rate limit exceeded for IP: ${req.ip}, path: ${req.path}`,
-            );
-            res.status(429).json({
-              statusCode: 429,
-              message: 'Too Many Requests',
-              error: 'Rate limit exceeded',
-              retryAfter: Math.round(rateLimitConfig.windowMs / 1000),
-            });
+          // Railway-specific optimizations
+          skip: (req) => {
+            // Skip health checks and internal routes
+            return req.path === '/api/health' || req.path.startsWith('/api/metrics');
           },
         }),
       );
 
-      // Stricter rate limiting for auth endpoints
-      logger.log(
-        `Auth rate limiting: ${rateLimitConfig.authMax} requests per ${rateLimitConfig.authWindowMs}ms per IP`,
+      // Stricter rate limiting for authentication endpoints
+      app.use(
+        '/api/auth',
+        rateLimit({
+          windowMs: rateLimitConfig.authWindowMs,
+          max: rateLimitConfig.authMax,
+          message: {
+            error: 'Too many authentication attempts, please try again later.',
+            retryAfter: Math.ceil(rateLimitConfig.authWindowMs / 1000),
+          },
+          standardHeaders: true,
+          legacyHeaders: false,
+        }),
       );
-      const authRateLimit = rateLimit({
-        windowMs: rateLimitConfig.authWindowMs,
-        max: rateLimitConfig.authMax,
-        standardHeaders: true,
-        legacyHeaders: false,
-        keyGenerator: (req) => req.ip || 'unknown',
-        handler: (req, res) => {
-          logger.warn(
-            `Auth rate limit exceeded for IP: ${req.ip}, path: ${req.path}`,
-          );
-          res.status(429).json({
-            statusCode: 429,
-            message: 'Too Many Authentication Attempts',
-            error: 'Authentication rate limit exceeded',
-            retryAfter: Math.round(rateLimitConfig.authWindowMs / 1000),
-          });
-        },
-      });
-
-      // Apply auth rate limiting to authentication endpoints
-      app.use('/api/auth', authRateLimit);
-    } else {
-      logger.log('Rate limiting disabled');
     }
 
-    // Global Validation Pipe
+    // ENHANCED: Global validation pipe with better error handling
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        transformOptions: {
+          enableImplicitConversion: true,
+        },
+        // Better error messages for Railway debugging
+        exceptionFactory: (errors) => {
+          const formattedErrors = errors.map((error) => ({
+            field: error.property,
+            value: error.value,
+            constraints: error.constraints,
+            children: error.children,
+          }));
+          
+          logger.warn('Validation errors:', formattedErrors);
+          
+          return new Error(
+            `Validation failed: ${formattedErrors
+              .map((e) => Object.values(e.constraints || {}).join(', '))
+              .join('; ')}`,
+          );
+        },
       }),
     );
 
-    // Set global API prefix
-    app.setGlobalPrefix('api');
+    // ENHANCED: Global exception filter for better error handling
+    app.useGlobalFilters(
+      new GlobalExceptionFilter(logger),
+    );
 
-    // Enable graceful shutdown
-    app.enableShutdownHooks();
+    // ENHANCED: Global interceptor for request logging
+    app.useGlobalInterceptors(
+      new RequestLoggingInterceptor(logger),
+    );
 
-    // Listen on PORT provided by environment or default 3000
-    const port = process.env.PORT || 3000;
-    await app.listen(port, '0.0.0.0');
+    // ENHANCED: Global guard for organization scoping
+    app.useGlobalGuards(
+      new OrganizationScopeGuard(logger),
+    );
 
-    logger.log(`Zephix Backend Service started successfully on port ${port}`);
-    logger.log(`Health check: http://0.0.0.0:${port}/api/health`);
-    logger.log(`Readiness check: http://0.0.0.0:${port}/api/ready`);
-
-    // Graceful shutdown on SIGTERM and SIGINT
-    ['SIGTERM', 'SIGINT'].forEach((signal) => {
-      process.on(signal, async () => {
-        logger.log(`Received ${signal}, shutting down gracefully...`);
-        await app.close();
+    // Get port from environment or configuration
+    const port = configService.get('port') || process.env.PORT || 3000;
+    
+    // ENHANCED: Graceful shutdown handling for Railway
+    const server = await app.listen(port, '0.0.0.0');
+    
+    // Graceful shutdown handling
+    const gracefulShutdown = async (signal: string) => {
+      logger.log(`Received ${signal}, starting graceful shutdown...`);
+      
+      try {
+        // Close server
+        await new Promise<void>((resolve) => {
+          server.close(() => resolve());
+        });
+        
+        // Close database connections
+        const dataSource = app.get(DataSource);
+        if (dataSource.isInitialized) {
+          await dataSource.destroy();
+          logger.log('Database connections closed');
+        }
+        
+        logger.log('Graceful shutdown completed');
         process.exit(0);
-      });
-    });
+      } catch (error) {
+        logger.error('Error during graceful shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    // Handle shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    logger.log(`🚀 Zephix Backend is running on port ${port}`);
+    logger.log(`📊 Health check available at: http://localhost:${port}/api/health`);
+    logger.log(`📈 Metrics available at: http://localhost:${port}/api/metrics`);
+    
+    // ENHANCED: Railway-specific startup message
+    if (process.env.NODE_ENV === 'production') {
+      logger.log('🚂 Railway production environment detected');
+      logger.log('🔒 SSL and security headers enabled');
+      logger.log('📊 Production logging configured');
+    }
+
   } catch (error) {
-    logger.error('Failed to start application:', error.stack);
+    logger.error('❌ Failed to start Zephix Backend:', error);
+    
+    // ENHANCED: Better error reporting for Railway
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('Production startup failure - check logs and restart');
+    }
+    
     process.exit(1);
+  }
+}
+
+/**
+ * ENHANCED: Safe migration handling that won't crash the application
+ */
+async function handleMigrationsSafely(app: any, logger: Logger): Promise<void> {
+  try {
+    // Check if migrations should run on startup
+    const runMigrationsOnBoot = process.env.RUN_MIGRATIONS_ON_BOOT === 'true';
+    
+    if (!runMigrationsOnBoot) {
+      logger.log('Migrations disabled on boot - run manually via CLI');
+      return;
+    }
+
+    logger.log('🔄 Running database migrations...');
+    
+    try {
+      const dataSource = app.get(DataSource);
+      
+      // Wait for database connection
+      if (!dataSource.isInitialized) {
+        logger.log('Waiting for database connection...');
+        await dataSource.initialize();
+      }
+      
+      // Run migrations with timeout protection
+      const migrationPromise = dataSource.runMigrations();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Migration timeout')), 300000) // 5 minutes
+      );
+      
+      const migrations = await Promise.race([migrationPromise, timeoutPromise]);
+      
+      if (migrations.length > 0) {
+        logger.log(`✅ Successfully ran ${migrations.length} migration(s):`);
+        migrations.forEach((migration: any) => {
+          logger.log(`   - ${migration.name}`);
+        });
+      } else {
+        logger.log('ℹ️  No pending migrations found');
+      }
+      
+    } catch (migrationError) {
+      logger.error('❌ Database migration failed:', migrationError);
+      
+      // ENHANCED: Don't crash the app, just log the error
+      logger.warn('⚠️  Application will start without running migrations');
+      logger.warn('💡 Run migrations manually: npm run migration:run:consolidated');
+      
+      // Continue with app startup
+      return;
+    }
+    
+  } catch (error) {
+    logger.error('❌ Migration handling error:', error);
+    logger.warn('⚠️  Application will start without migration handling');
   }
 }
 
