@@ -1,10 +1,11 @@
+# Zephix Monorepo - Railway Ignore Configuration
+# Forces nixpacks usage and ensures proper service isolation
+
 # Force Railway to use nixpacks instead of Docker
 Dockerfile*
 .dockerignore
 docker-compose*
 dockerfile*
-
-# Ignore all Docker-related files
 **/Dockerfile*
 **/.dockerignore
 **/docker-compose*
@@ -13,3 +14,61 @@ dockerfile*
 # Ensure nixpacks is used
 # This file forces Railway to use nixpacks configuration
 # instead of auto-detecting Dockerfiles
+
+# Service isolation - prevent cross-service dependencies
+packages/
+node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/.next/
+**/.nuxt/
+
+# Development and test files
+**/*.test.ts
+**/*.spec.ts
+**/*.test.js
+**/*.spec.js
+**/test/
+**/tests/
+**/__tests__/
+**/coverage/
+**/.nyc_output/
+
+# Documentation and non-essential files
+**/*.md
+**/docs/
+**/README*
+**/.git/
+**/.github/
+**/.vscode/
+**/.idea/
+
+# Environment and configuration files
+**/.env*
+**/.env.local
+**/.env.development
+**/.env.test
+**/.env.production
+
+# Logs and temporary files
+**/logs/
+**/*.log
+**/tmp/
+**/temp/
+
+# Lock files (keep only root level)
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+
+# Ensure only essential files are deployed
+**/scripts/
+**/tools/
+**/ci/
+**/.eslintrc*
+**/.prettierrc*
+**/tsconfig*
+**/jest.config*
+**/vite.config*
+**/webpack.config*
