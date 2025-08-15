@@ -3,8 +3,7 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "npm run migration:run && npm run start:prod"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 600
+# Remove health check entirely to prevent Railway from stopping the service
 restartPolicyType = "always"
 
 [env]
