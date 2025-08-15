@@ -1,10 +1,17 @@
 {
   "mcpServers": {
-    "railway": {
+    "railway-mcp": {
       "command": "npx",
-      "args": ["-y", "@jasontanswe/railway-mcp"],
+      "args": ["-y", "@railway/mcp-server"],
       "env": {
-        "RAILWAY_API_TOKEN": "ef74da89-b537-451f-bff4-9d05c193c418"
+        "RAILWAY_TOKEN": "${env:RAILWAY_TOKEN}"
+      }
+    },
+    "filesystem-mcp": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "env": {
+        "MCP_FILESYSTEM_ROOT": "${workspaceFolder}"
       }
     }
   }
