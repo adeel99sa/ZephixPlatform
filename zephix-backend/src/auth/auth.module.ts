@@ -17,6 +17,7 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
+import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 
 import { SharedModule } from '../shared/shared.module';
 import { UsersModule } from '../modules/users/users.module';
@@ -33,7 +34,7 @@ import { UsersModule } from '../modules/users/users.module';
       })
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification]),
+    TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification, RefreshToken]),
     UsersModule,
     SharedModule
   ],
