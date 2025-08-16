@@ -14,7 +14,6 @@ import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
 import { AuthModule } from './modules/auth/auth.module';
-import { AuthDatabaseModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
@@ -154,13 +153,11 @@ if (!(global as any).crypto) {
 
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
+    AuthModule, // Always import AuthModule for authentication
     ...(process.env.SKIP_DATABASE !== 'true' ? [
-      AuthDatabaseModule, // Full auth with database
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
-    ] : [
-      AuthModule, // Basic auth without database
-    ]),
+    ] : []),
     ObservabilityModule,
     HealthModule,
   ],
