@@ -47,8 +47,8 @@ export class DocumentStatusResponse {
   processingTime?: number;
 }
 
-@Controller('api/v1/documents')
-@ApiTags('Document Upload & Processing')
+@ApiTags('Document Processing')
+@Controller('v1/documents')
 @UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class DocumentUploadController {

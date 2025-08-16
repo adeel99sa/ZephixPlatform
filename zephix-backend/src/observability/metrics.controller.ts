@@ -8,7 +8,7 @@ import {
 import { MetricsService } from './metrics.service';
 
 @ApiTags('Observability')
-@Controller('api')
+@Controller()
 export class MetricsController {
   constructor(private readonly metricsService: MetricsService) {}
 
