@@ -30,57 +30,77 @@ import { HealthService } from './services/health.service';
         useFactory: () => {
           const useUrl = !!process.env.DATABASE_URL;
           
-          // Use the same SSL logic as SslConfigService directly in factory
-          const DB_SSL = (process.env.DB_SSL || 'require').toLowerCase();
-          const DB_SSL_STRICT = (process.env.DB_SSL_STRICT || 'false').toLowerCase() === 'true';
-          
-          const decodeMaybeBase64 = (input?: string) => {
-            if (!input) return undefined;
-            try {
-              const decoded = Buffer.from(input, 'base64').toString('utf8');
-              if (decoded.includes('-----BEGIN') && decoded.includes('-----END')) {
-                return decoded;
+          // CRITICAL: When using DATABASE_URL, we must handle SSL differently
+          // DATABASE_URL with ?sslmode=require overrides our ssl property
+          if (useUrl) {
+            // Parse DATABASE_URL to check SSL mode
+            const url = new URL(process.env.DATABASE_URL!);
+            const sslMode = url.searchParams.get('sslmode');
+            
+            console.log('🔐 DATABASE_URL SSL Analysis:', {
+              sslMode,
+              fullUrl: process.env.DATABASE_URL,
+              hasSslMode: !!sslMode
+            });
+            
+            // If DATABASE_URL has sslmode=require, we need to ensure SSL config is applied
+            // TypeORM will use the URL's SSL mode, but we can still set rejectUnauthorized
+            const sslConfig = {
+              rejectUnauthorized: false, // Always accept self-signed for Railway
+            };
+            
+            console.log('🔐 Final SSL Config for DATABASE_URL:', sslConfig);
+            
+            return {
+              type: 'postgres' as const,
+              url: process.env.DATABASE_URL,
+              ssl: sslConfig, // This will work with sslmode=require
+              synchronize: false,
+              migrationsRun: false,
+              logging: ['error'],
+            };
+          } else {
+            // Use discrete variables - apply our SSL logic
+            const DB_SSL = (process.env.DB_SSL || 'require').toLowerCase();
+            const DB_SSL_STRICT = (process.env.DB_SSL_STRICT || 'false').toLowerCase() === 'true';
+            
+            const decodeMaybeBase64 = (input?: string) => {
+              if (!input) return undefined;
+              try {
+                const decoded = Buffer.from(input, 'base64').toString('utf8');
+                if (decoded.includes('-----BEGIN') && decoded.includes('-----END')) {
+                  return decoded;
+                }
+                return input;
+              } catch {
+                return input;
               }
-              return input;
-            } catch {
-              return input;
-            }
-          };
-          
-          const DB_SSL_CA = decodeMaybeBase64(process.env.DB_SSL_CA);
-          
-          const sslConfig =
-            DB_SSL === 'disable'
-              ? false
-              : DB_SSL_STRICT
-              ? { rejectUnauthorized: true, ca: DB_SSL_CA }
-              : { rejectUnauthorized: false };
-          
-          // Debug SSL configuration
-          console.log('🔐 SSL Configuration:', {
-            DB_SSL: process.env.DB_SSL,
-            DB_SSL_STRICT: process.env.DB_SSL_STRICT,
-            sslConfig,
-            hasDatabaseUrl: useUrl,
-            databaseUrl: useUrl ? process.env.DATABASE_URL?.substring(0, 50) + '...' : 'N/A'
-          });
-          
-          return {
-            type: 'postgres' as const,
-            ...(useUrl
-              ? { url: process.env.DATABASE_URL }
-              : {
-                  host: process.env.DB_HOST,
-                  port: Number(process.env.DB_PORT || 5432),
-                  username: process.env.DB_USER,
-                  password: process.env.DB_PASSWORD,
-                  database: process.env.DB_NAME,
-                }),
-            ssl: sslConfig,
-            synchronize: false,
-            migrationsRun: false,
-            logging: ['error'],
-          };
+            };
+            
+            const DB_SSL_CA = decodeMaybeBase64(process.env.DB_SSL_CA);
+            
+            const sslConfig =
+              DB_SSL === 'disable'
+                ? false
+                : DB_SSL_STRICT
+                ? { rejectUnauthorized: true, ca: DB_SSL_CA }
+                : { rejectUnauthorized: false };
+            
+            console.log('🔐 SSL Config for discrete variables:', sslConfig);
+            
+            return {
+              type: 'postgres' as const,
+              host: process.env.DB_HOST,
+              port: Number(process.env.DB_PORT || 5432),
+              username: process.env.DB_USER,
+              password: process.env.DB_PASSWORD,
+              database: process.env.DB_NAME,
+              ssl: sslConfig,
+              synchronize: false,
+              migrationsRun: false,
+              logging: ['error'],
+            };
+          }
         },
       })
     ] : []),
