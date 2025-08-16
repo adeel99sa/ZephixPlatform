@@ -56,7 +56,7 @@ if (!(global as any).crypto) {
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret'),
         signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn') || '24h',
+          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
         },
       }),
       inject: [ConfigService],
