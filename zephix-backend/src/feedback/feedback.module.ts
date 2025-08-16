@@ -5,7 +5,10 @@ import { FeedbackController } from './controllers/feedback.controller';
 import { Feedback } from './entities/feedback.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Feedback])],
+  imports: [
+    // Only import TypeORM when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([Feedback])] : []),
+  ],
   controllers: [FeedbackController],
   providers: [FeedbackService],
   exports: [FeedbackService],
