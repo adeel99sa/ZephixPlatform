@@ -4,7 +4,10 @@ import { HealthController } from './health.controller';
 import { User } from "../modules/users/entities/user.entity"
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [
+    // Only import TypeORM when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([User])] : []),
+  ],
   controllers: [HealthController],
   exports: [],
 })

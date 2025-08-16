@@ -411,4 +411,52 @@ function getCorsConfig() {
 }
 
 bootstrap();
+
+// CRITICAL: Railway container fixes
+// Handle graceful shutdown for SIGTERM
+process.on('SIGTERM', () => {
+  console.log('🚨 SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🚨 SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
+// Monitor memory usage to prevent Railway container kills
+setInterval(() => {
+  const used = process.memoryUsage();
+  const rssMB = Math.round(used.rss / 1024 / 1024);
+  const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+  const externalMB = Math.round(used.external / 1024 / 1024);
+  
+  console.log(`📊 Memory Usage - RSS: ${rssMB}MB, Heap: ${heapMB}MB, External: ${externalMB}MB`);
+  
+  // Warning if memory usage is high (Railway typically has 512MB-1GB limits)
+  if (rssMB > 400) {
+    console.warn(`⚠️  High memory usage detected: ${rssMB}MB - Railway may kill container`);
+  }
+}, 30000); // Check every 30 seconds
+
+// Monitor for uncaught exceptions and unhandled rejections
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// Log Railway environment information
+console.log('🚂 Railway Environment Info:');
+console.log(`   PORT: ${process.env.PORT || 'Not set'}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
+console.log(`   SKIP_DATABASE: ${process.env.SKIP_DATABASE || 'Not set'}`);
+console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
+console.log(`   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`);
+console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
+
 // Updated: Mon Aug 11 22:23:35 CDT 2025
