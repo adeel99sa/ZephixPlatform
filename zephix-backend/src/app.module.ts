@@ -161,7 +161,8 @@ if (!(global as any).crypto) {
     ] : []),
     ObservabilityModule,
     HealthModule,
-    QueueModule,
+    // CRITICAL: Only import QueueModule if Redis is configured
+    ...(process.env.REDIS_URL ? [QueueModule] : []),
   ],
   controllers: [AppController],
   providers: [
