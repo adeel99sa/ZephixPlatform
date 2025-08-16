@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res, Optional, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -20,8 +20,8 @@ export class HealthController {
   private readonly logger = new Logger(HealthController.name);
 
   constructor(
-    @InjectDataSource()
-    private dataSource: DataSource,
+    @Optional() @InjectDataSource()
+    private dataSource?: DataSource,
   ) {}
 
   @Get()
@@ -94,12 +94,39 @@ export class HealthController {
   private async performHealthChecks(): Promise<HealthCheck[]> {
     const checks: HealthCheck[] = [];
 
+    // Check if database is available
+    if (!this.dataSource) {
+      checks.push({
+        name: 'Database Connection',
+        status: 'unhealthy',
+        critical: false, // Not critical when SKIP_DATABASE=true
+        details: 'Database not configured (SKIP_DATABASE=true)',
+      });
+      
+      // Add basic system health checks that don't require database
+      checks.push({
+        name: 'Application Process',
+        status: 'healthy',
+        critical: true,
+        details: 'Application is running and responding',
+      });
+      
+      checks.push({
+        name: 'Memory Usage',
+        status: 'healthy',
+        critical: true,
+        details: `Memory usage: ${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+      });
+      
+      return checks;
+    }
+
     // Database connectivity check
     try {
-      const isDbConnected = this.dataSource.isInitialized;
+      const isDbConnected = this.dataSource?.isInitialized;
       if (isDbConnected) {
         // Test actual query execution
-        await this.dataSource.query('SELECT 1');
+        await this.dataSource?.query('SELECT 1');
         checks.push({
           name: 'Database Connection',
           status: 'healthy',
@@ -115,11 +142,11 @@ export class HealthController {
         // Check required tables
         for (const table of requiredTables) {
           try {
-            const result = await this.dataSource.query(
+            const result = await this.dataSource?.query(
               "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
               [table]
             );
-            const exists = result[0].exists;
+            const exists = result?.[0]?.exists;
             checks.push({
               name: `Table: ${table}`,
               status: exists ? 'healthy' : 'unhealthy',
@@ -141,11 +168,11 @@ export class HealthController {
         // Check optional tables (non-critical)
         for (const table of optionalTables) {
           try {
-            const result = await this.dataSource.query(
+            const result = await this.dataSource?.query(
               "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
               [table]
             );
-            const exists = result[0].exists;
+            const exists = result?.[0]?.exists;
             checks.push({
               name: `Table: ${table}`,
               status: exists ? 'healthy' : 'unhealthy',
@@ -166,11 +193,11 @@ export class HealthController {
 
         // Check foreign key constraints (non-critical)
         try {
-          const foreignKeys = await this.dataSource.query(`
+          const foreignKeys = await this.dataSource?.query(`
             SELECT COUNT(*) as count FROM information_schema.table_constraints 
             WHERE constraint_type = 'FOREIGN KEY' AND table_schema = 'public'
           `);
-          const fkCount = parseInt(foreignKeys[0].count);
+          const fkCount = parseInt(foreignKeys?.[0]?.count);
           checks.push({
             name: 'Foreign Key Constraints',
             status: fkCount > 0 ? 'healthy' : 'unhealthy',
