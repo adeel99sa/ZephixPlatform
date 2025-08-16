@@ -162,15 +162,17 @@ if (!(global as any).crypto) {
     AIModule, // AI services and document processing (conditional TypeORM)
     IntelligenceModule, // Intelligence services (no TypeORM)
     ArchitectureModule, // Architecture services (no TypeORM)
+    ObservabilityModule, // Always load for MetricsService
+    HealthModule, // Always load for health checks
+    PMModule, // Always load - provides core PM services
+    
+    // Database-dependent modules - only load when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
-      PMModule, // Project management functionality (conditional TypeORM)
       BRDModule, // Business requirements documentation (conditional TypeORM)
       FeedbackModule, // User feedback system (conditional TypeORM)
     ] : []),
-    ObservabilityModule,
-    HealthModule,
   ],
   controllers: [AppController],
   providers: [
