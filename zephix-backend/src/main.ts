@@ -217,7 +217,37 @@ async function bootstrap() {
       }),
     );
 
-    // Get port from environment or configuration
+    // CRITICAL: Verify critical services before binding to port
+    logger.log('🔍 Verifying critical services before startup...');
+    try {
+      // Verify AuthModule loaded and AuthController is available
+      const authController = app.get('AuthController');
+      logger.log('🔐 AuthController available:', !!authController);
+      
+      if (!authController) {
+        logger.error('❌ CRITICAL: AuthController not available - authentication will fail');
+        throw new Error('AuthController not available');
+      }
+      
+      // Verify SharedModule global services
+      const llmProvider = app.get('LLMProviderService');
+      logger.log('🤖 LLMProviderService available:', !!llmProvider);
+      
+      const claudeService = app.get('ClaudeService');
+      logger.log('🧠 ClaudeService available:', !!claudeService);
+      
+      // Verify HealthModule
+      const healthController = app.get('HealthController');
+      logger.log('🏥 HealthController available:', !!healthController);
+      
+      logger.log('✅ All critical services verified successfully');
+    } catch (error) {
+      logger.error('❌ CRITICAL: Service verification failed:', error.message);
+      logger.error('Stack trace:', error.stack);
+      throw new Error(`Critical service verification failed: ${error.message}`);
+    }
+    
+    // Only then bind to port
     const port = configService.get('port') || process.env.PORT || 3000;
     
     // CRITICAL: Log port binding information

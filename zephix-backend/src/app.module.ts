@@ -173,13 +173,25 @@ if (!(global as any).crypto) {
     ArchitectureModule, // Architecture services - no TypeORM dependencies
     PMModule, // Project management - depends on SharedModule (global)
     
-    // Database-dependent modules (simplified conditional logic)
-    ...(process.env.DATABASE_URL ? [
-      OrganizationsModule, // Depends on SharedModule
-      ProjectsModule, // Depends on OrganizationsModule
-      BRDModule, // Business requirements - depends on SharedModule (global)
-      FeedbackModule, // User feedback - depends on SharedModule (global)
-    ] : []),
+    // Database-dependent modules (with error handling for connection issues)
+    ...(process.env.DATABASE_URL ? (() => {
+      try {
+        console.log('🔍 Loading database-dependent modules...');
+        const databaseModules = [
+          OrganizationsModule, // Depends on SharedModule
+          ProjectsModule, // Depends on OrganizationsModule
+          BRDModule, // Business requirements - depends on SharedModule (global)
+          FeedbackModule, // User feedback - depends on SharedModule (global)
+        ];
+        console.log('✅ Database modules loaded successfully:', databaseModules.map(m => m.name));
+        return databaseModules;
+      } catch (error) {
+        console.error('❌ CRITICAL: Database module loading failed:', error);
+        console.error('Stack trace:', error.stack);
+        console.warn('⚠️  Continuing without database modules - application will run in limited mode');
+        return [];
+      }
+    })() : []),
   ],
   controllers: [AppController],
   providers: [
