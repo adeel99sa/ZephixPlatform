@@ -105,10 +105,17 @@ export class AuthService {
       console.log('🔐 Login attempt for:', loginDto.email);
       const { email, password } = loginDto;
 
-      // Find user by email
+      // ADD CRITICAL NULL CHECKS
+      if (!password) {
+        console.log('❌ Password is missing from request');
+        throw new UnauthorizedException('Password is required');
+      }
+
+      // Find user by email - EXPLICITLY SELECT PASSWORD FIELD
       console.log('🔍 Looking up user by email:', email.toLowerCase());
       const user = await this.userRepository.findOne({
         where: { email: email.toLowerCase() },
+        select: ['id', 'email', 'password', 'firstName', 'lastName', 'isActive', 'isEmailVerified', 'role', 'organizationId', 'profilePicture', 'createdAt', 'updatedAt']
       });
 
       if (!user) {
@@ -116,10 +123,28 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      console.log('✅ User found:', { id: user.id, email: user.email, isActive: user.isActive, isEmailVerified: user.isEmailVerified });
+      console.log('✅ User found:', { 
+        id: user.id, 
+        email: user.email, 
+        isActive: user.isActive, 
+        isEmailVerified: user.isEmailVerified,
+        hasPassword: !!user.password,
+        passwordLength: user.password?.length 
+      });
+
+      // CRITICAL: Check if user password exists
+      if (!user.password) {
+        console.log('❌ User password not found in database for user:', user.id);
+        throw new UnauthorizedException('User password not found');
+      }
 
       // Verify password using bcrypt
       console.log('🔐 Verifying password...');
+      console.log('🔍 Password comparison details:', {
+        requestPassword: password ? `${password.substring(0, 3)}...` : 'undefined',
+        storedPassword: user.password ? `${user.password.substring(0, 10)}...` : 'undefined'
+      });
+      
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         console.log('❌ Password validation failed for user:', user.id);
@@ -157,10 +182,8 @@ export class AuthService {
       console.error('🚨 EXACT LOGIN ERROR:', {
         email: loginDto.email,
         message: error.message,
-        stack: error.stack,
         name: error.name,
-        constructor: error.constructor.name,
-        fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        stack: error.stack
       });
       
       // Re-throw with more context
