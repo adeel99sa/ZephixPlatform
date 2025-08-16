@@ -2,7 +2,6 @@ import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role, RoleType } from '../entities/role.entity';
-import { QueueService } from '../../queue/queue.service';
 
 @Injectable()
 export class RoleSeedService implements OnModuleInit {
@@ -11,7 +10,6 @@ export class RoleSeedService implements OnModuleInit {
   constructor(
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
-    private readonly queueService: QueueService,
   ) {}
 
   async onModuleInit() {
@@ -19,42 +17,35 @@ export class RoleSeedService implements OnModuleInit {
       await this.seedRoles();
     } catch (error) {
       console.log('⚠️ Role seeding skipped:', error.message);
+      this.logger.warn('Role seeding failed during startup:', error.message);
       // Don't crash the app - just log and continue
     }
   }
 
   /**
-   * Seed roles with background processing fallback
-   * Tries to queue the job first, falls back to direct execution if queue fails
+   * Seed roles with direct execution
+   * Maintains 100% backward compatibility
    */
   async seedRoles(tenantId?: string, force: boolean = false): Promise<void> {
     try {
-      // Try to queue the role seeding job
-      const jobId = await this.queueService.enqueueRoleSeed({
-        tenantId,
-        force,
-        mode: 'startup'
-      });
+      this.logger.log('🔄 Executing role seeding directly');
+      console.log('🔄 Executing role seeding directly');
       
-      this.logger.log(`🚀 Role seeding queued successfully as job=${jobId}`);
-      console.log(`🚀 Role seeding queued successfully as job=${jobId}`);
-      
-    } catch (queueError) {
-      this.logger.warn(`⚠️ Queue unavailable, falling back to direct role seeding: ${queueError.message}`);
-      console.log('⚠️ Queue unavailable, falling back to direct role seeding');
-      
-      // Fallback to direct execution
       await this.seedRolesDirect();
+    } catch (error) {
+      this.logger.error('Role seeding failed:', error.message);
+      console.log('❌ Role seeding failed:', error.message);
+      // Don't throw - let the app continue
     }
   }
 
   /**
-   * Direct role seeding (fallback method)
+   * Direct role seeding (main method)
    * Maintains 100% backward compatibility
    */
   private async seedRolesDirect(): Promise<void> {
-    this.logger.log('🔄 Executing role seeding directly (fallback mode)');
-    console.log('🔄 Executing role seeding directly (fallback mode)');
+    this.logger.log('🔄 Executing role seeding directly');
+    console.log('🔄 Executing role seeding directly');
     
     const roles = [
       {
@@ -118,20 +109,15 @@ export class RoleSeedService implements OnModuleInit {
    */
   async seedRolesForTenant(tenantId: string, force: boolean = false): Promise<void> {
     try {
-      // Try to queue the tenant-specific role seeding job
-      const jobId = await this.queueService.enqueueRoleSeed({
-        tenantId,
-        force,
-        mode: 'tenant'
-      });
+      this.logger.log(`🔄 Executing tenant role seeding for tenant=${tenantId}`);
+      console.log(`🔄 Executing tenant role seeding for tenant=${tenantId}`);
       
-      this.logger.log(`🚀 Tenant role seeding queued successfully as job=${jobId} for tenant=${tenantId}`);
-      
-    } catch (queueError) {
-      this.logger.warn(`⚠️ Queue unavailable for tenant ${tenantId}, falling back to direct seeding: ${queueError.message}`);
-      
-      // Fallback to direct execution
+      // Execute directly
       await this.seedRolesDirect();
+    } catch (error) {
+      this.logger.error(`Tenant role seeding failed for ${tenantId}:`, error.message);
+      console.log(`❌ Tenant role seeding failed for ${tenantId}:`, error.message);
+      // Don't throw - let the app continue
     }
   }
 
@@ -141,28 +127,24 @@ export class RoleSeedService implements OnModuleInit {
    */
   async forceSeedRoles(tenantId?: string): Promise<void> {
     try {
-      // Try to queue the forced role seeding job
-      const jobId = await this.queueService.enqueueRoleSeed({
-        tenantId,
-        force: true,
-        mode: 'manual'
-      });
+      this.logger.log('🔄 Executing forced role seeding');
+      console.log('🔄 Executing forced role seeding');
       
-      this.logger.log(`🚀 Forced role seeding queued successfully as job=${jobId}`);
-      
-    } catch (queueError) {
-      this.logger.warn(`⚠️ Queue unavailable for forced seeding, falling back to direct seeding: ${queueError.message}`);
-      
-      // Fallback to direct execution with force logic
+      // Execute directly with force logic
       await this.forceSeedRolesDirect();
+    } catch (error) {
+      this.logger.error('Forced role seeding failed:', error.message);
+      console.log('❌ Forced role seeding failed:', error.message);
+      // Don't throw - let the app continue
     }
   }
 
   /**
-   * Direct forced role seeding (fallback method)
+   * Direct forced role seeding (main method)
    */
   private async forceSeedRolesDirect(): Promise<void> {
-    this.logger.log('🔄 Executing forced role seeding directly (fallback mode)');
+    this.logger.log('🔄 Executing forced role seeding directly');
+    console.log('🔄 Executing forced role seeding directly');
     
     const roles = [
       {

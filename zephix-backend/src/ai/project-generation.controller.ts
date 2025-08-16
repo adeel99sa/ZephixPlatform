@@ -18,7 +18,6 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
-import { DocumentProcessingQueueService } from './document-processing-queue.service';
 
 export class GenerateProjectRequest {
   documentId: string;
@@ -42,9 +41,7 @@ export class ProjectGenerationResponse {
 @UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class ProjectGenerationController {
-  constructor(
-    private readonly documentProcessingQueue: DocumentProcessingQueueService,
-  ) {}
+  constructor() {}
 
   @Post('generate-from-brd/:documentId')
   @ApiOperation({ summary: 'Generate a project plan from a processed BRD' })
