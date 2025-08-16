@@ -157,19 +157,24 @@ if (!(global as any).crypto) {
     })] : []),
 
     // CRITICAL: Import order to avoid circular dependencies
-    SharedModule, // First - no dependencies
-    AuthModule, // Always import AuthModule for authentication
+    // Core modules - always loaded, no dependencies
+    SharedModule, // First - provides LLMProviderService, ClaudeService, EmailService
+    ObservabilityModule, // Always load for MetricsService
+    HealthModule, // Always load for health checks
+    
+    // Feature modules - always loaded, depend on core modules
     AIModule, // AI services and document processing (conditional TypeORM)
     IntelligenceModule, // Intelligence services (no TypeORM)
     ArchitectureModule, // Architecture services (no TypeORM)
-    ObservabilityModule, // Always load for MetricsService
-    HealthModule, // Always load for health checks
     PMModule, // Always load - provides core PM services
+    
+    // Authentication module - always loaded, depends on core modules
+    AuthModule, // Always import AuthModule for authentication
     
     // Database-dependent modules - only load when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
-      OrganizationsModule, // Third - depends on SharedModule
-      ProjectsModule, // Fourth - depends on OrganizationsModule
+      OrganizationsModule, // Depends on SharedModule
+      ProjectsModule, // Depends on OrganizationsModule
       BRDModule, // Business requirements documentation (conditional TypeORM)
       FeedbackModule, // User feedback system (conditional TypeORM)
     ] : []),

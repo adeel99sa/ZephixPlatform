@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MetricsService } from '../observability/metrics.service';
+import { Global } from '@nestjs/common';
 
 export interface LLMRequest {
   prompt: string;
@@ -30,6 +31,7 @@ export interface ProviderSettings {
   apiVersion: string;
 }
 
+@Global()
 @Injectable()
 export class LLMProviderService implements OnModuleInit {
   private readonly logger = new Logger(LLMProviderService.name);
