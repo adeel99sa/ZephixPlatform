@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentParserService } from './document-parser.service';
@@ -10,6 +10,7 @@ import { LLMProviderService } from './llm-provider.service';
 import { ClaudeService } from './claude.service';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
+@Global()
 @Module({
   imports: [
     ConfigModule,
