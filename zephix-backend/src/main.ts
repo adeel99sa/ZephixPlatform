@@ -61,8 +61,11 @@ async function bootstrap() {
         'https://getzephix.com',
         'https://www.getzephix.com', 
         'https://app.getzephix.com',
+        'https://zephix-frontend-production.up.railway.app', // Frontend production
+        'http://localhost:3000', // Development
+        'http://localhost:5173', // Vite dev server
         // Fallback for development
-        configService.get('FRONTEND_URL') || 'https://zephix-frontend-production.up.railway.app'
+        configService.get('FRONTEND_URL')
       ].filter(Boolean), // Remove any undefined values
       credentials: true,
       methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -81,6 +84,19 @@ async function bootstrap() {
     
     app.enableCors(corsConfig);
     logger.log('✅ CORS configuration applied');
+    logger.log('🌐 CORS origins configured:', corsConfig.origin);
+    
+    // Add CORS debugging middleware
+    app.use((req, res, next) => {
+      if (req.method === 'OPTIONS') {
+        logger.log('🔍 CORS preflight request:', {
+          origin: req.headers.origin,
+          method: req.method,
+          headers: req.headers['access-control-request-headers']
+        });
+      }
+      next();
+    });
 
     // Security middleware
     app.use(helmet());
