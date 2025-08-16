@@ -65,7 +65,6 @@ import { HealthService } from './services/health.service';
                   database: process.env.DB_NAME,
                 }),
             ssl,
-            autoLoadEntities: true,   // Nest will discover your entities
             synchronize: false,
             migrationsRun: false,
             logging: ['error'],

@@ -56,6 +56,10 @@ export const AppDataSource = new DataSource({
         database: process.env.DB_NAME,
       }),
   ssl, // <- final authoritative SSL config for the pg driver
+  
+  // Entity loading - use proper glob pattern for all entities
+  entities: [join(__dirname, '**', '*.entity.{ts,js}')],
+  
   // Runtime entity loading handled by Nest TypeOrmModule; keep migrations here:
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   migrationsRun: false,
