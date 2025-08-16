@@ -94,43 +94,67 @@ export class AuthService {
   async login(
     loginDto: LoginDto,
   ): Promise<{ user: User; accessToken: string }> {
-    const { email, password } = loginDto;
+    try {
+      console.log('🔐 Login attempt for:', loginDto.email);
+      const { email, password } = loginDto;
 
-    // Find user by email
-    const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-    });
+      // Find user by email
+      console.log('🔍 Looking up user by email:', email.toLowerCase());
+      const user = await this.userRepository.findOne({
+        where: { email: email.toLowerCase() },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      if (!user) {
+        console.log('❌ User not found for email:', email);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      console.log('✅ User found:', { id: user.id, email: user.email, isActive: user.isActive, isEmailVerified: user.isEmailVerified });
+
+      // Verify password using bcrypt
+      console.log('🔐 Verifying password...');
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        console.log('❌ Password validation failed for user:', user.id);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      console.log('✅ Password validated successfully');
+
+      // Check if user is active
+      if (!user.isActive) {
+        console.log('❌ User account is deactivated:', user.id);
+        throw new UnauthorizedException('Account is deactivated');
+      }
+
+      // Check if email is verified (enterprise security requirement)
+      if (!user.isEmailVerified) {
+        console.log('⚠️ Email not verified for user:', user.id, '- TEMPORARILY ALLOWING LOGIN FOR TESTING');
+        // TODO: Remove this bypass once email verification is implemented
+        // throw new ForbiddenException(
+        //   'Email verification required. Please check your email and verify your account before logging in.',
+        // );
+      }
+
+      // Generate JWT token
+      console.log('🎫 Generating JWT token for user:', user.id);
+      const accessToken = this.jwtService.sign({
+        sub: user.id,
+        email: user.email,
+        emailVerified: user.isEmailVerified,
+      });
+      console.log('✅ JWT token generated successfully');
+
+      console.log('🎉 Login successful for user:', user.id);
+      return { user, accessToken };
+    } catch (error) {
+      console.error('🚨 Login error:', {
+        email: loginDto.email,
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name
+      });
+      throw error;
     }
-
-    // Verify password using bcrypt
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
-    // Check if email is verified (enterprise security requirement)
-    if (!user.isEmailVerified) {
-      throw new ForbiddenException(
-        'Email verification required. Please check your email and verify your account before logging in.',
-      );
-    }
-
-    // Generate JWT token
-    const accessToken = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      emailVerified: user.isEmailVerified,
-    });
-
-    return { user, accessToken };
   }
 
   /**
