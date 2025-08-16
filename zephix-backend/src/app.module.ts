@@ -17,7 +17,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
-// AccessControlModule removed - using built-in NestJS guards instead
+import { AIModule } from './ai/ai.module';
+import { PMModule } from './pm/pm.module';
+import { BRDModule } from './brd/brd.module';
+import { ArchitectureModule } from './architecture/architecture.module';
+import { IntelligenceModule } from './intelligence/intelligence.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 
@@ -154,9 +159,15 @@ if (!(global as any).crypto) {
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
     AuthModule, // Always import AuthModule for authentication
+    AIModule, // AI services and document processing
+    FeedbackModule, // User feedback system
+    IntelligenceModule, // Intelligence services
+    ArchitectureModule, // Architecture services
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
+      PMModule, // Project management functionality
+      BRDModule, // Business requirements documentation
     ] : []),
     ObservabilityModule,
     HealthModule,
@@ -171,6 +182,12 @@ if (!(global as any).crypto) {
   ],
 })
 export class AppModule {
+  constructor() {
+    console.log('🚀 AppModule constructor called');
+    console.log('🔐 AuthModule imported:', !!AuthModule);
+    console.log('🔐 AuthModule controllers:', AuthModule ? 'Available' : 'Missing');
+  }
+
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestIdMiddleware, MetricsMiddleware).forRoutes('*');
   }

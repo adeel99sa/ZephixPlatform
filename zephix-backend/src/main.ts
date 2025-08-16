@@ -47,6 +47,52 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
     logger.log('Global API prefix set to: /api');
 
+    // CRITICAL: Debug module loading and route registration
+    logger.log('🔍 Checking module imports...');
+    try {
+      const appModule = app.get(AppModule);
+      logger.log('✅ AppModule loaded successfully');
+      
+      // Check if AuthModule is accessible
+      const authModule = app.get('AuthModule');
+      logger.log('🔐 AuthModule accessible:', !!authModule);
+    } catch (error) {
+      logger.error('❌ Error checking modules:', error.message);
+    }
+
+    // CRITICAL: Add request logging middleware to debug HTTP requests
+    app.use((req: any, res: any, next: any) => {
+      const timestamp = new Date().toISOString();
+      const method = req.method;
+      const url = req.url;
+      const userAgent = req.get('User-Agent') || 'Unknown';
+      const ip = req.ip || req.connection.remoteAddress || 'Unknown';
+      
+      console.log(`🌐 [${timestamp}] ${method} ${url} - IP: ${ip} - UA: ${userAgent}`);
+      
+      // Log request body for debugging (excluding sensitive data)
+      if (req.body && Object.keys(req.body).length > 0) {
+        const sanitizedBody = { ...req.body };
+        if (sanitizedBody.password) sanitizedBody.password = '[REDACTED]';
+        if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
+        console.log(`📦 Request Body: ${JSON.stringify(sanitizedBody)}`);
+      }
+      
+      next();
+    });
+
+    // CRITICAL: Add response logging middleware
+    app.use((req: any, res: any, next: any) => {
+      const originalSend = res.send;
+      res.send = function(data: any) {
+        const timestamp = new Date().toISOString();
+        const statusCode = res.statusCode;
+        console.log(`📤 [${timestamp}] ${req.method} ${req.url} - Status: ${statusCode}`);
+        originalSend.call(this, data);
+      };
+      next();
+    });
+
     // Apply Helmet security headers AFTER CORS
     const helmetConfig = configService.get('security.helmet');
     if (helmetConfig.enabled) {
@@ -164,9 +210,44 @@ async function bootstrap() {
     // Get port from environment or configuration
     const port = configService.get('port') || process.env.PORT || 3000;
     
+    // CRITICAL: Log port binding information
+    logger.log(`🔌 Binding to port: ${port}`);
+    logger.log(`🌐 Binding to host: 0.0.0.0 (all interfaces)`);
+    logger.log(`🚂 Railway PORT env: ${process.env.PORT || 'Not set'}`);
+    
     // ENHANCED: Graceful shutdown handling for Railway
     const server = await app.listen(port, '0.0.0.0');
     
+    // CRITICAL: Verify server is listening
+    if (server.listening) {
+      logger.log(`✅ Server successfully bound to port ${port}`);
+      logger.log(`🌐 Server address: ${server.address()}`);
+    } else {
+      logger.error(`❌ Server failed to bind to port ${port}`);
+      throw new Error(`Server binding failed on port ${port}`);
+    }
+
+    // CRITICAL: Debug route registration
+    logger.log('🔍 Checking registered routes...');
+    try {
+      const router = app.getHttpAdapter().getInstance()._router;
+      if (router && router.stack) {
+        logger.log(`📋 Total middleware stack items: ${router.stack.length}`);
+        
+        // Log route information
+        router.stack.forEach((layer: any, index: number) => {
+          if (layer.route) {
+            const methods = Object.keys(layer.route.methods).filter(method => layer.route.methods[method]);
+            logger.log(`🛣️  Route ${index}: ${methods.join(',')} ${layer.route.path}`);
+          }
+        });
+      } else {
+        logger.warn('⚠️  Router stack not accessible for debugging');
+      }
+    } catch (error) {
+      logger.error('❌ Error checking routes:', error.message);
+    }
+
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
       logger.log(`Received ${signal}, starting graceful shutdown...`);
