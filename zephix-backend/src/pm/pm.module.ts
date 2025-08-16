@@ -55,9 +55,12 @@ import { JiraIntegration } from './integrations/jira.integration';
 import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
 import { FinancialIntegration } from './integrations/financial.integration';
+import { AIModule } from '../ai/ai.module';
 
 @Module({
   imports: [
+    // Always import AIModule for LLMProviderService
+    AIModule,
     // Only import sub-modules when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       ProjectInitiationModule,

@@ -3,11 +3,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { ArchitectureDerivationService } from './architecture-derivation.service';
 import { ArchitectureController } from './architecture.controller';
+import { AIModule } from '../ai/ai.module';
+import { ObservabilityModule } from '../observability/observability.module';
 
 @Module({
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([]),
+    AIModule, // Provides LLMProviderService
+    ObservabilityModule, // Provides MetricsService
   ],
   controllers: [ArchitectureController],
   providers: [ArchitectureDerivationService],

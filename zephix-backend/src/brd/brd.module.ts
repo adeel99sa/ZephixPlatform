@@ -10,6 +10,7 @@ import { BRDAnalysisService } from './services/brd-analysis.service';
 import { BRDRepository } from './repositories/brd.repository';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { ObservabilityModule } from '../observability/observability.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
       ])
     ] : []),
     // AccessControlModule removed - using built-in NestJS guards instead
+    ObservabilityModule, // Provides MetricsService
   ],
   controllers: [BRDController, BRDProjectPlanningController],
   providers: [BRDService, BRDAnalysisService, BRDRepository],
