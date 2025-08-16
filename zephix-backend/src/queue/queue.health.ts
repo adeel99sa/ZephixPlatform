@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { getRedis } from '../config/redis.config'
+import { getRedis, isRedisConfigured } from '../config/redis.config'
 import { Queue } from 'bullmq'
 import { QUEUE_NAMES } from './constants'
 import { WorkerFactory } from './worker.factory'
@@ -19,9 +19,47 @@ export class QueueHealthService {
   async check() {
     const startTime = Date.now()
     
+    // Check if Redis is configured
+    if (!isRedisConfigured()) {
+      const memoryUsage = process.memoryUsage()
+      const memoryMB = {
+        rss: Math.round(memoryUsage.rss / 1024 / 1024),
+        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+        external: Math.round(memoryUsage.external / 1024 / 1024)
+      }
+
+      return { 
+        status: 'up', 
+        details: { 
+          redis: 'not configured',
+          memory: memoryMB,
+          workerStatus: this.workerFactory.getWorkerStatus(),
+          metrics: this.metrics,
+          note: 'App running without Redis - queue operations disabled'
+        },
+        responseTime: `${Date.now() - startTime}ms`,
+        timestamp: new Date().toISOString()
+      }
+    }
+    
     try {
       // Check Redis connection
       const redis = await getRedis('client')
+      if (!redis) {
+        return { 
+          status: 'degraded', 
+          details: { 
+            redis: 'connection failed',
+            workerStatus: this.workerFactory.getWorkerStatus(),
+            metrics: this.metrics,
+            note: 'Redis connection failed - queue operations disabled'
+          },
+          responseTime: `${Date.now() - startTime}ms`,
+          timestamp: new Date().toISOString()
+        }
+      }
+      
       const ping = await redis.ping().catch(() => 'fail')
       
       // Get memory usage
@@ -37,6 +75,7 @@ export class QueueHealthService {
       const memoryStatus = memoryMB.heapUsed > 512 ? 'high' : 'normal'
 
       const details: Record<string, any> = { 
+        redis: ping === 'PONG' ? 'connected' : 'ping failed',
         redisPing: ping,
         memory: memoryMB,
         memoryStatus,
@@ -122,6 +161,11 @@ export class QueueHealthService {
         ? ((this.metrics.totalJobsProcessed - this.metrics.totalJobsFailed) / this.metrics.totalJobsProcessed * 100).toFixed(2)
         : 0
     }
+  }
+
+  // Check if Redis is available
+  isRedisAvailable(): boolean {
+    return isRedisConfigured()
   }
 }
 
