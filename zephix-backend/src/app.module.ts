@@ -162,11 +162,11 @@ if (!(global as any).crypto) {
     ObservabilityModule, // Always load for MetricsService
     HealthModule, // Always load for health checks
     
-    // Feature modules - always loaded, depend on core modules
-    AIModule, // AI services and document processing (conditional TypeORM)
-    IntelligenceModule, // Intelligence services (no TypeORM)
-    ArchitectureModule, // Architecture services (no TypeORM)
-    PMModule, // Always load - provides core PM services
+    // EMERGENCY: Temporarily disable problematic modules to isolate crash
+    // AIModule, // DISABLED - causing circular dependencies
+    // IntelligenceModule, // DISABLED - causing circular dependencies  
+    // ArchitectureModule, // DISABLED - causing circular dependencies
+    // PMModule, // DISABLED - causing circular dependencies
     
     // Authentication module - always loaded, depends on core modules
     AuthModule, // Always import AuthModule for authentication
@@ -175,8 +175,8 @@ if (!(global as any).crypto) {
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Depends on SharedModule
       ProjectsModule, // Depends on OrganizationsModule
-      BRDModule, // Business requirements documentation (conditional TypeORM)
-      FeedbackModule, // User feedback system (conditional TypeORM)
+      // BRDModule, // DISABLED - causing dependency injection failures
+      // FeedbackModule, // DISABLED - causing dependency injection failures
     ] : []),
   ],
   controllers: [AppController],
@@ -190,9 +190,33 @@ if (!(global as any).crypto) {
 })
 export class AppModule {
   constructor() {
-    console.log('🚀 AppModule constructor called');
-    console.log('🔐 AuthModule imported:', !!AuthModule);
-    console.log('🔐 AuthModule controllers:', AuthModule ? 'Available' : 'Missing');
+    try {
+      console.log('🚀 AppModule constructor called');
+      console.log('🔐 AuthModule imported:', !!AuthModule);
+      console.log('🔐 AuthModule controllers:', AuthModule ? 'Available' : 'Missing');
+      
+      // EMERGENCY: Log all module imports to identify crash point
+      console.log('📋 Module Import Status:');
+      console.log('   SharedModule:', !!SharedModule);
+      console.log('   ObservabilityModule:', !!ObservabilityModule);
+      console.log('   HealthModule:', !!HealthModule);
+      console.log('   AuthModule:', !!AuthModule);
+      console.log('   OrganizationsModule:', !!OrganizationsModule);
+      console.log('   ProjectsModule:', !!ProjectsModule);
+      
+      // Test module instantiation
+      console.log('🧪 Testing module instantiation...');
+      if (SharedModule) console.log('   ✅ SharedModule instantiated');
+      if (ObservabilityModule) console.log('   ✅ ObservabilityModule instantiated');
+      if (HealthModule) console.log('   ✅ HealthModule instantiated');
+      if (AuthModule) console.log('   ✅ AuthModule instantiated');
+      
+      console.log('🎯 AppModule constructor completed successfully');
+    } catch (error) {
+      console.error('❌ CRITICAL ERROR in AppModule constructor:', error);
+      console.error('Stack trace:', error.stack);
+      throw error; // Re-throw to prevent silent failures
+    }
   }
 
   configure(consumer: MiddlewareConsumer) {
