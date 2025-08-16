@@ -251,6 +251,22 @@ async function bootstrap() {
             logger.log(`🛣️  Route ${index}: ${methods.join(',')} ${layer.route.path}`);
           }
         });
+
+        // SPECIFIC: Verify AuthModule routes are registered
+        const authRoutes = router.stack.filter((layer: any) => 
+          layer.route?.path?.includes('/auth')
+        );
+        logger.log(`🔐 Auth routes found: ${authRoutes.length}`);
+        authRoutes.forEach((route: any, index: number) => {
+          const methods = Object.keys(route.route.methods).filter(method => route.route.methods[method]);
+          logger.log(`🔐 Auth route ${index}: ${methods.join(',')} ${route.route.path}`);
+        });
+
+        if (authRoutes.length === 0) {
+          logger.error('❌ NO AUTH ROUTES FOUND - AuthModule failed to register routes');
+        } else {
+          logger.log('✅ AuthModule routes successfully registered');
+        }
       } else {
         logger.warn('⚠️  Router stack not accessible for debugging');
       }
