@@ -3,12 +3,26 @@ import './telemetry';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as crypto from 'crypto'; // Proper import of crypto
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import AppDataSource from './data-source';
+
+// Non-blocking migrations function
+async function runMigrationsNonBlocking() {
+  try {
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+    }
+    await AppDataSource.runMigrations();
+    console.log('✅ Migrations complete');
+  } catch (e) {
+    console.error('❌ Migrations failed:', e);
+  }
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -20,12 +34,7 @@ async function bootstrap() {
     logger.log(`AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
 
     logger.log('🔍 Creating NestJS application...');
-    const app = await NestFactory.create(AppModule, {
-      logger:
-        process.env.NODE_ENV === 'production'
-          ? ['error', 'warn', 'log']
-          : ['error', 'warn', 'log', 'debug', 'verbose'],
-    });
+    const app = await NestFactory.create(AppModule, { bufferLogs: true });
     logger.log('✅ NestJS application created successfully');
 
     // Get configuration service
@@ -51,12 +60,13 @@ async function bootstrap() {
     app.enableCors(corsConfig);
     logger.log('✅ CORS configuration applied successfully');
 
-    // CRITICAL: Set global API prefix for all routes
-    logger.log('🔍 Setting global API prefix...');
-    app.setGlobalPrefix('api');
-    logger.log('Global API prefix set to: /api');
-    logger.log('✅ Global API prefix set successfully');
-
+    // CRITICAL: Set global API prefix for all routes EXCEPT health
+    app.setGlobalPrefix('api', { exclude: ['health'] });
+    logger.log('Global API prefix set to: /api (health excluded)');
+    
+    // Run migrations non-blocking (fire and forget)
+    runMigrationsNonBlocking();
+    
     // CRITICAL: Debug module loading and route registration
     logger.log('🔍 Checking module imports...');
     try {
@@ -248,7 +258,7 @@ async function bootstrap() {
     }
     
     // Only then bind to port
-    const port = configService.get('port') || process.env.PORT || 3000;
+    const port = Number(process.env.PORT || 3000);
     
     // CRITICAL: Log port binding information
     logger.log(`🔌 Binding to port: ${port}`);
