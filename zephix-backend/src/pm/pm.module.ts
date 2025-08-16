@@ -58,31 +58,34 @@ import { FinancialIntegration } from './integrations/financial.integration';
 
 @Module({
   imports: [
-    ProjectInitiationModule,
-    RiskManagementModule,
-    StatusReportingModule,
-    // AccessControlModule removed - using built-in NestJS guards instead
-    TypeOrmModule.forFeature([
-      PMKnowledgeChunk,
-      UserProject,
-      ProjectTask,
-      ProjectRisk,
-      ProjectStakeholder,
-      Portfolio,
-      Program,
-      Risk,
-      RiskAssessment,
-      RiskResponse,
-      RiskMonitoring,
-      Project,
-      TeamMember,
-      UserOrganization,
-      // Workflow Framework Entities
-      WorkflowTemplate,
-      WorkflowInstance,
-      IntakeForm,
-      IntakeSubmission,
-    ]),
+    // Only import sub-modules when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      ProjectInitiationModule,
+      RiskManagementModule,
+      StatusReportingModule,
+      // AccessControlModule removed - using built-in NestJS guards instead
+      TypeOrmModule.forFeature([
+        PMKnowledgeChunk,
+        UserProject,
+        ProjectTask,
+        ProjectRisk,
+        ProjectStakeholder,
+        Portfolio,
+        Program,
+        Risk,
+        RiskAssessment,
+        RiskResponse,
+        RiskMonitoring,
+        Project,
+        TeamMember,
+        UserOrganization,
+        // Workflow Framework Entities
+        WorkflowTemplate,
+        WorkflowInstance,
+        IntakeForm,
+        IntakeSubmission,
+      ]),
+    ] : []),
   ],
   controllers: [
     AIPMAssistantController,
