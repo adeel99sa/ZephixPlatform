@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { validateEnvironment } from '../config/env.validation';
 import { DatabaseService } from './services/database.service';
 import { HealthService } from './services/health.service';
+import { SslConfigService } from './services/ssl-config.service';
 
 /**
  * CoreModule - Enterprise Foundation Layer
@@ -26,33 +27,19 @@ import { HealthService } from './services/health.service';
     // Only import TypeORM when database is enabled
     ...(process.env.DATABASE_URL && process.env.SKIP_DATABASE !== 'true' ? [
       TypeOrmModule.forRootAsync({
-        useFactory: () => {
+        useFactory: (sslConfigService: SslConfigService) => {
           const useUrl = !!process.env.DATABASE_URL;
-
-          // mirror the same SSL logic used in data-source.ts
-          const DB_SSL = (process.env.DB_SSL || 'require').toLowerCase(); // disable | require
-          const DB_SSL_STRICT = (process.env.DB_SSL_STRICT || 'false').toLowerCase() === 'true';
-
-          const decodeMaybeBase64 = (input?: string) => {
-            if (!input) return undefined;
-            try {
-              const out = Buffer.from(input, 'base64').toString('utf8');
-              if (out.includes('-----BEGIN') && out.includes('-----END')) return out;
-              return input;
-            } catch {
-              return input;
-            }
-          };
-
-          const DB_SSL_CA = decodeMaybeBase64(process.env.DB_SSL_CA);
-
-          const ssl =
-            DB_SSL === 'disable'
-              ? false
-              : DB_SSL_STRICT
-              ? { rejectUnauthorized: true, ca: DB_SSL_CA }
-              : { rejectUnauthorized: false };
-
+          const sslConfig = sslConfigService.getSslConfig();
+          
+          // Debug SSL configuration
+          console.log('🔐 SSL Configuration:', {
+            DB_SSL: process.env.DB_SSL,
+            DB_SSL_STRICT: process.env.DB_SSL_STRICT,
+            sslConfig,
+            hasDatabaseUrl: useUrl,
+            databaseUrl: useUrl ? process.env.DATABASE_URL?.substring(0, 50) + '...' : 'N/A'
+          });
+          
           return {
             type: 'postgres' as const,
             ...(useUrl
@@ -64,16 +51,18 @@ import { HealthService } from './services/health.service';
                   password: process.env.DB_PASSWORD,
                   database: process.env.DB_NAME,
                 }),
-            ssl,
+            ssl: sslConfig,
             synchronize: false,
             migrationsRun: false,
             logging: ['error'],
           };
         },
+        inject: [SslConfigService],
       })
     ] : []),
   ],
   providers: [
+    SslConfigService,
     DatabaseService,
     HealthService,
   ],
