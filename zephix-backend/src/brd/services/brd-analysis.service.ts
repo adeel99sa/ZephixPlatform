@@ -79,7 +79,14 @@ export class BRDAnalysisService {
     @InjectRepository(BRD)
     private brdRepository: Repository<BRD>,
     @Optional() private llmProvider: LLMProviderService,
-  ) {}
+  ) {
+    // Log service availability for debugging
+    if (!this.llmProvider) {
+      console.warn('⚠️ LLMProviderService not available in BRDAnalysisService - using fallbacks');
+    } else {
+      console.log('✅ LLMProviderService available in BRDAnalysisService');
+    }
+  }
 
   // Helper method to check if LLM service is available
   private isLLMAvailable(): boolean {

@@ -156,27 +156,29 @@ if (!(global as any).crypto) {
       inject: [ConfigService],
     })] : []),
 
-    // CRITICAL: Import order to avoid circular dependencies
-    // Core modules - always loaded, no dependencies
-    SharedModule, // First - provides LLMProviderService, ClaudeService, EmailService
-    ObservabilityModule, // Always load for MetricsService
-    HealthModule, // Always load for health checks
+    // SYSTEMATIC DEPENDENCY RESOLUTION - Proper order and simplified logic
+    // Core modules (no dependencies) - Load first
+    SharedModule, // Global module - provides LLMProviderService, ClaudeService, EmailService
     
-    // EMERGENCY: Temporarily disable problematic modules to isolate crash
-    // AIModule, // DISABLED - causing circular dependencies
-    // IntelligenceModule, // DISABLED - causing circular dependencies  
-    // ArchitectureModule, // DISABLED - causing circular dependencies
-    // PMModule, // DISABLED - causing circular dependencies
+    // Essential services (depend on core modules)
+    ObservabilityModule, // Provides MetricsService
+    HealthModule, // Provides health checks
     
-    // Authentication module - always loaded, depends on core modules
-    AuthModule, // Always import AuthModule for authentication
+    // Authentication (critical for MVP) - depends on core modules
+    AuthModule, // Always load - provides authentication endpoints
     
-    // Database-dependent modules - only load when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
+    // Feature modules (depend on core modules)
+    AIModule, // AI services - depends on SharedModule (global)
+    IntelligenceModule, // Intelligence services - no TypeORM dependencies
+    ArchitectureModule, // Architecture services - no TypeORM dependencies
+    PMModule, // Project management - depends on SharedModule (global)
+    
+    // Database-dependent modules (simplified conditional logic)
+    ...(process.env.DATABASE_URL ? [
       OrganizationsModule, // Depends on SharedModule
       ProjectsModule, // Depends on OrganizationsModule
-      // BRDModule, // DISABLED - causing dependency injection failures
-      // FeedbackModule, // DISABLED - causing dependency injection failures
+      BRDModule, // Business requirements - depends on SharedModule (global)
+      FeedbackModule, // User feedback - depends on SharedModule (global)
     ] : []),
   ],
   controllers: [AppController],
