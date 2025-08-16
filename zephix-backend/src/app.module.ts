@@ -153,10 +153,10 @@ if (!(global as any).crypto) {
 
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
+    AuthModule, // Always import AuthModule for authentication
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
-      AuthModule, // Last - depends on OrganizationsModule and ProjectsModule
     ] : []),
     ObservabilityModule,
     HealthModule,

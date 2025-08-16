@@ -3,6 +3,9 @@ import {
   UnauthorizedException,
   BadRequestException,
   Logger,
+  ServiceUnavailableException,
+  Inject,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,25 +22,40 @@ import { UsersService } from '../users/users.service';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly isDatabaseAvailable: boolean;
 
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(RefreshToken)
-    private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private usersService: UsersService,
-  ) {}
+    @Optional() @InjectRepository(User)
+    private userRepository?: Repository<User>,
+    @Optional() @InjectRepository(RefreshToken)
+    private refreshTokenRepository?: Repository<RefreshToken>,
+    @Optional() private usersService?: UsersService,
+  ) {
+    // Check if database is available
+    this.isDatabaseAvailable = process.env.SKIP_DATABASE !== 'true';
+    this.logger.log(`Database available: ${this.isDatabaseAvailable}`);
+  }
+
+  /**
+   * Check if database is available
+   */
+  private checkDatabaseAvailability() {
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      throw new ServiceUnavailableException('Authentication service temporarily unavailable. Database not configured.');
+    }
+  }
 
   /**
    * Authenticate user and generate tokens
    */
   async login(loginDto: LoginDto) {
+    this.checkDatabaseAvailability();
     const { email, password } = loginDto;
 
     // Find user by email
-    const user = await this.userRepository.findOne({
+    const user = await this.userRepository!.findOne({
       where: { email: email.toLowerCase() },
       select: [
         'id',
@@ -90,11 +108,12 @@ export class AuthService {
    * Create new user account
    */
   async signup(signupDto: SignupDto) {
+    this.checkDatabaseAvailability();
     const { email, password, firstName, lastName, organizationName } =
       signupDto;
 
     // Check if user exists
-    const existingUser = await this.userRepository.findOne({
+    const existingUser = await this.userRepository!.findOne({
       where: { email: email.toLowerCase() },
     });
 
@@ -106,7 +125,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = this.userRepository.create({
+    const user = this.userRepository!.create({
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName,
@@ -116,7 +135,7 @@ export class AuthService {
     });
 
     // Save user
-    const savedUser = await this.userRepository.save(user);
+    const savedUser = await this.userRepository!.save(user);
 
     // Generate tokens
     const tokens = await this.generateTokens(savedUser);
@@ -143,8 +162,9 @@ export class AuthService {
    * Refresh access token using refresh token
    */
   async refreshToken(refreshToken: string) {
+    this.checkDatabaseAvailability();
     // Find refresh token in database
-    const tokenRecord = await this.refreshTokenRepository.findOne({
+    const tokenRecord = await this.refreshTokenRepository!.findOne({
       where: { token: refreshToken, isRevoked: false },
       relations: ['user'],
     });
@@ -159,7 +179,7 @@ export class AuthService {
 
     // Revoke old refresh token
     tokenRecord.isRevoked = true;
-    await this.refreshTokenRepository.save(tokenRecord);
+    await this.refreshTokenRepository!.save(tokenRecord);
 
     // Save new refresh token
     await this.saveRefreshToken(tokenRecord.user.id, tokens.refreshToken);
@@ -173,8 +193,9 @@ export class AuthService {
    * Logout user and revoke refresh tokens
    */
   async logout(userId: string) {
+    this.checkDatabaseAvailability();
     // Revoke all refresh tokens for user
-    await this.refreshTokenRepository.update(
+    await this.refreshTokenRepository!.update(
       { user: { id: userId }, isRevoked: false },
       { isRevoked: true },
     );
@@ -186,7 +207,8 @@ export class AuthService {
    * Get user by ID
    */
   async getUserById(userId: string) {
-    return this.userRepository.findOne({
+    this.checkDatabaseAvailability();
+    return this.userRepository!.findOne({
       where: { id: userId },
       select: [
         'id',
@@ -204,7 +226,8 @@ export class AuthService {
    * Validate user credentials (for local strategy)
    */
   async validateUser(email: string, password: string) {
-    const user = await this.userRepository.findOne({
+    this.checkDatabaseAvailability();
+    const user = await this.userRepository!.findOne({
       where: { email: email.toLowerCase() },
       select: [
         'id',
@@ -257,17 +280,18 @@ export class AuthService {
    * Save refresh token to database
    */
   private async saveRefreshToken(userId: string, token: string) {
+    this.checkDatabaseAvailability();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
-    const refreshToken = this.refreshTokenRepository.create({
+    const refreshToken = this.refreshTokenRepository!.create({
       token,
       user: { id: userId },
       expiresAt,
       isRevoked: false,
     });
 
-    await this.refreshTokenRepository.save(refreshToken);
+    await this.refreshTokenRepository!.save(refreshToken);
   }
 
   /**
