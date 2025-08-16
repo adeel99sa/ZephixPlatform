@@ -9,6 +9,12 @@ export type RedisRole = 'client' | 'subscriber' | 'worker'
 const MAX_CONNECTIONS = 2
 let activeConnections = 0
 
+// Check if Redis is configured
+export function isRedisConfigured(): boolean {
+  const url = process.env.REDIS_URL
+  return !!(url && url.trim().length > 0)
+}
+
 function buildOptions(): string | RedisOptions {
   const url = process.env.REDIS_URL
   if (url && url.trim().length > 0) return url
@@ -46,7 +52,13 @@ const shared: Record<RedisRole, Redis | null> = {
   worker: null
 }
 
-export async function getRedis(role: RedisRole): Promise<Redis> {
+export async function getRedis(role: RedisRole): Promise<Redis | null> {
+  // Return null if Redis is not configured
+  if (!isRedisConfigured()) {
+    logger.debug(`Redis not configured, returning null for role: ${role}`)
+    return null
+  }
+
   if (shared[role]) return shared[role] as Redis
   
   // Check connection limits
@@ -70,17 +82,20 @@ export async function getRedis(role: RedisRole): Promise<Redis> {
     logger.log(`[${role}] Disconnected (${activeConnections}/${MAX_CONNECTIONS})`)
   })
   
-  try {
-    await client.connect()
-  } catch (e) {
-    logger.warn(`[${role}] connect failed, will auto retry in background`)
-  }
+  // Don't connect immediately - let BullMQ handle connection when needed
+  // This prevents startup crashes when Redis is not available
   
   shared[role] = client
   return client
 }
 
 export async function closeAllConnections(): Promise<void> {
+  // If Redis is not configured, nothing to close
+  if (!isRedisConfigured()) {
+    logger.debug('Redis not configured, no connections to close')
+    return
+  }
+
   logger.log('Closing all Redis connections...')
   const closePromises = Object.values(shared)
     .filter(conn => conn !== null)
