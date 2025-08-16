@@ -159,15 +159,15 @@ if (!(global as any).crypto) {
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
     AuthModule, // Always import AuthModule for authentication
-    AIModule, // AI services and document processing
-    FeedbackModule, // User feedback system
-    IntelligenceModule, // Intelligence services
-    ArchitectureModule, // Architecture services
+    AIModule, // AI services and document processing (conditional TypeORM)
+    IntelligenceModule, // Intelligence services (no TypeORM)
+    ArchitectureModule, // Architecture services (no TypeORM)
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
-      PMModule, // Project management functionality
-      BRDModule, // Business requirements documentation
+      PMModule, // Project management functionality (conditional TypeORM)
+      BRDModule, // Business requirements documentation (conditional TypeORM)
+      FeedbackModule, // User feedback system (conditional TypeORM)
     ] : []),
     ObservabilityModule,
     HealthModule,
