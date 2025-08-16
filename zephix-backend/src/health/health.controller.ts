@@ -15,7 +15,7 @@ interface HealthCheck {
 }
 
 @ApiTags('Health')
-@Controller('health')
+@Controller()
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
 
@@ -24,7 +24,7 @@ export class HealthController {
     private dataSource?: DataSource,
   ) {}
 
-  @Get()
+  @Get(['health', 'api/health'])
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
@@ -64,7 +64,7 @@ export class HealthController {
     return res.status(statusCode).json(response);
   }
 
-  @Get('ready')
+  @Get(['ready', 'api/health/ready'])
   @ApiOperation({ summary: 'Readiness probe endpoint' })
   @ApiResponse({ status: 200, description: 'Service is ready to receive traffic' })
   @ApiResponse({ status: 503, description: 'Service is not ready' })
@@ -80,7 +80,7 @@ export class HealthController {
     });
   }
 
-  @Get('live')
+  @Get(['live', 'api/health/live'])
   @ApiOperation({ summary: 'Liveness probe endpoint' })
   @ApiResponse({ status: 200, description: 'Service is alive' })
   async liveness(@Res() res: Response) {
