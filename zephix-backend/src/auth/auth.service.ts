@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   ForbiddenException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,7 +35,13 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly emailVerificationService: EmailVerificationService,
-  ) {}
+  ) {
+    console.log('🔧 AuthService constructor called with dependencies:', {
+      hasUserRepository: !!this.userRepository,
+      hasJwtService: !!this.jwtService,
+      hasEmailVerificationService: !!this.emailVerificationService
+    });
+  }
 
   async register(
     registerDto: RegisterDto,
@@ -147,13 +154,23 @@ export class AuthService {
       console.log('🎉 Login successful for user:', user.id);
       return { user, accessToken };
     } catch (error) {
-      console.error('🚨 Login error:', {
+      console.error('🚨 EXACT LOGIN ERROR:', {
         email: loginDto.email,
-        error: error.message,
+        message: error.message,
         stack: error.stack,
-        type: error.constructor.name
+        name: error.name,
+        constructor: error.constructor.name,
+        fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
       });
-      throw error;
+      
+      // Re-throw with more context
+      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
+        throw error; // Re-throw auth exceptions as-is
+      } else {
+        // For unexpected errors, throw internal server error with details
+        console.error('🚨 UNEXPECTED ERROR IN LOGIN - Throwing InternalServerErrorException');
+        throw new InternalServerErrorException(`Login failed: ${error.message}`);
+      }
     }
   }
 
