@@ -88,7 +88,7 @@ async function bootstrap() {
 
     // Phase 5: HTTP Server Startup
     logger.log('🔌 Phase 5: Starting HTTP server...');
-    const port = configService.get('PORT');
+    const port = Number(process.env.PORT || 3000); // Ensure proper port binding
     logger.log(`Binding to port: ${port}`);
     
     const server = await app.listen(port, '0.0.0.0');
