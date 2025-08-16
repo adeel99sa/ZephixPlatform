@@ -276,7 +276,7 @@ export interface ConversationResponse {
 
 export interface BulkGenerationResult {
   jobId: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'processing' | 'completed' | 'failed';
   results?: GeneratedFormResult[];
   completedCount: number;
   totalCount: number;

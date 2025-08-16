@@ -57,19 +57,6 @@ export class MetricsService {
     buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
   });
 
-  // Queue Metrics (for future BullMQ integration)
-  public readonly queueJobsTotal = new Counter({
-    name: 'queue_jobs_total',
-    help: 'Total number of queue jobs',
-    labelNames: ['queue', 'status'],
-  });
-
-  public readonly queueSize = new Gauge({
-    name: 'queue_size',
-    help: 'Current size of job queues',
-    labelNames: ['queue'],
-  });
-
   // Authentication Metrics
   public readonly authAttemptsTotal = new Counter({
     name: 'auth_attempts_total',
@@ -196,7 +183,7 @@ export class MetricsService {
    * Record search query metrics
    */
   recordSearchQuery(
-    type: 'fulltext' | 'filter' | 'aggregate',
+    type: string,
     duration: number,
     organizationId: string,
   ): void {
@@ -206,26 +193,6 @@ export class MetricsService {
     });
 
     this.searchQueryDuration.observe({ type }, duration);
-  }
-
-  /**
-   * Update queue size metrics
-   */
-  updateQueueSize(queueName: string, size: number): void {
-    this.queueSize.set({ queue: queueName }, size);
-  }
-
-  /**
-   * Record queue job metrics
-   */
-  recordQueueJob(
-    queueName: string,
-    status: 'completed' | 'failed' | 'delayed',
-  ): void {
-    this.queueJobsTotal.inc({
-      queue: queueName,
-      status,
-    });
   }
 
   /**
@@ -295,6 +262,7 @@ export class MetricsService {
    * Set active connections (legacy method)
    */
   setActiveConnections(count: number): void {
-    this.queueSize.set({ queue: 'database_connections' }, count);
+    // This method is no longer needed since we removed queue metrics
+    // Database connection metrics are handled elsewhere
   }
 }

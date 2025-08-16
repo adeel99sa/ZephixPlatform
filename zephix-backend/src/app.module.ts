@@ -20,7 +20,6 @@ import { SharedModule } from './shared/shared.module';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
-import { QueueModule } from './queue/queue.module';
 
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -161,8 +160,6 @@ if (!(global as any).crypto) {
     ] : []),
     ObservabilityModule,
     HealthModule,
-    // CRITICAL: Only import QueueModule if Redis is configured
-    ...(process.env.REDIS_URL ? [QueueModule] : []),
   ],
   controllers: [AppController],
   providers: [
