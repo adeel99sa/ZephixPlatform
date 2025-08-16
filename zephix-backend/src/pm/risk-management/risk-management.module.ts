@@ -7,6 +7,7 @@ import { RiskAssessment } from '../entities/risk-assessment.entity';
 import { RiskResponse } from '../entities/risk-response.entity';
 import { RiskMonitoring } from '../entities/risk-monitoring.entity';
 // AccessControlModule removed - using built-in NestJS guards instead
+import { AIModule } from '../../ai/ai.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RiskMonitoring } from '../entities/risk-monitoring.entity';
       RiskResponse,
       RiskMonitoring,
     ]),
+    AIModule, // Provides ClaudeService
   ],
   controllers: [RiskManagementController],
   providers: [RiskManagementService],
