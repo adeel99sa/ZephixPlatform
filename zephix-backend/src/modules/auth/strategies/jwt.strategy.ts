@@ -7,7 +7,7 @@ import { Request } from 'express';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
-    const secret = configService.get('JWT_SECRET');
+    const secret = configService.get('jwt.secret');
     if (!secret) {
       throw new Error('JWT_SECRET is not configured');
     }
