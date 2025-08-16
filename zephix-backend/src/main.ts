@@ -50,7 +50,13 @@ async function bootstrap() {
     
     // CORS configuration
     const corsConfig = {
-      origin: configService.get('FRONTEND_URL') || 'https://zephix-frontend-production.up.railway.app',
+      origin: [
+        'https://getzephix.com',
+        'https://www.getzephix.com', 
+        'https://app.getzephix.com',
+        // Fallback for development
+        configService.get('FRONTEND_URL') || 'https://zephix-frontend-production.up.railway.app'
+      ].filter(Boolean), // Remove any undefined values
       credentials: true,
       methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: [
