@@ -33,23 +33,12 @@ import { UsersModule } from '../modules/users/users.module';
       })
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    TypeOrmModule.forFeature([
-      User,
-      Organization,
-      UserOrganization,
-      EmailVerification
-    ]),
+    TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification]),
     UsersModule,
     SharedModule
   ],
   controllers: [AuthController, OrganizationSignupController],
-  providers: [
-    AuthService,
-    OrganizationSignupService,
-    EmailVerificationService,
-    JwtStrategy,
-    JwtAuthGuard
-  ],
+  providers: [AuthService, OrganizationSignupService, EmailVerificationService, JwtStrategy, JwtAuthGuard],
   exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtModule]
 })
 export class AuthModule {}
