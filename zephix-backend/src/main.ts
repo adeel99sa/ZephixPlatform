@@ -9,15 +9,15 @@ import { DataSource } from 'typeorm';
 import * as crypto from 'crypto'; // Proper import of crypto
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import AppDataSource from './data-source';
+import dataSource from './data-source'; // Use the default export
 
 // Non-blocking migrations function
 async function runMigrationsNonBlocking() {
   try {
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
+    if (!dataSource.isInitialized) {
+      await dataSource.initialize();
     }
-    await AppDataSource.runMigrations();
+    await dataSource.runMigrations();
     console.log('✅ Migrations complete');
   } catch (e) {
     console.error('❌ Migrations failed:', e);
@@ -50,19 +50,44 @@ async function bootstrap() {
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
-    // Bulletproof CORS configuration for all environments
-    logger.log('🔍 Setting up CORS configuration...');
-    const corsConfig = getCorsConfig();
-    logger.log(`CORS Configuration: ${JSON.stringify(corsConfig, null, 2)}`);
-    logger.log(`Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
-    logger.log(`Backend URL: ${process.env.BACKEND_URL || 'Not set'}`);
-    logger.log(`Environment: ${process.env.NODE_ENV || 'Not set'}`);
+    // CRITICAL: Restore CORS configuration for frontend-backend communication
+    const corsConfig = {
+      origin: process.env.FRONTEND_URL || 'https://zephix-frontend-production.up.railway.app',
+      credentials: true,
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+        'X-Org-Id',
+        'X-Request-Id',
+        'X-CSRF-Token',
+        'X-Forwarded-For',
+        'X-Real-IP',
+      ],
+      exposedHeaders: [
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-Request-Id',
+        'X-Total-Count',
+        'X-Page-Count',
+      ],
+      optionsSuccessStatus: 204,
+      maxAge: 86400, // 24 hours
+      preflightContinue: false,
+    };
+    
     app.enableCors(corsConfig);
-    logger.log('✅ CORS configuration applied successfully');
-
+    logger.log('CORS enabled for frontend-backend communication');
+    logger.log(`Frontend URL: ${process.env.FRONTEND_URL || 'https://zephix-frontend-production.up.railway.app'}`);
+    
     // CRITICAL: Set global API prefix for all routes EXCEPT health
-    app.setGlobalPrefix('api', { exclude: ['health'] });
-    logger.log('Global API prefix set to: /api (health excluded)');
+    // REMOVED: Global prefix that would create /api/api/auth/* routes
+    // app.setGlobalPrefix('api', { exclude: ['health'] });
+    logger.log('No global prefix - routes use their original paths');
     
     // Run migrations non-blocking (fire and forget)
     runMigrationsNonBlocking();
