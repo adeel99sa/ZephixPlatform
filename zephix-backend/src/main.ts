@@ -19,33 +19,43 @@ async function bootstrap() {
     logger.log(`Database URL configured: ${!!process.env.DATABASE_URL}`);
     logger.log(`AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
 
+    logger.log('🔍 Creating NestJS application...');
     const app = await NestFactory.create(AppModule, {
       logger:
         process.env.NODE_ENV === 'production'
           ? ['error', 'warn', 'log']
           : ['error', 'warn', 'log', 'debug', 'verbose'],
     });
+    logger.log('✅ NestJS application created successfully');
 
     // Get configuration service
+    logger.log('🔍 Getting configuration service...');
     const configService = app.get(ConfigService);
+    logger.log('✅ Configuration service obtained');
 
     // ENHANCED: Safe migration handling that won't crash the app
+    logger.log('🔍 Handling migrations...');
     await handleMigrationsSafely(app, logger);
+    logger.log('✅ Migrations handled successfully');
 
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
     // Bulletproof CORS configuration for all environments
+    logger.log('🔍 Setting up CORS configuration...');
     const corsConfig = getCorsConfig();
     logger.log(`CORS Configuration: ${JSON.stringify(corsConfig, null, 2)}`);
     logger.log(`Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
     logger.log(`Backend URL: ${process.env.BACKEND_URL || 'Not set'}`);
     logger.log(`Environment: ${process.env.NODE_ENV || 'Not set'}`);
     app.enableCors(corsConfig);
+    logger.log('✅ CORS configuration applied successfully');
 
     // CRITICAL: Set global API prefix for all routes
+    logger.log('🔍 Setting global API prefix...');
     app.setGlobalPrefix('api');
     logger.log('Global API prefix set to: /api');
+    logger.log('✅ Global API prefix set successfully');
 
     // CRITICAL: Debug module loading and route registration
     logger.log('🔍 Checking module imports...');
