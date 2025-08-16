@@ -20,8 +20,8 @@ import { dataSourceOptions } from '../data-source';
       isGlobal: true,
       validate: validateEnvironment,
       validationOptions: { 
-        allowUnknown: false, 
-        abortEarly: true 
+        allowUnknown: true, // Allow Railway to inject unknown env vars
+        abortEarly: false // Show all validation errors at once
       }
     }),
     // Only import TypeORM when database is enabled
