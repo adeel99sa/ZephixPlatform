@@ -13,10 +13,12 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken]),
+    // Conditionally import TypeORM features based on database availability
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      TypeOrmModule.forFeature([User, RefreshToken]),
+      UsersModule,
+    ] : []),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    // Remove duplicate JWT configuration - use global one from AppModule
-    UsersModule,
     ConfigModule,
   ],
   controllers: [AuthController],

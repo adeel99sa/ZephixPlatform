@@ -43,6 +43,10 @@ async function bootstrap() {
     logger.log(`Environment: ${process.env.NODE_ENV || 'Not set'}`);
     app.enableCors(corsConfig);
 
+    // CRITICAL: Set global API prefix for all routes
+    app.setGlobalPrefix('api');
+    logger.log('Global API prefix set to: /api');
+
     // Apply Helmet security headers AFTER CORS
     const helmetConfig = configService.get('security.helmet');
     if (helmetConfig.enabled) {
