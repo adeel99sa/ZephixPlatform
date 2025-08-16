@@ -11,9 +11,12 @@ import { BRDRepository } from './repositories/brd.repository';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { ObservabilityModule } from '../observability/observability.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
+    // Always import SharedModule for LLMProviderService and ClaudeService
+    SharedModule,
     // Only import TypeORM when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       TypeOrmModule.forFeature([
