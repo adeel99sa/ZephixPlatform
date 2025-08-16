@@ -59,9 +59,9 @@ import { AIModule } from '../ai/ai.module';
 
 @Module({
   imports: [
-    // Always import AIModule for LLMProviderService
+    // Always import AIModule for LLMProviderService and ClaudeService
     AIModule,
-    // Only import sub-modules when database is available
+    // Only import database-dependent sub-modules when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       ProjectInitiationModule,
       RiskManagementModule,
