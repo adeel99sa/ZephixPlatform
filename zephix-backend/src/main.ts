@@ -36,26 +36,9 @@ async function bootstrap() {
     const configService = app.get(ConfigService<EnvironmentVariables>);
     const healthService = app.get(HealthService);
     
-    // SSL Configuration Validation
-    try {
-      const sslConfigService = app.get('SslConfigService');
-      const sslConfig = sslConfigService.getSslConfig();
-      console.log('🔒 SSL Configuration:', {
-        enabled: !!sslConfig,
-        rejectUnauthorized: sslConfig?.rejectUnauthorized,
-        mode: process.env.DB_SSL || 'auto'
-      });
-      
-      // Validate Railway environment
-      const sslValidation = sslConfigService.validateForRailway();
-      if (!sslValidation.isValid) {
-        logger.warn('⚠️ SSL Configuration Issues:', sslValidation.issues);
-      } else {
-        logger.log('✅ SSL Configuration validated successfully');
-      }
-    } catch (error) {
-      logger.warn('⚠️ SSL Configuration validation failed:', error.message);
-    }
+    // Simple SSL Configuration Check
+    console.log('🔒 SSL Configuration: NODE_TLS_REJECT_UNAUTHORIZED =', process.env.NODE_TLS_REJECT_UNAUTHORIZED);
+    console.log('📋 Database URL configured:', !!process.env.DATABASE_URL);
     
     // Verify core services before proceeding
     const coreHealth = await healthService.checkCoreServices();
