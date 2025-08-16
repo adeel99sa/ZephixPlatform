@@ -36,11 +36,14 @@ export class QueueService {
     const q = await this.getQueue(QUEUE_NAMES.ROLES)
     const jobId = uuidv4()
     const job = await q.add('seed', payload, { 
-      jobId
+      jobId,
       // Note: timeout not supported in this BullMQ version
+      // Job will be processed with 30 second timeout in processor
+      removeOnComplete: { age: 3600 }, // Keep completed jobs for 1 hour
+      removeOnFail: { age: 86400 }     // Keep failed jobs for 24 hours
     })
     // Secure logging - no sensitive data
-    this.logger.log(`Queued roles seed job=${job.id} tenant=${payload.tenantId} force=${payload.force}`)
+    this.logger.log(`Queued roles seed job=${job.id} mode=${payload.mode} tenant=${payload.tenantId || 'N/A'} force=${payload.force || false}`)
     return job.id
   }
 
