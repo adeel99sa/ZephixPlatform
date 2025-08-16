@@ -4,11 +4,8 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 
 @Module({
-  imports: [
-    // Only import TypeORM when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([User])] : []),
-  ],
+  imports: [TypeOrmModule.forFeature([User])],
   providers: [UsersService],
-  exports: [UsersService],
+  exports: [UsersService, TypeOrmModule]
 })
 export class UsersModule {}
