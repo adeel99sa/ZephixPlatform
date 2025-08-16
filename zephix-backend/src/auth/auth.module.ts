@@ -28,10 +28,22 @@ import { UsersModule } from '../modules/users/users.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: cfg.get<string>('JWT_EXPIRES_IN') || '15m' }
-      })
+      useFactory: (cfg: ConfigService) => {
+        const jwtSecret = cfg.get<string>('JWT_SECRET');
+        if (!jwtSecret) {
+          throw new Error('JWT_SECRET environment variable is required');
+        }
+        
+        console.log('🔐 JWT Configuration:', {
+          hasSecret: !!jwtSecret,
+          expiresIn: cfg.get<string>('JWT_EXPIRES_IN') || '15m'
+        });
+        
+        return {
+          secret: jwtSecret,
+          signOptions: { expiresIn: cfg.get<string>('JWT_EXPIRES_IN') || '15m' }
+        };
+      }
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([User, Organization, UserOrganization, EmailVerification, RefreshToken]),

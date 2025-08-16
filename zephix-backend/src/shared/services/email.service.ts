@@ -23,26 +23,39 @@ export class EmailService {
   }
 
   private initializeTransporter() {
-    const emailConfig = this.configService.get('email');
-
-    if (emailConfig?.smtp?.host) {
-      // Production SMTP configuration
-      this.transporter = nodemailer.createTransport({
-        host: emailConfig.smtp.host,
-        port: emailConfig.smtp.port || 587,
-        secure: emailConfig.smtp.secure || false,
-        auth: {
-          user: emailConfig.smtp.user,
-          pass: emailConfig.smtp.password,
-        },
-      });
-    } else {
-      // Development mode - log emails instead of sending
+    try {
+      const emailConfig = this.configService.get('email');
+      
+      if (emailConfig?.smtp?.host) {
+        // Production SMTP configuration
+        this.transporter = nodemailer.createTransport({
+          host: emailConfig.smtp.host,
+          port: emailConfig.smtp.port || 587,
+          secure: emailConfig.smtp.secure || false,
+          auth: {
+            user: emailConfig.smtp.user,
+            pass: emailConfig.smtp.password,
+          },
+        });
+        this.logger.log('✅ Production SMTP transporter initialized');
+      } else {
+        // Development mode - log emails instead of sending
+        this.transporter = nodemailer.createTransport({
+          streamTransport: true,
+          newline: 'unix',
+          buffer: true,
+        });
+        this.logger.log('✅ Development email transporter initialized (logging mode)');
+      }
+    } catch (error) {
+      this.logger.error('❌ Failed to initialize email transporter:', error);
+      // Fallback to development mode
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true,
       });
+      this.logger.log('✅ Fallback email transporter initialized (logging mode)');
     }
   }
 
