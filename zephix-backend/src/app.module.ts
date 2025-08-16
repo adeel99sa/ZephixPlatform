@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { CoreModule } from './core/core.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
@@ -29,7 +30,7 @@ import { SharedModule } from './shared/shared.module';
     SharedModule, // Provides LLMProviderService, ClaudeService, EmailService
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [AppService],
 })
 export class AppModule {
   constructor() {
