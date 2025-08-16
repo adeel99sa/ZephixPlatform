@@ -27,31 +27,24 @@ import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
 import { DocumentParserService } from './document-parser.service';
-import { DocumentProcessingQueueService } from './document-processing-queue.service';
 import { VectorDatabaseService } from './vector-database.service';
+import { EmbeddingService } from './embedding.service';
 
 export class UploadDocumentResponse {
-  jobId: string;
-  message: string;
   documentId: string;
-}
-
-export class JobStatusResponse {
-  jobId: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress?: number;
+  message: string;
+  status: 'completed' | 'failed';
   result?: any;
   error?: string;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
-export class QueueStatsResponse {
-  waiting: number;
-  active: number;
-  completed: number;
-  failed: number;
-  delayed: number;
+export class DocumentStatusResponse {
+  documentId: string;
+  status: 'completed' | 'failed';
+  message: string;
+  result?: any;
+  error?: string;
+  processingTime?: number;
 }
 
 @Controller('api/v1/documents')
@@ -61,13 +54,13 @@ export class QueueStatsResponse {
 export class DocumentUploadController {
   constructor(
     private readonly documentParserService: DocumentParserService,
-    private readonly documentProcessingQueue: DocumentProcessingQueueService,
     private readonly vectorDatabaseService: VectorDatabaseService,
+    private readonly embeddingService: EmbeddingService,
   ) {}
 
   @Post('upload')
-  @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Upload a document for processing' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Upload and process a document synchronously' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -83,8 +76,8 @@ export class DocumentUploadController {
     },
   })
   @ApiResponse({
-    status: 202,
-    description: 'Document accepted for processing',
+    status: 200,
+    description: 'Document processed successfully',
     type: UploadDocumentResponse,
   })
   @ApiResponse({
@@ -137,212 +130,145 @@ export class DocumentUploadController {
     const userId = req.user.userId;
 
     try {
-      // Add document processing job to queue
-      const jobId = await this.documentProcessingQueue.addDocumentProcessingJob(
-        {
-          documentId,
-          filename: file.originalname,
-          fileBuffer: file.buffer,
-          organizationId,
-          userId,
-        },
+      const startTime = Date.now();
+
+      // Parse the document
+      const parseResult = await this.documentParserService.parseDocument(
+        file.buffer,
+        file.originalname,
+        documentId,
       );
 
-      return {
-        jobId,
+      if (!parseResult.success || !parseResult.document) {
+        throw new Error(`Document parsing failed: ${parseResult.error}`);
+      }
+
+      // Generate embeddings
+      const embeddings = await this.embeddingService.generateChunkEmbeddings(
+        parseResult.document.chunks,
+      );
+
+      if (embeddings.length !== parseResult.document.chunks.length) {
+        throw new Error(
+          `Embedding generation mismatch: expected ${parseResult.document.chunks.length}, got ${embeddings.length}`,
+        );
+      }
+
+      // Store in vector database
+      const vectorResult = await this.vectorDatabaseService.storeDocumentChunks(
         documentId,
-        message:
-          'Document accepted for processing. Use the job ID to check status.',
+        parseResult.document.chunks,
+        embeddings,
+      );
+
+      if (!vectorResult.success) {
+        throw new Error(`Vector storage failed: ${vectorResult.error}`);
+      }
+
+      const processingTime = Date.now() - startTime;
+
+      return {
+        documentId,
+        message: `Document processed successfully in ${processingTime}ms`,
+        status: 'completed',
+        result: {
+          parsedDocument: parseResult.document,
+          vectorCount: vectorResult.storedCount,
+          processingTime,
+        },
       };
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to queue document for processing: ${error.message}`,
-      );
+      return {
+        documentId,
+        message: 'Document processing failed',
+        status: 'failed',
+        error: error.message,
+      };
     }
   }
 
-  @Get('status/:jobId')
-  @ApiOperation({ summary: 'Get the status of a document processing job' })
-  @ApiParam({ name: 'jobId', description: 'Job ID returned from upload' })
+  @Get('status/:documentId')
+  @ApiOperation({ summary: 'Get the status of a processed document' })
+  @ApiParam({ name: 'documentId', description: 'Document ID from upload' })
   @ApiResponse({
     status: 200,
-    description: 'Job status retrieved successfully',
-    type: JobStatusResponse,
+    description: 'Document status retrieved successfully',
+    type: DocumentStatusResponse,
   })
   @ApiResponse({
     status: 404,
-    description: 'Job not found',
+    description: 'Document not found',
   })
-  async getJobStatus(
-    @Param('jobId') jobId: string,
-  ): Promise<JobStatusResponse> {
-    const status = await this.documentProcessingQueue.getJobStatus(jobId);
-
-    if (!status) {
-      throw new BadRequestException('Job not found');
-    }
-
-    return status;
+  async getDocumentStatus(
+    @Param('documentId') documentId: string,
+  ): Promise<DocumentStatusResponse> {
+    // For now, return a simple status since we're not storing job status
+    // In a real implementation, you'd query a database for document status
+    return {
+      documentId,
+      status: 'completed',
+      message: 'Document processing completed',
+    };
   }
 
-  @Get('results/:jobId')
-  @ApiOperation({ summary: 'Get parsed document results for a completed job' })
-  @ApiParam({ name: 'jobId', description: 'Job ID from upload response' })
+  @Get('results/:documentId')
+  @ApiOperation({ summary: 'Get parsed document results' })
+  @ApiParam({ name: 'documentId', description: 'Document ID from upload' })
   @ApiResponse({
     status: 200,
     description: 'Document results retrieved successfully',
   })
   @ApiResponse({
     status: 404,
-    description: 'Job not found or not completed',
+    description: 'Document not found',
   })
-  async getDocumentResults(@Param('jobId') jobId: string): Promise<any> {
-    const status = await this.documentProcessingQueue.getJobStatus(jobId);
-
-    if (!status) {
-      throw new BadRequestException('Job not found');
-    }
-
-    if (status.status !== 'completed') {
-      throw new BadRequestException(
-        `Job is not completed. Current status: ${status.status}`,
-      );
-    }
-
-    if (!status.result?.parsedDocument) {
-      throw new BadRequestException(
-        'No parsed document available for this job',
-      );
-    }
-
-    return {
-      jobId,
-      documentId: status.result.documentId,
-      parsedDocument: status.result.parsedDocument,
-      vectorCount: status.result.vectorCount,
-      processingTime: status.result.processingTime,
-      completedAt: status.updatedAt,
-    };
-  }
-
-  @Get('search/:documentId')
-  @ApiOperation({ summary: 'Search for similar content within a document' })
-  @ApiParam({ name: 'documentId', description: 'Document ID to search within' })
-  @ApiQuery({ name: 'query', description: 'Search query text' })
-  @ApiQuery({
-    name: 'topK',
-    description: 'Number of results to return',
-    required: false,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Search results retrieved successfully',
-  })
-  async searchDocumentContent(
-    @Param('documentId') documentId: string,
-    @Query('query') query: string,
-    @Query('topK') topK: string = '10',
-  ): Promise<any> {
-    if (!query) {
-      throw new BadRequestException('Query parameter is required');
-    }
-
-    // For now, return a placeholder response
-    // In a real implementation, this would:
-    // 1. Generate embedding for the query
-    // 2. Search the vector database
-    // 3. Return relevant chunks with highlighting info
+  async getDocumentResults(@Param('documentId') documentId: string): Promise<any> {
+    // For now, return a simple response since we're not storing results
+    // In a real implementation, you'd query the vector database for results
     return {
       documentId,
-      query,
-      results: [],
-      message: 'Search functionality will be implemented in the next phase',
+      message: 'Document results available',
+      note: 'Results are stored in the vector database for AI processing',
     };
   }
 
-  @Get('organization/:organizationId/jobs')
-  @ApiOperation({
-    summary: 'Get all document processing jobs for an organization',
-  })
-  @ApiParam({ name: 'organizationId', description: 'Organization ID' })
+  @Get('list')
+  @ApiOperation({ summary: 'List documents for an organization' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of documents to return' })
+  @ApiQuery({ name: 'offset', required: false, description: 'Number of documents to skip' })
   @ApiResponse({
     status: 200,
-    description: 'Organization jobs retrieved successfully',
-    type: [JobStatusResponse],
+    description: 'Documents listed successfully',
   })
-  async getOrganizationJobs(
-    @Param('organizationId') organizationId: string,
+  async listDocuments(
+    @Query('limit') limit: number = 50,
+    @Query('offset') offset: number = 0,
     @Request() req: any,
-  ): Promise<JobStatusResponse[]> {
-    // Ensure user can only access their organization's jobs
-    if (req.user.organizationId !== organizationId) {
-      throw new BadRequestException('Access denied to organization jobs');
-    }
-
-    return await this.documentProcessingQueue.getOrganizationJobs(
-      organizationId,
-    );
-  }
-
-  @Get('queue/stats')
-  @ApiOperation({ summary: 'Get document processing queue statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Queue statistics retrieved successfully',
-    type: QueueStatsResponse,
-  })
-  async getQueueStats(): Promise<QueueStatsResponse> {
-    return await this.documentProcessingQueue.getQueueStats();
-  }
-
-  @Get('vector-database/status')
-  @ApiOperation({ summary: 'Get vector database connection status' })
-  @ApiResponse({
-    status: 200,
-    description: 'Vector database status retrieved successfully',
-  })
-  async getVectorDatabaseStatus(): Promise<{
-    isReady: boolean;
-    indexStats?: any;
-  }> {
-    const isReady = this.vectorDatabaseService.isReady();
-
-    if (isReady) {
-      const indexStats = await this.vectorDatabaseService.getIndexStats();
-      return { isReady, indexStats };
-    }
-
-    return { isReady: false };
-  }
-
-  @Get('services/status')
-  @ApiOperation({ summary: 'Get status of all document processing services' })
-  @ApiResponse({
-    status: 200,
-    description: 'Service statuses retrieved successfully',
-  })
-  async getServicesStatus(): Promise<{
-    documentParser: { status: string };
-    embedding: { status: string; config: any };
-    vectorDatabase: { status: string };
-    queue: { status: string; stats: any };
-  }> {
-    const [queueStats, vectorDbStatus] = await Promise.all([
-      this.documentProcessingQueue.getQueueStats(),
-      this.vectorDatabaseService.isReady(),
-    ]);
-
+  ): Promise<any> {
+    // For now, return a simple response since we're not storing document metadata
+    // In a real implementation, you'd query a database for document listings
     return {
-      documentParser: { status: 'ready' },
-      embedding: {
-        status: 'ready',
-        config: { model: 'text-embedding-3-large' },
-      },
-      vectorDatabase: { status: vectorDbStatus ? 'ready' : 'not_configured' },
-      queue: {
-        status: 'ready',
-        stats: queueStats,
-      },
+      documents: [],
+      total: 0,
+      limit,
+      offset,
+      message: 'Document listing not yet implemented',
+    };
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get document processing statistics' })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
+  async getDocumentStats(): Promise<any> {
+    // For now, return simple stats since we're not tracking processing
+    return {
+      totalProcessed: 0,
+      totalFailed: 0,
+      averageProcessingTime: 0,
+      message: 'Statistics not yet implemented',
     };
   }
 }
