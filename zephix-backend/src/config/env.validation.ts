@@ -63,8 +63,8 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
   const validatedConfig = plainToClass(EnvironmentVariables, config);
   const errors = validateSync(validatedConfig, { 
     skipMissingProperties: false,
-    forbidNonWhitelisted: true,
-    whitelist: true
+    forbidNonWhitelisted: false, // Allow Railway to inject unknown env vars
+    whitelist: false // Don't strip unknown properties
   });
 
   if (errors.length > 0) {
