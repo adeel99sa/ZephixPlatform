@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { validateEnvironment } from '../config/env.validation';
 import { DatabaseService } from './services/database.service';
 import { HealthService } from './services/health.service';
-import { dataSourceOptions } from '../data-source';
 
 /**
  * CoreModule - Enterprise Foundation Layer
@@ -27,7 +26,51 @@ import { dataSourceOptions } from '../data-source';
     // Only import TypeORM when database is enabled
     ...(process.env.DATABASE_URL && process.env.SKIP_DATABASE !== 'true' ? [
       TypeOrmModule.forRootAsync({
-        useFactory: () => dataSourceOptions,
+        useFactory: () => {
+          const useUrl = !!process.env.DATABASE_URL;
+
+          // mirror the same SSL logic used in data-source.ts
+          const DB_SSL = (process.env.DB_SSL || 'require').toLowerCase(); // disable | require
+          const DB_SSL_STRICT = (process.env.DB_SSL_STRICT || 'false').toLowerCase() === 'true';
+
+          const decodeMaybeBase64 = (input?: string) => {
+            if (!input) return undefined;
+            try {
+              const out = Buffer.from(input, 'base64').toString('utf8');
+              if (out.includes('-----BEGIN') && out.includes('-----END')) return out;
+              return input;
+            } catch {
+              return input;
+            }
+          };
+
+          const DB_SSL_CA = decodeMaybeBase64(process.env.DB_SSL_CA);
+
+          const ssl =
+            DB_SSL === 'disable'
+              ? false
+              : DB_SSL_STRICT
+              ? { rejectUnauthorized: true, ca: DB_SSL_CA }
+              : { rejectUnauthorized: false };
+
+          return {
+            type: 'postgres' as const,
+            ...(useUrl
+              ? { url: process.env.DATABASE_URL }
+              : {
+                  host: process.env.DB_HOST,
+                  port: Number(process.env.DB_PORT || 5432),
+                  username: process.env.DB_USER,
+                  password: process.env.DB_PASSWORD,
+                  database: process.env.DB_NAME,
+                }),
+            ssl,
+            autoLoadEntities: true,   // Nest will discover your entities
+            synchronize: false,
+            migrationsRun: false,
+            logging: ['error'],
+          };
+        },
       })
     ] : []),
   ],

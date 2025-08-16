@@ -1,5 +1,5 @@
-import 'reflect-metadata';
-import AppDataSource from '../data-source';
+import { NestFactory } from '@nestjs/core';
+import { AppDataSource } from '../data-source';
 
 async function main() {
   await AppDataSource.initialize();
