@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { validateEnvironment } from '../config/env.validation';
 import { DatabaseService } from './services/database.service';
 import { HealthService } from './services/health.service';
-import { SslConfigService } from './services/ssl-config.service';
+
 
 /**
  * CoreModule - Enterprise Foundation Layer
@@ -27,9 +27,34 @@ import { SslConfigService } from './services/ssl-config.service';
     // Only import TypeORM when database is enabled
     ...(process.env.DATABASE_URL && process.env.SKIP_DATABASE !== 'true' ? [
       TypeOrmModule.forRootAsync({
-        useFactory: (sslConfigService: SslConfigService) => {
+        useFactory: () => {
           const useUrl = !!process.env.DATABASE_URL;
-          const sslConfig = sslConfigService.getSslConfig();
+          
+          // Use the same SSL logic as SslConfigService directly in factory
+          const DB_SSL = (process.env.DB_SSL || 'require').toLowerCase();
+          const DB_SSL_STRICT = (process.env.DB_SSL_STRICT || 'false').toLowerCase() === 'true';
+          
+          const decodeMaybeBase64 = (input?: string) => {
+            if (!input) return undefined;
+            try {
+              const decoded = Buffer.from(input, 'base64').toString('utf8');
+              if (decoded.includes('-----BEGIN') && decoded.includes('-----END')) {
+                return decoded;
+              }
+              return input;
+            } catch {
+              return input;
+            }
+          };
+          
+          const DB_SSL_CA = decodeMaybeBase64(process.env.DB_SSL_CA);
+          
+          const sslConfig =
+            DB_SSL === 'disable'
+              ? false
+              : DB_SSL_STRICT
+              ? { rejectUnauthorized: true, ca: DB_SSL_CA }
+              : { rejectUnauthorized: false };
           
           // Debug SSL configuration
           console.log('🔐 SSL Configuration:', {
@@ -57,12 +82,10 @@ import { SslConfigService } from './services/ssl-config.service';
             logging: ['error'],
           };
         },
-        inject: [SslConfigService],
       })
     ] : []),
   ],
   providers: [
-    SslConfigService,
     DatabaseService,
     HealthService,
   ],
