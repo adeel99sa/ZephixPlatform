@@ -15,6 +15,7 @@ import { UsersModule } from '../users/users.module';
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     ConfigModule,
+    UsersModule, // Add UsersModule for basic auth functionality
   ],
   controllers: [AuthController],
   providers: [AuthService, LocalStrategy, JwtStrategy],
