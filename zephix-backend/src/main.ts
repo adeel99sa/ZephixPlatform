@@ -38,6 +38,9 @@ async function bootstrap() {
     // Bulletproof CORS configuration for all environments
     const corsConfig = getCorsConfig();
     logger.log(`CORS Configuration: ${JSON.stringify(corsConfig, null, 2)}`);
+    logger.log(`Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
+    logger.log(`Backend URL: ${process.env.BACKEND_URL || 'Not set'}`);
+    logger.log(`Environment: ${process.env.NODE_ENV || 'Not set'}`);
     app.enableCors(corsConfig);
 
     // Apply Helmet security headers AFTER CORS
@@ -65,6 +68,8 @@ async function bootstrap() {
                 imgSrc: ["'self'", 'data:', 'https:'],
                 connectSrc: [
                   "'self'",
+                  'https://zephix-frontend-production.up.railway.app',
+                  'https://zephix-backend-production.up.railway.app',
                   'https://api.getzephix.com',
                   'https://getzephix.com',
                   'https://www.getzephix.com',
@@ -274,115 +279,131 @@ async function handleMigrationsSafely(app: any, logger: Logger): Promise<void> {
 function getCorsConfig() {
   const isDev = process.env.NODE_ENV === 'development';
   const isLocalDev = process.env.LOCAL_DEV === 'true';
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',') || [];
+  const frontendUrl = process.env.FRONTEND_URL;
+  const backendUrl = process.env.BACKEND_URL;
 
-  // Development environment
-  if (isDev) {
-    if (isLocalDev) {
-      // Local development (no Vite proxy)
-      return {
-        origin: [
-          'http://localhost:5173', // Vite default
-          'http://localhost:3000', // Vite custom port
-          'http://localhost:4173', // Vite preview
-          'http://127.0.0.1:5173',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:4173',
-        ],
-        credentials: false, // No credentials for local dev
-        methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: [
-          'Authorization',
-          'Content-Type',
-          'Accept',
-          'Origin',
-          'X-Requested-With',
-          'X-Org-Id',
-          'X-Request-Id',
-        ],
-        exposedHeaders: [
-          'X-RateLimit-Limit',
-          'X-RateLimit-Remaining',
-          'X-RateLimit-Reset',
-          'X-Request-Id',
-        ],
-        optionsSuccessStatus: 204,
-        maxAge: 86400, // 24 hours
-        preflightContinue: false,
-      };
-    } else {
-      // Development with Vite proxy (default)
-      return {
-        origin: [
-          'http://localhost:5173',
-          'http://localhost:3000',
-          'http://localhost:4173',
-          'http://127.0.0.1:5173',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:4173',
-          // Add any additional dev origins
-          ...allowedOrigins.filter(
-            (origin) =>
-              origin.includes('localhost') || origin.includes('127.0.0.1'),
-          ),
-        ],
-        credentials: true, // Credentials for Vite proxy
-        methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: [
-          'Authorization',
-          'Content-Type',
-          'Accept',
-          'Origin',
-          'X-Requested-With',
-          'X-Org-Id',
-          'X-Request-Id',
-        ],
-        exposedHeaders: [
-          'X-RateLimit-Limit',
-          'X-RateLimit-Remaining',
-          'X-RateLimit-Reset',
-          'X-Request-Id',
-        ],
-        optionsSuccessStatus: 204,
-        maxAge: 86400,
-        preflightContinue: false,
-      };
-    }
-  }
-
-  // Production environment
-  return {
-    origin: [
+  // Production environment (Railway)
+  if (!isDev) {
+    const productionOrigins = [
+      'https://zephix-frontend-production.up.railway.app',
       'https://getzephix.com',
       'https://www.getzephix.com',
       'https://app.getzephix.com',
-      // Add any additional production origins
+      // Add any additional production origins from environment
       ...allowedOrigins.filter(
         (origin) =>
-          !origin.includes('localhost') && !origin.includes('127.0.0.1'),
+          origin.includes('railway.app') || 
+          origin.includes('getzephix.com') ||
+          origin.includes('vercel.app') ||
+          origin.includes('netlify.app')
       ),
-    ],
-    credentials: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Authorization',
-      'Content-Type',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-      'X-Org-Id',
-      'X-Request-Id',
-    ],
-    exposedHeaders: [
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-      'X-Request-Id',
-    ],
-    optionsSuccessStatus: 204,
-    maxAge: 86400,
-    preflightContinue: false,
-  };
+    ];
+
+    // Remove duplicates and filter out empty strings
+    const uniqueProductionOrigins = [...new Set(productionOrigins)].filter(Boolean);
+
+    return {
+      origin: uniqueProductionOrigins,
+      credentials: true, // Enable credentials for JWT authentication
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+        'X-Org-Id',
+        'X-Request-Id',
+        'X-CSRF-Token',
+        'X-Forwarded-For',
+        'X-Real-IP',
+      ],
+      exposedHeaders: [
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-Request-Id',
+        'X-Total-Count',
+        'X-Page-Count',
+      ],
+      optionsSuccessStatus: 204,
+      maxAge: 86400, // 24 hours
+      preflightContinue: false,
+    };
+  }
+
+  // Development environment
+  if (isLocalDev) {
+    // Local development (no Vite proxy)
+    return {
+      origin: [
+        'http://localhost:5173', // Vite default
+        'http://localhost:3000', // Vite custom port
+        'http://localhost:4173', // Vite preview
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:4173',
+      ],
+      credentials: false, // No credentials for local dev
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+        'X-Org-Id',
+        'X-Request-Id',
+      ],
+      exposedHeaders: [
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-Request-Id',
+      ],
+      optionsSuccessStatus: 204,
+      maxAge: 86400, // 24 hours
+      preflightContinue: false,
+    };
+  } else {
+    // Development with Vite proxy (default)
+    return {
+      origin: [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://localhost:4173',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:4173',
+        // Add any additional dev origins
+        ...allowedOrigins.filter(
+          (origin) =>
+            origin.includes('localhost') || origin.includes('127.0.0.1'),
+        ),
+      ],
+      credentials: true, // Credentials for Vite proxy
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+        'X-Org-Id',
+        'X-Request-Id',
+      ],
+      exposedHeaders: [
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-Request-Id',
+      ],
+      optionsSuccessStatus: 204,
+      maxAge: 86400,
+      preflightContinue: false,
+    };
+  }
 }
 
 bootstrap();
