@@ -48,10 +48,24 @@ export class AuthService {
   }
 
   /**
+   * Fallback method when database is not available
+   */
+  private getFallbackResponse() {
+    return {
+      message: 'Authentication service temporarily unavailable',
+      error: 'Database not configured',
+      status: 'service_unavailable',
+    };
+  }
+
+  /**
    * Authenticate user and generate tokens
    */
   async login(loginDto: LoginDto) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return this.getFallbackResponse();
+    }
+
     const { email, password } = loginDto;
 
     // Find user by email
@@ -108,7 +122,10 @@ export class AuthService {
    * Create new user account
    */
   async signup(signupDto: SignupDto) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return this.getFallbackResponse();
+    }
+
     const { email, password, firstName, lastName, organizationName } =
       signupDto;
 
@@ -159,10 +176,13 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Refresh access token
    */
   async refreshToken(refreshToken: string) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return this.getFallbackResponse();
+    }
+
     // Find refresh token in database
     const tokenRecord = await this.refreshTokenRepository!.findOne({
       where: { token: refreshToken, isRevoked: false },
@@ -193,7 +213,10 @@ export class AuthService {
    * Logout user and revoke refresh tokens
    */
   async logout(userId: string) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return this.getFallbackResponse();
+    }
+
     // Revoke all refresh tokens for user
     await this.refreshTokenRepository!.update(
       { user: { id: userId }, isRevoked: false },
@@ -207,7 +230,10 @@ export class AuthService {
    * Get user by ID
    */
   async getUserById(userId: string) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return this.getFallbackResponse();
+    }
+
     return this.userRepository!.findOne({
       where: { id: userId },
       select: [
@@ -226,7 +252,10 @@ export class AuthService {
    * Validate user credentials (for local strategy)
    */
   async validateUser(email: string, password: string) {
-    this.checkDatabaseAvailability();
+    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+      return null;
+    }
+
     const user = await this.userRepository!.findOne({
       where: { email: email.toLowerCase() },
       select: [

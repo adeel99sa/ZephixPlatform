@@ -13,11 +13,6 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    // Conditionally import TypeORM features based on database availability
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
-      TypeOrmModule.forFeature([User, RefreshToken]),
-      UsersModule,
-    ] : []),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     ConfigModule,
   ],
@@ -26,3 +21,17 @@ import { UsersModule } from '../users/users.module';
   exports: [AuthService],
 })
 export class AuthModule {}
+
+// Separate module for when database is available
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([User, RefreshToken]),
+    UsersModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    ConfigModule,
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, LocalStrategy, JwtStrategy],
+  exports: [AuthService],
+})
+export class AuthDatabaseModule {}
