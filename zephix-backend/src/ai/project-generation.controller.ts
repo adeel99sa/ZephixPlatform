@@ -36,8 +36,8 @@ export class ProjectGenerationResponse {
   estimatedCompletionTime?: number; // in seconds
 }
 
-@Controller('api/v1/projects')
-@ApiTags('Project Generation')
+@ApiTags('AI Project Generation')
+@Controller('v1/projects')
 @UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class ProjectGenerationController {
