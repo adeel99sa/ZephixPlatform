@@ -21,7 +21,13 @@ import { UsersModule } from '../users/users.module';
   providers: [AuthService, LocalStrategy, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule {
+  constructor() {
+    console.log('🔐 AuthModule constructor called - Module is being loaded');
+    console.log('🔐 AuthModule controllers:', [AuthController]);
+    console.log('🔐 AuthModule providers:', [AuthService, LocalStrategy, JwtStrategy]);
+  }
+}
 
 // Separate module for when database is available
 @Module({
