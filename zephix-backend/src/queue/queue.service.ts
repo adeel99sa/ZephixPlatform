@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Queue, JobsOptions } from 'bullmq'
-import { getRedis } from '../config/redis.config'
+import { getRedis, isRedisConfigured } from '../config/redis.config'
 import { QUEUE_NAMES } from './constants'
 import type { RoleSeedPayload, FileProcessPayload, LlmCallPayload, EmailPayload } from './types'
 import { v4 as uuidv4 } from 'uuid'
@@ -24,9 +24,21 @@ export class QueueService {
     }
   }
 
-  private async getQueue(name: string): Promise<Queue> {
+  private async getQueue(name: string): Promise<Queue | null> {
+    // If Redis is not configured, return null
+    if (!isRedisConfigured()) {
+      this.logger.debug(`Redis not configured, cannot create queue: ${name}`)
+      return null
+    }
+
     if (this.queues.has(name)) return this.queues.get(name) as Queue
+    
     const connection = await getRedis('client')
+    if (!connection) {
+      this.logger.warn(`Redis connection failed, cannot create queue: ${name}`)
+      return null
+    }
+    
     const q = new Queue(name, { connection, defaultJobOptions: this.defaultJobOpts() })
     this.queues.set(name, q)
     return q
@@ -34,6 +46,12 @@ export class QueueService {
 
   async enqueueRoleSeed(payload: RoleSeedPayload) {
     const q = await this.getQueue(QUEUE_NAMES.ROLES)
+    if (!q) {
+      this.logger.warn('Redis not configured, role seed job not queued')
+      // Return a mock job ID for compatibility
+      return `mock-role-seed-${Date.now()}`
+    }
+    
     const jobId = uuidv4()
     const job = await q.add('seed', payload, { 
       jobId,
@@ -49,6 +67,12 @@ export class QueueService {
 
   async enqueueFileProcess(payload: FileProcessPayload) {
     const q = await this.getQueue(QUEUE_NAMES.FILES)
+    if (!q) {
+      this.logger.warn('Redis not configured, file process job not queued')
+      // Return a mock job ID for compatibility
+      return `mock-file-process-${Date.now()}`
+    }
+    
     const jobId = `file-${payload.fileId}-${Date.now()}`
     const job = await q.add('process', payload, { 
       jobId
@@ -61,6 +85,12 @@ export class QueueService {
 
   async enqueueLlmCall(payload: LlmCallPayload) {
     const q = await this.getQueue(QUEUE_NAMES.LLM)
+    if (!q) {
+      this.logger.warn('Redis not configured, LLM call job not queued')
+      // Return a mock job ID for compatibility
+      return `mock-llm-call-${Date.now()}`
+    }
+    
     const jobId = `llm-${payload.correlationId}-${Date.now()}`
     const job = await q.add('call', payload, { 
       jobId,
@@ -75,6 +105,12 @@ export class QueueService {
 
   async enqueueEmail(payload: EmailPayload) {
     const q = await this.getQueue(QUEUE_NAMES.EMAIL)
+    if (!q) {
+      this.logger.warn('Redis not configured, email job not queued')
+      // Return a mock job ID for compatibility
+      return `mock-email-${Date.now()}`
+    }
+    
     const jobId = `email-${payload.to}-${Date.now()}`
     const job = await q.add('send', payload, { 
       jobId
@@ -85,8 +121,35 @@ export class QueueService {
     return job.id
   }
 
+  // Check if Redis is configured
+  isRedisAvailable(): boolean {
+    return isRedisConfigured()
+  }
+
+  // Get queue status
+  getQueueStatus() {
+    if (!isRedisConfigured()) {
+      return {
+        status: 'Redis not configured',
+        queues: [],
+        totalQueues: 0
+      }
+    }
+    
+    return {
+      status: 'Redis configured',
+      queues: Array.from(this.queues.keys()),
+      totalQueues: this.queues.size
+    }
+  }
+
   // Cleanup method for graceful shutdown
   async closeAllQueues(): Promise<void> {
+    if (!isRedisConfigured()) {
+      this.logger.debug('Redis not configured, no queues to close')
+      return
+    }
+    
     this.logger.log('Closing all queues...')
     const closePromises = Array.from(this.queues.values()).map(async (queue) => {
       try {
