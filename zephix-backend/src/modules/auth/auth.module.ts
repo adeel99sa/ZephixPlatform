@@ -23,9 +23,18 @@ import { UsersModule } from '../users/users.module';
 })
 export class AuthModule {
   constructor() {
-    console.log('🔐 AuthModule constructor called - Module is being loaded');
-    console.log('🔐 AuthModule controllers:', [AuthController]);
-    console.log('🔐 AuthModule providers:', [AuthService, LocalStrategy, JwtStrategy]);
+    try {
+      console.log('🔐 AuthModule constructor executing');
+      console.log('🔐 AuthModule controllers:', [AuthController]);
+      console.log('🔐 AuthModule providers:', [AuthService, LocalStrategy, JwtStrategy]);
+      console.log('🔐 AuthModule imports:', ['PassportModule', 'ConfigModule', 'UsersModule']);
+      console.log('🔐 AuthModule exports:', [AuthService]);
+      console.log('✅ AuthModule constructor completed successfully');
+    } catch (error) {
+      console.error('❌ CRITICAL ERROR in AuthModule constructor:', error);
+      console.error('Stack trace:', error.stack);
+      throw error; // Re-throw to prevent silent failures
+    }
   }
 }
 
