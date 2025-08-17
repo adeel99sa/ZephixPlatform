@@ -56,104 +56,77 @@ import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
 import { FinancialIntegration } from './integrations/financial.integration';
 import { AIModule } from '../ai/ai.module';
-import { ProjectMetrics } from './entities/project-metrics.entity';
-import { PerformanceBaseline } from './entities/performance-baseline.entity';
-import { ManualUpdate } from './entities/manual-update.entity';
-import { StakeholderCommunication } from './entities/stakeholder-communication.entity';
-import { AlertConfiguration } from './entities/alert-configuration.entity';
 
 @Module({
   imports: [
-    AIModule, // Always import AIModule for LLMProviderService and ClaudeService
-    // Only import database-dependent sub-modules when database is available AND connection is stable
-    ...(process.env.DATABASE_URL ? (() => {
-      try {
-        console.log('🔍 PMModule: Loading database-dependent sub-modules...');
-        return [
-          ProjectInitiationModule,
-          RiskManagementModule,
-          StatusReportingModule,
-          TypeOrmModule.forFeature([
-            // Use actual entities that exist
-            PMKnowledgeChunk,
-            UserProject,
-            ProjectTask,
-            ProjectRisk,
-            ProjectStakeholder,
-            Portfolio,
-            Program,
-            Risk,
-            RiskAssessment,
-            RiskResponse,
-            RiskMonitoring,
-            Project,
-            TeamMember,
-            UserOrganization,
-            // Workflow Framework Entities
-            WorkflowTemplate,
-            WorkflowInstance,
-            IntakeForm,
-            IntakeSubmission,
-            ProjectMetrics,
-            PerformanceBaseline,
-            ManualUpdate,
-            StakeholderCommunication,
-            AlertConfiguration,
-          ]),
-        ];
-      } catch (error) {
-        console.error('❌ PMModule: TypeORM loading failed:', error);
-        console.warn('⚠️  PMModule: Continuing without database entities');
-        return [];
-      }
-    })() : []),
+    // Always import AIModule for LLMProviderService
+    AIModule,
+    // Only import sub-modules when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      ProjectInitiationModule,
+      RiskManagementModule,
+      StatusReportingModule,
+      // AccessControlModule removed - using built-in NestJS guards instead
+      TypeOrmModule.forFeature([
+        PMKnowledgeChunk,
+        UserProject,
+        ProjectTask,
+        ProjectRisk,
+        ProjectStakeholder,
+        Portfolio,
+        Program,
+        Risk,
+        RiskAssessment,
+        RiskResponse,
+        RiskMonitoring,
+        Project,
+        TeamMember,
+        UserOrganization,
+        // Workflow Framework Entities
+        WorkflowTemplate,
+        WorkflowInstance,
+        IntakeForm,
+        IntakeSubmission,
+      ]),
+    ] : []),
   ],
   controllers: [
-    // Existing controllers
-    WorkflowTemplateController,
-    WorkflowInstanceController,
-    IntakeFormController,
-    IntakeDesignerController,
-    DocumentIntelligenceController,
     AIPMAssistantController,
     AIIntelligenceController,
     AIChatController,
+    DocumentIntelligenceController,
+    IntakeDesignerController,
+    // Workflow Framework Controllers
+    WorkflowTemplateController,
+    WorkflowInstanceController,
+    IntakeFormController,
     PublicIntakeController,
   ],
   providers: [
-    // Existing providers
-    WorkflowTemplateService,
-    IntakeFormService,
-    IntegrationService,
     AIPMAssistantService,
     ZephixAIIntelligenceService,
     AIChatService,
     ZephixIntelligentDocumentProcessor,
     AIFormGeneratorService,
+    JiraIntegration,
+    GitHubIntegration,
+    TeamsIntegration,
+    FinancialIntegration,
+    // Workflow Framework Services
+    WorkflowTemplateService,
+    IntakeFormService,
+    IntegrationService,
   ],
   exports: [
-    // Existing exports
-    WorkflowTemplateService,
-    IntakeFormService,
-    IntegrationService,
     AIPMAssistantService,
     ZephixAIIntelligenceService,
     AIChatService,
     ZephixIntelligentDocumentProcessor,
     AIFormGeneratorService,
+    // Workflow Framework Services
+    WorkflowTemplateService,
+    IntakeFormService,
+    IntegrationService,
   ],
 })
-export class PMModule {
-  constructor() {
-    try {
-      console.log('🔍 PMModule constructor executing');
-      console.log('🔍 PMModule controllers count:', 9); // Number of actual controllers
-      console.log('🔍 PMModule providers count:', 8); // Number of actual providers
-      console.log('✅ PMModule constructor completed successfully');
-    } catch (error) {
-      console.error('❌ CRITICAL ERROR in PMModule constructor:', error);
-      console.error('Stack trace:', error.stack);
-      throw error;
-    }
-  }
-}
+export class PMModule {}

@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = ""
+startCommand = "npm run start:railway"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
@@ -52,9 +52,9 @@ RETRY_ATTEMPTS = "15"
 RETRY_DELAY = "5000"
 TIMEOUT_MS = "300000"
 
-# Health check configuration - FIXED: Use /health not /api/health
+# Health check configuration
 [deploy.envs.health]
-ENDPOINT = "/health"
+ENDPOINT = "/api/health"
 TIMEOUT = "30"
 INTERVAL = "60"
 RETRIES = "3"
