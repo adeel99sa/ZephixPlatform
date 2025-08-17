@@ -28,6 +28,13 @@ async function bootstrap() {
     logger.log(`Database URL configured: ${!!process.env.DATABASE_URL}`);
     logger.log(`AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
 
+    // EMERGENCY: Check if we should skip database for emergency startup
+    const skipDatabase = process.env.SKIP_DATABASE === 'true' || process.env.EMERGENCY_MODE === 'true';
+    if (skipDatabase) {
+      logger.warn('🚨 EMERGENCY MODE: Skipping database connection for emergency startup');
+      logger.warn('🚨 This will disable authentication and data persistence features');
+    }
+
     const app = await NestFactory.create(AppModule, {
       logger:
         process.env.NODE_ENV === 'production'
@@ -39,7 +46,11 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
 
     // ENHANCED: Safe migration handling that won't crash the app
-    await handleMigrationsSafely(app, logger);
+    if (!skipDatabase) {
+      await handleMigrationsSafely(app, logger);
+    } else {
+      logger.warn('🚨 Skipping migrations due to emergency mode');
+    }
 
     // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
@@ -170,7 +181,7 @@ async function bootstrap() {
           legacyHeaders: false,
           // Railway-specific optimizations
           skip: (req) => {
-            // Skip health checks and internal routes
+            // Skip health check endpoints to reduce noise
             return req.path === '/api/health' || req.path.startsWith('/api/metrics');
           },
         }),
@@ -272,11 +283,17 @@ async function bootstrap() {
           server.close(() => resolve());
         });
         
-        // Close database connections
-        const dataSource = app.get(DataSource);
-        if (dataSource.isInitialized) {
-          await dataSource.destroy();
-          logger.log('Database connections closed');
+        // Close database connections only if database is enabled
+        if (!skipDatabase) {
+          try {
+            const dataSource = app.get(DataSource);
+            if (dataSource.isInitialized) {
+              await dataSource.destroy();
+              logger.log('Database connections closed');
+            }
+          } catch (dbError) {
+            logger.warn('Could not close database connections:', dbError.message);
+          }
         }
         
         logger.log('Graceful shutdown completed');
@@ -302,12 +319,22 @@ async function bootstrap() {
       logger.log('📊 Production logging configured');
     }
 
+    // EMERGENCY MODE WARNING
+    if (skipDatabase) {
+      logger.error('🚨 EMERGENCY MODE ACTIVE - Database features disabled');
+      logger.error('🚨 Set SKIP_DATABASE=false and fix database connection to restore full functionality');
+    }
+
   } catch (error) {
     logger.error('❌ Failed to start Zephix Backend:', error);
     
     // ENHANCED: Better error reporting for Railway
     if (process.env.NODE_ENV === 'production') {
       logger.error('Production startup failure - check logs and restart');
+      
+      // EMERGENCY: Suggest emergency mode
+      logger.error('🚨 EMERGENCY: Try setting SKIP_DATABASE=true to start without database');
+      logger.error('🚨 This will allow basic health checks and API structure to work');
     }
     
     process.exit(1);

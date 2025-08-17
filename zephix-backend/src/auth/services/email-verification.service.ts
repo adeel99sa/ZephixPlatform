@@ -5,6 +5,8 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,21 +26,35 @@ export interface VerificationEmailData {
 export class EmailVerificationService {
   private readonly logger = new Logger(EmailVerificationService.name);
   private readonly verificationRateLimit = new Map<string, number>();
+  private readonly isEmergencyMode: boolean;
 
   constructor(
-    @InjectRepository(EmailVerification)
-    private verificationRepository: Repository<EmailVerification>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    @Optional() @InjectRepository(EmailVerification)
+    private verificationRepository: Repository<EmailVerification> | null,
+    @Optional() @InjectRepository(User)
+    private userRepository: Repository<User> | null,
     private configService: ConfigService,
     private emailService: EmailService,
-  ) {}
+  ) {
+    this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
+    
+    if (this.isEmergencyMode) {
+      console.log('🚨 EmailVerificationService: Emergency mode - database operations disabled');
+    }
+  }
 
   async sendVerificationEmail(
     user: User,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ success: boolean; token: string }> {
+    // EMERGENCY MODE: Return service unavailable
+    if (this.isEmergencyMode || !this.verificationRepository || !this.userRepository) {
+      throw new ServiceUnavailableException(
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+      );
+    }
+
     // Rate limiting: max 3 verification emails per hour per user
     const rateLimitKey = `verification_${user.id}`;
     const currentTime = Date.now();
@@ -112,6 +128,12 @@ export class EmailVerificationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ success: boolean; user: User }> {
+    if (this.isEmergencyMode || !this.verificationRepository || !this.userRepository) {
+      throw new ServiceUnavailableException(
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+      );
+    }
+
     const verification = await this.verificationRepository.findOne({
       where: { token },
       relations: ['user'],
@@ -153,6 +175,12 @@ export class EmailVerificationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ success: boolean }> {
+    if (this.isEmergencyMode || !this.userRepository) {
+      throw new ServiceUnavailableException(
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+      );
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -174,6 +202,12 @@ export class EmailVerificationService {
     pendingVerification: boolean;
     lastSentAt?: Date;
   }> {
+    if (this.isEmergencyMode || !this.userRepository) {
+      throw new ServiceUnavailableException(
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+      );
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -182,7 +216,7 @@ export class EmailVerificationService {
       throw new NotFoundException('User not found');
     }
 
-    const pendingVerification = await this.verificationRepository.findOne({
+    const pendingVerification = await this.verificationRepository?.findOne({
       where: { userId, status: 'pending' },
       order: { createdAt: 'DESC' },
     });
@@ -197,6 +231,9 @@ export class EmailVerificationService {
   async getVerificationByToken(
     token: string,
   ): Promise<EmailVerification | null> {
+    if (this.isEmergencyMode || !this.verificationRepository) {
+      return null;
+    }
     return this.verificationRepository.findOne({
       where: { token },
       relations: ['user'],
