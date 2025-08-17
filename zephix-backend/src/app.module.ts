@@ -29,10 +29,13 @@ import { HealthModule } from './health/health.module';
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
 import { MetricsMiddleware } from './observability/metrics.middleware';
-import { getDatabaseConfig, validateDatabasePrivileges } from './config/database.config';
+import {
+  getDatabaseConfig,
+  validateDatabasePrivileges,
+} from './config/database.config';
 
 // Import ONLY essential entities for authentication
-import { User } from "./modules/users/entities/user.entity"
+import { User } from './modules/users/entities/user.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { UserOrganization } from './organizations/entities/user-organization.entity';
 import { Project } from './projects/entities/project.entity';
@@ -56,7 +59,10 @@ if (!(global as any).crypto) {
       isGlobal: true,
       load: [configuration],
       // CRITICAL FIX: Prevent local .env files from overriding Railway environment variables
-      envFilePath: process.env.NODE_ENV === 'production' ? [] : ['.env', '.env.local', '.env.development'],
+      envFilePath:
+        process.env.NODE_ENV === 'production'
+          ? []
+          : ['.env', '.env.local', '.env.development'],
     }),
 
     // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
@@ -73,27 +79,36 @@ if (!(global as any).crypto) {
     }),
 
     // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
-    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        // Use the new centralized database configuration
-        const dbConfig = getDatabaseConfig(configService);
-        
-        // CRITICAL: Validate database user privileges for local development
-        if (configService.get('environment') === 'development') {
-          try {
-            await validateDatabasePrivileges(configService);
-          } catch (error) {
-            console.error('❌ Database privilege validation failed:', error);
-            console.error('❌ Please ensure zephix_user has proper privileges');
-            throw error;
-          }
-        }
-        
-        return dbConfig;
-      },
-      inject: [ConfigService],
-    })] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            useFactory: async (configService: ConfigService) => {
+              // Use the new centralized database configuration
+              const dbConfig = getDatabaseConfig(configService);
+
+              // CRITICAL: Validate database user privileges for local development
+              if (configService.get('environment') === 'development') {
+                try {
+                  await validateDatabasePrivileges(configService);
+                } catch (error) {
+                  console.error(
+                    '❌ Database privilege validation failed:',
+                    error,
+                  );
+                  console.error(
+                    '❌ Please ensure zephix_user has proper privileges',
+                  );
+                  throw error;
+                }
+              }
+
+              return dbConfig;
+            },
+            inject: [ConfigService],
+          }),
+        ]
+      : []),
 
     // CRITICAL: Import order to avoid circular dependencies
     SharedModule, // First - no dependencies
@@ -101,16 +116,18 @@ if (!(global as any).crypto) {
     AIModule, // AI services and document processing (conditional TypeORM)
     IntelligenceModule, // Intelligence services (no TypeORM)
     ArchitectureModule, // Architecture services (no TypeORM)
-    
+
     // EMERGENCY MODE: Only import database-dependent modules when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
-      OrganizationsModule, // Third - depends on SharedModule
-      ProjectsModule, // Fourth - depends on OrganizationsModule
-      PMModule, // Project management functionality (conditional TypeORM)
-      BRDModule, // Business requirements documentation (conditional TypeORM)
-      FeedbackModule, // User feedback system (conditional TypeORM)
-    ] : []),
-    
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          OrganizationsModule, // Third - depends on SharedModule
+          ProjectsModule, // Fourth - depends on OrganizationsModule
+          PMModule, // Project management functionality (conditional TypeORM)
+          BRDModule, // Business requirements documentation (conditional TypeORM)
+          FeedbackModule, // User feedback system (conditional TypeORM)
+        ]
+      : []),
+
     ObservabilityModule,
     HealthModule,
   ],
@@ -127,14 +144,21 @@ export class AppModule {
   constructor() {
     console.log('🚀 AppModule constructor called');
     console.log('🔐 AuthModule imported:', !!AuthModule);
-    console.log('🔐 AuthModule controllers:', AuthModule ? 'Available' : 'Missing');
-    
+    console.log(
+      '🔐 AuthModule controllers:',
+      AuthModule ? 'Available' : 'Missing',
+    );
+
     // EMERGENCY MODE: Log current configuration
     if (process.env.SKIP_DATABASE === 'true') {
       console.log('🚨 EMERGENCY MODE: Database-dependent modules disabled');
-      console.log('🚨 Available modules: SharedModule, AuthModule, AIModule, IntelligenceModule, ArchitectureModule, ObservabilityModule, HealthModule');
+      console.log(
+        '🚨 Available modules: SharedModule, AuthModule, AIModule, IntelligenceModule, ArchitectureModule, ObservabilityModule, HealthModule',
+      );
     } else {
-      console.log('✅ Full mode: All modules enabled including database-dependent ones');
+      console.log(
+        '✅ Full mode: All modules enabled including database-dependent ones',
+      );
     }
   }
 
