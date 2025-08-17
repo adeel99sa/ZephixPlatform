@@ -17,6 +17,10 @@ PORT = "3000"
 # CRITICAL: Ensure Railway knows which port to route traffic to
 RAILWAY_STATIC_URL = "https://zephix-backend-production.up.railway.app"
 
+# CRITICAL: Database SSL configuration for Railway
+RAILWAY_SSL_REJECT_UNAUTHORIZED = "false"
+DATABASE_SSL_MODE = "require"
+
 RUN_MIGRATIONS_ON_BOOT = "false"
 MIGRATIONS_TRANSACTION_MODE = "each"
 DB_RETRY_ATTEMPTS = "15"

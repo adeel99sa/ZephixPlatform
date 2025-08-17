@@ -115,12 +115,11 @@ if (!(global as any).crypto) {
               ? ['error', 'warn']
               : configService.get('database.logging'),
             ssl: {
-              // ENTERPRISE SECURITY: Validate SSL configuration
-              rejectUnauthorized: process.env.DATABASE_CA_CERT ? true : false, // Only accept if CA is provided
-              ca: process.env.DATABASE_CA_CERT, // Required for production security
-              // Additional security measures
-              minVersion: 'TLSv1.2', // Enforce minimum TLS version
-              maxVersion: 'TLSv1.3', // Use latest TLS version
+              // CRITICAL FIX: Railway PostgreSQL SSL configuration
+              rejectUnauthorized: process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED === 'true' ? true : false, // Configurable for Railway
+              // Remove strict SSL requirements for Railway compatibility
+              // minVersion: 'TLSv1.2', // Commented out for Railway compatibility
+              // maxVersion: 'TLSv1.3', // Commented out for Railway compatibility
             },
             extra: {
               max: 10, // Connection pool size for Railway limits
