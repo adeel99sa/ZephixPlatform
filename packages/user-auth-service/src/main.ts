@@ -64,7 +64,7 @@ class Application {
       origin: env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-MFA-Token']
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-MFA-Token', 'X-Timestamp']
     }));
 
     // Compression
