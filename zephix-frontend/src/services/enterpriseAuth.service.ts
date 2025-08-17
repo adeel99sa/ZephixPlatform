@@ -171,8 +171,8 @@ class EnterpriseAuthService {
         ipAddress: await this.getClientIP(),
       });
 
-      // 2. Validate input security
-      this.validateInputSecurity(credentials);
+      // 2. Validate input security (skip password complexity for login)
+      this.validateInputSecurity(credentials, true);
 
       // 3. API call with security monitoring
       const response = await authApi.login(credentials);
@@ -183,10 +183,12 @@ class EnterpriseAuthService {
         throw new Error('Invalid or compromised token received');
       }
 
-      // 5. Validate refresh token
-      const isValidRefreshToken = await this.validateRefreshToken(response.refreshToken);
-      if (!isValidRefreshToken) {
-        throw new Error('Invalid refresh token received');
+      // 5. Validate refresh token (if provided)
+      if (response.refreshToken) {
+        const isValidRefreshToken = await this.validateRefreshToken(response.refreshToken);
+        if (!isValidRefreshToken) {
+          throw new Error('Invalid refresh token received');
+        }
       }
 
       // 6. Update auth state with security validation
@@ -202,7 +204,7 @@ class EnterpriseAuthService {
       });
 
       // 8. Store tokens securely
-      this.storeTokensSecurely(response.accessToken, response.refreshToken);
+      this.storeTokensSecurely(response.accessToken, response.refreshToken || null);
 
       return true;
 
@@ -397,8 +399,8 @@ class EnterpriseAuthService {
       payload.sub &&
       payload.email &&
       typeof payload.iat === 'number' &&
-      typeof payload.exp === 'number' &&
-      payload.jti
+      typeof payload.exp === 'number'
+      // Removed jti requirement - backend doesn't provide it
     );
   }
 
@@ -430,14 +432,14 @@ class EnterpriseAuthService {
   /**
    * Validate input security
    */
-  private validateInputSecurity(data: any): void {
+  private validateInputSecurity(data: any, skipPasswordValidation: boolean = false): void {
     // Email validation
     if (data.email && !this.isValidEmail(data.email)) {
       throw new Error('Invalid email format');
     }
 
-    // Password strength validation
-    if (data.password && !this.isStrongPassword(data.password)) {
+    // Password strength validation (skip for login, enforce for signup)
+    if (!skipPasswordValidation && data.password && !this.isStrongPassword(data.password)) {
       throw new Error('Password does not meet security requirements');
     }
 
