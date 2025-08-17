@@ -1,8 +1,13 @@
 // Enterprise-secure SSL override for Railway PostgreSQL
-if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes('railway')) {
-  console.warn('🔐 SECURITY WARNING: Disabling SSL validation for Railway PostgreSQL compatibility');
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.DATABASE_URL?.includes('railway')
+) {
+  console.warn(
+    '🔐 SECURITY WARNING: Disabling SSL validation for Railway PostgreSQL compatibility',
+  );
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-  
+
   // CRITICAL: Set Railway-specific SSL configuration
   if (!process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED) {
     process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED = 'false';
@@ -10,9 +15,11 @@ if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL?.includes(
   if (!process.env.DATABASE_SSL_MODE) {
     process.env.DATABASE_SSL_MODE = 'require';
   }
-  
+
   console.log('🔐 Railway SSL configuration set:');
-  console.log(`   RAILWAY_SSL_REJECT_UNAUTHORIZED: ${process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED}`);
+  console.log(
+    `   RAILWAY_SSL_REJECT_UNAUTHORIZED: ${process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED}`,
+  );
   console.log(`   DATABASE_SSL_MODE: ${process.env.DATABASE_SSL_MODE}`);
 }
 
@@ -41,10 +48,16 @@ async function bootstrap() {
     logger.log(`AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
 
     // EMERGENCY: Check if we should skip database for emergency startup
-    const skipDatabase = process.env.SKIP_DATABASE === 'true' || process.env.EMERGENCY_MODE === 'true';
+    const skipDatabase =
+      process.env.SKIP_DATABASE === 'true' ||
+      process.env.EMERGENCY_MODE === 'true';
     if (skipDatabase) {
-      logger.warn('🚨 EMERGENCY MODE: Skipping database connection for emergency startup');
-      logger.warn('🚨 This will disable authentication and data persistence features');
+      logger.warn(
+        '🚨 EMERGENCY MODE: Skipping database connection for emergency startup',
+      );
+      logger.warn(
+        '🚨 This will disable authentication and data persistence features',
+      );
     }
 
     const app = await NestFactory.create(AppModule, {
@@ -84,12 +97,12 @@ async function bootstrap() {
     try {
       const appModule = app.get(AppModule);
       logger.log('✅ AppModule loaded successfully');
-      
+
       // Check if AuthModule is accessible - use class token instead of string
       const moduleRef = app.select(AuthModule);
       const authService = moduleRef.get(AuthService, { strict: true });
       logger.log('🔐 AuthService accessible:', !!authService);
-      
+
       // Verify AuthModule controllers are registered using class tokens
       const authController = app.get(AuthController);
       logger.log('🔐 AuthController accessible:', !!authController);
@@ -104,9 +117,11 @@ async function bootstrap() {
       const url = req.url;
       const userAgent = req.get('User-Agent') || 'Unknown';
       const ip = req.ip || req.connection.remoteAddress || 'Unknown';
-      
-      console.log(`🌐 [${timestamp}] ${method} ${url} - IP: ${ip} - UA: ${userAgent}`);
-      
+
+      console.log(
+        `🌐 [${timestamp}] ${method} ${url} - IP: ${ip} - UA: ${userAgent}`,
+      );
+
       // Log request body for debugging (excluding sensitive data)
       if (req.body && Object.keys(req.body).length > 0) {
         const sanitizedBody = { ...req.body };
@@ -114,17 +129,19 @@ async function bootstrap() {
         if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
         console.log(`📦 Request Body: ${JSON.stringify(sanitizedBody)}`);
       }
-      
+
       next();
     });
 
     // CRITICAL: Add response logging middleware
     app.use((req: any, res: any, next: any) => {
       const originalSend = res.send;
-      res.send = function(data: any) {
+      res.send = function (data: any) {
         const timestamp = new Date().toISOString();
         const statusCode = res.statusCode;
-        console.log(`📤 [${timestamp}] ${req.method} ${req.url} - Status: ${statusCode}`);
+        console.log(
+          `📤 [${timestamp}] ${req.method} ${req.url} - Status: ${statusCode}`,
+        );
         originalSend.call(this, data);
       };
       next();
@@ -179,7 +196,7 @@ async function bootstrap() {
     const rateLimitConfig = configService.get('security.rateLimit');
     if (rateLimitConfig.enabled) {
       logger.log('Rate limiting enabled');
-      
+
       // General rate limiting
       app.use(
         rateLimit({
@@ -194,7 +211,9 @@ async function bootstrap() {
           // Railway-specific optimizations
           skip: (req) => {
             // Skip health check endpoints to reduce noise
-            return req.path === '/api/health' || req.path.startsWith('/api/metrics');
+            return (
+              req.path === '/api/health' || req.path.startsWith('/api/metrics')
+            );
           },
         }),
       );
@@ -232,9 +251,9 @@ async function bootstrap() {
             constraints: error.constraints,
             children: error.children,
           }));
-          
+
           logger.warn('Validation errors:', formattedErrors);
-          
+
           return new Error(
             `Validation failed: ${formattedErrors
               .map((e) => Object.values(e.constraints || {}).join(', '))
@@ -246,15 +265,15 @@ async function bootstrap() {
 
     // Get port from environment or configuration
     const port = configService.get('port') || process.env.PORT || 3000;
-    
+
     // CRITICAL: Log port binding information
     logger.log(`🔌 Binding to port: ${port}`);
     logger.log(`🌐 Binding to host: 0.0.0.0 (all interfaces)`);
     logger.log(`🚂 Railway PORT env: ${process.env.PORT || 'Not set'}`);
-    
+
     // ENHANCED: Graceful shutdown handling for Railway
     const server = await app.listen(port, '0.0.0.0');
-    
+
     // CRITICAL: Verify server is listening
     if (server.listening) {
       logger.log(`✅ Server successfully bound to port ${port}`);
@@ -270,12 +289,16 @@ async function bootstrap() {
       const router = app.getHttpAdapter().getInstance()._router;
       if (router && router.stack) {
         logger.log(`📋 Total middleware stack items: ${router.stack.length}`);
-        
+
         // Log route information
         router.stack.forEach((layer: any, index: number) => {
           if (layer.route) {
-            const methods = Object.keys(layer.route.methods).filter(method => layer.route.methods[method]);
-            logger.log(`🛣️  Route ${index}: ${methods.join(',')} ${layer.route.path}`);
+            const methods = Object.keys(layer.route.methods).filter(
+              (method) => layer.route.methods[method],
+            );
+            logger.log(
+              `🛣️  Route ${index}: ${methods.join(',')} ${layer.route.path}`,
+            );
           }
         });
       } else {
@@ -288,13 +311,13 @@ async function bootstrap() {
     // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
       logger.log(`Received ${signal}, starting graceful shutdown...`);
-      
+
       try {
         // Close server
         await new Promise<void>((resolve) => {
           server.close(() => resolve());
         });
-        
+
         // Close database connections only if database is enabled
         if (!skipDatabase) {
           try {
@@ -304,10 +327,13 @@ async function bootstrap() {
               logger.log('Database connections closed');
             }
           } catch (dbError) {
-            logger.warn('Could not close database connections:', dbError.message);
+            logger.warn(
+              'Could not close database connections:',
+              dbError.message,
+            );
           }
         }
-        
+
         logger.log('Graceful shutdown completed');
         process.exit(0);
       } catch (error) {
@@ -321,9 +347,11 @@ async function bootstrap() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
     logger.log(`🚀 Zephix Backend is running on port ${port}`);
-    logger.log(`📊 Health check available at: http://localhost:${port}/api/health`);
+    logger.log(
+      `📊 Health check available at: http://localhost:${port}/api/health`,
+    );
     logger.log(`📈 Metrics available at: http://localhost:${port}/api/metrics`);
-    
+
     // ENHANCED: Railway-specific startup message
     if (process.env.NODE_ENV === 'production') {
       logger.log('🚂 Railway production environment detected');
@@ -334,21 +362,26 @@ async function bootstrap() {
     // EMERGENCY MODE WARNING
     if (skipDatabase) {
       logger.error('🚨 EMERGENCY MODE ACTIVE - Database features disabled');
-      logger.error('🚨 Set SKIP_DATABASE=false and fix database connection to restore full functionality');
+      logger.error(
+        '🚨 Set SKIP_DATABASE=false and fix database connection to restore full functionality',
+      );
     }
-
   } catch (error) {
     logger.error('❌ Failed to start Zephix Backend:', error);
-    
+
     // ENHANCED: Better error reporting for Railway
     if (process.env.NODE_ENV === 'production') {
       logger.error('Production startup failure - check logs and restart');
-      
+
       // EMERGENCY: Suggest emergency mode
-      logger.error('🚨 EMERGENCY: Try setting SKIP_DATABASE=true to start without database');
-      logger.error('🚨 This will allow basic health checks and API structure to work');
+      logger.error(
+        '🚨 EMERGENCY: Try setting SKIP_DATABASE=true to start without database',
+      );
+      logger.error(
+        '🚨 This will allow basic health checks and API structure to work',
+      );
     }
-    
+
     process.exit(1);
   }
 }
@@ -360,31 +393,32 @@ async function handleMigrationsSafely(app: any, logger: Logger): Promise<void> {
   try {
     // Check if migrations should run on startup
     const runMigrationsOnBoot = process.env.RUN_MIGRATIONS_ON_BOOT === 'true';
-    
+
     if (!runMigrationsOnBoot) {
       logger.log('Migrations disabled on boot - run manually via CLI');
       return;
     }
 
     logger.log('🔄 Running database migrations...');
-    
+
     try {
       const dataSource = app.get(DataSource);
-      
+
       // Wait for database connection
       if (!dataSource.isInitialized) {
         logger.log('Waiting for database connection...');
         await dataSource.initialize();
       }
-      
+
       // Run migrations with timeout protection
       const migrationPromise = dataSource.runMigrations();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Migration timeout')), 300000) // 5 minutes
+      const timeoutPromise = new Promise(
+        (_, reject) =>
+          setTimeout(() => reject(new Error('Migration timeout')), 300000), // 5 minutes
       );
-      
+
       const migrations = await Promise.race([migrationPromise, timeoutPromise]);
-      
+
       if (migrations.length > 0) {
         logger.log(`✅ Successfully ran ${migrations.length} migration(s):`);
         migrations.forEach((migration: any) => {
@@ -393,18 +427,18 @@ async function handleMigrationsSafely(app: any, logger: Logger): Promise<void> {
       } else {
         logger.log('ℹ️  No pending migrations found');
       }
-      
     } catch (migrationError) {
       logger.error('❌ Database migration failed:', migrationError);
-      
+
       // ENHANCED: Don't crash the app, just log the error
       logger.warn('⚠️  Application will start without running migrations');
-      logger.warn('💡 Run migrations manually: npm run migration:run:consolidated');
-      
+      logger.warn(
+        '💡 Run migrations manually: npm run migration:run:consolidated',
+      );
+
       // Continue with app startup
       return;
     }
-    
   } catch (error) {
     logger.error('❌ Migration handling error:', error);
     logger.warn('⚠️  Application will start without migration handling');
@@ -431,15 +465,17 @@ function getCorsConfig() {
       // Add any additional production origins from environment
       ...allowedOrigins.filter(
         (origin) =>
-          origin.includes('railway.app') || 
+          origin.includes('railway.app') ||
           origin.includes('getzephix.com') ||
           origin.includes('vercel.app') ||
-          origin.includes('netlify.app')
+          origin.includes('netlify.app'),
       ),
     ];
 
     // Remove duplicates and filter out empty strings
-    const uniqueProductionOrigins = [...new Set(productionOrigins)].filter(Boolean);
+    const uniqueProductionOrigins = [...new Set(productionOrigins)].filter(
+      Boolean,
+    );
 
     return {
       origin: uniqueProductionOrigins,
@@ -566,12 +602,16 @@ setInterval(() => {
   const rssMB = Math.round(used.rss / 1024 / 1024);
   const heapMB = Math.round(used.heapUsed / 1024 / 1024);
   const externalMB = Math.round(used.external / 1024 / 1024);
-  
-  console.log(`📊 Memory Usage - RSS: ${rssMB}MB, Heap: ${heapMB}MB, External: ${externalMB}MB`);
-  
+
+  console.log(
+    `📊 Memory Usage - RSS: ${rssMB}MB, Heap: ${heapMB}MB, External: ${externalMB}MB`,
+  );
+
   // Warning if memory usage is high (Railway typically has 512MB-1GB limits)
   if (rssMB > 400) {
-    console.warn(`⚠️  High memory usage detected: ${rssMB}MB - Railway may kill container`);
+    console.warn(
+      `⚠️  High memory usage detected: ${rssMB}MB - Railway may kill container`,
+    );
   }
 }, 30000); // Check every 30 seconds
 
@@ -592,8 +632,9 @@ console.log(`   PORT: ${process.env.PORT || 'Not set'}`);
 console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
 console.log(`   SKIP_DATABASE: ${process.env.SKIP_DATABASE || 'Not set'}`);
 console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
-console.log(`   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`);
+console.log(
+  `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
+);
 console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
 
 // Updated: Mon Aug 11 22:23:35 CDT 2025
-
