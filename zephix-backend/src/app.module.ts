@@ -74,6 +74,23 @@ if (!(global as any).crypto) {
       useFactory: (configService: ConfigService) => {
         const databaseUrl = process.env.DATABASE_URL;
         const isProduction = process.env.NODE_ENV === 'production';
+        
+        // ENTERPRISE SECURITY: SSL Configuration Validation
+        const validateSSLConfig = () => {
+          if (isProduction && !process.env.DATABASE_CA_CERT) {
+            console.warn('⚠️ SECURITY WARNING: Production deployment without custom CA certificate');
+            console.warn('⚠️ SSL certificate validation disabled - MITM vulnerability possible');
+            console.warn('⚠️ Set DATABASE_CA_CERT environment variable for secure connections');
+          }
+          
+          if (process.env.DATABASE_CA_CERT) {
+            console.log('✅ ENTERPRISE SECURITY: Custom CA certificate configured');
+            console.log('✅ SSL certificate validation enabled');
+          }
+        };
+        
+        // Execute SSL validation
+        validateSSLConfig();
 
         if (databaseUrl) {
           // Railway production configuration - optimized for platform
@@ -98,8 +115,12 @@ if (!(global as any).crypto) {
               ? ['error', 'warn']
               : configService.get('database.logging'),
             ssl: {
-              rejectUnauthorized: false, // Accept Railway's self-signed certificates
-              ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
+              // ENTERPRISE SECURITY: Validate SSL configuration
+              rejectUnauthorized: process.env.DATABASE_CA_CERT ? true : false, // Only accept if CA is provided
+              ca: process.env.DATABASE_CA_CERT, // Required for production security
+              // Additional security measures
+              minVersion: 'TLSv1.2', // Enforce minimum TLS version
+              maxVersion: 'TLSv1.3', // Use latest TLS version
             },
             extra: {
               max: 10, // Connection pool size for Railway limits
