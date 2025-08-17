@@ -2,6 +2,8 @@ import {
   Injectable,
   ConflictException,
   BadRequestException,
+  ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -30,19 +32,34 @@ export interface OrganizationSignupResponse {
 
 @Injectable()
 export class OrganizationSignupService {
+  private readonly isEmergencyMode: boolean;
+
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Organization)
-    private organizationRepository: Repository<Organization>,
-    @InjectRepository(UserOrganization)
-    private userOrganizationRepository: Repository<UserOrganization>,
+    @Optional() @InjectRepository(User)
+    private userRepository: Repository<User> | null,
+    @Optional() @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization> | null,
+    @Optional() @InjectRepository(UserOrganization)
+    private userOrganizationRepository: Repository<UserOrganization> | null,
     private jwtService: JwtService,
-  ) {}
+  ) {
+    this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
+    
+    if (this.isEmergencyMode) {
+      console.log('🚨 OrganizationSignupService: Emergency mode - database operations disabled');
+    }
+  }
 
   async signupWithOrganization(
     signupDto: OrganizationSignupDto,
   ): Promise<OrganizationSignupResponse> {
+    // EMERGENCY MODE: Return service unavailable
+    if (this.isEmergencyMode || !this.userRepository || !this.organizationRepository || !this.userOrganizationRepository) {
+      throw new ServiceUnavailableException(
+        'Organization signup is temporarily unavailable due to database maintenance. Please try again later.'
+      );
+    }
+
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
       where: { email: signupDto.email },
@@ -72,7 +89,7 @@ export class OrganizationSignupService {
     const hashedPassword = await bcrypt.hash(signupDto.password, saltOrRounds);
 
     // Create user
-    const user = this.userRepository.create({
+    const user = this.userRepository!.create({
       firstName: signupDto.firstName,
       lastName: signupDto.lastName,
       email: signupDto.email,
@@ -80,10 +97,10 @@ export class OrganizationSignupService {
       isActive: true,
     });
 
-    const savedUser = await this.userRepository.save(user);
+    const savedUser = await this.userRepository!.save(user);
 
     // Create organization
-    const organization = this.organizationRepository.create({
+    const organization = this.organizationRepository!.create({
       name: signupDto.organizationName,
       slug,
       status: 'trial', // Start with trial
@@ -99,10 +116,10 @@ export class OrganizationSignupService {
     });
 
     const savedOrganization =
-      await this.organizationRepository.save(organization);
+      await this.organizationRepository!.save(organization);
 
     // Create user-organization relationship (user becomes owner)
-    const userOrganization = this.userOrganizationRepository.create({
+    const userOrganization = this.userOrganizationRepository!.create({
       userId: savedUser.id,
       organizationId: savedOrganization.id,
       role: 'owner',
@@ -110,7 +127,7 @@ export class OrganizationSignupService {
       joinedAt: new Date(),
     });
 
-    await this.userOrganizationRepository.save(userOrganization);
+    await this.userOrganizationRepository!.save(userOrganization);
 
     // Generate JWT token
     const payload = {
@@ -156,6 +173,10 @@ export class OrganizationSignupService {
   }
 
   async checkSlugAvailability(slug: string): Promise<boolean> {
+    if (this.isEmergencyMode || !this.organizationRepository) {
+      return false; // In emergency mode, assume slug is not available
+    }
+    
     const existingOrg = await this.organizationRepository.findOne({
       where: { slug },
     });
