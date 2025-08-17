@@ -63,8 +63,10 @@ export const getDatabaseConfig = (
       migrationsRun: false,
       logging: ['error', 'warn'],
       ssl: {
-        rejectUnauthorized:
-          process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED === 'true',
+        // CRITICAL SECURITY: Always maintain SSL certificate validation
+        rejectUnauthorized: true, // Never disable SSL validation in production
+        // Additional security: Enforce TLS 1.2+ for Railway
+        minVersion: 'TLSv1.2',
       },
       extra: {
         max: 10,
