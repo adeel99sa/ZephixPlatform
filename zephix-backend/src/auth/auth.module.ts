@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -31,6 +31,7 @@ import { SharedModule } from '../shared/shared.module';
  * - Consider using Redis for token storage in distributed systems
  * - Guards and strategies can be shared via a common auth library
  */
+@Global() // Make AuthModule available everywhere without importing in every module
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -51,6 +52,6 @@ import { SharedModule } from '../shared/shared.module';
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy],
+  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy], // export providers used elsewhere
 })
 export class AuthModule {}
