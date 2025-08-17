@@ -14,7 +14,9 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
   imports: [
     ConfigModule,
     // Only import TypeORM when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([UserOrganization])] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [TypeOrmModule.forFeature([UserOrganization])]
+      : []),
   ],
   controllers: [DocumentUploadController, ProjectGenerationController],
   providers: [

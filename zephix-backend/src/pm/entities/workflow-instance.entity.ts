@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { WorkflowTemplate } from './workflow-template.entity';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 
 export interface StageHistoryEntry {
   stageId: string;
