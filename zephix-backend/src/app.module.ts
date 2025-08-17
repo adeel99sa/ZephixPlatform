@@ -68,7 +68,7 @@ if (!(global as any).crypto) {
       global: true, // Make JWT available globally
     }),
 
-    // Gate DatabaseModule behind environment flag for local development
+    // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
     ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -183,6 +183,8 @@ if (!(global as any).crypto) {
     AIModule, // AI services and document processing (conditional TypeORM)
     IntelligenceModule, // Intelligence services (no TypeORM)
     ArchitectureModule, // Architecture services (no TypeORM)
+    
+    // EMERGENCY MODE: Only import database-dependent modules when database is available
     ...(process.env.SKIP_DATABASE !== 'true' ? [
       OrganizationsModule, // Third - depends on SharedModule
       ProjectsModule, // Fourth - depends on OrganizationsModule
@@ -190,6 +192,7 @@ if (!(global as any).crypto) {
       BRDModule, // Business requirements documentation (conditional TypeORM)
       FeedbackModule, // User feedback system (conditional TypeORM)
     ] : []),
+    
     ObservabilityModule,
     HealthModule,
   ],
@@ -207,6 +210,14 @@ export class AppModule {
     console.log('🚀 AppModule constructor called');
     console.log('🔐 AuthModule imported:', !!AuthModule);
     console.log('🔐 AuthModule controllers:', AuthModule ? 'Available' : 'Missing');
+    
+    // EMERGENCY MODE: Log current configuration
+    if (process.env.SKIP_DATABASE === 'true') {
+      console.log('🚨 EMERGENCY MODE: Database-dependent modules disabled');
+      console.log('🚨 Available modules: SharedModule, AuthModule, AIModule, IntelligenceModule, ArchitectureModule, ObservabilityModule, HealthModule');
+    } else {
+      console.log('✅ Full mode: All modules enabled including database-dependent ones');
+    }
   }
 
   configure(consumer: MiddlewareConsumer) {

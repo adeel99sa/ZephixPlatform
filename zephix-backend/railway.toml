@@ -4,19 +4,30 @@ buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm run start:railway"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
+# CRITICAL FIX: Health check path must match actual endpoint
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
+# CRITICAL: Port configuration for Railway routing
 [deploy.envs]
 NODE_ENV = "production"
+PORT = "3000"
+# CRITICAL: Ensure Railway knows which port to route traffic to
+RAILWAY_STATIC_URL = "https://zephix-backend-production.up.railway.app"
+
 RUN_MIGRATIONS_ON_BOOT = "false"
 MIGRATIONS_TRANSACTION_MODE = "each"
 DB_RETRY_ATTEMPTS = "15"
 DB_RETRY_DELAY = "5000"
 DB_CONNECT_TIMEOUT = "60000"
 DB_ACQUIRE_TIMEOUT = "60000"
+
+# EMERGENCY MODE CONFIGURATION
+# Set SKIP_DATABASE=true to start without database connection
+SKIP_DATABASE = "false"
+EMERGENCY_MODE = "false"
 
 # Railway-specific database optimizations
 [deploy.envs.database]
@@ -52,10 +63,36 @@ RETRY_ATTEMPTS = "15"
 RETRY_DELAY = "5000"
 TIMEOUT_MS = "300000"
 
-# Health check configuration
+# CRITICAL: Health check configuration for Railway routing
 [deploy.envs.health]
 ENDPOINT = "/api/health"
 TIMEOUT = "30"
-INTERVAL = "60"
+INTERVAL = "30"
 RETRIES = "3"
-START_PERIOD = "120"
+START_PERIOD = "60"
+
+# CRITICAL: Railway networking configuration
+[deploy.envs.networking]
+# Ensure Railway routes traffic to the correct port
+FORCE_PORT = "3000"
+# Enable Railway's internal health checks
+ENABLE_INTERNAL_HEALTH_CHECKS = "true"
+# Configure Railway proxy settings
+PROXY_TIMEOUT = "30"
+PROXY_RETRIES = "3"
+
+# EMERGENCY RECOVERY INSTRUCTIONS:
+# If database connection fails and application won't start:
+# 1. Set SKIP_DATABASE = "true" in Railway environment variables
+# 2. Set EMERGENCY_MODE = "true" in Railway environment variables
+# 3. Redeploy the application
+# 4. This will allow basic health checks and API structure to work
+# 5. Fix database connection issues
+# 6. Set SKIP_DATABASE back to "false" and redeploy
+
+# CRITICAL RAILWAY ROUTING FIXES:
+# 1. Health check path corrected to "/api/health"
+# 2. Port explicitly set to 3000
+# 3. Railway static URL configured
+# 4. Health check timeouts optimized for Railway
+# 5. Networking configuration added for proper routing
