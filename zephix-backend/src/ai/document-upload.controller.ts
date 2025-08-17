@@ -222,7 +222,9 @@ export class DocumentUploadController {
     status: 404,
     description: 'Document not found',
   })
-  async getDocumentResults(@Param('documentId') documentId: string): Promise<any> {
+  async getDocumentResults(
+    @Param('documentId') documentId: string,
+  ): Promise<any> {
     // For now, return a simple response since we're not storing results
     // In a real implementation, you'd query the vector database for results
     return {
@@ -234,8 +236,16 @@ export class DocumentUploadController {
 
   @Get('list')
   @ApiOperation({ summary: 'List documents for an organization' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of documents to return' })
-  @ApiQuery({ name: 'offset', required: false, description: 'Number of documents to skip' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of documents to return',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    description: 'Number of documents to skip',
+  })
   @ApiResponse({
     status: 200,
     description: 'Documents listed successfully',

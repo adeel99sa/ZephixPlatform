@@ -7,7 +7,7 @@ import { OrganizationsController } from './controllers/organizations.controller'
 import { TeamManagementController } from './controllers/team-management.controller';
 import { InvitationAcceptanceController } from './controllers/invitation-acceptance.controller';
 import { Organization, UserOrganization, Invitation } from './entities';
-import { User } from "../modules/users/entities/user.entity"
+import { User } from '../modules/users/entities/user.entity';
 import { SharedModule } from '../shared/shared.module';
 
 @Global() // Make OrganizationsModule globally available

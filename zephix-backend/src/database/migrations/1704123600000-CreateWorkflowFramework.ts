@@ -175,91 +175,91 @@ export class CreateWorkflowFramework1704123600000
       queryRunner,
       'workflow_templates',
       'FK_workflow_template_organization',
-      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'workflow_instances',
       'FK_workflow_instance_organization',
-      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'workflow_instances',
       'FK_workflow_instance_template',
-      `FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("templateId") REFERENCES "workflow_templates"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'workflow_instances',
       'FK_workflow_instance_assigned_user',
-      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'workflow_instances',
       'FK_workflow_instance_creator',
-      `FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("createdBy") REFERENCES "users"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_forms',
       'FK_intake_form_organization',
-      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_forms',
       'FK_intake_form_workflow',
-      `FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("targetWorkflowId") REFERENCES "workflow_templates"("id") ON DELETE SET NULL`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_organization',
-      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_form',
-      `FOREIGN KEY ("formId") REFERENCES "intake_forms"("id") ON DELETE CASCADE`
+      `FOREIGN KEY ("formId") REFERENCES "intake_forms"("id") ON DELETE CASCADE`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_submitter',
-      `FOREIGN KEY ("submittedBy") REFERENCES "users"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("submittedBy") REFERENCES "users"("id") ON DELETE SET NULL`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_assigned_user',
-      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("assignedTo") REFERENCES "users"("id") ON DELETE SET NULL`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_processor',
-      `FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("processedBy") REFERENCES "users"("id") ON DELETE SET NULL`,
     );
 
     await this.addConstraintIfNotExists(
       queryRunner,
       'intake_submissions',
       'FK_intake_submission_workflow',
-      `FOREIGN KEY ("workflowInstanceId") REFERENCES "workflow_instances"("id") ON DELETE SET NULL`
+      `FOREIGN KEY ("workflowInstanceId") REFERENCES "workflow_instances"("id") ON DELETE SET NULL`,
     );
   }
 
@@ -268,14 +268,17 @@ export class CreateWorkflowFramework1704123600000
     queryRunner: QueryRunner,
     tableName: string,
     constraintName: string,
-    constraintDefinition: string
+    constraintDefinition: string,
   ): Promise<void> {
     try {
       // Check if constraint already exists
-      const constraintExists = await queryRunner.query(`
+      const constraintExists = await queryRunner.query(
+        `
         SELECT 1 FROM information_schema.table_constraints 
         WHERE constraint_name = $1 AND table_name = $2
-      `, [constraintName, tableName]);
+      `,
+        [constraintName, tableName],
+      );
 
       if (constraintExists.length === 0) {
         // Add constraint only if it doesn't exist
@@ -287,7 +290,10 @@ export class CreateWorkflowFramework1704123600000
       }
     } catch (error) {
       // Log constraint addition error but don't fail the migration
-      console.warn(`Warning: Could not add constraint ${constraintName} to ${tableName}:`, error.message);
+      console.warn(
+        `Warning: Could not add constraint ${constraintName} to ${tableName}:`,
+        error.message,
+      );
     }
   }
 
@@ -295,14 +301,17 @@ export class CreateWorkflowFramework1704123600000
   private async dropConstraintIfExists(
     queryRunner: QueryRunner,
     tableName: string,
-    constraintName: string
+    constraintName: string,
   ): Promise<void> {
     try {
       // Check if constraint exists before dropping
-      const constraintExists = await queryRunner.query(`
+      const constraintExists = await queryRunner.query(
+        `
         SELECT 1 FROM information_schema.table_constraints 
         WHERE constraint_name = $1 AND table_name = $2
-      `, [constraintName, tableName]);
+      `,
+        [constraintName, tableName],
+      );
 
       if (constraintExists.length > 0) {
         // Drop constraint only if it exists
@@ -312,20 +321,26 @@ export class CreateWorkflowFramework1704123600000
       }
     } catch (error) {
       // Log constraint drop error but don't fail the migration
-      console.warn(`Warning: Could not drop constraint ${constraintName} from ${tableName}:`, error.message);
+      console.warn(
+        `Warning: Could not drop constraint ${constraintName} from ${tableName}:`,
+        error.message,
+      );
     }
   }
 
   // Helper method to safely drop indexes
   private async dropIndexIfExists(
     queryRunner: QueryRunner,
-    indexName: string
+    indexName: string,
   ): Promise<void> {
     try {
       // Check if index exists before dropping
-      const indexExists = await queryRunner.query(`
+      const indexExists = await queryRunner.query(
+        `
         SELECT 1 FROM pg_indexes WHERE indexname = $1
-      `, [indexName]);
+      `,
+        [indexName],
+      );
 
       if (indexExists.length > 0) {
         // Drop index only if it exists
@@ -333,7 +348,10 @@ export class CreateWorkflowFramework1704123600000
       }
     } catch (error) {
       // Log index drop error but don't fail the migration
-      console.warn(`Warning: Could not drop index ${indexName}:`, error.message);
+      console.warn(
+        `Warning: Could not drop index ${indexName}:`,
+        error.message,
+      );
     }
   }
 
@@ -342,96 +360,114 @@ export class CreateWorkflowFramework1704123600000
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_workflow'
+      'FK_intake_submission_workflow',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_processor'
+      'FK_intake_submission_processor',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_assigned_user'
+      'FK_intake_submission_assigned_user',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_submitter'
+      'FK_intake_submission_submitter',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_form'
+      'FK_intake_submission_form',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_submissions',
-      'FK_intake_submission_organization'
+      'FK_intake_submission_organization',
     );
 
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_forms',
-      'FK_intake_form_workflow'
+      'FK_intake_form_workflow',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'intake_forms',
-      'FK_intake_form_organization'
+      'FK_intake_form_organization',
     );
 
     await this.dropConstraintIfExists(
       queryRunner,
       'workflow_instances',
-      'FK_workflow_instance_creator'
+      'FK_workflow_instance_creator',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'workflow_instances',
-      'FK_workflow_instance_assigned_user'
+      'FK_workflow_instance_assigned_user',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'workflow_instances',
-      'FK_workflow_instance_template'
+      'FK_workflow_instance_template',
     );
     await this.dropConstraintIfExists(
       queryRunner,
       'workflow_instances',
-      'FK_workflow_instance_organization'
+      'FK_workflow_instance_organization',
     );
 
     await this.dropConstraintIfExists(
       queryRunner,
       'workflow_templates',
-      'FK_workflow_template_organization'
+      'FK_workflow_template_organization',
     );
 
     // Drop indexes safely
-    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_created_at');
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_intake_submission_created_at',
+    );
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_workflow');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_assigned');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_status');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_form');
-    await this.dropIndexIfExists(queryRunner, 'IDX_intake_submission_organization');
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_intake_submission_organization',
+    );
 
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_public');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_active');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_slug');
     await this.dropIndexIfExists(queryRunner, 'IDX_intake_form_organization');
 
-    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_created_at');
-    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_created_by');
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_workflow_instance_created_at',
+    );
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_workflow_instance_created_by',
+    );
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_assigned');
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_status');
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_template');
-    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_instance_organization');
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_workflow_instance_organization',
+    );
 
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_default');
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_active');
     await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_type');
-    await this.dropIndexIfExists(queryRunner, 'IDX_workflow_template_organization');
+    await this.dropIndexIfExists(
+      queryRunner,
+      'IDX_workflow_template_organization',
+    );
 
     // Drop tables
     await queryRunner.query(`DROP TABLE IF EXISTS "intake_submissions"`);
