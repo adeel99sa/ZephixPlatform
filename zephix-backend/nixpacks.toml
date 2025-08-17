@@ -11,4 +11,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node dist/main.js"
+cmd = "npm run start:railway"

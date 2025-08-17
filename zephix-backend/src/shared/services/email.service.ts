@@ -23,55 +23,26 @@ export class EmailService {
   }
 
   private initializeTransporter() {
-    try {
-      // Check for SMTP environment variables (Railway standard)
-      const smtpHost = this.configService.get<string>('SMTP_HOST');
-      const smtpPort = this.configService.get<number>('SMTP_PORT');
-      const smtpUser = this.configService.get<string>('SMTP_USER');
-      const smtpPass = this.configService.get<string>('SMTP_PASS');
-      const smtpSecure = this.configService.get<boolean>('SMTP_SECURE');
-      const smtpFrom = this.configService.get<string>('SMTP_FROM');
-      
-      console.log('📧 Email Service Configuration Check:', {
-        hasHost: !!smtpHost,
-        hasUser: !!smtpUser,
-        hasPass: !!smtpPass,
-        port: smtpPort || 'default',
-        secure: smtpSecure || 'default',
-        from: smtpFrom || 'default'
+    const emailConfig = this.configService.get('email');
+
+    if (emailConfig?.smtp?.host) {
+      // Production SMTP configuration
+      this.transporter = nodemailer.createTransport({
+        host: emailConfig.smtp.host,
+        port: emailConfig.smtp.port || 587,
+        secure: emailConfig.smtp.secure || false,
+        auth: {
+          user: emailConfig.smtp.user,
+          pass: emailConfig.smtp.password,
+        },
       });
-      
-      if (smtpHost && smtpUser && smtpPass) {
-        // Production SMTP configuration using environment variables
-        this.transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort || 587,
-          secure: smtpSecure || false,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        });
-        this.logger.log('✅ Production SMTP transporter initialized with environment variables');
-      } else {
-        // Development mode - log emails instead of sending
-        this.transporter = nodemailer.createTransport({
-          streamTransport: true,
-          newline: 'unix',
-          buffer: true,
-        });
-        this.logger.log('⚠️ Development email transporter initialized (logging mode) - Missing SMTP environment variables');
-        this.logger.log('📧 Required: SMTP_HOST, SMTP_USER, SMTP_PASS');
-      }
-    } catch (error) {
-      this.logger.error('❌ Failed to initialize email transporter:', error);
-      // Fallback to development mode
+    } else {
+      // Development mode - log emails instead of sending
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true,
       });
-      this.logger.log('✅ Fallback email transporter initialized (logging mode)');
     }
   }
 

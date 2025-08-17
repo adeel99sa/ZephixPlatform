@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { LLMProviderService } from './llm-provider.service';
+import { MetricsService } from '../observability/metrics.service';
 
 describe('LLMProviderService', () => {
   let service: LLMProviderService;
@@ -14,13 +15,13 @@ describe('LLMProviderService', () => {
     // Reset mock before each test
     jest.clearAllMocks();
     
-    // Set default mock values
+    // Set default mock values - these will be used when the service is created
     mockConfigService.get.mockImplementation((key: string) => {
       const defaultConfig = {
-        'anthropic.apiKey': '',
+        'anthropic.apiKey': 'test-api-key',
         'llm.provider': 'anthropic',
         'anthropic.model': 'claude-3-sonnet-20240229',
-        'anthropic.dataRetentionOptOut': false,
+        'anthropic.dataRetentionOptOut': true,
         'anthropic.enableDataCollection': false,
         'llm.enforceNoDataRetention': true,
         'anthropic.apiVersion': '2023-06-01',
@@ -36,6 +37,18 @@ describe('LLMProviderService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: MetricsService,
+          useValue: {
+            incrementCounter: jest.fn(),
+            recordHistogram: jest.fn(),
+            setGauge: jest.fn(),
+            incrementLlmRequests: jest.fn(),
+            observeLlmDuration: jest.fn(),
+            incrementLlmTokens: jest.fn(),
+            incrementError: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -79,6 +92,20 @@ describe('LLMProviderService', () => {
     });
 
     it('should validate compliant configuration', () => {
+      // Mock the config to return valid values
+      mockConfigService.get.mockImplementation((key: string) => {
+        const config = {
+          'anthropic.apiKey': 'test-api-key',
+          'llm.provider': 'anthropic',
+          'anthropic.model': 'claude-3-sonnet-20240229',
+          'anthropic.dataRetentionOptOut': true,
+          'anthropic.enableDataCollection': false,
+          'llm.enforceNoDataRetention': true,
+          'anthropic.apiVersion': '2023-06-01',
+        };
+        return config[key];
+      });
+      
       const compliance = service.getComplianceStatus();
       
       expect(compliance.isCompliant).toBe(true);
@@ -86,20 +113,34 @@ describe('LLMProviderService', () => {
     });
 
     it('should detect data retention opt-out issues', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'anthropic.dataRetentionOptOut') return false;
-        const config = {
-          'anthropic.apiKey': 'test-api-key',
-          'llm.provider': 'anthropic',
-          'anthropic.model': 'claude-3-sonnet-20240229',
-          'anthropic.enableDataCollection': false,
-          'llm.enforceNoDataRetention': true,
-          'anthropic.apiVersion': '2023-06-01',
-        };
-        return config[key];
-      });
+      // Create a new service instance with invalid config for this specific test
+      const invalidMockConfig = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'anthropic.dataRetentionOptOut') return false;
+          const config = {
+            'anthropic.apiKey': 'test-api-key',
+            'llm.provider': 'anthropic',
+            'anthropic.model': 'claude-3-sonnet-20240229',
+            'anthropic.enableDataCollection': false,
+            'llm.enforceNoDataRetention': true,
+            'anthropic.apiVersion': '2023-06-01',
+          };
+          return config[key];
+        }),
+      };
 
-      const compliance = service.getComplianceStatus();
+      const invalidService = new LLMProviderService(
+        invalidMockConfig as any,
+        {
+          incrementCounter: jest.fn(),
+          incrementLlmRequests: jest.fn(),
+          observeLlmDuration: jest.fn(),
+          incrementLlmTokens: jest.fn(),
+          incrementError: jest.fn(),
+        } as any
+      );
+
+      const compliance = invalidService.getComplianceStatus();
       
       expect(compliance.isCompliant).toBe(false);
       expect(compliance.issues).toContain('Data retention opt-out not enabled');
@@ -107,20 +148,34 @@ describe('LLMProviderService', () => {
     });
 
     it('should detect data collection enabled issues', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'anthropic.enableDataCollection') return true;
-        const config = {
-          'anthropic.apiKey': 'test-api-key',
-          'llm.provider': 'anthropic',
-          'anthropic.model': 'claude-3-sonnet-20240229',
-          'anthropic.dataRetentionOptOut': true,
-          'llm.enforceNoDataRetention': true,
-          'anthropic.apiVersion': '2023-06-01',
-        };
-        return config[key];
-      });
+      // Create a new service instance with invalid config for this specific test
+      const invalidMockConfig = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'anthropic.enableDataCollection') return true;
+          if (key === 'anthropic.dataRetentionOptOut') return true;
+          const config = {
+            'anthropic.apiKey': 'test-api-key',
+            'llm.provider': 'anthropic',
+            'anthropic.model': 'claude-3-sonnet-20240229',
+            'llm.enforceNoDataRetention': true,
+            'anthropic.apiVersion': '2023-06-01',
+          };
+          return config[key];
+        }),
+      };
 
-      const compliance = service.getComplianceStatus();
+      const invalidService = new LLMProviderService(
+        invalidMockConfig as any,
+        {
+          incrementCounter: jest.fn(),
+          incrementLlmRequests: jest.fn(),
+          observeLlmDuration: jest.fn(),
+          incrementLlmTokens: jest.fn(),
+          incrementError: jest.fn(),
+        } as any
+      );
+
+      const compliance = invalidService.getComplianceStatus();
       
       expect(compliance.isCompliant).toBe(false);
       expect(compliance.issues).toContain('Data collection is enabled');
@@ -130,20 +185,34 @@ describe('LLMProviderService', () => {
 
   describe('configuration checks', () => {
     it('should detect missing API key', () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === 'anthropic.apiKey') return '';
-        const config = {
-          'llm.provider': 'anthropic',
-          'anthropic.model': 'claude-3-sonnet-20240229',
-          'anthropic.dataRetentionOptOut': true,
-          'anthropic.enableDataCollection': false,
-          'llm.enforceNoDataRetention': true,
-          'anthropic.apiVersion': '2023-06-01',
-        };
-        return config[key];
-      });
+      // Create a new service instance with missing API key for this specific test
+      const invalidMockConfig = {
+        get: jest.fn().mockImplementation((key: string) => {
+          if (key === 'anthropic.apiKey') return '';
+          const config = {
+            'llm.provider': 'anthropic',
+            'anthropic.model': 'claude-3-sonnet-20240229',
+            'anthropic.dataRetentionOptOut': true,
+            'anthropic.enableDataCollection': false,
+            'llm.enforceNoDataRetention': true,
+            'anthropic.apiVersion': '2023-06-01',
+          };
+          return config[key];
+        }),
+      };
 
-      expect(service.isConfigured()).toBe(false);
+      const invalidService = new LLMProviderService(
+        invalidMockConfig as any,
+        {
+          incrementCounter: jest.fn(),
+          incrementLlmRequests: jest.fn(),
+          observeLlmDuration: jest.fn(),
+          incrementLlmTokens: jest.fn(),
+          incrementError: jest.fn(),
+        } as any
+      );
+
+      expect(invalidService.isConfigured()).toBe(false);
     });
 
     it('should confirm proper configuration', () => {
@@ -216,7 +285,7 @@ describe('LLMProviderService', () => {
       });
     });
 
-    it('should throw error when not configured', async () => {
+    it('should return error response when not configured', async () => {
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === 'anthropic.apiKey') return '';
         return null;
@@ -226,7 +295,10 @@ describe('LLMProviderService', () => {
         prompt: 'Test prompt',
       };
 
-      await expect(service.sendRequest(request)).rejects.toThrow('LLM provider not configured');
+      const response = await service.sendRequest(request);
+      
+      expect(response.content).toContain('AI service temporarily unavailable');
+      expect(response.finishReason).toBe('error');
     });
 
     it('should format request properly', async () => {
