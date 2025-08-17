@@ -58,11 +58,11 @@ const getSecureApiUrl = (): string => {
 
   // Fallback URLs with security validation
   if (import.meta.env.DEV) {
-    return validateApiUrl('http://localhost:3000');
+    return validateApiUrl('http://localhost:3000/api');  // ← ADD /api
   }
 
   // Production fallback - Railway backend
-  return validateApiUrl('https://zephix-backend-production.up.railway.app');
+  return validateApiUrl('https://zephix-backend-production.up.railway.app/api');  // ← ADD /api
 };
 
 // Security headers configuration
