@@ -119,7 +119,24 @@ export class EmailVerificationService {
         `Failed to send verification email to ${user.email}:`,
         error,
       );
-      throw new BadRequestException('Failed to send verification email');
+      
+      // CRITICAL ERROR HANDLING: Prevent crashes and provide meaningful errors
+      if (error instanceof HttpException) {
+        throw error; // Re-throw HTTP exceptions as-is
+      }
+      
+      // Log detailed error for debugging
+      this.logger.error('Detailed error:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        name: error.name
+      });
+      
+      // Return user-friendly error without crashing
+      throw new BadRequestException(
+        'Failed to send verification email. Please try again later.'
+      );
     }
   }
 

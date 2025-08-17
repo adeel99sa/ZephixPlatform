@@ -456,6 +456,7 @@ function getCorsConfig() {
         'X-CSRF-Token',
         'X-Forwarded-For',
         'X-Real-IP',
+        'X-Timestamp',
       ],
       exposedHeaders: [
         'X-RateLimit-Limit',
@@ -493,6 +494,7 @@ function getCorsConfig() {
         'X-Requested-With',
         'X-Org-Id',
         'X-Request-Id',
+        'X-Timestamp',
       ],
       exposedHeaders: [
         'X-RateLimit-Limit',
@@ -530,6 +532,7 @@ function getCorsConfig() {
         'X-Requested-With',
         'X-Org-Id',
         'X-Request-Id',
+        'X-Timestamp',
       ],
       exposedHeaders: [
         'X-RateLimit-Limit',
