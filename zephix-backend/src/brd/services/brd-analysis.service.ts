@@ -3,7 +3,6 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -78,35 +77,8 @@ export class BRDAnalysisService {
     private generatedProjectPlanRepository: Repository<GeneratedProjectPlan>,
     @InjectRepository(BRD)
     private brdRepository: Repository<BRD>,
-    @Optional() private llmProvider: LLMProviderService,
-  ) {
-    // Log service availability for debugging
-    if (!this.llmProvider) {
-      console.warn('⚠️ LLMProviderService not available in BRDAnalysisService - using fallbacks');
-    } else {
-      console.log('✅ LLMProviderService available in BRDAnalysisService');
-    }
-  }
-
-  // Helper method to check if LLM service is available
-  private isLLMAvailable(): boolean {
-    return !!this.llmProvider;
-  }
-
-  // Helper method to safely call LLM with fallback
-  private async safeLLMRequest(request: any, fallbackResponse: any): Promise<any> {
-    if (!this.isLLMAvailable()) {
-      this.logger.warn('LLM service not available, using fallback response');
-      return fallbackResponse;
-    }
-
-    try {
-      return await this.llmProvider.sendRequest(request);
-    } catch (error) {
-      this.logger.warn('LLM request failed, using fallback response:', error.message);
-      return fallbackResponse;
-    }
-  }
+    private llmProvider: LLMProviderService,
+  ) {}
 
   async analyzeBRD(
     brdId: string,
@@ -283,19 +255,11 @@ export class BRDAnalysisService {
     `;
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt: refinementPrompt,
         temperature: 0.3,
         maxTokens: 4000,
-      }, {
-        content: JSON.stringify({
-          updatedPlanStructure: plan.planStructure,
-          changesSummary: ['Plan updated based on request'],
-          impactAssessment: 'Minimal impact on timeline and resources',
-          recommendations: ['Continue monitoring plan execution']
-        })
       });
-      
       const refinementResult = JSON.parse(response.content);
 
       plan.planStructure = refinementResult.updatedPlanStructure;
@@ -459,12 +423,10 @@ export class BRDAnalysisService {
     );
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
         maxTokens: 4000,
-      }, {
-        content: JSON.stringify(this.fallbackExtraction(brdContent))
       });
       const extracted = JSON.parse(response.content);
       return this.validateAndNormalizeExtractedElements(extracted);
@@ -483,20 +445,10 @@ export class BRDAnalysisService {
       .replace('{methodology}', methodology);
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
         maxTokens: 6000,
-      }, {
-        content: JSON.stringify({
-          projectStructure: this.generateFallbackStructure(methodology, elements),
-          taskBreakdown: [],
-          resourcePlanning: {},
-          timeline: {},
-          riskRegister: [],
-          confidence: 0.6,
-          alternativesConsidered: []
-        })
       });
 
       const aiPlan = JSON.parse(response.content);
@@ -547,17 +499,10 @@ export class BRDAnalysisService {
     );
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.2,
         maxTokens: 3000,
-      }, {
-        content: JSON.stringify({
-          overallQualityScore: 0.5,
-          criticalGaps: ['Unable to validate BRD due to processing error'],
-          recommendations: ['Review BRD manually and ensure all required sections are complete'],
-          readinessAssessment: 'needs-work'
-        })
       });
 
       const validationResult = JSON.parse(response.content);
@@ -599,22 +544,10 @@ export class BRDAnalysisService {
     );
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.3,
         maxTokens: 5000,
-      }, {
-        content: JSON.stringify({
-          functionalRequirements: [],
-          nonFunctionalRequirements: [],
-          technicalRequirements: [],
-          businessRules: [],
-          interfaceRequirements: [],
-          priorityLevels: {},
-          dependencies: [],
-          acceptanceCriteria: {},
-          confidence: 0.5
-        })
       });
 
       const requirementsResult = JSON.parse(response.content);
@@ -675,27 +608,10 @@ export class BRDAnalysisService {
       .replace('{experienceLevel}', experienceLevel);
 
     try {
-      const response = await this.safeLLMRequest({
+      const response = await this.llmProvider.sendRequest({
         prompt,
         temperature: 0.2,
         maxTokens: 4000,
-      }, {
-        content: JSON.stringify({
-          developmentEffort: {},
-          projectManagement: {},
-          infrastructure: {},
-          documentation: {},
-          contingency: {
-            bufferPercentage: 20,
-            riskMitigationHours: 40,
-            integrationComplexityFactor: 1.2,
-            learningCurveAdjustment: 1.1,
-          },
-          totalProjectDuration: 0,
-          confidenceIntervals: {},
-          riskFactors: ['Unable to estimate effort due to processing error'],
-          recommendations: ['Review requirements manually and estimate effort based on team experience']
-        })
       });
 
       const effortResult = JSON.parse(response.content);
@@ -732,7 +648,9 @@ export class BRDAnalysisService {
         totalProjectDuration: 0,
         confidenceIntervals: {},
         riskFactors: ['Unable to estimate effort due to processing error'],
-        recommendations: ['Review requirements manually and estimate effort based on team experience'],
+        recommendations: [
+          'Review requirements manually and estimate effort based on team experience',
+        ],
       };
     }
   }

@@ -3,7 +3,6 @@ import {
   ConflictException,
   UnauthorizedException,
   ForbiddenException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -35,13 +34,7 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly emailVerificationService: EmailVerificationService,
-  ) {
-    console.log('🔧 AuthService constructor called with dependencies:', {
-      hasUserRepository: !!this.userRepository,
-      hasJwtService: !!this.jwtService,
-      hasEmailVerificationService: !!this.emailVerificationService
-    });
-  }
+  ) {}
 
   async register(
     registerDto: RegisterDto,
@@ -101,100 +94,43 @@ export class AuthService {
   async login(
     loginDto: LoginDto,
   ): Promise<{ user: User; accessToken: string }> {
-    try {
-      console.log('🔐 Login attempt for:', loginDto.email);
-      const { email, password } = loginDto;
+    const { email, password } = loginDto;
 
-      // ADD CRITICAL NULL CHECKS
-      if (!password) {
-        console.log('❌ Password is missing from request');
-        throw new UnauthorizedException('Password is required');
-      }
+    // Find user by email
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
 
-      // Find user by email - EXPLICITLY SELECT PASSWORD FIELD
-      console.log('🔍 Looking up user by email:', email.toLowerCase());
-      const user = await this.userRepository.findOne({
-        where: { email: email.toLowerCase() },
-        select: ['id', 'email', 'password', 'firstName', 'lastName', 'isActive', 'isEmailVerified', 'role', 'organizationId', 'profilePicture', 'createdAt', 'updatedAt']
-      });
-
-      if (!user) {
-        console.log('❌ User not found for email:', email);
-        throw new UnauthorizedException('Invalid credentials');
-      }
-
-      console.log('✅ User found:', { 
-        id: user.id, 
-        email: user.email, 
-        isActive: user.isActive, 
-        isEmailVerified: user.isEmailVerified,
-        hasPassword: !!user.password,
-        passwordLength: user.password?.length 
-      });
-
-      // CRITICAL: Check if user password exists
-      if (!user.password) {
-        console.log('❌ User password not found in database for user:', user.id);
-        throw new UnauthorizedException('User password not found');
-      }
-
-      // Verify password using bcrypt
-      console.log('🔐 Verifying password...');
-      console.log('🔍 Password comparison details:', {
-        requestPassword: password ? `${password.substring(0, 3)}...` : 'undefined',
-        storedPassword: user.password ? `${user.password.substring(0, 10)}...` : 'undefined'
-      });
-      
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        console.log('❌ Password validation failed for user:', user.id);
-        throw new UnauthorizedException('Invalid credentials');
-      }
-      console.log('✅ Password validated successfully');
-
-      // Check if user is active
-      if (!user.isActive) {
-        console.log('❌ User account is deactivated:', user.id);
-        throw new UnauthorizedException('Account is deactivated');
-      }
-
-      // Check if email is verified (enterprise security requirement)
-      if (!user.isEmailVerified) {
-        console.log('⚠️ Email not verified for user:', user.id, '- TEMPORARILY ALLOWING LOGIN FOR TESTING');
-        // TODO: Remove this bypass once email verification is implemented
-        // throw new ForbiddenException(
-        //   'Email verification required. Please check your email and verify your account before logging in.',
-        // );
-      }
-
-      // Generate JWT token
-      console.log('🎫 Generating JWT token for user:', user.id);
-      const accessToken = this.jwtService.sign({
-        sub: user.id,
-        email: user.email,
-        emailVerified: user.isEmailVerified,
-      });
-      console.log('✅ JWT token generated successfully');
-
-      console.log('🎉 Login successful for user:', user.id);
-      return { user, accessToken };
-    } catch (error) {
-      console.error('🚨 EXACT LOGIN ERROR:', {
-        email: loginDto.email,
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      });
-      
-      // Re-throw with more context
-      if (error instanceof UnauthorizedException || error instanceof ForbiddenException) {
-        throw error; // Re-throw auth exceptions as-is
-      } else {
-        // For unexpected errors, throw internal server error with details
-        console.error('🚨 UNEXPECTED ERROR IN LOGIN - Throwing InternalServerErrorException');
-        throw new InternalServerErrorException(`Login failed: ${error.message}`);
-      }
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Verify password using bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Check if email is verified (enterprise security requirement)
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException(
+        'Email verification required. Please check your email and verify your account before logging in.',
+      );
+    }
+
+    // Generate JWT token
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      emailVerified: user.isEmailVerified,
+    });
+
+    return { user, accessToken };
   }
 
   /**
