@@ -15,6 +15,9 @@ import { DataSource } from 'typeorm';
 import * as crypto from 'crypto'; // Proper import of crypto
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { AuthModule } from './auth/auth.module';
+import { AuthService } from './auth/auth.service';
+import { AuthController } from './auth/auth.controller';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -59,9 +62,14 @@ async function bootstrap() {
       const appModule = app.get(AppModule);
       logger.log('✅ AppModule loaded successfully');
       
-      // Check if AuthModule is accessible
-      const authModule = app.get('AuthModule');
-      logger.log('🔐 AuthModule accessible:', !!authModule);
+      // Check if AuthModule is accessible - use class token instead of string
+      const moduleRef = app.select(AuthModule);
+      const authService = moduleRef.get(AuthService, { strict: true });
+      logger.log('🔐 AuthService accessible:', !!authService);
+      
+      // Verify AuthModule controllers are registered using class tokens
+      const authController = app.get(AuthController);
+      logger.log('🔐 AuthController accessible:', !!authController);
     } catch (error) {
       logger.error('❌ Error checking modules:', error.message);
     }
