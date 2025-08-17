@@ -8,7 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { ProjectTask } from './project-task.entity';
 import { ProjectRisk } from './project-risk.entity';
