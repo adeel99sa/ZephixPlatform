@@ -223,9 +223,15 @@ export class CreateMultiTenancy1700000000001 implements MigrationInterface {
       `);
 
       // Create indexes for projects
-      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_STATUS" ON "projects" ("status")`);
-      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_PRIORITY" ON "projects" ("priority")`);
-      await queryRunner.query(`CREATE INDEX "IDX_PROJECTS_CREATED_AT" ON "projects" ("createdAt")`);
+      await queryRunner.query(
+        `CREATE INDEX "IDX_PROJECTS_STATUS" ON "projects" ("status")`,
+      );
+      await queryRunner.query(
+        `CREATE INDEX "IDX_PROJECTS_PRIORITY" ON "projects" ("priority")`,
+      );
+      await queryRunner.query(
+        `CREATE INDEX "IDX_PROJECTS_CREATED_AT" ON "projects" ("createdAt")`,
+      );
     }
 
     // Add foreign key constraints (handle existing constraints gracefully)

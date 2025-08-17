@@ -8,7 +8,7 @@ import {
   Column,
   Index,
 } from 'typeorm';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { Team } from './team.entity';
 import { Role } from './role.entity';

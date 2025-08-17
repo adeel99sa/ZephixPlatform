@@ -1,4 +1,11 @@
-import { Controller, Get, HttpStatus, Res, Optional, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Res,
+  Optional,
+  Inject,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -20,7 +27,8 @@ export class HealthController {
   private readonly logger = new Logger(HealthController.name);
 
   constructor(
-    @Optional() @InjectDataSource()
+    @Optional()
+    @InjectDataSource()
     private dataSource?: DataSource,
   ) {}
 
@@ -34,9 +42,13 @@ export class HealthController {
     const responseTime = Date.now() - startTime;
 
     // Only check critical health checks for overall status
-    const criticalChecks = healthChecks.filter(check => check.critical);
-    const isHealthy = criticalChecks.every(check => check.status === 'healthy');
-    const statusCode = isHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+    const criticalChecks = healthChecks.filter((check) => check.critical);
+    const isHealthy = criticalChecks.every(
+      (check) => check.status === 'healthy',
+    );
+    const statusCode = isHealthy
+      ? HttpStatus.OK
+      : HttpStatus.SERVICE_UNAVAILABLE;
 
     const response = {
       status: isHealthy ? 'healthy' : 'unhealthy',
@@ -56,28 +68,35 @@ export class HealthController {
         arch: process.arch,
         nodeVersion: process.version,
         pid: process.pid,
-      }
+      },
     };
 
-    this.logger.log(`Health check completed in ${responseTime}ms - Status: ${response.status}`);
-    
+    this.logger.log(
+      `Health check completed in ${responseTime}ms - Status: ${response.status}`,
+    );
+
     return res.status(statusCode).json(response);
   }
 
   @Get(['ready', 'api/health/ready'])
   @ApiOperation({ summary: 'Readiness probe endpoint' })
-  @ApiResponse({ status: 200, description: 'Service is ready to receive traffic' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service is ready to receive traffic',
+  })
   @ApiResponse({ status: 503, description: 'Service is not ready' })
   async readiness(@Res() res: Response) {
     const checks = await this.performHealthChecks();
-    const criticalChecks = checks.filter(check => check.critical);
-    const isReady = criticalChecks.every(check => check.status === 'healthy');
-    
-    return res.status(isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).json({
-      status: isReady ? 'ready' : 'not_ready',
-      timestamp: new Date().toISOString(),
-      checks: criticalChecks
-    });
+    const criticalChecks = checks.filter((check) => check.critical);
+    const isReady = criticalChecks.every((check) => check.status === 'healthy');
+
+    return res
+      .status(isReady ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE)
+      .json({
+        status: isReady ? 'ready' : 'not_ready',
+        timestamp: new Date().toISOString(),
+        checks: criticalChecks,
+      });
   }
 
   @Get(['live', 'api/health/live'])
@@ -87,7 +106,7 @@ export class HealthController {
     return res.status(HttpStatus.OK).json({
       status: 'alive',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
     });
   }
 
@@ -102,7 +121,7 @@ export class HealthController {
         critical: false, // Not critical when SKIP_DATABASE=true
         details: 'Database not configured (SKIP_DATABASE=true)',
       });
-      
+
       // Add basic system health checks that don't require database
       checks.push({
         name: 'Application Process',
@@ -110,14 +129,14 @@ export class HealthController {
         critical: true,
         details: 'Application is running and responding',
       });
-      
+
       checks.push({
         name: 'Memory Usage',
         status: 'healthy',
         critical: true,
         details: `Memory usage: ${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
       });
-      
+
       return checks;
     }
 
@@ -144,15 +163,19 @@ export class HealthController {
           try {
             const result = await this.dataSource?.query(
               "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
-              [table]
+              [table],
             );
             const exists = result?.[0]?.exists;
             checks.push({
               name: `Table: ${table}`,
               status: exists ? 'healthy' : 'unhealthy',
               critical: true, // These are critical
-              details: exists ? `Table ${table} exists` : `Table ${table} is missing`,
-              error: exists ? undefined : `Table ${table} not found in public schema`,
+              details: exists
+                ? `Table ${table} exists`
+                : `Table ${table} is missing`,
+              error: exists
+                ? undefined
+                : `Table ${table} not found in public schema`,
             });
           } catch (tableError) {
             checks.push({
@@ -170,15 +193,19 @@ export class HealthController {
           try {
             const result = await this.dataSource?.query(
               "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
-              [table]
+              [table],
             );
             const exists = result?.[0]?.exists;
             checks.push({
               name: `Table: ${table}`,
               status: exists ? 'healthy' : 'unhealthy',
               critical: false, // These are NOT critical
-              details: exists ? `Table ${table} exists` : `Table ${table} is missing`,
-              error: exists ? undefined : `Table ${table} not found in public schema`,
+              details: exists
+                ? `Table ${table} exists`
+                : `Table ${table} is missing`,
+              error: exists
+                ? undefined
+                : `Table ${table} not found in public schema`,
             });
           } catch (tableError) {
             checks.push({
@@ -203,7 +230,8 @@ export class HealthController {
             status: fkCount > 0 ? 'healthy' : 'unhealthy',
             critical: false,
             details: `${fkCount} foreign key constraints found`,
-            error: fkCount === 0 ? 'No foreign key constraints found' : undefined,
+            error:
+              fkCount === 0 ? 'No foreign key constraints found' : undefined,
           });
         } catch (fkError) {
           checks.push({
@@ -214,7 +242,6 @@ export class HealthController {
             error: fkError.message,
           });
         }
-
       } else {
         checks.push({
           name: 'Database Connection',
@@ -241,7 +268,7 @@ export class HealthController {
           name: 'redis',
           status: 'healthy',
           critical: false, // Redis is not critical for basic functionality
-          details: 'Configuration present'
+          details: 'Configuration present',
         });
       } catch (error) {
         checks.push({
@@ -249,7 +276,7 @@ export class HealthController {
           status: 'unhealthy',
           critical: false,
           details: `Connection failed: ${error.message}`,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -260,7 +287,7 @@ export class HealthController {
         name: 'openai',
         status: 'healthy',
         critical: false, // External services are not critical for health check
-        details: 'API key configured'
+        details: 'API key configured',
       });
     }
 
@@ -269,28 +296,29 @@ export class HealthController {
         name: 'pinecone',
         status: 'healthy',
         critical: false, // External services are not critical for health check
-        details: 'API key configured'
+        details: 'API key configured',
       });
     }
 
     // System resource checks - RELAXED THRESHOLDS FOR RAILWAY
     const memoryUsage = process.memoryUsage();
-    const memoryUsagePercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
-    
+    const memoryUsagePercent =
+      (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+
     // Increased threshold from 90% to 98% for Railway's limited memory
     if (memoryUsagePercent < 98) {
       checks.push({
         name: 'memory',
         status: 'healthy',
         critical: true,
-        details: `Usage: ${Math.round(memoryUsagePercent)}%`
+        details: `Usage: ${Math.round(memoryUsagePercent)}%`,
       });
     } else {
       checks.push({
         name: 'memory',
         status: 'unhealthy',
         critical: true,
-        details: `High memory usage: ${Math.round(memoryUsagePercent)}%`
+        details: `High memory usage: ${Math.round(memoryUsagePercent)}%`,
       });
     }
 

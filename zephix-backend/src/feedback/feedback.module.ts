@@ -7,7 +7,9 @@ import { Feedback } from './entities/feedback.entity';
 @Module({
   imports: [
     // Only import TypeORM when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([Feedback])] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [TypeOrmModule.forFeature([Feedback])]
+      : []),
   ],
   controllers: [FeedbackController],
   providers: [FeedbackService],

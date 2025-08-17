@@ -7,7 +7,7 @@ import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { EmailVerificationService } from './services/email-verification.service';
-import { User } from "../modules/users/entities/user.entity"
+import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
@@ -38,14 +38,16 @@ import { SharedModule } from '../shared/shared.module';
 @Module({
   imports: [
     // EMERGENCY MODE: Only import TypeORM features when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
-      TypeOrmModule.forFeature([
-        User,
-        Organization,
-        UserOrganization,
-        EmailVerification,
-      ])
-    ] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          TypeOrmModule.forFeature([
+            User,
+            Organization,
+            UserOrganization,
+            EmailVerification,
+          ]),
+        ]
+      : []),
     PassportModule,
     SharedModule, // For EmailService used by EmailVerificationService
     // ENTERPRISE APPROACH: JWT module is now global - no need to import here
@@ -65,7 +67,9 @@ export class AuthModule {
     // EMERGENCY MODE: Log current configuration
     if (process.env.SKIP_DATABASE === 'true') {
       console.log('🚨 AuthModule: Emergency mode - TypeORM features disabled');
-      console.log('🚨 Authentication will be limited (no user validation, no persistence)');
+      console.log(
+        '🚨 Authentication will be limited (no user validation, no persistence)',
+      );
     } else {
       console.log('✅ AuthModule: Full mode - TypeORM features enabled');
     }

@@ -6,13 +6,16 @@ import { User } from './entities/user.entity';
 @Injectable()
 export class UsersService {
   constructor(
-    @Optional() @InjectRepository(User)
+    @Optional()
+    @InjectRepository(User)
     private userRepository?: Repository<User>,
   ) {}
 
   private checkDatabaseAvailability() {
     if (!this.userRepository) {
-      throw new Error('Users service temporarily unavailable. Database not configured.');
+      throw new Error(
+        'Users service temporarily unavailable. Database not configured.',
+      );
     }
   }
 
