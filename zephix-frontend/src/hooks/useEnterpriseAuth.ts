@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { enterpriseAuthService } from '../services/enterpriseAuth.service';
 import type { SecureAuthState } from '../services/enterpriseAuth.service';
 import { securityMiddleware } from '../middleware/security.middleware';
+import { enterpriseErrorHandler } from '../services/enterpriseErrorHandler';
 
 export interface UseEnterpriseAuthReturn {
   // State
@@ -82,15 +83,19 @@ export const useEnterpriseAuth = (): UseEnterpriseAuthReturn => {
       }
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Login failed';
-      setError(errorMessage);
+      // Enterprise-grade error handling - NEVER expose internal errors
+      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
+      
+      // Set user-friendly error message
+      setError(enterpriseError.userMessage);
 
-      // Log failure
+      // Log failure with sanitized error
       securityMiddleware.logSecurityEvent('enterprise_login_failure', {
         email: credentials.email,
-        error: errorMessage,
+        errorCode: enterpriseError.code,
+        severity: enterpriseError.severity,
         timestamp: new Date().toISOString(),
-      }, 'high');
+      }, enterpriseError.severity);
 
       return false;
     } finally {
@@ -139,15 +144,19 @@ export const useEnterpriseAuth = (): UseEnterpriseAuthReturn => {
       }
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Signup failed';
-      setError(errorMessage);
+      // Enterprise-grade error handling - NEVER expose internal errors
+      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
+      
+      // Set user-friendly error message
+      setError(enterpriseError.userMessage);
 
-      // Log failure
+      // Log failure with sanitized error
       securityMiddleware.logSecurityEvent('enterprise_signup_failure', {
         email: userData.email,
-        error: errorMessage,
+        errorCode: enterpriseError.code,
+        severity: enterpriseError.severity,
         timestamp: new Date().toISOString(),
-      }, 'high');
+      }, enterpriseError.severity);
 
       return false;
     } finally {
@@ -183,14 +192,18 @@ export const useEnterpriseAuth = (): UseEnterpriseAuthReturn => {
       }, 'low');
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Logout failed';
-      setError(errorMessage);
+      // Enterprise-grade error handling - NEVER expose internal errors
+      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
+      
+      // Set user-friendly error message
+      setError(enterpriseError.userMessage);
 
-      // Log failure
+      // Log failure with sanitized error
       securityMiddleware.logSecurityEvent('enterprise_logout_failure', {
-        error: errorMessage,
+        errorCode: enterpriseError.code,
+        severity: enterpriseError.severity,
         timestamp: new Date().toISOString(),
-      }, 'high');
+      }, enterpriseError.severity);
 
       // Force navigation even if logout fails
       navigate('/login');
