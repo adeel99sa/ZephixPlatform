@@ -34,7 +34,7 @@ describe('AppController (e2e)', () => {
       origin: 'http://localhost:3000',
       credentials: true,
       methods: 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
-      allowedHeaders: 'Authorization,Content-Type,Accept,Origin,X-Requested-With',
+      allowedHeaders: 'Authorization,Content-Type,Accept,Origin,X-Requested-With,X-Timestamp',
       exposedHeaders: 'X-RateLimit-Limit,X-RateLimit-Remaining,X-RateLimit-Reset',
       optionsSuccessStatus: 200,
     });

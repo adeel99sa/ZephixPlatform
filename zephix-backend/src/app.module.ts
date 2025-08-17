@@ -29,6 +29,7 @@ import { HealthModule } from './health/health.module';
 // Import middleware
 import { RequestIdMiddleware } from './observability/request-id.middleware';
 import { MetricsMiddleware } from './observability/metrics.middleware';
+import { getDatabaseConfig, validateDatabasePrivileges } from './config/database.config';
 
 // Import ONLY essential entities for authentication
 import { User } from "./modules/users/entities/user.entity"
@@ -39,6 +40,7 @@ import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
+import { EmailVerification } from './auth/entities/email-verification.entity'; // CRITICAL FIX: Add missing import
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -53,6 +55,8 @@ if (!(global as any).crypto) {
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+      // CRITICAL FIX: Prevent local .env files from overriding Railway environment variables
+      envFilePath: process.env.NODE_ENV === 'production' ? [] : ['.env', '.env.local', '.env.development'],
     }),
 
     // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
@@ -71,107 +75,22 @@ if (!(global as any).crypto) {
     // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
     ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const databaseUrl = process.env.DATABASE_URL;
-        const isProduction = process.env.NODE_ENV === 'production';
+      useFactory: async (configService: ConfigService) => {
+        // Use the new centralized database configuration
+        const dbConfig = getDatabaseConfig(configService);
         
-        // ENTERPRISE SECURITY: SSL Configuration Validation
-        const validateSSLConfig = () => {
-          if (isProduction && !process.env.DATABASE_CA_CERT) {
-            console.warn('⚠️ SECURITY WARNING: Production deployment without custom CA certificate');
-            console.warn('⚠️ SSL certificate validation disabled - MITM vulnerability possible');
-            console.warn('⚠️ Set DATABASE_CA_CERT environment variable for secure connections');
+        // CRITICAL: Validate database user privileges for local development
+        if (configService.get('environment') === 'development') {
+          try {
+            await validateDatabasePrivileges(configService);
+          } catch (error) {
+            console.error('❌ Database privilege validation failed:', error);
+            console.error('❌ Please ensure zephix_user has proper privileges');
+            throw error;
           }
-          
-          if (process.env.DATABASE_CA_CERT) {
-            console.log('✅ ENTERPRISE SECURITY: Custom CA certificate configured');
-            console.log('✅ SSL certificate validation enabled');
-          }
-        };
-        
-        // Execute SSL validation
-        validateSSLConfig();
-
-        if (databaseUrl) {
-          // Railway production configuration - optimized for platform
-          return {
-            type: 'postgres',
-            url: databaseUrl,
-            entities: [
-              User,
-              Organization,
-              UserOrganization,
-              Project,
-              Team,
-              TeamMember,
-              Role,
-              RefreshToken,
-            ],
-            // FIXED: Use explicit migration paths instead of broken pattern
-            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-            synchronize: false, // Never use synchronize in production
-            migrationsRun: false, // Migrations controlled manually for safety
-            logging: isProduction
-              ? ['error', 'warn']
-              : configService.get('database.logging'),
-            ssl: {
-              // CRITICAL FIX: Railway PostgreSQL SSL configuration
-              rejectUnauthorized: process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED === 'true' ? true : false, // Configurable for Railway
-              // Remove strict SSL requirements for Railway compatibility
-              // minVersion: 'TLSv1.2', // Commented out for Railway compatibility
-              // maxVersion: 'TLSv1.3', // Commented out for Railway compatibility
-            },
-            extra: {
-              max: 10, // Connection pool size for Railway limits
-              min: 2,
-              acquire: 60000, // 60s acquire timeout for Railway delays
-              idle: 10000,
-              family: 4, // Force IPv4 - CRITICAL for Railway networking
-              connectionLimit: 10,
-              acquireTimeout: 60000,
-              timeout: 60000,
-            },
-            migrationsTransactionMode: 'each', // Each migration in its own transaction
-            retryAttempts: 15, // More retries for Railway platform stability
-            retryDelay: 5000, // 5s delay between retries
-            connectTimeoutMS: 60000, // 60s connection timeout
-            acquireTimeoutMillis: 60000, // 60s acquire timeout
-            keepConnectionAlive: true,
-          };
-        } else {
-          // Local development configuration
-          return {
-            type: 'postgres',
-            host: configService.get('database.host'),
-            port: configService.get('database.port'),
-            username: configService.get('database.username'),
-            password: configService.get('database.password'),
-            database: configService.get('database.database'),
-            entities: [
-              User,
-              Organization,
-              UserOrganization,
-              Project,
-              Team,
-              TeamMember,
-              Role,
-              RefreshToken,
-            ],
-            // FIXED: Use explicit migration paths instead of broken pattern
-            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-            synchronize: configService.get('database.synchronize'),
-            logging: configService.get('database.logging'),
-            extra: {
-              max: 10,
-              min: 2,
-              acquire: 30000,
-              idle: 10000,
-            },
-            retryAttempts: 5,
-            retryDelay: 3000,
-            keepConnectionAlive: true,
-          };
         }
+        
+        return dbConfig;
       },
       inject: [ConfigService],
     })] : []),
