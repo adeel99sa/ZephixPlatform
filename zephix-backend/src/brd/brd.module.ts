@@ -15,40 +15,21 @@ import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
-    SharedModule, // Always import SharedModule for LLMProviderService and ClaudeService
+    // Only import TypeORM when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      TypeOrmModule.forFeature([
+        BRD,
+        BRDAnalysis,
+        GeneratedProjectPlan,
+        UserOrganization,
+      ])
+    ] : []),
+    // AccessControlModule removed - using built-in NestJS guards instead
     ObservabilityModule, // Provides MetricsService
-    // Only import TypeORM when database is available AND connection is stable
-    ...(process.env.DATABASE_URL ? (() => {
-      try {
-        console.log('🔍 BRDModule: Loading TypeORM entities...');
-        return [TypeOrmModule.forFeature([
-          BRD,
-          BRDAnalysis,
-          GeneratedProjectPlan,
-          UserOrganization,
-        ])];
-      } catch (error) {
-        console.error('❌ BRDModule: TypeORM loading failed:', error);
-        console.warn('⚠️  BRDModule: Continuing without database entities');
-        return [];
-      }
-    })() : []),
+    SharedModule, // Provides LLMProviderService
   ],
   controllers: [BRDController, BRDProjectPlanningController],
   providers: [BRDService, BRDAnalysisService, BRDRepository],
   exports: [BRDService, BRDAnalysisService, BRDRepository],
 })
-export class BRDModule {
-  constructor() {
-    try {
-      console.log('🔍 BRDModule constructor executing');
-      console.log('🔍 BRDModule controllers:', [BRDController, BRDProjectPlanningController]);
-      console.log('🔍 BRDModule providers:', [BRDService, BRDAnalysisService, BRDRepository]);
-      console.log('✅ BRDModule constructor completed successfully');
-    } catch (error) {
-      console.error('❌ CRITICAL ERROR in BRDModule constructor:', error);
-      console.error('Stack trace:', error.stack);
-      throw error;
-    }
-  }
-}
+export class BRDModule {}
