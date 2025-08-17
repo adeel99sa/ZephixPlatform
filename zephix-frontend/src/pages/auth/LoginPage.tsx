@@ -8,6 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
 import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
 import { useSecurity } from '../../hooks/useSecurity';
+import { enterpriseErrorHandler } from '../../services/enterpriseErrorHandler';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -101,12 +102,19 @@ export const LoginPage: React.FC = () => {
         }, 1500);
       }
     } catch (err: any) {
-      // Error handling is done in the hook
+      // Enterprise-grade error handling - NEVER expose internal errors
+      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'LoginPage');
+      
+      // Log security event with sanitized error
       securityActions.logEvent('enterprise_login_error', {
         email: formData.email,
-        error: err.message || 'Unknown error',
+        errorCode: enterpriseError.code,
+        severity: enterpriseError.severity,
         timestamp: new Date().toISOString(),
-      }, 'high');
+      }, enterpriseError.severity);
+      
+      // Set user-friendly error message (NEVER internal details)
+      setError(enterpriseError.userMessage);
     }
   };
 
@@ -186,7 +194,7 @@ export const LoginPage: React.FC = () => {
                     </p>
                     <div className="flex items-center space-x-2 text-xs text-green-600">
                       <Lock className="h-3 w-3" />
-                      <span>OWASP ASVS Level 1 Compliant</span>
+                      <span>Enterprise Security Standards</span>
                     </div>
                   </div>
                 </div>
@@ -241,7 +249,7 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Enterprise Security Features */}
+              {/* Enterprise Security Notice */}
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <div className="flex items-start">
                   <div className="p-2 bg-blue-100 rounded-lg mr-3">
@@ -249,16 +257,12 @@ export const LoginPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-blue-800 mb-2">
-                      🔒 Enterprise Security Features
+                      🔒 Enterprise Security
                     </p>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      <li>• JWT Token Integrity Validation</li>
-                      <li>• Real-time Security Event Logging</li>
-                      <li>• Session Lifecycle Management</li>
-                      <li>• XSS & Injection Prevention</li>
-                      <li>• Secure Token Storage</li>
-                      <li>• Activity Monitoring & Timeout</li>
-                    </ul>
+                    <p className="text-xs text-blue-700">
+                      Your authentication is protected by enterprise-grade security measures. 
+                      All login attempts are monitored and logged for security purposes.
+                    </p>
                   </div>
                 </div>
               </div>
