@@ -64,8 +64,6 @@ export class AuthController {
   })
   @ApiResponse({ status: 409, description: 'User already exists' })
   @HttpCode(HttpStatus.CREATED)
-  @Header('Access-Control-Allow-Origin', '*') // Allow all origins for CORS
-  @Header('Access-Control-Allow-Credentials', 'true')
   async register(
     @Body() registerDto: RegisterDto,
     @Ip() ipAddress: string,
@@ -104,9 +102,9 @@ export class AuthController {
 
   @Options('login')
   @HttpCode(204)
-  @Header('Access-Control-Allow-Origin', '*') // Allow all origins for CORS
+  @Header('Access-Control-Allow-Origin', 'https://getzephix.com')
   @Header('Access-Control-Allow-Credentials', 'true')
-  @Header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+  @Header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   @Header('Access-Control-Allow-Methods', 'POST, OPTIONS')
   optionsLogin() {
     // This method handles CORS preflight requests

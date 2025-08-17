@@ -87,13 +87,6 @@ export class EmailVerificationService {
 
     // Send verification email
     try {
-      console.log('📧 Attempting to send verification email to:', user.email);
-      console.log('📧 Email service configuration:', {
-        hasEmailService: !!this.emailService,
-        verificationToken: token,
-        recipientName: `${user.firstName} ${user.lastName}`
-      });
-      
       await this.sendVerificationEmailTemplate({
         recipientEmail: user.email,
         recipientName: `${user.firstName} ${user.lastName}`,
@@ -103,19 +96,13 @@ export class EmailVerificationService {
       // Update rate limiting
       this.verificationRateLimit.set(rateLimitKey, currentTime);
 
-      this.logger.log(`✅ Verification email sent to ${user.email}`);
-      console.log('📧 Verification email sent successfully to:', user.email);
+      this.logger.log(`Verification email sent to ${user.email}`);
       return { success: true, token };
     } catch (error) {
       this.logger.error(
-        `❌ Failed to send verification email to ${user.email}:`,
+        `Failed to send verification email to ${user.email}:`,
         error,
       );
-      console.error('🚨 EMAIL VERIFICATION FAILURE:', {
-        userEmail: user.email,
-        error: error.message,
-        stack: error.stack
-      });
       throw new BadRequestException('Failed to send verification email');
     }
   }

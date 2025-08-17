@@ -2,18 +2,184 @@
 alwaysApply: true
 ---
 
-You are working in a monorepo with NestJS (TypeORM/Postgres) and React/TS.
+# Zephix Authentication Implementation Rules
 
-Non-negotiables:
-• Generate and run TypeORM migrations for every entity change.
-• No provider may be exported by a module unless it is declared there. Move reusable providers to SharedModule.
-• Controllers must use DTOs with class-validator and enable global ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }).
-• All routes behind /api/pm/** require JWT auth and organization scoping.
-• Implement RBAC (roles: owner, admin, pm, viewer) and enforce via custom decorator/guard.
-• New services must include unit tests; new flows need e2e tests.
-• Log with pino, attach x-request-id, emit basic OTel traces, and return normalized error shapes.
-• For uploads/exports/LLM calls, use BullMQ queues; HTTP handlers enqueue and return 202 + status endpoints.
-• Frontend uses TanStack Query + a typed API client; errors surface via a toast and error boundary.
-• Keep secrets in env; never hardcode; add .env.example.
-• Write a ci.md step-by-step for local dev, migration, and verification.
-• When using Railway MCP for deployment, verify changes are pushed to GitHub before deployment.
+## Project Context
+This is a SaaS Project Management platform with AI-powered BRD analysis.
+Current focus: Implementing enterprise-grade authentication for MVP launch.
+
+## Core Technologies
+- Backend: NestJS + TypeScript + PostgreSQL + Railway
+- Frontend: React + TypeScript + Vite + Tailwind
+- Authentication: JWT + Email Verification + Password Reset
+- Deployment: Railway (Backend) + Vercel/Netlify (Frontend)
+
+## Critical Requirements
+- OWASP ASVS Level 1 compliance (enterprise security)
+- JWT tokens: 10-15 min expiry, RS256 algorithm
+- Email verification with 30-min TTL hashed tokens
+- Password reset flow with secure token handling
+- Rate limiting: 5 attempts/min per IP
+- Account enumeration protection
+
+## Code Standards
+- Use TypeScript with strict mode
+- Implement proper error handling with try-catch
+- Use bcrypt for password hashing (12 rounds minimum)
+- Use crypto.randomBytes() for token generation
+- Store hashed tokens in database, never plain text
+- Validate all inputs with class-validator
+- Use environment variables for all secrets
+
+## Security Rules
+- NEVER store sensitive data in JWT payload
+- ALWAYS use HTTPS in production
+- ALWAYS validate JWT signature and expiration
+- NEVER expose stack traces in production
+- ALWAYS use parameterized queries (prevent SQL injection)
+- ALWAYS sanitize user inputs
+- IMPLEMENT rate limiting on all auth endpoints
+
+## API Endpoint Standards
+- Backend routes: /auth/register, /auth/login, /auth/verify, /auth/reset
+- Frontend calls: NO /api prefix (direct to backend)
+- Use VITE_API_URL environment variable consistently
+- Return 200 for forgot password (no user enumeration)
+- Use HTTP 401 for unauthorized, 403 for forbidden
+
+## Database Standards
+- Use UUIDs for user IDs
+- Hash all tokens before storing (SHA-256)
+- Set TTL on verification and reset tokens (30 min)
+- Use indexes on email, token_hash fields
+- Soft delete sensitive records
+
+## Testing Requirements
+- Write tests for all auth endpoints
+- Test both success and failure scenarios
+- Test rate limiting behavior
+- Test token expiration handling
+- Use Jest/Vitest for testing
+
+## Error Handling
+- Log security events (login attempts, verification, etc.)
+- Never log passwords or tokens
+- Use structured logging format
+- Implement proper error boundaries
+- Return generic error messages to prevent enumeration
+
+## File Structure
+- Controllers: src/controllers/auth/
+- Services: src/services/auth/
+- DTOs: src/dto/auth/
+- Guards: src/guards/
+- Middleware: src/middleware/
+- Tests: src/tests/auth/
+
+## AI Assistant Instructions
+When implementing authentication features:
+1. ALWAYS follow OWASP security guidelines
+2. NEVER suggest deprecated or insecure practices
+3. ALWAYS implement proper error handling
+4. VERIFY all code against security requirements
+5. SUGGEST security improvements proactively
+6. PREFER established libraries over custom crypto
+7. ALWAYS validate inputs and sanitize outputs
+
+## Current Priority Tasks
+1. Fix API endpoint mismatch (frontend /api prefix issue)
+2. Implement email verification system
+3. Harden JWT security (RS256, short expiry)
+4. Add password reset flow
+5. Implement rate limiting
+6. Add OWASP ASVS Level 1 compliance# Zephix Authentication Implementation Rules
+
+## Project Context
+This is a SaaS Project Management platform with AI-powered BRD analysis.
+Current focus: Implementing enterprise-grade authentication for MVP launch.
+
+## Core Technologies
+- Backend: NestJS + TypeScript + PostgreSQL + Railway
+- Frontend: React + TypeScript + Vite + Tailwind
+- Authentication: JWT + Email Verification + Password Reset
+- Deployment: Railway (Backend) + Vercel/Netlify (Frontend)
+
+## Critical Requirements
+- OWASP ASVS Level 1 compliance (enterprise security)
+- JWT tokens: 10-15 min expiry, RS256 algorithm
+- Email verification with 30-min TTL hashed tokens
+- Password reset flow with secure token handling
+- Rate limiting: 5 attempts/min per IP
+- Account enumeration protection
+
+## Code Standards
+- Use TypeScript with strict mode
+- Implement proper error handling with try-catch
+- Use bcrypt for password hashing (12 rounds minimum)
+- Use crypto.randomBytes() for token generation
+- Store hashed tokens in database, never plain text
+- Validate all inputs with class-validator
+- Use environment variables for all secrets
+
+## Security Rules
+- NEVER store sensitive data in JWT payload
+- ALWAYS use HTTPS in production
+- ALWAYS validate JWT signature and expiration
+- NEVER expose stack traces in production
+- ALWAYS use parameterized queries (prevent SQL injection)
+- ALWAYS sanitize user inputs
+- IMPLEMENT rate limiting on all auth endpoints
+
+## API Endpoint Standards
+- Backend routes: /auth/register, /auth/login, /auth/verify, /auth/reset
+- Frontend calls: NO /api prefix (direct to backend)
+- Use VITE_API_URL environment variable consistently
+- Return 200 for forgot password (no user enumeration)
+- Use HTTP 401 for unauthorized, 403 for forbidden
+
+## Database Standards
+- Use UUIDs for user IDs
+- Hash all tokens before storing (SHA-256)
+- Set TTL on verification and reset tokens (30 min)
+- Use indexes on email, token_hash fields
+- Soft delete sensitive records
+
+## Testing Requirements
+- Write tests for all auth endpoints
+- Test both success and failure scenarios
+- Test rate limiting behavior
+- Test token expiration handling
+- Use Jest/Vitest for testing
+
+## Error Handling
+- Log security events (login attempts, verification, etc.)
+- Never log passwords or tokens
+- Use structured logging format
+- Implement proper error boundaries
+- Return generic error messages to prevent enumeration
+
+## File Structure
+- Controllers: src/controllers/auth/
+- Services: src/services/auth/
+- DTOs: src/dto/auth/
+- Guards: src/guards/
+- Middleware: src/middleware/
+- Tests: src/tests/auth/
+
+## AI Assistant Instructions
+When implementing authentication features:
+1. ALWAYS follow OWASP security guidelines
+2. NEVER suggest deprecated or insecure practices
+3. ALWAYS implement proper error handling
+4. VERIFY all code against security requirements
+5. SUGGEST security improvements proactively
+6. PREFER established libraries over custom crypto
+7. ALWAYS validate inputs and sanitize outputs
+
+## Current Priority Tasks
+1. Fix API endpoint mismatch (frontend /api prefix issue)
+2. Implement email verification system
+3. Harden JWT security (RS256, short expiry)
+4. Add password reset flow
+5. Implement rate limiting
+6. Add OWASP ASVS Level 1 compliance
