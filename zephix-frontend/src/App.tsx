@@ -22,8 +22,8 @@ import { PublicRoute } from './components/routing/PublicRoute';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { ErrorFallback } from './components/common/ErrorFallback';
-import { AuthProvider } from './contexts/AuthContext';
-import { useAuthStore } from './stores/authStore';
+import { EnterpriseAuthProvider } from './contexts/EnterpriseAuthContext';
+import { useEnterpriseAuthStore } from './stores/enterpriseAuthStore';
 
 // Configure Query Client
 const queryClient = new QueryClient({
@@ -44,7 +44,7 @@ const queryClient = new QueryClient({
 });
 
 const App: React.FC = () => {
-  const { initializeAuth } = useAuthStore();
+  const { initializeAuth } = useEnterpriseAuthStore();
 
   useEffect(() => {
     initializeAuth();
@@ -53,7 +53,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.href = '/'}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <EnterpriseAuthProvider>
           <BrowserRouter>
             <Suspense fallback={<LoadingScreen />}>
               <Routes>
@@ -90,7 +90,7 @@ const App: React.FC = () => {
               },
             }}
           />
-        </AuthProvider>
+        </EnterpriseAuthProvider>
         {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
       </QueryClientProvider>
     </ErrorBoundary>
