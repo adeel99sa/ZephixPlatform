@@ -36,7 +36,7 @@ describe('CORS Configuration (e2e)', () => {
       },
       credentials: true,
       methods: 'GET,HEAD,POST,PUT,PATCH,DELETE',
-      allowedHeaders: 'Authorization,Content-Type',
+      allowedHeaders: 'Authorization,Content-Type,X-Timestamp',
       optionsSuccessStatus: 204
     });
     

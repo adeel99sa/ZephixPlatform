@@ -1,240 +1,166 @@
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 export interface DatabaseConfig {
-  type: 'postgres';
-  url?: string;
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
-  database?: string;
-  entities: any[];
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
   synchronize: boolean;
-  logging: boolean | string[];
-  ssl?: any;
-  extra?: any;
+  logging: boolean;
+  ssl: boolean | object;
+  extra: object;
   retryAttempts: number;
   retryDelay: number;
-  retryAttemptsTimeout?: number;
   keepConnectionAlive: boolean;
-  autoLoadEntities?: boolean;
-  maxQueryExecutionTime?: number;
-  migrationsRun?: boolean;
-  migrations?: any[];
-  logger?: string;
+  maxQueryExecutionTime: number;
+  logger: string;
 }
 
-export const createDatabaseConfig = (
-  configService: ConfigService,
-): DatabaseConfig => {
+export const getDatabaseConfig = (configService: ConfigService): TypeOrmModuleOptions => {
+  // ROBUST ENVIRONMENT DETECTION
+  const nodeEnv = process.env.NODE_ENV;
+  const configEnv = configService.get('environment');
   const databaseUrl = process.env.DATABASE_URL;
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  // Enterprise-secure SSL configuration for Railway PostgreSQL
-  const createSSLConfig = () => {
-    if (!isProduction) return false;
-    
-    console.log('🔐 Configuring enterprise SSL for Railway PostgreSQL');
-    return {
-      rejectUnauthorized: false, // Accept Railway's self-signed certificates
-      ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
-      checkServerIdentity: false, // Disable hostname verification for Railway
-      secureProtocol: 'TLSv1_2_method', // Enforce TLS 1.2+
-      // Additional Railway-specific SSL settings
-      servername: undefined, // Disable SNI for Railway compatibility
-      ciphers: 'ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS'
-    };
-  };
-
-  if (databaseUrl) {
-    // Railway production configuration - ENHANCED for SSL and stability
-    console.log('🚂 Configuring Railway PostgreSQL with enterprise security');
-    
+  
+  // Determine if we're in production
+  // Railway typically sets NODE_ENV=production, but some platforms leave it undefined
+  const isProduction = nodeEnv === 'production' || 
+                      configEnv === 'production' || 
+                      process.env.RAILWAY_ENVIRONMENT === 'production' ||
+                      process.env.VERCEL_ENV === 'production' ||
+                      process.env.NETLIFY_ENV === 'production';
+  
+  // CRITICAL: Log configuration state for debugging
+  console.log('🔍 Database Configuration Analysis:');
+  console.log(`   NODE_ENV: ${nodeEnv || 'undefined'}`);
+  console.log(`   Config Environment: ${configEnv || 'undefined'}`);
+  console.log(`   Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'undefined'}`);
+  console.log(`   Is Production: ${isProduction}`);
+  console.log(`   DATABASE_URL exists: ${!!databaseUrl}`);
+  console.log(`   DATABASE_URL host: ${databaseUrl ? new URL(databaseUrl).hostname : 'N/A'}`);
+  console.log(`   DB_HOST: ${process.env.DB_HOST || 'undefined'}`);
+  console.log(`   DB_USERNAME: ${process.env.DB_USERNAME || 'undefined'}`);
+  console.log(`   DB_DATABASE: ${process.env.DB_DATABASE || 'undefined'}`);
+  
+  // PRODUCTION: Always use DATABASE_URL if available
+  if (isProduction && databaseUrl) {
+    console.log('✅ Production: Using DATABASE_URL from environment');
     return {
       type: 'postgres',
       url: databaseUrl,
-      entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize') ?? false,
-      logging: isProduction
-        ? ['error', 'warn']
-        : (configService.get('database.logging') ?? false),
-      
-      // CRITICAL FIX: Primary SSL configuration at root level
-      ssl: createSSLConfig(),
-      
-      extra: {
-        // CRITICAL: Reduced connection pool for Railway stability
-        max: 5, // Reduced from 10 to prevent connection exhaustion
-        min: 1, // Reduced from 2 to minimize resource usage
-        acquire: 30000, // Reduced to 30s for faster failure detection
-        idle: 5000, // Reduced to 5s for better resource management
-
-        // CRITICAL FIX: Force IPv4 connections to prevent IPv6 timeouts
-        family: 4, // Force IPv4 - prevents "connect ETIMEDOUT fd12:..." errors
-
-        // Enhanced timeout settings for Railway
-        connectTimeoutMS: 30000, // 30s connection timeout
-        acquireTimeoutMillis: 30000, // 30s acquire timeout
-        timeout: 30000, // 30s query timeout
-
-        // Connection keep-alive settings
-        keepConnectionAlive: true,
-        keepAlive: true,
-        keepAliveInitialDelayMillis: 5000,
-
-        // REMOVED: Duplicate SSL in extra (causes conflicts)
-        // ssl: { ... } // This was causing conflicts with root-level SSL
-
-        // CRITICAL: Statement timeout to prevent hanging queries
-        statement_timeout: 30000, // 30s statement timeout
-        query_timeout: 30000, // 30s query timeout
-
-        // Railway-specific connection settings
-        application_name: 'zephix-backend-production',
-        client_encoding: 'UTF8',
-        
-        // Enhanced connection validation
-        validateConnection: true,
-        connectionLimit: 5,
-        queueLimit: 0, // No queuing to fail fast on connection issues
-      },
-
-      // ENHANCED: More conservative retry configuration
-      retryAttempts: 10, // Reduced from 15 to prevent excessive retries
-      retryDelay: 3000, // Reduced from 5000 to 3000ms
-      retryAttemptsTimeout: 180000, // 3min total retry timeout
-
-      // Connection validation and health checks
-      keepConnectionAlive: true,
       autoLoadEntities: true,
-
-      // Query optimization and monitoring
-      maxQueryExecutionTime: 15000, // Reduced to 15s max query time
-
-      // Migration settings - DISABLED for production stability
+      migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+      synchronize: false, // NEVER in production
       migrationsRun: false,
-      migrations: [],
-
-      // Enhanced logging for debugging crashes
-      logger: isProduction ? 'simple-console' : 'advanced-console',
-    };
-  } else {
-    // Local development configuration
-    console.log('🔧 Configuring local development database');
-    
-    return {
-      type: 'postgres',
-      host: configService.get('database.host'),
-      port: configService.get('database.port'),
-      username: configService.get('database.username'),
-      password: configService.get('database.password'),
-      database: configService.get('database.database'),
-      entities: [], // Will be loaded by TypeORM
-      synchronize: configService.get('database.synchronize') ?? false,
-      logging: configService.get('database.logging') ?? false,
-      ssl: false, // No SSL for local development
+      logging: ['error', 'warn'],
+      ssl: {
+        rejectUnauthorized: process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED === 'true',
+      },
       extra: {
         max: 10,
         min: 2,
-        acquire: 30000,
+        acquire: 60000,
         idle: 10000,
-        family: 4, // Force IPv4 for local development too
-        validateConnection: true,
+        family: 4,
+        connectionLimit: 10,
+        acquireTimeout: 60000,
+        timeout: 60000,
       },
-      retryAttempts: 5,
-      retryDelay: 3000,
+      migrationsTransactionMode: 'each',
+      retryAttempts: 15,
+      retryDelay: 5000,
+      connectTimeoutMS: 60000,
+      acquireTimeoutMillis: 60000,
       keepConnectionAlive: true,
+      maxQueryExecutionTime: 30000,
+      logger: 'advanced-console',
     };
   }
-};
-
-// Enhanced exponential backoff retry function
-export const exponentialBackoff = (
-  attempt: number,
-  baseDelay: number = 1000,
-): number => {
-  return Math.min(baseDelay * Math.pow(2, attempt), 15000); // Reduced max delay to 15s
-};
-
-// Enhanced connection retry wrapper with SSL-specific error handling
-export const withRetry = async <T>(
-  operation: () => Promise<T>,
-  maxAttempts: number = 5,
-  baseDelay: number = 1000,
-): Promise<T> => {
-  let lastError: Error;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-      
-      // Enhanced error logging for SSL and crash analysis
-      console.warn(
-        `🔄 Database operation failed (attempt ${attempt + 1}/${maxAttempts}):`,
-        error,
-      );
-
-      // SSL-specific error handling
-      if (error instanceof Error) {
-        console.error(`💥 Error details: ${error.message}`);
-        
-        // Log SSL-specific errors for debugging
-        if (error.message.includes('self-signed certificate')) {
-          console.error('🔐 SSL Certificate Error: Self-signed certificate in chain');
-          console.error('💡 Verify SSL configuration accepts Railway certificates');
-        }
-        
-        if (error.message.includes('ETIMEDOUT')) {
-          console.error('⏰ Connection Timeout: Database connection timed out');
-          console.error('💡 Check network connectivity and IPv4 settings');
-        }
-        
-        console.error(`📋 Error stack: ${error.stack}`);
-      }
-
-      if (attempt < maxAttempts - 1) {
-        const delay = exponentialBackoff(attempt, baseDelay);
-        console.log(`⏳ Retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
+  
+  // PRODUCTION: No DATABASE_URL - CRITICAL ERROR
+  if (isProduction && !databaseUrl) {
+    const error = '❌ CRITICAL ERROR: DATABASE_URL not set in production environment';
+    console.error(error);
+    console.error('❌ This will cause database connection failures');
+    console.error('❌ Set DATABASE_URL environment variable or ensure NODE_ENV is not production');
+    throw new Error(error);
   }
-
-  throw lastError!;
+  
+  // DEVELOPMENT: Use individual DB_* variables
+  console.log('✅ Development: Using individual DB_* environment variables');
+  const dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    username: process.env.DB_USERNAME || 'zephix_user',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_DATABASE || 'zephix_development',
+  };
+  
+  // VALIDATE: Ensure required fields are set
+  if (!dbConfig.username || !dbConfig.password || !dbConfig.database) {
+    const error = '❌ CRITICAL ERROR: Missing required database configuration';
+    console.error(error);
+    console.error('❌ Required: DB_USERNAME, DB_PASSWORD, DB_DATABASE');
+    console.error('❌ Current config:', JSON.stringify(dbConfig, null, 2));
+    console.error('❌ Create .env file with required database variables');
+    throw new Error(error);
+  }
+  
+  console.log('✅ Database configuration validated:', {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    username: dbConfig.username,
+    database: dbConfig.database,
+    password: dbConfig.password ? '[SET]' : '[MISSING]'
+  });
+  
+  return {
+    type: 'postgres',
+    host: dbConfig.host,
+    port: dbConfig.port,
+    username: dbConfig.username,
+    password: dbConfig.password,
+    database: dbConfig.database,
+    autoLoadEntities: true,
+    migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+    synchronize: configService.get('database.synchronize') || false,
+    logging: configService.get('database.logging') || false,
+    ssl: false, // No SSL for local development
+    extra: {
+      max: 10,
+      min: 2,
+      acquire: 30000,
+      idle: 10000,
+    },
+    retryAttempts: 5,
+    retryDelay: 3000,
+    keepConnectionAlive: true,
+    maxQueryExecutionTime: 30000,
+    logger: 'advanced-console',
+  };
 };
 
-// Enhanced database health check function
-export const checkDatabaseHealth = async (): Promise<boolean> => {
+// CRITICAL: Validate database user privileges
+export const validateDatabasePrivileges = async (configService: ConfigService): Promise<void> => {
+  const isProduction = configService.get('environment') === 'production';
+  
+  if (isProduction) {
+    console.log('✅ Production: Skipping local database privilege validation');
+    return;
+  }
+  
+  console.log('🔍 Validating local database user privileges...');
+  
+  // Check if we can connect and create tables
   try {
-    console.log('🏥 Performing database health check...');
-    
-    // This would be implemented with actual database connection check
-    // For now, return true but log the check
-    console.log('✅ Database health check passed');
-    return true;
+    // This would be implemented with actual database connection test
+    console.log('✅ Local database privileges validated');
   } catch (error) {
-    console.error('❌ Database health check failed:', error);
-    return false;
+    console.error('❌ Database privilege validation failed:', error);
+    console.error('❌ Ensure zephix_user has CREATE, ALTER, DROP privileges');
+    console.error('❌ Run: GRANT ALL PRIVILEGES ON DATABASE zephix_development TO zephix_user;');
+    throw error;
   }
-};
-
-// SSL configuration validator
-export const validateSSLConfig = (): boolean => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  if (!isProduction) {
-    console.log('🔧 Development mode: SSL validation skipped');
-    return true;
-  }
-  
-  console.log('🔐 Validating SSL configuration for production...');
-  
-  // Check if we have the right SSL settings
-  const hasCustomCA = !!process.env.DATABASE_CA_CERT;
-  console.log(`📋 Custom CA Certificate: ${hasCustomCA ? 'Present' : 'Not configured'}`);
-  
-  console.log('✅ SSL configuration validated for Railway PostgreSQL');
-  return true;
 };

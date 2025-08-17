@@ -1,0 +1,181 @@
+#!/bin/bash
+
+# Zephix Local Database Setup Script (Unix/macOS)
+# OPTIONAL: This script requires database superuser access
+# If you don't have superuser access, use the manual instructions below
+
+set -e
+
+echo "🚀 Setting up Zephix local development database..."
+echo "⚠️  NOTE: This script requires PostgreSQL superuser access"
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check if PostgreSQL is running
+if ! pg_isready -q; then
+    echo -e "${RED}❌ PostgreSQL is not running. Please start PostgreSQL first.${NC}"
+    echo "   On macOS: brew services start postgresql"
+    echo "   On Ubuntu: sudo systemctl start postgresql"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ PostgreSQL is running${NC}"
+
+# Check if we have superuser access
+if ! psql -c "SELECT 1;" > /dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  No superuser access detected.${NC}"
+    echo ""
+    echo -e "${BLUE}🔧 Manual Setup Instructions:${NC}"
+    echo "1. Connect as superuser: sudo -u postgres psql"
+    echo "2. Create user: CREATE USER zephix_user WITH PASSWORD 'your_password';"
+    echo "3. Create database: CREATE DATABASE zephix_development OWNER zephix_user;"
+    echo "4. Grant privileges: GRANT ALL PRIVILEGES ON DATABASE zephix_development TO zephix_user;"
+    echo "5. Connect to database: \c zephix_development"
+    echo "6. Grant schema privileges: GRANT ALL PRIVILEGES ON SCHEMA public TO zephix_user;"
+    echo ""
+    echo -e "${BLUE}📝 Then create .env file with:${NC}"
+    echo "DB_HOST=localhost"
+    echo "DB_PORT=5432"
+    echo "DB_NAME=zephix_development"
+    echo "DB_USERNAME=zephix_user"
+    echo "DB_PASSWORD=your_password"
+    echo ""
+    echo -e "${YELLOW}💡 Alternative: Use pgAdmin or another GUI tool${NC}"
+    exit 0
+fi
+
+echo -e "${GREEN}✅ Superuser access confirmed${NC}"
+
+# Database configuration
+DB_NAME="zephix_development"
+DB_USER="zephix_user"
+DB_PASSWORD="zephix_dev_password_$(date +%s)"
+
+echo -e "${BLUE}📋 Database Configuration:${NC}"
+echo "   Database: $DB_NAME"
+echo "   User: $DB_USER"
+echo "   Password: $DB_PASSWORD"
+
+# Create database user
+echo -e "${BLUE}👤 Creating database user...${NC}"
+if psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
+    echo -e "${YELLOW}⚠️  User $DB_USER already exists${NC}"
+    echo -e "${BLUE}   Checking if password needs update...${NC}"
+    # Optionally update password if user exists
+    read -p "Update password for existing user? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+        echo -e "${GREEN}✅ Password updated for $DB_USER${NC}"
+    fi
+else
+    psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+    echo -e "${GREEN}✅ User $DB_USER created${NC}"
+fi
+
+# Create database
+echo -e "${BLUE}🗄️  Creating database...${NC}"
+if psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+    echo -e "${YELLOW}⚠️  Database $DB_NAME already exists${NC}"
+    echo -e "${BLUE}   Checking ownership...${NC}"
+    # Check if database is owned by our user
+    OWNER=$(psql -tAc "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname='$DB_NAME';")
+    if [[ "$OWNER" == "$DB_USER" ]]; then
+        echo -e "${GREEN}✅ Database $DB_NAME already owned by $DB_USER${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Database $DB_NAME owned by $OWNER, not $DB_USER${NC}"
+        read -p "Reassign ownership to $DB_USER? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;"
+            echo -e "${GREEN}✅ Ownership reassigned to $DB_USER${NC}"
+        fi
+    fi
+else
+    psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+    echo -e "${GREEN}✅ Database $DB_NAME created${NC}"
+fi
+
+# Grant privileges
+echo -e "${BLUE}🔐 Granting privileges...${NC}"
+psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON SCHEMA public TO $DB_USER;"
+psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;"
+psql -d "$DB_NAME" -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;"
+psql -d "$DB_NAME" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;"
+psql -d "$DB_NAME" -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;"
+
+echo -e "${GREEN}✅ Privileges granted${NC}"
+
+# Test connection
+echo -e "${BLUE}🧪 Testing database connection...${NC}"
+if psql "postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Database connection successful${NC}"
+else
+    echo -e "${RED}❌ Database connection failed${NC}"
+    exit 1
+fi
+
+# Create .env file
+ENV_FILE=".env"
+echo -e "${BLUE}📝 Creating $ENV_FILE file...${NC}"
+
+cat > "$ENV_FILE" << EOF
+# Zephix Backend Local Development Environment
+# Generated by setup-local-database.sh on $(date)
+
+# Application Configuration
+NODE_ENV=development
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:3000
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=$DB_NAME
+DB_USERNAME=$DB_USER
+DB_PASSWORD=$DB_PASSWORD
+
+# JWT Configuration
+JWT_SECRET=zephix_local_dev_secret_$(date +%s)
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+CORS_CREDENTIALS=true
+
+# Database Settings
+DB_LOGGING=true
+DB_SYNCHRONIZE=false
+
+# Security Configuration
+HELMET_ENABLED=true
+COMPRESSION_ENABLED=true
+
+# Logging Configuration
+LOG_LEVEL=debug
+LOG_FORMAT=pretty
+EOF
+
+echo -e "${GREEN}✅ $ENV_FILE created${NC}"
+
+echo ""
+echo -e "${GREEN}🎉 Local database setup complete!${NC}"
+echo ""
+echo -e "${BLUE}📋 Next steps:${NC}"
+echo "1. Start the development server: npm run start:dev"
+echo "2. Run database migrations: npm run migration:run"
+echo ""
+echo -e "${BLUE}🔐 Database credentials:${NC}"
+echo "   Host: localhost:5432"
+echo "   Database: $DB_NAME"
+echo "   Username: $DB_USER"
+echo "   Password: $DB_PASSWORD"
+echo ""
+echo -e "${YELLOW}⚠️  IMPORTANT: Keep your .env file secure and never commit it to version control${NC}"
