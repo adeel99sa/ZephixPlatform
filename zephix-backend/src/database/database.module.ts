@@ -14,14 +14,11 @@ import type { LoggerOptions } from 'typeorm';
           ? (['error', 'warn'] as LoggerOptions)
           : true;
 
-        // Enterprise-secure SSL configuration for Railway PostgreSQL
+        // CRITICAL SECURITY: SSL configuration for Railway PostgreSQL
+        // Note: This module is not used in the main app - SSL is configured in app.module.ts
         const sslConfig = isProd
           ? {
-              rejectUnauthorized: false, // Accept Railway's self-signed certificates
-              ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
-              // Additional enterprise security for production
-              checkServerIdentity: false, // Disable hostname verification for Railway
-              secureProtocol: 'TLSv1_2_method', // Enforce TLS 1.2+
+              rejectUnauthorized: true, // CRITICAL: Never disable SSL validation
             }
           : false;
 

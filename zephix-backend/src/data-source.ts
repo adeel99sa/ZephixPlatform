@@ -11,7 +11,7 @@ export const dataSourceOptions = {
   synchronize: false,
   logging: false,
   ssl: {
-    rejectUnauthorized: false, // Accept Railway's self-signed certificates
+    rejectUnauthorized: true, // CRITICAL: Never disable SSL validation
   },
 };
 
