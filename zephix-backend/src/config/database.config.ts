@@ -41,11 +41,8 @@ export const createDatabaseConfig = (
         ? ['error', 'warn']
         : (configService.get('database.logging') ?? false),
       ssl: {
-        rejectUnauthorized: false,
-        // Enhanced SSL configuration for Railway
-        ca: undefined,
-        key: undefined,
-        cert: undefined,
+        rejectUnauthorized: false, // Accept Railway's self-signed certificates
+        ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
       },
       extra: {
         // CRITICAL: Reduced connection pool for Railway stability
@@ -69,10 +66,8 @@ export const createDatabaseConfig = (
 
         // Enhanced SSL settings for Railway
         ssl: {
-          rejectUnauthorized: false,
-          ca: undefined,
-          key: undefined,
-          cert: undefined,
+          rejectUnauthorized: false, // Accept Railway's self-signed certificates
+          ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
         },
 
         // CRITICAL: Statement timeout to prevent hanging queries

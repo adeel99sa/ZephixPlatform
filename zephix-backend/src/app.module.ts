@@ -97,10 +97,10 @@ if (!(global as any).crypto) {
             logging: isProduction
               ? ['error', 'warn']
               : configService.get('database.logging'),
-            ssl:
-              process.env.NODE_ENV === 'production'
-                ? { rejectUnauthorized: false }
-                : false,
+            ssl: {
+              rejectUnauthorized: false, // Accept Railway's self-signed certificates
+              ca: process.env.DATABASE_CA_CERT, // Optional: Custom CA certificate
+            },
             extra: {
               max: 10, // Connection pool size for Railway limits
               min: 2,
