@@ -1,0 +1,69 @@
+{
+  "name": "zephix-backend",
+  "type": "service",
+  "build": {
+    "builder": "nixpacks",
+    "buildCommand": "npm run build"
+  },
+  "deploy": {
+    "startCommand": "npm run start:railway",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyType": "on_failure",
+    "restartPolicyMaxRetries": 3,
+    "numReplicas": 1
+  },
+  "envs": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "RAILWAY_STATIC_URL": "https://zephix-backend-production.up.railway.app",
+    "SKIP_DATABASE": "false",
+    "EMERGENCY_MODE": "false",
+    "RUN_MIGRATIONS_ON_BOOT": "false",
+    "MIGRATIONS_TRANSACTION_MODE": "each",
+    "DB_RETRY_ATTEMPTS": "15",
+    "DB_RETRY_DELAY": "5000",
+    "DB_CONNECT_TIMEOUT": "60000",
+    "DB_ACQUIRE_TIMEOUT": "60000",
+    "HELMET_ENABLED": "true",
+    "CORS_ALLOWED_ORIGINS": "*",
+    "RATE_LIMIT_ENABLED": "true",
+    "RATE_LIMIT_WINDOW_MS": "60000",
+    "RATE_LIMIT_MAX": "100",
+    "AUTH_RATE_LIMIT_WINDOW_MS": "900000",
+    "AUTH_RATE_LIMIT_MAX": "5",
+    "LOG_LEVEL": "info",
+    "METRICS_ENABLED": "true",
+    "OTEL_ENABLED": "true",
+    "OTEL_SERVICE_NAME": "zephix-backend",
+    "OTEL_SERVICE_VERSION": "1.0.0"
+  },
+  "health": {
+    "endpoint": "/api/health",
+    "timeout": 30,
+    "interval": 30,
+    "retries": 3,
+    "startPeriod": 60
+  },
+  "networking": {
+    "port": 3000,
+    "forcePort": true,
+    "enableInternalHealthChecks": true,
+    "proxyTimeout": 30,
+    "proxyRetries": 3
+  },
+  "database": {
+    "maxConnections": 10,
+    "minConnections": 2,
+    "idleTimeout": 10000,
+    "keepAlive": true,
+    "forceIPv4": true
+  },
+  "migrations": {
+    "autoRunOnBoot": false,
+    "transactionMode": "each",
+    "retryAttempts": 15,
+    "retryDelay": 5000,
+    "timeoutMs": 300000
+  }
+}
