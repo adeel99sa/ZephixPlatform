@@ -68,7 +68,8 @@
     "db:backup": "./scripts/backup-migration-state.sh",
     "test:cors": "node scripts/test-cors.js",
     "test:auth": "node scripts/test-auth.js",
-    "check:env-safety": "./scripts/check-env-safety.sh"
+    "check:env-safety": "./scripts/check-env-safety.sh",
+    "seed:dev-user": "ts-node -r tsconfig-paths/register scripts/seed-development-user.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
