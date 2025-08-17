@@ -13,7 +13,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -27,9 +27,11 @@ export class AuthService {
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-    @Optional() @InjectRepository(User)
+    @Optional()
+    @InjectRepository(User)
     private userRepository?: Repository<User>,
-    @Optional() @InjectRepository(RefreshToken)
+    @Optional()
+    @InjectRepository(RefreshToken)
     private refreshTokenRepository?: Repository<RefreshToken>,
     @Optional() private usersService?: UsersService,
   ) {
@@ -42,8 +44,14 @@ export class AuthService {
    * Check if database is available
    */
   private checkDatabaseAvailability() {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
-      throw new ServiceUnavailableException('Authentication service temporarily unavailable. Database not configured.');
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
+      throw new ServiceUnavailableException(
+        'Authentication service temporarily unavailable. Database not configured.',
+      );
     }
   }
 
@@ -62,14 +70,18 @@ export class AuthService {
    * Authenticate user and generate tokens
    */
   async login(loginDto: LoginDto) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return this.getFallbackResponse();
     }
 
     const { email, password } = loginDto;
 
     // Find user by email
-    const user = await this.userRepository!.findOne({
+    const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
       select: [
         'id',
@@ -122,7 +134,11 @@ export class AuthService {
    * Create new user account
    */
   async signup(signupDto: SignupDto) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return this.getFallbackResponse();
     }
 
@@ -130,7 +146,7 @@ export class AuthService {
       signupDto;
 
     // Check if user exists
-    const existingUser = await this.userRepository!.findOne({
+    const existingUser = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
 
@@ -142,7 +158,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = this.userRepository!.create({
+    const user = this.userRepository.create({
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName,
@@ -152,7 +168,7 @@ export class AuthService {
     });
 
     // Save user
-    const savedUser = await this.userRepository!.save(user);
+    const savedUser = await this.userRepository.save(user);
 
     // Generate tokens
     const tokens = await this.generateTokens(savedUser);
@@ -179,12 +195,16 @@ export class AuthService {
    * Refresh access token
    */
   async refreshToken(refreshToken: string) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return this.getFallbackResponse();
     }
 
     // Find refresh token in database
-    const tokenRecord = await this.refreshTokenRepository!.findOne({
+    const tokenRecord = await this.refreshTokenRepository.findOne({
       where: { token: refreshToken, isRevoked: false },
       relations: ['user'],
     });
@@ -199,7 +219,7 @@ export class AuthService {
 
     // Revoke old refresh token
     tokenRecord.isRevoked = true;
-    await this.refreshTokenRepository!.save(tokenRecord);
+    await this.refreshTokenRepository.save(tokenRecord);
 
     // Save new refresh token
     await this.saveRefreshToken(tokenRecord.user.id, tokens.refreshToken);
@@ -213,12 +233,16 @@ export class AuthService {
    * Logout user and revoke refresh tokens
    */
   async logout(userId: string) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return this.getFallbackResponse();
     }
 
     // Revoke all refresh tokens for user
-    await this.refreshTokenRepository!.update(
+    await this.refreshTokenRepository.update(
       { user: { id: userId }, isRevoked: false },
       { isRevoked: true },
     );
@@ -230,11 +254,15 @@ export class AuthService {
    * Get user by ID
    */
   async getUserById(userId: string) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return this.getFallbackResponse();
     }
 
-    return this.userRepository!.findOne({
+    return this.userRepository.findOne({
       where: { id: userId },
       select: [
         'id',
@@ -252,11 +280,15 @@ export class AuthService {
    * Validate user credentials (for local strategy)
    */
   async validateUser(email: string, password: string) {
-    if (!this.isDatabaseAvailable || !this.userRepository || !this.refreshTokenRepository) {
+    if (
+      !this.isDatabaseAvailable ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
       return null;
     }
 
-    const user = await this.userRepository!.findOne({
+    const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
       select: [
         'id',

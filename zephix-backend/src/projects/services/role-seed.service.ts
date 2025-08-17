@@ -30,7 +30,7 @@ export class RoleSeedService implements OnModuleInit {
     try {
       this.logger.log('🔄 Executing role seeding directly');
       console.log('🔄 Executing role seeding directly');
-      
+
       await this.seedRolesDirect();
     } catch (error) {
       this.logger.error('Role seeding failed:', error.message);
@@ -46,7 +46,7 @@ export class RoleSeedService implements OnModuleInit {
   private async seedRolesDirect(): Promise<void> {
     this.logger.log('🔄 Executing role seeding directly');
     console.log('🔄 Executing role seeding directly');
-    
+
     const roles = [
       {
         name: RoleType.ADMIN,
@@ -99,24 +99,39 @@ export class RoleSeedService implements OnModuleInit {
       }
     }
 
-    this.logger.log(`✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`);
-    console.log(`✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`);
+    this.logger.log(
+      `✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`,
+    );
+    console.log(
+      `✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`,
+    );
   }
 
   /**
    * Manual role seeding with tenant context
    * Can be called from API endpoints or other services
    */
-  async seedRolesForTenant(tenantId: string, force: boolean = false): Promise<void> {
+  async seedRolesForTenant(
+    tenantId: string,
+    force: boolean = false,
+  ): Promise<void> {
     try {
-      this.logger.log(`🔄 Executing tenant role seeding for tenant=${tenantId}`);
+      this.logger.log(
+        `🔄 Executing tenant role seeding for tenant=${tenantId}`,
+      );
       console.log(`🔄 Executing tenant role seeding for tenant=${tenantId}`);
-      
+
       // Execute directly
       await this.seedRolesDirect();
     } catch (error) {
-      this.logger.error(`Tenant role seeding failed for ${tenantId}:`, error.message);
-      console.log(`❌ Tenant role seeding failed for ${tenantId}:`, error.message);
+      this.logger.error(
+        `Tenant role seeding failed for ${tenantId}:`,
+        error.message,
+      );
+      console.log(
+        `❌ Tenant role seeding failed for ${tenantId}:`,
+        error.message,
+      );
       // Don't throw - let the app continue
     }
   }
@@ -129,7 +144,7 @@ export class RoleSeedService implements OnModuleInit {
     try {
       this.logger.log('🔄 Executing forced role seeding');
       console.log('🔄 Executing forced role seeding');
-      
+
       // Execute directly with force logic
       await this.forceSeedRolesDirect();
     } catch (error) {
@@ -145,7 +160,7 @@ export class RoleSeedService implements OnModuleInit {
   private async forceSeedRolesDirect(): Promise<void> {
     this.logger.log('🔄 Executing forced role seeding directly');
     console.log('🔄 Executing forced role seeding directly');
-    
+
     const roles = [
       {
         name: RoleType.ADMIN,
@@ -202,7 +217,11 @@ export class RoleSeedService implements OnModuleInit {
       }
     }
 
-    this.logger.log(`✅ Forced role seeding completed: ${createdCount} created, ${updatedCount} updated`);
-    console.log(`✅ Forced role seeding completed: ${createdCount} created, ${updatedCount} updated`);
+    this.logger.log(
+      `✅ Forced role seeding completed: ${createdCount} created, ${updatedCount} updated`,
+    );
+    console.log(
+      `✅ Forced role seeding completed: ${createdCount} created, ${updatedCount} updated`,
+    );
   }
 }

@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { Organization } from './organization.entity';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 
 @Entity('invitations')
 @Index('IDX_INVITATION_TOKEN', ['token'], { unique: true })

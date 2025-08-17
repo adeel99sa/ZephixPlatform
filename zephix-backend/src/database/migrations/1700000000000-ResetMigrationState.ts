@@ -32,7 +32,9 @@ export class ResetMigrationState1700000000000 implements MigrationInterface {
     `);
 
     console.log('✅ Clean database state established');
-    console.log('📝 Note: Actual table creation will be handled by subsequent migrations');
+    console.log(
+      '📝 Note: Actual table creation will be handled by subsequent migrations',
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

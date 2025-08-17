@@ -12,7 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EmailVerification } from '../entities/email-verification.entity';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 import { EmailService } from '../../shared/services/email.service';
 import { randomBytes } from 'crypto';
 
@@ -29,17 +29,21 @@ export class EmailVerificationService {
   private readonly isEmergencyMode: boolean;
 
   constructor(
-    @Optional() @InjectRepository(EmailVerification)
+    @Optional()
+    @InjectRepository(EmailVerification)
     private verificationRepository: Repository<EmailVerification> | null,
-    @Optional() @InjectRepository(User)
+    @Optional()
+    @InjectRepository(User)
     private userRepository: Repository<User> | null,
     private configService: ConfigService,
     private emailService: EmailService,
   ) {
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
-    
+
     if (this.isEmergencyMode) {
-      console.log('🚨 EmailVerificationService: Emergency mode - database operations disabled');
+      console.log(
+        '🚨 EmailVerificationService: Emergency mode - database operations disabled',
+      );
     }
   }
 
@@ -49,9 +53,13 @@ export class EmailVerificationService {
     userAgent?: string,
   ): Promise<{ success: boolean; token: string }> {
     // EMERGENCY MODE: Return service unavailable
-    if (this.isEmergencyMode || !this.verificationRepository || !this.userRepository) {
+    if (
+      this.isEmergencyMode ||
+      !this.verificationRepository ||
+      !this.userRepository
+    ) {
       throw new ServiceUnavailableException(
-        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -119,23 +127,23 @@ export class EmailVerificationService {
         `Failed to send verification email to ${user.email}:`,
         error,
       );
-      
+
       // CRITICAL ERROR HANDLING: Prevent crashes and provide meaningful errors
       if (error instanceof HttpException) {
         throw error; // Re-throw HTTP exceptions as-is
       }
-      
+
       // Log detailed error for debugging
       this.logger.error('Detailed error:', {
         message: error.message,
         stack: error.stack,
         code: error.code,
-        name: error.name
+        name: error.name,
       });
-      
+
       // Return user-friendly error without crashing
       throw new BadRequestException(
-        'Failed to send verification email. Please try again later.'
+        'Failed to send verification email. Please try again later.',
       );
     }
   }
@@ -145,9 +153,13 @@ export class EmailVerificationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ success: boolean; user: User }> {
-    if (this.isEmergencyMode || !this.verificationRepository || !this.userRepository) {
+    if (
+      this.isEmergencyMode ||
+      !this.verificationRepository ||
+      !this.userRepository
+    ) {
       throw new ServiceUnavailableException(
-        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -194,7 +206,7 @@ export class EmailVerificationService {
   ): Promise<{ success: boolean }> {
     if (this.isEmergencyMode || !this.userRepository) {
       throw new ServiceUnavailableException(
-        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -221,7 +233,7 @@ export class EmailVerificationService {
   }> {
     if (this.isEmergencyMode || !this.userRepository) {
       throw new ServiceUnavailableException(
-        'Email verification is temporarily unavailable due to database maintenance. Please try again later.'
+        'Email verification is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 

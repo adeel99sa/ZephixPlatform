@@ -19,7 +19,7 @@ export class StatusReporting1755044971817 implements MigrationInterface {
     }
 
     console.log('➕ Creating status_reports table...');
-    
+
     // Create status_reports table (removed project_id foreign key reference)
     await queryRunner.query(`
             CREATE TABLE "status_reports" (
@@ -57,7 +57,9 @@ export class StatusReporting1755044971817 implements MigrationInterface {
           `);
       console.log('✅ Added foreign key constraint to organizations');
     } else {
-      console.log('⚠️ Organizations table not found - skipping foreign key constraint');
+      console.log(
+        '⚠️ Organizations table not found - skipping foreign key constraint',
+      );
     }
 
     // Create indexes
@@ -98,9 +100,15 @@ export class StatusReporting1755044971817 implements MigrationInterface {
 
     // Drop indexes (handle case where they might not exist)
     try {
-      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_status"`);
-      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_report_date"`);
-      await queryRunner.query(`DROP INDEX IF EXISTS "IDX_status_reports_organization_id"`);
+      await queryRunner.query(
+        `DROP INDEX IF EXISTS "IDX_status_reports_status"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX IF EXISTS "IDX_status_reports_report_date"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX IF EXISTS "IDX_status_reports_organization_id"`,
+      );
     } catch (error) {
       console.log('⚠️ Error dropping indexes:', error.message);
     }

@@ -32,7 +32,7 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 // Local auth guard removed - using JWT strategy instead
 import { CurrentUser } from './decorators/current-user.decorator';
-import { User } from "../modules/users/entities/user.entity"
+import { User } from '../modules/users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 
 /**

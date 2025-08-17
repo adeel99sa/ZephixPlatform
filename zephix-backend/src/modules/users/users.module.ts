@@ -6,7 +6,9 @@ import { User } from './entities/user.entity';
 @Module({
   imports: [
     // Only import TypeORM when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [TypeOrmModule.forFeature([User])] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [TypeOrmModule.forFeature([User])]
+      : []),
   ],
   providers: [UsersService],
   exports: [UsersService],

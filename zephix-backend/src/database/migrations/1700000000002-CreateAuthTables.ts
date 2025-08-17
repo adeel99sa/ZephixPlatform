@@ -61,7 +61,9 @@ export class CreateAuthTables1700000000002 implements MigrationInterface {
     `);
 
     if (organizationIdExists[0].exists) {
-      await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "organizationId"`);
+      await queryRunner.query(
+        `ALTER TABLE "users" DROP COLUMN "organizationId"`,
+      );
     }
     await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "role"`);
     await queryRunner.query(
