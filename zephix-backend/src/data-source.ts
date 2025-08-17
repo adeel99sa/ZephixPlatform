@@ -10,7 +10,9 @@ export const dataSourceOptions = {
   migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
   synchronize: false,
   logging: false,
-  ssl: process.env.NODE_ENV === 'production' ? true : false,
+  ssl: {
+    rejectUnauthorized: false, // Accept Railway's self-signed certificates
+  },
 };
 
 const AppDataSource = new DataSource(dataSourceOptions);
