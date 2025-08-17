@@ -62,10 +62,10 @@ export const getDatabaseConfig = (
       synchronize: false, // NEVER in production
       migrationsRun: false,
       logging: ['error', 'warn'],
-      ssl: {
-        rejectUnauthorized:
-          process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED === 'true',
-      },
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false, // Railway requires this
+        ca: process.env.RAILWAY_SSL_CERT, // Use Railway's cert if available
+      } : false,
       extra: {
         max: 10,
         min: 2,
