@@ -67,7 +67,8 @@
     "db:consolidate": "./scripts/execute-migration-consolidation.sh",
     "db:backup": "./scripts/backup-migration-state.sh",
     "test:cors": "node scripts/test-cors.js",
-    "test:auth": "node scripts/test-auth.js"
+    "test:auth": "node scripts/test-auth.js",
+    "check:env-safety": "./scripts/check-env-safety.sh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -138,6 +139,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
+    "cross-env": "^10.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
