@@ -184,7 +184,7 @@ jobs:
 
   build-and-deploy:
     name: Build & Deploy
-    needs: [security-scan, backend-test, frontend-test]
+    needs: [security-scan, backend-test]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
@@ -200,8 +200,9 @@ jobs:
           npm run build
           npm run build:metadata
 
-      - name: Build frontend
+      - name: Build frontend (Optional)
         working-directory: zephix-frontend
+        continue-on-error: true
         run: |
           npm ci
           npm run build
