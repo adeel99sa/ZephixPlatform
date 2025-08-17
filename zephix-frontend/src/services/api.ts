@@ -69,10 +69,7 @@ const getSecureApiUrl = (): string => {
 const getSecurityHeaders = (): Record<string, string> => ({
   'Content-Type': 'application/json',
   'X-Requested-With': 'XMLHttpRequest',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  // Only these are valid REQUEST headers
 });
 
 // Create secure axios instance
