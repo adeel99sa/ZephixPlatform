@@ -11,6 +11,7 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
+import { RefreshToken } from '../modules/auth/entities/refresh-token.entity'; // ← CRITICAL FIX: Add RefreshToken import
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 // Local strategy and guard removed - using JWT strategy instead
@@ -26,6 +27,9 @@ import { SharedModule } from '../shared/shared.module';
  *
  * EMERGENCY MODE: When SKIP_DATABASE=true, TypeORM features are disabled
  * This allows basic API structure to work without database connection.
+ *
+ * CRITICAL FIX: RefreshToken entity now properly registered to resolve
+ * TypeORM metadata error: "Entity metadata for User#refreshTokens was not found"
  *
  * MICROSERVICE EXTRACTION NOTES:
  * - This entire module can be moved to a dedicated auth microservice
@@ -45,6 +49,7 @@ import { SharedModule } from '../shared/shared.module';
             Organization,
             UserOrganization,
             EmailVerification,
+            RefreshToken,        // ← CRITICAL FIX: Add RefreshToken to entity registration
           ]),
         ]
       : []),
@@ -72,6 +77,7 @@ export class AuthModule {
       );
     } else {
       console.log('✅ AuthModule: Full mode - TypeORM features enabled');
+      console.log('✅ RefreshToken entity registered - metadata error resolved');
     }
   }
 }
