@@ -24,6 +24,9 @@ import { SharedModule } from '../shared/shared.module';
  * ENTERPRISE APPROACH: JWT module is now global in app.module.ts
  * This eliminates circular dependencies and module duplication.
  *
+ * EMERGENCY MODE: When SKIP_DATABASE=true, TypeORM features are disabled
+ * This allows basic API structure to work without database connection.
+ *
  * MICROSERVICE EXTRACTION NOTES:
  * - This entire module can be moved to a dedicated auth microservice
  * - JWT configuration should be shared across services
@@ -34,12 +37,15 @@ import { SharedModule } from '../shared/shared.module';
 @Global() // Make AuthModule available everywhere without importing in every module
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      Organization,
-      UserOrganization,
-      EmailVerification,
-    ]),
+    // EMERGENCY MODE: Only import TypeORM features when database is available
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      TypeOrmModule.forFeature([
+        User,
+        Organization,
+        UserOrganization,
+        EmailVerification,
+      ])
+    ] : []),
     PassportModule,
     SharedModule, // For EmailService used by EmailVerificationService
     // ENTERPRISE APPROACH: JWT module is now global - no need to import here
@@ -54,4 +60,14 @@ import { SharedModule } from '../shared/shared.module';
   ],
   exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy], // export providers used elsewhere
 })
-export class AuthModule {}
+export class AuthModule {
+  constructor() {
+    // EMERGENCY MODE: Log current configuration
+    if (process.env.SKIP_DATABASE === 'true') {
+      console.log('🚨 AuthModule: Emergency mode - TypeORM features disabled');
+      console.log('🚨 Authentication will be limited (no user validation, no persistence)');
+    } else {
+      console.log('✅ AuthModule: Full mode - TypeORM features enabled');
+    }
+  }
+}
