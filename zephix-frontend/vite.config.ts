@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [react()],
+  base: process.env.NODE_ENV === 'production' ? '/' : '/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true, // Enable sourcemaps for local development
+    sourcemap: process.env.NODE_ENV === 'development',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -22,11 +23,18 @@ export default defineConfig({
           if (assetInfo.name?.endsWith('.css')) {
             return 'assets/[name]-[hash][extname]';
           }
+          if (assetInfo.name?.endsWith('.js')) {
+            return 'assets/[name]-[hash][extname]';
+          }
           return 'assets/[name]-[hash][extname]';
         },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
     cssCodeSplit: true,
+    minify: process.env.NODE_ENV === 'production',
+    target: 'es2015',
   },
   server: {
     port: 5173,
@@ -64,6 +72,10 @@ export default defineConfig({
   },
   // Enhanced development options
   define: {
-    __DEV__: true,
+    __DEV__: process.env.NODE_ENV === 'development',
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom'],
   },
 })
