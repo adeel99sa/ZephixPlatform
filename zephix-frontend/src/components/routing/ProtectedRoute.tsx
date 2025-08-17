@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useEnterpriseAuthStore } from '../../stores/enterpriseAuthStore';
 import { LoadingScreen } from '../common/LoadingScreen';
 import { MainLayout } from '../../layouts/MainLayout';
 
@@ -15,7 +15,7 @@ export const ProtectedRoute: React.FC = () => {
     isLoading, 
     validateSession,
     clearAuth 
-  } = useAuthStore();
+  } = useEnterpriseAuthStore();
   const location = useLocation();
 
   useEffect(() => {
