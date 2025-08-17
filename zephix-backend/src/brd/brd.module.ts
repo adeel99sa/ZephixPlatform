@@ -16,14 +16,16 @@ import { SharedModule } from '../shared/shared.module';
 @Module({
   imports: [
     // Only import TypeORM when database is available
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
-      TypeOrmModule.forFeature([
-        BRD,
-        BRDAnalysis,
-        GeneratedProjectPlan,
-        UserOrganization,
-      ])
-    ] : []),
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          TypeOrmModule.forFeature([
+            BRD,
+            BRDAnalysis,
+            GeneratedProjectPlan,
+            UserOrganization,
+          ]),
+        ]
+      : []),
     // AccessControlModule removed - using built-in NestJS guards instead
     ObservabilityModule, // Provides MetricsService
     SharedModule, // Provides LLMProviderService

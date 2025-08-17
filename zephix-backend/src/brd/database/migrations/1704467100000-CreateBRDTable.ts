@@ -64,7 +64,7 @@ export class CreateBRDTable1704467100000 implements MigrationInterface {
 
     // Create indexes for performance
     await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`
+      `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId" ON "brds" ("organizationId")`,
     );
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_brds_organizationId_status" ON "brds" ("organizationId", "status");`,

@@ -20,8 +20,8 @@ import { StakeholderCommunication } from '../entities/stakeholder-communication.
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([
-      Project, 
-      TeamMember, 
+      Project,
+      TeamMember,
       UserOrganization,
       // Status Reporting Entities
       StatusReport,

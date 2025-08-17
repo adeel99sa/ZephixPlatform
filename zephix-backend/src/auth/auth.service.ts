@@ -11,7 +11,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 
-import { User } from "../modules/users/entities/user.entity"
+import { User } from '../modules/users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { EmailVerificationService } from './services/email-verification.service';
@@ -37,22 +37,31 @@ export class AuthService {
   private readonly isEmergencyMode: boolean;
 
   constructor(
-    @Optional() @InjectRepository(User)
+    @Optional()
+    @InjectRepository(User)
     private readonly userRepository: Repository<User> | null,
     private readonly jwtService: JwtService,
     private readonly emailVerificationService: EmailVerificationService,
   ) {
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
-    
+
     if (this.isEmergencyMode) {
-      console.log('🚨 AuthService: Emergency mode - database operations disabled');
+      console.log(
+        '🚨 AuthService: Emergency mode - database operations disabled',
+      );
       if (!this.userRepository) {
-        console.log('🚨 AuthService: UserRepository not available in emergency mode');
+        console.log(
+          '🚨 AuthService: UserRepository not available in emergency mode',
+        );
       }
     } else {
       if (!this.userRepository) {
-        console.error('❌ AuthService: UserRepository required but not available');
-        throw new Error('UserRepository is required for full authentication mode');
+        console.error(
+          '❌ AuthService: UserRepository required but not available',
+        );
+        throw new Error(
+          'UserRepository is required for full authentication mode',
+        );
       }
     }
   }
@@ -69,7 +78,7 @@ export class AuthService {
     // EMERGENCY MODE: Return service unavailable
     if (this.isEmergencyMode || !this.userRepository) {
       throw new ServiceUnavailableException(
-        'User registration is temporarily unavailable due to database maintenance. Please try again later.'
+        'User registration is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -125,7 +134,7 @@ export class AuthService {
     // EMERGENCY MODE: Return service unavailable
     if (this.isEmergencyMode || !this.userRepository) {
       throw new ServiceUnavailableException(
-        'User login is temporarily unavailable due to database maintenance. Please try again later.'
+        'User login is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -180,7 +189,7 @@ export class AuthService {
     // EMERGENCY MODE: Return service unavailable
     if (this.isEmergencyMode || !this.userRepository) {
       throw new ServiceUnavailableException(
-        'Token refresh is temporarily unavailable due to database maintenance. Please try again later.'
+        'Token refresh is temporarily unavailable due to database maintenance. Please try again later.',
       );
     }
 
@@ -202,7 +211,11 @@ export class AuthService {
   }
 
   // EMERGENCY MODE: Health check method
-  async healthCheck(): Promise<{ status: string; mode: string; timestamp: string }> {
+  async healthCheck(): Promise<{
+    status: string;
+    mode: string;
+    timestamp: string;
+  }> {
     return {
       status: this.isEmergencyMode ? 'degraded' : 'healthy',
       mode: this.isEmergencyMode ? 'emergency' : 'full',

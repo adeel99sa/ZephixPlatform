@@ -20,7 +20,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { CurrentOrganization } from '../decorators/current-organization.decorator';
-import { User } from "../../modules/users/entities/user.entity"
+import { User } from '../../modules/users/entities/user.entity';
 import { InvitationService } from '../services/invitation.service';
 import { TeamManagementService } from '../services/team-management.service';
 import {
