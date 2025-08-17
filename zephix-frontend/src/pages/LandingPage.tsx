@@ -13,7 +13,7 @@ import { ContactModal } from '../components/modals/ContactModal';
 
 interface LandingPageProps {}
 
-export const LandingPage: React.FC<LandingPageProps> = memo(() => {
+const LandingPage: React.FC<LandingPageProps> = memo(() => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
@@ -77,3 +77,5 @@ export const LandingPage: React.FC<LandingPageProps> = memo(() => {
 });
 
 LandingPage.displayName = 'LandingPage';
+
+export default LandingPage;
