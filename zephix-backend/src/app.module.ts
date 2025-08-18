@@ -4,10 +4,13 @@ import {
   MiddlewareConsumer,
   NestModule,
 } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_PIPE } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 // Import crypto explicitly for Node.js versions that require it
 import * as crypto from 'crypto';
@@ -78,6 +81,12 @@ if (!(global as any).crypto) {
       global: true, // Make JWT available globally
     }),
 
+    // Rate limiting for security
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 5
+    }]),
+
     // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
@@ -138,6 +147,10 @@ if (!(global as any).crypto) {
       provide: APP_PIPE,
       useClass: ValidationPipe,
     },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard
+    }
   ],
 })
 export class AppModule {

@@ -122,3 +122,4 @@ async function testDirectPostgreSQLConnection() {
 
 // Run the test
 testDirectPostgreSQLConnection().catch(console.error);
+
