@@ -14,37 +14,12 @@ restartPolicyMaxRetries = 3
 [deploy.envs]
 NODE_ENV = "production"
 PORT = "3000"
-# CRITICAL: Ensure Railway knows which port to route traffic to
-RAILWAY_STATIC_URL = "https://zephix-backend-production.up.railway.app"
-
-# CRITICAL: Database SSL configuration for Railway
-RAILWAY_SSL_REJECT_UNAUTHORIZED = "false"
-DATABASE_SSL_MODE = "require"
-
-RUN_MIGRATIONS_ON_BOOT = "false"
-MIGRATIONS_TRANSACTION_MODE = "each"
-DB_RETRY_ATTEMPTS = "15"
-DB_RETRY_DELAY = "5000"
-DB_CONNECT_TIMEOUT = "60000"
-DB_ACQUIRE_TIMEOUT = "60000"
-
-# EMERGENCY MODE CONFIGURATION
-# Set SKIP_DATABASE=true to start without database connection
-SKIP_DATABASE = "false"
-EMERGENCY_MODE = "false"
-
-# Railway-specific database optimizations
-[deploy.envs.database]
-MAX_CONNECTIONS = "10"
-MIN_CONNECTIONS = "2"
-IDLE_TIMEOUT = "10000"
-KEEP_ALIVE = "true"
-FORCE_IPV4 = "true"
+APP_VERSION = "1.0.0"
 
 # Security settings for Railway
 [deploy.envs.security]
 HELMET_ENABLED = "true"
-CORS_ALLOWED_ORIGINS = "*"
+# CORS_ALLOWED_ORIGINS set in Railway UI per environment
 RATE_LIMIT_ENABLED = "true"
 RATE_LIMIT_WINDOW_MS = "60000"
 RATE_LIMIT_MAX = "100"
