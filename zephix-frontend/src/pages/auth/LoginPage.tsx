@@ -7,14 +7,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
 import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
-import { useSecurity } from '../../hooks/useSecurity';
-import { enterpriseErrorHandler } from '../../services/enterpriseErrorHandler';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, authState, isLoading, error, clearError } = useEnterpriseAuth();
-  const [securityState, securityActions] = useSecurity();
+  const { login, user, isAuthenticated, isLoading, error, clearError } = useEnterpriseAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -31,23 +28,16 @@ export const LoginPage: React.FC = () => {
       if (state.email) {
         setFormData(prev => ({ ...prev, email: state.email }));
       }
-      
-      // Log security event for navigation state
-      securityActions.logEvent('login_navigation_state', {
-        hasMessage: !!state.message,
-        hasEmail: !!state.email,
-        source: 'navigation_state',
-      }, 'low');
     }
-  }, [location.state, securityActions]);
+  }, [location.state]);
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (authState.isAuthenticated) {
+    if (isAuthenticated) {
       const returnUrl = location.state?.from?.pathname || '/dashboard';
       navigate(returnUrl, { replace: true });
     }
-  }, [authState.isAuthenticated, navigate, location.state]);
+  }, [isAuthenticated, navigate, location.state]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -65,56 +55,21 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Log security event for form submission attempt
-    securityActions.logEvent('enterprise_login_form_submission', {
-      email: formData.email,
-      hasPassword: !!formData.password,
-      timestamp: new Date().toISOString(),
-    }, 'medium');
-
     try {
-      const success = await login({
-        email: formData.email,
-        password: formData.password,
-      });
+      const success = await login(formData.email, formData.password);
 
       if (success) {
-        // Log successful login
-        securityActions.logEvent('enterprise_login_success', {
-          email: formData.email,
-          userId: authState.user?.id,
-          timestamp: new Date().toISOString(),
-        }, 'low');
-        
         setIsSubmitted(true);
         
         // Redirect after success message
         setTimeout(() => {
           const returnUrl = location.state?.from?.pathname || '/dashboard';
           navigate(returnUrl);
-          
-          // Log navigation to dashboard
-          securityActions.logEvent('user_navigation_dashboard', {
-            email: formData.email,
-            returnUrl,
-            timestamp: new Date().toISOString(),
-          }, 'low');
         }, 1500);
       }
     } catch (err: any) {
-      // Enterprise-grade error handling - NEVER expose internal errors
-      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'LoginPage');
-      
-      // Log security event with sanitized error
-      securityActions.logEvent('enterprise_login_error', {
-        email: formData.email,
-        errorCode: enterpriseError.code,
-        severity: enterpriseError.severity,
-        timestamp: new Date().toISOString(),
-      }, enterpriseError.severity);
-      
-      // Set user-friendly error message (NEVER internal details)
-      setError(enterpriseError.userMessage);
+      // Error is already handled by the hook
+      console.error('Login error:', err);
     }
   };
 
@@ -187,10 +142,7 @@ export const LoginPage: React.FC = () => {
                       🚀 Enterprise Security Active
                     </p>
                     <p className="text-sm text-green-700 mb-2">
-                      {securityState.environmentValid 
-                        ? 'All security checks passed. Your login is protected by enterprise-grade security.'
-                        : 'Security validation in progress...'
-                      }
+                      Your login is protected by enterprise-grade security.
                     </p>
                     <div className="flex items-center space-x-2 text-xs text-green-600">
                       <Lock className="h-3 w-3" />

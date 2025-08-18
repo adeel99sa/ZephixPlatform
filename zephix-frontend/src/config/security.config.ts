@@ -53,7 +53,7 @@ export const securityConfig: SecurityConfig = {
   ],
   
   // Logging & Monitoring
-  LOG_LEVEL: import.meta.env.DEV ? 'debug' : 'error',
+  LOG_LEVEL: import.meta.env.DEV ? 'warn' : 'error',
   SECURITY_AUDIT_ENABLED: true,
   
   // Development Overrides

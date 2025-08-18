@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { api } from '../services/api';
+import { apiJson } from '../services/api';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -102,14 +102,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await api.post('/auth/login', { email, password });
-          const { user, token, refreshToken, expiresIn } = response.data;
+          const response = await apiJson('/auth/login', { method: 'POST', body: { email, password } });
+          const { user, accessToken, refreshToken, expiresIn } = response;
 
           const sessionExpiry = Date.now() + (expiresIn * 1000);
 
           set({
             user,
-            token,
+            token: accessToken,
             refreshToken,
             isAuthenticated: true,
             sessionExpiry,
@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthState>()(
           toast.success(`Welcome back, ${user.firstName}!`);
           return true;
         } catch (error: any) {
-          const message = error.response?.data?.message || 'Login failed';
+          const message = error.message || 'Login failed';
           toast.error(message);
           set({ isLoading: false });
           return false;
@@ -131,14 +131,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await api.post('/auth/signup', data);
-          const { user, token, refreshToken, expiresIn } = response.data;
+          const response = await apiJson('/auth/register', { method: 'POST', body: data });
+          const { user, accessToken, refreshToken, expiresIn } = response;
 
           const sessionExpiry = Date.now() + (expiresIn * 1000);
 
           set({
             user,
-            token,
+            token: accessToken,
             refreshToken,
             isAuthenticated: true,
             sessionExpiry,
@@ -148,7 +148,7 @@ export const useAuthStore = create<AuthState>()(
           toast.success('Account created successfully!');
           return true;
         } catch (error: any) {
-          const message = error.response?.data?.message || 'Signup failed';
+          const message = error.message || 'Signup failed';
           toast.error(message);
           set({ isLoading: false });
           return false;
@@ -160,7 +160,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          await api.post('/auth/logout');
+          await apiJson('/auth/logout', { method: 'POST' });
         } catch (error) {
           console.error('Logout error:', error);
         } finally {
@@ -178,8 +178,8 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await api.post('/auth/refresh', { refreshToken });
-          const { token, refreshToken: newRefreshToken, expiresIn } = response.data;
+          const response = await apiJson('/auth/refresh', { method: 'POST', body: { refreshToken } });
+          const { token, refreshToken: newRefreshToken, expiresIn } = response;
 
           const sessionExpiry = Date.now() + (expiresIn * 1000);
 
@@ -191,27 +191,21 @@ export const useAuthStore = create<AuthState>()(
 
           return true;
         } catch (error) {
-          console.error('Session refresh error:', error);
+          console.error('Token refresh failed:', error);
           return false;
         }
       },
 
       // Validate session
       validateSession: async () => {
-        const { token } = get();
-        
-        if (!token) {
-          return false;
-        }
-
         try {
-          const response = await api.get('/auth/me');
-          const { user } = response.data;
+          const response = await apiJson('/auth/me');
+          const { user } = response;
 
-          set({ user, isAuthenticated: true });
+          set({ user });
           return true;
         } catch (error) {
-          console.error('Session validation error:', error);
+          console.error('Session validation failed:', error);
           return false;
         }
       },

@@ -9,28 +9,11 @@ import {
   CreateWorkflowInstanceRequest,
   WorkflowActionRequest
 } from '../types/workflow';
-
-const API_BASE_URL = process.env.VITE_API_BASE_URL || '/api';
+import { apiJson } from './api';
 
 class WorkflowTemplateService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = localStorage.getItem('accessToken');
-    
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiJson(endpoint, options);
   }
 
   // Workflow Templates
@@ -172,23 +155,7 @@ class WorkflowTemplateService {
 
 class IntakeFormService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = localStorage.getItem('accessToken');
-    
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return response.json();
+    return apiJson(endpoint, options);
   }
 
   // Intake Forms Management

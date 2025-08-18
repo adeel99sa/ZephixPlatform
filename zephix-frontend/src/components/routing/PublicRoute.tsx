@@ -1,6 +1,6 @@
 import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useEnterpriseAuthStore } from '../../stores/enterpriseAuthStore';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 import { LoadingScreen } from '../common/LoadingScreen';
 
 /**
@@ -9,8 +9,7 @@ import { LoadingScreen } from '../common/LoadingScreen';
  * Redirects authenticated users away from auth pages to dashboard
  */
 export const PublicRoute: React.FC = () => {
-  const { isAuthenticated, isLoading } = useEnterpriseAuthStore();
-  const location = useLocation();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
   // Show loading screen while checking authentication status
   if (isLoading) {
