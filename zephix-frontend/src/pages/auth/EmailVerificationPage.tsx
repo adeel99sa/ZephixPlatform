@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Mail, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { apiJson } from '../../services/api';
 
 interface VerificationResult {
   success: boolean;
@@ -36,29 +37,17 @@ const EmailVerificationPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/auth/verify-email/${verificationToken}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setResult(data);
-        // Auto-redirect to login after 3 seconds
-        setTimeout(() => {
-          navigate('/auth/login', { 
-            state: { 
-              message: 'Email verified successfully! You can now log in.',
-              email: data.user?.email 
-            }
-          });
-        }, 3000);
-      } else {
-        setError(data.message || 'Verification failed');
-      }
+      const data = await apiJson(`/auth/verify-email/${verificationToken}`);
+      setResult(data);
+      // Auto-redirect to login after 3 seconds
+      setTimeout(() => {
+        navigate('/auth/login', { 
+          state: { 
+            message: 'Email verified successfully! You can now log in.',
+            email: data.user?.email 
+          }
+        });
+      }, 3000);
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {
