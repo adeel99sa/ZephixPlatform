@@ -26,564 +26,68 @@ if (
 // Initialize OpenTelemetry before importing anything else
 import './telemetry';
 
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
-import * as crypto from 'crypto'; // Proper import of crypto
-import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
-import { AuthModule } from './auth/auth.module';
-import { AuthService } from './auth/auth.service';
-import { AuthController } from './auth/auth.controller';
+import { NestFactory } from '@nestjs/core'
+import { AppModule } from './app.module'
+import { ValidationPipe } from '@nestjs/common'
+import helmet from 'helmet'
+import cookieParser from 'cookie-parser'
+import * as crypto from 'crypto'
+
+function parseOrigins() {
+  const defaults = [
+    'http://localhost:5173'
+  ]
+  const extra = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const set = new Set([...defaults, ...extra])
+  return Array.from(set)
+}
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule)
 
-  try {
-    logger.log('Starting Zephix Backend...');
-    logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger.log(`Database URL configured: ${!!process.env.DATABASE_URL}`);
-    logger.log(`AI Service configured: ${!!process.env.ANTHROPIC_API_KEY}`);
+  app.setGlobalPrefix('api')
 
-    // EMERGENCY: Check if we should skip database for emergency startup
-    const skipDatabase =
-      process.env.SKIP_DATABASE === 'true' ||
-      process.env.EMERGENCY_MODE === 'true';
-    if (skipDatabase) {
-      logger.warn(
-        '🚨 EMERGENCY MODE: Skipping database connection for emergency startup',
-      );
-      logger.warn(
-        '🚨 This will disable authentication and data persistence features',
-      );
-    }
+  app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin' }
+  }))
 
-    const app = await NestFactory.create(AppModule, {
-      logger:
-        process.env.NODE_ENV === 'production'
-          ? ['error', 'warn', 'log']
-          : ['error', 'warn', 'log', 'debug', 'verbose'],
-    });
+  app.use(cookieParser())
 
-    // Get configuration service
-    const configService = app.get(ConfigService);
+  const allowed = parseOrigins()
 
-    // ENHANCED: Safe migration handling that won't crash the app
-    if (!skipDatabase) {
-      await handleMigrationsSafely(app, logger);
-    } else {
-      logger.warn('🚨 Skipping migrations due to emergency mode');
-    }
+  app.enableCors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true)
+      if (allowed.includes(origin)) return cb(null, true)
+      return cb(new Error('CORS blocked'), false)
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id', 'Content-Length'],
+    credentials: true,
+    maxAge: 600
+  })
 
-    // Set trust proxy for proper IP detection behind proxies (Railway, CloudFlare, etc.)
-    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.use((req, res, next) => {
+    const rid = req.headers['x-request-id'] || crypto.randomUUID()
+    res.setHeader('X-Request-Id', String(rid))
+    // @ts-ignore
+    req.id = rid
+    next()
+  })
 
-    // Bulletproof CORS configuration for all environments
-    const corsConfig = getCorsConfig();
-    logger.log(`CORS Configuration: ${JSON.stringify(corsConfig, null, 2)}`);
-    logger.log(`Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
-    logger.log(`Backend URL: ${process.env.BACKEND_URL || 'Not set'}`);
-    logger.log(`Environment: ${process.env.NODE_ENV || 'Not set'}`);
-    app.enableCors(corsConfig);
+  // Global validation pipe
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 
-    // CRITICAL: Set global API prefix for all routes
-    app.setGlobalPrefix('api');
-    logger.log('Global API prefix set to: /api');
-
-    // CRITICAL: Debug module loading and route registration
-    logger.log('🔍 Checking module imports...');
-    try {
-      const appModule = app.get(AppModule);
-      logger.log('✅ AppModule loaded successfully');
-
-      // Check if AuthModule is accessible - use class token instead of string
-      const moduleRef = app.select(AuthModule);
-      const authService = moduleRef.get(AuthService, { strict: true });
-      logger.log('🔐 AuthService accessible:', !!authService);
-
-      // Verify AuthModule controllers are registered using class tokens
-      const authController = app.get(AuthController);
-      logger.log('🔐 AuthController accessible:', !!authController);
-    } catch (error) {
-      logger.error('❌ Error checking modules:', error.message);
-    }
-
-    // CRITICAL: Add request logging middleware to debug HTTP requests
-    app.use((req: any, res: any, next: any) => {
-      const timestamp = new Date().toISOString();
-      const method = req.method;
-      const url = req.url;
-      const userAgent = req.get('User-Agent') || 'Unknown';
-      const ip = req.ip || req.connection.remoteAddress || 'Unknown';
-
-      console.log(
-        `🌐 [${timestamp}] ${method} ${url} - IP: ${ip} - UA: ${userAgent}`,
-      );
-
-      // Log request body for debugging (excluding sensitive data)
-      if (req.body && Object.keys(req.body).length > 0) {
-        const sanitizedBody = { ...req.body };
-        if (sanitizedBody.password) sanitizedBody.password = '[REDACTED]';
-        if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
-        console.log(`📦 Request Body: ${JSON.stringify(sanitizedBody)}`);
-      }
-
-      next();
-    });
-
-    // CRITICAL: Add response logging middleware
-    app.use((req: any, res: any, next: any) => {
-      const originalSend = res.send;
-      res.send = function (data: any) {
-        const timestamp = new Date().toISOString();
-        const statusCode = res.statusCode;
-        console.log(
-          `📤 [${timestamp}] ${req.method} ${req.url} - Status: ${statusCode}`,
-        );
-        originalSend.call(this, data);
-      };
-      next();
-    });
-
-    // Apply Helmet security headers AFTER CORS
-    const helmetConfig = configService.get('security.helmet');
-    if (helmetConfig.enabled) {
-      logger.log('Security headers enabled via Helmet');
-      app.use(
-        helmet({
-          crossOriginEmbedderPolicy: false, // Disable for API
-          crossOriginResourcePolicy: { policy: 'cross-origin' },
-          noSniff: true,
-          frameguard: { action: 'deny' },
-          // Additional security for production
-          ...(process.env.NODE_ENV === 'production' && {
-            hsts: {
-              maxAge: 31536000, // 1 year
-              includeSubDomains: true,
-              preload: true,
-            },
-            contentSecurityPolicy: {
-              directives: {
-                defaultSrc: ["'self'"],
-                styleSrc: ["'self'", "'unsafe-inline'"],
-                scriptSrc: ["'self'"],
-                imgSrc: ["'self'", 'data:', 'https:'],
-                connectSrc: [
-                  "'self'",
-                  'https://zephix-frontend-production.up.railway.app',
-                  'https://zephix-backend-production.up.railway.app',
-                  'https://api.getzephix.com',
-                  'https://getzephix.com',
-                  'https://www.getzephix.com',
-                  'https://app.getzephix.com',
-                  'wss:',
-                  'https:',
-                ],
-                fontSrc: ["'self'", 'https:'],
-                objectSrc: ["'none'"],
-                mediaSrc: ["'self'"],
-                frameSrc: ["'none'"],
-              },
-            },
-          }),
-        }),
-      );
-    }
-
-    // ENHANCED: Rate limiting with Railway-specific optimizations
-    const rateLimitConfig = configService.get('security.rateLimit');
-    if (rateLimitConfig.enabled) {
-      logger.log('Rate limiting enabled');
-
-      // General rate limiting
-      app.use(
-        rateLimit({
-          windowMs: rateLimitConfig.windowMs,
-          max: rateLimitConfig.max,
-          message: {
-            error: 'Too many requests from this IP, please try again later.',
-            retryAfter: Math.ceil(rateLimitConfig.windowMs / 1000),
-          },
-          standardHeaders: true,
-          legacyHeaders: false,
-          // Railway-specific optimizations
-          skip: (req) => {
-            // Skip health check endpoints to reduce noise
-            return (
-              req.path === '/api/health' || req.path.startsWith('/api/metrics')
-            );
-          },
-        }),
-      );
-
-      // Stricter rate limiting for authentication endpoints
-      app.use(
-        '/api/auth',
-        rateLimit({
-          windowMs: rateLimitConfig.authWindowMs,
-          max: rateLimitConfig.authMax,
-          message: {
-            error: 'Too many authentication attempts, please try again later.',
-            retryAfter: Math.ceil(rateLimitConfig.authWindowMs / 1000),
-          },
-          standardHeaders: true,
-          legacyHeaders: false,
-        }),
-      );
-    }
-
-    // ENHANCED: Global validation pipe with better error handling
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        transformOptions: {
-          enableImplicitConversion: true,
-        },
-        // Better error messages for Railway debugging
-        exceptionFactory: (errors) => {
-          const formattedErrors = errors.map((error) => ({
-            field: error.property,
-            value: error.value,
-            constraints: error.constraints,
-            children: error.children,
-          }));
-
-          logger.warn('Validation errors:', formattedErrors);
-
-          return new Error(
-            `Validation failed: ${formattedErrors
-              .map((e) => Object.values(e.constraints || {}).join(', '))
-              .join('; ')}`,
-          );
-        },
-      }),
-    );
-
-    // Get port from environment or configuration
-    const port = configService.get('port') || process.env.PORT || 3000;
-
-    // CRITICAL: Log port binding information
-    logger.log(`🔌 Binding to port: ${port}`);
-    logger.log(`🌐 Binding to host: 0.0.0.0 (all interfaces)`);
-    logger.log(`🚂 Railway PORT env: ${process.env.PORT || 'Not set'}`);
-
-    // ENHANCED: Graceful shutdown handling for Railway
-    const server = await app.listen(port, '0.0.0.0');
-
-    // CRITICAL: Verify server is listening
-    if (server.listening) {
-      logger.log(`✅ Server successfully bound to port ${port}`);
-      logger.log(`🌐 Server address: ${server.address()}`);
-    } else {
-      logger.error(`❌ Server failed to bind to port ${port}`);
-      throw new Error(`Server binding failed on port ${port}`);
-    }
-
-    // CRITICAL: Debug route registration
-    logger.log('🔍 Checking registered routes...');
-    try {
-      const router = app.getHttpAdapter().getInstance()._router;
-      if (router && router.stack) {
-        logger.log(`📋 Total middleware stack items: ${router.stack.length}`);
-
-        // Log route information
-        router.stack.forEach((layer: any, index: number) => {
-          if (layer.route) {
-            const methods = Object.keys(layer.route.methods).filter(
-              (method) => layer.route.methods[method],
-            );
-            logger.log(
-              `🛣️  Route ${index}: ${methods.join(',')} ${layer.route.path}`,
-            );
-          }
-        });
-      } else {
-        logger.warn('⚠️  Router stack not accessible for debugging');
-      }
-    } catch (error) {
-      logger.error('❌ Error checking routes:', error.message);
-    }
-
-    // Graceful shutdown handling
-    const gracefulShutdown = async (signal: string) => {
-      logger.log(`Received ${signal}, starting graceful shutdown...`);
-
-      try {
-        // Close server
-        await new Promise<void>((resolve) => {
-          server.close(() => resolve());
-        });
-
-        // Close database connections only if database is enabled
-        if (!skipDatabase) {
-          try {
-            const dataSource = app.get(DataSource);
-            if (dataSource.isInitialized) {
-              await dataSource.destroy();
-              logger.log('Database connections closed');
-            }
-          } catch (dbError) {
-            logger.warn(
-              'Could not close database connections:',
-              dbError.message,
-            );
-          }
-        }
-
-        logger.log('Graceful shutdown completed');
-        process.exit(0);
-      } catch (error) {
-        logger.error('Error during graceful shutdown:', error);
-        process.exit(1);
-      }
-    };
-
-    // Handle shutdown signals
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-    logger.log(`🚀 Zephix Backend is running on port ${port}`);
-    logger.log(
-      `📊 Health check available at: http://localhost:${port}/api/health`,
-    );
-    logger.log(`📈 Metrics available at: http://localhost:${port}/api/metrics`);
-
-    // ENHANCED: Railway-specific startup message
-    if (process.env.NODE_ENV === 'production') {
-      logger.log('🚂 Railway production environment detected');
-      logger.log('🔒 SSL and security headers enabled');
-      logger.log('📊 Production logging configured');
-    }
-
-    // EMERGENCY MODE WARNING
-    if (skipDatabase) {
-      logger.error('🚨 EMERGENCY MODE ACTIVE - Database features disabled');
-      logger.error(
-        '🚨 Set SKIP_DATABASE=false and fix database connection to restore full functionality',
-      );
-    }
-  } catch (error) {
-    logger.error('❌ Failed to start Zephix Backend:', error);
-
-    // ENHANCED: Better error reporting for Railway
-    if (process.env.NODE_ENV === 'production') {
-      logger.error('Production startup failure - check logs and restart');
-
-      // EMERGENCY: Suggest emergency mode
-      logger.error(
-        '🚨 EMERGENCY: Try setting SKIP_DATABASE=true to start without database',
-      );
-      logger.error(
-        '🚨 This will allow basic health checks and API structure to work',
-      );
-    }
-
-    process.exit(1);
-  }
+  await app.listen(process.env.PORT || 3000)
 }
 
-/**
- * ENHANCED: Safe migration handling that won't crash the application
- */
-async function handleMigrationsSafely(app: any, logger: Logger): Promise<void> {
-  try {
-    // Check if migrations should run on startup
-    const runMigrationsOnBoot = process.env.RUN_MIGRATIONS_ON_BOOT === 'true';
+bootstrap()
 
-    if (!runMigrationsOnBoot) {
-      logger.log('Migrations disabled on boot - run manually via CLI');
-      return;
-    }
-
-    logger.log('🔄 Running database migrations...');
-
-    try {
-      const dataSource = app.get(DataSource);
-
-      // Wait for database connection
-      if (!dataSource.isInitialized) {
-        logger.log('Waiting for database connection...');
-        await dataSource.initialize();
-      }
-
-      // Run migrations with timeout protection
-      const migrationPromise = dataSource.runMigrations();
-      const timeoutPromise = new Promise(
-        (_, reject) =>
-          setTimeout(() => reject(new Error('Migration timeout')), 300000), // 5 minutes
-      );
-
-      const migrations = await Promise.race([migrationPromise, timeoutPromise]);
-
-      if (migrations.length > 0) {
-        logger.log(`✅ Successfully ran ${migrations.length} migration(s):`);
-        migrations.forEach((migration: any) => {
-          logger.log(`   - ${migration.name}`);
-        });
-      } else {
-        logger.log('ℹ️  No pending migrations found');
-      }
-    } catch (migrationError) {
-      logger.error('❌ Database migration failed:', migrationError);
-
-      // ENHANCED: Don't crash the app, just log the error
-      logger.warn('⚠️  Application will start without running migrations');
-      logger.warn(
-        '💡 Run migrations manually: npm run migration:run:consolidated',
-      );
-
-      // Continue with app startup
-      return;
-    }
-  } catch (error) {
-    logger.error('❌ Migration handling error:', error);
-    logger.warn('⚠️  Application will start without migration handling');
-  }
-}
-
-/**
- * Bulletproof CORS configuration for all environments
- */
-function getCorsConfig() {
-  const isDev = process.env.NODE_ENV === 'development';
-  const isLocalDev = process.env.LOCAL_DEV === 'true';
-  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',') || [];
-  const frontendUrl = process.env.FRONTEND_URL;
-  const backendUrl = process.env.BACKEND_URL;
-
-  // Production environment (Railway)
-  if (!isDev) {
-    const productionOrigins = [
-      'https://zephix-frontend-production.up.railway.app',
-      'https://getzephix.com',
-      'https://www.getzephix.com',
-      'https://app.getzephix.com',
-      // Add any additional production origins from environment
-      ...allowedOrigins.filter(
-        (origin) =>
-          origin.includes('railway.app') ||
-          origin.includes('getzephix.com') ||
-          origin.includes('vercel.app') ||
-          origin.includes('netlify.app'),
-      ),
-    ];
-
-    // Remove duplicates and filter out empty strings
-    const uniqueProductionOrigins = [...new Set(productionOrigins)].filter(
-      Boolean,
-    );
-
-    return {
-      origin: uniqueProductionOrigins,
-      credentials: true, // Enable credentials for JWT authentication
-      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Authorization',
-        'Content-Type',
-        'Accept',
-        'Origin',
-        'X-Requested-With',
-        'X-Org-Id',
-        'X-Request-Id',
-        'X-CSRF-Token',
-        'X-Forwarded-For',
-        'X-Real-IP',
-        'X-Timestamp',
-      ],
-      exposedHeaders: [
-        'X-RateLimit-Limit',
-        'X-RateLimit-Remaining',
-        'X-RateLimit-Reset',
-        'X-Request-Id',
-        'X-Total-Count',
-        'X-Page-Count',
-      ],
-      optionsSuccessStatus: 204,
-      maxAge: 86400, // 24 hours
-      preflightContinue: false,
-    };
-  }
-
-  // Development environment
-  if (isLocalDev) {
-    // Local development (no Vite proxy)
-    return {
-      origin: [
-        'http://localhost:5173', // Vite default
-        'http://localhost:3000', // Vite custom port
-        'http://localhost:4173', // Vite preview
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:4173',
-      ],
-      credentials: false, // No credentials for local dev
-      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Authorization',
-        'Content-Type',
-        'Accept',
-        'Origin',
-        'X-Requested-With',
-        'X-Org-Id',
-        'X-Request-Id',
-        'X-Timestamp',
-      ],
-      exposedHeaders: [
-        'X-RateLimit-Limit',
-        'X-RateLimit-Remaining',
-        'X-RateLimit-Reset',
-        'X-Request-Id',
-      ],
-      optionsSuccessStatus: 204,
-      maxAge: 86400, // 24 hours
-      preflightContinue: false,
-    };
-  } else {
-    // Development with Vite proxy (default)
-    return {
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'http://localhost:4173',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:4173',
-        // Add any additional dev origins
-        ...allowedOrigins.filter(
-          (origin) =>
-            origin.includes('localhost') || origin.includes('127.0.0.1'),
-        ),
-      ],
-      credentials: true, // Credentials for Vite proxy
-      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Authorization',
-        'Content-Type',
-        'Accept',
-        'Origin',
-        'X-Requested-With',
-        'X-Org-Id',
-        'X-Request-Id',
-        'X-Timestamp',
-      ],
-      exposedHeaders: [
-        'X-RateLimit-Limit',
-        'X-RateLimit-Remaining',
-        'X-RateLimit-Reset',
-        'X-Request-Id',
-      ],
-      optionsSuccessStatus: 204,
-      maxAge: 86400,
-      preflightContinue: false,
-    };
-  }
-}
-
-bootstrap();
 // CRITICAL: Railway container fixes
 // Handle graceful shutdown for SIGTERM
 process.on('SIGTERM', () => {
