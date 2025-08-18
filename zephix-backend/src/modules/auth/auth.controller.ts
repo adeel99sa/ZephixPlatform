@@ -26,23 +26,23 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * User login endpoint
+   * User login endpoint - DEPRECATED: Use /api/auth/login instead
    */
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(RateLimiterGuard)
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() loginDto: LoginDto) {
-    const result = await this.authService.login(loginDto);
+  // @Post('login')
+  // @HttpCode(HttpStatus.OK)
+  // @UseGuards(RateLimiterGuard)
+  // @ApiOperation({ summary: 'User login' })
+  // @ApiResponse({ status: 200, description: 'Login successful' })
+  // @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  // async login(@Body() loginDto: LoginDto) {
+  //   const result = await this.authService.login(loginDto);
 
-    if (!result) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+  //   if (!result) {
+  //     throw new UnauthorizedException('Invalid credentials');
+  //   }
 
-    return result;
-  }
+  //   return result;
+  // }
 
   /**
    * User signup endpoint

@@ -99,6 +99,24 @@ export class HealthController {
       });
   }
 
+  @Get(['version', 'api/version'])
+  @ApiOperation({ summary: 'Version information endpoint' })
+  @ApiResponse({ status: 200, description: 'Version information' })
+  async version() {
+    return {
+      version: process.env.npm_package_version || '0.0.1',
+      name: 'Zephix Backend',
+      environment: process.env.NODE_ENV || 'development',
+      nodeVersion: process.version,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      },
+    };
+  }
+
   @Get(['live', 'api/health/live'])
   @ApiOperation({ summary: 'Liveness probe endpoint' })
   @ApiResponse({ status: 200, description: 'Service is alive' })
