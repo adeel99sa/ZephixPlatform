@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PaperAirplaneIcon, SparklesIcon, BrainIcon, LightBulbIcon, ChartBarIcon, ExclamationTriangleIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { Button } from './ui/Button';
-import { aiApi } from '../services/api';
+import { aiApi, apiJson } from '../services/api';
 import { toast } from 'sonner';
 
 interface Message {
@@ -60,9 +60,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const loadQuickActions = async () => {
     try {
-      const response = await fetch('/api/ai-chat/quick-actions');
-      const data = await response.json();
-      setQuickActions(data.actions);
+      const response = await apiJson('/ai-chat/quick-actions');
+      setQuickActions(response.actions);
     } catch (error) {
       console.error('Failed to load quick actions:', error);
       // Set default quick actions
@@ -138,21 +137,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai-chat/send-message', {
+      const data = await apiJson('/ai-chat/send-message', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           message: textToSend,
           context: {
             userId: 'current-user', // This would come from auth context
             projectId,
           },
-        }),
+        },
       });
-
-      const data = await response.json();
       
       const aiMessage: Message = {
         id: data.messageId,

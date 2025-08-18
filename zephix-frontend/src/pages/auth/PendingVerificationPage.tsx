@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
+import { apiJson } from '../../services/api';
 
 interface LocationState {
   email?: string;
@@ -32,25 +33,18 @@ const PendingVerificationPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      try {
+        await apiJson('/auth/resend-verification', {
+          method: 'POST',
+        });
         setResendSuccess(true);
-      } else {
-        if (response.status === 401) {
+      } catch (error: any) {
+        if (error.message === 'UNAUTHORIZED') {
           // Token expired, redirect to login
           navigate('/auth/login');
           return;
         }
-        setResendError(data.message || 'Failed to resend verification email');
+        setResendError(error.message || 'Failed to resend verification email');
       }
     } catch (err) {
       setResendError('Network error. Please try again.');
