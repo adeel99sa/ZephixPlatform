@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiJson } from '../services/api';
 
 export interface UseProjectInitiationReturn {
   analyzeDocument: (file: File, type: string, orgContext: any) => Promise<any>;
@@ -19,29 +20,11 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
     data?: any;
     headers?: any;
   }) => {
-    const baseUrl = process.env.VITE_API_BASE_URL || '/api';
-    const token = localStorage.getItem('authToken');
-
-    const response = await fetch(`${baseUrl}/api${options.url}`, {
+    return apiJson(options.url, {
       method: options.method,
-      headers: {
-        'Content-Type': options.headers?.['Content-Type'] || 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-      body: options.data ? (
-        options.headers?.['Content-Type'] === 'multipart/form-data' 
-          ? options.data 
-          : JSON.stringify(options.data)
-      ) : undefined,
+      body: options.data,
+      headers: options.headers,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
   };
 
   const analyzeDocument = async (file: File, type: string, orgContext: any) => {

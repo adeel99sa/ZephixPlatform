@@ -1,7 +1,8 @@
 // src/utils/constants.ts
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://api.getzephix.com/api';
+// API_BASE_URL is deprecated - use services/api.ts instead
+// This constant is kept for backward compatibility but should not be used for new code
+export const API_BASE_URL = '/api';
 
 // Allowed project status keys: 'planning', 'active', 'on_hold', 'completed', 'cancelled'
 export const PROJECT_STATUS_LABELS = {

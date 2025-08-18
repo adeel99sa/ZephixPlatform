@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { apiJson } from '../services/api';
 
 export interface UseStatusReportingReturn {
   generateReport: (config: any) => Promise<any>;
@@ -19,19 +20,10 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
     setError(null);
     
     try {
-      const response = await fetch('/api/pm/status-reporting/generate', {
+      const data = await apiJson('/pm/status-reporting/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
+        body: config,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      const data = await response.json();
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
@@ -43,9 +35,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const getMetrics = useCallback(async (projectId: string) => {
     try {
-      const response = await fetch(`/api/pm/status-reporting/${projectId}/metrics`);
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      return await response.json();
+      return await apiJson(`/pm/status-reporting/${projectId}/metrics`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
       throw err;
@@ -54,9 +44,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const getTrends = useCallback(async (projectId: string) => {
     try {
-      const response = await fetch(`/api/pm/status-reporting/${projectId}/trends`);
-      if (!response.ok) throw new Error('Failed to fetch trends');
-      return await response.json();
+      return await apiJson(`/pm/status-reporting/${projectId}/trends`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch trends');
       throw err;
@@ -65,15 +53,10 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const exportReport = useCallback(async (reportId: string, format: string) => {
     try {
-      const response = await fetch(`/api/pm/status-reporting/${reportId}/export`, {
+      return await apiJson(`/pm/status-reporting/${reportId}/export`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ format, stakeholderType: 'executive' }),
+        body: { format, stakeholderType: 'executive' },
       });
-      if (!response.ok) throw new Error('Failed to export report');
-      return await response.json();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export report');
       throw err;
@@ -82,15 +65,10 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const configureAlerts = useCallback(async (projectId: string, config: any) => {
     try {
-      const response = await fetch(`/api/pm/status-reporting/${projectId}/alerts/configure`, {
+      return await apiJson(`/pm/status-reporting/${projectId}/alerts/configure`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
+        body: config,
       });
-      if (!response.ok) throw new Error('Failed to configure alerts');
-      return await response.json();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to configure alerts');
       throw err;

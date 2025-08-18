@@ -5,6 +5,7 @@ import {
   DocumentIntelligenceProps,
   DocumentIntelligenceState 
 } from '../../types/document-intelligence.types';
+import { apiJson } from '../../services/api';
 
 const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({ 
   onAnalysisComplete, 
@@ -34,7 +35,7 @@ const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
       formData.append('documentType', detectDocumentType(file.name));
       formData.append('organizationContext', JSON.stringify(organizationContext));
 
-      const response = await fetch('/api/ai-intelligence/pm-document-upload', {
+      const response = await apiJson('/ai-intelligence/pm-document-upload', {
         method: 'POST',
         body: formData
       });

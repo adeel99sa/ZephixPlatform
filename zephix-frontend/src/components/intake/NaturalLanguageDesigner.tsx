@@ -19,6 +19,7 @@ import { Button } from '../ui/Button';
 import { AIFormPreview } from './AIFormPreview';
 import { RefinementInterface } from './RefinementInterface';
 import { DeploymentOptions } from './DeploymentOptions';
+import { apiJson } from '../../services/api';
 
 interface ConversationMessage {
   id: string;
@@ -175,24 +176,15 @@ export const NaturalLanguageDesigner: React.FC = () => {
 
     try {
       // Call the AI form generation API
-      const response = await fetch('/api/pm/intake-designer/generate', {
+      const result: GeneratedFormResult = await apiJson('/pm/intake-designer/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           description,
           expectedComplexity: 'moderate',
           includeWorkflow: true,
           enableConditionalLogic: true
-        }),
+        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate form');
-      }
-
-      const result: GeneratedFormResult = await response.json();
       setGeneratedForm(result);
 
       // Add AI response to conversation
@@ -236,22 +228,13 @@ export const NaturalLanguageDesigner: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/pm/intake-designer/temp/refine', {
+      const refinedForm: GeneratedFormResult = await apiJson('/pm/intake-designer/temp/refine', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           existingForm: generatedForm,
           refinementRequest
-        }),
+        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to refine form');
-      }
-
-      const refinedForm: GeneratedFormResult = await response.json();
       setGeneratedForm(refinedForm);
 
       // Add refinement conversation
@@ -283,22 +266,13 @@ export const NaturalLanguageDesigner: React.FC = () => {
     if (!generatedForm) return;
 
     try {
-      const response = await fetch('/api/pm/intake-designer/temp/deploy', {
+      const result = await apiJson('/pm/intake-designer/temp/deploy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           formStructure: generatedForm.formStructure,
           ...deploymentOptions
-        }),
+        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to deploy form');
-      }
-
-      const result = await response.json();
       
       const deployMessage: ConversationMessage = {
         id: Date.now().toString(),

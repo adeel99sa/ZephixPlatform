@@ -22,8 +22,7 @@ import { PublicRoute } from './components/routing/PublicRoute';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { ErrorFallback } from './components/common/ErrorFallback';
-import { EnterpriseAuthProvider } from './contexts/EnterpriseAuthContext';
-import { useEnterpriseAuthStore } from './stores/enterpriseAuthStore';
+import { useAuthStore } from './stores/authStore';
 
 // Configure Query Client
 const queryClient = new QueryClient({
@@ -44,7 +43,7 @@ const queryClient = new QueryClient({
 });
 
 const App: React.FC = () => {
-  const { initializeAuth } = useEnterpriseAuthStore();
+  const { initializeAuth } = useAuthStore();
 
   useEffect(() => {
     initializeAuth();
@@ -53,33 +52,31 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.href = '/'}>
       <QueryClientProvider client={queryClient}>
-        <EnterpriseAuthProvider>
-          <BrowserRouter>
-            <Suspense fallback={<LoadingScreen />}>
-              <Routes>
-                {/* Public Routes */}
-                <Route element={<PublicRoute />}>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/signup" element={<SignupPage />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                  <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-                </Route>
+        <BrowserRouter>
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route element={<PublicRoute />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+              </Route>
 
-                {/* Protected Routes */}
-                <Route element={<ProtectedRoute />}>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/projects/*" element={<ProjectsPage />} />
-                  <Route path="/teams/*" element={<TeamsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                </Route>
+              {/* Protected Routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/projects/*" element={<ProjectsPage />} />
+                <Route path="/teams/*" element={<TeamsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+              </Route>
 
-                {/* Fallback */}
-                <Route path="/404" element={<NotFoundPage />} />
-                <Route path="*" element={<Navigate to="/404" replace />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
+              {/* Fallback */}
+              <Route path="/404" element={<NotFoundPage />} />
+              <Route path="*" element={<Navigate to="/404" replace />} />
+            </Routes>
+          </Suspense>
           <Toaster 
             position="top-right"
             toastOptions={{
@@ -90,7 +87,7 @@ const App: React.FC = () => {
               },
             }}
           />
-        </EnterpriseAuthProvider>
+        </BrowserRouter>
         {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
       </QueryClientProvider>
     </ErrorBoundary>
