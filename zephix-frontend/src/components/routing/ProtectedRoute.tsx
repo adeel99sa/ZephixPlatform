@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useEnterpriseAuthStore } from '../../stores/enterpriseAuthStore';
-import { LoadingScreen } from '../common/LoadingScreen';
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 import { MainLayout } from '../../layouts/MainLayout';
+import { LoadingScreen } from '../common/LoadingScreen';
 
 /**
  * ProtectedRoute Component
@@ -15,20 +15,7 @@ export const ProtectedRoute: React.FC = () => {
     isLoading, 
     validateSession,
     clearAuth 
-  } = useEnterpriseAuthStore();
-  const location = useLocation();
-
-  useEffect(() => {
-    // Validate session on mount and route changes
-    const checkSession = async () => {
-      const isValid = await validateSession();
-      if (!isValid) {
-        clearAuth();
-      }
-    };
-
-    checkSession();
-  }, [location.pathname, validateSession, clearAuth]);
+  } = useAuthStore();
 
   // Show loading screen while checking authentication
   if (isLoading) {

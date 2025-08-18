@@ -3,279 +3,117 @@
  * Provides secure authentication methods with full security monitoring
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { enterpriseAuthService } from '../services/enterpriseAuth.service';
-import type { SecureAuthState } from '../services/enterpriseAuth.service';
-import { securityMiddleware } from '../middleware/security.middleware';
-import { enterpriseErrorHandler } from '../services/enterpriseErrorHandler';
+import { useAuthStore } from '../stores/authStore';
+import { apiJson } from '../services/api';
 
-export interface UseEnterpriseAuthReturn {
-  // State
-  authState: SecureAuthState;
-  isLoading: boolean;
-  error: string | null;
-  
-  // Actions
-  login: (credentials: { email: string; password: string }) => Promise<boolean>;
-  signup: (userData: { firstName: string; lastName: string; email: string; password: string }) => Promise<boolean>;
-  logout: () => Promise<void>;
-  refreshSession: () => Promise<boolean>;
-  
-  // Security
-  validateSession: () => Promise<boolean>;
-  getSecurityEvents: () => any[];
-  clearError: () => void;
-}
-
-export const useEnterpriseAuth = (): UseEnterpriseAuthReturn => {
-  const navigate = useNavigate();
-  const [authState, setAuthState] = useState<SecureAuthState>(enterpriseAuthService.getAuthState());
+export const useEnterpriseAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  
+  const { user, token, isAuthenticated, login: storeLogin, logout: storeLogout } = useAuthStore();
 
-  // Update local state when auth service state changes
-  useEffect(() => {
-    const updateState = () => {
-      setAuthState(enterpriseAuthService.getAuthState());
-    };
-
-    // Initial state
-    updateState();
-
-    // Set up polling for state updates
-    const interval = setInterval(updateState, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  /**
-   * Enterprise-secure login
-   */
-  const login = useCallback(async (credentials: { email: string; password: string }): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
-
+    
     try {
-      // Log security event
-      securityMiddleware.logSecurityEvent('enterprise_login_attempt', {
-        email: credentials.email,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-      }, 'medium');
-
-      const success = await enterpriseAuthService.loginSecurely(credentials);
-
-      if (success) {
-        // Update local state
-        setAuthState(enterpriseAuthService.getAuthState());
-        
-        // Log success
-        securityMiddleware.logSecurityEvent('enterprise_login_success', {
-          email: credentials.email,
-          userId: enterpriseAuthService.getCurrentUser()?.id,
-          timestamp: new Date().toISOString(),
-        }, 'low');
-
-        return true;
-      } else {
-        throw new Error('Login failed');
-      }
-
-    } catch (err: any) {
-      // Enterprise-grade error handling - NEVER expose internal errors
-      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
+      const res = await apiJson('/auth/login', { method: 'POST', body: { email, password } });
+      const token = res?.accessToken;
       
-      // Set user-friendly error message
-      setError(enterpriseError.userMessage);
-
-      // Log failure with sanitized error
-      securityMiddleware.logSecurityEvent('enterprise_login_failure', {
-        email: credentials.email,
-        errorCode: enterpriseError.code,
-        severity: enterpriseError.severity,
-        timestamp: new Date().toISOString(),
-      }, enterpriseError.severity);
-
+      if (!token) throw new Error('TOKEN_MISSING');
+      
+      // Update the store with the response data
+      const { user, refreshToken, expiresIn } = res;
+      const sessionExpiry = Date.now() + (expiresIn * 1000);
+      
+      // Update the store directly
+      useAuthStore.setState({
+        user,
+        token,
+        refreshToken,
+        isAuthenticated: true,
+        sessionExpiry,
+        isLoading: false,
+      });
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
+      
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setError(errorMessage);
       return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Enterprise-secure signup
-   */
-  const signup = useCallback(async (userData: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-  }): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Log security event
-      securityMiddleware.logSecurityEvent('enterprise_signup_attempt', {
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-      }, 'medium');
-
-      const success = await enterpriseAuthService.signupSecurely(userData);
-
-      if (success) {
-        // Update local state
-        setAuthState(enterpriseAuthService.getAuthState());
-        
-        // Log success
-        securityMiddleware.logSecurityEvent('enterprise_signup_success', {
-          email: userData.email,
-          userId: enterpriseAuthService.getCurrentUser()?.id,
-          timestamp: new Date().toISOString(),
-        }, 'low');
-
-        return true;
-      } else {
-        throw new Error('Signup failed');
-      }
-
-    } catch (err: any) {
-      // Enterprise-grade error handling - NEVER expose internal errors
-      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
-      
-      // Set user-friendly error message
-      setError(enterpriseError.userMessage);
-
-      // Log failure with sanitized error
-      securityMiddleware.logSecurityEvent('enterprise_signup_failure', {
-        email: userData.email,
-        errorCode: enterpriseError.code,
-        severity: enterpriseError.severity,
-        timestamp: new Date().toISOString(),
-      }, enterpriseError.severity);
-
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Enterprise-secure logout
-   */
-  const logout = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Log security event
-      securityMiddleware.logSecurityEvent('enterprise_logout_attempt', {
-        userId: enterpriseAuthService.getCurrentUser()?.id,
-        timestamp: new Date().toISOString(),
-      }, 'medium');
-
-      await enterpriseAuthService.logoutSecurely();
-
-      // Update local state
-      setAuthState(enterpriseAuthService.getAuthState());
-      
-      // Navigate to login
-      navigate('/login');
-
-      // Log success
-      securityMiddleware.logSecurityEvent('enterprise_logout_success', {
-        timestamp: new Date().toISOString(),
-      }, 'low');
-
-    } catch (err: any) {
-      // Enterprise-grade error handling - NEVER expose internal errors
-      const enterpriseError = enterpriseErrorHandler.handleAuthError(err, 'useEnterpriseAuth');
-      
-      // Set user-friendly error message
-      setError(enterpriseError.userMessage);
-
-      // Log failure with sanitized error
-      securityMiddleware.logSecurityEvent('enterprise_logout_failure', {
-        errorCode: enterpriseError.code,
-        severity: enterpriseError.severity,
-        timestamp: new Date().toISOString(),
-      }, enterpriseError.severity);
-
-      // Force navigation even if logout fails
-      navigate('/login');
     } finally {
       setIsLoading(false);
     }
   }, [navigate]);
 
-  /**
-   * Refresh session securely
-   */
-  const refreshSession = useCallback(async (): Promise<boolean> => {
+  const signup = useCallback(async (userData: any) => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      // This would implement token refresh logic
-      // For now, return false to indicate refresh needed
-      return false;
-    } catch (error) {
-      securityMiddleware.logSecurityEvent('enterprise_session_refresh_failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString(),
-      }, 'high');
-      return false;
-    }
-  }, []);
-
-  /**
-   * Validate current session
-   */
-  const validateSession = useCallback(async (): Promise<boolean> => {
-    try {
-      const isValid = enterpriseAuthService.isAuthenticated();
+      const res = await apiJson('/auth/register', { method: 'POST', body: userData });
+      const token = res?.accessToken;
       
-      if (!isValid) {
-        securityMiddleware.logSecurityEvent('enterprise_session_validation_failed', {
-          timestamp: new Date().toISOString(),
-        }, 'medium');
-      }
-
-      return isValid;
-    } catch (error) {
-      securityMiddleware.logSecurityEvent('enterprise_session_validation_error', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString(),
-      }, 'high');
+      if (!token) throw new Error('TOKEN_MISSING');
+      
+      // Update the store with the response data
+      const { user, refreshToken, expiresIn } = res;
+      const sessionExpiry = Date.now() + (expiresIn * 1000);
+      
+      // Update the store directly
+      useAuthStore.setState({
+        user,
+        token,
+        refreshToken,
+        isAuthenticated: true,
+        sessionExpiry,
+        isLoading: false,
+      });
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
+      
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      setError(errorMessage);
       return false;
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [navigate]);
 
-  /**
-   * Get security events
-   */
-  const getSecurityEvents = useCallback(() => {
-    return enterpriseAuthService.getSecurityEvents();
-  }, []);
+  const logout = useCallback(async () => {
+    try {
+      await apiJson('/auth/logout', { method: 'POST' });
+    } catch (err) {
+      // Continue with logout even if API call fails
+      console.warn('Logout API call failed:', err);
+    } finally {
+      storeLogout();
+      navigate('/login');
+    }
+  }, [storeLogout, navigate]);
 
-  /**
-   * Clear error
-   */
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   return {
-    authState,
+    user,
+    token,
+    isAuthenticated,
     isLoading,
     error,
     login,
     signup,
     logout,
-    refreshSession,
-    validateSession,
-    getSecurityEvents,
     clearError,
   };
 };
