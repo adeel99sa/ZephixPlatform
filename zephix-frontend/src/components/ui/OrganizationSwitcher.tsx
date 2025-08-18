@@ -36,7 +36,7 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({
     if (organizations.length === 0) {
       getUserOrganizations();
     }
-  }, [organizations.length, getUserOrganizations]);
+  }, [organizations.length]); // Removed getUserOrganizations from dependencies
 
   const handleSwitchOrganization = async (organization: Organization) => {
     if (organization.id === currentOrganization?.id) {
