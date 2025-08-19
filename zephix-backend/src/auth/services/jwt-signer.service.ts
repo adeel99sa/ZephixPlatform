@@ -51,7 +51,6 @@ export class JwtSignerService {
    */
   async signAccessToken(options: JWTSignOptions): Promise<string> {
     try {
-      const signingKey = this.keyLoaderService.getCurrentSigningKey();
       const payload = {
         sub: options.sub,
         email: options.email,
@@ -64,6 +63,7 @@ export class JwtSignerService {
         aud: this.jwtCfg.audience,
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.expiresIn),
+        token_type: 'access', // Explicit token type
       };
 
       if (this.jwtCfg.algorithm === 'RS256') {
@@ -108,7 +108,6 @@ export class JwtSignerService {
    */
   async signRefreshToken(options: JWTRefreshSignOptions): Promise<string> {
     try {
-      const refreshSigningKey = this.keyLoaderService.getCurrentRefreshSigningKey();
       const payload = {
         sub: options.sub,
         email: options.email,
@@ -118,6 +117,7 @@ export class JwtSignerService {
         aud: this.jwtCfg.refreshAudience,
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.refreshExpiresIn),
+        token_type: 'refresh', // Explicit token type
       };
 
       if (this.jwtCfg.algorithm === 'RS256') {
@@ -155,6 +155,29 @@ export class JwtSignerService {
       this.logger.error('Failed to sign refresh token:', error);
       throw error;
     }
+  }
+
+  /**
+   * Sign both access and refresh tokens
+   */
+  async signTokens(options: JWTSignOptions & { deviceId: string; tokenId: string }): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    jti: string;
+  }> {
+    const accessToken = await this.signAccessToken(options);
+    const refreshToken = await this.signRefreshToken({
+      sub: options.sub,
+      email: options.email,
+      deviceId: options.deviceId,
+      tokenId: options.tokenId,
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      jti: options.tokenId,
+    };
   }
 
   /**

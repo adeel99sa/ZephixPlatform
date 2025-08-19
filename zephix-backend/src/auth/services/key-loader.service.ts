@@ -46,7 +46,7 @@ export class KeyLoaderService {
   }
 
   /**
-   * Get the current access token key (public key for RS256, secret for HS256)
+   * Get the current access token public key (for RS256) or secret (for HS256)
    */
   getCurrentAccessKey(): string {
     const cacheKey = `access_${this.jwtCfg.algorithm}`;
@@ -59,6 +59,26 @@ export class KeyLoaderService {
     const key = this.loadAccessKey();
     this.cacheKey(cacheKey, key);
     return this.extractAccessKey(key);
+  }
+
+  /**
+   * Get the current access token public key (RS256 only)
+   */
+  getCurrentAccessPublicKey(): string {
+    if (this.jwtCfg.algorithm !== 'RS256') {
+      throw new Error('getCurrentAccessPublicKey is only available for RS256');
+    }
+    return this.getCurrentAccessKey();
+  }
+
+  /**
+   * Get the current HS256 secret (HS256 only)
+   */
+  getCurrentHSSecret(): string {
+    if (this.jwtCfg.algorithm !== 'HS256') {
+      throw new Error('getCurrentHSSecret is only available for HS256');
+    }
+    return this.getCurrentAccessKey();
   }
 
   /**
@@ -75,6 +95,26 @@ export class KeyLoaderService {
     const key = this.loadRefreshKey();
     this.cacheKey(cacheKey, key);
     return this.extractRefreshKey(key);
+  }
+
+  /**
+   * Get the current refresh token public key (RS256 only)
+   */
+  getCurrentRefreshPublicKey(): string {
+    if (this.jwtCfg.algorithm !== 'RS256') {
+      throw new Error('getCurrentRefreshPublicKey is only available for RS256');
+    }
+    return this.getCurrentRefreshKey();
+  }
+
+  /**
+   * Get the current refresh token secret (HS256 only)
+   */
+  getCurrentRefreshHSSecret(): string {
+    if (this.jwtCfg.algorithm !== 'HS256') {
+      throw new Error('getCurrentRefreshHSSecret is only available for HS256');
+    }
+    return this.getCurrentRefreshKey();
   }
 
   /**

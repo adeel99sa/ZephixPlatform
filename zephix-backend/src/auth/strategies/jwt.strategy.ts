@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
     private readonly keyLoaderService: KeyLoaderService,
   ) {
-    // Call super() first with default configuration
+    // Call super() first with basic configuration
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: 'placeholder', // Will be overridden
@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       audience: jwtCfg.audience,
     });
 
-    // Override strategy behavior based on algorithm
+    // Configure strategy based on algorithm
     this.configureStrategy();
 
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
@@ -54,7 +54,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Configure strategy behavior based on algorithm
    */
   private configureStrategy(): void {
-    if (this.jwtCfg.algorithm === 'RS256') {
+    const isRS256 = this.jwtCfg.algorithm === 'RS256';
+    
+    if (isRS256) {
       // RS256: Use secretOrKeyProvider for dynamic key loading
       (this as any).secretOrKeyProvider = (request: any, rawJwtToken: string, done: Function) => {
         try {
@@ -63,10 +65,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           const keyId = decodedHeader?.kid;
           
           if (!keyId) {
-            // Fallback to current key if no kid in header
-            const key = this.keyLoaderService.getCurrentAccessKey();
-            done(null, key);
-            return;
+            // Reject tokens missing kid when RS256
+            return done(new UnauthorizedException('RS256 tokens must include kid header'), null);
           }
 
           // Get the specific public key by kid for rotation support
