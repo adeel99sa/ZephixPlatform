@@ -75,7 +75,7 @@ export default registerAs('jwt', (): JWTConfig => {
       throw new Error('PEM key contains no content');
     }
     
-    // Add trailing newline for proper PEM format
+    // Add trailing newline for proper PEM format (OpenSSL requirement)
     if (!normalizedKey.endsWith('\n')) {
       normalizedKey += '\n';
     }

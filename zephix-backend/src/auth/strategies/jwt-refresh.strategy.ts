@@ -31,10 +31,35 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
     private readonly keyLoaderService: KeyLoaderService,
   ) {
-    // Use secretOrKeyProvider for dynamic public key loading (supports key rotation)
+    // Call super() first with default configuration
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKeyProvider: (request: any, rawJwtToken: string, done: Function) => {
+      secretOrKey: 'placeholder', // Will be overridden
+      ignoreExpiration: false,
+      algorithms: [jwtCfg.algorithm],
+      issuer: jwtCfg.issuer,
+      audience: jwtCfg.refreshAudience,
+    });
+
+    // Override strategy behavior based on algorithm
+    this.configureStrategy();
+
+    this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
+
+    if (this.isEmergencyMode) {
+      console.log('🚨 JwtRefreshStrategy: Emergency mode - database validation disabled');
+    }
+
+    console.log(`🔐 JWT Refresh Strategy initialized with ${jwtCfg.algorithm} algorithm`);
+  }
+
+  /**
+   * Configure strategy behavior based on algorithm
+   */
+  private configureStrategy(): void {
+    if (this.jwtCfg.algorithm === 'RS256') {
+      // RS256: Use secretOrKeyProvider for dynamic key loading
+      (this as any).secretOrKeyProvider = (request: any, rawJwtToken: string, done: Function) => {
         try {
           // Extract key ID from token header for proper key selection
           const decodedHeader = this.decodeTokenHeader(rawJwtToken);
@@ -61,20 +86,13 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
           this.logger.error('Refresh key loading error:', error.message);
           done(error, null);
         }
-      },
-      ignoreExpiration: false,
-      algorithms: [jwtCfg.algorithm],
-      issuer: jwtCfg.issuer,
-      audience: jwtCfg.refreshAudience,
-    });
-
-    this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
-
-    if (this.isEmergencyMode) {
-      console.log('🚨 JwtRefreshStrategy: Emergency mode - database validation disabled');
+      };
+      // Remove the static secretOrKey for RS256
+      delete (this as any).secretOrKey;
+    } else {
+      // HS256: Use secret directly
+      (this as any).secretOrKey = this.keyLoaderService.getCurrentRefreshKey();
     }
-
-    console.log(`🔐 JWT Refresh Strategy initialized with ${jwtCfg.algorithm} algorithm`);
   }
 
   async validate(payload: any): Promise<any> {
