@@ -13,6 +13,7 @@ import {
   HttpCode,
   BadRequestException,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { WorkflowTemplatesService } from '../services/workflow-templates.service';
 import { 
   WorkflowTemplateDto, 
@@ -32,12 +34,14 @@ import {
   UpdateWorkflowTemplateDto, 
   WorkflowTemplatesResponseDto,
   WorkflowType,
-  WorkflowStatus
+  WorkflowStatus,
+  WorkflowTemplateWithRelationsDto,
+  CloneTemplateDto,
 } from '../dto/workflow.dto';
 
 @ApiTags('Workflow Templates')
 @Controller('workflows/templates')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class WorkflowTemplatesController {
   constructor(
@@ -91,60 +95,35 @@ export class WorkflowTemplatesController {
   }
 
   @Get()
-  @ApiOperation({ 
-    summary: 'Get workflow templates',
-    description: 'Retrieve workflow templates for the organization with filtering and pagination'
-  })
-  @ApiQuery({ name: 'status', required: false, enum: WorkflowStatus })
-  @ApiQuery({ name: 'type', required: false, enum: WorkflowType })
-  @ApiQuery({ name: 'isDefault', required: false, type: Boolean })
-  @ApiQuery({ name: 'isPublic', required: false, type: Boolean })
-  @ApiQuery({ name: 'tags', required: false, type: [String] })
-  @ApiQuery({ name: 'page', required: false, type: Number, minimum: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 100 })
-  @ApiResponse({
-    status: 200,
-    description: 'Workflow templates retrieved successfully',
-    type: WorkflowTemplatesResponseDto,
-  })
+  @ApiOperation({ summary: 'Get all workflow templates for organization' })
+  @ApiResponse({ status: 200, description: 'Workflow templates retrieved successfully', type: WorkflowTemplatesResponseDto })
   async getWorkflowTemplates(
     @Request() req: any,
     @Query('status') status?: WorkflowStatus,
     @Query('type') type?: WorkflowType,
     @Query('isDefault') isDefault?: boolean,
-    @Query('isPublic') isPublic?: boolean,
-    @Query('tags') tags?: string[],
-    @Query('page', new ParseIntPipe({ optional: true })) page = 1,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit = 20,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
   ): Promise<WorkflowTemplatesResponseDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
+    const organizationId = req.headers['x-org-id'];
+    const templates = await this.workflowTemplatesService.findAll(
+      organizationId,
+      { status, type, isDefault }
+    );
 
-      // Validate pagination parameters
-      if (page < 1) {
-        throw new BadRequestException('Page must be greater than 0');
-      }
-      if (limit < 1 || limit > 100) {
-        throw new BadRequestException('Limit must be between 1 and 100');
-      }
+    const total = templates.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedTemplates = templates.slice(startIndex, endIndex);
 
-      return await this.workflowTemplatesService.getWorkflowTemplates(
-        organizationId,
-        status,
-        type,
-        isDefault,
-        isPublic,
-        tags,
-        page,
-        limit,
-      );
-    } catch (error) {
-      throw new BadRequestException(`Failed to retrieve workflow templates: ${error.message}`);
-    }
+    return {
+      templates: paginatedTemplates,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   @Get('default')
@@ -176,35 +155,15 @@ export class WorkflowTemplatesController {
   }
 
   @Get(':id')
-  @ApiOperation({ 
-    summary: 'Get workflow template by ID',
-    description: 'Retrieve a specific workflow template with all stages and approval gates'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Workflow template retrieved successfully',
-    type: WorkflowTemplateDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Workflow template not found',
-  })
+  @ApiOperation({ summary: 'Get workflow template by ID' })
+  @ApiResponse({ status: 200, description: 'Workflow template retrieved successfully', type: WorkflowTemplateWithRelationsDto })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async getWorkflowTemplateById(
     @Param('id') id: string,
     @Request() req: any,
-  ): Promise<WorkflowTemplateDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      return await this.workflowTemplatesService.getWorkflowTemplateById(id, organizationId);
-    } catch (error) {
-      throw new BadRequestException(`Failed to retrieve workflow template: ${error.message}`);
-    }
+  ): Promise<WorkflowTemplateWithRelationsDto> {
+    const organizationId = req.headers['x-org-id'];
+    return await this.workflowTemplatesService.findById(id, organizationId);
   }
 
   @Put(':id')
@@ -252,198 +211,83 @@ export class WorkflowTemplatesController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ 
-    summary: 'Delete workflow template',
-    description: 'Soft delete a workflow template (only draft templates with no usage can be deleted)'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID' })
-  @ApiResponse({
-    status: 204,
-    description: 'Workflow template deleted successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Template cannot be deleted in current state',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Workflow template not found',
-  })
+  @ApiOperation({ summary: 'Delete workflow template' })
+  @ApiResponse({ status: 200, description: 'Workflow template deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async deleteWorkflowTemplate(
     @Param('id') id: string,
     @Request() req: any,
-  ): Promise<void> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      await this.workflowTemplatesService.deleteWorkflowTemplate(id, organizationId);
-    } catch (error) {
-      throw new BadRequestException(`Failed to delete workflow template: ${error.message}`);
-    }
+  ): Promise<{ message: string }> {
+    const organizationId = req.headers['x-org-id'];
+    const userId = req.user?.id || 'system';
+    await this.workflowTemplatesService.deleteWorkflowTemplate(id, organizationId, userId);
+    return { message: 'Workflow template deleted successfully' };
   }
 
   @Post(':id/clone')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ 
-    summary: 'Clone workflow template',
-    description: 'Create a copy of an existing workflow template with all stages and approval gates'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID to clone' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        newName: {
-          type: 'string',
-          description: 'Optional new name for the cloned template',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Workflow template cloned successfully',
-    type: WorkflowTemplateDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Workflow template not found',
-  })
+  @ApiOperation({ summary: 'Clone workflow template' })
+  @ApiResponse({ status: 201, description: 'Workflow template cloned successfully', type: WorkflowTemplateDto })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async cloneWorkflowTemplate(
     @Param('id') id: string,
-    @Body() body: { newName?: string },
+    @Body() dto: CloneTemplateDto,
     @Request() req: any,
   ): Promise<WorkflowTemplateDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      return await this.workflowTemplatesService.cloneWorkflowTemplate(
-        id,
-        organizationId,
-        userId,
-        body.newName,
-      );
-    } catch (error) {
-      throw new BadRequestException(`Failed to clone workflow template: ${error.message}`);
-    }
+    const organizationId = req.headers['x-org-id'];
+    return await this.workflowTemplatesService.cloneTemplate(id, organizationId, dto);
   }
 
-  @Post(':id/activate')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: 'Activate workflow template',
-    description: 'Change template status from draft to active'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Workflow template activated successfully',
-    type: WorkflowTemplateDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Template cannot be activated in current state',
-  })
+  @Patch(':id/activate')
+  @ApiOperation({ summary: 'Activate workflow template' })
+  @ApiResponse({ status: 200, description: 'Workflow template activated successfully', type: WorkflowTemplateDto })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async activateWorkflowTemplate(
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<WorkflowTemplateDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      return await this.workflowTemplatesService.updateWorkflowTemplate(
-        id,
-        { status: WorkflowStatus.ACTIVE },
-        organizationId,
-        userId,
-      );
-    } catch (error) {
-      throw new BadRequestException(`Failed to activate workflow template: ${error.message}`);
-    }
+    const organizationId = req.headers['x-org-id'];
+    const userId = req.user?.id || 'system';
+    return await this.workflowTemplatesService.updateWorkflowTemplate(
+      id,
+      { status: WorkflowStatus.ACTIVE },
+      organizationId,
+      userId
+    );
   }
 
-  @Post(':id/archive')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: 'Archive workflow template',
-    description: 'Change template status to archived (cannot be modified after archiving)'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Workflow template archived successfully',
-    type: WorkflowTemplateDto,
-  })
+  @Patch(':id/archive')
+  @ApiOperation({ summary: 'Archive workflow template' })
+  @ApiResponse({ status: 200, description: 'Workflow template archived successfully', type: WorkflowTemplateDto })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async archiveWorkflowTemplate(
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<WorkflowTemplateDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      return await this.workflowTemplatesService.updateWorkflowTemplate(
-        id,
-        { status: WorkflowStatus.ARCHIVED },
-        organizationId,
-        userId,
-      );
-    } catch (error) {
-      throw new BadRequestException(`Failed to archive workflow template: ${error.message}`);
-    }
+    const organizationId = req.headers['x-org-id'];
+    const userId = req.user?.id || 'system';
+    return await this.workflowTemplatesService.updateWorkflowTemplate(
+      id,
+      { status: WorkflowStatus.ARCHIVED },
+      organizationId,
+      userId
+    );
   }
 
-  @Post(':id/set-default')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
-    summary: 'Set as default template',
-    description: 'Set this template as the default workflow template for the organization'
-  })
-  @ApiParam({ name: 'id', description: 'Workflow template ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Workflow template set as default successfully',
-    type: WorkflowTemplateDto,
-  })
-  async setAsDefaultTemplate(
+  @Patch(':id/set-default')
+  @ApiOperation({ summary: 'Set workflow template as default' })
+  @ApiResponse({ status: 200, description: 'Workflow template set as default successfully', type: WorkflowTemplateDto })
+  @ApiResponse({ status: 404, description: 'Workflow template not found' })
+  async setDefaultWorkflowTemplate(
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<WorkflowTemplateDto> {
-    try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
-
-      return await this.workflowTemplatesService.updateWorkflowTemplate(
-        id,
-        { isDefault: true },
-        organizationId,
-        userId,
-      );
-    } catch (error) {
-      throw new BadRequestException(`Failed to set template as default: ${error.message}`);
-    }
+    const organizationId = req.headers['x-org-id'];
+    const userId = req.user?.id || 'system';
+    return await this.workflowTemplatesService.updateWorkflowTemplate(
+      id,
+      { isDefault: true },
+      organizationId,
+      userId
+    );
   }
 }

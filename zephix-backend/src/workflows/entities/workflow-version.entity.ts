@@ -138,10 +138,6 @@ export class WorkflowVersion {
     return this.workflowTemplate && this.versionNumber === this.workflowTemplate.version;
   }
 
-  isPublished(): boolean {
-    return this.isPublished;
-  }
-
   canBePublished(): boolean {
     return !this.isPublished && this.workflowTemplate && this.workflowTemplate.status === 'draft';
   }
@@ -155,7 +151,7 @@ export class WorkflowVersion {
     const modified = this.changeLog.filter(c => c.changeType === 'modified').length;
     const removed = this.changeLog.filter(c => c.changeType === 'removed').length;
 
-    const changes = [];
+    const changes: string[] = [];
     if (added > 0) changes.push(`${added} added`);
     if (modified > 0) changes.push(`${modified} modified`);
     if (removed > 0) changes.push(`${removed} removed`);

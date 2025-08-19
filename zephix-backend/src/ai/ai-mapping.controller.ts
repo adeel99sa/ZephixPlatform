@@ -29,12 +29,13 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AIMappingService } from './services/ai-mapping.service';
 import { AIMappingRequestDto, AIMappingResponseDto, AIMappingStatusDto } from './dto/ai-mapping.dto';
 
 @ApiTags('AI Document Mapping')
 @Controller('ai/mapping')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AIMappingController {
   constructor(
