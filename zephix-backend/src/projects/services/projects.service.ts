@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Project } from '../entities/project.entity';
 import { Team } from '../entities/team.entity';
 import { TeamMember } from '../entities/team-member.entity';
@@ -15,9 +17,12 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 import { AddTeamMemberDto } from '../dto/add-team-member.dto';
 import { UpdateTeamMemberDto } from '../dto/update-team-member.dto';
 import { User } from '../../modules/users/entities/user.entity';
+import { ProjectStatus, Methodology } from '../entities/project.entity';
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     @InjectRepository(Project)
     private projectRepository: Repository<Project>,
@@ -27,48 +32,73 @@ export class ProjectsService {
     private teamMemberRepository: Repository<TeamMember>,
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
+    @InjectDataSource()
+    private dataSource: DataSource,
   ) {}
 
   async create(
     createProjectDto: CreateProjectDto,
-    user: User,
+    userId: string,
     organizationId: string,
   ): Promise<Project> {
-    // Create project
-    const project = this.projectRepository.create({
-      ...createProjectDto,
-      createdById: user.id,
-      organizationId,
+    // Use transaction for data consistency
+    return await this.dataSource.transaction(async manager => {
+      try {
+        // 1. Check for duplicate name within organization
+        const existingProject = await manager.findOne(Project, {
+          where: { name: createProjectDto.name, organizationId: organizationId }
+        });
+        
+        if (existingProject) {
+          throw new ConflictException('Project with this name already exists in your organization');
+        }
+
+        // 2. Set default stages based on methodology
+        const defaultStages = this.getDefaultStages(createProjectDto.methodology);
+        
+        // 3. Create project entity
+        const project = manager.create(Project, {
+          ...createProjectDto,
+          createdById: userId,
+          organizationId,
+          stages: defaultStages,
+          status: ProjectStatus.PLANNING,
+        });
+
+        const savedProject = await manager.save(project);
+
+        // 4. Create team for the project
+        const team = manager.create(Team, {
+          name: `${savedProject.name} Team`,
+          description: `Team for ${savedProject.name} project`,
+          projectId: savedProject.id,
+          organizationId,
+        });
+
+        const savedTeam = await manager.save(team);
+
+        // 5. Add creator as admin
+        const adminRole = await manager.findOne(Role, {
+          where: { name: RoleType.ADMIN },
+        });
+        if (adminRole) {
+          const teamMember = manager.create(TeamMember, {
+            teamId: savedTeam.id,
+            userId: userId,
+            roleId: adminRole.id,
+            organizationId,
+            joinedAt: new Date(),
+          });
+          await manager.save(teamMember);
+        }
+
+        this.logger.log(`Project created successfully: ${savedProject.id} by user: ${userId}`);
+        return this.findOne(savedProject.id);
+      } catch (error) {
+        this.logger.error(`Failed to create project: ${error.message}`, error.stack);
+        throw error;
+      }
     });
-
-    const savedProject = await this.projectRepository.save(project);
-
-    // Create team for the project
-    const team = this.teamRepository.create({
-      name: `${savedProject.name} Team`,
-      description: `Team for ${savedProject.name} project`,
-      projectId: savedProject.id,
-      organizationId,
-    });
-
-    const savedTeam = await this.teamRepository.save(team);
-
-    // Add creator as admin
-    const adminRole = await this.roleRepository.findOne({
-      where: { name: RoleType.ADMIN },
-    });
-    if (adminRole) {
-      const teamMember = this.teamMemberRepository.create({
-        teamId: savedTeam.id,
-        userId: user.id,
-        roleId: adminRole.id,
-        organizationId,
-        joinedAt: new Date(),
-      });
-      await this.teamMemberRepository.save(teamMember);
-    }
-
-    return this.findOne(savedProject.id);
   }
 
   async findAll(user: User, organizationId: string): Promise<Project[]> {
@@ -251,6 +281,19 @@ export class ProjectsService {
       throw new ForbiddenException(
         `Insufficient permissions. Required: ${allowedRoles.join(', ')}`,
       );
+    }
+  }
+
+  private getDefaultStages(methodology: Methodology): string[] {
+    switch (methodology) {
+      case Methodology.Waterfall:
+        return ['Planning', 'Execution', 'Closure'];
+      case Methodology.Agile:
+        return ['Sprint Planning', 'Sprint Execution', 'Sprint Review'];
+      case Methodology.Scrum:
+        return ['Sprint Planning', 'Daily Standups', 'Sprint Review', 'Retrospective'];
+      default:
+        return ['Planning', 'Execution', 'Closure'];
     }
   }
 }

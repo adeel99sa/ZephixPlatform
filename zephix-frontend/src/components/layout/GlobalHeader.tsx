@@ -10,7 +10,8 @@ import {
   Cog6ToothIcon,
   LightBulbIcon,
   DocumentTextIcon,
-  ClipboardDocumentListIcon
+  ClipboardDocumentListIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,13 +26,15 @@ interface GlobalHeaderProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Projects', href: '/projects', icon: FolderIcon },
-  { name: 'AI Mapping', href: '/ai-mapping', icon: SparklesIcon },
-  { name: 'AI Suggestions', href: '/ai-suggestions-demo', icon: LightBulbIcon },
-  { name: 'Collaboration', href: '/collaboration-demo', icon: UsersIcon },
-  { name: 'Workflows', href: '/workflow-templates', icon: ClipboardDocumentListIcon },
-  { name: 'Intake', href: '/intake-forms', icon: DocumentTextIcon },
-  { name: 'Intelligence', href: '/intelligence', icon: LightBulbIcon },
-  { name: 'Team', href: '/organizations/team', icon: UsersIcon },
+  { name: 'AI Mapping', href: '/ai/mapping', icon: SparklesIcon },
+  { name: 'AI Suggestions', href: '/ai/suggestions', icon: LightBulbIcon },
+  { name: 'Collaboration', href: '/collaboration', icon: UsersIcon },
+  { name: 'Workflows', href: '/workflows', icon: ClipboardDocumentListIcon },
+  { name: 'Intake', href: '/intake', icon: DocumentTextIcon },
+  { name: 'Templates', href: '/templates', icon: DocumentTextIcon },
+  { name: 'Reports', href: '/reports', icon: ChartBarIcon },
+  { name: 'Team', href: '/team', icon: UsersIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ 
@@ -59,15 +62,17 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
     const breadcrumbMap: Record<string, string> = {
       'dashboard': 'Dashboard',
       'projects': 'Projects',
-      'ai-mapping': 'AI Mapping Interface',
-      'ai-suggestions-demo': 'AI Suggestions Demo',
-      'collaboration-demo': 'Collaboration Demo',
-      'workflow-templates': 'Workflow Templates',
-      'intake-forms': 'Intake Forms',
-      'intelligence': 'AI Intelligence',
-      'organizations': 'Organization',
+      'ai': 'AI',
+      'mapping': 'Mapping',
+      'suggestions': 'Suggestions',
+      'collaboration': 'Collaboration',
+      'workflows': 'Workflows',
+      'intake': 'Intake Forms',
+      'templates': 'Templates',
+      'reports': 'Reports',
       'team': 'Team Management',
       'settings': 'Settings',
+      'organizations': 'Organization',
       'brd': 'BRD',
       'upload': 'Upload',
       'status': 'Status',
