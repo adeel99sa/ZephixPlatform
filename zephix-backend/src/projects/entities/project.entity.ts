@@ -36,6 +36,12 @@ export enum RiskLevel {
   CRITICAL = 'critical',
 }
 
+export enum Methodology {
+  Waterfall = 'Waterfall',
+  Agile = 'Agile',
+  Scrum = 'Scrum',
+}
+
 @Entity('projects')
 export class Project {
   @PrimaryGeneratedColumn('uuid')
@@ -46,6 +52,16 @@ export class Project {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({
+    type: 'enum',
+    enum: Methodology,
+    default: Methodology.Waterfall,
+  })
+  methodology: Methodology;
+
+  @Column({ type: 'json', nullable: true })
+  stages: string[];
 
   @Column({
     type: 'enum',
