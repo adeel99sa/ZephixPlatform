@@ -1,97 +1,175 @@
-import React, { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Toaster } from 'react-hot-toast';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from 'react-error-boundary';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { ErrorFallback } from './components/common/ErrorFallback';
 
-// Lazy load pages
-const LandingPage = lazy(() => import('./pages/LandingPage'));
+// Lazy load all page components for better performance
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage').then(module => ({ default: module.ProjectsPage })));
+const AIMappingPage = lazy(() => import('./pages/ai/AIMappingPage').then(module => ({ default: module.AIMappingPage })));
+const AISuggestionsPage = lazy(() => import('./pages/ai/AISuggestionsPage').then(module => ({ default: module.AISuggestionsPage })));
+const WorkflowsPage = lazy(() => import('./pages/workflows/WorkflowsPage').then(module => ({ default: module.WorkflowsPage })));
+const IntakeFormsPage = lazy(() => import('./pages/intake/IntakeFormsPage').then(module => ({ default: module.IntakeFormsPage })));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then(module => ({ default: module.SettingsPage })));
+const TeamPage = lazy(() => import('./pages/team/TeamPage').then(module => ({ default: module.TeamPage })));
+const ReportsPage = lazy(() => import('./pages/reports/ReportsPage').then(module => ({ default: module.ReportsPage })));
+const TemplatesPage = lazy(() => import('./pages/templates/TemplatesPage').then(module => ({ default: module.TemplatesPage })));
+const CollaborationPage = lazy(() => import('./pages/collaboration/CollaborationPage').then(module => ({ default: module.CollaborationPage })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
 const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage').then(module => ({ default: module.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage })));
-const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(module => ({ default: module.DashboardPage })));
-const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage').then(module => ({ default: module.ProjectsPage })));
-const TeamsPage = lazy(() => import('./pages/teams/TeamsPage').then(module => ({ default: module.TeamsPage })));
-const ProfilePage = lazy(() => import('./pages/profile/ProfilePage').then(module => ({ default: module.ProfilePage })));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
 
-// Import components
-import { PublicRoute } from './components/routing/PublicRoute';
-import { ProtectedRoute } from './components/routing/ProtectedRoute';
-import { LoadingScreen } from './components/common/LoadingScreen';
-import { ErrorFallback } from './components/common/ErrorFallback';
-import { useAuthStore } from './stores/authStore';
+// Loading component for Suspense fallback
+const PageLoader: React.FC = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <LoadingSpinner size="lg" />
+  </div>
+);
 
-// Configure Query Client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: 'always',
-    },
-    mutations: {
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-  },
-});
-
-const App: React.FC = () => {
-  const { initializeAuth } = useAuthStore();
-
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
-
+function App() {
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.href = '/'}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Suspense fallback={<LoadingScreen />}>
-            <Routes>
-              {/* Public Routes */}
-              <Route element={<PublicRoute />}>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-              </Route>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <Router>
+        {/* Skip Navigation Link for Accessibility */}
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-md">
+          Skip to main content
+        </a>
+        
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={
+            <Suspense fallback={<PageLoader />}>
+              <LoginPage />
+            </Suspense>
+          } />
+          <Route path="/signup" element={
+            <Suspense fallback={<PageLoader />}>
+              <SignupPage />
+            </Suspense>
+          } />
+          <Route path="/forgot-password" element={
+            <Suspense fallback={<PageLoader />}>
+              <ForgotPasswordPage />
+            </Suspense>
+          } />
+          <Route path="/reset-password" element={
+            <Suspense fallback={<PageLoader />}>
+              <ResetPasswordPage />
+            </Suspense>
+          } />
 
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects/*" element={<ProjectsPage />} />
-                <Route path="/teams/*" element={<TeamsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-              </Route>
+          {/* Protected Routes */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <DashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <DashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/projects" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ProjectsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/ai/mapping" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <AIMappingPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/ai/assistant" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <AISuggestionsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/workflows" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <WorkflowsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/intake" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <IntakeFormsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <SettingsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/team" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <TeamPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/templates" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <TemplatesPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/collaboration" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <CollaborationPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
 
-              {/* Fallback */}
-              <Route path="/404" element={<NotFoundPage />} />
-              <Route path="*" element={<Navigate to="/404" replace />} />
-            </Routes>
-          </Suspense>
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-            }}
-          />
-        </BrowserRouter>
-        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
-      </QueryClientProvider>
+          {/* Legacy Route Redirects */}
+          <Route path="/ai/suggestions" element={<Navigate to="/ai/assistant" replace />} />
+          <Route path="/forms" element={<Navigate to="/intake" replace />} />
+
+          {/* 404 Fallback */}
+          <Route path="*" element={
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+                <p className="text-xl text-gray-600 mb-8">Page not found</p>
+                <a
+                  href="/"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Go to Dashboard
+                </a>
+              </div>
+            </div>
+          } />
+        </Routes>
+      </Router>
     </ErrorBoundary>
   );
-};
+}
 
 export default App;

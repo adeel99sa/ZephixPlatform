@@ -6,15 +6,19 @@ import {
   IsNumber,
   MinLength,
   MaxLength,
+  IsNotEmpty,
+  IsPositive,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ProjectStatus, ProjectPriority } from '../entities/project.entity';
+import { ProjectStatus, ProjectPriority, Methodology } from '../entities/project.entity';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'Zephix Platform Development' })
+  @IsNotEmpty()
   @IsString()
   @MinLength(3)
-  @MaxLength(255)
+  @MaxLength(100)
   name: string;
 
   @ApiPropertyOptional({
@@ -22,8 +26,23 @@ export class CreateProjectDto {
   })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(500)
   description?: string;
+
+  @ApiProperty({ enum: Methodology, example: Methodology.Waterfall })
+  @IsEnum(Methodology)
+  methodology: Methodology;
+
+  @ApiPropertyOptional({ example: 'template-uuid-here' })
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @ApiPropertyOptional({ example: 500000.0 })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  budget?: number;
 
   @ApiPropertyOptional({ enum: ProjectStatus, example: ProjectStatus.PLANNING })
   @IsOptional()
@@ -44,11 +63,6 @@ export class CreateProjectDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
-
-  @ApiPropertyOptional({ example: 500000.0 })
-  @IsOptional()
-  @IsNumber()
-  budget?: number;
 
   @ApiPropertyOptional({ example: 'Business Requirements Document content...' })
   @IsOptional()

@@ -37,7 +37,7 @@ export class ProjectGenerationResponse {
 }
 
 @ApiTags('AI Project Generation')
-@Controller('v1/projects')
+@Controller('ai/project-generation')
 @UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
 @ApiBearerAuth()
 export class ProjectGenerationController {
