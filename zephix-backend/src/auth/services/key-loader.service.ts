@@ -9,6 +9,7 @@ export interface JWTKeyPair {
   keyId: string;
   algorithm: 'HS256' | 'RS256';
   expiresAt?: Date;
+  createdAt: Date;
 }
 
 export interface JWTSecret {
@@ -16,6 +17,7 @@ export interface JWTSecret {
   keyId: string;
   algorithm: 'HS256' | 'RS256';
   expiresAt?: Date;
+  createdAt: Date;
 }
 
 /**
@@ -30,7 +32,7 @@ export class KeyLoaderService {
   private readonly logger = new Logger(KeyLoaderService.name);
   private readonly jwtCfg: ConfigType<typeof jwtConfig>;
   
-  // In-memory cache for keys
+  // In-memory cache for keys with rotation support
   private keyCache: Map<string, JWTKeyPair | JWTSecret> = new Map();
   private lastModified: Map<string, number> = new Map();
   private readonly cacheTtl = 5 * 60 * 1000; // 5 minutes
@@ -128,6 +130,60 @@ export class KeyLoaderService {
     return null;
   }
 
+  /**
+   * Get public key by key ID for verification
+   */
+  getPublicKeyByKid(keyId: string): string | null {
+    const key = this.getKeyById(keyId);
+    if (!key) {
+      return null;
+    }
+
+    if (key.algorithm === 'RS256') {
+      return (key as JWTKeyPair).publicKey;
+    } else {
+      return (key as JWTSecret).secret;
+    }
+  }
+
+  /**
+   * Rotate keys (for key rotation scenarios)
+   */
+  rotateKeys(newKeyId: string): void {
+    this.logger.log(`Rotating keys to new key ID: ${newKeyId}`);
+    
+    // Keep old keys in cache during grace period
+    const gracePeriod = this.jwtCfg.rotationGraceWindow;
+    
+    // Update current key ID
+    this.jwtCfg.keyId = newKeyId;
+    
+    // Clear cache to force reload with new keys
+    this.refreshKeys();
+    
+    this.logger.log(`Key rotation completed. Grace period: ${gracePeriod}ms`);
+  }
+
+  /**
+   * Clean up expired keys (called periodically)
+   */
+  cleanupExpiredKeys(): void {
+    const now = new Date();
+    let cleanedCount = 0;
+
+    for (const [cacheKey, key] of this.keyCache.entries()) {
+      if (key.expiresAt && key.expiresAt < now) {
+        this.keyCache.delete(cacheKey);
+        this.lastModified.delete(cacheKey);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.logger.log(`Cleaned up ${cleanedCount} expired keys`);
+    }
+  }
+
   private loadAccessKey(): JWTKeyPair | JWTSecret {
     if (this.jwtCfg.algorithm === 'RS256') {
       if (!this.jwtCfg.publicKey) {
@@ -139,6 +195,7 @@ export class KeyLoaderService {
         privateKey: this.jwtCfg.privateKey!,
         keyId: this.jwtCfg.keyId!,
         algorithm: 'RS256',
+        createdAt: new Date(),
       };
     } else {
       if (!this.jwtCfg.secret) {
@@ -149,6 +206,7 @@ export class KeyLoaderService {
         secret: this.jwtCfg.secret,
         keyId: this.jwtCfg.keyId!,
         algorithm: 'HS256',
+        createdAt: new Date(),
       };
     }
   }
@@ -167,6 +225,7 @@ export class KeyLoaderService {
         privateKey: refreshPrivateKey,
         keyId: `${this.jwtCfg.keyId}_refresh`,
         algorithm: 'RS256',
+        createdAt: new Date(),
       };
     } else {
       if (!this.jwtCfg.refreshSecret) {
@@ -177,6 +236,7 @@ export class KeyLoaderService {
         secret: this.jwtCfg.refreshSecret,
         keyId: `${this.jwtCfg.keyId}_refresh`,
         algorithm: 'HS256',
+        createdAt: new Date(),
       };
     }
   }
@@ -192,6 +252,7 @@ export class KeyLoaderService {
         privateKey: this.jwtCfg.privateKey,
         keyId: this.jwtCfg.keyId!,
         algorithm: 'RS256',
+        createdAt: new Date(),
       };
     } else {
       if (!this.jwtCfg.secret) {
@@ -202,6 +263,7 @@ export class KeyLoaderService {
         secret: this.jwtCfg.secret,
         keyId: this.jwtCfg.keyId!,
         algorithm: 'HS256',
+        createdAt: new Date(),
       };
     }
   }
@@ -219,6 +281,7 @@ export class KeyLoaderService {
         privateKey: refreshPrivateKey,
         keyId: `${this.jwtCfg.keyId}_refresh`,
         algorithm: 'RS256',
+        createdAt: new Date(),
       };
     } else {
       if (!this.jwtCfg.refreshSecret) {
@@ -229,6 +292,7 @@ export class KeyLoaderService {
         secret: this.jwtCfg.refreshSecret,
         keyId: this.jwtCfg.keyId!,
         algorithm: 'HS256',
+        createdAt: new Date(),
       };
     }
   }

@@ -94,7 +94,6 @@
     "@opentelemetry/sdk-trace-node": "^2.0.1",
     "@opentelemetry/semantic-conventions": "^1.36.0",
     "@pinecone-database/pinecone": "^6.1.2",
-    "@types/joi": "^17.2.2",
     "@types/nodemailer": "^6.4.17",
     "ajv": "^8.16.0",
     "ajv-formats": "^3.0.1",

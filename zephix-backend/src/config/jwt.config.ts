@@ -45,17 +45,42 @@ export default registerAs('jwt', (): JWTConfig => {
   const normalizePemKey = (key: string | undefined): string | undefined => {
     if (!key) return undefined;
     
+    let normalizedKey: string;
+    
     // If it's base64, decode it
     if (!key.includes('-----BEGIN')) {
       try {
-        return Buffer.from(key, 'base64').toString('utf8');
+        normalizedKey = Buffer.from(key, 'base64').toString('utf8');
       } catch {
         throw new Error('Invalid base64 encoded key');
       }
+    } else {
+      normalizedKey = key;
     }
     
-    // Normalize line breaks
-    return key.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // Normalize line breaks and trim
+    normalizedKey = normalizedKey
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+    
+    // Ensure proper PEM format
+    if (!normalizedKey.startsWith('-----BEGIN') || !normalizedKey.endsWith('-----')) {
+      throw new Error('Invalid PEM key format');
+    }
+    
+    // Ensure key content exists
+    const keyContent = normalizedKey.split('\n').slice(1, -1).join('');
+    if (!keyContent || keyContent.trim().length === 0) {
+      throw new Error('PEM key contains no content');
+    }
+    
+    // Add trailing newline for proper PEM format
+    if (!normalizedKey.endsWith('\n')) {
+      normalizedKey += '\n';
+    }
+    
+    return normalizedKey;
   };
 
   return {
