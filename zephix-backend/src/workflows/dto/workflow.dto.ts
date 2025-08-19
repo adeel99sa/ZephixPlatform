@@ -1,61 +1,23 @@
-import { IsEnum, IsOptional, IsArray, IsString, IsNumber, Min, Max, IsBoolean, IsDateString, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsEnum, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, IsUUID, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { 
+  WorkflowType,
+  WorkflowStatus,
+  StageType,
+  StageStatus,
+  ApprovalType,
+  ApprovalStatus,
+  ApprovalLevel
+} from '../entities';
 
-export enum WorkflowType {
-  WATERFALL = 'waterfall',
-  AGILE = 'agile',
-  HYBRID = 'hybrid',
-  CUSTOM = 'custom',
-}
+// Re-export enums for use in controllers
+export { WorkflowType, WorkflowStatus, StageType, StageStatus, ApprovalType, ApprovalStatus, ApprovalLevel };
 
-export enum WorkflowStatus {
-  ACTIVE = 'active',
-  DRAFT = 'draft',
-  ARCHIVED = 'archived',
-  DEPRECATED = 'deprecated',
-}
-
-export enum StageType {
-  INITIATION = 'initiation',
-  PLANNING = 'planning',
-  EXECUTION = 'execution',
-  MONITORING = 'monitoring',
-  CLOSURE = 'closure',
-  CUSTOM = 'custom',
-}
-
-export enum StageStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  DEPRECATED = 'deprecated',
-}
-
-export enum ApprovalType {
-  STAGE_ENTRY = 'stage_entry',
-  MILESTONE = 'milestone',
-  DELIVERABLE = 'deliverable',
-  CHANGE_REQUEST = 'change_request',
-  PROJECT_CLOSURE = 'project_closure',
-}
-
-export enum ApprovalStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  CANCELLED = 'cancelled',
-  ESCALATED = 'escalated',
-}
-
-export enum ApprovalLevel {
-  TEAM_LEAD = 'team_lead',
-  PROJECT_MANAGER = 'project_manager',
-  EXECUTIVE = 'executive',
-  STAKEHOLDER = 'stakeholder',
-  CUSTOM = 'custom',
-}
-
+// Base DTOs
 export class WorkflowTemplateDto {
-  @ApiProperty({ description: 'Unique workflow template ID' })
+  @ApiProperty({ description: 'Unique template ID' })
+  @IsUUID()
   id: string;
 
   @ApiProperty({ description: 'Template name' })
@@ -80,59 +42,35 @@ export class WorkflowTemplateDto {
   @IsEnum(WorkflowStatus)
   status: WorkflowStatus;
 
-  @ApiProperty({ description: 'Template version number' })
-  @IsNumber()
-  @Min(1)
-  version: number;
-
-  @ApiProperty({ description: 'Whether this is the default template for the organization' })
+  @ApiProperty({ description: 'Whether this is the default template' })
   @IsBoolean()
   isDefault: boolean;
 
-  @ApiProperty({ description: 'Whether this template is publicly available' })
-  @IsBoolean()
-  isPublic: boolean;
+  @ApiProperty({ description: 'Template version number' })
+  @IsNumber()
+  version: number;
 
   @ApiProperty({ description: 'Number of times this template has been used' })
   @IsNumber()
-  @Min(0)
   usageCount: number;
 
-  @ApiPropertyOptional({ description: 'When this template was last used' })
+  @ApiPropertyOptional({ description: 'Last time this template was used' })
   @IsOptional()
-  @IsDateString()
+  @IsDate()
   lastUsedAt?: Date;
 
-  @ApiProperty({ description: 'Array of workflow stages' })
-  @IsArray()
-  stages: WorkflowStageDto[];
-
-  @ApiPropertyOptional({ description: 'Template tags for categorization' })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
-
-  @ApiPropertyOptional({ description: 'Additional metadata in JSON format' })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, any>;
-
-  @ApiProperty({ description: 'When the template was created' })
+  @ApiProperty({ description: 'Creation timestamp' })
+  @IsDate()
   createdAt: Date;
 
-  @ApiProperty({ description: 'When the template was last updated' })
+  @ApiProperty({ description: 'Last update timestamp' })
+  @IsDate()
   updatedAt: Date;
-
-  @ApiProperty({ description: 'Organization ID for data isolation' })
-  organizationId: string;
-
-  @ApiProperty({ description: 'User ID who created the template' })
-  createdBy: string;
 }
 
 export class WorkflowStageDto {
   @ApiProperty({ description: 'Unique stage ID' })
+  @IsUUID()
   id: string;
 
   @ApiProperty({ description: 'Stage name' })
@@ -145,7 +83,7 @@ export class WorkflowStageDto {
 
   @ApiProperty({ 
     enum: StageType,
-    description: 'Type of stage in the workflow'
+    description: 'Type of stage'
   })
   @IsEnum(StageType)
   type: StageType;
@@ -159,17 +97,17 @@ export class WorkflowStageDto {
 
   @ApiProperty({ description: 'Order of the stage in the workflow' })
   @IsNumber()
-  @Min(1)
   order: number;
 
-  @ApiProperty({ description: 'Estimated duration in days' })
+  @ApiPropertyOptional({ description: 'Estimated duration in the specified unit' })
+  @IsOptional()
   @IsNumber()
-  @Min(1)
-  estimatedDuration: number;
+  estimatedDuration?: number;
 
-  @ApiProperty({ description: 'Duration unit (days, weeks, months)' })
+  @ApiPropertyOptional({ description: 'Duration unit (days, weeks, months)' })
+  @IsOptional()
   @IsString()
-  durationUnit: string;
+  durationUnit?: string;
 
   @ApiPropertyOptional({ description: 'Entry criteria for the stage' })
   @IsOptional()
@@ -183,13 +121,13 @@ export class WorkflowStageDto {
   @IsString({ each: true })
   exitCriteria?: string[];
 
-  @ApiPropertyOptional({ description: 'Deliverables expected from this stage' })
+  @ApiPropertyOptional({ description: 'Deliverables for the stage' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   deliverables?: string[];
 
-  @ApiPropertyOptional({ description: 'Roles required for this stage' })
+  @ApiPropertyOptional({ description: 'Roles involved in the stage' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -197,10 +135,9 @@ export class WorkflowStageDto {
 
   @ApiPropertyOptional({ description: 'RACI matrix for the stage' })
   @IsOptional()
-  @IsObject()
   raciMatrix?: Record<string, string>;
 
-  @ApiProperty({ description: 'Whether this stage requires approval' })
+  @ApiProperty({ description: 'Whether the stage requires approval' })
   @IsBoolean()
   requiresApproval: boolean;
 
@@ -214,41 +151,27 @@ export class WorkflowStageDto {
   @IsString({ each: true })
   dependencies?: string[];
 
-  @ApiPropertyOptional({ description: 'Additional metadata for the stage' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 
-  @ApiProperty({ description: 'When the stage was created' })
+  @ApiProperty({ description: 'Creation timestamp' })
+  @IsDate()
   createdAt: Date;
 
-  @ApiProperty({ description: 'When the stage was last updated' })
+  @ApiProperty({ description: 'Last update timestamp' })
+  @IsDate()
   updatedAt: Date;
-
-  @ApiProperty({ description: 'Workflow template ID this stage belongs to' })
-  workflowTemplateId: string;
-
-  @ApiPropertyOptional({ description: 'Array of approval gates for this stage' })
-  @IsOptional()
-  @IsArray()
-  approvals?: WorkflowApprovalDto[];
 }
 
 export class WorkflowApprovalDto {
   @ApiProperty({ description: 'Unique approval ID' })
+  @IsUUID()
   id: string;
-
-  @ApiProperty({ description: 'Approval title' })
-  @IsString()
-  title: string;
-
-  @ApiProperty({ description: 'Approval description' })
-  @IsString()
-  description: string;
 
   @ApiProperty({ 
     enum: ApprovalType,
-    description: 'Type of approval required'
+    description: 'Type of approval'
   })
   @IsEnum(ApprovalType)
   type: ApprovalType;
@@ -267,13 +190,13 @@ export class WorkflowApprovalDto {
   @IsEnum(ApprovalLevel)
   level: ApprovalLevel;
 
-  @ApiProperty({ description: 'Whether this approval is required' })
-  @IsBoolean()
-  isRequired: boolean;
+  @ApiProperty({ description: 'Approval title' })
+  @IsString()
+  title: string;
 
-  @ApiProperty({ description: 'Whether this approval can be skipped' })
-  @IsBoolean()
-  canBeSkipped: boolean;
+  @ApiProperty({ description: 'Approval description' })
+  @IsString()
+  description: string;
 
   @ApiPropertyOptional({ description: 'Approval criteria' })
   @IsOptional()
@@ -289,54 +212,31 @@ export class WorkflowApprovalDto {
 
   @ApiPropertyOptional({ description: 'Due date for the approval' })
   @IsOptional()
-  @IsDateString()
+  @IsDate()
   dueDate?: Date;
 
-  @ApiPropertyOptional({ description: 'When the approval was granted' })
-  @IsOptional()
-  @IsDateString()
-  approvedAt?: Date;
+  @ApiProperty({ description: 'Whether this approval is required' })
+  @IsBoolean()
+  isRequired: boolean;
 
-  @ApiPropertyOptional({ description: 'When the approval was rejected' })
-  @IsOptional()
-  @IsDateString()
-  rejectedAt?: Date;
+  @ApiProperty({ description: 'Whether this approval can be skipped' })
+  @IsBoolean()
+  canBeSkipped: boolean;
 
-  @ApiPropertyOptional({ description: 'Approval comments' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsString()
-  comments?: string;
-
-  @ApiPropertyOptional({ description: 'Reason for rejection if applicable' })
-  @IsOptional()
-  @IsString()
-  rejectionReason?: string;
-
-  @ApiPropertyOptional({ description: 'Escalation rules' })
-  @IsOptional()
-  @IsObject()
-  escalationRules?: Record<string, any>;
-
-  @ApiPropertyOptional({ description: 'Additional metadata for the approval' })
-  @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 
-  @ApiProperty({ description: 'When the approval was created' })
+  @ApiProperty({ description: 'Creation timestamp' })
+  @IsDate()
   createdAt: Date;
 
-  @ApiProperty({ description: 'When the approval was last updated' })
+  @ApiProperty({ description: 'Last update timestamp' })
+  @IsDate()
   updatedAt: Date;
-
-  @ApiProperty({ description: 'Workflow stage ID this approval belongs to' })
-  workflowStageId: string;
-
-  @ApiPropertyOptional({ description: 'User ID of the reviewer' })
-  @IsOptional()
-  @IsString()
-  reviewerId?: string;
 }
 
+// Request DTOs
 export class CreateWorkflowTemplateDto {
   @ApiProperty({ description: 'Template name' })
   @IsString()
@@ -353,29 +253,21 @@ export class CreateWorkflowTemplateDto {
   @IsEnum(WorkflowType)
   type: WorkflowType;
 
-  @ApiPropertyOptional({ description: 'Whether this should be the default template' })
-  @IsOptional()
-  @IsBoolean()
-  isDefault?: boolean;
-
-  @ApiPropertyOptional({ description: 'Whether this template is publicly available' })
-  @IsOptional()
-  @IsBoolean()
-  isPublic?: boolean;
-
   @ApiProperty({ description: 'Array of workflow stages' })
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateWorkflowStageDto)
   stages: CreateWorkflowStageDto[];
 
-  @ApiPropertyOptional({ description: 'Template tags for categorization' })
+  @ApiPropertyOptional({ description: 'Array of workflow approvals' })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CreateWorkflowApprovalDto)
+  approvals?: CreateWorkflowApprovalDto[];
 
-  @ApiPropertyOptional({ description: 'Additional metadata in JSON format' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 }
 
@@ -390,24 +282,24 @@ export class CreateWorkflowStageDto {
 
   @ApiProperty({ 
     enum: StageType,
-    description: 'Type of stage in the workflow'
+    description: 'Type of stage'
   })
   @IsEnum(StageType)
   type: StageType;
 
   @ApiProperty({ description: 'Order of the stage in the workflow' })
   @IsNumber()
-  @Min(1)
   order: number;
 
-  @ApiProperty({ description: 'Estimated duration in days' })
+  @ApiPropertyOptional({ description: 'Estimated duration in the specified unit' })
+  @IsOptional()
   @IsNumber()
-  @Min(1)
-  estimatedDuration: number;
+  estimatedDuration?: number;
 
-  @ApiProperty({ description: 'Duration unit (days, weeks, months)' })
+  @ApiPropertyOptional({ description: 'Duration unit (days, weeks, months)' })
+  @IsOptional()
   @IsString()
-  durationUnit: string;
+  durationUnit?: string;
 
   @ApiPropertyOptional({ description: 'Entry criteria for the stage' })
   @IsOptional()
@@ -421,13 +313,13 @@ export class CreateWorkflowStageDto {
   @IsString({ each: true })
   exitCriteria?: string[];
 
-  @ApiPropertyOptional({ description: 'Deliverables expected from this stage' })
+  @ApiPropertyOptional({ description: 'Deliverables for the stage' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   deliverables?: string[];
 
-  @ApiPropertyOptional({ description: 'Roles required for this stage' })
+  @ApiPropertyOptional({ description: 'Roles involved in the stage' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -435,10 +327,9 @@ export class CreateWorkflowStageDto {
 
   @ApiPropertyOptional({ description: 'RACI matrix for the stage' })
   @IsOptional()
-  @IsObject()
   raciMatrix?: Record<string, string>;
 
-  @ApiProperty({ description: 'Whether this stage requires approval' })
+  @ApiProperty({ description: 'Whether the stage requires approval' })
   @IsBoolean()
   requiresApproval: boolean;
 
@@ -452,29 +343,15 @@ export class CreateWorkflowStageDto {
   @IsString({ each: true })
   dependencies?: string[];
 
-  @ApiPropertyOptional({ description: 'Additional metadata for the stage' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
-
-  @ApiPropertyOptional({ description: 'Array of approval gates for this stage' })
-  @IsOptional()
-  @IsArray()
-  approvals?: CreateWorkflowApprovalDto[];
 }
 
 export class CreateWorkflowApprovalDto {
-  @ApiProperty({ description: 'Approval title' })
-  @IsString()
-  title: string;
-
-  @ApiProperty({ description: 'Approval description' })
-  @IsString()
-  description: string;
-
   @ApiProperty({ 
     enum: ApprovalType,
-    description: 'Type of approval required'
+    description: 'Type of approval'
   })
   @IsEnum(ApprovalType)
   type: ApprovalType;
@@ -486,13 +363,13 @@ export class CreateWorkflowApprovalDto {
   @IsEnum(ApprovalLevel)
   level: ApprovalLevel;
 
-  @ApiProperty({ description: 'Whether this approval is required' })
-  @IsBoolean()
-  isRequired: boolean;
+  @ApiProperty({ description: 'Approval title' })
+  @IsString()
+  title: string;
 
-  @ApiProperty({ description: 'Whether this approval can be skipped' })
-  @IsBoolean()
-  canBeSkipped: boolean;
+  @ApiProperty({ description: 'Approval description' })
+  @IsString()
+  description: string;
 
   @ApiPropertyOptional({ description: 'Approval criteria' })
   @IsOptional()
@@ -508,20 +385,23 @@ export class CreateWorkflowApprovalDto {
 
   @ApiPropertyOptional({ description: 'Due date for the approval' })
   @IsOptional()
-  @IsDateString()
+  @IsDate()
   dueDate?: Date;
 
-  @ApiPropertyOptional({ description: 'Escalation rules' })
-  @IsOptional()
-  @IsObject()
-  escalationRules?: Record<string, any>;
+  @ApiProperty({ description: 'Whether this approval is required' })
+  @IsBoolean()
+  isRequired: boolean;
 
-  @ApiPropertyOptional({ description: 'Additional metadata for the approval' })
+  @ApiProperty({ description: 'Whether this approval can be skipped' })
+  @IsBoolean()
+  canBeSkipped: boolean;
+
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 }
 
+// Update DTOs
 export class UpdateWorkflowTemplateDto {
   @ApiPropertyOptional({ description: 'Template name' })
   @IsOptional()
@@ -534,48 +414,175 @@ export class UpdateWorkflowTemplateDto {
   description?: string;
 
   @ApiPropertyOptional({ 
+    enum: WorkflowType,
+    description: 'Type of workflow methodology'
+  })
+  @IsOptional()
+  @IsEnum(WorkflowType)
+  type?: WorkflowType;
+
+  @ApiPropertyOptional({ 
     enum: WorkflowStatus,
-    description: 'New status for the template'
+    description: 'Current status of the template'
   })
   @IsOptional()
   @IsEnum(WorkflowStatus)
   status?: WorkflowStatus;
 
-  @ApiPropertyOptional({ description: 'Whether this should be the default template' })
+  @ApiPropertyOptional({ description: 'Whether this is the default template' })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether this template is publicly available' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
-  @IsBoolean()
-  isPublic?: boolean;
-
-  @ApiPropertyOptional({ description: 'Template tags for categorization' })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
-
-  @ApiPropertyOptional({ description: 'Additional metadata in JSON format' })
-  @IsOptional()
-  @IsObject()
   metadata?: Record<string, any>;
 }
 
+export class CloneTemplateDto {
+  @ApiProperty({ description: 'Name for the cloned template' })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Description for the cloned template' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+// Response DTOs
+export class WorkflowTemplateWithRelationsDto extends WorkflowTemplateDto {
+  @ApiProperty({ description: 'Array of workflow stages', type: [WorkflowStageDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkflowStageDto)
+  stages: WorkflowStageDto[];
+
+  @ApiProperty({ description: 'Array of workflow approvals', type: [WorkflowApprovalDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkflowApprovalDto)
+  approvals: WorkflowApprovalDto[];
+}
+
 export class WorkflowTemplatesResponseDto {
-  @ApiProperty({ description: 'List of workflow templates', type: [WorkflowTemplateDto] })
+  @ApiProperty({ description: 'Array of workflow templates', type: [WorkflowTemplateDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkflowTemplateDto)
   templates: WorkflowTemplateDto[];
 
   @ApiProperty({ description: 'Total number of templates' })
+  @IsNumber()
   total: number;
 
   @ApiProperty({ description: 'Current page number' })
+  @IsNumber()
   page: number;
 
   @ApiProperty({ description: 'Number of templates per page' })
+  @IsNumber()
   limit: number;
 
   @ApiProperty({ description: 'Total number of pages' })
+  @IsNumber()
   totalPages: number;
+}
+
+// Workflow Execution DTOs
+export class WorkflowExecutionDto {
+  @ApiProperty({ description: 'Execution ID' })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({ description: 'Execution status' })
+  @IsString()
+  status: string;
+
+  @ApiProperty({ description: 'Execution progress (0-100)' })
+  @IsNumber()
+  progress: number;
+
+  @ApiPropertyOptional({ description: 'Execution result' })
+  @IsOptional()
+  result?: any;
+
+  @ApiPropertyOptional({ description: 'Execution error' })
+  @IsOptional()
+  @IsString()
+  error?: string;
+}
+
+export class WorkflowStageTransitionDto {
+  @ApiProperty({ description: 'Workflow instance ID' })
+  @IsUUID()
+  workflowInstanceId: string;
+
+  @ApiProperty({ description: 'Stage ID' })
+  @IsUUID()
+  stageId: string;
+
+  @ApiProperty({ description: 'Old stage status' })
+  @IsString()
+  oldStatus: string;
+
+  @ApiProperty({ description: 'New stage status' })
+  @IsString()
+  newStatus: string;
+
+  @ApiProperty({ description: 'User ID performing the transition' })
+  @IsUUID()
+  userId: string;
+
+  @ApiPropertyOptional({ description: 'Transition reason' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ description: 'Additional metadata' })
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class BulkWorkflowOperationDto {
+  @ApiProperty({ description: 'Array of workflow operations' })
+  @IsArray()
+  operations: any[];
+}
+
+export class WorkflowMetricsDto {
+  @ApiProperty({ description: 'Total executions' })
+  @IsNumber()
+  totalExecutions: number;
+
+  @ApiProperty({ description: 'Successful executions' })
+  @IsNumber()
+  successfulExecutions: number;
+
+  @ApiProperty({ description: 'Failed executions' })
+  @IsNumber()
+  failedExecutions: number;
+
+  @ApiProperty({ description: 'Average execution time' })
+  @IsNumber()
+  averageExecutionTime: number;
+
+  @ApiProperty({ description: 'Current concurrent executions' })
+  @IsNumber()
+  currentConcurrentExecutions: number;
+}
+
+// Complex Workflow DTOs
+export class CreateComplexWorkflowDto extends CreateWorkflowTemplateDto {
+  @ApiProperty({ description: 'Organization ID' })
+  @IsUUID()
+  organizationId: string;
+
+  @ApiProperty({ description: 'User ID creating the workflow' })
+  @IsUUID()
+  userId: string;
+
+  @ApiPropertyOptional({ description: 'Additional metadata' })
+  @IsOptional()
+  metadata?: Record<string, any>;
 }

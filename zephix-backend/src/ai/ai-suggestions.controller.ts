@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AISuggestionsService } from './services/ai-suggestions.service';
 import { 
   AISuggestionDto, 
@@ -33,7 +34,7 @@ import {
 
 @ApiTags('AI Suggestions')
 @Controller('ai/suggestions')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AISuggestionsController {
   constructor(

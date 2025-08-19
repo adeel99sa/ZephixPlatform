@@ -12,7 +12,7 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../modules/users/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 export enum AnalysisStatus {
