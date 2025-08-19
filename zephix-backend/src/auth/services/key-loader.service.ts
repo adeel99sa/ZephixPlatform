@@ -147,6 +147,23 @@ export class KeyLoaderService {
   }
 
   /**
+   * Get refresh public key by key ID for verification
+   */
+  getRefreshPublicKeyByKid(keyId: string): string | null {
+    const refreshKeyId = keyId.endsWith('_refresh') ? keyId : `${keyId}_refresh`;
+    const key = this.getKeyById(refreshKeyId);
+    if (!key) {
+      return null;
+    }
+
+    if (key.algorithm === 'RS256') {
+      return (key as JWTKeyPair).publicKey;
+    } else {
+      return (key as JWTSecret).secret;
+    }
+  }
+
+  /**
    * Rotate keys (for key rotation scenarios)
    */
   rotateKeys(newKeyId: string): void {
@@ -182,6 +199,19 @@ export class KeyLoaderService {
     if (cleanedCount > 0) {
       this.logger.log(`Cleaned up ${cleanedCount} expired keys`);
     }
+  }
+
+  /**
+   * Get all active key IDs for monitoring
+   */
+  getActiveKeyIds(): string[] {
+    const keyIds: string[] = [];
+    for (const [cacheKey, key] of this.keyCache.entries()) {
+      if (this.isCacheValid(cacheKey)) {
+        keyIds.push(key.keyId);
+      }
+    }
+    return keyIds;
   }
 
   private loadAccessKey(): JWTKeyPair | JWTSecret {
