@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { KeyLoaderService } from './services/key-loader.service';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
@@ -24,6 +25,7 @@ import jwtConfig from '../config/jwt.config';
  *
  * Provides JWT-based authentication with bcrypt password hashing.
  * Supports both HS256 and RS256 algorithms with proper configuration.
+ * Includes key rotation support via KeyLoaderService.
  */
 @Global()
 @Module({
@@ -32,26 +34,30 @@ import jwtConfig from '../config/jwt.config';
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync({
       imports: [ConfigModule.forFeature(jwtConfig)],
-      inject: [jwtConfig.KEY],
-      useFactory: (jwt: ReturnType<typeof jwtConfig>) => {
+      inject: [jwtConfig.KEY, KeyLoaderService],
+      useFactory: (jwt: ReturnType<typeof jwtConfig>, keyLoader: KeyLoaderService) => {
+        const signingKey = keyLoader.getCurrentSigningKey();
+        
         if (jwt.algorithm === 'RS256') {
           return {
-            privateKey: jwt.privateKey,
+            privateKey: (signingKey as any).privateKey,
             signOptions: { 
               algorithm: 'RS256', 
               expiresIn: jwt.expiresIn,
               issuer: jwt.issuer,
               audience: jwt.audience,
+              keyid: jwt.keyId,
             },
           };
         } else {
           return {
-            secret: jwt.secret,
+            secret: (signingKey as any).secret,
             signOptions: { 
               algorithm: 'HS256', 
               expiresIn: jwt.expiresIn,
               issuer: jwt.issuer,
               audience: jwt.audience,
+              keyid: jwt.keyId,
             },
           };
         }
@@ -77,10 +83,11 @@ import jwtConfig from '../config/jwt.config';
     AuthService,
     OrganizationSignupService,
     EmailVerificationService,
+    KeyLoaderService,
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtModule],
+  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtModule, KeyLoaderService],
 })
 export class AuthModule {
   constructor() {
