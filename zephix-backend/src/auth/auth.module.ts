@@ -1,6 +1,8 @@
 import { Module, Global } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -11,11 +13,11 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
-import { RefreshToken } from '../modules/auth/entities/refresh-token.entity'; // ← CRITICAL FIX: Add RefreshToken import
+import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-// Local strategy and guard removed - using JWT strategy instead
 import { SharedModule } from '../shared/shared.module';
+import jwtConfig from '../config/jwt.config';
 
 /**
  * Authentication Module
@@ -41,6 +43,20 @@ import { SharedModule } from '../shared/shared.module';
 @Global() // Make AuthModule available everywhere without importing in every module
 @Module({
   imports: [
+    // JWT Configuration
+    ConfigModule.forFeature(jwtConfig),
+    JwtModule.registerAsync({
+      imports: [ConfigModule.forFeature(jwtConfig)],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('jwt.secret'),
+        signOptions: { 
+          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
+          issuer: configService.get<string>('jwt.issuer'),
+          audience: configService.get<string>('jwt.audience'),
+        },
+      }),
+    }),
     // EMERGENCY MODE: Only import TypeORM features when database is available
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
@@ -49,13 +65,12 @@ import { SharedModule } from '../shared/shared.module';
             Organization,
             UserOrganization,
             EmailVerification,
-            RefreshToken,        // ← CRITICAL FIX: Add RefreshToken to entity registration
+            RefreshToken,
           ]),
         ]
       : []),
     PassportModule,
     SharedModule, // For EmailService used by EmailVerificationService
-    // ENTERPRISE APPROACH: JWT module is now global - no need to import here
   ],
   controllers: [AuthController, OrganizationSignupController],
   providers: [
@@ -65,7 +80,7 @@ import { SharedModule } from '../shared/shared.module';
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy], // export providers used elsewhere
+  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtModule], // export JwtModule for use in other modules
 })
 export class AuthModule {
   constructor() {

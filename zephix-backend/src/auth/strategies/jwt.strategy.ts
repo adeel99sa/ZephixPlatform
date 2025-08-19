@@ -1,11 +1,12 @@
-import { Injectable, UnauthorizedException, Optional } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Optional, Inject } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../modules/users/entities/user.entity';
-import { JWTConfigService } from '../../config/jwt.config';
+import jwtConfig from '../../config/jwt.config';
+import { ConfigType } from '@nestjs/config';
 
 /**
  * JWT Authentication Strategy
@@ -26,39 +27,49 @@ import { JWTConfigService } from '../../config/jwt.config';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly isEmergencyMode: boolean;
-  private readonly jwtConfig: any;
 
   constructor(
     @Optional()
     @InjectRepository(User)
     private readonly userRepository: Repository<User> | null,
     private readonly configService: ConfigService,
-    private readonly jwtConfigService: JWTConfigService,
+    @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
   ) {
-    const jwtConfig = jwtConfigService.getConfig();
+    const algorithm = jwtCfg.algorithm;
+    const secret = jwtCfg.secret;
+    const publicKey = jwtCfg.publicKey;
+    const issuer = jwtCfg.issuer;
+    const audience = jwtCfg.audience;
     
+    if (!secret && algorithm === 'HS256') {
+      throw new Error('JWT_SECRET is required for HS256 algorithm');
+    }
+    
+    if (!publicKey && algorithm === 'RS256') {
+      throw new Error('JWT_PUBLIC_KEY is required for RS256 algorithm');
+    }
+
     // Configure strategy based on algorithm
-    const strategyOptions = jwtConfig.algorithm === 'RS256' ? {
+    const strategyOptions = algorithm === 'RS256' ? {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['RS256'],
-      secretOrKey: jwtConfig.publicKey || 'fallback-public-key',
-      issuer: jwtConfig.issuer,
-      audience: jwtConfig.audience,
+      secretOrKey: publicKey,
+      issuer,
+      audience,
       clockTolerance: 30, // 30 seconds tolerance for clock skew
     } : {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['HS256'],
-      secretOrKey: jwtConfig.secret || 'fallback-secret',
-      issuer: jwtConfig.issuer,
-      audience: jwtConfig.audience,
+      secretOrKey: secret,
+      issuer,
+      audience,
       clockTolerance: 30, // 30 seconds tolerance for clock skew
     };
 
     super(strategyOptions as any);
 
-    this.jwtConfig = jwtConfig;
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
 
     if (this.isEmergencyMode) {
@@ -67,23 +78,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    console.log(`🔐 JWT Strategy initialized with ${jwtConfig.algorithm} algorithm`);
+    console.log(`🔐 JWT Strategy initialized with ${algorithm} algorithm`);
   }
 
   async validate(payload: any): Promise<User> {
     // Validate payload structure
     if (!payload.sub || !payload.email) {
       throw new UnauthorizedException('Invalid JWT payload structure');
-    }
-
-    // Validate issuer if configured
-    if (this.jwtConfig.issuer && payload.iss !== this.jwtConfig.issuer) {
-      throw new UnauthorizedException('Invalid JWT issuer');
-    }
-
-    // Validate audience if configured
-    if (this.jwtConfig.audience && payload.aud !== this.jwtConfig.audience) {
-      throw new UnauthorizedException('Invalid JWT audience');
     }
 
     // EMERGENCY MODE: Return a minimal user object without database validation
