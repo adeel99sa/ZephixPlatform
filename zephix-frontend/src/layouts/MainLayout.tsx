@@ -19,7 +19,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       <GlobalHeader currentPage={currentPage} />
       
       {/* Main Content */}
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {children || <Outlet />}
       </main>
       

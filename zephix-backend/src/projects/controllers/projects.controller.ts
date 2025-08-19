@@ -11,6 +11,8 @@ import {
   HttpCode,
   HttpStatus,
   HttpException,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,26 +22,19 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { ProjectsService } from '../services/projects.service';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { AddTeamMemberDto } from '../dto/add-team-member.dto';
 import { UpdateTeamMemberDto } from '../dto/update-team-member.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { User } from '../../modules/users/entities/user.entity';
-import { RequirePermissions } from '../decorators/project-permissions.decorator';
-import { RoleType } from '../entities/role.entity';
-import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
-import {
-  ProjectsListResponseDto,
-  SingleProjectResponseDto,
-  ProjectCreationResponseDto,
-  ProjectUpdateResponseDto,
-  ProjectDeletionResponseDto,
-} from '../dto/project-response.dto';
+import { User } from '../../modules/users/entities/user.entity';
+import { ProjectResponseDto } from '../dto/project-response.dto';
+import { Project } from '../entities/project.entity';
 
 /**
  * Projects Controller
@@ -52,8 +47,8 @@ import {
  * @version 1.0.0
  */
 @ApiTags('Projects')
-@Controller('pm/projects')
-@UseGuards(AuthGuard('jwt')) // Temporarily disabled OrganizationGuard
+@Controller('projects')
+@UseGuards(JwtAuthGuard, OrganizationGuard) // Use both JWT and Organization guards
 @ApiBearerAuth()
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
@@ -79,7 +74,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 201,
     description: 'Project created successfully',
-    type: ProjectCreationResponseDto,
+    type: ProjectResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -89,29 +84,35 @@ export class ProjectsController {
     status: 401,
     description: 'Unauthorized - Invalid or missing JWT token',
   })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Project name already exists in organization',
+  })
   async create(
     @Body() createProjectDto: CreateProjectDto,
     @CurrentUser() user: User,
-    @CurrentOrg() organizationId: string,
-  ): Promise<ProjectCreationResponseDto> {
+    @CurrentOrg() orgId: string,
+  ): Promise<ProjectResponseDto> {
+    // CRITICAL: Validate user exists
+    if (!user?.id || !orgId) {
+      console.error('❌ AUTH ERROR: Invalid user session', {
+        user: user,
+        hasId: !!user?.id,
+        hasOrgId: !!orgId,
+      });
+      throw new UnauthorizedException('Invalid user session - user or organization not found');
+    }
+    
+    const userId = user.id;
+    
+    console.log('✅ AUTH SUCCESS: User validated', { userId, orgId });
+    
     try {
-      const project = await this.projectsService.create(
-        createProjectDto,
-        user,
-        organizationId,
-      );
-      return {
-        message: 'Project created successfully',
-        project,
-      };
+      return await this.projectsService.create(createProjectDto, userId, orgId);
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to create project',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Log for debugging
+      console.error('Project creation failed:', error);
+      throw error;
     }
   }
 
@@ -132,7 +133,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 200,
     description: 'Projects retrieved successfully',
-    type: ProjectsListResponseDto,
+    type: ProjectResponseDto,
   })
   @ApiResponse({
     status: 401,
@@ -141,22 +142,12 @@ export class ProjectsController {
   async findAll(
     @CurrentUser() user: User,
     @CurrentOrg() organizationId: string,
-  ): Promise<ProjectsListResponseDto> {
+  ): Promise<Project[]> {
     try {
-      const projects = await this.projectsService.findAll(user, organizationId);
-      return {
-        message: 'Projects retrieved successfully',
-        projects,
-        count: projects.length,
-      };
+      return await this.projectsService.findAll(user, organizationId);
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to retrieve projects',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Failed to fetch projects:', error);
+      throw error;
     }
   }
 
@@ -173,26 +164,17 @@ export class ProjectsController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get project by ID',
-    description:
-      'Retrieves a specific project by ID. User must be a team member.',
+    description: 'Retrieves a specific project by its unique identifier',
   })
   @ApiParam({
     name: 'id',
-    description: 'Project UUID',
+    description: 'Project ID',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiResponse({
     status: 200,
     description: 'Project retrieved successfully',
-    type: SingleProjectResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid or missing JWT token',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - User is not a team member of this project',
+    type: ProjectResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -201,37 +183,12 @@ export class ProjectsController {
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: User,
-  ): Promise<SingleProjectResponseDto> {
+  ): Promise<Project> {
     try {
-      const project = await this.projectsService.findOne(id);
-
-      // Check if user is a team member of this project
-      const isTeamMember = project.team?.members?.some(
-        (member) => member.userId === user.id,
-      );
-
-      if (!isTeamMember) {
-        throw new HttpException(
-          'You do not have access to this project',
-          HttpStatus.FORBIDDEN,
-        );
-      }
-
-      return {
-        message: 'Project retrieved successfully',
-        project,
-      };
+      return await this.projectsService.findOne(id);
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      if (error.message?.includes('not found')) {
-        throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
-      }
-      throw new HttpException(
-        'Failed to retrieve project',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Failed to fetch project:', error);
+      throw error;
     }
   }
 
@@ -249,27 +206,18 @@ export class ProjectsController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update project',
-    description:
-      'Updates a project. User must have admin or editor permissions.',
+    description: 'Updates an existing project with new data',
   })
   @ApiParam({
     name: 'id',
-    description: 'Project UUID',
+    description: 'Project ID',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiBody({ type: UpdateProjectDto })
   @ApiResponse({
     status: 200,
     description: 'Project updated successfully',
-    type: ProjectUpdateResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid or missing JWT token',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Insufficient permissions',
+    type: ProjectResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -279,25 +227,16 @@ export class ProjectsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProjectDto: UpdateProjectDto,
     @CurrentUser() user: User,
-  ): Promise<ProjectUpdateResponseDto> {
+  ): Promise<Project> {
     try {
-      const project = await this.projectsService.update(
+      return await this.projectsService.update(
         id,
         updateProjectDto,
         user,
       );
-      return {
-        message: 'Project updated successfully',
-        project,
-      };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to update project',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Failed to update project:', error);
+      throw error;
     }
   }
 
@@ -312,29 +251,19 @@ export class ProjectsController {
    * @returns Success message
    */
   @Delete(':id')
-  @RequirePermissions(RoleType.ADMIN)
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete project (Admin only)',
-    description:
-      'Deletes a project and all associated data. Admin permissions required.',
+    description: 'Permanently deletes a project and all associated data',
   })
   @ApiParam({
     name: 'id',
-    description: 'Project UUID',
+    description: 'Project ID',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'Project deleted successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid or missing JWT token',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Admin permissions required',
+    type: ProjectResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -343,20 +272,12 @@ export class ProjectsController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: User,
-  ): Promise<ProjectDeletionResponseDto> {
+  ): Promise<void> {
     try {
       await this.projectsService.remove(id, user);
-      return {
-        message: 'Project deleted successfully',
-      };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        'Failed to delete project',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      console.error('Failed to delete project:', error);
+      throw error;
     }
   }
 

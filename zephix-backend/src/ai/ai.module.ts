@@ -6,8 +6,12 @@ import { EmbeddingService } from './embedding.service';
 import { VectorDatabaseService } from './vector-database.service';
 import { DocumentUploadController } from './document-upload.controller';
 import { ProjectGenerationController } from './project-generation.controller';
+import { AIMappingController } from './ai-mapping.controller';
+import { AISuggestionsController } from './ai-suggestions.controller';
 import { LLMProviderService } from './llm-provider.service';
 import { ClaudeService } from './claude.service';
+import { AIMappingService } from './services/ai-mapping.service';
+import { AISuggestionsService } from './services/ai-suggestions.service';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 
 @Module({
@@ -18,13 +22,20 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
       ? [TypeOrmModule.forFeature([UserOrganization])]
       : []),
   ],
-  controllers: [DocumentUploadController, ProjectGenerationController],
+  controllers: [
+    DocumentUploadController, 
+    ProjectGenerationController,
+    AIMappingController,
+    AISuggestionsController,
+  ],
   providers: [
     DocumentParserService,
     EmbeddingService,
     VectorDatabaseService,
     LLMProviderService,
     ClaudeService,
+    AIMappingService,
+    AISuggestionsService,
   ],
   exports: [
     DocumentParserService,
@@ -32,6 +43,8 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
     VectorDatabaseService,
     LLMProviderService,
     ClaudeService,
+    AIMappingService,
+    AISuggestionsService,
   ],
 })
 export class AIModule {}
