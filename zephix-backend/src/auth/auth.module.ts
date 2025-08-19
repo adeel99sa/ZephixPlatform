@@ -39,11 +39,11 @@ import jwtConfig from '../config/jwt.config';
       imports: [ConfigModule.forFeature(jwtConfig)],
       inject: [jwtConfig.KEY, KeyLoaderService],
       useFactory: (jwt: ReturnType<typeof jwtConfig>, keyLoader: KeyLoaderService) => {
-        const signingKey = keyLoader.getCurrentSigningKey();
-        
         if (jwt.algorithm === 'RS256') {
+          // RS256: Use private key with secretOrKeyProvider
+          const signingKey = keyLoader.getCurrentSigningKey() as any;
           return {
-            privateKey: (signingKey as any).privateKey,
+            privateKey: signingKey.privateKey,
             signOptions: { 
               algorithm: 'RS256', 
               expiresIn: jwt.expiresIn,
@@ -59,8 +59,10 @@ import jwtConfig from '../config/jwt.config';
             },
           };
         } else {
+          // HS256: Use secret directly
+          const signingKey = keyLoader.getCurrentSigningKey() as any;
           return {
-            secret: (signingKey as any).secret,
+            secret: signingKey.secret,
             signOptions: { 
               algorithm: 'HS256', 
               expiresIn: jwt.expiresIn,
