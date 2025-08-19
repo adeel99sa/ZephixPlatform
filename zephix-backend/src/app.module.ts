@@ -16,6 +16,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
+import { validationSchema } from './config/validation.schema';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -66,6 +67,7 @@ if (!(global as any).crypto) {
         process.env.NODE_ENV === 'production'
           ? []
           : ['.env', '.env.local', '.env.development'],
+      validationSchema,
     }),
 
     // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
