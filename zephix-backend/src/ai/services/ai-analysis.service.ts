@@ -5,10 +5,10 @@ import { createHash } from 'crypto';
 import { AIAnalysisRepository, AIAnalysisFilters, PaginationOptions, AIAnalysisStats } from '../repositories/ai-analysis.repository';
 import { AIAnalysis, AnalysisStatus, AnalysisType, ConfidenceLevel } from '../entities/ai-analysis.entity';
 import { AIConfigService } from '../config/ai-config.service';
-import { DocumentParserService } from './document-parser.service';
-import { LLMProviderService } from './llm-provider.service';
-import { VectorDatabaseService } from './vector-database.service';
-import { EmbeddingService } from './embedding.service';
+import { DocumentParserService } from '../document-parser.service';
+import { LLMProviderService } from '../llm-provider.service';
+import { VectorDatabaseService } from '../vector-database.service';
+import { EmbeddingService } from '../embedding.service';
 import { QueueService } from '../../shared/services/queue.service';
 import { AuditService } from '../../shared/services/audit.service';
 import { FileValidationService } from '../../shared/services/file-validation.service';
@@ -128,7 +128,7 @@ export class AIAnalysisService {
         status: analysis.status,
         progress: analysis.getProgress(),
         currentStep: this.getCurrentStep(analysis),
-        estimatedCompletion: analysis.getEstimatedCompletion(),
+        estimatedCompletion: analysis.getEstimatedCompletion() || undefined,
         result: analysis.isCompleted() ? analysis.analysisResult : undefined,
         error: analysis.isFailed() ? analysis.metadata.errorDetails?.message : undefined,
       };
@@ -257,12 +257,9 @@ export class AIAnalysisService {
       await this.aiAnalysisRepository.update(analysisId, organizationId, {
         status: AnalysisStatus.PENDING,
         retryCount: analysis.retryCount + 1,
-        nextRetryAt: null,
+        nextRetryAt: undefined,
         metadata: {
           ...analysis.metadata,
-          retryAttempt: analysis.retryCount + 1,
-          retryRequestedBy: userId,
-          retryRequestedAt: new Date(),
         },
       });
 
@@ -325,9 +322,9 @@ export class AIAnalysisService {
     
     // Virus scan
     if (this.aiConfigService.virusScanningEnabled) {
-      const isClean = await this.virusScanService.scanFile(request.document);
-      if (!isClean) {
-        throw new BadRequestException('File failed virus scan');
+      const scanResult = await this.virusScanService.scanFile(request.document.buffer, request.document.originalname);
+      if (!scanResult.isClean) {
+        throw new BadRequestException(`File failed virus scan: ${scanResult.threats.join(', ')}`);
       }
     }
 
@@ -462,22 +459,62 @@ export class AIAnalysisService {
         request.userId
       );
 
-      // Process document
-      const result = await this.processDocument(request);
+      // Parse document
+      const parsedContent = await this.documentParserService.parseDocument(
+        request.document.buffer,
+        request.document.originalname,
+        analysisId
+      );
+      
+      if (!parsedContent.success || !parsedContent.document) {
+        throw new Error(parsedContent.error || 'Failed to parse document');
+      }
+      
+      // Generate embeddings
+      const embeddings = await this.embeddingService.generateChunkEmbeddings(parsedContent.document.chunks);
+      
+      // Store in vector database
+      await this.vectorDatabaseService.storeDocumentChunks(
+        analysisId,
+        parsedContent.document.chunks,
+        embeddings
+      );
+      
+      // Prepare text for LLM analysis
+      const fullText = parsedContent.document.chunks.map(c => c.content).join('\n');
+      
+      // Analyze with LLM
+      const llmResponse = await this.llmProviderService.sendRequest({
+        prompt: fullText,
+        model: 'gpt-4',
+        temperature: 0.1,
+        maxTokens: 4000,
+      });
+      
+      // Create analysis result structure
+      const analysisResult = {
+        extractedRequirements: [],
+        identifiedRisks: [],
+        timelineEstimates: { optimistic: 0, realistic: 0, pessimistic: 0, unit: 'days', confidence: 0 },
+        costEstimates: { development: 0, testing: 0, deployment: 0, maintenance: 0, total: 0, currency: 'USD' },
+        stakeholderMapping: [],
+        technicalSpecifications: { architecture: '', technologies: [], integrations: [], constraints: [], assumptions: [] },
+        rawLLMResponse: llmResponse.content
+      };
       
       // Update with results
       await this.aiAnalysisRepository.update(analysisId, request.organizationId, {
         status: AnalysisStatus.COMPLETED,
-        analysisResult: result,
-        confidenceScore: this.calculateConfidenceScore(result),
-        confidenceLevel: this.determineConfidenceLevel(result),
+        analysisResult: analysisResult,
+        confidenceScore: this.calculateConfidenceScore(analysisResult),
+        confidenceLevel: this.determineConfidenceLevel(analysisResult),
       });
 
       return {
         id: analysisId,
         status: AnalysisStatus.COMPLETED,
         progress: 100,
-        result,
+        result: analysisResult,
       };
     } catch (error) {
       // Set error and update status
@@ -490,31 +527,6 @@ export class AIAnalysisService {
         error: error.message,
       };
     }
-  }
-
-  private async processDocument(request: AnalysisRequest): Promise<any> {
-    // Parse document
-    const parsedContent = await this.documentParserService.parseDocument(request.document);
-    
-    // Generate embeddings
-    const embeddings = await this.embeddingService.generateEmbeddings(parsedContent.text);
-    
-    // Store in vector database
-    await this.vectorDatabaseService.storeDocument(
-      request.organizationId,
-      request.document.originalname,
-      embeddings,
-      parsedContent.metadata
-    );
-    
-    // Analyze with LLM
-    const analysis = await this.llmProviderService.analyzeDocument(
-      parsedContent.text,
-      request.type,
-      request.options
-    );
-    
-    return analysis;
   }
 
   private calculateConfidenceScore(result: any): number {

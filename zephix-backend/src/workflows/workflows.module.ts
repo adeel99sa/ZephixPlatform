@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WorkflowTemplate } from './entities/workflow-template.entity';
-import { WorkflowStage } from './entities/workflow-stage.entity';
-import { WorkflowApproval } from './entities/workflow-approval.entity';
-import { WorkflowVersion } from './entities/workflow-version.entity';
+import { 
+  WorkflowTemplate,
+  WorkflowStage,
+  WorkflowApproval,
+  WorkflowVersion 
+} from './entities';
+import { 
+  WorkflowTemplatesService,
+  AdvancedWorkflowOrchestrationService 
+} from './services';
 import { WorkflowTemplatesController } from './controllers/workflow-templates.controller';
-import { WorkflowTemplatesService } from './services/workflow-templates.service';
 
 @Module({
   imports: [
@@ -18,14 +23,14 @@ import { WorkflowTemplatesService } from './services/workflow-templates.service'
       WorkflowVersion,
     ]),
   ],
-  controllers: [
-    WorkflowTemplatesController,
-  ],
+  controllers: [WorkflowTemplatesController],
   providers: [
     WorkflowTemplatesService,
+    AdvancedWorkflowOrchestrationService,
   ],
   exports: [
     WorkflowTemplatesService,
+    AdvancedWorkflowOrchestrationService,
   ],
 })
 export class WorkflowsModule {}

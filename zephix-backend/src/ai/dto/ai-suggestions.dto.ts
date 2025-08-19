@@ -1,32 +1,37 @@
-import { IsEnum, IsOptional, IsArray, IsString, IsNumber, Min, Max, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsEnum, IsOptional, IsArray, IsNumber, IsBoolean, IsDate, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum SuggestionCategory {
-  TIMELINE = 'timeline',
-  BUDGET = 'budget',
-  RESOURCES = 'resources',
-  RISKS = 'risks',
-  PROCESS = 'process',
-  QUALITY = 'quality',
+  TIMELINE_OPTIMIZATION = 'timeline_optimization',
+  BUDGET_OPTIMIZATION = 'budget_optimization',
+  RESOURCE_ALLOCATION = 'resource_allocation',
+  RISK_MITIGATION = 'risk_mitigation',
+  QUALITY_IMPROVEMENT = 'quality_improvement',
+  PROCESS_OPTIMIZATION = 'process_optimization',
+  TECHNOLOGY_UPGRADE = 'technology_upgrade',
+  STAKEHOLDER_MANAGEMENT = 'stakeholder_management',
 }
 
 export enum SuggestionPriority {
-  CRITICAL = 'critical',
-  HIGH = 'high',
-  MEDIUM = 'medium',
   LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
 }
 
 export enum SuggestionStatus {
   PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  IMPLEMENTED = 'implemented',
+  IN_REVIEW = 'in_review',
+  APPROVED = 'approved',
   REJECTED = 'rejected',
-  ARCHIVED = 'archived',
+  IMPLEMENTED = 'implemented',
+  DEPRECATED = 'deprecated',
 }
 
 export class AISuggestionDto {
   @ApiProperty({ description: 'Unique suggestion ID' })
+  @IsUUID()
   id: string;
 
   @ApiProperty({ 
@@ -36,13 +41,6 @@ export class AISuggestionDto {
   @IsEnum(SuggestionCategory)
   category: SuggestionCategory;
 
-  @ApiProperty({ 
-    enum: SuggestionPriority,
-    description: 'Priority level of the suggestion'
-  })
-  @IsEnum(SuggestionPriority)
-  priority: SuggestionPriority;
-
   @ApiProperty({ description: 'Suggestion title' })
   @IsString()
   title: string;
@@ -51,69 +49,55 @@ export class AISuggestionDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ description: 'AI reasoning behind the suggestion' })
+  @ApiProperty({ 
+    enum: SuggestionPriority,
+    description: 'Priority level of the suggestion'
+  })
+  @IsEnum(SuggestionPriority)
+  priority: SuggestionPriority;
+
+  @ApiProperty({ description: 'Business impact description' })
   @IsString()
-  reasoning: string;
+  impactDescription: string;
 
-  @ApiProperty({ description: 'Impact assessment of the suggestion' })
-  impact: {
-    @ApiProperty({ description: 'Impact description' })
-    @IsString()
-    description: string;
-    
-    @ApiProperty({ enum: ['low', 'medium', 'high'] })
-    @IsEnum(['low', 'medium', 'high'])
-    magnitude: 'low' | 'medium' | 'high';
-    
-    @ApiProperty({ enum: ['low', 'medium', 'high'] })
-    @IsEnum(['low', 'medium', 'high'])
-    effort: 'low' | 'medium' | 'high';
-    
-    @ApiProperty({ description: 'Implementation timeline' })
-    @IsString()
-    timeline: string;
-  };
+  @ApiProperty({ description: 'Estimated effort in person-days' })
+  @IsNumber()
+  estimatedEffort: number;
 
-  @ApiProperty({ description: 'Actionable steps to implement the suggestion' })
+  @ApiProperty({ description: 'Estimated cost savings or benefits' })
+  @IsNumber()
+  estimatedValue: number;
+
+  @ApiProperty({ description: 'Array of actionable steps' })
   @IsArray()
   actionableSteps: Array<{
-    @ApiProperty({ description: 'Step description' })
-    @IsString()
     step: string;
-    
-    @ApiProperty({ description: 'Person responsible for this step' })
-    @IsString()
+    description: string;
     owner: string;
-    
-    @ApiProperty({ description: 'Timeline for this step' })
-    @IsString()
     timeline: string;
-    
-    @ApiProperty({ description: 'Dependencies for this step' })
-    @IsArray()
-    @IsString({ each: true })
     dependencies: string[];
   }>;
 
-  @ApiProperty({ description: 'Overall implementation timeline' })
+  @ApiProperty({ description: 'Implementation timeline estimate' })
   @IsString()
   implementationTimeline: string;
 
-  @ApiProperty({ description: 'Expected outcome of implementing the suggestion' })
+  @ApiProperty({ description: 'Expected outcome description' })
   @IsString()
   expectedOutcome: string;
 
-  @ApiProperty({ 
-    description: 'Confidence score of the suggestion (0-1)',
-    minimum: 0,
-    maximum: 1
-  })
+  @ApiProperty({ description: 'Confidence score (0-1)' })
   @IsNumber()
   @Min(0)
   @Max(1)
   confidence: number;
 
-  @ApiProperty({ description: 'Data sources used for the analysis' })
+  @ApiPropertyOptional({ description: 'Additional context or notes' })
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @ApiProperty({ description: 'Data sources used for the suggestion' })
   @IsArray()
   @IsString({ each: true })
   dataSources: string[];
@@ -131,48 +115,55 @@ export class AISuggestionDto {
   status: SuggestionStatus;
 
   @ApiProperty({ description: 'When the suggestion was created' })
+  @IsDate()
+  @Type(() => Date)
   createdAt: Date;
 
   @ApiProperty({ description: 'When the suggestion was last updated' })
+  @IsDate()
+  @Type(() => Date)
   updatedAt: Date;
 
   @ApiProperty({ description: 'Organization ID for data isolation' })
+  @IsUUID()
   organizationId: string;
 
   @ApiProperty({ description: 'User ID who created the suggestion' })
+  @IsUUID()
   userId: string;
 }
 
 export class GenerateSuggestionsRequestDto {
-  @ApiPropertyOptional({ description: 'Specific project IDs to analyze' })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  projectIds?: string[];
+  @ApiProperty({ description: 'Project ID to generate suggestions for' })
+  @IsUUID()
+  projectId: string;
 
-  @ApiPropertyOptional({ description: 'Categories to focus on' })
+  @ApiPropertyOptional({ 
+    enum: SuggestionCategory,
+    description: 'Specific category to focus on',
+    isArray: true
+  })
   @IsOptional()
   @IsArray()
   @IsEnum(SuggestionCategory, { each: true })
   categories?: SuggestionCategory[];
 
-  @ApiPropertyOptional({ description: 'Priority level filter' })
+  @ApiPropertyOptional({ description: 'Maximum number of suggestions to generate' })
   @IsOptional()
-  @IsEnum(SuggestionPriority)
-  priority?: SuggestionPriority;
+  @IsNumber()
+  maxSuggestions?: number;
 
-  @ApiPropertyOptional({ description: 'Include historical project data' })
+  @ApiPropertyOptional({ description: 'Minimum confidence threshold' })
   @IsOptional()
-  @IsBoolean()
-  includeHistorical?: boolean;
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  minConfidence?: number;
 
-  @ApiPropertyOptional({ 
-    enum: ['basic', 'detailed', 'comprehensive'],
-    description: 'Depth of analysis'
-  })
+  @ApiPropertyOptional({ description: 'Additional context for generation' })
   @IsOptional()
-  @IsEnum(['basic', 'detailed', 'comprehensive'])
-  analysisDepth?: 'basic' | 'detailed' | 'comprehensive';
+  @IsString()
+  context?: string;
 }
 
 export class UpdateSuggestionStatusDto {
@@ -183,44 +174,47 @@ export class UpdateSuggestionStatusDto {
   @IsEnum(SuggestionStatus)
   status: SuggestionStatus;
 
-  @ApiPropertyOptional({ description: 'Additional notes about the status change' })
+  @ApiPropertyOptional({ description: 'Reason for status change' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional({ description: 'When the suggestion was implemented' })
-  @IsOptional()
-  implementationDate?: Date;
-
-  @ApiPropertyOptional({ description: 'Actual outcome after implementation' })
-  @IsOptional()
-  @IsString()
-  outcome?: string;
 }
 
 export class SuggestionsResponseDto {
-  @ApiProperty({ description: 'List of AI suggestions', type: [AISuggestionDto] })
+  @ApiProperty({ description: 'Array of AI suggestions', type: [AISuggestionDto] })
+  @IsArray()
+  @Type(() => AISuggestionDto)
   suggestions: AISuggestionDto[];
 
-  @ApiProperty({ description: 'Summary statistics of suggestions' })
-  summary: {
-    @ApiProperty({ description: 'Total number of suggestions' })
-    @IsNumber()
-    total: number;
-    
-    @ApiProperty({ description: 'Count by category' })
-    byCategory: Record<string, number>;
-    
-    @ApiProperty({ description: 'Count by priority' })
-    byPriority: Record<string, number>;
-    
-    @ApiProperty({ description: 'Count by status' })
-    byStatus: Record<string, number>;
-  };
+  @ApiProperty({ description: 'Total number of suggestions' })
+  @IsNumber()
+  total: number;
+
+  @ApiProperty({ description: 'Current page number' })
+  @IsNumber()
+  page: number;
+
+  @ApiProperty({ description: 'Number of suggestions per page' })
+  @IsNumber()
+  limit: number;
+
+  @ApiProperty({ description: 'Total number of pages' })
+  @IsNumber()
+  totalPages: number;
 
   @ApiProperty({ description: 'When the suggestions were generated' })
+  @IsDate()
+  @Type(() => Date)
   generatedAt: Date;
 
   @ApiPropertyOptional({ description: 'Next refresh time for suggestions' })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
   nextRefresh?: Date;
 }
