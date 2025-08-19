@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException, Optional, Inject } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../modules/users/entities/user.entity';
@@ -14,15 +13,6 @@ import { ConfigType } from '@nestjs/config';
  * This strategy validates JWT tokens and extracts user information.
  * It supports both HS256 and RS256 algorithms for enhanced security.
  * It's used to protect routes that require authentication.
- *
- * EMERGENCY MODE: When SKIP_DATABASE=true, provides limited JWT validation
- * without database lookups for emergency recovery scenarios.
- *
- * MICROSERVICE EXTRACTION NOTES:
- * - This strategy can be easily moved to a separate auth microservice
- * - The JWT keys should be shared between services
- * - User validation can be done via API calls to the auth service
- * - Consider using Redis for token blacklisting in distributed systems
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -32,53 +22,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @Optional()
     @InjectRepository(User)
     private readonly userRepository: Repository<User> | null,
-    private readonly configService: ConfigService,
     @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
   ) {
-    const algorithm = jwtCfg.algorithm;
-    const secret = jwtCfg.secret;
-    const publicKey = jwtCfg.publicKey;
-    const issuer = jwtCfg.issuer;
-    const audience = jwtCfg.audience;
+    const secretOrKey = jwtCfg.algorithm === 'RS256' ? jwtCfg.publicKey : jwtCfg.secret;
     
-    if (!secret && algorithm === 'HS256') {
-      throw new Error('JWT_SECRET is required for HS256 algorithm');
-    }
-    
-    if (!publicKey && algorithm === 'RS256') {
-      throw new Error('JWT_PUBLIC_KEY is required for RS256 algorithm');
+    if (!secretOrKey) {
+      throw new Error(`JWT ${jwtCfg.algorithm === 'RS256' ? 'public key' : 'secret'} is required`);
     }
 
-    // Configure strategy based on algorithm
-    const strategyOptions = algorithm === 'RS256' ? {
+    super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      secretOrKey,
       ignoreExpiration: false,
-      algorithms: ['RS256'],
-      secretOrKey: publicKey,
-      issuer,
-      audience,
-      clockTolerance: 30, // 30 seconds tolerance for clock skew
-    } : {
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      algorithms: ['HS256'],
-      secretOrKey: secret,
-      issuer,
-      audience,
-      clockTolerance: 30, // 30 seconds tolerance for clock skew
-    };
-
-    super(strategyOptions as any);
+      algorithms: [jwtCfg.algorithm],
+      issuer: jwtCfg.issuer,
+      audience: jwtCfg.audience,
+    });
 
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
 
     if (this.isEmergencyMode) {
-      console.log(
-        '🚨 JwtStrategy: Emergency mode - database validation disabled',
-      );
+      console.log('🚨 JwtStrategy: Emergency mode - database validation disabled');
     }
 
-    console.log(`🔐 JWT Strategy initialized with ${algorithm} algorithm`);
+    console.log(`🔐 JWT Strategy initialized with ${jwtCfg.algorithm} algorithm`);
   }
 
   async validate(payload: any): Promise<User> {
@@ -89,12 +56,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // EMERGENCY MODE: Return a minimal user object without database validation
     if (this.isEmergencyMode || !this.userRepository) {
-      console.log(
-        '🚨 JwtStrategy: Emergency mode - returning minimal user object',
-      );
+      console.log('🚨 JwtStrategy: Emergency mode - returning minimal user object');
 
-      // Return a minimal user object for emergency mode
-      // This allows basic JWT validation to work without database
       return {
         id: payload.sub,
         email: payload.email,
@@ -109,7 +72,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         organizationId: payload.organizationId,
         organizations: payload.organizations || [],
         userOrganizations: payload.userOrganizations || [],
-        refreshTokens: [], // Add missing required property
+        refreshTokens: [],
       } as unknown as User;
     }
 
@@ -134,7 +97,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Email verification required');
     }
 
-    // Log successful authentication for audit
     console.log(`🔐 JWT validation successful for user: ${user.email} (${user.id})`);
 
     return user;
