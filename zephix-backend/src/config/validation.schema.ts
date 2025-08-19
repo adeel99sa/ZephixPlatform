@@ -41,9 +41,9 @@ export const validationSchema = Joi.object({
     then: Joi.string().required(),
     otherwise: Joi.string().optional(),
   }),
-  JWT_ISSUER: Joi.string().default('zephix-backend'),
-  JWT_AUDIENCE: Joi.string().default('zephix-frontend'),
-  JWT_REFRESH_AUDIENCE: Joi.string().default('zephix-refresh'),
+  JWT_ISSUER: Joi.string().required(),
+  JWT_AUDIENCE: Joi.string().required(),
+  JWT_REFRESH_AUDIENCE: Joi.string().required(),
   JWT_KEY_ID: Joi.string().optional(),
   JWT_ROTATION_GRACE_WINDOW: Joi.number().default(300000), // 5 minutes
   

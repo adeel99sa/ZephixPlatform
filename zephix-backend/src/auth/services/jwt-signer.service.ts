@@ -66,21 +66,37 @@ export class JwtSignerService {
         exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.expiresIn),
       };
 
-      const token = await this.jwtService.signAsync(payload, {
-        algorithm: this.jwtCfg.algorithm,
-        expiresIn: this.jwtCfg.expiresIn,
-        issuer: this.jwtCfg.issuer,
-        audience: this.jwtCfg.audience,
-        keyid: this.jwtCfg.keyId,
-        header: {
-          kid: this.jwtCfg.keyId,
-          alg: this.jwtCfg.algorithm,
-          typ: 'JWT',
-        },
-      });
-
-      this.logger.debug(`Access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`);
-      return token;
+      if (this.jwtCfg.algorithm === 'RS256') {
+        const token = await this.jwtService.signAsync(payload, {
+          algorithm: 'RS256',
+          expiresIn: this.jwtCfg.expiresIn,
+          issuer: this.jwtCfg.issuer,
+          audience: this.jwtCfg.audience,
+          keyid: this.jwtCfg.keyId,
+          header: {
+            kid: this.jwtCfg.keyId,
+            alg: 'RS256',
+            typ: 'JWT',
+          },
+        });
+        this.logger.debug(`RS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`);
+        return token;
+      } else {
+        const token = await this.jwtService.signAsync(payload, {
+          algorithm: 'HS256',
+          expiresIn: this.jwtCfg.expiresIn,
+          issuer: this.jwtCfg.issuer,
+          audience: this.jwtCfg.audience,
+          keyid: this.jwtCfg.keyId,
+          header: {
+            kid: this.jwtCfg.keyId,
+            alg: 'HS256',
+            typ: 'JWT',
+          },
+        });
+        this.logger.debug(`HS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`);
+        return token;
+      }
     } catch (error) {
       this.logger.error('Failed to sign access token:', error);
       throw error;
@@ -104,21 +120,37 @@ export class JwtSignerService {
         exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.refreshExpiresIn),
       };
 
-      const token = await this.jwtService.signAsync(payload, {
-        algorithm: this.jwtCfg.algorithm,
-        expiresIn: this.jwtCfg.refreshExpiresIn,
-        issuer: this.jwtCfg.issuer,
-        audience: this.jwtCfg.refreshAudience,
-        keyid: `${this.jwtCfg.keyId}_refresh`,
-        header: {
-          kid: `${this.jwtCfg.keyId}_refresh`,
-          alg: this.jwtCfg.algorithm,
-          typ: 'JWT',
-        },
-      });
-
-      this.logger.debug(`Refresh token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}_refresh`);
-      return token;
+      if (this.jwtCfg.algorithm === 'RS256') {
+        const token = await this.jwtService.signAsync(payload, {
+          algorithm: 'RS256',
+          expiresIn: this.jwtCfg.refreshExpiresIn,
+          issuer: this.jwtCfg.issuer,
+          audience: this.jwtCfg.refreshAudience,
+          keyid: `${this.jwtCfg.keyId}_refresh`,
+          header: {
+            kid: `${this.jwtCfg.keyId}_refresh`,
+            alg: 'RS256',
+            typ: 'JWT',
+          },
+        });
+        this.logger.debug(`RS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`);
+        return token;
+      } else {
+        const token = await this.jwtService.signAsync(payload, {
+          algorithm: 'HS256',
+          expiresIn: this.jwtCfg.refreshExpiresIn,
+          issuer: this.jwtCfg.issuer,
+          audience: this.jwtCfg.refreshAudience,
+          keyid: `${this.jwtCfg.keyId}_refresh`,
+          header: {
+            kid: `${this.jwtCfg.keyId}_refresh`,
+            alg: 'HS256',
+            typ: 'JWT',
+          },
+        });
+        this.logger.debug(`HS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`);
+        return token;
+      }
     } catch (error) {
       this.logger.error('Failed to sign refresh token:', error);
       throw error;
