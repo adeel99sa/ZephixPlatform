@@ -6,13 +6,14 @@ import { Repository } from 'typeorm';
 import { User } from '../../modules/users/entities/user.entity';
 import jwtConfig from '../../config/jwt.config';
 import { ConfigType } from '@nestjs/config';
+import { KeyLoaderService } from '../services/key-loader.service';
 
 /**
  * JWT Authentication Strategy
  *
  * This strategy validates JWT tokens and extracts user information.
- * It supports both HS256 and RS256 algorithms for enhanced security.
- * It's used to protect routes that require authentication.
+ * It supports both HS256 and RS256 algorithms with enhanced security.
+ * Uses KeyLoaderService for key rotation and caching support.
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -23,16 +24,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @InjectRepository(User)
     private readonly userRepository: Repository<User> | null,
     @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
+    private readonly keyLoaderService: KeyLoaderService,
   ) {
-    const secretOrKey = jwtCfg.algorithm === 'RS256' ? jwtCfg.publicKey : jwtCfg.secret;
-    
-    if (!secretOrKey) {
-      throw new Error(`JWT ${jwtCfg.algorithm === 'RS256' ? 'public key' : 'secret'} is required`);
-    }
-
+    // Use secretOrKeyProvider for dynamic key loading (supports key rotation)
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey,
+      secretOrKeyProvider: (request: any, rawJwtToken: string, done: Function) => {
+        try {
+          // Extract key ID from token header if present
+          const decodedHeader = this.decodeTokenHeader(rawJwtToken);
+          const keyId = decodedHeader?.kid || this.jwtCfg.keyId;
+          
+          // Get the appropriate key for validation
+          const key = this.keyLoaderService.getCurrentAccessKey();
+          done(null, key);
+        } catch (error) {
+          done(error, null);
+        }
+      },
       ignoreExpiration: false,
       algorithms: [jwtCfg.algorithm],
       issuer: jwtCfg.issuer,
@@ -52,6 +61,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Validate payload structure
     if (!payload.sub || !payload.email) {
       throw new UnauthorizedException('Invalid JWT payload structure');
+    }
+
+    // Validate issuer and audience
+    if (payload.iss !== this.jwtCfg.issuer) {
+      throw new UnauthorizedException('Invalid token issuer');
+    }
+
+    if (payload.aud !== this.jwtCfg.audience) {
+      throw new UnauthorizedException('Invalid token audience');
     }
 
     // EMERGENCY MODE: Return a minimal user object without database validation
@@ -100,5 +118,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     console.log(`🔐 JWT validation successful for user: ${user.email} (${user.id})`);
 
     return user;
+  }
+
+  /**
+   * Decode JWT header to extract key ID (kid) for key rotation support
+   */
+  private decodeTokenHeader(token: string): any {
+    try {
+      const header = token.split('.')[0];
+      return JSON.parse(Buffer.from(header, 'base64').toString('utf8'));
+    } catch (error) {
+      return null;
+    }
   }
 }
