@@ -58,7 +58,7 @@ export class AISuggestionsService {
     private readonly configService: ConfigService,
     private readonly llmProviderService: LLMProviderService,
   ) {
-    this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
+    this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
     this.maxSuggestionsPerRequest = this.configService.get<number>('AI_MAX_SUGGESTIONS_PER_REQUEST', 10);
   }
 
@@ -78,17 +78,13 @@ export class AISuggestionsService {
       // TODO: Implement database retrieval with proper filtering
       // For now, return empty response with proper structure
       const suggestions: AISuggestionDto[] = [];
-      
-      const summary = {
-        total: suggestions.length,
-        byCategory: this.getCategoryCounts(suggestions),
-        byPriority: this.getPriorityCounts(suggestions),
-        byStatus: this.getStatusCounts(suggestions),
-      };
 
       return {
         suggestions: suggestions.slice(offset, offset + limit),
-        summary,
+        total: suggestions.length,
+        page: Math.floor(offset / limit) + 1,
+        limit,
+        totalPages: Math.ceil(suggestions.length / limit),
         generatedAt: new Date(),
         nextRefresh: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
       };
@@ -169,7 +165,7 @@ export class AISuggestionsService {
       this.logger.log(`Processing AI suggestions generation for job: ${jobId}`);
 
       // Step 1: Collect project data for analysis
-      const projectData = await this.collectProjectData(organizationId, request.projectIds);
+      const projectData = await this.collectProjectData(organizationId, request.projectId ? [request.projectId] : undefined);
       this.logger.log(`Collected data for ${projectData.length} projects: ${jobId}`);
 
       // Step 2: Analyze project patterns and generate insights
@@ -256,14 +252,15 @@ export class AISuggestionsService {
       const prompt = this.createSuggestionsPrompt(analysisResults, request);
       
       // Use LLM service for suggestion generation
-      const llmResponse = await this.llmProviderService.generateSuggestions(prompt, {
+      const llmResult = await this.llmProviderService.sendRequest({
+        prompt,
         model: 'gpt-4',
-        temperature: 0.3, // Slightly higher for creative suggestions
+        temperature: 0.3,
         maxTokens: 3000,
       });
 
       // Parse and validate LLM response
-      const suggestions = this.parseSuggestionsResponse(llmResponse, organizationId, userId);
+      const suggestions = this.parseSuggestionsResponse(llmResult.content, organizationId, userId);
       
       return suggestions;
     } catch (error) {
@@ -277,9 +274,7 @@ export class AISuggestionsService {
       `Focus on these categories: ${request.categories.join(', ')}` : 
       'Provide suggestions across all categories';
 
-    const priorityFocus = request.priority ? 
-      `Prioritize ${request.priority} priority suggestions` : 
-      'Provide a mix of priority levels';
+    const priorityFocus = 'Provide a mix of priority levels';
 
     return `
       Based on the following project analysis, generate actionable AI-powered suggestions for project optimization.
