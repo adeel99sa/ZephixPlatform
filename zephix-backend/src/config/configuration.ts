@@ -1,3 +1,6 @@
+// Add test environment detection at the top
+const isTest = process.env.NODE_ENV === 'test';
+
 export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   environment: process.env.NODE_ENV || 'development',
@@ -16,6 +19,11 @@ export default () => ({
     secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    alg: process.env.JWT_ALG || (isTest ? 'HS256' : undefined),
+    issuer: process.env.JWT_ISSUER || (isTest ? 'test-issuer' : undefined),
+    audience: process.env.JWT_AUDIENCE || (isTest ? 'test-aud' : undefined),
+    refreshAudience:
+      process.env.JWT_REFRESH_AUDIENCE || (isTest ? 'test-refresh' : undefined),
   },
   app: {
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',

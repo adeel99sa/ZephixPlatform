@@ -14,7 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { EmailVerification } from '../entities/email-verification.entity';
 import { User } from '../../modules/users/entities/user.entity';
 import { EmailService } from '../../shared/services/email.service';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 
 export interface VerificationEmailData {
   recipientEmail: string;
@@ -91,14 +91,15 @@ export class EmailVerificationService {
       { status: 'expired' },
     );
 
-    // Generate secure verification token
+    // Generate secure verification token (cryptographically strong)
     const token = this.generateVerificationToken();
+    const tokenHash = this.hashToken(token);
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours expiry
+    expiresAt.setMinutes(expiresAt.getMinutes() + 30); // 30 minutes TTL (OWASP ASVS Level 1)
 
     // Create verification record
     const verification = this.verificationRepository.create({
-      token,
+      tokenHash,
       email: user.email,
       userId: user.id,
       expiresAt,
@@ -163,8 +164,10 @@ export class EmailVerificationService {
       );
     }
 
+    // Hash the provided token to find the record (security best practice)
+    const tokenHash = this.hashToken(token);
     const verification = await this.verificationRepository.findOne({
-      where: { token },
+      where: { tokenHash },
       relations: ['user'],
     });
 
@@ -263,14 +266,19 @@ export class EmailVerificationService {
     if (this.isEmergencyMode || !this.verificationRepository) {
       return null;
     }
+    const tokenHash = this.hashToken(token);
     return this.verificationRepository.findOne({
-      where: { token },
+      where: { tokenHash },
       relations: ['user'],
     });
   }
 
   private generateVerificationToken(): string {
-    return randomBytes(32).toString('hex');
+    return randomBytes(32).toString('hex'); // 256-bit cryptographically secure token
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private async sendVerificationEmailTemplate(

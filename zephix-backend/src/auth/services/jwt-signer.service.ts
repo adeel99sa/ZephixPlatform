@@ -24,7 +24,7 @@ export interface JWTRefreshSignOptions {
 
 /**
  * JWT Signer Service
- * 
+ *
  * Handles JWT token signing with private keys.
  * Keeps private keys out of the request path for security.
  * Sets proper headers including key ID (kid) for rotation support.
@@ -62,7 +62,9 @@ export class JwtSignerService {
         iss: this.jwtCfg.issuer,
         aud: this.jwtCfg.audience,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.expiresIn),
+        exp:
+          Math.floor(Date.now() / 1000) +
+          this.parseExpiry(this.jwtCfg.expiresIn),
         token_type: 'access', // Explicit token type
       };
 
@@ -79,7 +81,9 @@ export class JwtSignerService {
             typ: 'JWT',
           },
         });
-        this.logger.debug(`RS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`);
+        this.logger.debug(
+          `RS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`,
+        );
         return token;
       } else {
         const token = await this.jwtService.signAsync(payload, {
@@ -94,7 +98,9 @@ export class JwtSignerService {
             typ: 'JWT',
           },
         });
-        this.logger.debug(`HS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`);
+        this.logger.debug(
+          `HS256 access token signed for user: ${options.email} with kid: ${this.jwtCfg.keyId}`,
+        );
         return token;
       }
     } catch (error) {
@@ -116,7 +122,9 @@ export class JwtSignerService {
         iss: this.jwtCfg.issuer,
         aud: this.jwtCfg.refreshAudience,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + this.parseExpiry(this.jwtCfg.refreshExpiresIn),
+        exp:
+          Math.floor(Date.now() / 1000) +
+          this.parseExpiry(this.jwtCfg.refreshExpiresIn),
         token_type: 'refresh', // Explicit token type
       };
 
@@ -133,7 +141,9 @@ export class JwtSignerService {
             typ: 'JWT',
           },
         });
-        this.logger.debug(`RS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`);
+        this.logger.debug(
+          `RS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`,
+        );
         return token;
       } else {
         const token = await this.jwtService.signAsync(payload, {
@@ -148,7 +158,9 @@ export class JwtSignerService {
             typ: 'JWT',
           },
         });
-        this.logger.debug(`HS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`);
+        this.logger.debug(
+          `HS256 refresh token signed for user: ${options.email} with jti: ${options.tokenId}`,
+        );
         return token;
       }
     } catch (error) {
@@ -160,7 +172,9 @@ export class JwtSignerService {
   /**
    * Sign both access and refresh tokens
    */
-  async signTokens(options: JWTSignOptions & { deviceId: string; tokenId: string }): Promise<{
+  async signTokens(
+    options: JWTSignOptions & { deviceId: string; tokenId: string },
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
     jti: string;
@@ -192,8 +206,10 @@ export class JwtSignerService {
       };
 
       const payload = await this.jwtService.verifyAsync(token, options);
-      
-      this.logger.debug(`Token verified for user: ${payload.email} with kid: ${payload.kid || 'unknown'}`);
+
+      this.logger.debug(
+        `Token verified for user: ${payload.email} with kid: ${payload.kid || 'unknown'}`,
+      );
       return payload;
     } catch (error) {
       this.logger.warn('Token verification failed:', error.message);
@@ -214,11 +230,16 @@ export class JwtSignerService {
     const unit = match[2];
 
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 60 * 60;
-      case 'd': return value * 24 * 60 * 60;
-      default: throw new Error(`Unknown expiry unit: ${unit}`);
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 60 * 60;
+      case 'd':
+        return value * 24 * 60 * 60;
+      default:
+        throw new Error(`Unknown expiry unit: ${unit}`);
     }
   }
 

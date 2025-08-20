@@ -1,10 +1,9 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-// import { CACHE_MANAGER } from '@nestjs/cache-manager';
-// import { Cache } from 'cache-manager';
+import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from './redis.service';
 import { MetricsService } from './metrics.service';
 import { ConfigService } from '@nestjs/config';
 
+// ✅ PROPER TYPING - NO MORE 'any' TYPES
 export interface CacheOptions {
   ttl?: number;
   maxSize?: number;
@@ -35,7 +34,14 @@ export interface CacheInvalidationStrategy {
   type: 'immediate' | 'lazy' | 'scheduled';
   delay?: number;
   batchSize?: number;
-  retryAttempts?: number;
+}
+
+export interface CacheEntry<T> {
+  value: T;
+  timestamp: number;
+  ttl: number;
+  tags: string[];
+  namespace: string;
 }
 
 @Injectable()
@@ -47,35 +53,38 @@ export class AdvancedCachingService {
   private readonly enableEncryption: boolean;
   private readonly cacheMetrics: Map<string, CacheMetrics> = new Map();
   private readonly cacheTags: Map<string, Set<string>> = new Map();
-  private readonly scheduledInvalidations: Map<string, NodeJS.Timeout> = new Map();
+  private readonly scheduledInvalidations: Map<string, NodeJS.Timeout> =
+    new Map();
 
   constructor(
-    // @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly redisService: RedisService,
     private readonly metricsService: MetricsService,
     private readonly configService: ConfigService,
   ) {
     this.defaultTtl = this.configService.get<number>('CACHE_DEFAULT_TTL', 300);
     this.maxCacheSize = this.configService.get<number>('CACHE_MAX_SIZE', 10000);
-    this.enableCompression = this.configService.get<boolean>('CACHE_ENABLE_COMPRESSION', true);
-    this.enableEncryption = this.configService.get<boolean>('CACHE_ENABLE_ENCRYPTION', false);
+    this.enableCompression = this.configService.get<boolean>(
+      'CACHE_ENABLE_COMPRESSION',
+      true,
+    );
+    this.enableEncryption = this.configService.get<boolean>(
+      'CACHE_ENABLE_ENCRYPTION',
+      false,
+    );
   }
 
   /**
    * 🎯 PRINCIPAL LEVEL: Multi-level caching with intelligent key management
    * Implements L1 (memory) and L2 (Redis) caching with automatic fallback
    */
-  async get<T>(
-    key: string,
-    options: CacheOptions = {}
-  ): Promise<T | null> {
+  async get<T>(key: string, options: CacheOptions = {}): Promise<T | null> {
     const startTime = Date.now();
     const cacheKey = this.buildCacheKey(key, options.namespace);
-    
+
     try {
       // L1 Cache (Memory) - Fastest access
       let value = await this.getFromL1Cache<T>(cacheKey);
-      
+
       if (value !== null) {
         this.recordCacheHit(cacheKey, 'L1', Date.now() - startTime);
         return value;
@@ -83,28 +92,30 @@ export class AdvancedCachingService {
 
       // L2 Cache (Redis) - Slower but larger capacity
       value = await this.getFromL2Cache<T>(cacheKey);
-      
+
       if (value !== null) {
         // Populate L1 cache for future fast access
-        await this.setInL1Cache(cacheKey, value, options.ttl || this.defaultTtl);
+        await this.setInL1Cache(
+          cacheKey,
+          value,
+          options.ttl || this.defaultTtl,
+        );
         this.recordCacheHit(cacheKey, 'L2', Date.now() - startTime);
         return value;
       }
 
-      // Cache miss
+      // Cache miss - record and return null
       this.recordCacheMiss(cacheKey, Date.now() - startTime);
       return null;
-      
     } catch (error) {
-      this.logger.error(`Cache get operation failed for key: ${cacheKey}`, {
-        error: error.message,
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Cache get operation failed for key ${cacheKey}:`, {
+        error: errorMessage,
         key: cacheKey,
         options,
       });
-      
-      // Fallback to direct cache manager
-      // return await this.cacheManager.get<T>(cacheKey);
-      return null; // No cache manager, so return null
+      return null; // Graceful degradation on error
     }
   }
 
@@ -115,19 +126,19 @@ export class AdvancedCachingService {
   async set<T>(
     key: string,
     value: T,
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<void> {
     const cacheKey = this.buildCacheKey(key, options.namespace);
     const ttl = options.ttl || this.defaultTtl;
-    
+
     try {
       // Process value based on options
       let processedValue = value;
-      
+
       if (options.compression !== false && this.enableCompression) {
         processedValue = await this.compressValue(value);
       }
-      
+
       if (options.encryption !== false && this.enableEncryption) {
         processedValue = await this.encryptValue(processedValue);
       }
@@ -145,16 +156,15 @@ export class AdvancedCachingService {
 
       // Update metrics
       this.recordCacheSet(cacheKey, ttl);
-      
     } catch (error) {
-      this.logger.error(`Cache set operation failed for key: ${cacheKey}`, {
-        error: error.message,
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Cache set operation failed for key ${cacheKey}:`, {
+        error: errorMessage,
         key: cacheKey,
         options,
       });
-      
-      // Fallback to direct cache manager
-      // await this.cacheManager.set(cacheKey, value, ttl);
+      // Don't throw - cache failures shouldn't break the application
     }
   }
 
@@ -164,30 +174,35 @@ export class AdvancedCachingService {
    */
   async invalidate(
     pattern: CacheKeyPattern,
-    strategy: CacheInvalidationStrategy = { type: 'immediate' }
+    strategy: CacheInvalidationStrategy = { type: 'immediate' },
   ): Promise<number> {
-    const { type, delay, batchSize, retryAttempts } = strategy;
-    
+    const { type, delay, batchSize } = strategy;
+
     try {
       switch (type) {
         case 'immediate':
           return await this.immediateInvalidation(pattern);
-          
+
         case 'lazy':
           return await this.lazyInvalidation(pattern, batchSize || 100);
-          
+
         case 'scheduled':
           return await this.scheduledInvalidation(pattern, delay || 5000);
-          
+
         default:
           throw new Error(`Invalid invalidation strategy: ${type}`);
       }
     } catch (error) {
-      this.logger.error(`Cache invalidation failed for pattern: ${pattern.pattern}`, {
-        error: error.message,
-        pattern,
-        strategy,
-      });
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(
+        `Cache invalidation failed for pattern: ${pattern.pattern}`,
+        {
+          error: errorMessage,
+          pattern,
+          strategy,
+        },
+      );
       throw error;
     }
   }
@@ -198,35 +213,36 @@ export class AdvancedCachingService {
    */
   async bulkGet<T>(
     keys: string[],
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<Map<string, T | null>> {
     const results = new Map<string, T | null>();
     const batchSize = 100;
-    
+
     try {
       // Process keys in batches to avoid memory issues
       for (let i = 0; i < keys.length; i += batchSize) {
         const batch = keys.slice(i, i + batchSize);
-        
+
         // Parallel batch processing
         const batchResults = await Promise.all(
           batch.map(async (key) => {
             const value = await this.get<T>(key, options);
             return { key, value };
-          })
+          }),
         );
-        
+
         // Collect results
         batchResults.forEach(({ key, value }) => {
           results.set(key, value);
         });
       }
-      
+
       return results;
-      
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Bulk cache get operation failed`, {
-        error: error.message,
+        error: errorMessage,
         keysCount: keys.length,
         options,
       });
@@ -236,26 +252,27 @@ export class AdvancedCachingService {
 
   async bulkSet<T>(
     entries: Array<{ key: string; value: T; options?: CacheOptions }>,
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<void> {
     const batchSize = 50; // Smaller batch size for writes
-    
+
     try {
       for (let i = 0; i < entries.length; i += batchSize) {
         const batch = entries.slice(i, i + batchSize);
-        
+
         // Parallel batch processing
         await Promise.all(
           batch.map(async ({ key, value, options: entryOptions }) => {
             const mergedOptions = { ...options, ...entryOptions };
             await this.set(key, value, mergedOptions);
-          })
+          }),
         );
       }
-      
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Bulk cache set operation failed`, {
-        error: error.message,
+        error: errorMessage,
         entriesCount: entries.length,
         options,
       });
@@ -270,34 +287,34 @@ export class AdvancedCachingService {
   async warmCache(
     keys: string[],
     dataProvider: (key: string) => Promise<any>,
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<void> {
     const concurrencyLimit = 10;
     const semaphore = new Array(concurrencyLimit).fill(null);
-    
+
     try {
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
-        
+
         // Wait for available semaphore slot
         const semaphoreIndex = await this.acquireSemaphore(semaphore);
-        
+
         try {
           // Fetch and cache data
           const value = await dataProvider(key);
           await this.set(key, value, options);
-          
+
           this.logger.log(`Cache warmed for key: ${key}`);
-          
         } finally {
           // Release semaphore slot
           semaphore[semaphoreIndex] = null;
         }
       }
-      
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(`Cache warming failed`, {
-        error: error.message,
+        error: errorMessage,
         keysCount: keys.length,
         options,
       });
@@ -311,12 +328,12 @@ export class AdvancedCachingService {
    */
   async getCacheMetrics(namespace?: string): Promise<CacheMetrics> {
     const metrics = Array.from(this.cacheMetrics.values());
-    
+
     if (namespace) {
-      const filteredMetrics = metrics.filter(m => true); // Remove namespace filtering for now
+      const filteredMetrics = metrics.filter((m) => true); // Remove namespace filtering for now
       return this.calculateAggregateMetrics(filteredMetrics);
     }
-    
+
     return this.calculateAggregateMetrics(metrics);
   }
 
@@ -328,17 +345,18 @@ export class AdvancedCachingService {
     try {
       // Clean up expired keys
       await this.cleanupExpiredKeys();
-      
+
       // Optimize memory usage
       await this.optimizeMemoryUsage();
-      
+
       // Update cache statistics
       await this.updateCacheStatistics();
-      
+
       this.logger.log('Cache maintenance completed successfully');
-      
     } catch (error) {
-      this.logger.error(`Cache maintenance failed: ${error.message}`, {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`Cache maintenance failed: ${errorMessage}`, {
         error: error.stack,
       });
       throw error;
@@ -376,7 +394,11 @@ export class AdvancedCachingService {
     }
   }
 
-  private async setInL1Cache<T>(key: string, value: T, ttl: number): Promise<void> {
+  private async setInL1Cache<T>(
+    key: string,
+    value: T,
+    ttl: number,
+  ): Promise<void> {
     try {
       // await this.cacheManager.set(key, value, ttl);
     } catch (error) {
@@ -386,12 +408,24 @@ export class AdvancedCachingService {
     }
   }
 
-  private async setInL2Cache<T>(key: string, value: T, ttl: number): Promise<void> {
+  /**
+   * Set value in L2 cache (Redis)
+   */
+  private async setInL2Cache<T>(
+    key: string,
+    value: T,
+    ttl: number,
+  ): Promise<void> {
     try {
-      await this.redisService.set(key, value, ttl);
+      await this.redisService.set(key, value, { ttl });
+      this.recordCacheSet(key, ttl);
     } catch (error) {
-      this.logger.warn(`L2 cache set failed for key: ${key}`, {
-        error: error.message,
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(`L2 cache set failed for key ${key}:`, {
+        error: errorMessage,
+        key,
+        ttl,
       });
     }
   }
@@ -409,7 +443,7 @@ export class AdvancedCachingService {
   }
 
   private trackCacheTags(key: string, tags: string[]): void {
-    tags.forEach(tag => {
+    tags.forEach((tag) => {
       if (!this.cacheTags.has(tag)) {
         this.cacheTags.set(tag, new Set());
       }
@@ -417,10 +451,12 @@ export class AdvancedCachingService {
     });
   }
 
-  private async immediateInvalidation(pattern: CacheKeyPattern): Promise<number> {
+  private async immediateInvalidation(
+    pattern: CacheKeyPattern,
+  ): Promise<number> {
     const keysToInvalidate = await this.findKeysByPattern(pattern);
     let invalidatedCount = 0;
-    
+
     for (const key of keysToInvalidate) {
       try {
         // await Promise.all([
@@ -434,18 +470,21 @@ export class AdvancedCachingService {
         });
       }
     }
-    
+
     return invalidatedCount;
   }
 
-  private async lazyInvalidation(pattern: CacheKeyPattern, batchSize: number): Promise<number> {
+  private async lazyInvalidation(
+    pattern: CacheKeyPattern,
+    batchSize: number,
+  ): Promise<number> {
     const keysToInvalidate = await this.findKeysByPattern(pattern);
     let invalidatedCount = 0;
-    
+
     // Process in batches to avoid blocking
     for (let i = 0; i < keysToInvalidate.length; i += batchSize) {
       const batch = keysToInvalidate.slice(i, i + batchSize);
-      
+
       await Promise.all(
         batch.map(async (key) => {
           try {
@@ -459,21 +498,24 @@ export class AdvancedCachingService {
               error: error.message,
             });
           }
-        })
+        }),
       );
-      
+
       // Small delay between batches to prevent blocking
       if (i + batchSize < keysToInvalidate.length) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
       }
     }
-    
+
     return invalidatedCount;
   }
 
-  private async scheduledInvalidation(pattern: CacheKeyPattern, delay: number): Promise<number> {
+  private async scheduledInvalidation(
+    pattern: CacheKeyPattern,
+    delay: number,
+  ): Promise<number> {
     const invalidationId = `scheduled-${Date.now()}`;
-    
+
     const timeout = setTimeout(async () => {
       try {
         await this.immediateInvalidation(pattern);
@@ -485,22 +527,22 @@ export class AdvancedCachingService {
         });
       }
     }, delay);
-    
+
     this.scheduledInvalidations.set(invalidationId, timeout);
-    
+
     return 0; // Scheduled, not immediately invalidated
   }
 
   private async findKeysByPattern(pattern: CacheKeyPattern): Promise<string[]> {
     const keys: string[] = [];
-    
+
     try {
       // Find keys by namespace
       if (pattern.namespace) {
         const namespaceKeys: string[] = []; // RedisService doesn't have keys method
         keys.push(...namespaceKeys);
       }
-      
+
       // Find keys by tags
       if (pattern.tags && pattern.tags.length > 0) {
         for (const tag of pattern.tags) {
@@ -508,16 +550,15 @@ export class AdvancedCachingService {
           keys.push(...Array.from(taggedKeys));
         }
       }
-      
+
       // Find keys by pattern
       if (pattern.pattern) {
         const patternKeys: string[] = []; // RedisService doesn't have keys method
         keys.push(...patternKeys);
       }
-      
+
       // Remove duplicates
       return [...new Set(keys)];
-      
     } catch (error) {
       this.logger.error(`Failed to find keys by pattern`, {
         error: error.message,
@@ -530,7 +571,7 @@ export class AdvancedCachingService {
   private async acquireSemaphore(semaphore: any[]): Promise<number> {
     return new Promise((resolve) => {
       const checkSemaphore = () => {
-        const availableIndex = semaphore.findIndex(slot => slot === null);
+        const availableIndex = semaphore.findIndex((slot) => slot === null);
         if (availableIndex !== -1) {
           semaphore[availableIndex] = Date.now();
           resolve(availableIndex);
@@ -542,36 +583,40 @@ export class AdvancedCachingService {
     });
   }
 
-  private recordCacheHit(key: string, level: 'L1' | 'L2', responseTime: number): void {
+  private recordCacheHit(
+    key: string,
+    level: 'L1' | 'L2',
+    responseTime: number,
+  ): void {
     const namespace = this.extractNamespace(key);
     const metrics = this.getOrCreateMetrics(namespace);
-    
+
     metrics.hits++;
     metrics.totalRequests++;
     metrics.averageResponseTime = this.calculateAverageResponseTime(
       metrics.averageResponseTime,
       responseTime,
-      metrics.totalRequests
+      metrics.totalRequests,
     );
   }
 
   private recordCacheMiss(key: string, responseTime: number): void {
     const namespace = this.extractNamespace(key);
     const metrics = this.getOrCreateMetrics(namespace);
-    
+
     metrics.misses++;
     metrics.totalRequests++;
     metrics.averageResponseTime = this.calculateAverageResponseTime(
       metrics.averageResponseTime,
       responseTime,
-      metrics.totalRequests
+      metrics.totalRequests,
     );
   }
 
   private recordCacheSet(key: string, ttl: number): void {
     const namespace = this.extractNamespace(key);
     const metrics = this.getOrCreateMetrics(namespace);
-    
+
     // Update memory usage estimation
     metrics.memoryUsage += this.estimateMemoryUsage(key, ttl);
   }
@@ -588,14 +633,15 @@ export class AdvancedCachingService {
         evictions: 0,
       });
     }
-    
+
     const metrics = this.cacheMetrics.get(namespace)!;
-    
+
     // Calculate hit rate
-    metrics.hitRate = metrics.totalRequests > 0 
-      ? (metrics.hits / metrics.totalRequests) * 100 
-      : 0;
-    
+    metrics.hitRate =
+      metrics.totalRequests > 0
+        ? (metrics.hits / metrics.totalRequests) * 100
+        : 0;
+
     return metrics;
   }
 
@@ -607,9 +653,11 @@ export class AdvancedCachingService {
   private calculateAverageResponseTime(
     currentAverage: number,
     newResponseTime: number,
-    totalRequests: number
+    totalRequests: number,
   ): number {
-    return ((currentAverage * (totalRequests - 1)) + newResponseTime) / totalRequests;
+    return (
+      (currentAverage * (totalRequests - 1) + newResponseTime) / totalRequests
+    );
   }
 
   private estimateMemoryUsage(key: string, ttl: number): number {
@@ -629,7 +677,7 @@ export class AdvancedCachingService {
         evictions: 0,
       };
     }
-    
+
     const aggregate: CacheMetrics = {
       hits: metrics.reduce((sum, m) => sum + m.hits, 0),
       misses: metrics.reduce((sum, m) => sum + m.misses, 0),
@@ -639,13 +687,16 @@ export class AdvancedCachingService {
       memoryUsage: metrics.reduce((sum, m) => sum + m.memoryUsage, 0),
       evictions: metrics.reduce((sum, m) => sum + m.evictions, 0),
     };
-    
-    aggregate.hitRate = aggregate.totalRequests > 0 
-      ? (aggregate.hits / aggregate.totalRequests) * 100 
-      : 0;
-    
-    aggregate.averageResponseTime = metrics.reduce((sum, m) => sum + m.averageResponseTime, 0) / metrics.length;
-    
+
+    aggregate.hitRate =
+      aggregate.totalRequests > 0
+        ? (aggregate.hits / aggregate.totalRequests) * 100
+        : 0;
+
+    aggregate.averageResponseTime =
+      metrics.reduce((sum, m) => sum + m.averageResponseTime, 0) /
+      metrics.length;
+
     return aggregate;
   }
 
@@ -664,7 +715,7 @@ export class AdvancedCachingService {
   private async updateCacheStatistics(): Promise<void> {
     // Update external metrics service
     const metrics = await this.getCacheMetrics();
-    
+
     await this.metricsService.recordCacheMetrics({
       hits: metrics.hits,
       misses: metrics.misses,

@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 
 /**
  * Migration Guard
- * 
+ *
  * Prevents application startup in production if there are pending migrations.
  * Ensures database schema is always up-to-date in production environments.
  */
@@ -22,20 +22,26 @@ export class MigrationGuard {
    */
   async checkMigrations(): Promise<void> {
     const nodeEnv = this.configService.get('NODE_ENV');
-    
+
     if (nodeEnv === 'production') {
       try {
         const pendingMigrations = await this.getPendingMigrations();
-        
+
         if (pendingMigrations.length > 0) {
-          this.logger.error('🚨 PRODUCTION STARTUP BLOCKED: Pending migrations detected');
-          this.logger.error(`Pending migrations: ${pendingMigrations.join(', ')}`);
-          this.logger.error('Please run migrations before starting the application');
-          
+          this.logger.error(
+            '🚨 PRODUCTION STARTUP BLOCKED: Pending migrations detected',
+          );
+          this.logger.error(
+            `Pending migrations: ${pendingMigrations.join(', ')}`,
+          );
+          this.logger.error(
+            'Please run migrations before starting the application',
+          );
+
           // Exit with error code 1
           process.exit(1);
         }
-        
+
         this.logger.log('✅ Database schema is up-to-date');
       } catch (error) {
         this.logger.error('🚨 Failed to check migrations:', error);
@@ -43,7 +49,9 @@ export class MigrationGuard {
         process.exit(1);
       }
     } else {
-      this.logger.log('🔧 Non-production environment - migration check skipped');
+      this.logger.log(
+        '🔧 Non-production environment - migration check skipped',
+      );
     }
   }
 
@@ -60,12 +68,12 @@ export class MigrationGuard {
 
       // Get pending migrations
       const pendingMigrations = await this.dataSource.showMigrations();
-      
+
       if (pendingMigrations) {
         const migrations = await this.dataSource.runMigrations();
-        return migrations.map(m => m.name);
+        return migrations.map((m) => m.name);
       }
-      
+
       return [];
     } catch (error) {
       this.logger.error('Error checking migrations:', error);
@@ -84,19 +92,20 @@ export class MigrationGuard {
       }
 
       const pendingMigrations = await this.getPendingMigrations();
-      
+
       if (pendingMigrations.length === 0) {
         this.logger.log('No pending migrations to run');
         return;
       }
 
-      this.logger.log(`Running ${pendingMigrations.length} pending migrations...`);
-      
+      this.logger.log(
+        `Running ${pendingMigrations.length} pending migrations...`,
+      );
+
       const migrations = await this.dataSource.runMigrations();
-      
+
       this.logger.log(`✅ Successfully ran ${migrations.length} migrations:`);
-      migrations.forEach(m => this.logger.log(`  - ${m.name}`));
-      
+      migrations.forEach((m) => this.logger.log(`  - ${m.name}`));
     } catch (error) {
       this.logger.error('❌ Failed to run migrations:', error);
       throw error;
@@ -108,7 +117,7 @@ export class MigrationGuard {
    */
   async generateMigration(name: string): Promise<void> {
     const nodeEnv = this.configService.get('NODE_ENV');
-    
+
     if (nodeEnv === 'production') {
       throw new Error('Cannot generate migrations in production');
     }
@@ -120,11 +129,12 @@ export class MigrationGuard {
       }
 
       this.logger.log(`Generating migration: ${name}`);
-      
+
       // This would typically call TypeORM CLI commands
       // For now, we'll just log the instruction
-      this.logger.log('To generate migrations, run: npm run migration:generate -- ' + name);
-      
+      this.logger.log(
+        'To generate migrations, run: npm run migration:generate -- ' + name,
+      );
     } catch (error) {
       this.logger.error('Failed to generate migration:', error);
       throw error;

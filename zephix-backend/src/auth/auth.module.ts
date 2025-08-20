@@ -9,12 +9,14 @@ import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { PasswordResetService } from './services/password-reset.service';
 import { KeyLoaderService } from './services/key-loader.service';
 import { JwtSignerService } from './services/jwt-signer.service';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { EmailVerification } from './entities/email-verification.entity';
+import { PasswordReset } from './entities/password-reset.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
@@ -38,14 +40,17 @@ import jwtConfig from '../config/jwt.config';
     JwtModule.registerAsync({
       imports: [ConfigModule.forFeature(jwtConfig)],
       inject: [jwtConfig.KEY, KeyLoaderService],
-      useFactory: (jwt: ReturnType<typeof jwtConfig>, keyLoader: KeyLoaderService) => {
+      useFactory: (
+        jwt: ReturnType<typeof jwtConfig>,
+        keyLoader: KeyLoaderService,
+      ) => {
         if (jwt.algorithm === 'RS256') {
           // RS256: Use private key with secretOrKeyProvider
           const signingKey = keyLoader.getCurrentSigningKey() as any;
           return {
             privateKey: signingKey.privateKey,
-            signOptions: { 
-              algorithm: 'RS256', 
+            signOptions: {
+              algorithm: 'RS256',
               expiresIn: jwt.expiresIn,
               issuer: jwt.issuer,
               audience: jwt.audience,
@@ -63,8 +68,8 @@ import jwtConfig from '../config/jwt.config';
           const signingKey = keyLoader.getCurrentSigningKey() as any;
           return {
             secret: signingKey.secret,
-            signOptions: { 
-              algorithm: 'HS256', 
+            signOptions: {
+              algorithm: 'HS256',
               expiresIn: jwt.expiresIn,
               issuer: jwt.issuer,
               audience: jwt.audience,
@@ -88,6 +93,7 @@ import jwtConfig from '../config/jwt.config';
             Organization,
             UserOrganization,
             EmailVerification,
+            PasswordReset,
             RefreshToken,
           ]),
         ]
@@ -100,13 +106,24 @@ import jwtConfig from '../config/jwt.config';
     AuthService,
     OrganizationSignupService,
     EmailVerificationService,
+    PasswordResetService,
     KeyLoaderService,
     JwtSignerService,
     JwtStrategy,
     JwtRefreshStrategy,
     JwtAuthGuard,
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtRefreshStrategy, JwtModule, KeyLoaderService, JwtSignerService],
+  exports: [
+    AuthService,
+    EmailVerificationService,
+    PasswordResetService,
+    JwtAuthGuard,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    JwtModule,
+    KeyLoaderService,
+    JwtSignerService,
+  ],
 })
 export class AuthModule {
   constructor() {

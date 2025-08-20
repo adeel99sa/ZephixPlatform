@@ -12,5 +12,3 @@ export class AuditService {
     this.logger.log(`[ACTION] ${event}: ${JSON.stringify(details)}`);
   }
 }
-
-

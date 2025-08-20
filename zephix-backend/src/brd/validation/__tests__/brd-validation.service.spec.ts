@@ -11,7 +11,7 @@ describe('BRDValidationService', () => {
     }).compile();
 
     service = module.get<BRDValidationService>(BRDValidationService);
-    
+
     // Initialize the service (normally done by onModuleInit)
     service.onModuleInit();
   });
@@ -23,7 +23,7 @@ describe('BRDValidationService', () => {
   describe('validate', () => {
     it('should validate valid seed data successfully', () => {
       const result = service.validate(seedData);
-      
+
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
@@ -46,10 +46,10 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors.some(e => e.path.includes('metadata'))).toBe(true);
+      expect(result.errors.some((e) => e.path.includes('metadata'))).toBe(true);
     });
 
     it('should reject payload with invalid email format', () => {
@@ -66,9 +66,9 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('email'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('email'))).toBe(true);
     });
 
     it('should reject payload with invalid enum values', () => {
@@ -81,9 +81,11 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('Must be one of'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes('Must be one of')),
+      ).toBe(true);
     });
 
     it('should reject payload with string too short', () => {
@@ -96,9 +98,11 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('at least'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('at least'))).toBe(
+        true,
+      );
     });
 
     it('should reject payload with invalid functional requirement ID pattern', () => {
@@ -116,9 +120,11 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('pattern'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('pattern'))).toBe(
+        true,
+      );
     });
 
     it('should reject payload with array exceeding max items', () => {
@@ -131,9 +137,11 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      
+
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('no more than'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes('no more than')),
+      ).toBe(true);
     });
   });
 
@@ -160,9 +168,11 @@ describe('BRDValidationService', () => {
   describe('getSchema', () => {
     it('should return the JSON schema', () => {
       const schema = service.getSchema();
-      
+
       expect(schema).toBeDefined();
-      expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
+      expect(schema.$schema).toBe(
+        'https://json-schema.org/draft/2020-12/schema',
+      );
       expect(schema.title).toBe('Business Requirements Document Schema');
     });
   });
@@ -170,7 +180,7 @@ describe('BRDValidationService', () => {
   describe('getValidationSummary', () => {
     it('should return summary for valid payload', () => {
       const summary = service.getValidationSummary(seedData);
-      
+
       expect(summary.isValid).toBe(true);
       expect(summary.errorCount).toBe(0);
       expect(summary.errorsBySection).toEqual({});
@@ -195,7 +205,7 @@ describe('BRDValidationService', () => {
       };
 
       const summary = service.getValidationSummary(invalidPayload);
-      
+
       expect(summary.isValid).toBe(false);
       expect(summary.errorCount).toBeGreaterThan(0);
       expect(Object.keys(summary.errorsBySection).length).toBeGreaterThan(0);
@@ -215,7 +225,7 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate({ metadata: { title: 'ab' } });
-      
+
       expect(result.errors[0].path).toBe('metadata.title');
     });
 
@@ -234,8 +244,11 @@ describe('BRDValidationService', () => {
       };
 
       const result = service.validate(invalidPayload);
-      const titleError = result.errors.find(e => e.path.includes('functionalRequirements') && e.path.includes('title'));
-      
+      const titleError = result.errors.find(
+        (e) =>
+          e.path.includes('functionalRequirements') && e.path.includes('title'),
+      );
+
       expect(titleError?.path).toMatch(/functionalRequirements\.\d+\.title/);
     });
   });
@@ -248,12 +261,14 @@ describe('BRDValidationService', () => {
           expectedMessage: /at least.*characters/,
         },
         {
-          payload: { metadata: { title: 'Valid title', department: 'Invalid' } }, // Invalid enum
+          payload: {
+            metadata: { title: 'Valid title', department: 'Invalid' },
+          }, // Invalid enum
           expectedMessage: /Must be one of/,
         },
         {
-          payload: { 
-            metadata: { 
+          payload: {
+            metadata: {
               title: 'Valid title',
               documentOwner: {
                 name: 'John Doe',
@@ -269,7 +284,9 @@ describe('BRDValidationService', () => {
       testCases.forEach(({ payload, expectedMessage }) => {
         const result = service.validate(payload);
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => expectedMessage.test(e.message))).toBe(true);
+        expect(result.errors.some((e) => expectedMessage.test(e.message))).toBe(
+          true,
+        );
       });
     });
   });

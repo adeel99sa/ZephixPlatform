@@ -7,10 +7,11 @@ import {
   UploadedFile,
   BadRequestException,
   UseGuards,
-  Request,
   HttpStatus,
   HttpCode,
-  Query,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -21,46 +22,35 @@ import {
   ApiBody,
   ApiParam,
   ApiBearerAuth,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { DocumentParserService } from './document-parser.service';
-import { VectorDatabaseService } from './vector-database.service';
 import { EmbeddingService } from './embedding.service';
+import { VectorDatabaseService } from './vector-database.service';
+import {
+  DocumentStatusResponse,
+  DocumentUploadResponse,
+} from './dto/document-upload.dto';
 
-export class UploadDocumentResponse {
-  documentId: string;
-  message: string;
-  status: 'completed' | 'failed';
-  result?: any;
-  error?: string;
-}
-
-export class DocumentStatusResponse {
-  documentId: string;
-  status: 'completed' | 'failed';
-  message: string;
-  result?: any;
-  error?: string;
-  processingTime?: number;
-}
-
-@ApiTags('Document Processing')
-@Controller('v1/documents')
-@UseGuards(JwtAuthGuard) // Temporarily disabled OrganizationGuard
+@ApiTags('Document Upload & Processing')
+@Controller('ai/documents')
+@UseGuards(JwtAuthGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class DocumentUploadController {
   constructor(
     private readonly documentParserService: DocumentParserService,
-    private readonly vectorDatabaseService: VectorDatabaseService,
     private readonly embeddingService: EmbeddingService,
+    private readonly vectorDatabaseService: VectorDatabaseService,
   ) {}
 
   @Post('upload')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Upload and process a document synchronously' })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Upload and process document',
+    description: 'Upload a document for AI analysis and processing',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -69,65 +59,63 @@ export class DocumentUploadController {
         file: {
           type: 'string',
           format: 'binary',
-          description: 'Document file (.docx or .pdf)',
+          description: 'Document file (.pdf, .docx, .txt)',
         },
       },
       required: ['file'],
     },
   })
   @ApiResponse({
-    status: 200,
-    description: 'Document processed successfully',
-    type: UploadDocumentResponse,
+    status: 202,
+    description: 'Document upload accepted for processing',
+    type: DocumentUploadResponse,
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid file or file format',
+    description: 'Invalid file or request parameters',
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized',
   })
+  @ApiResponse({
+    status: 413,
+    description: 'File too large',
+  })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
-      },
       fileFilter: (req, file, callback) => {
-        const allowedTypes = ['.docx', '.pdf'];
-        const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
-
-        if (!fileExtension || !allowedTypes.includes(`.${fileExtension}`)) {
-          return callback(
+        const allowedMimeTypes = [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+        ];
+        if (allowedMimeTypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
             new BadRequestException(
-              `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`,
+              'Invalid file type. Only PDF, DOCX, and TXT files are allowed.',
             ),
             false,
           );
         }
-
-        callback(null, true);
       },
     }),
   )
   async uploadDocument(
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
-  ): Promise<UploadDocumentResponse> {
-    if (!file) {
-      throw new BadRequestException('No file uploaded');
-    }
-
-    // Validate file using document parser service
-    const validation = this.documentParserService.validateFile(file);
-    if (!validation.valid) {
-      throw new BadRequestException(validation.error);
-    }
-
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new FileTypeValidator({ fileType: '.(pdf|docx|txt)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ): Promise<DocumentUploadResponse> {
     // Generate unique document ID
     const documentId = uuidv4();
-    const organizationId = req.user.organizationId;
-    const userId = req.user.userId;
 
     try {
       const startTime = Date.now();
@@ -145,19 +133,19 @@ export class DocumentUploadController {
 
       // Generate embeddings
       const embeddings = await this.embeddingService.generateChunkEmbeddings(
-        parseResult.document.chunks,
+        parseResult.document.content,
       );
 
-      if (embeddings.length !== parseResult.document.chunks.length) {
+      if (embeddings.length !== parseResult.document.content.length) {
         throw new Error(
-          `Embedding generation mismatch: expected ${parseResult.document.chunks.length}, got ${embeddings.length}`,
+          `Embedding generation mismatch: expected ${parseResult.document.content.length}, got ${embeddings.length}`,
         );
       }
 
       // Store in vector database
       const vectorResult = await this.vectorDatabaseService.storeDocumentChunks(
         documentId,
-        parseResult.document.chunks,
+        parseResult.document.content,
         embeddings,
       );
 
@@ -178,11 +166,13 @@ export class DocumentUploadController {
         },
       };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       return {
         documentId,
         message: 'Document processing failed',
         status: 'failed',
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -199,9 +189,9 @@ export class DocumentUploadController {
     status: 404,
     description: 'Document not found',
   })
-  async getDocumentStatus(
+  getDocumentStatus(
     @Param('documentId') documentId: string,
-  ): Promise<DocumentStatusResponse> {
+  ): DocumentStatusResponse {
     // For now, return a simple status since we're not storing job status
     // In a real implementation, you'd query a database for document status
     return {
@@ -222,9 +212,11 @@ export class DocumentUploadController {
     status: 404,
     description: 'Document not found',
   })
-  async getDocumentResults(
-    @Param('documentId') documentId: string,
-  ): Promise<any> {
+  getDocumentResults(@Param('documentId') documentId: string): {
+    documentId: string;
+    message: string;
+    note: string;
+  } {
     // For now, return a simple response since we're not storing results
     // In a real implementation, you'd query the vector database for results
     return {
@@ -236,32 +228,24 @@ export class DocumentUploadController {
 
   @Get('list')
   @ApiOperation({ summary: 'List documents for an organization' })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Number of documents to return',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    description: 'Number of documents to skip',
-  })
   @ApiResponse({
     status: 200,
     description: 'Documents listed successfully',
   })
-  async listDocuments(
-    @Query('limit') limit: number = 50,
-    @Query('offset') offset: number = 0,
-    @Request() req: any,
-  ): Promise<any> {
+  listDocuments(): {
+    documents: any[];
+    total: number;
+    limit: number;
+    offset: number;
+    message: string;
+  } {
     // For now, return a simple response since we're not storing document metadata
     // In a real implementation, you'd query a database for document listings
     return {
       documents: [],
       total: 0,
-      limit,
-      offset,
+      limit: 50, // Default limit
+      offset: 0, // Default offset
       message: 'Document listing not yet implemented',
     };
   }
@@ -272,7 +256,12 @@ export class DocumentUploadController {
     status: 200,
     description: 'Statistics retrieved successfully',
   })
-  async getDocumentStats(): Promise<any> {
+  getDocumentStats(): {
+    totalProcessed: number;
+    totalFailed: number;
+    averageProcessingTime: number;
+    message: string;
+  } {
     // For now, return simple stats since we're not tracking processing
     return {
       totalProcessed: 0,

@@ -84,10 +84,12 @@ if (!(global as any).crypto) {
     }),
 
     // Rate limiting for security
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 5
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 5,
+      },
+    ]),
 
     // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
     ...(process.env.SKIP_DATABASE !== 'true'
@@ -151,8 +153,8 @@ if (!(global as any).crypto) {
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard
-    }
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {

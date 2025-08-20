@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, Optional, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Optional,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,7 +31,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @Optional()
     @InjectRepository(User)
     private readonly userRepository: Repository<User> | null,
-    @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtCfg: ConfigType<typeof jwtConfig>,
     private readonly keyLoaderService: KeyLoaderService,
   ) {
     // Call super() first with basic configuration
@@ -44,10 +51,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
 
     if (this.isEmergencyMode) {
-      console.log('🚨 JwtStrategy: Emergency mode - database validation disabled');
+      console.log(
+        '🚨 JwtStrategy: Emergency mode - database validation disabled',
+      );
     }
 
-    console.log(`🔐 JWT Strategy initialized with ${jwtCfg.algorithm} algorithm`);
+    console.log(
+      `🔐 JWT Strategy initialized with ${jwtCfg.algorithm} algorithm`,
+    );
   }
 
   /**
@@ -55,18 +66,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    */
   private configureStrategy(): void {
     const isRS256 = this.jwtCfg.algorithm === 'RS256';
-    
+
     if (isRS256) {
       // RS256: Use secretOrKeyProvider for dynamic key loading
-      (this as any).secretOrKeyProvider = (request: any, rawJwtToken: string, done: Function) => {
+      (this as any).secretOrKeyProvider = (
+        request: any,
+        rawJwtToken: string,
+        done: Function,
+      ) => {
         try {
           // Extract key ID from token header for proper key selection
           const decodedHeader = this.decodeTokenHeader(rawJwtToken);
           const keyId = decodedHeader?.kid;
-          
+
           if (!keyId) {
             // Reject tokens missing kid when RS256
-            return done(new UnauthorizedException('RS256 tokens must include kid header'), null);
+            return done(
+              new UnauthorizedException('RS256 tokens must include kid header'),
+              null,
+            );
           }
 
           // Get the specific public key by kid for rotation support
@@ -109,12 +127,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Validate token type (prevent refresh tokens on protected APIs)
     if (payload.aud === this.jwtCfg.refreshAudience) {
-      throw new UnauthorizedException('Refresh tokens cannot be used for API access');
+      throw new UnauthorizedException(
+        'Refresh tokens cannot be used for API access',
+      );
     }
 
     // EMERGENCY MODE: Return a minimal user object without database validation
     if (this.isEmergencyMode || !this.userRepository) {
-      console.log('🚨 JwtStrategy: Emergency mode - returning minimal user object');
+      console.log(
+        '🚨 JwtStrategy: Emergency mode - returning minimal user object',
+      );
 
       return {
         id: payload.sub,
@@ -138,8 +160,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
       select: [
-        'id', 'email', 'firstName', 'lastName', 'isActive', 'isEmailVerified',
-        'role', 'organizationId', 'createdAt', 'updatedAt'
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'isActive',
+        'isEmailVerified',
+        'role',
+        'organizationId',
+        'createdAt',
+        'updatedAt',
       ],
     });
 
@@ -156,7 +186,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Log only non-sensitive information
-    console.log(`🔐 JWT validation successful for user: ${user.email} (${user.id}) with kid: ${payload.kid || 'unknown'}`);
+    console.log(
+      `🔐 JWT validation successful for user: ${user.email} (${user.id}) with kid: ${payload.kid || 'unknown'}`,
+    );
 
     return user;
   }

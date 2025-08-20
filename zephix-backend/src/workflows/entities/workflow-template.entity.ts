@@ -129,7 +129,15 @@ export class WorkflowTemplate {
   }
 
   clone(): Partial<WorkflowTemplate> {
-    const { id, createdAt, updatedAt, deletedAt, usageCount, lastUsedAt, ...clone } = this;
+    const {
+      id,
+      createdAt,
+      updatedAt,
+      deletedAt,
+      usageCount,
+      lastUsedAt,
+      ...clone
+    } = this;
     return {
       ...clone,
       name: `${clone.name} (Copy)`,

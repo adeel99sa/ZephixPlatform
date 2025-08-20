@@ -6,7 +6,6 @@ import {
   IsOptional,
   IsDate,
   IsNumber,
-  IsBoolean,
 } from 'class-validator';
 import { ProjectStatus, ProjectPriority } from '../entities/project.entity';
 

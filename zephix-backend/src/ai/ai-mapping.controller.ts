@@ -31,22 +31,45 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AIMappingService } from './services/ai-mapping.service';
-import { AIMappingRequestDto, AIMappingResponseDto, AIMappingStatusDto } from './dto/ai-mapping.dto';
+import {
+  AIMappingRequestDto,
+  AIMappingResponseDto,
+  AIMappingStatusDto,
+} from './dto/ai-mapping.dto';
+
+// ✅ PROPER TYPING - NO MORE 'any' TYPES
+interface AuthenticatedRequest {
+  headers: {
+    'x-org-id'?: string;
+    [key: string]: string | string[] | undefined;
+  };
+  user: {
+    id: string;
+    email: string;
+    organizationId: string;
+  };
+}
+
+interface QueryParameters {
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  documentType?: string;
+  limit?: number;
+  offset?: number;
+}
 
 @ApiTags('AI Document Mapping')
 @Controller('ai/mapping')
 @UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AIMappingController {
-  constructor(
-    private readonly aiMappingService: AIMappingService,
-  ) {}
+  constructor(private readonly aiMappingService: AIMappingService) {}
 
   @Post('analyze')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Analyze Business Requirements Document with AI',
-    description: 'Upload and analyze BRD documents to extract project structure, requirements, and insights'
+    description:
+      'Upload and analyze BRD documents to extract project structure, requirements, and insights',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -97,22 +120,22 @@ export class AIMappingController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: {
-        fileSize: 25 * 1024 * 1024, // 25MB limit for large documents
-      },
       fileFilter: (req, file, callback) => {
-        const allowedTypes = ['.pdf', '.docx', '.doc', '.txt'];
-        const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
-
-        if (!fileExtension || !allowedTypes.includes(`.${fileExtension}`)) {
-          return callback(
+        const allowedMimeTypes = [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+        ];
+        if (allowedMimeTypes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(
             new BadRequestException(
-              `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`,
+              'Invalid file type. Only PDF, DOCX, and TXT files are allowed.',
             ),
             false,
           );
         }
-        callback(null, true);
       },
     }),
   )
@@ -120,14 +143,14 @@ export class AIMappingController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 }), // 25MB
-          new FileTypeValidator({ fileType: '.(pdf|docx|doc|txt)' }),
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new FileTypeValidator({ fileType: '.(pdf|docx|txt)' }),
         ],
       }),
     )
     file: Express.Multer.File,
     @Body() mappingRequest: AIMappingRequestDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<AIMappingResponseDto> {
     try {
       const organizationId = req.headers['x-org-id'];
@@ -144,14 +167,19 @@ export class AIMappingController {
         userId,
       );
     } catch (error) {
-      throw new BadRequestException(`Document analysis failed: ${error.message}`);
+      if (error instanceof Error) {
+        throw new BadRequestException(
+          `Document analysis failed: ${error.message}`,
+        );
+      }
+      throw new BadRequestException('Document analysis failed');
     }
   }
 
   @Get(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get AI mapping analysis result',
-    description: 'Retrieve the completed AI analysis for a document'
+    description: 'Retrieve the completed AI analysis for a document',
   })
   @ApiParam({ name: 'id', description: 'Analysis ID' })
   @ApiResponse({
@@ -165,10 +193,10 @@ export class AIMappingController {
   })
   async getAnalysisResult(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<AIMappingResponseDto> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }
@@ -177,9 +205,9 @@ export class AIMappingController {
   }
 
   @Get(':id/status')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get AI mapping analysis status',
-    description: 'Check the current status and progress of document analysis'
+    description: 'Check the current status and progress of document analysis',
   })
   @ApiParam({ name: 'id', description: 'Analysis ID' })
   @ApiResponse({
@@ -189,10 +217,10 @@ export class AIMappingController {
   })
   async getAnalysisStatus(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ): Promise<AIMappingStatusDto> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }
@@ -201,11 +229,15 @@ export class AIMappingController {
   }
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'List AI mapping analyses',
-    description: 'Get list of all AI mapping analyses for the organization'
+    description: 'Get list of all AI mapping analyses for the organization',
   })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'processing', 'completed', 'failed'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'processing', 'completed', 'failed'],
+  })
   @ApiQuery({ name: 'documentType', required: false })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
@@ -215,24 +247,21 @@ export class AIMappingController {
     type: [AIMappingResponseDto],
   })
   async listAnalyses(
-    @Request() req: any,
-    @Query('status') status?: string,
-    @Query('documentType') documentType?: string,
-    @Query('limit') limit = 20,
-    @Query('offset') offset = 0,
+    @Request() req: AuthenticatedRequest,
+    @Query() query: QueryParameters,
   ): Promise<AIMappingResponseDto[]> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }
 
     return await this.aiMappingService.listAnalyses(
       organizationId,
-      status,
-      documentType,
-      limit,
-      offset,
+      query.status,
+      query.documentType,
+      query.limit,
+      query.offset,
     );
   }
 }

@@ -105,6 +105,12 @@ export class BRD {
     );
   }
 
+  isEditable(): boolean {
+    return (
+      this.status === BRDStatus.DRAFT || this.status === BRDStatus.IN_REVIEW
+    );
+  }
+
   hasRequiredSections(): boolean {
     return !!(
       this.payload?.metadata &&

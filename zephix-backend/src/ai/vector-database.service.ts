@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { DocumentChunk } from './document-parser.service';
+import { DocumentChunk } from './entities/document-chunk.entity';
 
 export interface VectorEmbedding {
   id: string;

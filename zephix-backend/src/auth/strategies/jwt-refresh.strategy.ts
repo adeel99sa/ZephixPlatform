@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, Optional, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Optional,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,7 +23,10 @@ import { KeyLoaderService } from '../services/key-loader.service';
  * Includes JTI (JWT ID) validation for reuse detection.
  */
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   private readonly logger = new Logger(JwtRefreshStrategy.name);
   private readonly isEmergencyMode: boolean;
 
@@ -28,7 +37,8 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     @Optional()
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken> | null,
-    @Inject(jwtConfig.KEY) private readonly jwtCfg: ConfigType<typeof jwtConfig>,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtCfg: ConfigType<typeof jwtConfig>,
     private readonly keyLoaderService: KeyLoaderService,
   ) {
     // Call super() first with basic configuration
@@ -47,10 +57,14 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
 
     if (this.isEmergencyMode) {
-      console.log('🚨 JwtRefreshStrategy: Emergency mode - database validation disabled');
+      console.log(
+        '🚨 JwtRefreshStrategy: Emergency mode - database validation disabled',
+      );
     }
 
-    console.log(`🔐 JWT Refresh Strategy initialized with ${jwtCfg.algorithm} algorithm`);
+    console.log(
+      `🔐 JWT Refresh Strategy initialized with ${jwtCfg.algorithm} algorithm`,
+    );
   }
 
   /**
@@ -58,18 +72,27 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
    */
   private configureStrategy(): void {
     const isRS256 = this.jwtCfg.algorithm === 'RS256';
-    
+
     if (isRS256) {
       // RS256: Use secretOrKeyProvider for dynamic key loading
-      (this as any).secretOrKeyProvider = (request: any, rawJwtToken: string, done: Function) => {
+      (this as any).secretOrKeyProvider = (
+        request: any,
+        rawJwtToken: string,
+        done: Function,
+      ) => {
         try {
           // Extract key ID from token header for proper key selection
           const decodedHeader = this.decodeTokenHeader(rawJwtToken);
           const keyId = decodedHeader?.kid;
-          
+
           if (!keyId) {
             // Reject tokens missing kid when RS256
-            return done(new UnauthorizedException('RS256 refresh tokens must include kid header'), null);
+            return done(
+              new UnauthorizedException(
+                'RS256 refresh tokens must include kid header',
+              ),
+              null,
+            );
           }
 
           // Get the specific refresh public key by kid for rotation support
@@ -98,7 +121,9 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
   async validate(payload: any): Promise<any> {
     // Validate payload structure
     if (!payload.sub || !payload.email || !payload.jti) {
-      throw new UnauthorizedException('Invalid refresh token payload structure');
+      throw new UnauthorizedException(
+        'Invalid refresh token payload structure',
+      );
     }
 
     // Validate issuer and audience
@@ -116,8 +141,14 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     }
 
     // EMERGENCY MODE: Return minimal validation
-    if (this.isEmergencyMode || !this.userRepository || !this.refreshTokenRepository) {
-      console.log('🚨 JwtRefreshStrategy: Emergency mode - returning minimal validation');
+    if (
+      this.isEmergencyMode ||
+      !this.userRepository ||
+      !this.refreshTokenRepository
+    ) {
+      console.log(
+        '🚨 JwtRefreshStrategy: Emergency mode - returning minimal validation',
+      );
 
       return {
         userId: payload.sub,
@@ -148,7 +179,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
 
     // Check if refresh token exists and is valid
     const refreshToken = await this.refreshTokenRepository.findOne({
-      where: { 
+      where: {
         id: payload.jti,
         user: { id: payload.sub },
         isRevoked: false,
@@ -164,7 +195,9 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     }
 
     // Log only non-sensitive information
-    this.logger.debug(`Refresh token validated for user: ${user.email} (${user.id}) with jti: ${payload.jti}`);
+    this.logger.debug(
+      `Refresh token validated for user: ${user.email} (${user.id}) with jti: ${payload.jti}`,
+    );
 
     return {
       userId: payload.sub,

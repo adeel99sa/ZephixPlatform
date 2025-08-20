@@ -11,7 +11,6 @@ import {
   HttpCode,
   HttpStatus,
   HttpException,
-  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -100,13 +99,15 @@ export class ProjectsController {
         hasId: !!user?.id,
         hasOrgId: !!orgId,
       });
-      throw new UnauthorizedException('Invalid user session - user or organization not found');
+      throw new UnauthorizedException(
+        'Invalid user session - user or organization not found',
+      );
     }
-    
+
     const userId = user.id;
-    
+
     console.log('✅ AUTH SUCCESS: User validated', { userId, orgId });
-    
+
     try {
       return await this.projectsService.create(createProjectDto, userId, orgId);
     } catch (error) {
@@ -182,7 +183,7 @@ export class ProjectsController {
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: User,
+    @CurrentUser() _user: User,
   ): Promise<Project> {
     try {
       return await this.projectsService.findOne(id);
@@ -229,11 +230,7 @@ export class ProjectsController {
     @CurrentUser() user: User,
   ): Promise<Project> {
     try {
-      return await this.projectsService.update(
-        id,
-        updateProjectDto,
-        user,
-      );
+      return await this.projectsService.update(id, updateProjectDto, user);
     } catch (error) {
       console.error('Failed to update project:', error);
       throw error;

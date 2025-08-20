@@ -3,6 +3,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role, RoleType } from '../entities/role.entity';
 
+// ✅ PROPER TYPING - NO MORE 'any' TYPES
+interface RoleData {
+  name: RoleType;
+  description: string;
+  permissions: string[];
+}
+
+interface SeedingResult {
+  createdCount: number;
+  skippedCount: number;
+  totalProcessed: number;
+}
+
 @Injectable()
 export class RoleSeedService implements OnModuleInit {
   private readonly logger = new Logger(RoleSeedService.name);
@@ -16,8 +29,9 @@ export class RoleSeedService implements OnModuleInit {
     try {
       await this.seedRoles();
     } catch (error) {
-      console.log('⚠️ Role seeding skipped:', error.message);
-      this.logger.warn('Role seeding failed during startup:', error.message);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.warn('Role seeding failed during startup:', errorMessage);
       // Don't crash the app - just log and continue
     }
   }
@@ -26,15 +40,15 @@ export class RoleSeedService implements OnModuleInit {
    * Seed roles with direct execution
    * Maintains 100% backward compatibility
    */
-  async seedRoles(tenantId?: string, force: boolean = false): Promise<void> {
+  async seedRoles(tenantId?: string, _force: boolean = false): Promise<void> {
     try {
       this.logger.log('🔄 Executing role seeding directly');
-      console.log('🔄 Executing role seeding directly');
 
       await this.seedRolesDirect();
     } catch (error) {
-      this.logger.error('Role seeding failed:', error.message);
-      console.log('❌ Role seeding failed:', error.message);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error('Role seeding failed:', errorMessage);
       // Don't throw - let the app continue
     }
   }
@@ -45,9 +59,8 @@ export class RoleSeedService implements OnModuleInit {
    */
   private async seedRolesDirect(): Promise<void> {
     this.logger.log('🔄 Executing role seeding directly');
-    console.log('🔄 Executing role seeding directly');
 
-    const roles = [
+    const roles: RoleData[] = [
       {
         name: RoleType.ADMIN,
         description: 'Full project administration permissions',
@@ -92,19 +105,20 @@ export class RoleSeedService implements OnModuleInit {
         const role = this.roleRepository.create(roleData);
         await this.roleRepository.save(role);
         createdCount++;
-        console.log(`✅ Created role: ${roleData.name}`);
+        this.logger.log(`✅ Created role: ${roleData.name}`);
       } else {
         skippedCount++;
-        console.log(`⏭️ Role already exists: ${roleData.name}`);
+        this.logger.log(`⏭️ Role already exists: ${roleData.name}`);
       }
     }
 
-    this.logger.log(
-      `✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`,
-    );
-    console.log(
-      `✅ Direct role seeding completed: ${createdCount} created, ${skippedCount} skipped`,
-    );
+    const result: SeedingResult = {
+      createdCount,
+      skippedCount,
+      totalProcessed: roles.length,
+    };
+
+    this.logger.log('Role seeding completed', result);
   }
 
   /**
@@ -140,7 +154,7 @@ export class RoleSeedService implements OnModuleInit {
    * Force role seeding (overwrites existing roles)
    * Useful for development and testing
    */
-  async forceSeedRoles(tenantId?: string): Promise<void> {
+  async forceSeedRoles(_tenantId?: string): Promise<void> {
     try {
       this.logger.log('🔄 Executing forced role seeding');
       console.log('🔄 Executing forced role seeding');

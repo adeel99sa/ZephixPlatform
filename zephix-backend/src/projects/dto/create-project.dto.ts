@@ -11,7 +11,11 @@ import {
   IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ProjectStatus, ProjectPriority, Methodology } from '../entities/project.entity';
+import {
+  ProjectStatus,
+  ProjectPriority,
+  Methodology,
+} from '../entities/project.entity';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'Zephix Platform Development' })

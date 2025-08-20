@@ -26,67 +26,74 @@ if (
 // Initialize OpenTelemetry before importing anything else
 import './telemetry';
 
-import { NestFactory } from '@nestjs/core'
-import { AppModule } from './app.module'
-import { ValidationPipe } from '@nestjs/common'
-import helmet from 'helmet'
-import cookieParser from 'cookie-parser'
-import * as crypto from 'crypto'
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import * as crypto from 'crypto';
 
 function parseOrigins() {
-  const defaults = [
-    'http://localhost:5173'
-  ]
+  const defaults = ['http://localhost:5173'];
   const extra = (process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
-  const set = new Set([...defaults, ...extra])
-  return Array.from(set)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const set = new Set([...defaults, ...extra]);
+  return Array.from(set);
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api')
+  app.setGlobalPrefix('api');
 
-  app.use(helmet({
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: 'same-origin' }
-  }))
+  app.use(
+    helmet({
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+    }),
+  );
 
-  app.use(cookieParser())
+  app.use(cookieParser());
 
-  const allowed = parseOrigins()
+  const allowed = parseOrigins();
 
   app.enableCors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true)
-      if (allowed.includes(origin)) return cb(null, true)
-      return cb(new Error('CORS blocked'), false)
+      if (!origin) return cb(null, true);
+      if (allowed.includes(origin)) return cb(null, true);
+      return cb(new Error('CORS blocked'), false);
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-Request-Id',
+    ],
     exposedHeaders: ['X-Request-Id', 'Content-Length'],
     credentials: true,
-    maxAge: 600
-  })
+    maxAge: 600,
+  });
 
   app.use((req, res, next) => {
-    const rid = req.headers['x-request-id'] || crypto.randomUUID()
-    res.setHeader('X-Request-Id', String(rid))
+    const rid = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', String(rid));
     // @ts-ignore
-    req.id = rid
-    next()
-  })
+    req.id = rid;
+    next();
+  });
 
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+  );
 
-  await app.listen(process.env.PORT || 3000)
+  await app.listen(process.env.PORT || 3000);
 }
 
-bootstrap()
+bootstrap();
 
 // CRITICAL: Railway container fixes
 // Handle graceful shutdown for SIGTERM

@@ -57,7 +57,9 @@ describe('BRDProjectPlanningController', () => {
       .useValue(mockOrganizationGuard)
       .compile();
 
-    controller = module.get<BRDProjectPlanningController>(BRDProjectPlanningController);
+    controller = module.get<BRDProjectPlanningController>(
+      BRDProjectPlanningController,
+    );
     brdAnalysisService = module.get(BRDAnalysisService);
     brdService = module.get(BRDService);
   });
@@ -78,7 +80,13 @@ describe('BRDProjectPlanningController', () => {
           scope: { inclusions: [], exclusions: [], assumptions: [] },
           deliverables: [],
           stakeholders: [],
-          constraints: { timeline: '', budget: '', resources: [], technology: [], regulatory: [] },
+          constraints: {
+            timeline: '',
+            budget: '',
+            resources: [],
+            technology: [],
+            regulatory: [],
+          },
           risks: [],
           successCriteria: [],
         },
@@ -95,7 +103,11 @@ describe('BRDProjectPlanningController', () => {
 
       const result = await controller.analyzeBRD(brdId, orgId, user);
 
-      expect(brdAnalysisService.analyzeBRD).toHaveBeenCalledWith(brdId, orgId, user.id);
+      expect(brdAnalysisService.analyzeBRD).toHaveBeenCalledWith(
+        brdId,
+        orgId,
+        user.id,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -103,7 +115,10 @@ describe('BRDProjectPlanningController', () => {
   describe('generateProjectPlan', () => {
     it('should call brdAnalysisService.generateProjectPlan with correct parameters', async () => {
       const brdId = 'test-brd-id';
-      const dto = { methodology: ProjectMethodology.WATERFALL, brdAnalysisId: 'analysis-id' };
+      const dto = {
+        methodology: ProjectMethodology.WATERFALL,
+        brdAnalysisId: 'analysis-id',
+      };
       const orgId = 'test-org-id';
       const user = { id: 'test-user-id' };
       const mockAnalysis = new BRDAnalysis();
@@ -113,7 +128,13 @@ describe('BRDProjectPlanningController', () => {
         scope: { inclusions: [], exclusions: [], assumptions: [] },
         deliverables: [],
         stakeholders: [],
-        constraints: { timeline: '', budget: '', resources: [], technology: [], regulatory: [] },
+        constraints: {
+          timeline: '',
+          budget: '',
+          resources: [],
+          technology: [],
+          regulatory: [],
+        },
         risks: [],
         successCriteria: [],
       };
@@ -126,16 +147,31 @@ describe('BRDProjectPlanningController', () => {
       };
       mockAnalysis.brd = new BRD();
       mockAnalysis.generatedPlans = [];
-      
+
       const expectedResult = new GeneratedProjectPlan();
       expectedResult.id = 'plan-id';
       expectedResult.brdAnalysisId = 'analysis-id';
       expectedResult.organizationId = orgId;
       expectedResult.methodology = ProjectMethodology.WATERFALL;
       expectedResult.planStructure = { tasks: [] };
-      expectedResult.resourcePlan = { roles: [], timeline: { startDate: '', endDate: '', criticalPath: [], bufferTime: 0 }, budget: { totalEstimate: 0, breakdown: [] } };
+      expectedResult.resourcePlan = {
+        roles: [],
+        timeline: {
+          startDate: '',
+          endDate: '',
+          criticalPath: [],
+          bufferTime: 0,
+        },
+        budget: { totalEstimate: 0, breakdown: [] },
+      };
       expectedResult.riskRegister = [];
-      expectedResult.generationMetadata = { confidence: 0.9, methodology: 'waterfall', alternativesConsidered: [], assumptions: [], recommendations: [] };
+      expectedResult.generationMetadata = {
+        confidence: 0.9,
+        methodology: 'waterfall',
+        alternativesConsidered: [],
+        assumptions: [],
+        recommendations: [],
+      };
       expectedResult.generatedBy = user.id;
       expectedResult.createdAt = new Date();
       expectedResult.updatedAt = new Date();
@@ -144,14 +180,19 @@ describe('BRDProjectPlanningController', () => {
       brdAnalysisService.getLatestAnalysis.mockResolvedValue(mockAnalysis);
       brdAnalysisService.generateProjectPlan.mockResolvedValue(expectedResult);
 
-      const result = await controller.generateProjectPlan(brdId, dto, orgId, user);
+      const result = await controller.generateProjectPlan(
+        brdId,
+        dto,
+        orgId,
+        user,
+      );
 
       expect(brdAnalysisService.getLatestAnalysis).toHaveBeenCalledWith(brdId);
       expect(brdAnalysisService.generateProjectPlan).toHaveBeenCalledWith(
         mockAnalysis,
         dto.methodology,
         orgId,
-        user.id
+        user.id,
       );
       expect(result).toEqual(expectedResult);
     });
@@ -170,7 +211,13 @@ describe('BRDProjectPlanningController', () => {
         scope: { inclusions: [], exclusions: [], assumptions: [] },
         deliverables: [],
         stakeholders: [],
-        constraints: { timeline: '', budget: '', resources: [], technology: [], regulatory: [] },
+        constraints: {
+          timeline: '',
+          budget: '',
+          resources: [],
+          technology: [],
+          regulatory: [],
+        },
         risks: [],
         successCriteria: [],
       };
@@ -186,14 +233,17 @@ describe('BRDProjectPlanningController', () => {
       mockAnalysis.updatedAt = new Date();
       mockAnalysis.brd = new BRD();
       mockAnalysis.generatedPlans = [];
-      
+
       const expectedResult = [mockAnalysis];
 
       brdAnalysisService.getAnalysisByBRD.mockResolvedValue(expectedResult);
 
       const result = await controller.getBRDAnalysis(brdId, orgId);
 
-      expect(brdAnalysisService.getAnalysisByBRD).toHaveBeenCalledWith(brdId, orgId);
+      expect(brdAnalysisService.getAnalysisByBRD).toHaveBeenCalledWith(
+        brdId,
+        orgId,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -208,21 +258,39 @@ describe('BRDProjectPlanningController', () => {
       mockPlan.organizationId = orgId;
       mockPlan.methodology = ProjectMethodology.WATERFALL;
       mockPlan.planStructure = { tasks: [] };
-      mockPlan.resourcePlan = { roles: [], timeline: { startDate: '', endDate: '', criticalPath: [], bufferTime: 0 }, budget: { totalEstimate: 0, breakdown: [] } };
+      mockPlan.resourcePlan = {
+        roles: [],
+        timeline: {
+          startDate: '',
+          endDate: '',
+          criticalPath: [],
+          bufferTime: 0,
+        },
+        budget: { totalEstimate: 0, breakdown: [] },
+      };
       mockPlan.riskRegister = [];
-      mockPlan.generationMetadata = { confidence: 0.9, methodology: 'waterfall', alternativesConsidered: [], assumptions: [], recommendations: [] };
+      mockPlan.generationMetadata = {
+        confidence: 0.9,
+        methodology: 'waterfall',
+        alternativesConsidered: [],
+        assumptions: [],
+        recommendations: [],
+      };
       mockPlan.generatedBy = 'user-id';
       mockPlan.createdAt = new Date();
       mockPlan.updatedAt = new Date();
       mockPlan.brdAnalysis = new BRDAnalysis();
-      
+
       const expectedResult = [mockPlan];
 
       brdAnalysisService.getGeneratedPlans.mockResolvedValue(expectedResult);
 
       const result = await controller.getGeneratedPlans(brdId, orgId);
 
-      expect(brdAnalysisService.getGeneratedPlans).toHaveBeenCalledWith(brdId, orgId);
+      expect(brdAnalysisService.getGeneratedPlans).toHaveBeenCalledWith(
+        brdId,
+        orgId,
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -238,9 +306,24 @@ describe('BRDProjectPlanningController', () => {
       mockRefinedPlan.organizationId = orgId;
       mockRefinedPlan.methodology = ProjectMethodology.WATERFALL;
       mockRefinedPlan.planStructure = { phases: [], tasks: [] };
-      mockRefinedPlan.resourcePlan = { roles: [], timeline: { startDate: '', endDate: '', criticalPath: [], bufferTime: 0 }, budget: { totalEstimate: 0, breakdown: [] } };
+      mockRefinedPlan.resourcePlan = {
+        roles: [],
+        timeline: {
+          startDate: '',
+          endDate: '',
+          criticalPath: [],
+          bufferTime: 0,
+        },
+        budget: { totalEstimate: 0, breakdown: [] },
+      };
       mockRefinedPlan.riskRegister = [];
-      mockRefinedPlan.generationMetadata = { confidence: 0.9, methodology: 'waterfall', alternativesConsidered: [], assumptions: [], recommendations: [] };
+      mockRefinedPlan.generationMetadata = {
+        confidence: 0.9,
+        methodology: 'waterfall',
+        alternativesConsidered: [],
+        assumptions: [],
+        recommendations: [],
+      };
       mockRefinedPlan.generatedBy = 'user-id';
       mockRefinedPlan.createdAt = new Date();
       mockRefinedPlan.updatedAt = new Date();
@@ -251,7 +334,10 @@ describe('BRDProjectPlanningController', () => {
 
       const result = await controller.refinePlan(planId, dto, orgId);
 
-      expect(brdAnalysisService.refinePlan).toHaveBeenCalledWith(planId, dto.refinementRequest);
+      expect(brdAnalysisService.refinePlan).toHaveBeenCalledWith(
+        planId,
+        dto.refinementRequest,
+      );
       expect(result).toEqual({
         id: mockRefinedPlan.id,
         originalPlanId: planId,
@@ -283,13 +369,18 @@ describe('BRDProjectPlanningController', () => {
 
       brdAnalysisService.createProjectFromPlan.mockResolvedValue(mockResult);
 
-      const result = await controller.createProjectFromPlan(planId, dto, orgId, user);
+      const result = await controller.createProjectFromPlan(
+        planId,
+        dto,
+        orgId,
+        user,
+      );
 
       expect(brdAnalysisService.createProjectFromPlan).toHaveBeenCalledWith(
         planId,
         dto,
         orgId,
-        user.id
+        user.id,
       );
       expect(result).toEqual({
         projectId: mockResult.id,

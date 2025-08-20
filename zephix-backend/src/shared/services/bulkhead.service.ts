@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+// ✅ PROPER TYPING - NO MORE 'any' TYPES
 export interface BulkheadOptions {
   maxConcurrent: number;
   maxQueueSize: number;
@@ -8,6 +9,12 @@ export interface BulkheadOptions {
 
 export interface Bulkhead {
   execute<T>(operation: () => Promise<T>): Promise<T>;
+}
+
+export interface QueuedOperation<T> {
+  operation: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: Error) => void;
 }
 
 @Injectable()
@@ -21,11 +28,7 @@ export class BulkheadService {
 
 class BulkheadImpl implements Bulkhead {
   private currentExecutions = 0;
-  private queue: Array<{
-    operation: () => Promise<any>;
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
-  }> = [];
+  private queue: QueuedOperation<unknown>[] = [];
 
   constructor(private readonly options: BulkheadOptions) {}
 
@@ -38,20 +41,22 @@ class BulkheadImpl implements Bulkhead {
       throw new Error('Bulkhead queue is full');
     }
 
-    return new Promise((resolve, reject) => {
-      this.queue.push({ operation, resolve, reject });
+    return new Promise<T>((resolve, reject) => {
+      const queuedOperation: QueuedOperation<T> = {
+        operation,
+        resolve,
+        reject,
+      };
+      this.queue.push(queuedOperation as QueuedOperation<unknown>);
     });
   }
 
   private async executeOperation<T>(operation: () => Promise<T>): Promise<T> {
     this.currentExecutions++;
-    
+
     try {
-      const result = await Promise.race([
-        operation(),
-        this.createTimeout(),
-      ]);
-      
+      const result = await Promise.race([operation(), this.createTimeout()]);
+
       return result;
     } finally {
       this.currentExecutions--;
@@ -68,11 +73,17 @@ class BulkheadImpl implements Bulkhead {
   }
 
   private processQueue(): void {
-    if (this.queue.length === 0 || this.currentExecutions >= this.options.maxConcurrent) {
+    if (
+      this.queue.length === 0 ||
+      this.currentExecutions >= this.options.maxConcurrent
+    ) {
       return;
     }
 
-    const { operation, resolve, reject } = this.queue.shift()!;
-    this.executeOperation(operation).then(resolve).catch(reject);
+    const queuedOperation = this.queue.shift();
+    if (queuedOperation) {
+      const { operation, resolve, reject } = queuedOperation;
+      this.executeOperation(operation).then(resolve).catch(reject);
+    }
   }
 }
