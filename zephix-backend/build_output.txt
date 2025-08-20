@@ -1,0 +1,17 @@
+
+> zephix-backend@0.0.1 prebuild
+> npm run build:metadata
+
+
+> zephix-backend@0.0.1 build:metadata
+> echo "export const BUILD_METADATA = { sha: '$(git rev-parse HEAD 2>/dev/null || echo "unknown")', timestamp: '$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")' };" > src/build-metadata.ts
+
+
+> zephix-backend@0.0.1 build
+> nest build
+
+
+> zephix-backend@0.0.1 postbuild
+> echo 'Build completed successfully'
+
+Build completed successfully

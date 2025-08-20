@@ -1,15 +1,20 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import { LLMProviderService } from '../llm-provider.service';
-import { 
-  AISuggestionDto, 
-  GenerateSuggestionsRequestDto, 
-  UpdateSuggestionStatusDto, 
+import {
+  AISuggestionDto,
+  GenerateSuggestionsRequestDto,
+  UpdateSuggestionStatusDto,
   SuggestionsResponseDto,
   SuggestionCategory,
   SuggestionPriority,
-  SuggestionStatus 
+  SuggestionStatus,
 } from '../dto/ai-suggestions.dto';
 
 export interface ProjectData {
@@ -59,7 +64,10 @@ export class AISuggestionsService {
     private readonly llmProviderService: LLMProviderService,
   ) {
     this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
-    this.maxSuggestionsPerRequest = this.configService.get<number>('AI_MAX_SUGGESTIONS_PER_REQUEST', 10);
+    this.maxSuggestionsPerRequest = this.configService.get<number>(
+      'AI_MAX_SUGGESTIONS_PER_REQUEST',
+      10,
+    );
   }
 
   async getSuggestions(
@@ -73,7 +81,9 @@ export class AISuggestionsService {
     offset = 0,
   ): Promise<SuggestionsResponseDto> {
     try {
-      this.logger.log(`Retrieving suggestions for organization: ${organizationId}`);
+      this.logger.log(
+        `Retrieving suggestions for organization: ${organizationId}`,
+      );
 
       // TODO: Implement database retrieval with proper filtering
       // For now, return empty response with proper structure
@@ -89,7 +99,10 @@ export class AISuggestionsService {
         nextRefresh: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
       };
     } catch (error) {
-      this.logger.error(`Failed to retrieve suggestions: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to retrieve suggestions: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to retrieve suggestions');
     }
   }
@@ -100,24 +113,31 @@ export class AISuggestionsService {
     userId: string,
   ): Promise<{ message: string; jobId: string }> {
     try {
-      this.logger.log(`Starting AI suggestions generation for organization: ${organizationId}`);
+      this.logger.log(
+        `Starting AI suggestions generation for organization: ${organizationId}`,
+      );
 
       if (!this.openaiApiKey) {
         throw new BadRequestException('OpenAI API key not configured');
       }
 
       const jobId = `suggestions_${Date.now()}`;
-      
+
       // Start async processing
       this.processSuggestionsAsync(jobId, request, organizationId, userId);
-      
+
       return {
         message: 'Suggestion generation started successfully',
         jobId,
       };
     } catch (error) {
-      this.logger.error(`Failed to generate suggestions: ${error.message}`, error.stack);
-      throw new InternalServerErrorException(`Failed to generate suggestions: ${error.message}`);
+      this.logger.error(
+        `Failed to generate suggestions: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `Failed to generate suggestions: ${error.message}`,
+      );
     }
   }
 
@@ -132,9 +152,14 @@ export class AISuggestionsService {
 
       // TODO: Implement database update with proper validation
       // For now, throw not implemented
-      throw new BadRequestException('Suggestion status update not yet implemented - database integration required');
+      throw new BadRequestException(
+        'Suggestion status update not yet implemented - database integration required',
+      );
     } catch (error) {
-      this.logger.error(`Failed to update suggestion status: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update suggestion status: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -148,9 +173,14 @@ export class AISuggestionsService {
 
       // TODO: Implement database retrieval
       // For now, throw not implemented
-      throw new BadRequestException('Suggestion retrieval not yet implemented - database integration required');
+      throw new BadRequestException(
+        'Suggestion retrieval not yet implemented - database integration required',
+      );
     } catch (error) {
-      this.logger.error(`Failed to retrieve suggestion: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to retrieve suggestion: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -165,15 +195,28 @@ export class AISuggestionsService {
       this.logger.log(`Processing AI suggestions generation for job: ${jobId}`);
 
       // Step 1: Collect project data for analysis
-      const projectData = await this.collectProjectData(organizationId, request.projectId ? [request.projectId] : undefined);
-      this.logger.log(`Collected data for ${projectData.length} projects: ${jobId}`);
+      const projectData = await this.collectProjectData(
+        organizationId,
+        request.projectId ? [request.projectId] : undefined,
+      );
+      this.logger.log(
+        `Collected data for ${projectData.length} projects: ${jobId}`,
+      );
 
       // Step 2: Analyze project patterns and generate insights
-      const analysisResults = await this.analyzeProjectPatterns(projectData, request);
+      const analysisResults = await this.analyzeProjectPatterns(
+        projectData,
+        request,
+      );
       this.logger.log(`Project analysis completed: ${jobId}`);
 
       // Step 3: Generate AI-powered suggestions
-      const suggestions = await this.generateAISuggestions(analysisResults, request, organizationId, userId);
+      const suggestions = await this.generateAISuggestions(
+        analysisResults,
+        request,
+        organizationId,
+        userId,
+      );
       this.logger.log(`Generated ${suggestions.length} suggestions: ${jobId}`);
 
       // Step 4: Store suggestions in database
@@ -181,33 +224,58 @@ export class AISuggestionsService {
       this.logger.log(`Suggestions stored successfully: ${jobId}`);
 
       // Step 5: Update job status to completed
-      await this.updateJobStatus(jobId, 'completed', 'Suggestions generated successfully');
-      this.logger.log(`AI suggestions generation completed successfully: ${jobId}`);
-
+      await this.updateJobStatus(
+        jobId,
+        'completed',
+        'Suggestions generated successfully',
+      );
+      this.logger.log(
+        `AI suggestions generation completed successfully: ${jobId}`,
+      );
     } catch (error) {
-      this.logger.error(`AI suggestions generation failed for job ${jobId}: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `AI suggestions generation failed for job ${jobId}: ${error.message}`,
+        error.stack,
+      );
+
       // Update job status to failed
-      await this.updateJobStatus(jobId, 'failed', `Generation failed: ${error.message}`);
-      
+      await this.updateJobStatus(
+        jobId,
+        'failed',
+        `Generation failed: ${error.message}`,
+      );
+
       // TODO: Implement proper error notification system
-      this.notifyGenerationFailure(jobId, error.message, organizationId, userId);
+      this.notifyGenerationFailure(
+        jobId,
+        error.message,
+        organizationId,
+        userId,
+      );
     }
   }
 
-  private async collectProjectData(organizationId: string, projectIds?: string[]): Promise<ProjectData[]> {
+  private async collectProjectData(
+    organizationId: string,
+    projectIds?: string[],
+  ): Promise<ProjectData[]> {
     try {
       // TODO: Implement actual project data collection from database
       // This would query the projects table with proper organization scoping
-      
-      this.logger.log(`Collecting project data for organization: ${organizationId}`);
-      
+
+      this.logger.log(
+        `Collecting project data for organization: ${organizationId}`,
+      );
+
       // Mock data structure for now - replace with real database queries
       const mockProjects: ProjectData[] = [];
-      
+
       return mockProjects;
     } catch (error) {
-      this.logger.error(`Failed to collect project data: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to collect project data: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Project data collection failed: ${error.message}`);
     }
   }
@@ -219,9 +287,11 @@ export class AISuggestionsService {
     try {
       // TODO: Implement ML-based pattern analysis
       // This would analyze project data for trends, risks, and optimization opportunities
-      
-      this.logger.log(`Analyzing project patterns for ${projectData.length} projects`);
-      
+
+      this.logger.log(
+        `Analyzing project patterns for ${projectData.length} projects`,
+      );
+
       // For now, return basic analysis structure
       return {
         timelineTrends: [],
@@ -232,7 +302,10 @@ export class AISuggestionsService {
         processEfficiencies: [],
       };
     } catch (error) {
-      this.logger.error(`Failed to analyze project patterns: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to analyze project patterns: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Project pattern analysis failed: ${error.message}`);
     }
   }
@@ -250,7 +323,7 @@ export class AISuggestionsService {
 
       // Create analysis prompt for AI suggestions
       const prompt = this.createSuggestionsPrompt(analysisResults, request);
-      
+
       // Use LLM service for suggestion generation
       const llmResult = await this.llmProviderService.sendRequest({
         prompt,
@@ -260,19 +333,29 @@ export class AISuggestionsService {
       });
 
       // Parse and validate LLM response
-      const suggestions = this.parseSuggestionsResponse(llmResult.content, organizationId, userId);
-      
+      const suggestions = this.parseSuggestionsResponse(
+        llmResult.content,
+        organizationId,
+        userId,
+      );
+
       return suggestions;
     } catch (error) {
-      this.logger.error(`AI suggestion generation failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `AI suggestion generation failed: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`AI suggestion generation failed: ${error.message}`);
     }
   }
 
-  private createSuggestionsPrompt(analysisResults: any, request: GenerateSuggestionsRequestDto): string {
-    const categoryFocus = request.categories?.length ? 
-      `Focus on these categories: ${request.categories.join(', ')}` : 
-      'Provide suggestions across all categories';
+  private createSuggestionsPrompt(
+    analysisResults: any,
+    request: GenerateSuggestionsRequestDto,
+  ): string {
+    const categoryFocus = request.categories?.length
+      ? `Focus on these categories: ${request.categories.join(', ')}`
+      : 'Provide suggestions across all categories';
 
     const priorityFocus = 'Provide a mix of priority levels';
 
@@ -324,7 +407,11 @@ export class AISuggestionsService {
     `;
   }
 
-  private parseSuggestionsResponse(llmResponse: string, organizationId: string, userId: string): AISuggestionDto[] {
+  private parseSuggestionsResponse(
+    llmResponse: string,
+    organizationId: string,
+    userId: string,
+  ): AISuggestionDto[] {
     try {
       // Extract JSON from LLM response
       const jsonMatch = llmResponse.match(/\[[\s\S]*\]/);
@@ -333,48 +420,65 @@ export class AISuggestionsService {
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      
+
       // Validate and transform suggestions
-      const suggestions: AISuggestionDto[] = parsed.map((suggestion: any, index: number) => {
-        this.validateSuggestion(suggestion, index);
-        
-        return {
-          ...suggestion,
-          id: uuidv4(),
-          status: SuggestionStatus.PENDING,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          organizationId,
-          userId,
-        };
-      });
-      
+      const suggestions: AISuggestionDto[] = parsed.map(
+        (suggestion: any, index: number) => {
+          this.validateSuggestion(suggestion, index);
+
+          return {
+            ...suggestion,
+            id: uuidv4(),
+            status: SuggestionStatus.PENDING,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            organizationId,
+            userId,
+          };
+        },
+      );
+
       return suggestions;
     } catch (error) {
-      this.logger.error(`Failed to parse suggestions response: ${error.message}`);
+      this.logger.error(
+        `Failed to parse suggestions response: ${error.message}`,
+      );
       throw new Error(`Failed to parse AI suggestions: ${error.message}`);
     }
   }
 
   private validateSuggestion(suggestion: any, index: number): void {
     const requiredFields = [
-      'category', 'priority', 'title', 'description', 'reasoning', 
-      'impact', 'actionableSteps', 'implementationTimeline', 'expectedOutcome'
+      'category',
+      'priority',
+      'title',
+      'description',
+      'reasoning',
+      'impact',
+      'actionableSteps',
+      'implementationTimeline',
+      'expectedOutcome',
     ];
-    
+
     for (const field of requiredFields) {
       if (!suggestion[field]) {
-        throw new Error(`Suggestion ${index}: Missing required field: ${field}`);
+        throw new Error(
+          `Suggestion ${index}: Missing required field: ${field}`,
+        );
       }
     }
 
     // Validate enums
     if (!Object.values(SuggestionCategory).includes(suggestion.category)) {
-      throw new Error(`Suggestion ${index}: Invalid category: ${suggestion.category}`);
+      throw new Error(
+        `Suggestion ${index}: Invalid category: ${suggestion.category}`,
+      );
     }
 
     if (!Object.values(SuggestionPriority).includes(suggestion.priority)) {
-      throw new Error(`Suggestion ${index}: Invalid priority: ${suggestion.priority}`);
+      throw new Error(
+        `Suggestion ${index}: Invalid priority: ${suggestion.priority}`,
+      );
     }
   }
 
@@ -384,7 +488,9 @@ export class AISuggestionsService {
     userId: string,
   ): Promise<void> {
     // TODO: Implement database storage
-    this.logger.log(`Storing ${suggestions.length} suggestions for organization: ${organizationId}`);
+    this.logger.log(
+      `Storing ${suggestions.length} suggestions for organization: ${organizationId}`,
+    );
   }
 
   private async updateJobStatus(
@@ -403,29 +509,41 @@ export class AISuggestionsService {
     userId: string,
   ): Promise<void> {
     // TODO: Implement notification system
-    this.logger.error(`Generation failure notification for ${jobId}: ${errorMessage}`);
+    this.logger.error(
+      `Generation failure notification for ${jobId}: ${errorMessage}`,
+    );
   }
 
-  private getCategoryCounts(suggestions: AISuggestionDto[]): Record<string, number> {
+  private getCategoryCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
     const counts: Record<string, number> = {};
-    Object.values(SuggestionCategory).forEach(category => {
-      counts[category] = suggestions.filter(s => s.category === category).length;
+    Object.values(SuggestionCategory).forEach((category) => {
+      counts[category] = suggestions.filter(
+        (s) => s.category === category,
+      ).length;
     });
     return counts;
   }
 
-  private getPriorityCounts(suggestions: AISuggestionDto[]): Record<string, number> {
+  private getPriorityCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
     const counts: Record<string, number> = {};
-    Object.values(SuggestionPriority).forEach(priority => {
-      counts[priority] = suggestions.filter(s => s.priority === priority).length;
+    Object.values(SuggestionPriority).forEach((priority) => {
+      counts[priority] = suggestions.filter(
+        (s) => s.priority === priority,
+      ).length;
     });
     return counts;
   }
 
-  private getStatusCounts(suggestions: AISuggestionDto[]): Record<string, number> {
+  private getStatusCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
     const counts: Record<string, number> = {};
-    Object.values(SuggestionStatus).forEach(status => {
-      counts[status] = suggestions.filter(s => s.status === status).length;
+    Object.values(SuggestionStatus).forEach((status) => {
+      counts[status] = suggestions.filter((s) => s.status === status).length;
     });
     return counts;
   }

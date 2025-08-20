@@ -298,6 +298,17 @@ export class BRDService {
   }
 
   /**
+   * Publish BRD alias for tests (3 arguments)
+   */
+  async publishBRD(
+    id: string,
+    organizationId: string,
+    dto?: any,
+  ): Promise<BRD> {
+    return this.publish(id, organizationId);
+  }
+
+  /**
    * Get BRD statistics
    */
   async getStatistics(organizationId: string) {

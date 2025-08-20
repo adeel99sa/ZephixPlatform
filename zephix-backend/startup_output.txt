@@ -1,0 +1,72 @@
+
+> zephix-backend@0.0.1 start:dev
+> nest start --watch
+
+[2J[3J[H[[90m11:01:36 PM[0m] Starting compilation in watch mode...
+
+[[90m11:01:39 PM[0m] Found 0 errors. Watching for file changes.
+
+(node:42541) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+🔭 OpenTelemetry SDK initialized
+🚂 Railway Environment Info:
+   PORT: 3000
+   NODE_ENV: development
+   SKIP_DATABASE: false
+   DATABASE_URL: Not set
+   Memory Limit: Not set
+   CPU Limit: Not set
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+🚀 AppModule constructor called
+🔐 AuthModule imported: true
+🔐 AuthModule controllers: Available
+✅ Full mode: All modules enabled including database-dependent ones
+✅ AuthModule: Full mode - TypeORM features enabled
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +16ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPassportModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mThrottlerModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mIntelligenceModule dependencies initialized[39m[38;5;3m +0ms[39m
+🔍 Database Configuration Analysis:
+   NODE_ENV: development
+   Config Environment: development
+   Railway Environment: undefined
+   Is Production: false
+   DATABASE_URL exists: false
+   DATABASE_URL host: N/A
+   DB_HOST: localhost
+   DB_USERNAME: zephix_user
+   DB_DATABASE: zephix_auth_db
+✅ Development: Using individual DB_* environment variables
+✅ Database configuration validated: {
+  host: 'localhost',
+  port: 5432,
+  username: 'zephix_user',
+  database: 'zephix_auth_db',
+  password: '[SET]'
+}
+🔍 Validating local database user privileges...
+✅ Local database privileges validated
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +7ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mLoggerModule dependencies initialized[39m[38;5;3m +0ms[39m
+[31m[Nest] 42597  - [39m08/19/2025, 11:01:39 PM [31m  ERROR[39m [38;5;3m[ExceptionHandler] [39mError: JWT configuration not found
+    at new KeyLoaderService [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39msrc/auth/services/key-loader.service.ts:43:13[90m)[39m
+    at Injector.instantiateClass [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/injector.js:418:19[90m)[39m
+    at callback [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/injector.js:70:45[90m)[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at async Injector.resolveConstructorParams [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/injector.js:170:24[90m)[39m
+    at async Injector.loadInstance [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/injector.js:75:13[90m)[39m
+    at async Injector.loadProvider [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/injector.js:103:9[90m)[39m
+    at async [90m/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/instance-loader.js:56:13
+    at async Promise.all (index 7)
+    at async InstanceLoader.createInstancesOfProviders [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/instance-loader.js:55:9[90m)[39m
+    at async [90m/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/instance-loader.js:40:13
+    at async Promise.all (index 10)
+    at async InstanceLoader.createInstances [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/instance-loader.js:39:9[90m)[39m
+    at async InstanceLoader.createInstancesOfDependencies [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/injector/instance-loader.js:22:13[90m)[39m
+    at async [90m/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/nest-factory.js:111:17
+    at async ExceptionsZone.asyncRun [90m(/Users/malikadeel/Downloads/ZephixApp/zephix-backend/[39mnode_modules/[4m@nestjs[24m/core/errors/exceptions-zone.js:22:13[90m)[39m

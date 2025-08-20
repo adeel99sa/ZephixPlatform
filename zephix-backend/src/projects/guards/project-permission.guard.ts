@@ -32,7 +32,7 @@ export class ProjectPermissionGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const projectId = request.params.projectId || request.params.id;
+    const projectId = (request.params.projectId || request.params.id) as string;
 
     if (!projectId) {
       throw new ForbiddenException('Project ID not found in request');
@@ -41,7 +41,7 @@ export class ProjectPermissionGuard implements CanActivate {
     // Check if user is a member of the project team with required permissions
     const teamMember = await this.teamMemberRepository.findOne({
       where: {
-        userId: user.id,
+        userId: user.id as string,
         team: { projectId },
       },
       relations: ['role', 'team'],

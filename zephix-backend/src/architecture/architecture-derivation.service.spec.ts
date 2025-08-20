@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ArchitectureDerivationService, BRDAnalysisInput } from './architecture-derivation.service';
+import {
+  ArchitectureDerivationService,
+  BRDAnalysisInput,
+} from './architecture-derivation.service';
 import { LLMProviderService } from '../ai/llm-provider.service';
 import { MetricsService } from '../observability/metrics.service';
 
@@ -32,7 +35,9 @@ describe('ArchitectureDerivationService', () => {
       ],
     }).compile();
 
-    service = module.get<ArchitectureDerivationService>(ArchitectureDerivationService);
+    service = module.get<ArchitectureDerivationService>(
+      ArchitectureDerivationService,
+    );
     llmProvider = module.get<LLMProviderService>(LLMProviderService);
     metricsService = module.get<MetricsService>(MetricsService);
   });
@@ -53,7 +58,10 @@ describe('ArchitectureDerivationService', () => {
     scope: {
       in_scope: ['Product catalog', 'Shopping cart', 'Payment processing'],
       out_of_scope: ['Mobile apps', 'Physical inventory management'],
-      assumptions: ['Internet connectivity available', 'Credit card processing available'],
+      assumptions: [
+        'Internet connectivity available',
+        'Credit card processing available',
+      ],
       constraints: ['Budget limited to $100k', 'Must launch within 6 months'],
     },
     stakeholders: {
@@ -68,7 +76,10 @@ describe('ArchitectureDerivationService', () => {
         title: 'User Registration',
         description: 'Users can create accounts',
         priority: 'high',
-        acceptance_criteria: ['Email validation', 'Password strength requirements'],
+        acceptance_criteria: [
+          'Email validation',
+          'Password strength requirements',
+        ],
       },
       {
         id: 'REQ-002',
@@ -135,7 +146,7 @@ describe('ArchitectureDerivationService', () => {
     it('should successfully derive architecture from BRD', async () => {
       // Arrange
       const mockBRD = createMockBRD();
-      
+
       mockLLMProvider.sendRequest
         .mockResolvedValueOnce({
           content: JSON.stringify({
@@ -194,15 +205,23 @@ describe('ArchitectureDerivationService', () => {
         .mockResolvedValueOnce({
           content: JSON.stringify({
             selected_option: 'A',
-            rationale: 'Monolithic architecture best fits startup constraints and timeline',
-            decision_criteria: ['Time to market', 'Development simplicity', 'Cost constraints'],
+            rationale:
+              'Monolithic architecture best fits startup constraints and timeline',
+            decision_criteria: [
+              'Time to market',
+              'Development simplicity',
+              'Cost constraints',
+            ],
           }),
         })
         .mockResolvedValueOnce({
           content: JSON.stringify({
-            context: '@startuml\n!include <C4/C4_Context>\nPerson(customer, "Customer")\nSystem(ecommerce, "E-commerce Platform")\nSystem_Ext(payment, "Payment Provider")\nRel(customer, ecommerce, "Uses")\nRel(ecommerce, payment, "Processes payments")\n@enduml',
-            container: '@startuml\n!include <C4/C4_Container>\nContainer(web, "Web Application", "React")\nContainer(api, "API", "Node.js")\nContainer(db, "Database", "PostgreSQL")\nRel(web, api, "API calls")\nRel(api, db, "Reads/Writes")\n@enduml',
-            component: '@startuml\n!include <C4/C4_Component>\nComponent(auth, "Authentication", "Service")\nComponent(catalog, "Product Catalog", "Service")\nComponent(cart, "Shopping Cart", "Service")\nRel(auth, catalog, "Authorizes")\nRel(catalog, cart, "Updates")\n@enduml',
+            context:
+              '@startuml\n!include <C4/C4_Context>\nPerson(customer, "Customer")\nSystem(ecommerce, "E-commerce Platform")\nSystem_Ext(payment, "Payment Provider")\nRel(customer, ecommerce, "Uses")\nRel(ecommerce, payment, "Processes payments")\n@enduml',
+            container:
+              '@startuml\n!include <C4/C4_Container>\nContainer(web, "Web Application", "React")\nContainer(api, "API", "Node.js")\nContainer(db, "Database", "PostgreSQL")\nRel(web, api, "API calls")\nRel(api, db, "Reads/Writes")\n@enduml',
+            component:
+              '@startuml\n!include <C4/C4_Component>\nComponent(auth, "Authentication", "Service")\nComponent(catalog, "Product Catalog", "Service")\nComponent(cart, "Shopping Cart", "Service")\nRel(auth, catalog, "Authorizes")\nRel(catalog, cart, "Updates")\n@enduml',
           }),
         })
         .mockResolvedValueOnce({
@@ -212,9 +231,12 @@ describe('ArchitectureDerivationService', () => {
                 id: 'ADR-001',
                 title: 'Use Monolithic Architecture',
                 status: 'accepted',
-                context: 'Need to select overall architecture pattern for e-commerce platform',
-                decision: 'Adopt monolithic architecture for initial implementation',
-                consequences: 'Faster initial development but potential scaling challenges later',
+                context:
+                  'Need to select overall architecture pattern for e-commerce platform',
+                decision:
+                  'Adopt monolithic architecture for initial implementation',
+                consequences:
+                  'Faster initial development but potential scaling challenges later',
               },
             ],
           }),
@@ -263,32 +285,44 @@ describe('ArchitectureDerivationService', () => {
       expect(result.open_questions).toHaveLength(1);
 
       expect(mockLLMProvider.sendRequest).toHaveBeenCalledTimes(7);
-      expect(mockMetricsService.incrementLlmRequests).toHaveBeenCalledWith('anthropic', 'claude-3-sonnet', 'success');
+      expect(mockMetricsService.incrementLlmRequests).toHaveBeenCalledWith(
+        'anthropic',
+        'claude-3-sonnet',
+        'success',
+      );
     });
 
     it('should handle LLM provider errors gracefully', async () => {
       // Arrange
       const mockBRD = createMockBRD();
       const error = new Error('LLM service unavailable');
-      
+
       mockLLMProvider.sendRequest.mockRejectedValue(error);
 
       // Act & Assert
-      await expect(service.deriveArchitecture(mockBRD)).rejects.toThrow('LLM service unavailable');
-      expect(mockMetricsService.incrementError).toHaveBeenCalledWith('architecture_derivation', 'architecture-service');
+      await expect(service.deriveArchitecture(mockBRD)).rejects.toThrow(
+        'LLM service unavailable',
+      );
+      expect(mockMetricsService.incrementError).toHaveBeenCalledWith(
+        'architecture_derivation',
+        'architecture-service',
+      );
     });
 
     it('should handle invalid JSON responses from LLM', async () => {
       // Arrange
       const mockBRD = createMockBRD();
-      
+
       mockLLMProvider.sendRequest.mockResolvedValue({
         content: 'invalid json response',
       });
 
       // Act & Assert
       await expect(service.deriveArchitecture(mockBRD)).rejects.toThrow();
-      expect(mockMetricsService.incrementError).toHaveBeenCalledWith('architecture_derivation', 'architecture-service');
+      expect(mockMetricsService.incrementError).toHaveBeenCalledWith(
+        'architecture_derivation',
+        'architecture-service',
+      );
     });
   });
 
@@ -378,7 +412,9 @@ describe('ArchitectureDerivationService', () => {
       expect(bundle.diagrams['context.puml']).toContain('@startuml');
       expect(bundle.diagrams['container.puml']).toContain('@startuml');
       expect(bundle.diagrams['component.puml']).toContain('@startuml');
-      expect(bundle.adrs['adr-001-architecture-decision.md']).toContain('# ADR-001: Architecture Decision');
+      expect(bundle.adrs['adr-001-architecture-decision.md']).toContain(
+        '# ADR-001: Architecture Decision',
+      );
       expect(bundle.risks.threat_model).toHaveLength(1);
       expect(bundle.risks.open_questions).toHaveLength(1);
     });
@@ -390,7 +426,7 @@ describe('ArchitectureDerivationService', () => {
       const mockBRD = createMockBRD();
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-      
+
       mockLLMProvider.sendRequest.mockRejectedValue(new Error('Network error'));
 
       // Act
@@ -402,7 +438,7 @@ describe('ArchitectureDerivationService', () => {
 
       // Assert
       expect(mockMetricsService.incrementError).toHaveBeenCalled();
-      
+
       // Cleanup
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();

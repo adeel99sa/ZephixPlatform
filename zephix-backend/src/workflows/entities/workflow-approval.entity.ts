@@ -161,8 +161,11 @@ export class WorkflowApproval {
   shouldEscalate(): boolean {
     if (!this.escalationRules.autoEscalate) return false;
     if (!this.dueDate) return false;
-    
-    const escalationTime = new Date(this.dueDate.getTime() + (this.escalationRules.escalationDelay * 60 * 60 * 1000));
+
+    const escalationTime = new Date(
+      this.dueDate.getTime() +
+        this.escalationRules.escalationDelay * 60 * 60 * 1000,
+    );
     return new Date() > escalationTime && this.isPending();
   }
 

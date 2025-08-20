@@ -1,9 +1,0 @@
-{
-  "exclude": [
-    "src/**/*.spec.ts",
-    "src/**/*.e2e-spec.ts",
-    "test",
-    "src/database/migration-runner.service.ts",
-    "src/database/migration-runner.service.ts.backup"
-  ]
-}

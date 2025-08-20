@@ -7,12 +7,14 @@ import { ProjectStakeholder } from '../entities/project-stakeholder.entity';
 import { ProjectRisk } from '../entities/project-risk.entity';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { AIModule } from '../../ai/ai.module';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([UserProject, ProjectStakeholder, ProjectRisk]),
-    AIModule, // Provides ClaudeService
+    AIModule, // Provides AI services
+    SharedModule, // Provides ClaudeService
   ],
   controllers: [ProjectInitiationController],
   providers: [ProjectInitiationService],

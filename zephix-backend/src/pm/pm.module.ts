@@ -56,11 +56,14 @@ import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
 import { FinancialIntegration } from './integrations/financial.integration';
 import { AIModule } from '../ai/ai.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
-    // Always import AIModule for LLMProviderService
+    // Always import AIModule for AI services
     AIModule,
+    // Always import SharedModule for LLMProviderService and ClaudeService
+    SharedModule,
     // Only import sub-modules when database is available
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [

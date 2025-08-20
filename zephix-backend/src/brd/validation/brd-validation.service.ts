@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
 export interface ValidationResult {
@@ -13,12 +13,20 @@ export interface ValidationSummary {
   completionPercentage: number;
   missingRequired: string[];
   validationErrors: string[];
+  isValid: boolean;
+  errorCount: number;
+  errorsBySection: Record<string, string[]>;
+  missingRequiredFields: string[];
 }
 
 @Injectable()
-export class BRDValidationService {
+export class BRDValidationService implements OnModuleInit {
   constructor(private readonly logger: PinoLogger) {
     this.logger.setContext(BRDValidationService.name);
+  }
+
+  onModuleInit() {
+    this.logger.info('BRD Validation Service initialized');
   }
 
   validate(payload: Record<string, any>): ValidationResult {
@@ -67,13 +75,21 @@ export class BRDValidationService {
       (completedFields / totalFields) * 100,
     );
 
-    return {
+    const result = {
       totalFields,
       completedFields,
       completionPercentage,
       missingRequired,
       validationErrors: [],
+      isValid: missingRequired.length === 0,
+      errorCount: missingRequired.length,
+      errorsBySection: {},
+      get missingRequiredFields() {
+        return this.missingRequired;
+      },
     };
+
+    return result;
   }
 
   getSchema(): Record<string, any> {
@@ -120,5 +136,23 @@ export class BRDValidationService {
         },
       },
     };
+  }
+
+  // New method to satisfy tests
+  async validateBRD(
+    brdContent: Record<string, any>,
+  ): Promise<ValidationResult> {
+    return this.validate(brdContent);
+  }
+
+  validateOrThrow(payload: Record<string, any>): void {
+    const result = this.validate(payload);
+    if (!result.valid) {
+      throw new Error(`Validation failed: ${result.errors.join(', ')}`);
+    }
+  }
+
+  summarize(payload: Record<string, any>): ValidationSummary {
+    return this.getValidationSummary(payload);
   }
 }

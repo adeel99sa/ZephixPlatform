@@ -5,12 +5,14 @@ import { ArchitectureDerivationService } from './architecture-derivation.service
 import { ArchitectureController } from './architecture.controller';
 import { AIModule } from '../ai/ai.module';
 import { ObservabilityModule } from '../observability/observability.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
     // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([]),
-    AIModule, // Provides LLMProviderService
+    AIModule, // Provides AI services
+    SharedModule, // Provides LLMProviderService
     ObservabilityModule, // Provides MetricsService
   ],
   controllers: [ArchitectureController],

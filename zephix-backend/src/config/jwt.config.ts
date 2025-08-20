@@ -17,7 +17,7 @@ export interface JWTConfig {
 
 export default registerAs('jwt', (): JWTConfig => {
   const algorithm = (process.env.JWT_ALG || 'HS256') as 'HS256' | 'RS256';
-  
+
   // Validate required fields based on algorithm
   if (algorithm === 'HS256') {
     if (!process.env.JWT_SECRET) {
@@ -37,16 +37,18 @@ export default registerAs('jwt', (): JWTConfig => {
       throw new Error('JWT_REFRESH_PUBLIC_KEY is required for RS256 algorithm');
     }
     if (!process.env.JWT_REFRESH_PRIVATE_KEY) {
-      throw new Error('JWT_REFRESH_PRIVATE_KEY is required for RS256 algorithm');
+      throw new Error(
+        'JWT_REFRESH_PRIVATE_KEY is required for RS256 algorithm',
+      );
     }
   }
 
   // Normalize PEM keys (handle base64 and multiline)
   const normalizePemKey = (key: string | undefined): string | undefined => {
     if (!key) return undefined;
-    
+
     let normalizedKey: string;
-    
+
     // If it's base64, decode it
     if (!key.includes('-----BEGIN')) {
       try {
@@ -57,29 +59,32 @@ export default registerAs('jwt', (): JWTConfig => {
     } else {
       normalizedKey = key;
     }
-    
+
     // Normalize line breaks and trim
     normalizedKey = normalizedKey
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       .trim();
-    
+
     // Ensure proper PEM format
-    if (!normalizedKey.startsWith('-----BEGIN') || !normalizedKey.endsWith('-----')) {
+    if (
+      !normalizedKey.startsWith('-----BEGIN') ||
+      !normalizedKey.endsWith('-----')
+    ) {
       throw new Error('Invalid PEM key format');
     }
-    
+
     // Ensure key content exists
     const keyContent = normalizedKey.split('\n').slice(1, -1).join('');
     if (!keyContent || keyContent.trim().length === 0) {
       throw new Error('PEM key contains no content');
     }
-    
+
     // Add trailing newline for proper PEM format (OpenSSL requirement)
     if (!normalizedKey.endsWith('\n')) {
       normalizedKey += '\n';
     }
-    
+
     return normalizedKey;
   };
 
@@ -95,6 +100,8 @@ export default registerAs('jwt', (): JWTConfig => {
     audience: process.env.JWT_AUDIENCE || 'zephix-frontend',
     refreshAudience: process.env.JWT_REFRESH_AUDIENCE || 'zephix-refresh',
     keyId: process.env.JWT_KEY_ID || `key_${Date.now()}`,
-    rotationGraceWindow: parseInt(process.env.JWT_ROTATION_GRACE_WINDOW || '300000'), // 5 minutes
+    rotationGraceWindow: parseInt(
+      process.env.JWT_ROTATION_GRACE_WINDOW || '300000',
+    ), // 5 minutes
   };
 });

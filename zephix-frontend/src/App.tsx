@@ -5,6 +5,19 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ErrorFallback } from './components/common/ErrorFallback';
 
+// Admin page components
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard').then(module => ({ default: module.Dashboard })));
+const AdminUsersAndRoles = lazy(() => import('./pages/admin/UsersAndRoles').then(module => ({ default: module.UsersAndRoles })));
+const AdminSecurity = lazy(() => import('./pages/admin/Security').then(module => ({ default: module.Security })));
+const AdminTemplates = lazy(() => import('./pages/admin/Templates').then(module => ({ default: module.Templates })));
+const AdminGovernance = lazy(() => import('./pages/admin/Governance').then(module => ({ default: module.Governance })));
+const AdminUsage = lazy(() => import('./pages/admin/Usage').then(module => ({ default: module.Usage })));
+const AdminLayout = lazy(() => import('./components/admin/layout/AdminLayout').then(module => ({ default: module.AdminLayout })));
+
+// Phase 2 New Routes
+const AdminSecurityPolicies = lazy(() => import('./pages/admin/security/PoliciesPage').then(module => ({ default: module.PoliciesPage })));
+const AdminGovernanceApprovals = lazy(() => import('./pages/admin/governance/ApprovalsPage').then(module => ({ default: module.ApprovalsPage })));
+
 // Lazy load all page components for better performance
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(module => ({ default: module.DashboardPage })));
 const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage').then(module => ({ default: module.ProjectsPage })));
@@ -146,6 +159,24 @@ function App() {
               </Suspense>
             </ProtectedRoute>
           } />
+
+          {/* Admin Routes */}
+                              <Route path="/admin" element={
+                      <ProtectedRoute>
+                        <Suspense fallback={<PageLoader />}>
+                          <AdminLayout />
+                        </Suspense>
+                      </ProtectedRoute>
+                    }>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="users" element={<AdminUsersAndRoles />} />
+                      <Route path="security" element={<AdminSecurity />} />
+                      <Route path="security/policies" element={<AdminSecurityPolicies />} />
+                      <Route path="templates" element={<AdminTemplates />} />
+                      <Route path="governance" element={<AdminGovernance />} />
+                      <Route path="governance/approvals" element={<AdminGovernanceApprovals />} />
+                      <Route path="usage" element={<AdminUsage />} />
+                    </Route>
 
           {/* Legacy Route Redirects */}
           <Route path="/ai/suggestions" element={<Navigate to="/ai/assistant" replace />} />

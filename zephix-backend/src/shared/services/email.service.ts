@@ -28,12 +28,12 @@ export class EmailService {
     if (emailConfig?.smtp?.host) {
       // Production SMTP configuration
       this.transporter = nodemailer.createTransport({
-        host: emailConfig.smtp.host,
-        port: emailConfig.smtp.port || 587,
-        secure: emailConfig.smtp.secure || false,
+        host: emailConfig.smtp.host as string,
+        port: (emailConfig.smtp.port as number) || 587,
+        secure: (emailConfig.smtp.secure as boolean) || false,
         auth: {
-          user: emailConfig.smtp.user,
-          pass: emailConfig.smtp.password,
+          user: emailConfig.smtp.user as string,
+          pass: emailConfig.smtp.password as string,
         },
       });
     } else {
@@ -62,7 +62,13 @@ export class EmailService {
     try {
       const info = await this.transporter.sendMail(options);
 
-      if ((this.transporter.options as any).streamTransport) {
+      // ✅ SAFE TYPE CHECKING - NO MORE 'any' CASTING
+      const isStreamTransport =
+        this.transporter.options &&
+        'streamTransport' in this.transporter.options &&
+        (this.transporter.options as any).streamTransport === true;
+
+      if (isStreamTransport) {
         // Development mode - log the email
         this.logger.log('=== EMAIL SENT (DEVELOPMENT MODE) ===');
         this.logger.log(`To: ${options.to}`);
@@ -74,7 +80,12 @@ export class EmailService {
         );
       }
     } catch (error) {
-      this.logger.error(`Failed to send email to ${options.to}:`, error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      this.logger.error(
+        `Failed to send email to ${options.to}: ${errorMessage}`,
+        error,
+      );
       throw new Error('Failed to send email');
     }
   }
@@ -104,7 +115,13 @@ export class EmailService {
     try {
       const info = await this.transporter.sendMail(mailOptions);
 
-      if ((this.transporter.options as any).streamTransport) {
+      // ✅ SAFE TYPE CHECKING - NO MORE 'any' CASTING
+      const isStreamTransport =
+        this.transporter.options &&
+        'streamTransport' in this.transporter.options &&
+        this.transporter.options.streamTransport === true;
+
+      if (isStreamTransport) {
         // Development mode - log the email
         this.logger.log('=== INVITATION EMAIL (DEVELOPMENT MODE) ===');
         this.logger.log(`To: ${data.recipientEmail}`);
@@ -118,8 +135,10 @@ export class EmailService {
         );
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       this.logger.error(
-        `Failed to send invitation email to ${data.recipientEmail}:`,
+        `Failed to send invitation email to ${data.recipientEmail}: ${errorMessage}`,
         error,
       );
       throw new Error('Failed to send invitation email');

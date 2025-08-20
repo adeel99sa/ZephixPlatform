@@ -22,7 +22,7 @@ export interface JWTSecret {
 
 /**
  * Key Loader Service
- * 
+ *
  * Manages JWT key rotation and caching for both HS256 and RS256 algorithms.
  * Provides in-memory caching with last-modified time tracking.
  * Supports key rotation with grace window for seamless transitions.
@@ -31,7 +31,7 @@ export interface JWTSecret {
 export class KeyLoaderService {
   private readonly logger = new Logger(KeyLoaderService.name);
   private readonly jwtCfg: ConfigType<typeof jwtConfig>;
-  
+
   // In-memory cache for keys with rotation support
   private keyCache: Map<string, JWTKeyPair | JWTSecret> = new Map();
   private lastModified: Map<string, number> = new Map();
@@ -51,7 +51,7 @@ export class KeyLoaderService {
   getCurrentAccessKey(): string {
     const cacheKey = `access_${this.jwtCfg.algorithm}`;
     const cached = this.getCachedKey(cacheKey);
-    
+
     if (cached && this.isCacheValid(cacheKey)) {
       return this.extractAccessKey(cached);
     }
@@ -87,7 +87,7 @@ export class KeyLoaderService {
   getCurrentRefreshKey(): string {
     const cacheKey = `refresh_${this.jwtCfg.algorithm}`;
     const cached = this.getCachedKey(cacheKey);
-    
+
     if (cached && this.isCacheValid(cacheKey)) {
       return this.extractRefreshKey(cached);
     }
@@ -123,7 +123,7 @@ export class KeyLoaderService {
   getCurrentSigningKey(): JWTKeyPair | JWTSecret {
     const cacheKey = `signing_access_${this.jwtCfg.algorithm}`;
     const cached = this.getCachedKey(cacheKey);
-    
+
     if (cached && this.isCacheValid(cacheKey)) {
       return cached;
     }
@@ -139,7 +139,7 @@ export class KeyLoaderService {
   getCurrentRefreshSigningKey(): JWTKeyPair | JWTSecret {
     const cacheKey = `signing_refresh_${this.jwtCfg.algorithm}`;
     const cached = this.getCachedKey(cacheKey);
-    
+
     if (cached && this.isCacheValid(cacheKey)) {
       return cached;
     }
@@ -190,7 +190,9 @@ export class KeyLoaderService {
    * Get refresh public key by key ID for verification
    */
   getRefreshPublicKeyByKid(keyId: string): string | null {
-    const refreshKeyId = keyId.endsWith('_refresh') ? keyId : `${keyId}_refresh`;
+    const refreshKeyId = keyId.endsWith('_refresh')
+      ? keyId
+      : `${keyId}_refresh`;
     const key = this.getKeyById(refreshKeyId);
     if (!key) {
       return null;
@@ -208,16 +210,16 @@ export class KeyLoaderService {
    */
   rotateKeys(newKeyId: string): void {
     this.logger.log(`Rotating keys to new key ID: ${newKeyId}`);
-    
+
     // Keep old keys in cache during grace period
     const gracePeriod = this.jwtCfg.rotationGraceWindow;
-    
+
     // Update current key ID
     this.jwtCfg.keyId = newKeyId;
-    
+
     // Clear cache to force reload with new keys
     this.refreshKeys();
-    
+
     this.logger.log(`Key rotation completed. Grace period: ${gracePeriod}ms`);
   }
 
@@ -259,7 +261,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.publicKey) {
         throw new Error('JWT_PUBLIC_KEY is required for RS256 algorithm');
       }
-      
+
       return {
         publicKey: this.jwtCfg.publicKey,
         privateKey: this.jwtCfg.privateKey!,
@@ -271,7 +273,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.secret) {
         throw new Error('JWT_SECRET is required for HS256 algorithm');
       }
-      
+
       return {
         secret: this.jwtCfg.secret,
         keyId: this.jwtCfg.keyId!,
@@ -284,12 +286,16 @@ export class KeyLoaderService {
   private loadRefreshKey(): JWTKeyPair | JWTSecret {
     if (this.jwtCfg.algorithm === 'RS256') {
       const refreshPublicKey = this.configService.get('JWT_REFRESH_PUBLIC_KEY');
-      const refreshPrivateKey = this.configService.get('JWT_REFRESH_PRIVATE_KEY');
-      
+      const refreshPrivateKey = this.configService.get(
+        'JWT_REFRESH_PRIVATE_KEY',
+      );
+
       if (!refreshPublicKey || !refreshPrivateKey) {
-        throw new Error('JWT_REFRESH_PUBLIC_KEY and JWT_REFRESH_PRIVATE_KEY are required for RS256 algorithm');
+        throw new Error(
+          'JWT_REFRESH_PUBLIC_KEY and JWT_REFRESH_PRIVATE_KEY are required for RS256 algorithm',
+        );
       }
-      
+
       return {
         publicKey: refreshPublicKey,
         privateKey: refreshPrivateKey,
@@ -301,7 +307,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.refreshSecret) {
         throw new Error('JWT_REFRESH_SECRET is required for HS256 algorithm');
       }
-      
+
       return {
         secret: this.jwtCfg.refreshSecret,
         keyId: `${this.jwtCfg.keyId}_refresh`,
@@ -316,7 +322,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.privateKey) {
         throw new Error('JWT_PRIVATE_KEY is required for RS256 algorithm');
       }
-      
+
       return {
         publicKey: this.jwtCfg.publicKey!,
         privateKey: this.jwtCfg.privateKey,
@@ -328,7 +334,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.secret) {
         throw new Error('JWT_SECRET is required for HS256 algorithm');
       }
-      
+
       return {
         secret: this.jwtCfg.secret,
         keyId: this.jwtCfg.keyId!,
@@ -340,12 +346,16 @@ export class KeyLoaderService {
 
   private loadRefreshSigningKey(): JWTKeyPair | JWTSecret {
     if (this.jwtCfg.algorithm === 'RS256') {
-      const refreshPrivateKey = this.configService.get('JWT_REFRESH_PRIVATE_KEY');
-      
+      const refreshPrivateKey = this.configService.get(
+        'JWT_REFRESH_PRIVATE_KEY',
+      );
+
       if (!refreshPrivateKey) {
-        throw new Error('JWT_REFRESH_PRIVATE_KEY is required for RS256 algorithm');
+        throw new Error(
+          'JWT_REFRESH_PRIVATE_KEY is required for RS256 algorithm',
+        );
       }
-      
+
       return {
         publicKey: this.configService.get('JWT_REFRESH_PUBLIC_KEY')!,
         privateKey: refreshPrivateKey,
@@ -357,7 +367,7 @@ export class KeyLoaderService {
       if (!this.jwtCfg.refreshSecret) {
         throw new Error('JWT_REFRESH_SECRET is required for HS256 algorithm');
       }
-      
+
       return {
         secret: this.jwtCfg.refreshSecret,
         keyId: this.jwtCfg.keyId!,
@@ -390,7 +400,7 @@ export class KeyLoaderService {
   private isCacheValid(cacheKey: string): boolean {
     const lastModified = this.lastModified.get(cacheKey);
     if (!lastModified) return false;
-    
+
     return Date.now() - lastModified < this.cacheTtl;
   }
 

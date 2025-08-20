@@ -19,12 +19,19 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { PasswordResetService } from './services/password-reset.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import {
+  PasswordResetRequestDto,
+  PasswordResetConfirmDto,
+  PasswordResetResponseDto,
+} from './dto/password-reset.dto';
 import {
   EmailVerificationResponseDto,
   VerificationStatusResponseDto,
@@ -34,6 +41,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { User } from '../modules/users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
+import { AuthRateLimitGuard } from '../common/guards/auth-rate-limit.guard';
+import {
+  RateLimit,
+  AuthRateLimits,
+} from '../common/decorators/rate-limit.decorator';
 
 /**
  * Authentication Controller
@@ -53,16 +65,20 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailVerificationService: EmailVerificationService,
+    private readonly passwordResetService: PasswordResetService,
     private readonly jwtService: JwtService,
   ) {}
 
   @Post('register')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute (OWASP ASVS Level 1)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
     description: 'User registered successfully',
   })
   @ApiResponse({ status: 409, description: 'User already exists' })
+  @ApiResponse({ status: 429, description: 'Too many registration attempts' })
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() registerDto: RegisterDto,
@@ -112,6 +128,12 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute (OWASP ASVS Level 1)
+  @ApiOperation({ summary: 'User login' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 429, description: 'Too many login attempts' })
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     const result = await this.authService.login(loginDto);
@@ -160,8 +182,31 @@ export class AuthController {
     };
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBearerAuth()
+  async getCurrentUser(@CurrentUser() user: User) {
+    return {
+      message: 'Profile retrieved successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get user profile (legacy endpoint)' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBearerAuth()
   async getProfile(@CurrentUser() user: User) {
     return {
       message: 'Profile retrieved successfully',
@@ -176,6 +221,8 @@ export class AuthController {
   }
 
   @Get('verify-email/:token')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 attempts per minute for email verification
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
     status: 200,
@@ -184,6 +231,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
   @ApiResponse({ status: 404, description: 'Token not found' })
+  @ApiResponse({ status: 429, description: 'Too many verification attempts' })
   async verifyEmail(
     @Param('token') token: string,
     @Ip() ipAddress: string,
@@ -210,6 +258,8 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @UseGuards(JwtAuthGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute for email verification
   @ApiOperation({ summary: 'Resend verification email' })
   @ApiResponse({
     status: 200,
@@ -219,7 +269,6 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 400, description: 'Email already verified' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async resendVerificationEmail(
     @CurrentUser() user: User,
@@ -251,5 +300,89 @@ export class AuthController {
     @CurrentUser() user: User,
   ): Promise<VerificationStatusResponseDto> {
     return this.emailVerificationService.checkVerificationStatus(user.id);
+  }
+
+  @Post('password-reset/request')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 attempts per minute for password reset
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Password reset initiated (always returns success for security)',
+    type: PasswordResetResponseDto,
+  })
+  @ApiResponse({ status: 429, description: 'Too many password reset requests' })
+  @HttpCode(HttpStatus.OK)
+  async requestPasswordReset(
+    @Body() dto: PasswordResetRequestDto,
+    @Ip() ipAddress: string,
+    @Headers('user-agent') userAgent: string,
+  ): Promise<PasswordResetResponseDto> {
+    const result = await this.passwordResetService.initiatePasswordReset(
+      dto,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: result.success,
+      message: result.message,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('password-reset/confirm')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute for password reset confirmation
+  @ApiOperation({ summary: 'Confirm password reset with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+    type: PasswordResetResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid token or password requirements not met',
+  })
+  @ApiResponse({ status: 429, description: 'Too many password reset attempts' })
+  @HttpCode(HttpStatus.OK)
+  async confirmPasswordReset(
+    @Body() dto: PasswordResetConfirmDto,
+    @Ip() ipAddress: string,
+    @Headers('user-agent') userAgent: string,
+  ): Promise<PasswordResetResponseDto> {
+    const result = await this.passwordResetService.confirmPasswordReset(
+      dto,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: result.success,
+      message: result.message,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('password-reset/validate/:token')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 attempts per minute for token validation
+  @ApiOperation({ summary: 'Validate password reset token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token validation result',
+    schema: {
+      type: 'object',
+      properties: {
+        valid: { type: 'boolean' },
+        expired: { type: 'boolean', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 429, description: 'Too many validation requests' })
+  @HttpCode(HttpStatus.OK)
+  async validatePasswordResetToken(@Param('token') token: string) {
+    return this.passwordResetService.validateResetToken(token);
   }
 }

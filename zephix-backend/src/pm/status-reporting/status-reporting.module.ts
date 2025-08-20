@@ -7,6 +7,7 @@ import { TeamMember } from '../../projects/entities/team-member.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { AIModule } from '../../ai/ai.module';
+import { SharedModule } from '../../shared/shared.module';
 
 // Import all required entities for StatusReportingService
 import { StatusReport } from './entities/status-report.entity';
@@ -31,7 +32,8 @@ import { StakeholderCommunication } from '../entities/stakeholder-communication.
       ManualUpdate,
       StakeholderCommunication,
     ]),
-    AIModule, // Provides ClaudeService
+    AIModule, // Provides AI services
+    SharedModule, // Provides ClaudeService
   ],
   controllers: [StatusReportingController],
   providers: [StatusReportingService],

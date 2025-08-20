@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { BRDService } from '../brd.service';
 import { BRD, BRDStatus } from '../../entities/brd.entity';
 import { BRDValidationService } from '../../validation/brd-validation.service';
@@ -86,7 +90,9 @@ describe('BRDService', () => {
 
       const result = await service.create(createDto);
 
-      expect(validationService.validate).toHaveBeenCalledWith(createDto.payload);
+      expect(validationService.validate).toHaveBeenCalledWith(
+        createDto.payload,
+      );
       expect(repository.create).toHaveBeenCalledWith({
         organizationId: createDto.organizationId,
         project_id: createDto.project_id,
@@ -118,15 +124,22 @@ describe('BRDService', () => {
         ],
       });
 
-      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
-      expect(validationService.validate).toHaveBeenCalledWith(createDto.payload);
+      await expect(service.create(createDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(validationService.validate).toHaveBeenCalledWith(
+        createDto.payload,
+      );
     });
   });
 
   describe('update', () => {
     it('should update a BRD successfully', async () => {
       const updateDto = {
-        payload: { ...seedData, metadata: { ...seedData.metadata, title: 'Updated Title' } },
+        payload: {
+          ...seedData,
+          metadata: { ...seedData.metadata, title: 'Updated Title' },
+        },
       };
 
       const updatedBRD = {
@@ -146,13 +159,19 @@ describe('BRDService', () => {
       repository.findOne.mockResolvedValue(mockBRD);
       repository.save.mockResolvedValue(updatedBRD);
 
-      const result = await service.update(mockBRD.id, mockBRD.organizationId, updateDto);
+      const result = await service.update(
+        mockBRD.id,
+        mockBRD.organizationId,
+        updateDto,
+      );
 
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: mockBRD.id, organizationId: mockBRD.organizationId },
       });
       expect(mockBRD.isEditable).toHaveBeenCalled();
-      expect(validationService.validate).toHaveBeenCalledWith(updateDto.payload);
+      expect(validationService.validate).toHaveBeenCalledWith(
+        updateDto.payload,
+      );
       expect(repository.save).toHaveBeenCalled();
       expect(result).toEqual({
         id: updatedBRD.id,
@@ -166,9 +185,9 @@ describe('BRDService', () => {
 
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.update('nonexistent', 'org', updateDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('nonexistent', 'org', updateDto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException for non-editable BRD', async () => {
@@ -177,9 +196,9 @@ describe('BRDService', () => {
       mockBRD.isEditable = jest.fn().mockReturnValue(false);
       repository.findOne.mockResolvedValue(mockBRD);
 
-      await expect(service.update(mockBRD.id, mockBRD.organizationId, updateDto)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.update(mockBRD.id, mockBRD.organizationId, updateDto),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw BadRequestException for invalid payload', async () => {
@@ -189,14 +208,16 @@ describe('BRDService', () => {
 
       validationService.validate.mockReturnValue({
         valid: false,
-        errors: [{ path: 'metadata.title', message: 'Missing required field: title' }],
+        errors: [
+          { path: 'metadata.title', message: 'Missing required field: title' },
+        ],
       });
 
       repository.findOne.mockResolvedValue(mockBRD);
 
-      await expect(service.update(mockBRD.id, mockBRD.organizationId, updateDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.update(mockBRD.id, mockBRD.organizationId, updateDto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -233,7 +254,9 @@ describe('BRDService', () => {
     it('should throw NotFoundException for non-existent BRD', async () => {
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.findById('nonexistent', 'org')).rejects.toThrow(NotFoundException);
+      await expect(service.findById('nonexistent', 'org')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -249,7 +272,10 @@ describe('BRDService', () => {
       });
 
       repository.findOne.mockResolvedValue(mockBRD);
-      repository.save.mockResolvedValue({ ...mockBRD, status: BRDStatus.APPROVED });
+      repository.save.mockResolvedValue({
+        ...mockBRD,
+        status: BRDStatus.APPROVED,
+      });
 
       await service.publish(mockBRD.id, mockBRD.organizationId, publishDto);
 
@@ -265,9 +291,9 @@ describe('BRDService', () => {
 
       repository.findOne.mockResolvedValue(mockBRD);
 
-      await expect(service.publish(mockBRD.id, mockBRD.organizationId, publishDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.publish(mockBRD.id, mockBRD.organizationId, publishDto),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException for invalid BRD when publishing', async () => {
@@ -277,14 +303,16 @@ describe('BRDService', () => {
 
       validationService.validate.mockReturnValue({
         valid: false,
-        errors: [{ path: 'metadata.title', message: 'Missing required field: title' }],
+        errors: [
+          { path: 'metadata.title', message: 'Missing required field: title' },
+        ],
       });
 
       repository.findOne.mockResolvedValue(mockBRD);
 
-      await expect(service.publish(mockBRD.id, mockBRD.organizationId, publishDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.publish(mockBRD.id, mockBRD.organizationId, publishDto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -306,9 +334,9 @@ describe('BRDService', () => {
 
       repository.findOne.mockResolvedValue(publishedBRD);
 
-      await expect(service.delete(mockBRD.id, mockBRD.organizationId)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.delete(mockBRD.id, mockBRD.organizationId),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -341,13 +369,19 @@ describe('BRDService', () => {
 
       const result = await service.findMany(queryDto);
 
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('brd.organizationId = :organizationId', {
-        organizationId: queryDto.organizationId,
-      });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'brd.organizationId = :organizationId',
+        {
+          organizationId: queryDto.organizationId,
+        },
+      );
       expect(mockQueryBuilder.getCount).toHaveBeenCalled();
       expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
-      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('brd.created_at', 'DESC');
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'brd.created_at',
+        'DESC',
+      );
       expect(result).toEqual({
         data: expect.any(Array),
         total: 1,
@@ -370,19 +404,26 @@ describe('BRDService', () => {
       repository.findOne.mockResolvedValue(mockBRD);
       validationService.getValidationSummary.mockReturnValue(mockSummary);
 
-      const result = await service.getValidationSummary(mockBRD.id, mockBRD.organizationId);
+      const result = await service.getValidationSummary(
+        mockBRD.id,
+        mockBRD.organizationId,
+      );
 
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: mockBRD.id, organizationId: mockBRD.organizationId },
       });
-      expect(validationService.getValidationSummary).toHaveBeenCalledWith(mockBRD.payload);
+      expect(validationService.getValidationSummary).toHaveBeenCalledWith(
+        mockBRD.payload,
+      );
       expect(result).toEqual(mockSummary);
     });
   });
 
   describe('getSchema', () => {
     it('should return the JSON schema', () => {
-      const mockSchema = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
+      const mockSchema = {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+      };
 
       validationService.getSchema.mockReturnValue(mockSchema);
 
@@ -411,11 +452,19 @@ describe('BRDService', () => {
       mockBRD.getIndustry = jest.fn().mockReturnValue('Technology');
       mockBRD.getDepartment = jest.fn().mockReturnValue('Product');
 
-      const result = await service.search('organization-id', 'customer portal', 10, 0);
+      const result = await service.search(
+        'organization-id',
+        'customer portal',
+        10,
+        0,
+      );
 
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('brd.organizationId = :organizationId', {
-        organizationId: 'organization-id',
-      });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'brd.organizationId = :organizationId',
+        {
+          organizationId: 'organization-id',
+        },
+      );
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'brd.search_vector @@ plainto_tsquery(:query)',
         { query: 'customer portal' },

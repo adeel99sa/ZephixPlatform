@@ -28,4 +28,13 @@
   --selection: #DBEAFE;
   --disabled-text: #9CA3AF;
   --disabled-surface: #F3F4F6;
+
+  /* Admin Console Design Tokens */
+  --primary: #2B6CB0;      /* Blue - buttons, links, highlights */
+  --neutral-100: #F7FAFC;  /* Background light */
+  --neutral-200: #EDF2F7;  /* Sidebar background */
+  --neutral-900: #1A202C;  /* Text primary */
+  --success: #38A169;      /* Green - healthy state */
+  --warning: #DD6B20;      /* Orange - caution/limits */
+  --error: #E53E3E;        /* Red - errors, failed status */
 }

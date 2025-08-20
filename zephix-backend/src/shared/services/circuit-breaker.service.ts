@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+// ✅ PROPER TYPING - NO MORE 'any' TYPES
 export interface CircuitBreakerOptions {
   failureThreshold: number;
   recoveryTimeout: number;
-  expectedException?: any;
+  expectedException?: Error | string;
 }
 
 export interface CircuitBreaker {
@@ -11,7 +12,7 @@ export interface CircuitBreaker {
   isClosed(): boolean;
   isHalfOpen(): boolean;
   recordSuccess(): void;
-  recordFailure(): void;
+  recordFailure(error?: Error): void;
 }
 
 @Injectable()
@@ -43,10 +44,12 @@ class CircuitBreakerImpl implements CircuitBreaker {
   private lastFailureTime: number = 0;
   private readonly failureThreshold: number;
   private readonly recoveryTimeout: number;
+  private readonly expectedException?: Error | string;
 
   constructor(options: CircuitBreakerOptions) {
     this.failureThreshold = options.failureThreshold;
     this.recoveryTimeout = options.recoveryTimeout;
+    this.expectedException = options.expectedException;
   }
 
   isOpen(): boolean {
@@ -66,7 +69,7 @@ class CircuitBreakerImpl implements CircuitBreaker {
     this.state = 'CLOSED';
   }
 
-  recordFailure(): void {
+  recordFailure(_error?: Error): void {
     this.failureCount++;
     this.lastFailureTime = Date.now();
 

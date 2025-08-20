@@ -1,9 +1,25 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
-import { AIAnalysisRepository, AIAnalysisFilters, PaginationOptions, AIAnalysisStats } from '../repositories/ai-analysis.repository';
-import { AIAnalysis, AnalysisStatus, AnalysisType, ConfidenceLevel } from '../entities/ai-analysis.entity';
+import {
+  AIAnalysisRepository,
+  AIAnalysisFilters,
+  PaginationOptions,
+  AIAnalysisStats,
+} from '../repositories/ai-analysis.repository';
+import {
+  AIAnalysis,
+  AnalysisStatus,
+  AnalysisType,
+  ConfidenceLevel,
+} from '../entities/ai-analysis.entity';
 import { AIConfigService } from '../config/ai-config.service';
 import { DocumentParserService } from '../document-parser.service';
 import { LLMProviderService } from '../llm-provider.service';
@@ -70,14 +86,25 @@ export class AIAnalysisService {
     private readonly fileValidationService: FileValidationService,
     private readonly virusScanService: VirusScanService,
   ) {
-    this.maxConcurrentAnalyses = this.configService.get<number>('AI_MAX_CONCURRENT_ANALYSES', 10);
-    this.enableAsyncProcessing = this.configService.get<boolean>('AI_ENABLE_ASYNC_PROCESSING', true);
-    this.enableCostTracking = this.configService.get<boolean>('AI_ENABLE_COST_TRACKING', true);
+    this.maxConcurrentAnalyses = this.configService.get<number>(
+      'AI_MAX_CONCURRENT_ANALYSES',
+      10,
+    );
+    this.enableAsyncProcessing = this.configService.get<boolean>(
+      'AI_ENABLE_ASYNC_PROCESSING',
+      true,
+    );
+    this.enableCostTracking = this.configService.get<boolean>(
+      'AI_ENABLE_COST_TRACKING',
+      true,
+    );
   }
 
   async startAnalysis(request: AnalysisRequest): Promise<AnalysisResult> {
     try {
-      this.logger.log(`Starting AI analysis for document: ${request.document.originalname}`);
+      this.logger.log(
+        `Starting AI analysis for document: ${request.document.originalname}`,
+      );
 
       // Validate request
       await this.validateAnalysisRequest(request);
@@ -101,20 +128,32 @@ export class AIAnalysisService {
         return await this.processAnalysisSynchronously(analysis.id, request);
       }
     } catch (error) {
-      this.logger.error(`Failed to start analysis: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Failed to start analysis: ${error.message}`,
+        error.stack,
+      );
+
       if (error instanceof BadRequestException) {
         throw error;
       }
-      
-      throw new InternalServerErrorException(`Failed to start analysis: ${error.message}`);
+
+      throw new InternalServerErrorException(
+        `Failed to start analysis: ${error.message}`,
+      );
     }
   }
 
-  async getAnalysisStatus(analysisId: string, organizationId: string, userId: string): Promise<AnalysisProgress> {
+  async getAnalysisStatus(
+    analysisId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<AnalysisProgress> {
     try {
-      const analysis = await this.aiAnalysisRepository.findById(analysisId, organizationId);
-      
+      const analysis = await this.aiAnalysisRepository.findById(
+        analysisId,
+        organizationId,
+      );
+
       // Audit access
       this.auditService.logAccess('ai_analysis_status', {
         analysisId,
@@ -130,18 +169,30 @@ export class AIAnalysisService {
         currentStep: this.getCurrentStep(analysis),
         estimatedCompletion: analysis.getEstimatedCompletion() || undefined,
         result: analysis.isCompleted() ? analysis.analysisResult : undefined,
-        error: analysis.isFailed() ? analysis.metadata.errorDetails?.message : undefined,
+        error: analysis.isFailed()
+          ? analysis.metadata.errorDetails?.message
+          : undefined,
       };
     } catch (error) {
-      this.logger.error(`Failed to get analysis status: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get analysis status: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to get analysis status');
     }
   }
 
-  async getAnalysisResult(analysisId: string, organizationId: string, userId: string): Promise<AIAnalysis> {
+  async getAnalysisResult(
+    analysisId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<AIAnalysis> {
     try {
-      const analysis = await this.aiAnalysisRepository.findById(analysisId, organizationId);
-      
+      const analysis = await this.aiAnalysisRepository.findById(
+        analysisId,
+        organizationId,
+      );
+
       if (!analysis.isCompleted()) {
         throw new BadRequestException('Analysis is not yet completed');
       }
@@ -159,8 +210,11 @@ export class AIAnalysisService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      
-      this.logger.error(`Failed to get analysis result: ${error.message}`, error.stack);
+
+      this.logger.error(
+        `Failed to get analysis result: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to get analysis result');
     }
   }
@@ -168,12 +222,24 @@ export class AIAnalysisService {
   async listAnalyses(
     organizationId: string,
     filters: AIAnalysisFilters = {},
-    pagination: PaginationOptions = { page: 1, limit: 20 }
-  ): Promise<{ analyses: AIAnalysis[]; total: number; page: number; totalPages: number }> {
+    pagination: PaginationOptions = { page: 1, limit: 20 },
+  ): Promise<{
+    analyses: AIAnalysis[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
     try {
-      return await this.aiAnalysisRepository.findByOrganization(organizationId, filters, pagination);
+      return await this.aiAnalysisRepository.findByOrganization(
+        organizationId,
+        filters,
+        pagination,
+      );
     } catch (error) {
-      this.logger.error(`Failed to list analyses: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to list analyses: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to list analyses');
     }
   }
@@ -182,34 +248,62 @@ export class AIAnalysisService {
     userId: string,
     organizationId: string,
     filters: AIAnalysisFilters = {},
-    pagination: PaginationOptions = { page: 1, limit: 20 }
-  ): Promise<{ analyses: AIAnalysis[]; total: number; page: number; totalPages: number }> {
+    pagination: PaginationOptions = { page: 1, limit: 20 },
+  ): Promise<{
+    analyses: AIAnalysis[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
     try {
-      return await this.aiAnalysisRepository.findByUser(userId, organizationId, filters, pagination);
+      return await this.aiAnalysisRepository.findByUser(
+        userId,
+        organizationId,
+        filters,
+        pagination,
+      );
     } catch (error) {
-      this.logger.error(`Failed to get user analyses: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get user analyses: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to get user analyses');
     }
   }
 
   async getAnalysisStats(
     organizationId: string,
-    dateRange?: { start: Date; end: Date }
+    dateRange?: { start: Date; end: Date },
   ): Promise<AIAnalysisStats> {
     try {
-      return await this.aiAnalysisRepository.getStats(organizationId, dateRange);
+      return await this.aiAnalysisRepository.getStats(
+        organizationId,
+        dateRange,
+      );
     } catch (error) {
-      this.logger.error(`Failed to get analysis stats: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to get analysis stats: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to get analysis stats');
     }
   }
 
-  async cancelAnalysis(analysisId: string, organizationId: string, userId: string): Promise<void> {
+  async cancelAnalysis(
+    analysisId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
     try {
-      const analysis = await this.aiAnalysisRepository.findById(analysisId, organizationId);
-      
+      const analysis = await this.aiAnalysisRepository.findById(
+        analysisId,
+        organizationId,
+      );
+
       if (!analysis.isActive()) {
-        throw new BadRequestException('Analysis cannot be cancelled in its current state');
+        throw new BadRequestException(
+          'Analysis cannot be cancelled in its current state',
+        );
       }
 
       // Update status
@@ -218,7 +312,7 @@ export class AIAnalysisService {
         organizationId,
         AnalysisStatus.CANCELLED,
         userId,
-        { cancelledBy: userId, cancelledAt: new Date() }
+        { cancelledBy: userId, cancelledAt: new Date() },
       );
 
       // Remove from queue if pending
@@ -239,16 +333,26 @@ export class AIAnalysisService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      
-      this.logger.error(`Failed to cancel analysis: ${error.message}`, error.stack);
+
+      this.logger.error(
+        `Failed to cancel analysis: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to cancel analysis');
     }
   }
 
-  async retryAnalysis(analysisId: string, organizationId: string, userId: string): Promise<AnalysisResult> {
+  async retryAnalysis(
+    analysisId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<AnalysisResult> {
     try {
-      const analysis = await this.aiAnalysisRepository.findById(analysisId, organizationId);
-      
+      const analysis = await this.aiAnalysisRepository.findById(
+        analysisId,
+        organizationId,
+      );
+
       if (!analysis.canRetry()) {
         throw new BadRequestException('Analysis cannot be retried');
       }
@@ -265,7 +369,9 @@ export class AIAnalysisService {
 
       // Queue for processing
       await this.queueAnalysis(analysisId, {
-        document: { originalname: analysis.documentName } as Express.Multer.File,
+        document: {
+          originalname: analysis.documentName,
+        } as Express.Multer.File,
         type: analysis.type,
         options: analysis.processingOptions,
         userId,
@@ -289,18 +395,29 @@ export class AIAnalysisService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      
-      this.logger.error(`Failed to retry analysis: ${error.message}`, error.stack);
+
+      this.logger.error(
+        `Failed to retry analysis: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to retry analysis');
     }
   }
 
-  async cleanupOldAnalyses(organizationId: string, daysOld: number = 90): Promise<number> {
+  async cleanupOldAnalyses(
+    organizationId: string,
+    daysOld: number = 90,
+  ): Promise<number> {
     try {
-      const cleanedCount = await this.aiAnalysisRepository.cleanupOldAnalyses(organizationId, daysOld);
-      
-      this.logger.log(`Cleaned up ${cleanedCount} old analyses for organization: ${organizationId}`);
-      
+      const cleanedCount = await this.aiAnalysisRepository.cleanupOldAnalyses(
+        organizationId,
+        daysOld,
+      );
+
+      this.logger.log(
+        `Cleaned up ${cleanedCount} old analyses for organization: ${organizationId}`,
+      );
+
       // Audit cleanup
       this.auditService.logAction('ai_analysis_cleanup', {
         organizationId,
@@ -310,28 +427,38 @@ export class AIAnalysisService {
 
       return cleanedCount;
     } catch (error) {
-      this.logger.error(`Failed to cleanup old analyses: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to cleanup old analyses: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to cleanup old analyses');
     }
   }
 
   // Private methods
-  private async validateAnalysisRequest(request: AnalysisRequest): Promise<void> {
+  private async validateAnalysisRequest(
+    request: AnalysisRequest,
+  ): Promise<void> {
     // Validate file
     await this.fileValidationService.validateFile(request.document);
-    
+
     // Virus scan
     if (this.aiConfigService.virusScanningEnabled) {
-      const scanResult = await this.virusScanService.scanFile(request.document.buffer, request.document.originalname);
+      const scanResult = await this.virusScanService.scanFile(
+        request.document.buffer,
+        request.document.originalname,
+      );
       if (!scanResult.isClean) {
-        throw new BadRequestException(`File failed virus scan: ${scanResult.threats.join(', ')}`);
+        throw new BadRequestException(
+          `File failed virus scan: ${scanResult.threats.join(', ')}`,
+        );
       }
     }
 
     // Validate file size
     if (request.document.size > this.aiConfigService.maxFileSize) {
       throw new BadRequestException(
-        `File size exceeds maximum limit of ${this.aiConfigService.maxFileSize / (1024 * 1024)}MB`
+        `File size exceeds maximum limit of ${this.aiConfigService.maxFileSize / (1024 * 1024)}MB`,
       );
     }
 
@@ -339,14 +466,14 @@ export class AIAnalysisService {
     const allowedTypes = this.aiConfigService.allowedFileTypes;
     if (!allowedTypes.includes(request.document.mimetype)) {
       throw new BadRequestException(
-        `File type not allowed. Allowed types: ${allowedTypes.join(', ')}`
+        `File type not allowed. Allowed types: ${allowedTypes.join(', ')}`,
       );
     }
 
     // Validate cost limit
     if (request.options.costLimit > this.aiConfigService.maxCostPerAnalysis) {
       throw new BadRequestException(
-        `Cost limit exceeds maximum allowed cost of $${this.aiConfigService.maxCostPerAnalysis}`
+        `Cost limit exceeds maximum allowed cost of $${this.aiConfigService.maxCostPerAnalysis}`,
       );
     }
   }
@@ -354,12 +481,12 @@ export class AIAnalysisService {
   private async checkOrganizationLimits(organizationId: string): Promise<void> {
     const activeAnalyses = await this.aiAnalysisRepository.findByStatus(
       organizationId,
-      AnalysisStatus.PROCESSING
+      AnalysisStatus.PROCESSING,
     );
 
     if (activeAnalyses.length >= this.maxConcurrentAnalyses) {
       throw new BadRequestException(
-        `Organization has reached the maximum limit of ${this.maxConcurrentAnalyses} concurrent analyses`
+        `Organization has reached the maximum limit of ${this.maxConcurrentAnalyses} concurrent analyses`,
       );
     }
 
@@ -377,15 +504,17 @@ export class AIAnalysisService {
 
       if (stats.totalCost > this.aiConfigService.maxDailyCost) {
         throw new BadRequestException(
-          `Organization has reached the daily cost limit of $${this.aiConfigService.maxDailyCost}`
+          `Organization has reached the daily cost limit of $${this.aiConfigService.maxDailyCost}`,
         );
       }
     }
   }
 
-  private async createAnalysisRecord(request: AnalysisRequest): Promise<AIAnalysis> {
+  private async createAnalysisRecord(
+    request: AnalysisRequest,
+  ): Promise<AIAnalysis> {
     const documentHash = this.generateDocumentHash(request.document);
-    
+
     const analysis = await this.aiAnalysisRepository.create({
       organizationId: request.organizationId,
       userId: request.userId,
@@ -402,20 +531,22 @@ export class AIAnalysisService {
         qualityMetrics: {},
         externalServiceCalls: [],
       },
-      auditTrail: [{
-        action: 'analysis_created',
-        timestamp: new Date(),
-        userId: request.userId,
-        details: {
-          documentName: request.document.originalname,
-          documentSize: request.document.size,
-          analysisType: request.type,
+      auditTrail: [
+        {
+          action: 'analysis_created',
+          timestamp: new Date(),
+          userId: request.userId,
+          details: {
+            documentName: request.document.originalname,
+            documentSize: request.document.size,
+            analysisType: request.type,
+            ipAddress: request.ipAddress,
+            userAgent: request.userAgent,
+          },
           ipAddress: request.ipAddress,
           userAgent: request.userAgent,
         },
-        ipAddress: request.ipAddress,
-        userAgent: request.userAgent,
-      }],
+      ],
     });
 
     // Audit creation
@@ -438,51 +569,65 @@ export class AIAnalysisService {
       .digest('hex');
   }
 
-  private async queueAnalysis(analysisId: string, request: AnalysisRequest): Promise<void> {
-    await this.queueService.add('process-analysis', {
-      analysisId,
-      request,
-    }, {
-      delay: 1000, // 1 second delay
-      attempts: 3,
-      backoff: 'exponential',
-    });
+  private async queueAnalysis(
+    analysisId: string,
+    request: AnalysisRequest,
+  ): Promise<void> {
+    await this.queueService.add(
+      'process-analysis',
+      {
+        analysisId,
+        request,
+      },
+      {
+        delay: 1000, // 1 second delay
+        attempts: 3,
+        backoff: 'exponential',
+      },
+    );
   }
 
-  private async processAnalysisSynchronously(analysisId: string, request: AnalysisRequest): Promise<AnalysisResult> {
+  private async processAnalysisSynchronously(
+    analysisId: string,
+    request: AnalysisRequest,
+  ): Promise<AnalysisResult> {
     try {
       // Update status to processing
       await this.aiAnalysisRepository.updateStatus(
         analysisId,
         request.organizationId,
         AnalysisStatus.PROCESSING,
-        request.userId
+        request.userId,
       );
 
       // Parse document
       const parsedContent = await this.documentParserService.parseDocument(
         request.document.buffer,
         request.document.originalname,
-        analysisId
+        analysisId,
       );
-      
+
       if (!parsedContent.success || !parsedContent.document) {
         throw new Error(parsedContent.error || 'Failed to parse document');
       }
-      
+
       // Generate embeddings
-      const embeddings = await this.embeddingService.generateChunkEmbeddings(parsedContent.document.chunks);
-      
+      const embeddings = await this.embeddingService.generateChunkEmbeddings(
+        parsedContent.document.content,
+      );
+
       // Store in vector database
       await this.vectorDatabaseService.storeDocumentChunks(
         analysisId,
-        parsedContent.document.chunks,
-        embeddings
+        parsedContent.document.content,
+        embeddings,
       );
-      
+
       // Prepare text for LLM analysis
-      const fullText = parsedContent.document.chunks.map(c => c.content).join('\n');
-      
+      const fullText = parsedContent.document.content
+        .map((c) => c.content)
+        .join('\n');
+
       // Analyze with LLM
       const llmResponse = await this.llmProviderService.sendRequest({
         prompt: fullText,
@@ -490,25 +635,48 @@ export class AIAnalysisService {
         temperature: 0.1,
         maxTokens: 4000,
       });
-      
+
       // Create analysis result structure
       const analysisResult = {
         extractedRequirements: [],
         identifiedRisks: [],
-        timelineEstimates: { optimistic: 0, realistic: 0, pessimistic: 0, unit: 'days', confidence: 0 },
-        costEstimates: { development: 0, testing: 0, deployment: 0, maintenance: 0, total: 0, currency: 'USD' },
+        timelineEstimates: {
+          optimistic: 0,
+          realistic: 0,
+          pessimistic: 0,
+          unit: 'days',
+          confidence: 0,
+        },
+        costEstimates: {
+          development: 0,
+          testing: 0,
+          deployment: 0,
+          maintenance: 0,
+          total: 0,
+          currency: 'USD',
+        },
         stakeholderMapping: [],
-        technicalSpecifications: { architecture: '', technologies: [], integrations: [], constraints: [], assumptions: [] },
-        rawLLMResponse: llmResponse.content
+        technicalSpecifications: {
+          architecture: '',
+          technologies: [],
+          integrations: [],
+          constraints: [],
+          assumptions: [],
+        },
+        rawLLMResponse: llmResponse.content,
       };
-      
+
       // Update with results
-      await this.aiAnalysisRepository.update(analysisId, request.organizationId, {
-        status: AnalysisStatus.COMPLETED,
-        analysisResult: analysisResult,
-        confidenceScore: this.calculateConfidenceScore(analysisResult),
-        confidenceLevel: this.determineConfidenceLevel(analysisResult),
-      });
+      await this.aiAnalysisRepository.update(
+        analysisId,
+        request.organizationId,
+        {
+          status: AnalysisStatus.COMPLETED,
+          analysisResult: analysisResult,
+          confidenceScore: this.calculateConfidenceScore(analysisResult),
+          confidenceLevel: this.determineConfidenceLevel(analysisResult),
+        },
+      );
 
       return {
         id: analysisId,
@@ -518,8 +686,13 @@ export class AIAnalysisService {
       };
     } catch (error) {
       // Set error and update status
-      await this.aiAnalysisRepository.setError(analysisId, request.organizationId, error, request.userId);
-      
+      await this.aiAnalysisRepository.setError(
+        analysisId,
+        request.organizationId,
+        error,
+        request.userId,
+      );
+
       return {
         id: analysisId,
         status: AnalysisStatus.FAILED,
@@ -532,18 +705,18 @@ export class AIAnalysisService {
   private calculateConfidenceScore(result: any): number {
     // Implement confidence scoring logic based on analysis quality
     let score = 0.5; // Base score
-    
+
     if (result.extractedRequirements?.length > 0) score += 0.2;
     if (result.identifiedRisks?.length > 0) score += 0.1;
     if (result.timelineEstimates) score += 0.1;
     if (result.costEstimates) score += 0.1;
-    
+
     return Math.min(1.0, score);
   }
 
   private determineConfidenceLevel(result: any): ConfidenceLevel {
     const score = this.calculateConfidenceScore(result);
-    
+
     if (score >= 0.8) return ConfidenceLevel.VERY_HIGH;
     if (score >= 0.6) return ConfidenceLevel.HIGH;
     if (score >= 0.4) return ConfidenceLevel.MEDIUM;

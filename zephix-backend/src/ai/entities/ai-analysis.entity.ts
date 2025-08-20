@@ -240,14 +240,14 @@ export class AIAnalysis {
     if (this.status === AnalysisStatus.PROCESSING && !this.startedAt) {
       this.startedAt = new Date();
     }
-    
+
     if (this.status === AnalysisStatus.COMPLETED && !this.completedAt) {
       this.completedAt = new Date();
-      this.processingTimeMs = this.startedAt 
+      this.processingTimeMs = this.startedAt
         ? Date.now() - this.startedAt.getTime()
         : 0;
     }
-    
+
     if (this.status === AnalysisStatus.FAILED && !this.failedAt) {
       this.failedAt = new Date();
     }
@@ -255,14 +255,18 @@ export class AIAnalysis {
 
   // Business logic methods
   isActive(): boolean {
-    return this.status === AnalysisStatus.PENDING || 
-           this.status === AnalysisStatus.PROCESSING;
+    return (
+      this.status === AnalysisStatus.PENDING ||
+      this.status === AnalysisStatus.PROCESSING
+    );
   }
 
   canRetry(): boolean {
-    return this.status === AnalysisStatus.FAILED && 
-           this.retryCount < 3 &&
-           (!this.nextRetryAt || this.nextRetryAt <= new Date());
+    return (
+      this.status === AnalysisStatus.FAILED &&
+      this.retryCount < 3 &&
+      (!this.nextRetryAt || this.nextRetryAt <= new Date())
+    );
   }
 
   isCompleted(): boolean {
@@ -289,16 +293,16 @@ export class AIAnalysis {
     // Estimate based on document size and type
     const baseTimeMs = this.documentSize > 1024 * 1024 ? 30000 : 15000; // 30s for large files, 15s for small
     const estimatedEnd = new Date(this.startedAt.getTime() + baseTimeMs);
-    
+
     return estimatedEnd;
   }
 
   addAuditEntry(
-    action: string, 
-    userId: string, 
+    action: string,
+    userId: string,
     details: Record<string, any>,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): void {
     this.auditTrail.push({
       action,
@@ -310,31 +314,33 @@ export class AIAnalysis {
     });
   }
 
-  updateStatus(newStatus: AnalysisStatus, userId: string, details?: Record<string, any>): void {
+  updateStatus(
+    newStatus: AnalysisStatus,
+    userId: string,
+    details?: Record<string, any>,
+  ): void {
     const oldStatus = this.status;
     this.status = newStatus;
-    
-    this.addAuditEntry(
-      'status_changed',
-      userId,
-      {
-        oldStatus,
-        newStatus,
-        ...details,
-      }
-    );
+
+    this.addAuditEntry('status_changed', userId, {
+      oldStatus,
+      newStatus,
+      ...details,
+    });
   }
 
   incrementRetryCount(): void {
     this.retryCount += 1;
-    this.nextRetryAt = new Date(Date.now() + Math.pow(2, this.retryCount) * 60000); // Exponential backoff
+    this.nextRetryAt = new Date(
+      Date.now() + Math.pow(2, this.retryCount) * 60000,
+    ); // Exponential backoff
   }
 
   addExternalServiceCall(
     service: string,
     duration: number,
     success: boolean,
-    cost: number
+    cost: number,
   ): void {
     this.metadata.externalServiceCalls.push({
       service,
@@ -343,7 +349,7 @@ export class AIAnalysis {
       success,
       cost,
     });
-    
+
     if (cost > 0) {
       this.totalCost += cost;
     }
@@ -358,7 +364,7 @@ export class AIAnalysis {
       retryCount: this.retryCount,
       lastRetryAt: new Date(),
     };
-    
+
     this.addAuditEntry('error_occurred', userId, {
       error: error.message,
       code: error.name,
@@ -369,7 +375,7 @@ export class AIAnalysis {
     if (targetCurrency === this.costCurrency) {
       return this.totalCost;
     }
-    
+
     // TODO: Implement currency conversion service
     // For now, return original cost
     return this.totalCost;

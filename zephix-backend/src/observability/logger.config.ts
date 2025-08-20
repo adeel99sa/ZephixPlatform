@@ -41,8 +41,10 @@ export const loggerConfig = {
       res: (res: Response) => ({
         statusCode: res.statusCode,
         headers: {
-//           'content-type': res.getHeader ? res.getHeader('content-type') : undefined,
-          'content-length': res.getHeader ? res.getHeader('content-length') : undefined,
+          //           'content-type': res.getHeader ? res.getHeader('content-type') : undefined,
+          'content-length': res.getHeader
+            ? res.getHeader('content-length')
+            : undefined,
         },
       }),
     },

@@ -16,10 +16,10 @@ export interface ComplexWorkflowValidationResult extends ValidationResult {
 export class WorkflowValidationService {
   private readonly logger = new Logger(WorkflowValidationService.name);
 
-  async validateComplexWorkflow(
+  validateComplexWorkflow(
     dto: any,
-    manager: any
-  ): Promise<ComplexWorkflowValidationResult> {
+    _manager: any,
+  ): ComplexWorkflowValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     const recommendations: string[] = [];
@@ -61,7 +61,7 @@ export class WorkflowValidationService {
     };
   }
 
-  async validateStageTransition(dto: any): Promise<ValidationResult> {
+  validateStageTransition(dto: any): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     const recommendations: string[] = [];
@@ -90,21 +90,23 @@ export class WorkflowValidationService {
     };
   }
 
-  async validateCompleteWorkflowStructure(
+  validateCompleteWorkflowStructure(
     templateId: string,
     stages: any[],
-    approvals: any[],
-    manager: any
-  ): Promise<ValidationResult> {
+    _approvals: any[],
+    _manager: any,
+  ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     const recommendations: string[] = [];
 
     // Validate that all stages have valid order
-    const stageOrders = stages.map(s => s.order).sort((a, b) => a - b);
+    const stageOrders = stages.map((s) => s.order).sort((a, b) => a - b);
     for (let i = 0; i < stageOrders.length; i++) {
       if (stageOrders[i] !== i + 1) {
-        errors.push(`Stage orders must be sequential starting from 1, found: ${stageOrders.join(', ')}`);
+        errors.push(
+          `Stage orders must be sequential starting from 1, found: ${stageOrders.join(', ')}`,
+        );
         break;
       }
     }
@@ -131,14 +133,16 @@ export class WorkflowValidationService {
     }
 
     // Check for duplicate stage names
-    const stageNames = stages.map(s => s.name);
-    const duplicateNames = stageNames.filter((name, index) => stageNames.indexOf(name) !== index);
+    const stageNames = stages.map((s) => s.name);
+    const duplicateNames = stageNames.filter(
+      (name, index) => stageNames.indexOf(name) !== index,
+    );
     if (duplicateNames.length > 0) {
       errors.push(`Duplicate stage names found: ${duplicateNames.join(', ')}`);
     }
 
     // Check stage order
-    const stageOrders = stages.map(s => s.order).sort((a, b) => a - b);
+    const stageOrders = stages.map((s) => s.order).sort((a, b) => a - b);
     for (let i = 0; i < stageOrders.length; i++) {
       if (stageOrders[i] !== i + 1) {
         errors.push(`Stage order must be sequential starting from 1`);
@@ -153,11 +157,18 @@ export class WorkflowValidationService {
       }
 
       if (stage.estimatedDuration && stage.estimatedDuration <= 0) {
-        errors.push(`Stage ${stage.name} must have a positive estimated duration`);
+        errors.push(
+          `Stage ${stage.name} must have a positive estimated duration`,
+        );
       }
 
-      if (stage.requiresApproval && (!stage.approvals || stage.approvals.length === 0)) {
-        warnings.push(`Stage ${stage.name} requires approval but has no approval gates configured`);
+      if (
+        stage.requiresApproval &&
+        (!stage.approvals || stage.approvals.length === 0)
+      ) {
+        warnings.push(
+          `Stage ${stage.name} requires approval but has no approval gates configured`,
+        );
       }
     });
 
@@ -169,15 +180,17 @@ export class WorkflowValidationService {
     const warnings: string[] = [];
     const recommendations: string[] = [];
 
-    const stageIds = stages.map(s => s.id);
-    
-    stages.forEach(stage => {
+    const stageIds = stages.map((s) => s.id);
+
+    stages.forEach((stage) => {
       if (stage.dependencies) {
         stage.dependencies.forEach((depId: string) => {
           if (!stageIds.includes(depId)) {
-            errors.push(`Stage ${stage.name} depends on non-existent stage ID: ${depId}`);
+            errors.push(
+              `Stage ${stage.name} depends on non-existent stage ID: ${depId}`,
+            );
           }
-          
+
           if (depId === stage.id) {
             errors.push(`Stage ${stage.name} cannot depend on itself`);
           }
@@ -199,7 +212,7 @@ export class WorkflowValidationService {
     const warnings: string[] = [];
     const recommendations: string[] = [];
 
-    stages.forEach(stage => {
+    stages.forEach((stage) => {
       if (stage.approvals && stage.approvals.length > 0) {
         stage.approvals.forEach((approval: any) => {
           if (!approval.title || approval.title.trim() === '') {
@@ -207,11 +220,15 @@ export class WorkflowValidationService {
           }
 
           if (approval.isRequired && approval.canBeSkipped) {
-            warnings.push(`Approval ${approval.title} in stage ${stage.name} is required but can be skipped`);
+            warnings.push(
+              `Approval ${approval.title} in stage ${stage.name} is required but can be skipped`,
+            );
           }
 
           if (approval.dueDate && new Date(approval.dueDate) <= new Date()) {
-            warnings.push(`Approval ${approval.title} in stage ${stage.name} has a past due date`);
+            warnings.push(
+              `Approval ${approval.title} in stage ${stage.name} has a past due date`,
+            );
           }
         });
       }
@@ -235,7 +252,7 @@ export class WorkflowValidationService {
       visited.add(node);
       recursionStack.add(node);
 
-      const stage = stages.find(s => s.id === node);
+      const stage = stages.find((s) => s.id === node);
       if (stage && stage.dependencies) {
         for (const depId of stage.dependencies) {
           if (visit(depId)) {

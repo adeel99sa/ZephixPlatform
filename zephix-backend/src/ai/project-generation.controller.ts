@@ -6,7 +6,6 @@ import {
   Body,
   UseGuards,
   Request,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,7 +16,6 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../organizations/guards/organization.guard';
 
 export class GenerateProjectRequest {
   documentId: string;
@@ -59,13 +57,13 @@ export class ProjectGenerationController {
     status: 400,
     description: 'Invalid request or document not found',
   })
-  async generateProjectFromBRD(
+  generateProjectFromBRD(
     @Param('documentId') documentId: string,
     @Body() request: GenerateProjectRequest,
     @Request() req: any,
   ): Promise<ProjectGenerationResponse> {
     // Validate that the document exists and is processed
-    const organizationId = req.user.organizationId;
+    // const organizationId = req.user?.organizationId; // Will be used in next phase
 
     // For now, return a placeholder response
     // In the next phase, this will:
@@ -74,13 +72,13 @@ export class ProjectGenerationController {
     // 3. Create tasks, epics, and dependencies
     // 4. Return the generated project ID
 
-    return {
+    return Promise.resolve({
       projectId: `project-${Date.now()}`, // Placeholder
       status: 'generating',
       message:
         'Project generation started. This feature will be implemented in the next phase.',
       estimatedCompletionTime: 30, // 30 seconds placeholder
-    };
+    });
   }
 
   @Get('generation-status/:projectId')
@@ -93,16 +91,16 @@ export class ProjectGenerationController {
     status: 200,
     description: 'Generation status retrieved successfully',
   })
-  async getProjectGenerationStatus(
+  getProjectGenerationStatus(
     @Param('projectId') projectId: string,
   ): Promise<any> {
     // For now, return a placeholder response
-    return {
+    return Promise.resolve({
       projectId,
       status: 'generating',
       progress: 50, // Placeholder
       message: 'Project generation in progress...',
       estimatedCompletionTime: 15, // 15 seconds remaining
-    };
+    });
   }
 }

@@ -1,4 +1,12 @@
-import { IsEnum, IsOptional, IsArray, IsString, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsString,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum DocumentType {
@@ -47,9 +55,9 @@ export class AIMappingResponseDto {
   @ApiProperty({ description: 'Unique analysis ID' })
   id: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['pending', 'processing', 'completed', 'failed'],
-    description: 'Current status of the analysis'
+    description: 'Current status of the analysis',
   })
   status: 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -125,20 +133,20 @@ export class AIMappingResponseDto {
     }>;
   };
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Confidence score of the analysis (0-1)',
     minimum: 0,
     maximum: 1,
-    example: 0.85
+    example: 0.85,
   })
   @IsNumber()
   @Min(0)
   @Max(1)
   confidence: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Processing time in milliseconds',
-    example: 15000
+    example: 15000,
   })
   @IsNumber()
   processingTime: number;
@@ -160,17 +168,17 @@ export class AIMappingStatusDto {
   @ApiProperty({ description: 'Analysis ID' })
   id: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['pending', 'processing', 'completed', 'failed'],
-    description: 'Current status'
+    description: 'Current status',
   })
   status: 'pending' | 'processing' | 'completed' | 'failed';
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Progress percentage (0-100)',
     minimum: 0,
     maximum: 100,
-    example: 75
+    example: 75,
   })
   @IsNumber()
   @Min(0)

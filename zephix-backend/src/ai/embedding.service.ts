@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DocumentChunk } from './document-parser.service';
+import { DocumentChunk } from './entities/document-chunk.entity';
 
 export interface EmbeddingRequest {
   text: string;
@@ -27,6 +27,29 @@ export interface BatchEmbeddingResponse {
   usage: {
     prompt_tokens: number;
     total_tokens: number;
+  };
+}
+
+// ✅ PROPER TYPING FOR OPENAI API RESPONSE
+interface OpenAIEmbeddingResponse {
+  data: Array<{
+    embedding: number[];
+    index: number;
+    object: string;
+  }>;
+  model: string;
+  object: string;
+  usage: {
+    prompt_tokens: number;
+    total_tokens: number;
+  };
+}
+
+interface OpenAIErrorResponse {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
   };
 }
 
@@ -82,13 +105,15 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response
+          .json()
+          .catch(() => ({}))) as OpenAIErrorResponse;
         throw new Error(
           `OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
         );
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as OpenAIEmbeddingResponse;
 
       const embeddingResponse: EmbeddingResponse = {
         embedding: data.data[0].embedding,
@@ -105,9 +130,12 @@ export class EmbeddingService {
 
       return embeddingResponse;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to generate embedding: ${error.message}`,
-        error.stack,
+        `Failed to generate embedding: ${errorMessage}`,
+        errorStack,
       );
       throw error;
     }
@@ -141,16 +169,18 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = (await response
+          .json()
+          .catch(() => ({}))) as OpenAIErrorResponse;
         throw new Error(
           `OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`,
         );
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as OpenAIEmbeddingResponse;
 
       const batchResponse: BatchEmbeddingResponse = {
-        embeddings: data.data.map((item: any) => item.embedding),
+        embeddings: data.data.map((item) => item.embedding),
         model: data.model,
         usage: {
           prompt_tokens: data.usage.prompt_tokens,
@@ -164,9 +194,12 @@ export class EmbeddingService {
 
       return batchResponse;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to generate batch embeddings: ${error.message}`,
-        error.stack,
+        `Failed to generate batch embeddings: ${errorMessage}`,
+        errorStack,
       );
       throw error;
     }
@@ -214,9 +247,12 @@ export class EmbeddingService {
 
       return embeddings;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
-        `Failed to generate chunk embeddings: ${error.message}`,
-        error.stack,
+        `Failed to generate chunk embeddings: ${errorMessage}`,
+        errorStack,
       );
       throw error;
     }
