@@ -13,10 +13,12 @@ import { ClaudeService } from './claude.service';
 import { AIMappingService } from './services/ai-mapping.service';
 import { AISuggestionsService } from './services/ai-suggestions.service';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
     ConfigModule,
+    SharedModule,
     // Only import TypeORM when database is available
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [TypeOrmModule.forFeature([UserOrganization])]
