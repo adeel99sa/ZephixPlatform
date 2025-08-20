@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClaudeService } from '../ai/claude.service';
 import { LLMProviderService } from '../ai/llm-provider.service';
 import { EmailService } from './services/email.service';
+import { VirusScanService } from './services/virus-scan.service';
 
 /**
  * SharedModule
@@ -14,9 +15,10 @@ import { EmailService } from './services/email.service';
  * - ClaudeService: AI service for LLM interactions
  * - LLMProviderService: LLM provider with data retention controls
  * - EmailService: Email sending service for notifications
+ * - VirusScanService: File security scanning service
  */
 @Module({
-  providers: [LLMProviderService, ClaudeService, EmailService],
-  exports: [LLMProviderService, ClaudeService, EmailService],
+  providers: [LLMProviderService, ClaudeService, EmailService, VirusScanService],
+  exports: [LLMProviderService, ClaudeService, EmailService, VirusScanService],
 })
 export class SharedModule {}
