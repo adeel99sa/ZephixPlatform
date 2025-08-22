@@ -1,87 +1,164 @@
-import { Injectable } from '@nestjs/common';
-import {
-  register,
-  Counter,
-  Histogram,
-  Gauge,
-  collectDefaultMetrics,
-} from 'prom-client';
+import { Injectable, Logger } from '@nestjs/common';
+import { register } from 'prom-client';
 
 @Injectable()
 export class MetricsService {
-  // HTTP Request Metrics
-  public readonly httpRequestsTotal = new Counter({
-    name: 'http_requests_total',
-    help: 'Total number of HTTP requests',
-    labelNames: ['method', 'route', 'status_code', 'organizationId'],
-  });
-
-  public readonly httpRequestDuration = new Histogram({
-    name: 'http_request_duration_seconds',
-    help: 'Duration of HTTP requests in seconds',
-    labelNames: ['method', 'route', 'status_code'],
-    buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
-  });
-
-  // Error Metrics
-  public readonly errorsTotal = new Counter({
-    name: 'errors_total',
-    help: 'Total number of errors',
-    labelNames: ['type', 'service', 'organizationId'],
-  });
-
-  // BRD-specific Metrics
-  public readonly brdOperationsTotal = new Counter({
-    name: 'brd_operations_total',
-    help: 'Total number of BRD operations',
-    labelNames: ['operation', 'status', 'organizationId'],
-  });
-
-  public readonly brdStatusTransitions = new Counter({
-    name: 'brd_status_transitions_total',
-    help: 'Total number of BRD status transitions',
-    labelNames: ['from_status', 'to_status', 'organizationId'],
-  });
-
-  // Database Metrics
-  public readonly databaseQueriesTotal = new Counter({
-    name: 'database_queries_total',
-    help: 'Total number of database queries',
-    labelNames: ['operation', 'table', 'organizationId'],
-  });
-
-  public readonly databaseQueryDuration = new Histogram({
-    name: 'database_query_duration_seconds',
-    help: 'Duration of database queries in seconds',
-    labelNames: ['operation', 'table'],
-    buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
-  });
-
-  // Authentication Metrics
-  public readonly authAttemptsTotal = new Counter({
-    name: 'auth_attempts_total',
-    help: 'Total number of authentication attempts',
-    labelNames: ['result', 'organizationId'],
-  });
-
-  // Search Metrics
-  public readonly searchQueriesTotal = new Counter({
-    name: 'search_queries_total',
-    help: 'Total number of search queries',
-    labelNames: ['type', 'organizationId'],
-  });
-
-  public readonly searchQueryDuration = new Histogram({
-    name: 'search_query_duration_seconds',
-    help: 'Duration of search queries in seconds',
-    labelNames: ['type'],
-    buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
-  });
+  private readonly logger = new Logger(MetricsService.name);
+  private _metrics: any = {};
 
   constructor() {
-    // Enable default metrics collection (CPU, memory, etc.)
-    collectDefaultMetrics({ register });
+    this.initializeMetrics();
   }
+
+  /**
+   * Initialize metrics using singleton pattern to prevent duplicate registration
+   */
+  private initializeMetrics(): void {
+    try {
+      // HTTP Request Metrics
+      this._metrics.httpRequestsTotal = this.getOrCreateCounter('http_requests_total', {
+        name: 'http_requests_total',
+        help: 'Total number of HTTP requests',
+        labelNames: ['method', 'route', 'status_code', 'organizationId'],
+      });
+
+      this._metrics.httpRequestDuration = this.getOrCreateHistogram('http_request_duration_seconds', {
+        name: 'http_request_duration_seconds',
+        help: 'Duration of HTTP requests in seconds',
+        labelNames: ['method', 'route', 'status_code'],
+        buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+      });
+
+      // Error Metrics
+      this._metrics.errorsTotal = this.getOrCreateCounter('errors_total', {
+        name: 'errors_total',
+        help: 'Total number of errors',
+        labelNames: ['type', 'service', 'organizationId'],
+      });
+
+      // BRD-specific Metrics
+      this._metrics.brdOperationsTotal = this.getOrCreateCounter('brd_operations_total', {
+        name: 'brd_operations_total',
+        help: 'Total number of BRD operations',
+        labelNames: ['operation', 'status', 'organizationId'],
+      });
+
+      this._metrics.brdStatusTransitions = this.getOrCreateCounter('brd_status_transitions_total', {
+        name: 'brd_status_transitions_total',
+        help: 'Total number of BRD status transitions',
+        labelNames: ['from_status', 'to_status', 'organizationId'],
+      });
+
+      // Database Metrics
+      this._metrics.databaseQueriesTotal = this.getOrCreateCounter('database_queries_total', {
+        name: 'database_queries_total',
+        help: 'Total number of database queries',
+        labelNames: ['operation', 'table', 'organizationId'],
+      });
+
+      this._metrics.databaseQueryDuration = this.getOrCreateHistogram('database_query_duration_seconds', {
+        name: 'database_query_duration_seconds',
+        help: 'Duration of database queries in seconds',
+        labelNames: ['operation', 'table'],
+        buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+      });
+
+      // Authentication Metrics
+      this._metrics.authAttemptsTotal = this.getOrCreateCounter('auth_attempts_total', {
+        name: 'auth_attempts_total',
+        help: 'Total number of authentication attempts',
+        labelNames: ['result', 'organizationId'],
+      });
+
+      // Search Metrics
+      this._metrics.searchQueriesTotal = this.getOrCreateCounter('search_queries_total', {
+        name: 'search_queries_total',
+        help: 'Total number of search queries',
+        labelNames: ['type', 'organizationId'],
+      });
+
+      this._metrics.searchQueryDuration = this.getOrCreateHistogram('search_query_duration_seconds', {
+        name: 'search_query_duration_seconds',
+        help: 'Duration of search queries in seconds',
+        labelNames: ['type'],
+        buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+      });
+
+      this.logger.log('Metrics initialized successfully using singleton pattern');
+    } catch (error) {
+      this.logger.error('Failed to initialize metrics', error);
+      // Fallback to empty metrics to prevent application crash
+      this._metrics = {};
+    }
+  }
+
+  /**
+   * Get or create a Counter metric using singleton pattern
+   */
+  private getOrCreateCounter(name: string, config: any): any {
+    try {
+      const existingMetric = register.getSingleMetric(name);
+      if (existingMetric) {
+        this.logger.debug(`Reusing existing counter metric: ${name}`);
+        return existingMetric;
+      }
+      
+      this.logger.debug(`Creating new counter metric: ${name}`);
+      const { Counter } = require('prom-client');
+      return new Counter(config);
+    } catch (error) {
+      this.logger.error(`Failed to get or create counter metric: ${name}`, error);
+      // Return a mock metric to prevent crashes
+      return this.createMockMetric('counter', name);
+    }
+  }
+
+  /**
+   * Get or create a Histogram metric using singleton pattern
+   */
+  private getOrCreateHistogram(name: string, config: any): any {
+    try {
+      const existingMetric = register.getSingleMetric(name);
+      if (existingMetric) {
+        this.logger.debug(`Reusing existing histogram metric: ${name}`);
+        return existingMetric;
+      }
+      
+      this.logger.debug(`Creating new histogram metric: ${name}`);
+      const { Histogram } = require('prom-client');
+      return new Histogram(config);
+    } catch (error) {
+      this.logger.error(`Failed to get or create histogram metric: ${name}`, error);
+      // Return a mock metric to prevent crashes
+      return this.createMockMetric('histogram', name);
+    }
+  }
+
+  /**
+   * Create a mock metric to prevent crashes when real metrics fail
+   */
+  private createMockMetric(type: string, name: string): any {
+    this.logger.warn(`Creating mock ${type} metric for: ${name}`);
+    return {
+      inc: () => {}, // No-op
+      observe: () => {}, // No-op
+      set: () => {}, // No-op
+      name,
+      type: 'mock',
+    };
+  }
+
+  // Public getters for metrics
+  get httpRequestsTotal() { return this._metrics.httpRequestsTotal; }
+  get httpRequestDuration() { return this._metrics.httpRequestDuration; }
+  get errorsTotal() { return this._metrics.errorsTotal; }
+  get brdOperationsTotal() { return this._metrics.brdOperationsTotal; }
+  get brdStatusTransitions() { return this._metrics.brdStatusTransitions; }
+  get databaseQueriesTotal() { return this._metrics.databaseQueriesTotal; }
+  get databaseQueryDuration() { return this._metrics.databaseQueryDuration; }
+  get authAttemptsTotal() { return this._metrics.authAttemptsTotal; }
+  get searchQueriesTotal() { return this._metrics.searchQueriesTotal; }
+  get searchQueryDuration() { return this._metrics.searchQueryDuration; }
 
   /**
    * Record HTTP request metrics
@@ -93,29 +170,37 @@ export class MetricsService {
     duration: number,
     organizationId?: string,
   ): void {
-    const labels = {
-      method,
-      route,
-      status_code: statusCode.toString(),
-      organizationId: organizationId || 'unknown',
-    };
+    try {
+      const labels = {
+        method,
+        route,
+        status_code: statusCode.toString(),
+        organizationId: organizationId || 'unknown',
+      };
 
-    this.httpRequestsTotal.inc(labels);
-    this.httpRequestDuration.observe(
-      { method, route, status_code: statusCode.toString() },
-      duration,
-    );
+      this.httpRequestsTotal.inc(labels);
+      this.httpRequestDuration.observe(
+        { method, route, status_code: statusCode.toString() },
+        duration,
+      );
+    } catch (error) {
+      this.logger.error('Failed to record HTTP request metrics', error);
+    }
   }
 
   /**
    * Record error metrics
    */
   recordError(type: string, service: string, organizationId?: string): void {
-    this.errorsTotal.inc({
-      type,
-      service,
-      organizationId: organizationId || 'unknown',
-    });
+    try {
+      this.errorsTotal.inc({
+        type,
+        service,
+        organizationId: organizationId || 'unknown',
+      });
+    } catch (error) {
+      this.logger.error('Failed to record error metrics', error);
+    }
   }
 
   /**
@@ -126,11 +211,15 @@ export class MetricsService {
     status: 'success' | 'error',
     organizationId: string,
   ): void {
-    this.brdOperationsTotal.inc({
-      operation,
-      status,
-      organizationId: organizationId,
-    });
+    try {
+      this.brdOperationsTotal.inc({
+        operation,
+        status,
+        organizationId: organizationId,
+      });
+    } catch (error) {
+      this.logger.error('Failed to record BRD operation metrics', error);
+    }
   }
 
   /**
@@ -141,11 +230,15 @@ export class MetricsService {
     toStatus: string,
     organizationId: string,
   ): void {
-    this.brdStatusTransitions.inc({
-      from_status: fromStatus,
-      to_status: toStatus,
-      organizationId: organizationId,
-    });
+    try {
+      this.brdStatusTransitions.inc({
+        from_status: fromStatus,
+        to_status: toStatus,
+        organizationId: organizationId,
+      });
+    } catch (error) {
+      this.logger.error('Failed to record BRD status transition metrics', error);
+    }
   }
 
   /**
@@ -157,13 +250,17 @@ export class MetricsService {
     duration: number,
     organizationId?: string,
   ): void {
-    this.databaseQueriesTotal.inc({
-      operation,
-      table,
-      organizationId: organizationId || 'unknown',
-    });
+    try {
+      this.databaseQueriesTotal.inc({
+        operation,
+        table,
+        organizationId: organizationId || 'unknown',
+      });
 
-    this.databaseQueryDuration.observe({ operation, table }, duration);
+      this.databaseQueryDuration.observe({ operation, table }, duration);
+    } catch (error) {
+      this.logger.error('Failed to record database query metrics', error);
+    }
   }
 
   /**
@@ -173,10 +270,14 @@ export class MetricsService {
     result: 'success' | 'failure',
     organizationId?: string,
   ): void {
-    this.authAttemptsTotal.inc({
-      result,
-      organizationId: organizationId || 'unknown',
-    });
+    try {
+      this.authAttemptsTotal.inc({
+        result,
+        organizationId: organizationId || 'unknown',
+      });
+    } catch (error) {
+      this.logger.error('Failed to record authentication attempt metrics', error);
+    }
   }
 
   /**
@@ -187,26 +288,40 @@ export class MetricsService {
     duration: number,
     organizationId: string,
   ): void {
-    this.searchQueriesTotal.inc({
-      type,
-      organizationId: organizationId,
-    });
+    try {
+      this.searchQueriesTotal.inc({
+        type,
+        organizationId: organizationId,
+      });
 
-    this.searchQueryDuration.observe({ type }, duration);
+      this.searchQueryDuration.observe({ type }, duration);
+    } catch (error) {
+      this.logger.error('Failed to record search query metrics', error);
+    }
   }
 
   /**
    * Get all metrics in Prometheus format
    */
   async getMetrics(): Promise<string> {
-    return register.metrics();
+    try {
+      return await register.metrics();
+    } catch (error) {
+      this.logger.error('Failed to get metrics', error);
+      return '# Error retrieving metrics\n';
+    }
   }
 
   /**
    * Clear all metrics (useful for testing)
    */
   clearMetrics(): void {
-    register.clear();
+    try {
+      register.clear();
+      this.logger.log('Metrics cleared successfully');
+    } catch (error) {
+      this.logger.error('Failed to clear metrics', error);
+    }
   }
 
   // Legacy methods for backward compatibility with existing services
@@ -219,23 +334,31 @@ export class MetricsService {
     model: string,
     status: 'success' | 'error',
   ): void {
-    // Map to existing counter with different labels
-    this.errorsTotal.inc({
-      type: `llm_${status}`,
-      service: `${provider}_${model}`,
-      organizationId: 'system',
-    });
+    try {
+      // Map to existing counter with different labels
+      this.errorsTotal.inc({
+        type: `llm_${status}`,
+        service: `${provider}_${model}`,
+        organizationId: 'system',
+      });
+    } catch (error) {
+      this.logger.error('Failed to increment LLM request counter', error);
+    }
   }
 
   /**
    * Observe LLM duration (legacy method)
    */
   observeLlmDuration(provider: string, model: string, duration: number): void {
-    // Map to existing histogram
-    this.httpRequestDuration.observe(
-      { method: 'POST', route: `/llm/${provider}`, status_code: '200' },
-      duration,
-    );
+    try {
+      // Map to existing histogram
+      this.httpRequestDuration.observe(
+        { method: 'POST', route: `/llm/${provider}`, status_code: '200' },
+        duration,
+      );
+    } catch (error) {
+      this.logger.error('Failed to observe LLM duration', error);
+    }
   }
 
   /**
