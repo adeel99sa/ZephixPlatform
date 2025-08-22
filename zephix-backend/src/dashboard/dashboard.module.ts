@@ -11,6 +11,10 @@ import { RiskManagementModule } from '../pm/risk-management/risk-management.modu
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
-  exports: [DashboardService, DashboardController],
+  exports: [DashboardService],
 })
-export class DashboardModule {}
+export class DashboardModule {
+  constructor() {
+    console.log('DashboardModule loaded');
+  }
+}
