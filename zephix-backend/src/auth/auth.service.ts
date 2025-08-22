@@ -37,7 +37,8 @@ export class AuthService {
       isEmailVerified: false,
     });
     
-    await this.usersRepo.save(user);
+    // Save user to database first to ensure password is stored
+    const savedUser = await this.usersRepo.save(user);
 
     // Check skip flag
     const skipValue = this.config.get('SKIP_EMAIL_VERIFICATION');
@@ -46,19 +47,19 @@ export class AuthService {
 
     // RETURN EARLY if skipping
     if (skip) {
-      user.isEmailVerified = true;
-      await this.usersRepo.save(user);
+      savedUser.isEmailVerified = true;
+      await this.usersRepo.save(savedUser);
       this.logger.log(`Auto-verified user ${email} (skip mode)`);
       return {
-        accessToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }),
-        refreshToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }, { expiresIn: '7d' }),
+        accessToken: this.jwtService.sign({ sub: savedUser.id, email: savedUser.email, role: savedUser.role }),
+        refreshToken: this.jwtService.sign({ sub: savedUser.id, email: savedUser.email, role: savedUser.role }, { expiresIn: '7d' }),
         user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          isEmailVerified: user.isEmailVerified,
+          id: savedUser.id,
+          email: savedUser.email,
+          firstName: savedUser.firstName,
+          lastName: savedUser.lastName,
+          role: savedUser.role,
+          isEmailVerified: savedUser.isEmailVerified,
         },
         requiresEmailVerification: false,
       };
@@ -77,15 +78,15 @@ export class AuthService {
     
     // This return is for when email verification is needed
     return {
-      accessToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }),
-      refreshToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }, { expiresIn: '7d' }),
+      accessToken: this.jwtService.sign({ sub: savedUser.id, email: savedUser.email, role: savedUser.role }),
+      refreshToken: this.jwtService.sign({ sub: savedUser.id, email: savedUser.email, role: savedUser.role }, { expiresIn: '7d' }),
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        isEmailVerified: user.isEmailVerified,
+        id: savedUser.id,
+        email: savedUser.email,
+        firstName: savedUser.firstName,
+        lastName: savedUser.lastName,
+        role: savedUser.role,
+        isEmailVerified: savedUser.isEmailVerified,
       },
       requiresEmailVerification: true,
     };
@@ -99,6 +100,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.password) {
+      this.logger.error(`User ${user.email} has no password in database`);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
