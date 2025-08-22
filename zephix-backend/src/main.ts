@@ -24,7 +24,7 @@ if (
 }
 
 // Initialize OpenTelemetry before importing anything else
-import './telemetry';
+// import './telemetry';
 
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
