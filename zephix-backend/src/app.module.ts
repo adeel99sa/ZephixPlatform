@@ -29,6 +29,7 @@ import { SharedModule } from './shared/shared.module';
 import { FeedbackModule } from './feedback/feedback.module';
 // import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 // Import middleware - DISABLED
 // import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -124,6 +125,7 @@ if (!(global as any).crypto) {
     ProjectsModule, // Fourth - depends on OrganizationsModule
     HealthModule, // Health checks
     FeedbackModule, // User feedback system (lightweight)
+    DashboardModule, // Dashboard module
     
     // Conditional modules based on feature flags - DISABLED
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
