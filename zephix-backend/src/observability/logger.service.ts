@@ -19,7 +19,7 @@ export class LoggerService {
         },
       },
       timestamp: pino.stdTimeFunctions.isoTime,
-      ...(environment === 'development'
+      ...(environment === 'development' && process.env.NODE_ENV === 'development'
         ? {
             transport: {
               target: 'pino-pretty',
@@ -31,7 +31,7 @@ export class LoggerService {
             },
           }
         : {
-            // Production: JSON logging
+            // Production: JSON logging without pino-pretty
             serializers: pino.stdSerializers,
           }),
     });
