@@ -1,0 +1,24 @@
+{
+  "name": "zephix-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "zephix-frontend",
+    "zephix-backend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd zephix-backend && npm run start:dev",
+    "dev:frontend": "cd zephix-frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd zephix-backend && npm run build",
+    "build:frontend": "cd zephix-frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}
