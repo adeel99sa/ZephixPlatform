@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClaudeService } from '../ai/claude.service';
 import { LLMProviderService } from '../ai/llm-provider.service';
 import { EmailService } from './services/email.service';
+import { MetricsService } from '../observability/metrics.service';
 
 /**
  * SharedModule
@@ -16,7 +17,17 @@ import { EmailService } from './services/email.service';
  * - EmailService: Email sending service for notifications
  */
 @Module({
-  providers: [LLMProviderService, ClaudeService, EmailService],
-  exports: [LLMProviderService, ClaudeService, EmailService],
+  providers: [
+    LLMProviderService, 
+    ClaudeService, 
+    EmailService,
+    MetricsService  // ADD THIS
+  ],
+  exports: [
+    LLMProviderService, 
+    ClaudeService, 
+    EmailService,
+    MetricsService  // ADD THIS (optional, but good practice)
+  ],
 })
 export class SharedModule {}
