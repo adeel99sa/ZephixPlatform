@@ -69,11 +69,7 @@ export class AuthController {
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    const result = await this.authService.register(
-      registerDto,
-      ipAddress,
-      userAgent,
-    );
+    const result = await this.authService.register(registerDto);
     return {
       message: result.requiresEmailVerification
         ? 'Registration successful! Please check your email to verify your account before logging in.'
