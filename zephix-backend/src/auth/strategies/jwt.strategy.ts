@@ -118,7 +118,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       select: [
         'id', 'email', 'firstName', 'lastName', 'isActive', 'isEmailVerified',
-        'role', 'organizationId', 'createdAt', 'updatedAt'
+        'role', 'createdAt', 'updatedAt'
       ],
     });
 
@@ -134,9 +134,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Email verification required');
     }
 
+    // Merge JWT payload information with database user information
+    // This ensures organization context is preserved from the token
+    const enrichedUser = {
+      ...user,
+      organizationId: payload.organizationId,
+      role: payload.role || user.role,
+      organizations: payload.organizations || [],
+      userOrganizations: payload.userOrganizations || [],
+    };
+
     // Log successful authentication for audit
     console.log(`🔐 JWT validation successful for user: ${user.email} (${user.id})`);
+    console.log(`🔐 User organization context: ${enrichedUser.organizationId}, role: ${enrichedUser.role}`);
 
-    return user;
+    return enrichedUser;
   }
 }
