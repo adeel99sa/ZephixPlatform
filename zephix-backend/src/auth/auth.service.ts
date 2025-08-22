@@ -33,7 +33,7 @@ export class AuthService {
       password: await bcrypt.hash(dto.password, 10),
       firstName: dto.firstName,
       lastName: dto.lastName,
-      role: dto.role || 'USER',
+      role: 'USER',
       isEmailVerified: false,
     });
     
@@ -49,7 +49,19 @@ export class AuthService {
       user.isEmailVerified = true;
       await this.usersRepo.save(user);
       this.logger.log(`Auto-verified user ${email} (skip mode)`);
-      return this.issueTokens(user);
+      return {
+        accessToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }),
+        refreshToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }, { expiresIn: '7d' }),
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          isEmailVerified: user.isEmailVerified,
+        },
+        requiresEmailVerification: false,
+      };
     }
 
     // Try to send email
@@ -62,6 +74,21 @@ export class AuthService {
       await this.usersRepo.delete(user.id);
       throw new ServiceUnavailableException('Email service unavailable');
     }
+    
+    // This return is for when email verification is needed
+    return {
+      accessToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }),
+      refreshToken: this.jwtService.sign({ sub: user.id, email: user.email, role: user.role }, { expiresIn: '7d' }),
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
+      requiresEmailVerification: true,
+    };
   }
 
   async login(dto: LoginDto) {
