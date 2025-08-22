@@ -38,8 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const algorithm = jwtCfg.algorithm;
     const secret = jwtCfg.secret;
     const publicKey = jwtCfg.publicKey;
-    const issuer = jwtCfg.issuer;
-    const audience = jwtCfg.audience;
+
     
     if (!secret && algorithm === 'HS256') {
       throw new Error('JWT_SECRET is required for HS256 algorithm');
@@ -55,16 +54,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       algorithms: ['RS256'],
       secretOrKey: publicKey,
-      issuer,
-      audience,
       clockTolerance: 30, // 30 seconds tolerance for clock skew
     } : {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['HS256'],
       secretOrKey: secret,
-      issuer,
-      audience,
       clockTolerance: 30, // 30 seconds tolerance for clock skew
     };
 
