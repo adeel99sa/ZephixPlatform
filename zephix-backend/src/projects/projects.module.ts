@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectsService } from './services/projects.service';
 import { RoleSeedService } from './services/role-seed.service';
 import { ProjectsController } from './controllers/projects.controller';
+import { ProjectRisksController } from './controllers/project-risks.controller';
 
 import { Project } from './entities/project.entity';
 import { Team } from './entities/team.entity';
@@ -22,7 +23,7 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
     ]),
     // OrganizationsModule no longer needed - it's now Global
   ],
-  controllers: [ProjectsController],
+  controllers: [ProjectsController, ProjectRisksController],
   providers: [ProjectsService, RoleSeedService],
   exports: [ProjectsService],
 })
