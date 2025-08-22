@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build --config tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
@@ -25,7 +25,8 @@
     "docker:build": "docker build -t zephix-backend .",
     "docker:run": "docker run -p 3000:3000 --env-file .env.production zephix-backend",
     "docker:test": "npm run docker:build && npm run docker:run",
-    "deploy:check": "npm run validate:deployment"
+    "deploy:check": "npm run validate:deployment",
+    "start:railway": "node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
