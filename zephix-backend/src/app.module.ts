@@ -16,22 +16,23 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
+import featureFlagsConfig from './config/feature-flags.config';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
 import { SharedModule } from './shared/shared.module';
-import { AIModule } from './ai/ai.module';
-import { PMModule } from './pm/pm.module';
-import { BRDModule } from './brd/brd.module';
-import { ArchitectureModule } from './architecture/architecture.module';
-import { IntelligenceModule } from './intelligence/intelligence.module';
+// import { AIModule } from './ai/ai.module';
+// import { PMModule } from './pm/pm.module';
+// import { BRDModule } from './brd/brd.module';
+// import { ArchitectureModule } from './architecture/architecture.module';
+// import { IntelligenceModule } from './intelligence/intelligence.module';
 import { FeedbackModule } from './feedback/feedback.module';
-import { ObservabilityModule } from './observability/observability.module';
+// import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 
-// Import middleware
-import { RequestIdMiddleware } from './observability/request-id.middleware';
-import { MetricsMiddleware } from './observability/metrics.middleware';
+// Import middleware - DISABLED
+// import { RequestIdMiddleware } from './observability/request-id.middleware';
+// import { MetricsMiddleware } from './observability/metrics.middleware';
 import {
   getDatabaseConfig,
   validateDatabasePrivileges,
@@ -58,14 +59,11 @@ if (!(global as any).crypto) {
 
 @Module({
   imports: [
+    // Core configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
-      // CRITICAL FIX: Prevent local .env files from overriding Railway environment variables
-      envFilePath:
-        process.env.NODE_ENV === 'production'
-          ? []
-          : ['.env', '.env.local', '.env.development'],
+      load: [configuration, featureFlagsConfig],
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
 
     // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
@@ -119,26 +117,21 @@ if (!(global as any).crypto) {
         ]
       : []),
 
-    // CRITICAL: Import order to avoid circular dependencies
+    // Core modules (always enabled)
     SharedModule, // First - no dependencies
     AuthModule, // Always import AuthModule for authentication
-    AIModule, // AI services and document processing (conditional TypeORM)
-    IntelligenceModule, // Intelligence services (no TypeORM)
-    ArchitectureModule, // Architecture services (no TypeORM)
-
-    // EMERGENCY MODE: Only import database-dependent modules when database is available
-    ...(process.env.SKIP_DATABASE !== 'true'
-      ? [
-          OrganizationsModule, // Third - depends on SharedModule
-          ProjectsModule, // Fourth - depends on OrganizationsModule
-          PMModule, // Project management functionality (conditional TypeORM)
-          BRDModule, // Business requirements documentation (conditional TypeORM)
-          FeedbackModule, // User feedback system (conditional TypeORM)
-        ]
-      : []),
-
-    ObservabilityModule,
-    HealthModule,
+    OrganizationsModule, // Third - depends on SharedModule
+    ProjectsModule, // Fourth - depends on OrganizationsModule
+    HealthModule, // Health checks
+    FeedbackModule, // User feedback system (lightweight)
+    
+    // Conditional modules based on feature flags - DISABLED
+    // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
+    // ...(process.env.ENABLE_GOVERNANCE === 'true' ? [ArchitectureModule] : []), // ArchitectureModule as governance
+    // ...(process.env.ENABLE_DOCUMENTS === 'true' ? [BRDModule] : []),
+    // ...(process.env.ENABLE_TELEMETRY === 'true' ? [ObservabilityModule] : []),
+    // ...(process.env.ENABLE_WORKFLOWS === 'true' ? [PMModule] : []), // PM has document dependencies
+    // ...(process.env.ENABLE_AI_MODULE === 'true' ? [IntelligenceModule] : []), // Intelligence depends on AI
   ],
   controllers: [AppController],
   providers: [
@@ -176,6 +169,6 @@ export class AppModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware, MetricsMiddleware).forRoutes('*');
+    // consumer.apply(RequestIdMiddleware, MetricsMiddleware).forRoutes('*');
   }
 }
