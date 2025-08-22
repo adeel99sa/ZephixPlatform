@@ -96,25 +96,40 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user (email verification required)
+    // TESTING MODE: Skip email verification if SMTP not configured
+    const skipEmailVerification = !process.env.SMTP_HOST || !process.env.SMTP_USER;
+    
     const user = this.userRepository.create({
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName,
       lastName,
       isActive: true,
-      isEmailVerified: false, // Email verification required
+      isEmailVerified: skipEmailVerification, // Skip verification if SMTP not configured
     });
 
     const savedUser = await this.userRepository.save(user);
 
-    // Send verification email
-    await this.emailVerificationService.sendVerificationEmail(
-      savedUser,
-      ipAddress,
-      userAgent,
-    );
+    // Send verification email only if SMTP is configured
+    if (!skipEmailVerification) {
+      try {
+        await this.emailVerificationService.sendVerificationEmail(
+          savedUser,
+          ipAddress,
+          userAgent,
+        );
+      } catch (error) {
+        console.warn('⚠️ Email verification failed, but user registration successful:', error.message);
+        // Don't fail registration if email fails in development
+        if (process.env.NODE_ENV !== 'production') {
+          // Mark as verified in development if email fails
+          savedUser.isEmailVerified = true;
+          await this.userRepository.save(savedUser);
+        }
+      }
+    }
 
-    // Generate JWT token (user can have token but limited access until verified)
+    // Generate JWT token
     const accessToken = this.jwtService.sign({
       sub: savedUser.id,
       email: savedUser.email,
@@ -124,7 +139,7 @@ export class AuthService {
     return {
       user: savedUser,
       accessToken,
-      requiresEmailVerification: true,
+      requiresEmailVerification: !savedUser.isEmailVerified,
     };
   }
 
