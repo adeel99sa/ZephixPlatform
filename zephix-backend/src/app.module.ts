@@ -16,7 +16,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
-import featureFlagsConfig from './config/feature-flags.config';
+// import featureFlagsConfig from './config/feature-flags.config';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -62,7 +62,7 @@ if (!(global as any).crypto) {
     // Core configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration, featureFlagsConfig],
+      load: [configuration],
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
 
