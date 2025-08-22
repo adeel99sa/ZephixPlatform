@@ -1,226 +1,113 @@
-import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-  ForbiddenException,
-  ServiceUnavailableException,
-  Optional,
-} from '@nestjs/common';
+import { Injectable, Logger, ConflictException, UnauthorizedException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-
+import * as bcrypt from 'bcrypt';
 import { User } from '../modules/users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { EmailVerificationService } from './services/email-verification.service';
 
-/**
- * Authentication Service
- *
- * Handles user registration, login, and JWT token generation.
- *
- * EMERGENCY MODE: When SKIP_DATABASE=true, provides limited functionality
- * without database operations for emergency recovery scenarios.
- *
- * MICROSERVICE EXTRACTION NOTES:
- * - This service can be moved to a dedicated auth microservice
- * - Password hashing should use bcrypt with salt rounds >= 12
- * - JWT tokens should have appropriate expiration times
- * - Consider implementing refresh tokens for better security
- * - User creation can be delegated to a user service
- * - Token validation can be moved to a shared auth service
- */
 @Injectable()
 export class AuthService {
-  private readonly isEmergencyMode: boolean;
-
+  private readonly logger = new Logger(AuthService.name);
+  
   constructor(
-    @Optional()
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User> | null,
+    private readonly config: ConfigService,
     private readonly jwtService: JwtService,
-    private readonly emailVerificationService: EmailVerificationService,
-  ) {
-    this.isEmergencyMode = process.env.SKIP_DATABASE === 'true';
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
+  ) {}
 
-    if (this.isEmergencyMode) {
-      console.log(
-        '🚨 AuthService: Emergency mode - database operations disabled',
-      );
-      if (!this.userRepository) {
-        console.log(
-          '🚨 AuthService: UserRepository not available in emergency mode',
-        );
-      }
-    } else {
-      if (!this.userRepository) {
-        console.error(
-          '❌ AuthService: UserRepository required but not available',
-        );
-        throw new Error(
-          'UserRepository is required for full authentication mode',
-        );
-      }
-    }
-  }
-
-  async register(
-    registerDto: RegisterDto,
-    ipAddress?: string,
-    userAgent?: string,
-  ): Promise<{
-    user: User;
-    accessToken: string;
-    requiresEmailVerification: boolean;
-  }> {
-    // EMERGENCY MODE: Return service unavailable
-    if (this.isEmergencyMode || !this.userRepository) {
-      throw new ServiceUnavailableException(
-        'User registration is temporarily unavailable due to database maintenance. Please try again later.',
-      );
-    }
-
-    const { email, password, firstName, lastName } = registerDto;
-
+  async register(dto: RegisterDto) {
+    const email = dto.email.toLowerCase();
+    
     // Check if user exists
-    const existingUser = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-    });
-    if (existingUser) {
+    const exists = await this.usersRepo.findOne({ where: { email }});
+    if (exists) {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash password with bcrypt (12 salt rounds for security)
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create user (email verification required)
-    const user = this.userRepository.create({
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      firstName,
-      lastName,
-      isActive: true,
-      isEmailVerified: false, // Email verification required
+    // Create user
+    const user = this.usersRepo.create({
+      email,
+      password: await bcrypt.hash(dto.password, 10),
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      role: dto.role || 'USER',
+      isEmailVerified: false,
     });
+    
+    await this.usersRepo.save(user);
 
-    const savedUser = await this.userRepository.save(user);
+    // Check skip flag
+    const skipValue = this.config.get('SKIP_EMAIL_VERIFICATION');
+    const skip = skipValue === 'true';
+    this.logger.log(`SKIP_EMAIL_VERIFICATION=${skipValue}, skip=${skip}`);
 
-    // Send verification email
-    await this.emailVerificationService.sendVerificationEmail(
-      savedUser,
-      ipAddress,
-      userAgent,
-    );
-
-    // Generate JWT token (user can have token but limited access until verified)
-    const accessToken = this.jwtService.sign({
-      sub: savedUser.id,
-      email: savedUser.email,
-      emailVerified: savedUser.isEmailVerified,
-    });
-
-    return {
-      user: savedUser,
-      accessToken,
-      requiresEmailVerification: true,
-    };
-  }
-
-  async login(
-    loginDto: LoginDto,
-  ): Promise<{ user: User; accessToken: string }> {
-    // EMERGENCY MODE: Return service unavailable
-    if (this.isEmergencyMode || !this.userRepository) {
-      throw new ServiceUnavailableException(
-        'User login is temporarily unavailable due to database maintenance. Please try again later.',
-      );
+    // RETURN EARLY if skipping
+    if (skip) {
+      user.isEmailVerified = true;
+      await this.usersRepo.save(user);
+      this.logger.log(`Auto-verified user ${email} (skip mode)`);
+      return this.issueTokens(user);
     }
 
-    const { email, password } = loginDto;
+    // Try to send email
+    try {
+      // For now, just throw error since email service isn't configured
+      throw new Error('Email service not configured');
+    } catch (err) {
+      this.logger.error('Failed to send verification email', err);
+      // Clean up user if email fails
+      await this.usersRepo.delete(user.id);
+      throw new ServiceUnavailableException('Email service unavailable');
+    }
+  }
 
-    // Find user by email
-    const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-      select: ['id', 'email', 'password', 'firstName', 'lastName', 'role', 'isActive', 'isEmailVerified'],
-    });
-
+  async login(dto: LoginDto) {
+    const email = dto.email.toLowerCase();
+    const user = await this.usersRepo.findOne({ where: { email }});
+    
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    const valid = await bcrypt.compare(dto.password, user.password);
+    if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      throw new ForbiddenException('Account is deactivated');
+    // Check verification status
+    const skip = this.config.get('SKIP_EMAIL_VERIFICATION') === 'true';
+    if (!user.isEmailVerified && !skip) {
+      throw new ForbiddenException('Email not verified');
     }
 
-    // Generate JWT token
-    const accessToken = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      emailVerified: user.isEmailVerified,
-    });
+    return this.issueTokens(user);
+  }
 
+  private issueTokens(user: User) {
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role,
+      organizationId: user.organizationId 
+    };
+    
     return {
-      user,
-      accessToken,
+      accessToken: this.jwtService.sign(payload),
+      refreshToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      }
     };
   }
 
-  async validateUser(userId: string): Promise<User | null> {
-    // EMERGENCY MODE: Return null to indicate user not found
-    if (this.isEmergencyMode || !this.userRepository) {
-      console.log('🚨 AuthService: Emergency mode - user validation disabled');
-      return null;
-    }
-
-    return this.userRepository.findOne({
-      where: { id: userId, isActive: true },
-    });
-  }
-
-  async refreshToken(userId: string): Promise<{ accessToken: string }> {
-    // EMERGENCY MODE: Return service unavailable
-    if (this.isEmergencyMode || !this.userRepository) {
-      throw new ServiceUnavailableException(
-        'Token refresh is temporarily unavailable due to database maintenance. Please try again later.',
-      );
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: userId, isActive: true },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    const accessToken = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      emailVerified: user.isEmailVerified,
-    });
-
-    return { accessToken };
-  }
-
-  // EMERGENCY MODE: Health check method
-  async healthCheck(): Promise<{
-    status: string;
-    mode: string;
-    timestamp: string;
-  }> {
-    return {
-      status: this.isEmergencyMode ? 'degraded' : 'healthy',
-      mode: this.isEmergencyMode ? 'emergency' : 'full',
-      timestamp: new Date().toISOString(),
-    };
+  private generateVerificationToken(userId: string): string {
+    return this.jwtService.sign({ sub: userId }, { expiresIn: '24h' });
   }
 }
