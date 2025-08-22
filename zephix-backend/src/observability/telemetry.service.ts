@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
@@ -10,6 +10,7 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 
 @Injectable()
 export class TelemetryService implements OnModuleInit {
+  private readonly logger = new Logger(TelemetryService.name);
   private sdk: NodeSDK;
   private tracer = trace.getTracer('zephix-backend');
 
@@ -65,9 +66,22 @@ export class TelemetryService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    if (this.configService.get<boolean>('OTEL_ENABLED') !== false) {
-      this.sdk.start();
-      console.log('🔭 OpenTelemetry initialized successfully');
+    // Skip if disabled
+    if (process.env.ENABLE_TELEMETRY !== 'true') {
+      this.logger.warn('Telemetry disabled via ENABLE_TELEMETRY env variable');
+      return;
+    }
+
+    // Try to start with error handling
+    try {
+      this.logger.log('Initializing OpenTelemetry SDK...');
+      await this.sdk.start();
+      this.logger.log('OpenTelemetry SDK initialized successfully');
+    } catch (error) {
+      this.logger.error(
+        'OpenTelemetry initialization failed. Continuing without telemetry.',
+        error.stack || error.message
+      );
     }
   }
 
