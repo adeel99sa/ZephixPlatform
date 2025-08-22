@@ -27,7 +27,7 @@ import { SharedModule } from './shared/shared.module';
 // import { ArchitectureModule } from './architecture/architecture.module';
 // import { IntelligenceModule } from './intelligence/intelligence.module';
 import { FeedbackModule } from './feedback/feedback.module';
-// import { ObservabilityModule } from './observability/observability.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 
@@ -131,7 +131,7 @@ if (!(global as any).crypto) {
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
     // ...(process.env.ENABLE_GOVERNANCE === 'true' ? [ArchitectureModule] : []), // ArchitectureModule as governance
     // ...(process.env.ENABLE_DOCUMENTS === 'true' ? [BRDModule] : []),
-    // ...(process.env.ENABLE_TELEMETRY === 'true' ? [ObservabilityModule] : []),
+    ObservabilityModule, // Always enable for MetricsService dependency
     // ...(process.env.ENABLE_WORKFLOWS === 'true' ? [PMModule] : []), // PM has document dependencies
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [IntelligenceModule] : []), // Intelligence depends on AI
   ],
