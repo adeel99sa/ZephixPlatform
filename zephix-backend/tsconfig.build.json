@@ -1,9 +1,22 @@
 {
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
   "exclude": [
-    "src/**/*.spec.ts",
-    "src/**/*.e2e-spec.ts",
+    "node_modules",
+    "dist",
     "test",
-    "src/database/migration-runner.service.ts",
-    "src/database/migration-runner.service.ts.backup"
+    "**/*spec.ts",
+    "**/*test.ts",
+    "src/ai/**/*",
+    "src/pm/**/*",
+    "src/governance/**/*",
+    "src/workflows/**/*",
+    "src/brd/**/*",
+    "src/admin/**/*",
+    "src/intelligence/**/*",
+    "src/architecture/**/*",
+    "src/observability/**/*"
   ]
 }
