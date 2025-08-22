@@ -1,164 +1,245 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { register } from 'prom-client';
+import { register, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
 
 @Injectable()
 export class MetricsService {
   private readonly logger = new Logger(MetricsService.name);
-  private _metrics: any = {};
+
+  // HTTP Request Metrics
+  public readonly httpRequestsTotal: Counter;
+  public readonly httpRequestDuration: Histogram;
+  public readonly httpRequestSizeBytes: Histogram;
+  public readonly httpResponseSizeBytes: Histogram;
+
+  // System Metrics
+  public readonly activeConnections: Gauge;
+  public readonly memoryUsageBytes: Gauge;
+
+  // Error Metrics
+  public readonly errorsTotal: Counter;
+
+  // BRD-specific Metrics
+  public readonly brdOperationsTotal: Counter;
+  public readonly brdStatusTransitions: Counter;
+
+  // Database Metrics
+  public readonly databaseQueriesTotal: Counter;
+  public readonly databaseQueryDuration: Histogram;
+
+  // Authentication Metrics
+  public readonly authAttemptsTotal: Counter;
+
+  // Search Metrics
+  public readonly searchQueriesTotal: Counter;
+  public readonly searchQueryDuration: Histogram;
 
   constructor() {
-    this.initializeMetrics();
-  }
+    this.logger.log('Initializing MetricsService with duplicate registration prevention');
+    
+    // Check if default metrics are already collected
+    if (!register.getSingleMetric('process_cpu_seconds_total')) {
+      this.logger.debug('Collecting default metrics');
+      collectDefaultMetrics({ register });
+    } else {
+      this.logger.debug('Default metrics already collected, skipping');
+    }
 
-  /**
-   * Initialize metrics using singleton pattern to prevent duplicate registration
-   */
-  private initializeMetrics(): void {
-    try {
-      // HTTP Request Metrics
-      this._metrics.httpRequestsTotal = this.getOrCreateCounter('http_requests_total', {
+    // HTTP Request Metrics
+    const existingHttpRequestsTotal = register.getSingleMetric('http_requests_total');
+    if (existingHttpRequestsTotal) {
+      this.logger.debug('Reusing existing http_requests_total metric');
+      this.httpRequestsTotal = existingHttpRequestsTotal as Counter;
+    } else {
+      this.logger.debug('Creating new http_requests_total metric');
+      this.httpRequestsTotal = new Counter({
         name: 'http_requests_total',
         help: 'Total number of HTTP requests',
         labelNames: ['method', 'route', 'status_code', 'organizationId'],
       });
+    }
 
-      this._metrics.httpRequestDuration = this.getOrCreateHistogram('http_request_duration_seconds', {
+    const existingHttpRequestDuration = register.getSingleMetric('http_request_duration_seconds');
+    if (existingHttpRequestDuration) {
+      this.logger.debug('Reusing existing http_request_duration_seconds metric');
+      this.httpRequestDuration = existingHttpRequestDuration as Histogram;
+    } else {
+      this.logger.debug('Creating new http_request_duration_seconds metric');
+      this.httpRequestDuration = new Histogram({
         name: 'http_request_duration_seconds',
         help: 'Duration of HTTP requests in seconds',
         labelNames: ['method', 'route', 'status_code'],
         buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
       });
+    }
 
-      // Error Metrics
-      this._metrics.errorsTotal = this.getOrCreateCounter('errors_total', {
+    const existingHttpRequestSizeBytes = register.getSingleMetric('http_request_size_bytes');
+    if (existingHttpRequestSizeBytes) {
+      this.logger.debug('Reusing existing http_request_size_bytes metric');
+      this.httpRequestSizeBytes = existingHttpRequestSizeBytes as Histogram;
+    } else {
+      this.logger.debug('Creating new http_request_size_bytes metric');
+      this.httpRequestSizeBytes = new Histogram({
+        name: 'http_request_size_bytes',
+        help: 'Size of HTTP requests in bytes',
+        labelNames: ['method', 'route'],
+        buckets: [100, 500, 1000, 5000, 10000, 50000, 100000],
+      });
+    }
+
+    const existingHttpResponseSizeBytes = register.getSingleMetric('http_response_size_bytes');
+    if (existingHttpResponseSizeBytes) {
+      this.logger.debug('Reusing existing http_response_size_bytes metric');
+      this.httpResponseSizeBytes = existingHttpResponseSizeBytes as Histogram;
+    } else {
+      this.logger.debug('Creating new http_response_size_bytes metric');
+      this.httpResponseSizeBytes = new Histogram({
+        name: 'http_response_size_bytes',
+        help: 'Size of HTTP responses in bytes',
+        labelNames: ['method', 'route', 'status_code'],
+        buckets: [100, 500, 1000, 5000, 10000, 50000, 100000],
+      });
+    }
+
+    // System Metrics
+    const existingActiveConnections = register.getSingleMetric('active_connections');
+    if (existingActiveConnections) {
+      this.logger.debug('Reusing existing active_connections metric');
+      this.activeConnections = existingActiveConnections as Gauge;
+    } else {
+      this.logger.debug('Creating new active_connections metric');
+      this.activeConnections = new Gauge({
+        name: 'active_connections',
+        help: 'Number of active connections',
+        labelNames: ['type'],
+      });
+    }
+
+    const existingMemoryUsageBytes = register.getSingleMetric('memory_usage_bytes');
+    if (existingMemoryUsageBytes) {
+      this.logger.debug('Reusing existing memory_usage_bytes metric');
+      this.memoryUsageBytes = existingMemoryUsageBytes as Gauge;
+    } else {
+      this.logger.debug('Creating new memory_usage_bytes metric');
+      this.memoryUsageBytes = new Gauge({
+        name: 'memory_usage_bytes',
+        help: 'Memory usage in bytes',
+        labelNames: ['type'],
+      });
+    }
+
+    // Error Metrics
+    const existingErrorsTotal = register.getSingleMetric('errors_total');
+    if (existingErrorsTotal) {
+      this.logger.debug('Reusing existing errors_total metric');
+      this.errorsTotal = existingErrorsTotal as Counter;
+    } else {
+      this.logger.debug('Creating new errors_total metric');
+      this.errorsTotal = new Counter({
         name: 'errors_total',
         help: 'Total number of errors',
         labelNames: ['type', 'service', 'organizationId'],
       });
+    }
 
-      // BRD-specific Metrics
-      this._metrics.brdOperationsTotal = this.getOrCreateCounter('brd_operations_total', {
+    // BRD-specific Metrics
+    const existingBrdOperationsTotal = register.getSingleMetric('brd_operations_total');
+    if (existingBrdOperationsTotal) {
+      this.logger.debug('Reusing existing brd_operations_total metric');
+      this.brdOperationsTotal = existingBrdOperationsTotal as Counter;
+    } else {
+      this.logger.debug('Creating new brd_operations_total metric');
+      this.brdOperationsTotal = new Counter({
         name: 'brd_operations_total',
         help: 'Total number of BRD operations',
         labelNames: ['operation', 'status', 'organizationId'],
       });
+    }
 
-      this._metrics.brdStatusTransitions = this.getOrCreateCounter('brd_status_transitions_total', {
+    const existingBrdStatusTransitions = register.getSingleMetric('brd_status_transitions_total');
+    if (existingBrdStatusTransitions) {
+      this.logger.debug('Reusing existing brd_status_transitions_total metric');
+      this.brdStatusTransitions = existingBrdStatusTransitions as Counter;
+    } else {
+      this.logger.debug('Creating new brd_status_transitions_total metric');
+      this.brdStatusTransitions = new Counter({
         name: 'brd_status_transitions_total',
         help: 'Total number of BRD status transitions',
         labelNames: ['from_status', 'to_status', 'organizationId'],
       });
+    }
 
-      // Database Metrics
-      this._metrics.databaseQueriesTotal = this.getOrCreateCounter('database_queries_total', {
+    // Database Metrics
+    const existingDatabaseQueriesTotal = register.getSingleMetric('database_queries_total');
+    if (existingDatabaseQueriesTotal) {
+      this.logger.debug('Reusing existing database_queries_total metric');
+      this.databaseQueriesTotal = existingDatabaseQueriesTotal as Counter;
+    } else {
+      this.logger.debug('Creating new database_queries_total metric');
+      this.databaseQueriesTotal = new Counter({
         name: 'database_queries_total',
         help: 'Total number of database queries',
         labelNames: ['operation', 'table', 'organizationId'],
       });
+    }
 
-      this._metrics.databaseQueryDuration = this.getOrCreateHistogram('database_query_duration_seconds', {
+    const existingDatabaseQueryDuration = register.getSingleMetric('database_query_duration_seconds');
+    if (existingDatabaseQueryDuration) {
+      this.logger.debug('Reusing existing database_query_duration_seconds metric');
+      this.databaseQueryDuration = existingDatabaseQueryDuration as Histogram;
+    } else {
+      this.logger.debug('Creating new database_query_duration_seconds metric');
+      this.databaseQueryDuration = new Histogram({
         name: 'database_query_duration_seconds',
         help: 'Duration of database queries in seconds',
         labelNames: ['operation', 'table'],
         buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
       });
+    }
 
-      // Authentication Metrics
-      this._metrics.authAttemptsTotal = this.getOrCreateCounter('auth_attempts_total', {
+    // Authentication Metrics
+    const existingAuthAttemptsTotal = register.getSingleMetric('auth_attempts_total');
+    if (existingAuthAttemptsTotal) {
+      this.logger.debug('Reusing existing auth_attempts_total metric');
+      this.authAttemptsTotal = existingAuthAttemptsTotal as Counter;
+    } else {
+      this.logger.debug('Creating new auth_attempts_total metric');
+      this.authAttemptsTotal = new Counter({
         name: 'auth_attempts_total',
         help: 'Total number of authentication attempts',
         labelNames: ['result', 'organizationId'],
       });
+    }
 
-      // Search Metrics
-      this._metrics.searchQueriesTotal = this.getOrCreateCounter('search_queries_total', {
+    // Search Metrics
+    const existingSearchQueriesTotal = register.getSingleMetric('search_queries_total');
+    if (existingSearchQueriesTotal) {
+      this.logger.debug('Reusing existing search_queries_total metric');
+      this.searchQueriesTotal = existingSearchQueriesTotal as Counter;
+    } else {
+      this.logger.debug('Creating new search_queries_total metric');
+      this.searchQueriesTotal = new Counter({
         name: 'search_queries_total',
         help: 'Total number of search queries',
         labelNames: ['type', 'organizationId'],
       });
+    }
 
-      this._metrics.searchQueryDuration = this.getOrCreateHistogram('search_query_duration_seconds', {
+    const existingSearchQueryDuration = register.getSingleMetric('search_query_duration_seconds');
+    if (existingSearchQueryDuration) {
+      this.logger.debug('Reusing existing search_query_duration_seconds metric');
+      this.searchQueryDuration = existingSearchQueryDuration as Histogram;
+    } else {
+      this.logger.debug('Creating new search_query_duration_seconds metric');
+      this.searchQueryDuration = new Histogram({
         name: 'search_query_duration_seconds',
         help: 'Duration of search queries in seconds',
         labelNames: ['type'],
         buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
       });
-
-      this.logger.log('Metrics initialized successfully using singleton pattern');
-    } catch (error) {
-      this.logger.error('Failed to initialize metrics', error);
-      // Fallback to empty metrics to prevent application crash
-      this._metrics = {};
     }
-  }
 
-  /**
-   * Get or create a Counter metric using singleton pattern
-   */
-  private getOrCreateCounter(name: string, config: any): any {
-    try {
-      const existingMetric = register.getSingleMetric(name);
-      if (existingMetric) {
-        this.logger.debug(`Reusing existing counter metric: ${name}`);
-        return existingMetric;
-      }
-      
-      this.logger.debug(`Creating new counter metric: ${name}`);
-      const { Counter } = require('prom-client');
-      return new Counter(config);
-    } catch (error) {
-      this.logger.error(`Failed to get or create counter metric: ${name}`, error);
-      // Return a mock metric to prevent crashes
-      return this.createMockMetric('counter', name);
-    }
+    this.logger.log('MetricsService initialized successfully with duplicate registration prevention');
   }
-
-  /**
-   * Get or create a Histogram metric using singleton pattern
-   */
-  private getOrCreateHistogram(name: string, config: any): any {
-    try {
-      const existingMetric = register.getSingleMetric(name);
-      if (existingMetric) {
-        this.logger.debug(`Reusing existing histogram metric: ${name}`);
-        return existingMetric;
-      }
-      
-      this.logger.debug(`Creating new histogram metric: ${name}`);
-      const { Histogram } = require('prom-client');
-      return new Histogram(config);
-    } catch (error) {
-      this.logger.error(`Failed to get or create histogram metric: ${name}`, error);
-      // Return a mock metric to prevent crashes
-      return this.createMockMetric('histogram', name);
-    }
-  }
-
-  /**
-   * Create a mock metric to prevent crashes when real metrics fail
-   */
-  private createMockMetric(type: string, name: string): any {
-    this.logger.warn(`Creating mock ${type} metric for: ${name}`);
-    return {
-      inc: () => {}, // No-op
-      observe: () => {}, // No-op
-      set: () => {}, // No-op
-      name,
-      type: 'mock',
-    };
-  }
-
-  // Public getters for metrics
-  get httpRequestsTotal() { return this._metrics.httpRequestsTotal; }
-  get httpRequestDuration() { return this._metrics.httpRequestDuration; }
-  get errorsTotal() { return this._metrics.errorsTotal; }
-  get brdOperationsTotal() { return this._metrics.brdOperationsTotal; }
-  get brdStatusTransitions() { return this._metrics.brdStatusTransitions; }
-  get databaseQueriesTotal() { return this._metrics.databaseQueriesTotal; }
-  get databaseQueryDuration() { return this._metrics.databaseQueryDuration; }
-  get authAttemptsTotal() { return this._metrics.authAttemptsTotal; }
-  get searchQueriesTotal() { return this._metrics.searchQueriesTotal; }
-  get searchQueryDuration() { return this._metrics.searchQueryDuration; }
 
   /**
    * Record HTTP request metrics
@@ -185,6 +266,53 @@ export class MetricsService {
       );
     } catch (error) {
       this.logger.error('Failed to record HTTP request metrics', error);
+    }
+  }
+
+  /**
+   * Record HTTP request size metrics
+   */
+  recordHttpRequestSize(method: string, route: string, sizeBytes: number): void {
+    try {
+      this.httpRequestSizeBytes.observe({ method, route }, sizeBytes);
+    } catch (error) {
+      this.logger.error('Failed to record HTTP request size metrics', error);
+    }
+  }
+
+  /**
+   * Record HTTP response size metrics
+   */
+  recordHttpResponseSize(method: string, route: string, statusCode: number, sizeBytes: number): void {
+    try {
+      this.httpResponseSizeBytes.observe(
+        { method, route, status_code: statusCode.toString() },
+        sizeBytes
+      );
+    } catch (error) {
+      this.logger.error('Failed to record HTTP response size metrics', error);
+    }
+  }
+
+  /**
+   * Set active connections count
+   */
+  setActiveConnections(type: string, count: number): void {
+    try {
+      this.activeConnections.set({ type }, count);
+    } catch (error) {
+      this.logger.error('Failed to set active connections metric', error);
+    }
+  }
+
+  /**
+   * Set memory usage
+   */
+  setMemoryUsage(type: string, bytes: number): void {
+    try {
+      this.memoryUsageBytes.set({ type }, bytes);
+    } catch (error) {
+      this.logger.error('Failed to set memory usage metric', error);
     }
   }
 
@@ -379,13 +507,5 @@ export class MetricsService {
    */
   incrementError(type: string, service: string): void {
     this.recordError(type, service);
-  }
-
-  /**
-   * Set active connections (legacy method)
-   */
-  setActiveConnections(count: number): void {
-    // This method is no longer needed since we removed queue metrics
-    // Database connection metrics are handled elsewhere
   }
 }
