@@ -52,8 +52,6 @@ import jwtConfig from '../config/jwt.config';
         secret: configService.get<string>('jwt.secret'),
         signOptions: { 
           expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
-          issuer: configService.get<string>('jwt.issuer'),
-          audience: configService.get<string>('jwt.audience'),
         },
       }),
     }),
