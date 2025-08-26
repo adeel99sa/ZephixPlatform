@@ -1,9 +1,26 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { RequireAdmin } from './components/auth/RequireAdmin';
+import { AdminLayout } from './layouts/AdminLayout';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminUsers } from './pages/admin/AdminUsers';
+import { WorkflowTemplateBuilder } from './pages/WorkflowTemplateBuilder';
 import { ErrorBoundary } from 'react-error-boundary';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ErrorFallback } from './components/common/ErrorFallback';
+import LandingPage from './pages/LandingPage';
+
+// Admin Organization Pages
+import { OrganizationOverview } from './pages/admin/organization/OrganizationOverview';
+import { UsersManagement } from './pages/admin/organization/UsersManagement';
+
+// Admin Placeholder Pages
+import { 
+  RolesPermissions, SecuritySSO, BillingPlans,
+  LifecycleTemplates, RiskLibrary, FormulaLibrary,
+  AIProviders, RiskSentinel, AuditLogs 
+} from './pages/admin/placeholders';
 
 // Lazy load all page components for better performance
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(module => ({ default: module.DashboardPage })));
@@ -17,6 +34,8 @@ const TeamPage = lazy(() => import('./pages/team/TeamPage').then(module => ({ de
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage').then(module => ({ default: module.ReportsPage })));
 const TemplatesPage = lazy(() => import('./pages/templates/TemplatesPage').then(module => ({ default: module.TemplatesPage })));
 const CollaborationPage = lazy(() => import('./pages/collaboration/CollaborationPage').then(module => ({ default: module.CollaborationPage })));
+const RiskManagementDashboard = lazy(() => import('./components/pm/risk-management/RiskManagementDashboard').then(module => ({ default: module.RiskManagementDashboard })));
+const RiskRegister = lazy(() => import('./components/pm/risk-management/RiskRegister').then(module => ({ default: module.RiskRegister })));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(module => ({ default: module.LoginPage })));
 const SignupPage = lazy(() => import('./pages/auth/SignupPage').then(module => ({ default: module.SignupPage })));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage').then(module => ({ default: module.ForgotPasswordPage })));
@@ -33,13 +52,15 @@ function App() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <Router>
-        {/* Skip Navigation Link for Accessibility */}
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-md">
           Skip to main content
         </a>
         
         <Routes>
-          {/* Public Routes */}
+          {/* Public Landing Page */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Public Auth Routes */}
           <Route path="/login" element={
             <Suspense fallback={<PageLoader />}>
               <LoginPage />
@@ -61,8 +82,8 @@ function App() {
             </Suspense>
           } />
 
-          {/* Protected Routes */}
-          <Route path="/" element={
+          {/* Protected App Routes */}
+          <Route path="/app" element={
             <ProtectedRoute>
               <Suspense fallback={<PageLoader />}>
                 <DashboardPage />
@@ -147,6 +168,46 @@ function App() {
             </ProtectedRoute>
           } />
 
+          {/* Risk Management Routes - Protected */}
+          <Route path="/risks" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <RiskManagementDashboard />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/projects/:projectId/risks" element={
+            <ProtectedRoute>
+              <Suspense fallback={<PageLoader />}>
+                <RiskRegister />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+
+          {/* Admin Routes - Protected */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminLayout />
+              </RequireAdmin>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="org" element={<OrganizationOverview />} />
+            <Route path="users" element={<UsersManagement />} />
+            <Route path="roles" element={<RolesPermissions />} />
+            <Route path="security" element={<SecuritySSO />} />
+            <Route path="billing" element={<BillingPlans />} />
+            <Route path="templates/lifecycle" element={<LifecycleTemplates />} />
+            <Route path="templates/risk-library" element={<RiskLibrary />} />
+            <Route path="templates/formulas" element={<FormulaLibrary />} />
+            <Route path="ai/providers" element={<AIProviders />} />
+            <Route path="ai/risk-sentinel" element={<RiskSentinel />} />
+            <Route path="governance/audit" element={<AuditLogs />} />
+            <Route path="templates" element={<WorkflowTemplateBuilder />} />
+          </Route>
+
           {/* Legacy Route Redirects */}
           <Route path="/ai/suggestions" element={<Navigate to="/ai/assistant" replace />} />
           <Route path="/forms" element={<Navigate to="/intake" replace />} />
@@ -157,8 +218,8 @@ function App() {
               <div className="text-center">
                 <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
                 <p className="text-xl text-gray-600 mb-8">Page not found</p>
-                <a
-                  href="/"
+                
+                <a href="/app"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Go to Dashboard

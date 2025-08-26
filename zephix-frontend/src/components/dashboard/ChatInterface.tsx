@@ -67,7 +67,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               Welcome to Zephix AI Assistant
             </h3>
             <p className="text-sm">
-              Ask me anything about your projects, or upload a BRD to get started.
+              Ask me anything about your projects, or upload a document to get started.
             </p>
           </div>
         ) : (

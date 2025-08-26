@@ -12,7 +12,7 @@ describe('HowItWorksSection', () => {
     expect(screen.getByText(/From upload to execution in just three simple steps/)).toBeInTheDocument();
     
     // Check for all step titles
-    expect(screen.getByText('Upload Your BRD')).toBeInTheDocument();
+    expect(screen.getByText('Upload Your Document')).toBeInTheDocument();
     expect(screen.getByText('AI Analysis & Planning')).toBeInTheDocument();
     expect(screen.getByText('Review & Execute')).toBeInTheDocument();
     
@@ -138,7 +138,7 @@ describe('HowItWorksSection', () => {
     render(<HowItWorksSection />);
     
     // Check that each step has number, title, and description
-    const stepTitles = ['Upload Your BRD', 'AI Analysis & Planning', 'Review & Execute'];
+          const stepTitles = ['Upload Your Document', 'AI Analysis & Planning', 'Review & Execute'];
     
     stepTitles.forEach((title, index) => {
       const stepHeading = screen.getByText(title);

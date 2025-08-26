@@ -16,12 +16,14 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { OrganizationsService } from '../services/organizations.service';
+import { AuditService } from '../../shared/services/audit.service';
 import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   InviteUserDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../../auth/guards/admin.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
@@ -32,7 +34,10 @@ import { CurrentOrg } from '../decorators/current-org.decorator';
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly auditService: AuditService
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new organization' })
@@ -147,5 +152,23 @@ export class OrganizationsController {
   })
   async switchOrganization(@Param('id') id: string, @Request() req) {
     return this.organizationsService.switchOrganization(req.user.id, id);
+  }
+
+  @Get('admin/users')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiOperation({ summary: 'Get all users for admin management' })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully for admin',
+  })
+  async getAdminUsers(@Request() req) {
+    // Log admin action
+    await this.auditService.logAction('admin.users.list', {
+      userId: req.user.id,
+      action: 'admin.users.list',
+      timestamp: new Date()
+    });
+    
+    return this.organizationsService.findAllUsers();
   }
 }

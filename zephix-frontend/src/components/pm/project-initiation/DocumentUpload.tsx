@@ -9,7 +9,7 @@ interface DocumentUploadProps {
 
 const DocumentUpload: React.FC<DocumentUploadProps> = ({ onAnalysisComplete, loading, error }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentType, setDocumentType] = useState<string>('BRD');
+  const [documentType, setDocumentType] = useState<string>('PROJECT_CHARTER');
   const [organizationContext, setOrganizationContext] = useState({
     industry: '',
     companySize: '',
@@ -22,7 +22,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onAnalysisComplete, loa
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const documentTypes = [
-    { value: 'BRD', label: 'Business Requirements Document', description: 'Detailed business requirements and specifications' },
+            { value: 'PROJECT_CHARTER', label: 'Project Charter', description: 'Project overview, objectives, and scope' },
     { value: 'Charter', label: 'Project Charter', description: 'High-level project authorization document' },
     { value: 'SOW', label: 'Statement of Work', description: 'Detailed scope and deliverables' },
     { value: 'Proposal', label: 'Project Proposal', description: 'Project proposal and justification' },
