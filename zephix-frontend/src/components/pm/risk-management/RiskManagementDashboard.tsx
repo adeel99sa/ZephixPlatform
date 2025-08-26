@@ -718,7 +718,7 @@ const MonitoringTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
               <span className="text-sm font-medium text-gray-900">High Risk Threshold</span>
               <Bell className="w-4 h-4 text-gray-500" />
             </div>
-            <p className="text-xs text-gray-600">Alert when risk score > 15</p>
+                          <p className="text-xs text-gray-600">Alert when risk score &gt; 15</p>
             <p className="text-xs text-green-600 mt-1">✓ Configured</p>
           </div>
           

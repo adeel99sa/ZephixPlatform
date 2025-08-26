@@ -8,8 +8,8 @@ export const HowItWorksSection: React.FC = () => {
 
   const steps = [
     {
-      title: "Upload Your BRD",
-      description: "Drop your Business Requirements Document - any format, any size",
+              title: "Upload Your Document",
+              description: "Drop your project document - any format, any size",
       icon: Upload,
       duration: "Quick upload",
       before: {
