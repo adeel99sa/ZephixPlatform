@@ -17,7 +17,7 @@ export const SecurityPage: React.FC = () => {
             </Link>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Security</h1>
-          <p className="text-gray-600 mt-2">Enterprise-grade security and compliance</p>
+          <p className="text-gray-600 mt-2">Security and data protection</p>
         </div>
       </div>
 
@@ -72,7 +72,7 @@ export const SecurityPage: React.FC = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication</h3>
                     <p className="text-gray-700 text-sm">
-                      Multi-factor authentication and secure password policies protect user accounts.
+                      Secure authentication with JWT tokens and password protection for user accounts.
                     </p>
                   </div>
                 </div>
@@ -82,7 +82,7 @@ export const SecurityPage: React.FC = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Compliance</h3>
                     <p className="text-gray-700 text-sm">
-                      We follow industry best practices and are working towards SOC 2 compliance.
+                      We follow industry best practices and are building toward enterprise security standards.
                     </p>
                   </div>
                 </div>
@@ -102,8 +102,8 @@ export const SecurityPage: React.FC = () => {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
               <h3 className="text-lg font-semibold text-blue-900 mb-3">Security Commitment</h3>
               <p className="text-blue-800 text-sm">
-                As an early-stage product, we're committed to implementing enterprise-grade security measures. 
-                We regularly review and update our security practices to ensure the highest level of protection for your data.
+                As an early-stage product, we're committed to implementing strong security measures. 
+                We regularly review and update our security practices to protect your data and are building toward enterprise-grade standards.
               </p>
             </div>
             

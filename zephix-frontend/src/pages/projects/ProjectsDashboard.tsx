@@ -16,15 +16,15 @@ export const ProjectsDashboard: React.FC = () => {
   useEffect(() => {
     fetchProjects();
     
-    // Check if we have BRD data from navigation state
-    if (location.state?.brdFile) {
-      const brdFile = location.state.brdFile;
-      if (brdFile.processingResult) {
-        // Pre-fill project data based on BRD analysis
+    // Check if we have document data from navigation state
+    if (location.state?.documentFile) {
+      const documentFile = location.state.documentFile;
+      if (documentFile.processingResult) {
+        // Pre-fill project data based on document analysis
         setPrefilledData({
-          name: brdFile.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-          description: brdFile.processingResult.aiAnalysis,
-          template: 'software', // Default based on BRD
+          name: documentFile.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+          description: documentFile.processingResult.aiAnalysis,
+          template: 'software', // Default based on document
           methodology: 'agile',
           priority: 'medium'
         });

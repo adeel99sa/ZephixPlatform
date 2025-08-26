@@ -8,15 +8,6 @@
     "dist",
     "test",
     "**/*spec.ts",
-    "**/*test.ts",
-    "src/ai/**/*",
-    "src/pm/**/*",
-    "src/governance/**/*",
-    "src/workflows/**/*",
-    "src/brd/**/*",
-    "src/admin/**/*",
-    "src/intelligence/**/*",
-    "src/architecture/**/*",
-    "src/observability/**/*"
+    "**/*test.ts"
   ]
 }

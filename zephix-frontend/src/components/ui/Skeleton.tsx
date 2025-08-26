@@ -10,62 +10,11 @@ interface SkeletonProps {
   'data-testid'?: string;
 }
 
-export const Skeleton: React.FC<SkeletonProps> = ({
-  variant = 'rectangular',
-  size = 'md',
-  className,
-  lines = 1,
-  width,
-  height,
-  'data-testid': testId = 'skeleton'
-}) => {
-  const sizeClasses = {
-    sm: 'h-4',
-    md: 'h-6',
-    lg: 'h-8',
-    xl: 'h-12',
-  };
-
-  const variantClasses = {
-    text: 'rounded',
-    circular: 'rounded-full',
-    rectangular: 'rounded-lg',
-  };
-
-  const baseClasses = cn(
-    'animate-pulse bg-gray-700',
-    variantClasses[variant],
-    sizeClasses[size],
-    className
-  );
-
-  if (variant === 'text' && lines > 1) {
-    return (
-      <div className="space-y-2" data-testid={testId}>
-        {Array.from({ length: lines }, (_, index) => (
-          <div
-            key={index}
-            className={cn(
-              baseClasses,
-              index === lines - 1 ? 'w-3/4' : 'w-full'
-            )}
-            style={{ width: index === lines - 1 ? '75%' : width }}
-          />
-        ))}
-      </div>
-    );
-  }
-
+export function Skeleton({ className = "" }: any) {
   return (
-    <div
-      className={baseClasses}
-      style={{ width, height }}
-      data-testid={testId}
-      role="status"
-      aria-label="Loading content"
-    />
+    <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
   );
-};
+}
 
 /**
  * Skeleton components for common UI patterns

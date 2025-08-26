@@ -12,7 +12,7 @@ describe('FeaturesSection', () => {
     expect(screen.getByText(/Zephix packs powerful AI features/)).toBeInTheDocument();
     
     // Check for all feature titles
-    expect(screen.getByText('Auto BRD Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Auto Document Analysis')).toBeInTheDocument();
     expect(screen.getByText('AI Planning Engine')).toBeInTheDocument();
     expect(screen.getByText('Team Orchestration')).toBeInTheDocument();
     expect(screen.getByText('Risk Assessment')).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe('FeaturesSection', () => {
     // Check that articles have proper aria-labelledby
     const articles = screen.getAllByRole('article');
     articles.forEach((article, index) => {
-      const featureTitles = ['Auto BRD Analysis', 'AI Planning Engine', 'Team Orchestration', 'Risk Assessment'];
+      const featureTitles = ['Auto Document Analysis', 'AI Planning Engine', 'Team Orchestration', 'Risk Assessment'];
       const expectedId = `feature-${featureTitles[index].toLowerCase().replace(/\s+/g, '-')}`;
       expect(article).toHaveAttribute('aria-labelledby', expectedId);
     });
@@ -135,7 +135,7 @@ describe('FeaturesSection', () => {
     render(<FeaturesSection />);
     
     // Check that each feature has icon, title, and description
-    const featureTitles = ['Auto BRD Analysis', 'AI Planning Engine', 'Team Orchestration', 'Risk Assessment'];
+          const featureTitles = ['Auto Document Analysis', 'AI Planning Engine', 'Team Orchestration', 'Risk Assessment'];
     
     featureTitles.forEach(title => {
       const featureHeading = screen.getByText(title);

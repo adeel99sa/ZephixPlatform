@@ -30,6 +30,8 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AdminModule } from './admin/admin.module';
+import { RiskManagementModule } from './pm/risk-management/risk-management.module';
 
 // Import middleware - DISABLED
 // import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -122,10 +124,14 @@ if (!(global as any).crypto) {
     SharedModule, // First - no dependencies
     AuthModule, // Always import AuthModule for authentication
     OrganizationsModule, // Third - depends on SharedModule
-    ProjectsModule, // Fourth - depends on OrganizationsModule
+    ProjectsModule, // Fourth - depends on SharedModule
     HealthModule, // Health checks
     FeedbackModule, // User feedback system (lightweight)
     DashboardModule, // Dashboard module
+    AdminModule, // Admin console module
+    
+    // Risk Management Module
+    ...(process.env.ENABLE_RISK_MGMT === 'true' ? [RiskManagementModule] : []),
     
     // Conditional modules based on feature flags - DISABLED
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
