@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Send } from 'lucide-react';
+import { X, Send, AlertCircle } from 'lucide-react';
 
 interface DemoRequestModalProps {
   isOpen: boolean;
@@ -11,44 +11,60 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
     name: '',
     email: '',
     company: '',
-    role: ''
+    role: '',
+    companySize: '',
+    useCase: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+    
+    // Clear error when user starts typing
+    if (error) {
+      setError(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
 
     try {
-      // TODO: Integrate with backend API
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store in localStorage for demo purposes
-      const demoRequests = JSON.parse(localStorage.getItem('demoRequests') || '[]');
-      demoRequests.push({
-        ...formData,
-        timestamp: new Date().toISOString()
+      // Call the backend API
+      const response = await fetch('/api/demo-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
-      localStorage.setItem('demoRequests', JSON.stringify(demoRequests));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to submit demo request' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Demo request submitted:', result);
       
       setIsSubmitted(true);
       setTimeout(() => {
         onClose();
         setIsSubmitted(false);
-        setFormData({ name: '', email: '', company: '', role: '' });
+        setError(null);
+        setFormData({ name: '', email: '', company: '', role: '', companySize: '', useCase: '' });
       }, 2000);
     } catch (error) {
       console.error('Error submitting demo request:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -95,6 +111,13 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-700">{error}</div>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                     Full Name *
@@ -157,6 +180,42 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
                   />
                 </div>
 
+                <div>
+                  <label htmlFor="companySize" className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Size
+                  </label>
+                  <select
+                    id="companySize"
+                    name="companySize"
+                    value={formData.companySize}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Select company size</option>
+                    <option value="1-10">1-10 employees</option>
+                    <option value="11-50">11-50 employees</option>
+                    <option value="51-200">51-200 employees</option>
+                    <option value="201-1000">201-1000 employees</option>
+                    <option value="1000+">1000+ employees</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="useCase" className="block text-sm font-medium text-gray-700 mb-1">
+                    Use Case *
+                  </label>
+                  <textarea
+                    id="useCase"
+                    name="useCase"
+                    value={formData.useCase}
+                    onChange={handleInputChange}
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Describe your project management needs and how Zephix could help..."
+                  />
+                </div>
+
 
 
                 <div className="flex space-x-3 pt-4">
@@ -169,7 +228,7 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || !formData.name || !formData.email}
+                    disabled={isSubmitting || !formData.name || !formData.email || !formData.useCase}
                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isSubmitting ? 'Submitting...' : 'Request Demo'}

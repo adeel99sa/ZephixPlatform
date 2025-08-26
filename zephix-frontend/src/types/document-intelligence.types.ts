@@ -3,7 +3,7 @@
 
 export interface ProjectDocument {
   id?: string;
-  type: 'BRD' | 'PROJECT_CHARTER' | 'REQUIREMENTS' | 'TECHNICAL_SPEC' | 'MEETING_NOTES' | 'OTHER';
+  type: 'PROJECT_CHARTER' | 'REQUIREMENTS' | 'TECHNICAL_SPEC' | 'MEETING_NOTES' | 'OTHER';
   content: string;
   metadata: {
     source: string;

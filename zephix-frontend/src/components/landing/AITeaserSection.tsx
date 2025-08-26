@@ -21,7 +21,7 @@ export const AITeaserSection: React.FC = () => {
     }
     
     // Navigate to AI Theater
-    navigate('/sample-brd');
+            navigate('/intelligence');
   };
 
   return (
@@ -49,7 +49,7 @@ export const AITeaserSection: React.FC = () => {
         
         {/* Subheadline with value prop */}
         <p className="teaser-subheadline text-xl text-center mb-8 opacity-90 max-w-2xl mx-auto">
-          Upload your BRD or try our enterprise sample below. See AI generate an intelligent project plan for complex technical implementations.
+          Upload your document or try our enterprise sample below. See AI generate an intelligent project plan for complex technical implementations.
         </p>
         
         {/* Enterprise sample preview card */}

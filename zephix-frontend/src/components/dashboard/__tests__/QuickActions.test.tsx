@@ -9,7 +9,7 @@ describe('QuickActions', () => {
     
     // Check for all quick action buttons
     expect(screen.getByText('Create Project')).toBeInTheDocument();
-    expect(screen.getByText('Upload BRD')).toBeInTheDocument();
+    expect(screen.getByText('Upload Document')).toBeInTheDocument();
     expect(screen.getByText('Invite Team')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
@@ -19,7 +19,7 @@ describe('QuickActions', () => {
     
     // Check for accessible buttons with proper labels
     expect(screen.getByRole('button', { name: /create project/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /upload brd/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload document/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /invite team/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument();
   });
@@ -35,9 +35,9 @@ describe('QuickActions', () => {
     await userEvent.click(createProjectButton);
     expect(onQuickAction).toHaveBeenCalledWith('Create new project');
     
-    // Click Upload BRD button
-    const uploadBrdButton = screen.getByRole('button', { name: /upload brd/i });
-    await userEvent.click(uploadBrdButton);
+    // Click Upload Document button
+    const uploadDocumentButton = screen.getByRole('button', { name: /upload document/i });
+    await userEvent.click(uploadDocumentButton);
     expect(onQuickAction).toHaveBeenCalledWith('Upload business requirements document');
     
     // Click Invite Team button
@@ -62,8 +62,8 @@ describe('QuickActions', () => {
     expect(createProjectButton).toHaveFocus();
     
     await user.tab();
-    const uploadBrdButton = screen.getByRole('button', { name: /upload brd/i });
-    expect(uploadBrdButton).toHaveFocus();
+    const uploadDocumentButton = screen.getByRole('button', { name: /upload document/i });
+    expect(uploadDocumentButton).toHaveFocus();
     
     await user.tab();
     const inviteTeamButton = screen.getByRole('button', { name: /invite team/i });
@@ -99,8 +99,8 @@ describe('QuickActions', () => {
     const createProjectIcon = screen.getByRole('button', { name: /create project/i }).querySelector('svg');
     expect(createProjectIcon).toBeInTheDocument();
     
-    const uploadBrdIcon = screen.getByRole('button', { name: /upload brd/i }).querySelector('svg');
-    expect(uploadBrdIcon).toBeInTheDocument();
+    const uploadDocumentIcon = screen.getByRole('button', { name: /upload document/i }).querySelector('svg');
+    expect(uploadDocumentIcon).toBeInTheDocument();
     
     const inviteTeamIcon = screen.getByRole('button', { name: /invite team/i }).querySelector('svg');
     expect(inviteTeamIcon).toBeInTheDocument();

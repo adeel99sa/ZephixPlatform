@@ -292,6 +292,26 @@ export class OrganizationsService {
     return userOrg.organization;
   }
 
+  async findAllUsers(): Promise<any[]> {
+    // Get all users with their organization relationships
+    const userOrganizations = await this.userOrganizationRepository.find({
+      where: { isActive: true },
+      relations: ['user', 'organization'],
+      order: { joinedAt: 'ASC' },
+    });
+
+    return userOrganizations.map(uo => ({
+      id: uo.user.id,
+      email: uo.user.email,
+      firstName: uo.user.firstName,
+      lastName: uo.user.lastName,
+      role: uo.role,
+      organization: uo.organization.name,
+      joinedAt: uo.joinedAt,
+      lastActive: uo.lastAccessAt || uo.joinedAt
+    }));
+  }
+
   private generateSlug(name: string): string {
     return name
       .toLowerCase()

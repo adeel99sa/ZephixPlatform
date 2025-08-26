@@ -30,7 +30,7 @@ export const ProjectGenerationConfirmation: React.FC<ProjectGenerationConfirmati
         
         <p className="text-lg text-gray-600 mb-8">
           Your AI-powered project plan is ready. The system has automatically created tasks, 
-          timelines, and resource allocations based on your BRD requirements.
+          timelines, and resource allocations based on your document requirements.
         </p>
 
         {/* Project Summary */}

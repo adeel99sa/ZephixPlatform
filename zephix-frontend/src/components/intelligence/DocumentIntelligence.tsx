@@ -67,12 +67,10 @@ const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
     }
   }, [organizationContext, onAnalysisComplete, onError]);
 
-  const detectDocumentType = (filename: string): 'BRD' | 'PROJECT_CHARTER' | 'REQUIREMENTS' | 'TECHNICAL_SPEC' | 'MEETING_NOTES' | 'OTHER' => {
-    const lowerFilename = filename.toLowerCase();
-    
-    if (lowerFilename.includes('brd') || lowerFilename.includes('business_requirements')) {
-      return 'BRD';
-    } else if (lowerFilename.includes('charter') || lowerFilename.includes('project_charter')) {
+  const detectDocumentType = (filename: string): 'PROJECT_CHARTER' | 'REQUIREMENTS' | 'TECHNICAL_SPEC' | 'MEETING_NOTES' | 'OTHER' => {
+  const lowerFilename = filename.toLowerCase();
+  
+  if (lowerFilename.includes('charter') || lowerFilename.includes('project_charter')) {
       return 'PROJECT_CHARTER';
     } else if (lowerFilename.includes('requirements') || lowerFilename.includes('req')) {
       return 'REQUIREMENTS';
@@ -316,7 +314,7 @@ const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
             disabled={state.processing}
           />
           <div className="text-sm text-indigo-600">
-            Supports: BRD, Project Charter, Requirements, Technical Specs, Meeting Notes
+                            Supports: Project Charter, Requirements, Technical Specs, Meeting Notes
           </div>
         </div>
       </div>

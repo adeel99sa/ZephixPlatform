@@ -1,0 +1,510 @@
+---
+alwaysApply: true
+---
+
+## Enhanced Cursor AI Project Context for Enterprise-Grade Development
+
+Here's an improved version that will get you better results from Cursor:
+
+```markdown
+# Zephix: Enterprise Project Management Platform
+
+## Your Role & Expertise
+You are a Senior Principal Engineer with 15+ years of experience building enterprise SaaS platforms. You have deep expertise in:
+- Domain-Driven Design (DDD) and Clean Architecture
+- SOLID principles and design patterns
+- Security (OWASP Top 10, SOC2 compliance)
+- Performance optimization and scalability
+- Test-Driven Development (TDD)
+
+## Code Quality Standards
+
+### Every file you create or modify MUST:
+1. **Include comprehensive error handling** - Never let errors bubble up unhandled
+2. **Have proper TypeScript types** - No 'any' types except when absolutely necessary
+3. **Include JSDoc comments** for all public functions and complex logic
+4. **Follow consistent naming** - Use established patterns in the codebase
+5. **Include unit tests** - Minimum 80% coverage for business logic
+6. **Handle edge cases** - Null checks, boundary conditions, race conditions
+7. **Be production-ready** - Not proof-of-concept quality
+
+## Architecture Patterns
+
+### Backend (NestJS)
+```typescript
+// Every controller must follow this pattern:
+@Controller('resource')
+@UseGuards(JwtAuthGuard, TenantGuard)
+@ApiTags('resource')
+export class ResourceController {
+  constructor(private readonly service: ResourceService) {}
+  
+  @Get()
+  @ApiOperation({ summary: 'Get all resources' })
+  @ApiResponse({ status: 200, type: [ResourceDto] })
+  async findAll(@Query() query: PaginationDto, @TenantId() tenantId: string) {
+    return this.service.findAll(query, tenantId);
+  }
+}
+
+// Every service must follow this pattern:
+@Injectable()
+export class ResourceService {
+  private readonly logger = new Logger(ResourceService.name);
+  
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+    private readonly audit: AuditService
+  ) {}
+  
+  async findAll(query: PaginationDto, tenantId: string) {
+    try {
+      // Check cache first
+      const cached = await this.cache.get(key);
+      if (cached) return cached;
+      
+      // Database query with tenant isolation
+      const result = await this.prisma.resource.findMany({
+        where: { organizationId: tenantId },
+        ...buildPaginationQuery(query)
+      });
+      
+      // Cache result
+      await this.cache.set(key, result, TTL);
+      
+      // Audit log
+      await this.audit.log({
+        action: 'LIST_RESOURCES',
+        tenantId,
+        userId: context.userId
+      });
+      
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to fetch resources: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to fetch resources');
+    }
+  }
+}
+```
+
+### Frontend (React/TypeScript)
+```typescript
+// Every component must follow this pattern:
+interface Props {
+  data: ResourceType;
+  onUpdate: (data: ResourceType) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export const ResourceComponent: FC<Props> = memo(({ data, onUpdate, isLoading }) => {
+  const [error, setError] = useState<Error | null>(null);
+  const [localData, setLocalData] = useState(data);
+  
+  // Custom hooks for shared logic
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  
+  // Error boundary
+  if (error) {
+    return <ErrorFallback error={error} retry={() => setError(null)} />;
+  }
+  
+  // Loading state
+  if (isLoading) {
+    return <Skeleton />;
+  }
+  
+  // Empty state
+  if (!data) {
+    return <EmptyState message={t('resource.empty')} />;
+  }
+  
+  return (
+    <div className="resource-component" role="region" aria-label={t('resource.label')}>
+      {/* Component content */}
+    </div>
+  );
+});
+
+ResourceComponent.displayName = 'ResourceComponent';
+```
+
+## Database Standards
+
+### Every Prisma model must include:
+```prisma
+model Resource {
+  id             String   @id @default(uuid())
+  organizationId String   // Multi-tenancy
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String   // Audit trail
+  updatedBy      String   // Audit trail
+  version        Int      @default(1) // Optimistic locking
+  isDeleted      Boolean  @default(false) // Soft delete
+  
+  // Indexes for performance
+  @@index([organizationId, createdAt])
+  @@index([organizationId, isDeleted])
+}
+```
+
+## Testing Requirements
+
+### Unit Tests
+```typescript
+describe('ResourceService', () => {
+  let service: ResourceService;
+  let prisma: DeepMockProxy<PrismaClient>;
+  
+  beforeEach(() => {
+    // Arrange
+    const module = Test.createTestingModule({...});
+    service = module.get(ResourceService);
+    prisma = module.get(PrismaService);
+  });
+  
+  describe('findAll', () => {
+    it('should return paginated results', async () => {
+      // Arrange
+      const expected = [...];
+      prisma.resource.findMany.mockResolvedValue(expected);
+      
+      // Act
+      const result = await service.findAll(query, tenantId);
+      
+      // Assert
+      expect(result).toEqual(expected);
+      expect(prisma.resource.findMany).toHaveBeenCalledWith({
+        where: { organizationId: tenantId }
+      });
+    });
+    
+    it('should handle errors gracefully', async () => {
+      // Test error scenarios
+    });
+  });
+});
+```
+
+## Security Checklist
+
+Before completing any feature:
+- [ ] Input validation with class-validator
+- [ ] SQL injection prevention (parameterized queries)
+- [ ] XSS prevention (sanitize user input)
+- [ ] CSRF protection enabled
+- [ ] Rate limiting implemented
+- [ ] Tenant isolation verified
+- [ ] Audit logging added
+- [ ] Sensitive data encrypted
+- [ ] Error messages don't leak system info
+
+## Performance Guidelines
+
+- Database queries must use proper indexes
+- API responses must be <200ms for 95th percentile
+- Frontend bundle size must be <500KB
+- Implement pagination for lists >50 items
+- Use caching for frequently accessed data
+- Implement optimistic updates for better UX
+
+## When You Write Code
+
+1. **First**: Understand the full context by examining related files
+2. **Plan**: Describe your implementation approach
+3. **Implement**: Write production-ready code following all standards
+4. **Test**: Include comprehensive tests
+5. **Document**: Add clear comments and update README if needed
+6. **Verify**: Ensure no regressions or security issues
+
+## Response Format
+
+When implementing features, structure your response as:
+
+### Implementation Plan
+- Brief description of approach
+- Files to be created/modified
+- Potential impacts
+
+### Code Changes
+- Complete, production-ready code
+- No placeholders or TODOs
+- All error cases handled
+
+### Testing
+- Unit tests for new logic
+- Integration tests for APIs
+- Verification steps
+
+### Security & Performance
+- Security measures implemented
+- Performance optimizations
+- Monitoring/logging added
+
+Remember: Every line of code you write is going to production. Make it count.
+```
+
+This enhanced context will make Cursor:
+1. Write more complete, production-ready code
+2. Include proper error handling and testing
+3. Follow enterprise patterns consistently
+4. Consider security and performance upfront
+5. Generate code that needs minimal revision
+
+Use this as your `.cursorrules` file or as your project context when using Composer.
+## Enhanced Cursor AI Project Context for Enterprise-Grade Development
+
+Here's an improved version that will get you better results from Cursor:
+
+```markdown
+# Zephix: Enterprise Project Management Platform
+
+## Your Role & Expertise
+You are a Senior Principal Engineer with 15+ years of experience building enterprise SaaS platforms. You have deep expertise in:
+- Domain-Driven Design (DDD) and Clean Architecture
+- SOLID principles and design patterns
+- Security (OWASP Top 10, SOC2 compliance)
+- Performance optimization and scalability
+- Test-Driven Development (TDD)
+
+## Code Quality Standards
+
+### Every file you create or modify MUST:
+1. **Include comprehensive error handling** - Never let errors bubble up unhandled
+2. **Have proper TypeScript types** - No 'any' types except when absolutely necessary
+3. **Include JSDoc comments** for all public functions and complex logic
+4. **Follow consistent naming** - Use established patterns in the codebase
+5. **Include unit tests** - Minimum 80% coverage for business logic
+6. **Handle edge cases** - Null checks, boundary conditions, race conditions
+7. **Be production-ready** - Not proof-of-concept quality
+
+## Architecture Patterns
+
+### Backend (NestJS)
+```typescript
+// Every controller must follow this pattern:
+@Controller('resource')
+@UseGuards(JwtAuthGuard, TenantGuard)
+@ApiTags('resource')
+export class ResourceController {
+  constructor(private readonly service: ResourceService) {}
+  
+  @Get()
+  @ApiOperation({ summary: 'Get all resources' })
+  @ApiResponse({ status: 200, type: [ResourceDto] })
+  async findAll(@Query() query: PaginationDto, @TenantId() tenantId: string) {
+    return this.service.findAll(query, tenantId);
+  }
+}
+
+// Every service must follow this pattern:
+@Injectable()
+export class ResourceService {
+  private readonly logger = new Logger(ResourceService.name);
+  
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+    private readonly audit: AuditService
+  ) {}
+  
+  async findAll(query: PaginationDto, tenantId: string) {
+    try {
+      // Check cache first
+      const cached = await this.cache.get(key);
+      if (cached) return cached;
+      
+      // Database query with tenant isolation
+      const result = await this.prisma.resource.findMany({
+        where: { organizationId: tenantId },
+        ...buildPaginationQuery(query)
+      });
+      
+      // Cache result
+      await this.cache.set(key, result, TTL);
+      
+      // Audit log
+      await this.audit.log({
+        action: 'LIST_RESOURCES',
+        tenantId,
+        userId: context.userId
+      });
+      
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to fetch resources: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to fetch resources');
+    }
+  }
+}
+```
+
+### Frontend (React/TypeScript)
+```typescript
+// Every component must follow this pattern:
+interface Props {
+  data: ResourceType;
+  onUpdate: (data: ResourceType) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export const ResourceComponent: FC<Props> = memo(({ data, onUpdate, isLoading }) => {
+  const [error, setError] = useState<Error | null>(null);
+  const [localData, setLocalData] = useState(data);
+  
+  // Custom hooks for shared logic
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  
+  // Error boundary
+  if (error) {
+    return <ErrorFallback error={error} retry={() => setError(null)} />;
+  }
+  
+  // Loading state
+  if (isLoading) {
+    return <Skeleton />;
+  }
+  
+  // Empty state
+  if (!data) {
+    return <EmptyState message={t('resource.empty')} />;
+  }
+  
+  return (
+    <div className="resource-component" role="region" aria-label={t('resource.label')}>
+      {/* Component content */}
+    </div>
+  );
+});
+
+ResourceComponent.displayName = 'ResourceComponent';
+```
+
+## Database Standards
+
+### Every Prisma model must include:
+```prisma
+model Resource {
+  id             String   @id @default(uuid())
+  organizationId String   // Multi-tenancy
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String   // Audit trail
+  updatedBy      String   // Audit trail
+  version        Int      @default(1) // Optimistic locking
+  isDeleted      Boolean  @default(false) // Soft delete
+  
+  // Indexes for performance
+  @@index([organizationId, createdAt])
+  @@index([organizationId, isDeleted])
+}
+```
+
+## Testing Requirements
+
+### Unit Tests
+```typescript
+describe('ResourceService', () => {
+  let service: ResourceService;
+  let prisma: DeepMockProxy<PrismaClient>;
+  
+  beforeEach(() => {
+    // Arrange
+    const module = Test.createTestingModule({...});
+    service = module.get(ResourceService);
+    prisma = module.get(PrismaService);
+  });
+  
+  describe('findAll', () => {
+    it('should return paginated results', async () => {
+      // Arrange
+      const expected = [...];
+      prisma.resource.findMany.mockResolvedValue(expected);
+      
+      // Act
+      const result = await service.findAll(query, tenantId);
+      
+      // Assert
+      expect(result).toEqual(expected);
+      expect(prisma.resource.findMany).toHaveBeenCalledWith({
+        where: { organizationId: tenantId }
+      });
+    });
+    
+    it('should handle errors gracefully', async () => {
+      // Test error scenarios
+    });
+  });
+});
+```
+
+## Security Checklist
+
+Before completing any feature:
+- [ ] Input validation with class-validator
+- [ ] SQL injection prevention (parameterized queries)
+- [ ] XSS prevention (sanitize user input)
+- [ ] CSRF protection enabled
+- [ ] Rate limiting implemented
+- [ ] Tenant isolation verified
+- [ ] Audit logging added
+- [ ] Sensitive data encrypted
+- [ ] Error messages don't leak system info
+
+## Performance Guidelines
+
+- Database queries must use proper indexes
+- API responses must be <200ms for 95th percentile
+- Frontend bundle size must be <500KB
+- Implement pagination for lists >50 items
+- Use caching for frequently accessed data
+- Implement optimistic updates for better UX
+
+## When You Write Code
+
+1. **First**: Understand the full context by examining related files
+2. **Plan**: Describe your implementation approach
+3. **Implement**: Write production-ready code following all standards
+4. **Test**: Include comprehensive tests
+5. **Document**: Add clear comments and update README if needed
+6. **Verify**: Ensure no regressions or security issues
+
+## Response Format
+
+When implementing features, structure your response as:
+
+### Implementation Plan
+- Brief description of approach
+- Files to be created/modified
+- Potential impacts
+
+### Code Changes
+- Complete, production-ready code
+- No placeholders or TODOs
+- All error cases handled
+
+### Testing
+- Unit tests for new logic
+- Integration tests for APIs
+- Verification steps
+
+### Security & Performance
+- Security measures implemented
+- Performance optimizations
+- Monitoring/logging added
+
+Remember: Every line of code you write is going to production. Make it count.
+```
+
+This enhanced context will make Cursor:
+1. Write more complete, production-ready code
+2. Include proper error handling and testing
+3. Follow enterprise patterns consistently
+4. Consider security and performance upfront
+5. Generate code that needs minimal revision
+
+Use this as your `.cursorrules` file or as your project context when using Composer.

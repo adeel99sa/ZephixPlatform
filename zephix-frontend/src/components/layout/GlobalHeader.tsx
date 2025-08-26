@@ -11,7 +11,8 @@ import {
   LightBulbIcon,
   DocumentTextIcon,
   ClipboardDocumentListIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../../stores/authStore';
@@ -34,6 +35,7 @@ const navigation = [
   { name: 'Templates', href: '/templates', icon: DocumentTextIcon },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon },
   { name: 'Team', href: '/team', icon: UsersIcon },
+  { name: 'Risk Management', href: '/risks', icon: ShieldExclamationIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -71,9 +73,10 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       'templates': 'Templates',
       'reports': 'Reports',
       'team': 'Team Management',
+      'risks': 'Risk Management',
       'settings': 'Settings',
       'organizations': 'Organization',
-      'brd': 'BRD',
+      
       'upload': 'Upload',
       'status': 'Status',
       'builder': 'Builder',

@@ -8,10 +8,9 @@ import {
   Shield,
   Folder,
   Inbox,
-  CheckCircle,
-  AlertTriangle
+  CheckCircle
 } from 'lucide-react';
-import { WorkflowCanvasProps, WorkflowStage } from '../../types/workflow';
+import type { WorkflowStage, WorkflowTemplate } from '../../types/workflow';
 import { Button } from '../ui/Button';
 
 const STAGE_TYPE_CONFIG = {
@@ -168,7 +167,7 @@ const StageNode: React.FC<StageNodeProps> = ({
         {stage.required && (
           <div className="absolute -top-1 -right-1">
             <div className="w-3 h-3 bg-orange-500 rounded-full flex items-center justify-center">
-              <AlertTriangle className="w-2 h-2 text-white" />
+              <CheckCircle className="w-2 h-2 text-white" />
             </div>
           </div>
         )}
@@ -234,6 +233,15 @@ const DropZone: React.FC<DropZoneProps> = ({ onDrop, isActive = false }) => {
     </div>
   );
 };
+
+interface WorkflowCanvasProps {
+  template: WorkflowTemplate | null;
+  onStageClick?: (stage: WorkflowStage) => void;
+  onStageUpdate?: (stage: WorkflowStage) => void;
+  onStageAdd?: (stage: Partial<WorkflowStage>) => void;
+  onStageDelete?: (stageId: string) => void;
+  readonly?: boolean;
+}
 
 export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({
   template,

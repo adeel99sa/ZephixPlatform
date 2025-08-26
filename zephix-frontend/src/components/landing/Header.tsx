@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, Zap, ChevronDown, Brain, Users, BarChart3, Shield, Database, Zap as ZapIcon } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 
 interface HeaderProps {
   onDemoRequest: () => void;
@@ -13,8 +14,17 @@ export const Header: React.FC<HeaderProps> = ({
   onContactRequest, 
   onScrollToSection 
 }) => {
+  const { user, isLoading } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFeaturesDropdownOpen, setIsFeaturesDropdownOpen] = useState(false);
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+
+  // Wait for auth state to load to prevent navigation flicker
+  React.useEffect(() => {
+    if (!isLoading) {
+      setIsAuthLoaded(true);
+    }
+  }, [isLoading]);
 
   const handleNavClick = (sectionId: string) => {
     console.log('Navigation clicked:', sectionId);
@@ -77,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to={user ? "/app" : "/"} className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
@@ -173,24 +183,53 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <button
-              onClick={handleDemoRequest}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
-            >
-              Request Demo
-            </button>
-            <Link
-              to="/signup"
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
-            >
-              Sign Up
-            </Link>
-            <Link
-              to="/login"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors hover:scale-105 transform"
-            >
-              Login
-            </Link>
+            {!isAuthLoaded ? (
+              // Loading state - show skeleton
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-8 bg-gray-200 rounded animate-pulse"></div>
+                <div className="w-12 h-8 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+            ) : user ? (
+              // Authenticated user - show app navigation
+              <>
+                <Link
+                  to="/app/dashboard"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+                >
+                  Dashboard
+                </Link>
+                {user.email === 'admin@zephix.ai' && (
+                  <Link
+                    to="/admin"
+                    className="px-4 py-2 text-red-600 hover:text-red-900 transition-colors hover:scale-105 transform"
+                  >
+                    Admin Console
+                  </Link>
+                )}
+              </>
+            ) : (
+              // Unauthenticated user - show signup/login
+              <>
+                <button
+                  onClick={handleDemoRequest}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+                >
+                  Request Demo
+                </button>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors hover:scale-105 transform"
+                >
+                  Sign Up
+                </Link>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Login
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -252,29 +291,60 @@ export const Header: React.FC<HeaderProps> = ({
                 Contact
               </button>
               <div className="pt-4 space-y-2">
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleDemoRequest();
-                  }}
-                  className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-                >
-                  Request Demo
-                </button>
-                <Link
-                  to="/signup"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-                >
-                  Sign Up
-                </Link>
-                <Link
-                  to="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block w-full text-left px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                >
-                  Login
-                </Link>
+                {!isAuthLoaded ? (
+                  // Loading state for mobile
+                  <div className="space-y-2">
+                    <div className="w-full h-10 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="w-full h-10 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ) : user ? (
+                  // Authenticated user - show app navigation
+                  <>
+                    <Link
+                      to="/app/dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                    >
+                      Dashboard
+                    </Link>
+                    {user.email === 'admin@zephix.ai' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block w-full text-left px-3 py-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
+                      >
+                        Admin Console
+                      </Link>
+                    )}
+                  </>
+                ) : (
+                  // Unauthenticated user - show signup/login
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleDemoRequest();
+                      }}
+                      className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                    >
+                      Request Demo
+                    </button>
+                    <Link
+                      to="/signup"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                    >
+                      Sign Up
+                    </Link>
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block w-full text-left px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    >
+                      Login
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
