@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Skeleton } from '../../components/ui/skeleton';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Users, FileText, Folder, Activity } from 'lucide-react';
 
 export function AdminDashboard() {
