@@ -201,12 +201,12 @@
     @apply w-full;
   }
 
-  /* BRD Editor Panel Styles */
-  .brd-editor-panel {
+  /* Document Editor Panel Styles */
+  .document-editor-panel {
     @apply w-full;
   }
 
-  .brd-section {
+  .document-section {
     @apply mb-6;
   }
 

@@ -42,7 +42,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       case 'failed':
         return 'Processing failed. Please try again.';
       default:
-        return 'Drag & drop your BRD document here, or click to browse';
+        return 'Drag & drop your document here, or click to browse';
     }
   };
 

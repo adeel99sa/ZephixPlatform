@@ -53,10 +53,10 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onQuickAction }) => 
     },
     { 
       id: 'upload-document', 
-      label: 'Upload BRD', 
+              label: 'Upload Document', 
       icon: Upload, 
       action: 'Upload business requirements document',
-      route: '/brd/upload'
+              route: '/intelligence'
     },
     { 
       id: 'document-intelligence', 

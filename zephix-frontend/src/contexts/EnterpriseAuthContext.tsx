@@ -1,6 +1,6 @@
 /**
- * Enterprise Security Authentication Context
- * Provides enterprise-grade authentication context with security monitoring
+ * Authentication Context
+ * Provides authentication context with security monitoring
  */
 
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
@@ -11,18 +11,17 @@ interface EnterpriseAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: any;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (credentials: { email: string; password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
   signup: (data: any) => Promise<boolean>;
-  validateSession: () => Promise<boolean>;
   getSecurityEvents: () => any[];
 }
 
 const EnterpriseAuthContext = createContext<EnterpriseAuthContextType | undefined>(undefined);
 
 /**
- * EnterpriseAuthProvider Component
- * Provides enterprise authentication context to entire application
+ * AuthProvider Component
+ * Provides authentication context to entire application
  */
 export const EnterpriseAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
@@ -40,7 +39,6 @@ export const EnterpriseAuthProvider: React.FC<{ children: ReactNode }> = ({ chil
     login: enterpriseAuthService.loginSecurely,
     logout: enterpriseAuthService.logoutSecurely,
     signup: enterpriseAuthService.signupSecurely,
-    validateSession: enterpriseAuthService.validateTokenIntegrity.bind(enterpriseAuthService, enterpriseAuthService.getAuthState().accessToken || ''),
     getSecurityEvents: enterpriseAuthService.getSecurityEvents,
   };
 
@@ -48,13 +46,13 @@ export const EnterpriseAuthProvider: React.FC<{ children: ReactNode }> = ({ chil
 };
 
 /**
- * useEnterpriseAuth Hook
- * Provides access to enterprise authentication context
+ * useAuth Hook
+ * Provides access to authentication context
  */
 export const useEnterpriseAuth = () => {
   const context = useContext(EnterpriseAuthContext);
   if (context === undefined) {
-    throw new Error('useEnterpriseAuth must be used within an EnterpriseAuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };

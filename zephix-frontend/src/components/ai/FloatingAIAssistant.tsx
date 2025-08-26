@@ -183,7 +183,7 @@ export const FloatingAIAssistant: React.FC = () => {
       '/projects': 'Projects',
       '/organizations/team': 'Team Management',
       '/organizations/settings': 'Organization Settings',
-      '/brd/upload': 'BRD Upload',
+      
       '/intelligence': 'Document Intelligence'
     };
     
@@ -206,7 +206,7 @@ export const FloatingAIAssistant: React.FC = () => {
       '/projects': 'This page shows project management and portfolio overview. Users can create, view, and manage projects, track progress, and collaborate with team members.',
       '/organizations/team': 'This page is for team management, inviting members, managing roles and permissions, and organizing team structure.',
       '/organizations/settings': 'This page contains organization settings including general configuration, billing, integrations, and administrative controls.',
-      '/brd/upload': 'This page is for uploading Business Requirements Documents for AI analysis and processing.',
+      
       '/intelligence': 'This page shows AI document analysis results, insights, and intelligent recommendations based on uploaded documents.'
     };
     

@@ -1,76 +1,174 @@
 import React from 'react';
-import { Clock, FileText, Settings, Database, BarChart3 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useScrollAnimation } from '../../hooks/useScrollAnimation';
+import { LANDING_CONTENT } from '../../lib/constants';
+import { staggerContainer, staggerItem } from '../../lib/animations';
 
-export const ProblemSection: React.FC = () => {
-  const painPoints = [
-    {
-      icon: Clock,
-      title: "Manual Reporting Takes Hours",
-      description: "Spending 4-6 hours/week on manual reporting and status updates.",
-      color: "text-red-500"
-    },
-    {
-      icon: FileText,
-      title: "Document Management Chaos",
-      description: "Document storage with manual linking to project tools creates endless coordination overhead.",
-      color: "text-orange-500"
-    },
-    {
-      icon: Settings,
-      title: "Slow Planning Cycles",
-      description: "2-4 weeks from business requirements to actionable project plans due to manual processes.",
-      color: "text-yellow-500"
-    },
-    {
-      icon: Database,
-      title: "Complex Customizations",
-      description: "Complex customizations required for enterprise workflows that don't fit standard templates.",
-      color: "text-blue-500"
-    },
-    {
-      icon: BarChart3,
-      title: "Disconnected Project Types",
-      description: "Managing infra, cloud, service implementation, and analytics projects separately with different tools.",
-      color: "text-purple-500"
-    }
-  ];
+const ProblemSection: React.FC = () => {
+  const { ref, inView } = useScrollAnimation(0.2, true, '0px 0px -100px 0px');
 
   return (
-    <section id="problems" className="py-20 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            The Real Pain Points of Enterprise Project Management
+    <section id="how-it-works" className="relative py-24 bg-zephix-dark">
+      <div className="max-w-7xl mx-auto px-6">
+        {/* Section Header */}
+        <motion.div
+          className="text-center mb-16"
+          ref={ref}
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6 }}
+        >
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            {LANDING_CONTENT.problem.title}
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Real problems faced by enterprise project managers every day
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+            {LANDING_CONTENT.problem.subtitle}
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {painPoints.map((point, index) => {
-            const IconComponent = point.icon;
-            return (
-              <div
-                key={index}
-                className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+        {/* Problems Grid */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          {...staggerContainer}
+          initial="initial"
+          animate={inView ? "animate" : "initial"}
+        >
+          {LANDING_CONTENT.problem.problems.map((problem, index) => (
+            <motion.div
+              key={index}
+              className="group relative"
+              {...staggerItem}
+              custom={index}
+            >
+              {/* Problem Card */}
+              <motion.div
+                className="relative p-8 rounded-2xl bg-gradient-to-br from-red-900/20 to-orange-900/20 border border-red-500/20 hover:border-red-500/40 transition-all duration-300"
+                whileHover={{ y: -8, scale: 1.02 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
               >
-                <div className={`w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4`}>
-                  <IconComponent className={`w-6 h-6 ${point.color}`} />
+                {/* Background glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Icon */}
+                <div className="text-5xl mb-6 text-center">
+                  {problem.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  {point.title}
+
+                {/* Title */}
+                <h3 className="text-xl font-bold text-white mb-4 text-center">
+                  {problem.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {point.description}
+
+                {/* Description */}
+                <p className="text-gray-300 text-center mb-6 leading-relaxed">
+                  {problem.description}
                 </p>
+
+                {/* Stat */}
+                <div className="text-center">
+                  <div className="inline-flex items-center px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30">
+                    <span className="text-2xl font-bold text-red-400">
+                      {problem.stat}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Source */}
+                <p className="text-xs text-gray-500 text-center mt-4">
+                  Source: {problem.source}
+                </p>
+
+                {/* Hover effect overlay */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </motion.div>
+
+              {/* Floating particles */}
+              <div className="absolute inset-0 pointer-events-none">
+                <motion.div
+                  className="absolute top-4 right-4 w-2 h-2 bg-red-400/50 rounded-full"
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.5, 1, 0.5]
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: index * 0.5
+                  }}
+                />
+                <motion.div
+                  className="absolute bottom-4 left-4 w-1 h-1 bg-orange-400/50 rounded-full"
+                  animate={{
+                    scale: [1, 2, 1],
+                    opacity: [0.3, 0.8, 0.3]
+                  }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: index * 0.5 + 1
+                  }}
+                />
               </div>
-            );
-          })}
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Bottom CTA */}
+        <motion.div
+          className="text-center mt-16"
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, delay: 0.8 }}
+        >
+          <div className="inline-flex items-center px-6 py-3 rounded-full bg-red-500/20 border border-red-500/30 text-red-400">
+            <span className="w-2 h-2 bg-red-400 rounded-full mr-3 animate-pulse" />
+            These problems cost companies millions annually
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Background Elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-orange-500/5" />
         </div>
-
-
+        
+        {/* Floating warning icons */}
+        <motion.div
+          className="absolute top-1/4 left-1/6 text-red-500/20 text-6xl"
+          animate={{
+            y: [0, -10, 0],
+            rotate: [0, 5, 0]
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        >
+          ⚠️
+        </motion.div>
+        <motion.div
+          className="absolute bottom-1/4 right-1/6 text-orange-500/20 text-5xl"
+          animate={{
+            y: [0, 10, 0],
+            rotate: [0, -5, 0]
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+        >
+          🚨
+        </motion.div>
       </div>
     </section>
   );
 };
+
+export default ProblemSection;

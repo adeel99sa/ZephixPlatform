@@ -40,7 +40,7 @@ export const useProjectGeneration = () => {
         customSettings,
       };
 
-      const response = await api.post(`/api/v1/projects/generate-from-brd/${documentId}`, payload);
+      const response = await api.post(`/api/v1/projects/generate-from-document/${documentId}`, payload);
       return response.data;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to generate project';
