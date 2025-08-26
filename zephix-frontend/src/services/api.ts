@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 const isDev = import.meta.env.DEV;
 
 export function getApiBase() {
-  if (isDev) return '/api';
+  if (isDev) return 'http://localhost:3000/api';
   const url = import.meta.env.VITE_API_URL;
   if (!url) throw new Error('VITE_API_URL required in production');
   return url.replace(/\/+$/, '');

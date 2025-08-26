@@ -710,12 +710,22 @@ export class RiskManagementService {
     }
   }
 
-  async getRiskRegister(projectId: string): Promise<any> {
-    const risks = await this.riskRepository.find({
-      where: { projectId },
-      relations: ['responses', 'monitoring'],
-      order: { riskScore: 'DESC' },
-    });
+  async getRiskRegister(projectId: string, organizationId?: string): Promise<any> {
+    // Add organization filtering for tenant isolation
+    const queryBuilder = this.riskRepository
+      .createQueryBuilder('risk')
+      .leftJoinAndSelect('risk.responses', 'responses')
+      .leftJoinAndSelect('risk.monitoring', 'monitoring')
+      .where('risk.projectId = :projectId', { projectId });
+
+    // If organization ID is provided, filter by it for tenant isolation
+    if (organizationId) {
+      queryBuilder.andWhere('risk.organizationId = :organizationId', { organizationId });
+    }
+
+    const risks = await queryBuilder
+      .orderBy('risk.riskScore', 'DESC')
+      .getMany();
 
     return {
       risks,

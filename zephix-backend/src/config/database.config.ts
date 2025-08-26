@@ -136,7 +136,7 @@ export const getDatabaseConfig = (
     database: dbConfig.database,
     autoLoadEntities: true,
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-    synchronize: configService.get('database.synchronize') || false,
+    synchronize: false, // Disabled after table creation
     logging: configService.get('database.logging') || false,
     ssl: false, // No SSL for local development
     extra: {

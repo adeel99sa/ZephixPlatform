@@ -88,7 +88,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
     try {
       setIsUploading(true);
-      const response = await fileApi.uploadBRD(selectedFile, projectId);
+              const response = await fileApi.uploadDocument(selectedFile, projectId);
       
       toast.success('File uploaded successfully!');
       onUploadSuccess?.(response.fileId);
