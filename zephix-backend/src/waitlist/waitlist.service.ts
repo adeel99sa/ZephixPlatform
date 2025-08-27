@@ -15,7 +15,7 @@ export class WaitlistService {
   ) {}
 
   async create(createWaitlistDto: CreateWaitlistDto): Promise<{ success: boolean; message: string; position?: number }> {
-    // Validate work email
+    
     const freeEmailDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com'];
     const emailDomain = createWaitlistDto.email.split('@')[1];
     
@@ -50,8 +50,14 @@ export class WaitlistService {
       where: { status: 'pending' }
     });
 
-    // Send welcome email
-    await this.emailService.sendWaitlistWelcome(entry.email, entry.name, position);
+    // ENTERPRISE UPDATE: Send welcome email only if SMTP is configured
+    try {
+      await this.emailService.sendWaitlistWelcome(entry.email, entry.name, position);
+      console.log(`Welcome email sent to ${entry.email}`);
+    } catch (error) {
+      console.warn(`Email send failed for ${entry.email}:`, error.message);
+      // Don't fail the signup - email is optional
+    }
 
     return {
       success: true,
@@ -66,46 +72,38 @@ export class WaitlistService {
     });
   }
 
-  async getStats() {
-    const total = await this.waitlistRepository.count();
-    const pending = await this.waitlistRepository.count({ where: { status: 'pending' } });
-    const approved = await this.waitlistRepository.count({ where: { status: 'approved' } });
-    const invited = await this.waitlistRepository.count({ where: { status: 'invited' } });
+  async getStats(): Promise<{ total: number; pending: number; approved: number; invited: number; rejected: number }> {
+    const [total, pending, approved, invited, rejected] = await Promise.all([
+      this.waitlistRepository.count(),
+      this.waitlistRepository.count({ where: { status: 'pending' } }),
+      this.waitlistRepository.count({ where: { status: 'approved' } }),
+      this.waitlistRepository.count({ where: { status: 'invited' } }),
+      this.waitlistRepository.count({ where: { status: 'rejected' } })
+    ]);
 
-    const recentSignups = await this.waitlistRepository.find({
-      order: { createdAt: 'DESC' },
-      take: 10
-    });
-
-    return {
-      total,
-      pending,
-      approved,
-      invited,
-      recentSignups
-    };
+    return { total, pending, approved, invited, rejected };
   }
 
-  async export() {
+  async export(): Promise<{ csv: string }> {
     const entries = await this.waitlistRepository.find({
       order: { createdAt: 'ASC' }
     });
 
-    // Convert to CSV format
-    const headers = ['Name', 'Email', 'Company', 'Biggest Challenge', 'Status', 'Signed Up'];
-    const rows = entries.map(e => [
-      e.name,
-      e.email,
-      e.company || '',
-      e.biggestChallenge || '',
-      e.status,
-      e.createdAt.toISOString()
-    ]);
+    const headers = ['Name', 'Email', 'Company', 'Biggest Challenge', 'Status', 'Created At'];
+    const csvRows = [headers.join(',')];
 
-    return {
-      headers,
-      rows,
-      csv: [headers, ...rows].map(row => row.join(',')).join('\n')
-    };
+    entries.forEach(entry => {
+      const row = [
+        `"${entry.name}"`,
+        `"${entry.email}"`,
+        `"${entry.company || ''}"`,
+        `"${entry.biggestChallenge || ''}"`,
+        `"${entry.status}"`,
+        `"${entry.createdAt.toISOString()}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    return { csv: csvRows.join('\n') };
   }
 }
