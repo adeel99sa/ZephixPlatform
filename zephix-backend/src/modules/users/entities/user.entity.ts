@@ -41,7 +41,19 @@ export class User {
   isEmailVerified: boolean;
 
   @Column({ nullable: true })
-  lastLoginAt?: Date;
+  lastLogin?: Date;
+
+  @Column({ nullable: true })
+  resetToken?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resetTokenExpiry?: Date;
+
+  @Column({ nullable: true })
+  verificationToken?: string;
+
+  @Column({ default: false })
+  emailVerified: boolean;
 
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];

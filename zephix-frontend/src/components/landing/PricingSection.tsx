@@ -27,11 +27,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
       cta: 'Start Free',
       ctaTo: '/signup',
       highlight: false,
-      isContact: false
+      isContact: false,
+      badge: null
     },
     {
       name: 'PROFESSIONAL',
-      price: '$12/user/month',
+      price: '$17.99/user/month',
       description: "For growing teams that need advanced features and integrations.",
       features: [
         'Unlimited team members',
@@ -45,11 +46,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
       ],
       cta: 'Start Trial',
       ctaTo: '/signup',
-      highlight: true
+      highlight: true,
+      badge: 'Coming Q2 2026'
     },
     {
       name: 'ENTERPRISE',
-      price: '$25/user/month',
+      price: '$24.99/user/month',
       description: "For large organizations requiring advanced security and custom integrations.",
       features: [
         'Everything in Professional',
@@ -57,12 +59,13 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
         'Custom integrations & white-labeling',
         'Dedicated support & account management',
         'Full API access & webhooks',
-        'SLA guarantees & uptime commitments'
+        'High availability & monitoring'
       ],
       cta: 'Contact Sales',
       ctaTo: '#',
       highlight: false,
-      isContact: true
+      isContact: true,
+      badge: 'Coming Q2 2026'
     }
   ];
 
@@ -89,6 +92,12 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
               {plan.highlight && (
                 <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold shadow-lg">
                   Most Popular
+                </span>
+              )}
+              
+              {plan.badge && (
+                <span className="absolute -top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                  {plan.badge}
                 </span>
               )}
               

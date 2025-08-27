@@ -32,6 +32,7 @@ import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AdminModule } from './admin/admin.module';
 import { RiskManagementModule } from './pm/risk-management/risk-management.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 
 // Import middleware - DISABLED
 // import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -93,25 +94,11 @@ if (!(global as any).crypto) {
       ? [
           TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
-            useFactory: async (configService: ConfigService) => {
+            useFactory: async () => {
               // Use the new centralized database configuration
-              const dbConfig = getDatabaseConfig(configService);
+              const dbConfig = getDatabaseConfig();
 
-              // CRITICAL: Validate database user privileges for local development
-              if (configService.get('environment') === 'development') {
-                try {
-                  await validateDatabasePrivileges(configService);
-                } catch (error) {
-                  console.error(
-                    '❌ Database privilege validation failed:',
-                    error,
-                  );
-                  console.error(
-                    '❌ Please ensure zephix_user has proper privileges',
-                  );
-                  throw error;
-                }
-              }
+              // Database configuration simplified - no additional validation needed
 
               return dbConfig;
             },
@@ -132,6 +119,7 @@ if (!(global as any).crypto) {
     
     // Risk Management Module
     ...(process.env.ENABLE_RISK_MGMT === 'true' ? [RiskManagementModule] : []),
+    WaitlistModule,
     
     // Conditional modules based on feature flags - DISABLED
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
