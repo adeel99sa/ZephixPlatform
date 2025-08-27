@@ -16,6 +16,7 @@ import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AdminGuard } from './guards/admin.guard';
 import { SharedModule } from '../shared/shared.module';
 import jwtConfig from '../config/jwt.config';
 
@@ -77,8 +78,9 @@ import jwtConfig from '../config/jwt.config';
     EmailVerificationService,
     JwtStrategy,
     JwtAuthGuard,
+    AdminGuard,
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, JwtStrategy, JwtModule], // export JwtModule for use in other modules
+  exports: [AuthService, EmailVerificationService, JwtAuthGuard, AdminGuard, JwtStrategy, JwtModule], // export JwtModule for use in other modules
 })
 export class AuthModule {
   constructor() {
