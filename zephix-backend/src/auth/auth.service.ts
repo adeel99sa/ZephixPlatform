@@ -1,9 +1,10 @@
-import { Injectable, Logger, ConflictException, UnauthorizedException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, UnauthorizedException, ForbiddenException, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { User } from '../modules/users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -142,5 +143,53 @@ export class AuthService {
 
   private generateVerificationToken(userId: string): string {
     return this.jwtService.sign({ sub: userId }, { expiresIn: '24h' });
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.usersRepo.findOne({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      // Don't reveal if email exists
+      return;
+    }
+    
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+    
+    await this.usersRepo.update(user.id, {
+      resetToken,
+      resetTokenExpiry
+    });
+    
+    // TODO: Implement email service call
+    this.logger.log(`Password reset token generated for ${email}: ${resetToken}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.usersRepo.findOne({ where: { resetToken: token } });
+    
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    await this.usersRepo.update(user.id, {
+      password: hashedPassword,
+      resetToken: undefined,
+      resetTokenExpiry: undefined
+    });
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const user = await this.usersRepo.findOne({ where: { verificationToken: token } });
+    
+    if (!user) {
+      throw new BadRequestException('Invalid verification token');
+    }
+    
+    await this.usersRepo.update(user.id, {
+      emailVerified: true,
+      verificationToken: undefined
+    });
   }
 }

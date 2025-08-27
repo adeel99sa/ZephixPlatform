@@ -37,8 +37,8 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onScrollToSect
     },
     {
       icon: Shield,
-      title: "Enterprise Security & Compliance",
-      description: "Built-in security features and compliance standards for enterprise environments.",
+      title: "Security & Data Protection",
+      description: "Security features designed to protect your data and ensure privacy.",
       color: "orange",
       sectionId: "enterprise-security"
     },
@@ -293,15 +293,15 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = ({ onScrollToSect
             </div>
           </div>
 
-          {/* Enterprise Security Section */}
+          {/* Security & Data Protection Section */}
           <div id="enterprise-security" className="scroll-mt-20">
             <div className="text-center mb-12">
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-6">
                 <Shield className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-4">Enterprise Security & Compliance</h3>
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">Security & Data Protection</h3>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Built-in security features and compliance standards for enterprise environments
+                Security features designed to protect your data and ensure privacy
               </p>
             </div>
             <div className="grid lg:grid-cols-2 gap-12 items-center">

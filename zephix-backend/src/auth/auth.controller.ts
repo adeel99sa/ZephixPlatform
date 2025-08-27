@@ -25,6 +25,7 @@ import { EmailVerificationService } from './services/email-verification.service'
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import {
   EmailVerificationResponseDto,
   VerificationStatusResponseDto,
@@ -247,5 +248,64 @@ export class AuthController {
     @CurrentUser() user: User,
   ): Promise<VerificationStatusResponseDto> {
     return this.emailVerificationService.checkVerificationStatus(user.id);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent (if account exists)',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid email format' })
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPasswordDto.email);
+    return {
+      message: 'If an account exists with this email, you will receive password reset instructions.',
+    };
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    await this.authService.resetPassword(body.token, body.newPassword);
+    return {
+      message: 'Password reset successfully. You can now log in with your new password.',
+    };
+  }
+
+  @Post('verify-email-token')
+  @ApiOperation({ summary: 'Verify email with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid token' })
+  @HttpCode(HttpStatus.OK)
+  async verifyEmailToken(@Body() body: { token: string }) {
+    await this.authService.verifyEmail(body.token);
+    return {
+      message: 'Email verified successfully! You can now log in to your account.',
+    };
+  }
+
+  @Get('test-simple')
+  @ApiOperation({ summary: 'Simple test endpoint' })
+  @ApiResponse({
+    status: 200,
+    description: 'Simple test response',
+  })
+  @HttpCode(HttpStatus.OK)
+  async testSimple() {
+    return {
+      message: 'Simple test endpoint working',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
