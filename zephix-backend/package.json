@@ -11,6 +11,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -20,9 +21,11 @@
     "migrate": "ts-node scripts/migrate.ts",
     "migrate:add-last-login": "ts-node scripts/run-migration.ts",
     "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm migration:generate -- -d src/config/database.config.ts",
+    "migration:generate": "npm run typeorm migration:generate -- InitialProductionSchema -d src/config/data-source.ts",
     "migration:run": "npm run typeorm migration:run -- -d src/config/data-source.ts",
     "migration:create": "npm run typeorm migration:create",
+    "migration:revert": "npm run typeorm migration:revert -- -d src/config/data-source.ts",
+    "migration:show": "npm run typeorm migration:show -- -d src/config/data-source.ts",
     "test:admin": "node scripts/test-admin-endpoints.js",
     "backup": "ts-node scripts/backup-database.ts",
     "backup:schedule": "0 2 * * * npm run backup",
@@ -32,7 +35,7 @@
     "docker:run": "docker run -p 3000:3000 --env-file .env.production zephix-backend",
     "docker:test": "npm run docker:build && npm run docker:run",
     "deploy:check": "npm run validate:deployment",
-    "start:railway": "node dist/main.js"
+    "start:railway": "npm run migration:run && npm run start:prod"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
