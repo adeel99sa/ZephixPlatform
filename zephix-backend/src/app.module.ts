@@ -33,6 +33,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AdminModule } from './admin/admin.module';
 import { RiskManagementModule } from './pm/risk-management/risk-management.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { ResourcesModule } from './resources/resources.module';
 
 // Import middleware - DISABLED
 // import { RequestIdMiddleware } from './observability/request-id.middleware';
@@ -120,6 +121,7 @@ if (!(global as any).crypto) {
     // Risk Management Module
     ...(process.env.ENABLE_RISK_MGMT === 'true' ? [RiskManagementModule] : []),
     WaitlistModule,
+    ResourcesModule,
     
     // Conditional modules based on feature flags - DISABLED
     // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
