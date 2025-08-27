@@ -1,5 +1,5 @@
 // src/projects/entities/project.entity.ts
-// FIXED: Added missing properties and relationships
+// ENTERPRISE UPDATE: Made organizationId required and added proper indexing
 
 import {
   Entity,
@@ -10,9 +10,11 @@ import {
   OneToOne,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Team } from './team.entity';
 import { User } from '../../modules/users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -43,6 +45,11 @@ export enum Methodology {
 }
 
 @Entity('projects')
+@Index('IDX_PROJECT_ORGANIZATION', ['organizationId'])
+@Index('IDX_PROJECT_STATUS', ['status'])
+@Index('IDX_PROJECT_PRIORITY', ['priority'])
+@Index('IDX_PROJECT_MANAGER', ['projectManagerId'])
+@Index('IDX_PROJECT_CREATED_BY', ['createdById'])
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -86,8 +93,8 @@ export class Project {
   @Column({ name: 'estimated_end_date', type: 'timestamp', nullable: true })
   estimatedEndDate: Date;
 
-  // PM-specific fields you'll need
-  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
+  // ENTERPRISE UPDATE: organizationId is now REQUIRED for multi-tenancy
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
   @Column({ name: 'project_manager_id', type: 'uuid', nullable: true })
@@ -131,4 +138,9 @@ export class Project {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
   createdBy: User;
+
+  // ENTERPRISE UPDATE: Add organization relationship for proper joins
+  @ManyToOne(() => Organization, { nullable: false })
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
 }
