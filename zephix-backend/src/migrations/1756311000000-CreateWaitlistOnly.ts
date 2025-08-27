@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class CreateWaitlistOnly implements MigrationInterface {
+export class CreateWaitlistOnly1756311000000 implements MigrationInterface {
     public async up(queryRunner: QueryRunner): Promise<void> {
         const hasTable = await queryRunner.hasTable("waitlist");
         if (!hasTable) {
