@@ -22,7 +22,7 @@ const TechValidation: React.FC = () => {
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             {LANDING_CONTENT.tech.title}
           </h2>
-          <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             {LANDING_CONTENT.tech.subtitle}
           </p>
         </motion.div>
@@ -70,12 +70,59 @@ const TechValidation: React.FC = () => {
           ))}
         </motion.div>
 
+        {/* What Makes Us Different Section */}
+        <motion.div
+          className="mt-20"
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, delay: 0.8 }}
+        >
+          <h2 className="text-3xl font-bold text-white mb-12 text-center">
+            What Makes Us Different
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            <motion.div
+              className="text-center p-6 bg-gray-800/50 rounded-xl border border-gray-700"
+              initial={{ opacity: 0, y: 20 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6, delay: 1 }}
+            >
+              <h3 className="text-xl font-bold text-white mb-4">Beyond Task Tracking</h3>
+              <p className="text-gray-300">
+                While others show task completion, we show which resources are about to break and why.
+              </p>
+            </motion.div>
+            <motion.div
+              className="text-center p-6 bg-gray-800/50 rounded-xl border border-gray-700"
+              initial={{ opacity: 0, y: 20 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6, delay: 1.2 }}
+            >
+              <h3 className="text-xl font-bold text-white mb-4">Honest About AI</h3>
+              <p className="text-gray-300">
+                No magic predictions. We show statistical patterns with confidence scores you can trust.
+              </p>
+            </motion.div>
+            <motion.div
+              className="text-center p-6 bg-gray-800/50 rounded-xl border border-gray-700"
+              initial={{ opacity: 0, y: 20 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6, delay: 1.4 }}
+            >
+              <h3 className="text-xl font-bold text-white mb-4">Built for Reality</h3>
+              <p className="text-gray-300">
+                Created by PMs who've lived through project failures caused by invisible resource conflicts.
+              </p>
+            </motion.div>
+          </div>
+        </motion.div>
+
         {/* Trust Indicators */}
         <motion.div
           className="mt-20 text-center"
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.8 }}
+          transition={{ duration: 0.6, delay: 1.6 }}
         >
           <div className="inline-flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
             <div className="flex items-center space-x-2">
@@ -100,9 +147,9 @@ const TechValidation: React.FC = () => {
           className="mt-16 text-center"
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 1 }}
+          transition={{ duration: 0.6, delay: 1.8 }}
         >
-          <p className="text-gray-400 mb-8">Integrates seamlessly with your existing tools</p>
+          <p className="text-gray-300 mb-8">Integrates seamlessly with your existing tools</p>
           <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
             {/* Placeholder for integration logos */}
             <div className="w-24 h-12 bg-white/10 rounded-lg flex items-center justify-center">
