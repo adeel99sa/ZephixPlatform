@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Mail, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { LANDING_CONTENT } from '../../lib/constants';
 import { waitlistApi } from '../../api/waitlist';
+import { trackEvent } from '../../lib/analytics';
 
 // Form validation schema
 const formSchema = z.object({
@@ -49,10 +50,22 @@ const CTASection: React.FC = () => {
         biggestChallenge: data.biggestProblem
       });
       
+      // Track successful waitlist signup
+      trackEvent('waitlist_signup', { 
+        challenge: data.biggestProblem,
+        position: result.position 
+      });
+      
       setSubmitStatus('success');
       setSuccessMessage(`You're #${result.position} on the list!`);
       reset();
     } catch (error: any) {
+      // Track failed signup
+      trackEvent('waitlist_signup_failed', { 
+        challenge: data.biggestProblem,
+        error: error.message 
+      });
+      
       setSubmitStatus('error');
       setErrorDetails(error.message || 'Something went wrong. Please try again or contact us directly.');
       console.error('Form submission error:', error);
