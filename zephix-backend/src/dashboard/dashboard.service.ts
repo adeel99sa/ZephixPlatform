@@ -28,11 +28,9 @@ export class DashboardService {
     // Get projects - graceful failure
     try {
       if (this.projectsService) {
-        // Create a mock user object for the service call
-        const mockUser = { id: userId } as any;
-        const projects = await this.projectsService.findAll(mockUser, organizationId);
+        const projectsResult = await this.projectsService.findAllProjects(organizationId);
         
-        response.myProjects = projects.map(p => ({
+        response.myProjects = projectsResult.projects.map(p => ({
           id: p.id,
           name: p.name,
           status: p.status,
@@ -41,8 +39,8 @@ export class DashboardService {
           role: 'member' // simplified for now
         }));
         
-        response.statistics.totalProjects = projects.length;
-        response.statistics.activeProjects = projects.filter(p => p.status === 'active').length;
+        response.statistics.totalProjects = projectsResult.total;
+        response.statistics.activeProjects = projectsResult.projects.filter(p => p.status === 'active').length;
       }
     } catch (error) {
       this.logger.error('Failed to fetch projects for dashboard', error);
