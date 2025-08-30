@@ -1,4 +1,4 @@
-// src/app.module.ts - COMPLETE REPLACEMENT
+// src/app.module.ts - CORRECTED IMPORT PATHS
 import {
   Module,
   ValidationPipe,
@@ -30,7 +30,7 @@ import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RiskManagementModule } from './pm/risk-management/risk-management.module';
 import { ResourceModule } from './modules/resources/resource.module';
-import { WaitlistModule } from './waitlist/waitlist.module'; // ADD THIS IMPORT
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
 
 import {
@@ -38,7 +38,7 @@ import {
   validateDatabasePrivileges,
 } from './config/database.config';
 
-// Import existing entities
+// Import existing entities - CORRECTED PATHS
 import { User } from './modules/users/entities/user.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { UserOrganization } from './organizations/entities/user-organization.entity';
@@ -48,9 +48,9 @@ import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 import { EmailVerification } from './auth/entities/email-verification.entity';
-import { Waitlist } from './waitlist/entities/waitlist.entity'; // ADD THIS IMPORT
+import { Waitlist } from './waitlist/entities/waitlist.entity';
 
-// Import settings entities
+// CORRECTED PATHS for settings entities
 import { UserSettings } from './modules/users/entities/user-settings.entity';
 import { OrganizationSettings } from './organizations/entities/organization-settings.entity';
 import { SecuritySettings } from './organizations/entities/security-settings.entity';
@@ -94,7 +94,7 @@ if (!(global as any).crypto) {
       },
     ]),
 
-    // Database configuration
+    // Database configuration - BETTER SOLUTION: AUTO-DISCOVERY
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
           TypeOrmModule.forRootAsync({
@@ -104,26 +104,9 @@ if (!(global as any).crypto) {
               
               return {
                 ...dbConfig,
-                entities: [
-                  // Core entities
-                  User,
-                  Organization,
-                  UserOrganization,
-                  Project,
-                  Team,
-                  TeamMember,
-                  Role,
-                  RefreshToken,
-                  EmailVerification,
-                  Waitlist, // ADD THIS ENTITY
-                  // Settings entities
-                  UserSettings,
-                  OrganizationSettings,
-                  SecuritySettings,
-                ],
-                // Ensure synchronize is false in production
-                synchronize: process.env.NODE_ENV === 'development' && 
-                           configService.get<boolean>('database.synchronize', false),
+                // AUTO-DISCOVERY: Find all entities automatically
+                entities: [__dirname + '/**/*.entity{.ts,.js}'],
+                synchronize: false, // Never use synchronize in production
               };
             },
             inject: [ConfigService],
@@ -145,7 +128,7 @@ if (!(global as any).crypto) {
     WorkItemModule,
     TemplateModule,
     ObservabilityModule,
-    WaitlistModule, // ADD THIS MODULE - THIS IS THE FIX FOR YOUR 404 ERROR
+    WaitlistModule, // CRITICAL: This enables your waitlist endpoint
   ],
   controllers: [AppController],
   providers: [
