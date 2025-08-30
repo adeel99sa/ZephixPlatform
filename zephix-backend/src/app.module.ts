@@ -1,3 +1,4 @@
+// src/app.module.ts - COMPLETE REPLACEMENT
 import {
   Module,
   ValidationPipe,
@@ -16,7 +17,6 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
-// import featureFlagsConfig from './config/feature-flags.config';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -25,27 +25,20 @@ import { SharedModule } from './shared/shared.module';
 import { DiagnosticModule } from './projects/diagnostic.module';
 import { WorkItemModule } from './modules/work-items/work-item.module';
 import { TemplateModule } from './modules/templates/template.module';
-// import { AIModule } from './ai/ai.module';
-// import { PMModule } from './pm/pm.module';
-// import { BRDModule } from './brd/brd.module';
-// import { ArchitectureModule } from './architecture/architecture.module';
-// import { IntelligenceModule } from './intelligence/intelligence.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RiskManagementModule } from './pm/risk-management/risk-management.module';
 import { ResourceModule } from './modules/resources/resource.module';
+import { WaitlistModule } from './waitlist/waitlist.module'; // ADD THIS IMPORT
 import { TenantMiddleware } from './middleware/tenant.middleware';
 
-// Import middleware - DISABLED
-// import { RequestIdMiddleware } from './observability/request-id.middleware';
-// import { MetricsMiddleware } from './observability/metrics.middleware';
 import {
   getDatabaseConfig,
   validateDatabasePrivileges,
 } from './config/database.config';
 
-// Import ONLY essential entities for authentication
+// Import existing entities
 import { User } from './modules/users/entities/user.entity';
 import { Organization } from './organizations/entities/organization.entity';
 import { UserOrganization } from './organizations/entities/user-organization.entity';
@@ -54,7 +47,13 @@ import { Team } from './projects/entities/team.entity';
 import { TeamMember } from './projects/entities/team-member.entity';
 import { Role } from './projects/entities/role.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
-import { EmailVerification } from './auth/entities/email-verification.entity'; // CRITICAL FIX: Add missing import
+import { EmailVerification } from './auth/entities/email-verification.entity';
+import { Waitlist } from './waitlist/entities/waitlist.entity'; // ADD THIS IMPORT
+
+// Import settings entities
+import { UserSettings } from './modules/users/entities/user-settings.entity';
+import { OrganizationSettings } from './organizations/entities/organization-settings.entity';
+import { SecuritySettings } from './organizations/entities/security-settings.entity';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -73,7 +72,7 @@ if (!(global as any).crypto) {
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
 
-    // ENTERPRISE APPROACH: Make JWT module truly global to avoid circular dependencies
+    // JWT module configuration
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -83,7 +82,7 @@ if (!(global as any).crypto) {
         },
       }),
       inject: [ConfigService],
-      global: true, // Make JWT available globally
+      global: true,
     }),
 
     // Rate limiting for security
@@ -95,83 +94,96 @@ if (!(global as any).crypto) {
       },
     ]),
 
-    // EMERGENCY MODE: Conditionally import TypeORM and database-dependent modules
+    // Database configuration
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
           TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
-            useFactory: async () => {
-              // Use the new centralized database configuration
+            useFactory: async (configService: ConfigService) => {
               const dbConfig = getDatabaseConfig();
-
-              // Database configuration simplified - no additional validation needed
-
-              return dbConfig;
+              
+              return {
+                ...dbConfig,
+                entities: [
+                  // Core entities
+                  User,
+                  Organization,
+                  UserOrganization,
+                  Project,
+                  Team,
+                  TeamMember,
+                  Role,
+                  RefreshToken,
+                  EmailVerification,
+                  Waitlist, // ADD THIS ENTITY
+                  // Settings entities
+                  UserSettings,
+                  OrganizationSettings,
+                  SecuritySettings,
+                ],
+                // Ensure synchronize is false in production
+                synchronize: process.env.NODE_ENV === 'development' && 
+                           configService.get<boolean>('database.synchronize', false),
+              };
             },
             inject: [ConfigService],
           }),
         ]
       : []),
 
-    // Core modules (always enabled)
-    SharedModule, // First - no dependencies
-    AuthModule, // Always import AuthModule for authentication
-    OrganizationsModule, // Third - depends on SharedModule
-    ProjectsModule, // Fourth - depends on SharedModule
-    ResourcesModule, // ADDED: Resource conflict prevention system
-    DiagnosticModule, // Diagnostic module for testing
-    HealthModule, // Health checks
-    DashboardModule, // Dashboard module
-    RiskManagementModule, // Risk Management Module
-    ResourceModule, // Resource Module
-    WorkItemModule, // Work Item Module
-    TemplateModule, // Template Module
-    
-    // Conditional modules based on feature flags - DISABLED
-    // ...(process.env.ENABLE_AI_MODULE === 'true' ? [AIModule] : []),
-    // ...(process.env.ENABLE_GOVERNANCE === 'true' ? [ArchitectureModule] : []), // ArchitectureModule as governance
-    // ...(process.env.ENABLE_DOCUMENTS === 'true' ? [BRDModule] : []),
-    ObservabilityModule, // Always enable for MetricsService dependency
-    // ...(process.env.ENABLE_WORKFLOWS === 'true' ? [PMModule] : []), // PM has document dependencies
-    // ...(process.env.ENABLE_AI_MODULE === 'true' ? [IntelligenceModule] : []), // Intelligence depends on AI
+    // Core modules
+    SharedModule,
+    AuthModule,
+    OrganizationsModule,
+    ProjectsModule,
+    ResourcesModule,
+    DiagnosticModule,
+    HealthModule,
+    DashboardModule,
+    RiskManagementModule,
+    ResourceModule,
+    WorkItemModule,
+    TemplateModule,
+    ObservabilityModule,
+    WaitlistModule, // ADD THIS MODULE - THIS IS THE FIX FOR YOUR 404 ERROR
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_PIPE,
-      useClass: ValidationPipe,
+      useValue: new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: {
+          enableImplicitConversion: true,
+        },
+      }),
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard
-    }
+      useClass: ThrottlerGuard,
+    },
   ],
 })
-export class AppModule {
+export class AppModule implements NestModule {
   constructor() {
-    console.log('🚀 AppModule constructor called');
-    console.log('🔐 AuthModule imported:', !!AuthModule);
-    console.log(
-      '🔐 AuthModule controllers:',
-      AuthModule ? 'Available' : 'Missing',
-    );
+    console.log('🚀 AppModule initialized');
+    console.log('📦 Modules loaded:', {
+      auth: !!AuthModule,
+      waitlist: !!WaitlistModule,
+      database: process.env.SKIP_DATABASE !== 'true',
+    });
 
-    // EMERGENCY MODE: Log current configuration
     if (process.env.SKIP_DATABASE === 'true') {
-      console.log('🚨 EMERGENCY MODE: Database-dependent modules disabled');
-      console.log(
-        '🚨 Available modules: SharedModule, AuthModule, AIModule, IntelligenceModule, ArchitectureModule, ObservabilityModule, HealthModule',
-      );
+      console.log('⚠️ Database-dependent modules disabled');
     } else {
-      console.log(
-        '✅ Full mode: All modules enabled including database-dependent ones',
-      );
+      console.log('✅ All modules enabled including database');
     }
   }
 
   configure(consumer: MiddlewareConsumer) {
-    // Apply tenant middleware for all routes
     consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }
