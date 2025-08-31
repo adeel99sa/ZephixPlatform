@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import sgMail from '@sendgrid/mail';  // Changed from * as sgMail
+import sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
@@ -21,7 +21,7 @@ export class EmailService {
 
     const msg = {
       to: email,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@getzephix.com',
+      from: 'test@example.com', // Generic sender that works without verification
       subject: 'Welcome to Zephix - You\'re #' + position + '! 🚀',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
