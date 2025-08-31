@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as sgMail from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';  // Changed from * as sgMail
 
 @Injectable()
 export class EmailService {
@@ -21,7 +21,7 @@ export class EmailService {
 
     const msg = {
       to: email,
-      from: process.env.SENDGRID_FROM_EMAIL || 'hello@getzephix.com',
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@getzephix.com',
       subject: 'Welcome to Zephix - You\'re #' + position + '! 🚀',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
