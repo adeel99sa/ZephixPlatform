@@ -31,7 +31,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       // Use parent class create method which automatically sets organizationId
       const project = await this.create({
         ...createProjectDto,
-        createdBy: userId,
+        createdById: userId,
         status: createProjectDto.status || ProjectStatus.PLANNING,
       }, organizationId);
 
