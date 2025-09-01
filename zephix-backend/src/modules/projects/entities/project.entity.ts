@@ -18,10 +18,18 @@ export enum ProjectStatus {
   CANCELLED = 'cancelled',
 }
 
-export enum ProjectMethodology {
-  WATERFALL = 'Waterfall',
-  SCRUM = 'Scrum',
-  AGILE = 'Agile',
+export enum ProjectPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+export enum ProjectRiskLevel {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
 }
 
 @Entity('projects')
@@ -37,62 +45,59 @@ export class Project {
 
   @Column({
     type: 'varchar',
-    length: 20,
-    default: 'planning',
+    default: ProjectStatus.PLANNING,
   })
   status: ProjectStatus;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  methodology: ProjectMethodology;
+  @Column({ 
+    type: 'varchar',
+    default: ProjectPriority.MEDIUM
+  })
+  priority: ProjectPriority;
 
-  @Column({ type: 'json', nullable: true })
-  stages: any;
-
-  @Column({ type: 'varchar', length: 20, default: 'medium' })
-  priority: string;
-
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'start_date', type: 'timestamp', nullable: true })
   startDate: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'end_date', type: 'timestamp', nullable: true })
   endDate: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'estimated_end_date', type: 'timestamp', nullable: true })
   estimatedEndDate: Date;
 
-  @Column({ type: 'uuid' })
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
-  @Column({ type: 'uuid', nullable: true })
-  createdBy: string;
-
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'project_manager_id', type: 'uuid', nullable: true })
   projectManagerId: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   budget: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ name: 'actual_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
   actualCost: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'medium' })
-  riskLevel: string;
+  @Column({ 
+    name: 'risk_level',
+    type: 'varchar',
+    default: ProjectRiskLevel.MEDIUM
+  })
+  riskLevel: ProjectRiskLevel;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  currentPhase: string;
+  @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
+  createdById: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
   // Relations
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'createdBy' })
+  @JoinColumn({ name: 'created_by_id' })
   createdByUser: User;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'projectManagerId' })
+  @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 }
