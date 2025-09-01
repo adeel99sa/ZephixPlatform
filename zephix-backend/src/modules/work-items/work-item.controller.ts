@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 
 import { WorkItemService } from './work-item.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('work-items')
 @UseGuards(JwtAuthGuard)

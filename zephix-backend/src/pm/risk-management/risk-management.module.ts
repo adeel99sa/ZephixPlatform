@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RiskManagementController } from './risk-management.controller';
 import { RiskManagementService } from './risk-management.service';
-import { Project } from '../../projects/entities/project.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
 import { Risk } from '../entities/risk.entity';
 import { RiskAssessment } from '../entities/risk-assessment.entity';
 import { RiskResponse } from '../entities/risk-response.entity';

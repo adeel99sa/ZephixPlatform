@@ -508,4 +508,99 @@ export class MetricsService {
   incrementError(type: string, service: string): void {
     this.recordError(type, service);
   }
+
+  /**
+   * Get workflow metrics for a specific organization and date range
+   */
+  async getWorkflowMetrics(
+    organizationId: string,
+    dateRange?: { start: Date; end: Date }
+  ): Promise<any> {
+    try {
+      // This is a placeholder implementation
+      // In a real system, this would query the metrics store
+      return {
+        totalExecutions: 0,
+        successfulExecutions: 0,
+        failedExecutions: 0,
+        averageDuration: 0,
+        organizationId,
+        dateRange
+      };
+    } catch (error) {
+      this.logger.error('Failed to get workflow metrics', error);
+      return {
+        totalExecutions: 0,
+        successfulExecutions: 0,
+        failedExecutions: 0,
+        averageDuration: 0,
+        organizationId,
+        dateRange
+      };
+    }
+  }
+
+  /**
+   * Record bulk operation metrics
+   */
+  async recordBulkOperation(data: {
+    operationType: string;
+    organizationId: string;
+    totalProcessed: number;
+    totalSucceeded: number;
+    totalFailed: number;
+    processingTime?: number;
+    averageTimePerItem?: number;
+    timestamp?: Date;
+  }): Promise<void> {
+    try {
+      // This is a placeholder implementation
+      // In a real system, this would record to the metrics store
+      this.logger.log(`Bulk operation recorded: ${data.operationType}`, data);
+    } catch (error) {
+      this.logger.error('Failed to record bulk operation metrics', error);
+    }
+  }
+
+  /**
+   * Update real-time metrics
+   */
+  async updateRealTimeMetrics(
+    metricType: string,
+    data: {
+      organizationId: string;
+      metrics: any;
+      timestamp: Date;
+    }
+  ): Promise<void> {
+    try {
+      // This is a placeholder implementation
+      // In a real system, this would update real-time metrics
+      this.logger.log(`Real-time metrics updated: ${metricType}`, data);
+    } catch (error) {
+      this.logger.error('Failed to update real-time metrics', error);
+    }
+  }
+
+  /**
+   * Record cache metrics
+   */
+  async recordCacheMetrics(data: {
+    hits: number;
+    misses: number;
+    hitRate: number;
+    totalRequests: number;
+    averageResponseTime: number;
+    memoryUsage: number;
+    evictions: number;
+    timestamp: Date;
+  }): Promise<void> {
+    try {
+      // This is a placeholder implementation
+      // In a real system, this would record cache metrics
+      this.logger.log(`Cache metrics recorded: hits=${data.hits}, misses=${data.misses}, hitRate=${data.hitRate}`, data);
+    } catch (error) {
+      this.logger.error('Failed to record cache metrics', error);
+    }
+  }
 }

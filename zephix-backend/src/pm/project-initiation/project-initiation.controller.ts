@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { ProjectInitiationService } from './project-initiation.service';
 import { DocumentAnalysisDto } from './dto/document-analysis.dto';
 import { ProjectCharterDto } from './dto/project-charter.dto';

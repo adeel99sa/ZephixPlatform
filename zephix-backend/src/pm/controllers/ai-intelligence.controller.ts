@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ZephixAIIntelligenceService } from '../services/zephix-ai-intelligence.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import * as Interfaces from '../interfaces/project-intelligence.interface';
 
 // Request DTOs

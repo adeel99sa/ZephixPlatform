@@ -1,0 +1,109 @@
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
+import { Project } from '../projects/entities/project.entity';
+
+@Injectable()
+export class ResourceValidationService {
+  constructor(
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
+    @InjectRepository(Project)
+    private projectRepo: Repository<Project>,
+  ) {}
+
+  async validateAllocation(data: {
+    resourceId: string;
+    projectId: string;
+    startDate: Date;
+    endDate: Date;
+    allocationPercentage: number;
+  }): Promise<void> {
+    const errors: string[] = [];
+
+    // Validate dates
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (isNaN(start.getTime())) {
+      errors.push('Invalid start date');
+    }
+    
+    if (isNaN(end.getTime())) {
+      errors.push('Invalid end date');
+    }
+    
+    if (start > end) {
+      errors.push('Start date must be before or equal to end date');
+    }
+    
+    // Check if dates are reasonable (not more than 2 years in future)
+    const twoYearsFromNow = new Date();
+    twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
+    
+    if (end > twoYearsFromNow) {
+      errors.push('End date cannot be more than 2 years in the future');
+    }
+
+    // Validate allocation percentage
+    if (data.allocationPercentage <= 0 || data.allocationPercentage > 100) {
+      errors.push('Allocation percentage must be between 1 and 100');
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(data.resourceId)) {
+      errors.push('Invalid resource ID format');
+    }
+    
+    if (!uuidRegex.test(data.projectId)) {
+      errors.push('Invalid project ID format');
+    }
+
+    // Validate resource exists
+    if (uuidRegex.test(data.resourceId)) {
+      const userExists = await this.userRepo.count({ where: { id: data.resourceId } });
+      if (userExists === 0) {
+        errors.push('Resource (user) does not exist');
+      }
+    }
+
+    // Validate project exists
+    if (uuidRegex.test(data.projectId)) {
+      const projectExists = await this.projectRepo.count({ where: { id: data.projectId } });
+      if (projectExists === 0) {
+        errors.push('Project does not exist');
+      }
+    }
+
+    // Check for weekend allocations (optional - uncomment if needed)
+    // const dayOfWeek = start.getDay();
+    // if (dayOfWeek === 0 || dayOfWeek === 6) {
+    //   errors.push('Allocations cannot start on weekends');
+    // }
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Allocation validation failed',
+        errors: errors,
+      });
+    }
+  }
+
+  // Validate date ranges don't have gaps or overlaps within same project
+  async validateProjectContinuity(
+    projectId: string,
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+    excludeAllocationId?: string
+  ): Promise<void> {
+    // This is for future implementation if needed
+    // Check if there are gaps in project allocation
+    return;
+  }
+}

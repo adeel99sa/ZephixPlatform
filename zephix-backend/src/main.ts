@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+
 // Enterprise-secure SSL override for Railway PostgreSQL
 if (
   process.env.NODE_ENV === 'production' &&
@@ -16,21 +18,19 @@ if (
     process.env.DATABASE_SSL_MODE = 'require';
   }
 
-  console.log('🔐 Railway SSL configuration set:');
+  console.log('�� Railway SSL configuration set:');
   console.log(
     `   RAILWAY_SSL_REJECT_UNAUTHORIZED: ${process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED}`,
   );
   console.log(`   DATABASE_SSL_MODE: ${process.env.DATABASE_SSL_MODE}`);
 }
 
-// Initialize OpenTelemetry before importing anything else
-// import './telemetry';
-
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { ValidationPipe } from '@nestjs/common'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
+import { AllExceptionsFilter } from './filters/all-exceptions.filter'
 import * as crypto from 'crypto'
 
 function parseOrigins() {
@@ -46,19 +46,24 @@ function parseOrigins() {
 }
 
 async function bootstrap() {
+  console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule)
 
+  console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api')
 
+  console.log('🛡️ Configuring security middleware...');
   app.use(helmet({
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: { policy: 'same-origin' }
   }))
 
+  console.log('🍪 Configuring cookie parser...');
   app.use(cookieParser())
 
   const allowed = parseOrigins()
 
+  console.log('🌐 Configuring CORS...');
   app.enableCors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true)
@@ -72,6 +77,7 @@ async function bootstrap() {
     maxAge: 600
   })
 
+  console.log('🆔 Configuring request ID middleware...');
   app.use((req, res, next) => {
     const rid = req.headers['x-request-id'] || crypto.randomUUID()
     res.setHeader('X-Request-Id', String(rid))
@@ -80,10 +86,25 @@ async function bootstrap() {
     next()
   })
 
-  // Global validation pipe
+  console.log('✅ Configuring global validation pipe...');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 
+  console.log('🚨 Configuring global exception filter...');
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  console.log('🚀 Starting server...');
   await app.listen(process.env.PORT || 3000)
+  
+  console.log('✅ Application is running on:', `http://localhost:${process.env.PORT || 3000}`);
+  
+  // Post-startup router verification
+  const server = app.getHttpServer();
+  if (server._router && server._router.stack) {
+    const routes = server._router.stack.filter(layer => layer.route);
+    console.log(`🎯 Router verification: ${routes.length} routes registered in Express stack`);
+  } else {
+    console.log('⚠️ Warning: Router stack not found after startup');
+  }
 }
 
 bootstrap()
@@ -141,4 +162,4 @@ console.log(
 );
 console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
 
-// Updated: Mon Aug 11 22:23:35 CDT 2025
+// Updated: Mon Aug 28 22:27:00 CDT 2025

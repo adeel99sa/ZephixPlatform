@@ -1,75 +1,50 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { UserOrganization } from './user-organization.entity';
 
 @Entity('organizations')
-@Index('IDX_ORGANIZATION_SLUG', ['slug'])
-@Index('IDX_ORGANIZATION_STATUS', ['status'])
 export class Organization {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 255 })
+  @Column()
   name: string;
 
-  @Column({ unique: true, length: 100 })
+  @Column({ unique: true })
   slug: string;
 
-  @Column({ type: 'jsonb', default: {} })
-  settings: Record<string, any>;
+  @Column({ default: 'trial' })
+  status: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['active', 'suspended', 'trial'],
-    default: 'active',
-  })
-  status: 'active' | 'suspended' | 'trial';
-
-  @Column({ type: 'date', nullable: true })
-  trialEndsAt: Date;
-
-  @Column({ type: 'text', nullable: true })
-  description: string;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ nullable: true })
   website: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ nullable: true })
   industry: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  size: 'startup' | 'small' | 'medium' | 'large' | 'enterprise';
+  @Column({ nullable: true })
+  size: string;
 
-  @CreateDateColumn()
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ nullable: true })
+  trialEndsAt: Date;
+
+  @Column({ type: 'jsonb', default: {} })
+  settings: object;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
   // Relations
-  @OneToMany(() => UserOrganization, (userOrg) => userOrg.organization, {
-    cascade: true,
-  })
+  @OneToMany(() => UserOrganization, userOrg => userOrg.organization)
   userOrganizations: UserOrganization[];
 
-  // Helper methods
+  // Methods
   isActive(): boolean {
-    return this.status === 'active';
-  }
-
-  isTrial(): boolean {
-    return this.status === 'trial';
-  }
-
-  isTrialExpired(): boolean {
-    if (!this.isTrial() || !this.trialEndsAt) return false;
-    return new Date() > this.trialEndsAt;
+    return this.status === 'active' || this.status === 'trial';
   }
 }
