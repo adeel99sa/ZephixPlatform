@@ -16,7 +16,7 @@ import {
   RiskPredictions,
   CommunicationPlan,
 } from '../services/ai-pm-assistant.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 
 export class PMQuestionDto {
   question: string;

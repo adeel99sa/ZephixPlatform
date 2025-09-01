@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 // import { CACHE_MANAGER } from '@nestjs/cache-manager';
 // import { Cache } from 'cache-manager';
 import { RedisService } from './redis.service';
-import { MetricsService } from './metrics.service';
+import { MetricsService } from '../../observability/metrics.service';
 import { ConfigService } from '@nestjs/config';
 
 export interface CacheOptions {

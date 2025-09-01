@@ -1,0 +1,61 @@
+src/database/migrations/1756400000000-CoreTables.ts:        // Resource allocations table
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE TABLE resource_allocations (
+src/database/migrations/1756400000000-CoreTables.ts:                allocation_percentage INTEGER NOT NULL CHECK (allocation_percentage BETWEEN 1 AND 100),
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_allocations_org_user_dates ON resource_allocations(organization_id, user_id, start_date, end_date);
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_allocations_project ON resource_allocations(project_id);
+src/database/migrations/1756400000000-CoreTables.ts:        // User daily capacity table (denormalized for performance)
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE TABLE user_daily_capacity (
+src/database/migrations/1756400000000-CoreTables.ts:                capacity_date DATE NOT NULL,
+src/database/migrations/1756400000000-CoreTables.ts:                PRIMARY KEY (organization_id, user_id, capacity_date)
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_daily_capacity_org_date ON user_daily_capacity(organization_id, capacity_date);
+src/database/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
+src/database/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS resource_allocations CASCADE`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        // 4. Recreate user_daily_capacity table with camelCase naming
+src/migrations/1756400000002-FixNamingAndConstraints.ts:                "capacityDate" DATE NOT NULL,
+src/migrations/1756400000002-FixNamingAndConstraints.ts:                PRIMARY KEY ("organizationId", "userId", "capacityDate")
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE INDEX "idx_daily_capacity_org_date" ON "userDailyCapacity"("organizationId", "capacityDate");
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        // 8. Fix resource_allocations table - add missing columns and fix indexes
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            ALTER TABLE "resource_allocations" 
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        // 9. Add missing columns to resource_allocations for consistency FIRST
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            ALTER TABLE "resource_allocations" 
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        // 10. Update existing resource_allocations to set userId from resourceId
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            UPDATE "resource_allocations" 
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            SET "userId" = "resourceId" 
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP INDEX IF EXISTS "idx_allocations_resource_dates"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP INDEX IF EXISTS "idx_allocations_project"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE INDEX "idx_allocations_org_user_dates" ON "resource_allocations"("resourceId", "userId", "startDate", "endDate");
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE INDEX "idx_allocations_project" ON "resource_allocations"("projectId");
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`ALTER TABLE "resource_allocations" DROP COLUMN IF EXISTS "workItemId"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`ALTER TABLE "resource_allocations" DROP COLUMN IF EXISTS "organizationId"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`ALTER TABLE "resource_allocations" DROP COLUMN IF EXISTS "userId"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP INDEX IF EXISTS "idx_allocations_org_user_dates"`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP INDEX IF EXISTS "idx_allocations_project"`);
+src/migrations/1756400000000-CoreTables.ts:        // Resource allocations table - ADD MISSING COLUMNS only (table exists)
+src/migrations/1756400000000-CoreTables.ts:            ALTER TABLE resource_allocations 
+src/migrations/1756400000000-CoreTables.ts:        // Add missing indexes to resource_allocations table
+src/migrations/1756400000000-CoreTables.ts:            CREATE INDEX IF NOT EXISTS idx_allocations_org_user_dates ON resource_allocations(organization_id, user_id, start_date, end_date);
+src/migrations/1756400000000-CoreTables.ts:            CREATE INDEX IF NOT EXISTS idx_allocations_project ON resource_allocations(project_id);
+src/migrations/1756400000000-CoreTables.ts:        // User daily capacity table - CREATE (doesn't exist)
+src/migrations/1756400000000-CoreTables.ts:            CREATE TABLE user_daily_capacity (
+src/migrations/1756400000000-CoreTables.ts:                capacity_date DATE NOT NULL,
+src/migrations/1756400000000-CoreTables.ts:                PRIMARY KEY (organization_id, user_id, capacity_date)
+src/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_daily_capacity_org_date ON user_daily_capacity(organization_id, capacity_date);
+src/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
+src/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS resource_allocations CASCADE`);
+src/migrations/1756400000001-CoreTables.ts:        // Resource allocations table - ADD MISSING COLUMNS only (table exists)
+src/migrations/1756400000001-CoreTables.ts:            ALTER TABLE resource_allocations 
+src/migrations/1756400000001-CoreTables.ts:        // Add missing indexes to resource_allocations table (using actual column names)
+src/migrations/1756400000001-CoreTables.ts:            CREATE INDEX IF NOT EXISTS idx_allocations_resource_dates ON resource_allocations("resourceId", "startDate", "endDate");
+src/migrations/1756400000001-CoreTables.ts:            CREATE INDEX IF NOT EXISTS idx_allocations_project ON resource_allocations("projectId");
+src/migrations/1756400000001-CoreTables.ts:        // User daily capacity table - CREATE (doesn't exist)
+src/migrations/1756400000001-CoreTables.ts:            CREATE TABLE user_daily_capacity (
+src/migrations/1756400000001-CoreTables.ts:                capacity_date DATE NOT NULL,
+src/migrations/1756400000001-CoreTables.ts:                PRIMARY KEY (organization_id, user_id, capacity_date)
+src/migrations/1756400000001-CoreTables.ts:            CREATE INDEX idx_daily_capacity_org_date ON user_daily_capacity(organization_id, capacity_date);
+src/migrations/1756400000001-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
+src/migrations/1756400000001-CoreTables.ts:        await queryRunner.query(`ALTER TABLE resource_allocations DROP COLUMN IF EXISTS work_item_id`);
+src/app.module.ts:import { ResourceModule } from './modules/resources/resource.module';
+src/modules/projects/entities/project.entity.ts:import { ResourceAllocation } from '../../resources/entities/resource-allocation.entity';
+src/modules/projects/entities/project.entity.ts:  @OneToMany(() => ResourceAllocation, allocation => allocation.project)
+src/modules/projects/entities/project.entity.ts:  allocations: ResourceAllocation[];

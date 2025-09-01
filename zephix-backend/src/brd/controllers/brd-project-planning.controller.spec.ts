@@ -6,7 +6,7 @@ import { ProjectMethodology } from '../entities/generated-project-plan.entity';
 import { BRDAnalysis } from '../entities/brd-analysis.entity';
 import { GeneratedProjectPlan } from '../entities/generated-project-plan.entity';
 import { BRD } from '../entities/brd.entity';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 
 // Mock the guards

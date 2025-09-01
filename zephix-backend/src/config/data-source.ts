@@ -8,12 +8,14 @@ config();
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
-import { Project } from '../projects/entities/project.entity';
-import { Team } from '../projects/entities/team.entity';
-import { TeamMember } from '../projects/entities/team-member.entity';
-import { Role } from '../projects/entities/role.entity';
+import { Project } from '../modules/projects/entities/project.entity';
+import { Template } from '../modules/templates/entities/template.entity';
+import { WorkItem } from '../modules/work-items/entities/work-item.entity';
+import { Team } from '../modules/projects/entities/team.entity';
+import { TeamMember } from '../modules/projects/entities/team-member.entity';
+import { Role } from '../modules/projects/entities/role.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
-import { EmailVerification } from '../auth/entities/email-verification.entity';
+import { EmailVerification } from '../modules/auth/entities/email-verification.entity';
 import { Feedback } from '../feedback/entities/feedback.entity';
 import { Waitlist } from '../waitlist/entities/waitlist.entity';
 
@@ -31,6 +33,8 @@ export default new DataSource({
     Organization,
     UserOrganization,
     Project,
+    Template,
+    WorkItem,
     Team,
     TeamMember,
     Role,

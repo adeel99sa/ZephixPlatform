@@ -2,8 +2,6 @@
 export { PMKnowledgeChunk } from './pm-knowledge-chunk.entity';
 
 // Project Management
-export { Portfolio } from './portfolio.entity';
-export { Program } from './program.entity';
 export { UserProject } from './user-project.entity';
 export { ProjectTask } from './project-task.entity';
 export { ProjectStakeholder } from './project-stakeholder.entity';
