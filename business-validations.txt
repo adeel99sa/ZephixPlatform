@@ -1,0 +1,1 @@
+src/auth/strategies/jwt.strategy.ts:  async validate(payload: any): Promise<User> {

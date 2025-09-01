@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
@@ -28,6 +28,9 @@ export class User {
 
   @Column({ nullable: true })
   lastLoginAt: Date;
+
+  @Column({ name: 'organization_id' })
+  organizationId: string;
 
   @CreateDateColumn()
   createdAt: Date;

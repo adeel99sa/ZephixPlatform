@@ -20,7 +20,7 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 import { BRDService } from '../services/brd.service';

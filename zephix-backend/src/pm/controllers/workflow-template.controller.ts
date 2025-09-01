@@ -17,12 +17,12 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { RolesGuard } from '../../organizations/guards/roles.guard';
 import { Roles } from '../../organizations/decorators/roles.decorator';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator';
 import { WorkflowTemplateService } from '../services/workflow-template.service';
 import {
   CreateWorkflowTemplateDto,

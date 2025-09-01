@@ -39,8 +39,12 @@ export async function apiFetch(path: string, opts: any = {}) {
 export async function apiJson(path: string, opts: any = {}) {
   const r = await apiFetch(path, opts);
   
+  // Fix: Don't trigger logout if we're already trying to logout or on auth endpoints
   if (r.status === 401) {
-    useAuthStore.getState().logout();
+    // Skip auth clearing for auth endpoints to prevent loops
+    if (!path.includes('/auth/')) {
+      useAuthStore.getState().clearAuth();
+    }
     throw new Error('UNAUTHORIZED');
   }
   
