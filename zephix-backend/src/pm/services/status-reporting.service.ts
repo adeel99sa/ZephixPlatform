@@ -7,7 +7,7 @@ import { PerformanceBaseline } from '../entities/performance-baseline.entity';
 import { AlertConfiguration } from '../entities/alert-configuration.entity';
 import { ManualUpdate } from '../entities/manual-update.entity';
 import { StakeholderCommunication } from '../entities/stakeholder-communication.entity';
-import { Project } from '../../projects/entities/project.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
 import { ClaudeService } from '../../ai/claude.service';
 
 export interface StatusReportInput {

@@ -1,5 +1,5 @@
 import { Injectable, Optional, Logger } from '@nestjs/common';
-import { ProjectsService } from '../projects/services/projects.service';
+import { ProjectsService } from '../modules/projects/services/projects.service';
 import { RiskManagementService } from '../pm/risk-management/risk-management.service';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 

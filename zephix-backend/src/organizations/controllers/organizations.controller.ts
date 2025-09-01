@@ -22,8 +22,8 @@ import {
   UpdateOrganizationDto,
   InviteUserDto,
 } from '../dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../../auth/guards/admin.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../../modules/auth/guards/admin.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
