@@ -1,25 +1,41 @@
-import { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useUser } from '../../hooks/useUser';
+import { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
+interface Permissions {
+  canViewProjects: boolean;
+  canManageResources: boolean;
+  canViewAnalytics: boolean;
+  canManageUsers: boolean;
+  isAdmin: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, checkAuth } = useUser();
-  const location = useLocation();
+interface ProtectedRouteProps {
+  children: ReactNode;
+  requiredPermission?: keyof Permissions;
+}
 
-  useEffect(() => {
-    // Check authentication status when component mounts
-    checkAuth();
-  }, [checkAuth]);
+export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteProps) {
+  const { user, permissions, isLoading } = useAuth();
 
-  // If not authenticated, redirect to login with return URL
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // If authenticated, render the protected content
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredPermission && !permissions[requiredPermission]) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-700">Access Denied</h2>
+          <p className="text-gray-500">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
-};
+}

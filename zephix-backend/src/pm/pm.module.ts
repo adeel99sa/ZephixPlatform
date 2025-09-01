@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIPMAssistantController } from './controllers/ai-pm-assistant.controller';
 import { AIIntelligenceController } from './controllers/ai-intelligence.controller';
 import { AIChatController } from './controllers/ai-chat.controller';
-import { DocumentIntelligenceController } from './controllers/document-intelligence.controller';
 import { IntakeDesignerController } from './controllers/intake-designer.controller';
 
 // Workflow Framework Controllers
@@ -35,8 +34,6 @@ import { UserProject } from './entities/user-project.entity';
 import { ProjectTask } from './entities/project-task.entity';
 import { ProjectRisk } from './entities/project-risk.entity';
 import { ProjectStakeholder } from './entities/project-stakeholder.entity';
-import { Portfolio } from './entities/portfolio.entity';
-import { Program } from './entities/program.entity';
 
 import { Risk } from './entities/risk.entity';
 import { RiskAssessment } from './entities/risk-assessment.entity';
@@ -48,8 +45,8 @@ import { WorkflowTemplate } from './entities/workflow-template.entity';
 import { WorkflowInstance } from './entities/workflow-instance.entity';
 import { IntakeForm } from './entities/intake-form.entity';
 import { IntakeSubmission } from './entities/intake-submission.entity';
-import { Project } from '../projects/entities/project.entity';
-import { TeamMember } from '../projects/entities/team-member.entity';
+import { Project } from '../modules/projects/entities/project.entity';
+import { TeamMember } from '../modules/projects/entities/team-member.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { JiraIntegration } from './integrations/jira.integration';
 import { GitHubIntegration } from './integrations/github.integration';
@@ -74,8 +71,6 @@ import { AIModule } from '../ai/ai.module';
             ProjectTask,
             ProjectRisk,
             ProjectStakeholder,
-            Portfolio,
-            Program,
             Risk,
             RiskAssessment,
             RiskResponse,
@@ -96,7 +91,6 @@ import { AIModule } from '../ai/ai.module';
     AIPMAssistantController,
     AIIntelligenceController,
     AIChatController,
-    DocumentIntelligenceController,
     IntakeDesignerController,
     // Workflow Framework Controllers
     WorkflowTemplateController,

@@ -126,7 +126,9 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
       },
-      ...tokens,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
     };
   }
 
@@ -187,7 +189,9 @@ export class AuthService {
         lastName: savedUser.lastName,
         role: savedUser.role,
       },
-      ...tokens,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
     };
   }
 
@@ -319,22 +323,59 @@ export class AuthService {
    */
   private async generateTokens(user: User) {
     const payload = {
-      userId: user.id,
+      sub: user.id,
       email: user.email,
+      organizationId: user.organizationId,
       role: user.role,
+      permissions: await this.getPermissions(user),
+      iat: Math.floor(Date.now() / 1000),
     };
 
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '15m', // Short-lived access tokens
+      issuer: 'zephix-platform',
+    });
     const refreshToken = uuidv4();
 
     const expiresIn = this.configService.get('jwt.expiresIn', '15m');
     const expiresInSeconds = this.parseExpiresIn(expiresIn);
 
     return {
-      token: accessToken,
+      accessToken,
       refreshToken,
       expiresIn: expiresInSeconds,
     };
+  }
+
+  /**
+   * Get user permissions based on role
+   */
+  private async getPermissions(user: User) {
+    const rolePermissions = {
+      admin: {
+        canViewProjects: true,
+        canManageResources: true, 
+        canViewAnalytics: true,
+        canManageUsers: true,
+        isAdmin: true,
+      },
+      project_manager: {
+        canViewProjects: true,
+        canManageResources: true,
+        canViewAnalytics: true,
+        canManageUsers: false,
+        isAdmin: false,
+      },
+      user: {
+        canViewProjects: true,
+        canManageResources: false,
+        canViewAnalytics: false,
+        canManageUsers: false,
+        isAdmin: false,
+      },
+    };
+
+    return rolePermissions[user.role] || rolePermissions.user;
   }
 
   /**

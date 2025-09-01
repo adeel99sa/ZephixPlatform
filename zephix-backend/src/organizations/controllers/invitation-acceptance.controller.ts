@@ -14,8 +14,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator';
 import { User } from '../../modules/users/entities/user.entity';
 import { InvitationService } from '../services/invitation.service';
 import { Organization } from '../entities/organization.entity';

@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';  // Fix path
+import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';  // Fix path
 import { AdminGuard } from '../../guards/admin.guard';  // Fix path
 
 // DTOs (to be created)

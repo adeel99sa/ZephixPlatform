@@ -1,56 +1,38 @@
-import { Module, ValidationPipe, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import {
+  Module,
+  ValidationPipe,
+  MiddlewareConsumer,
+  NestModule,
+} from '@nestjs/common';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_PIPE } from '@nestjs/core';
-
-// Import crypto explicitly for Node.js versions that require it
+import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
-import { ProjectsModule } from './projects/projects.module';
-import { FeedbackModule } from './feedback/feedback.module';
-import { PMModule } from './pm/pm.module';
-import { SharedModule } from './shared/shared.module';
-import { ObservabilityModule } from './observability/observability.module';
-import { IntelligenceModule } from './intelligence/intelligence.module';
-import { ArchitectureModule } from './architecture/architecture.module';
-import { BRDModule } from './brd/brd.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { ProjectsModule } from './projects/projects.module';
+import { ResourcesModule } from './resources/resources.module';
+import { SharedModule } from './shared/shared.module';
+import { DiagnosticModule } from './projects/diagnostic.module';
+import { WorkItemModule } from './modules/work-items/work-item.module';
+import { TemplateModule } from './modules/templates/template.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-
-// Import middleware
-import { RequestIdMiddleware } from './observability/request-id.middleware';
-import { MetricsMiddleware } from './observability/metrics.middleware';
-
-// Import ONLY entities with working table creation migrations
-// Core entities (from 005_CreateMultiTenancy migration)
-import { User } from './users/entities/user.entity';
-import { Organization } from './organizations/entities/organization.entity';
-import { UserOrganization } from './organizations/entities/user-organization.entity';
-
-// Projects entities (from 001_CreateProjectsTables migration)
-import { Project } from './projects/entities/project.entity';
-import { Team } from './projects/entities/team.entity';
-import { TeamMember } from './projects/entities/team-member.entity';
-import { Role } from './projects/entities/role.entity';
-
-// Workflow entities (from 1704123600000-CreateWorkflowFramework migration)
-import { WorkflowTemplate } from './pm/entities/workflow-template.entity';
-import { WorkflowInstance } from './pm/entities/workflow-instance.entity';
-import { IntakeForm } from './pm/entities/intake-form.entity';
-import { IntakeSubmission } from './pm/entities/intake-submission.entity';
-
-// BRD entities (from BRD migrations)
-import { BRD } from './brd/entities/brd.entity';
-import { BRDAnalysis } from './brd/entities/brd-analysis.entity';
-import { GeneratedProjectPlan } from './brd/entities/generated-project-plan.entity';
-
+import { RiskManagementModule } from './pm/risk-management/risk-management.module';
+import { ResourceModule } from './modules/resources/resource.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
+import { TenantMiddleware } from './middleware/tenant.middleware';
+import { getDatabaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PortfoliosModule } from './modules/portfolios/portfolios.module';
+import { ProgramsModule } from './modules/programs/programs.module';
 
-// Patch global crypto to avoid "crypto is not defined" errors in TypeORM utils
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
 }
@@ -60,98 +42,85 @@ if (!(global as any).crypto) {
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
-    TypeOrmModule.forRootAsync({
+
+    JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const databaseUrl = process.env.DATABASE_URL;
-        const isProduction = process.env.NODE_ENV === 'production';
-
-        // Use glob pattern for entities to work in both dev and prod
-        const entityGlob = __dirname + '/**/*.entity.{js,ts}';
-
-        if (databaseUrl) {
-          // Railway production configuration - optimized for platform
-          return {
-            type: 'postgres',
-            url: databaseUrl,
-            entities: [__dirname + '/**/*.entity.{js,ts}'],
-            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
-            synchronize: false, // Never use synchronize in production
-            migrationsRun: false, // Migrations controlled manually for safety
-            logging: isProduction
-              ? ['error', 'warn']
-              : configService.get('database.logging'),
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-            extra: {
-              max: 10, // Connection pool size for Railway limits
-              min: 2,
-              acquire: 60000, // 60s acquire timeout for Railway delays
-              idle: 10000,
-              family: 4, // Force IPv4 - CRITICAL for Railway networking
-              connectionLimit: 10,
-              acquireTimeout: 60000,
-              timeout: 60000,
-            },
-            retryAttempts: 15, // More retries for Railway platform stability
-            retryDelay: 5000, // 5s delay between retries
-            connectTimeoutMS: 60000, // 60s connection timeout
-            acquireTimeoutMillis: 60000, // 60s acquire timeout
-            keepConnectionAlive: true,
-          };
-        } else {
-          // Local development configuration
-          return {
-            type: 'postgres',
-            host: configService.get('database.host'),
-            port: configService.get('database.port'),
-            username: configService.get('database.username'),
-            password: configService.get('database.password'),
-            database: configService.get('database.database'),
-            entities: [__dirname + '/**/*.entity.{js,ts}'],
-            migrations: [__dirname + '/**/migrations/*{.ts,.js}'],
-            synchronize: configService.get('database.synchronize'),
-            logging: configService.get('database.logging'),
-            extra: {
-              max: 10,
-              min: 2,
-              acquire: 30000,
-              idle: 10000,
-            },
-            retryAttempts: 5,
-            retryDelay: 3000,
-            keepConnectionAlive: true,
-          };
-        }
-      },
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('jwt.secret'),
+        signOptions: {
+          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
+        },
+      }),
       inject: [ConfigService],
+      global: true,
     }),
-    AuthModule,
-    ProjectsModule,
-    FeedbackModule,
-    PMModule,
+
+    ThrottlerModule.forRoot([{
+      name: 'short',
+      ttl: 60000,
+      limit: process.env.NODE_ENV === 'development' ? 1000 : 100,
+    }]),
+
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            useFactory: async (configService: ConfigService) => {
+              const dbConfig = getDatabaseConfig();
+              return {
+                ...dbConfig,
+                entities: [__dirname + '/**/*.entity{.ts,.js}'],
+                synchronize: false,
+              };
+            },
+            inject: [ConfigService],
+          }),
+        ]
+      : []),
+
     SharedModule,
-    ObservabilityModule,
-    IntelligenceModule,
-    ArchitectureModule,
-    BRDModule,
+    AuthModule,
     OrganizationsModule,
+    ProjectsModule,
+    ResourcesModule,
+    DiagnosticModule,
     HealthModule,
     DashboardModule,
+    RiskManagementModule,
+    ResourceModule,
+    WorkItemModule,
+    TemplateModule,
+    ObservabilityModule,
+    WaitlistModule,
+    PortfoliosModule,
+    ProgramsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_PIPE,
-      useClass: ValidationPipe,
+      useValue: new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })
 export class AppModule implements NestModule {
+  constructor() {
+    console.log('🚀 AppModule initialized');
+  }
+
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RequestIdMiddleware, MetricsMiddleware)
-      .forRoutes('*');
+    consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }

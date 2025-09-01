@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { User } from '../modules/users/entities/user.entity';
-import { Project } from '../projects/entities/project.entity';
-import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
+import { Project } from '../modules/projects/entities/project.entity';
+import { ResourceAllocation } from '../modules/resources/entities/resource-allocation.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import * as bcrypt from 'bcrypt';
 

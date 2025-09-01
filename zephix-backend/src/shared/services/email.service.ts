@@ -94,4 +94,19 @@ export class EmailService {
       html
     });
   }
+
+  async sendWaitlistWelcome(email: string, name: string, position: number): Promise<void> {
+    const html = `
+      <h2>Welcome to Zephix, ${name}!</h2>
+      <p>Thank you for joining our waitlist. You are currently in position ${position}.</p>
+      <p>We'll notify you as soon as your spot opens up!</p>
+      <p>Best regards,<br>The Zephix Team</p>
+    `;
+
+    await this.sendEmail({
+      to: email,
+      subject: 'Welcome to Zephix Waitlist!',
+      html
+    });
+  }
 }

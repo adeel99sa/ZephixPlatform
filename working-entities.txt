@@ -1,0 +1,6 @@
+src/organizations/entities/organization.entity.ts
+src/auth/entities/user.entity.ts
+src/projects/entities/project.entity.ts
+src/modules/projects/entities/project.entity.ts
+src/modules/templates/entities/template.entity.ts
+src/modules/work-items/entities/work-item.entity.ts

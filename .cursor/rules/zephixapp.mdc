@@ -1,0 +1,158 @@
+---
+alwaysApply: true
+---
+
+## Enhanced Cursor Rules - Version 3.0:
+
+```yaml
+# .cursorrules - Zephix Project - ZERO TOLERANCE EDITION
+
+## PROJECT CONTEXT
+Zephix AI-powered project management platform
+- Backend: NestJS + TypeScript + PostgreSQL + TypeORM
+- Frontend: React + Vite + TypeScript + Tailwind CSS
+- Database: zephix_development (PostgreSQL)
+- Current Task: Module migration and cleanup
+
+## ZERO TOLERANCE VERIFICATION POLICY
+
+### BEFORE CLAIMING ANY SUCCESS
+MUST show these 5 proofs IN ORDER:
+1. Build error count: npm run build 2>&1 | grep -c "error"
+2. If count > 0, show errors: npm run build 2>&1 | grep "error TS" | head -5
+3. File existence: ls -la [files claimed to exist]
+4. Git status: git status --short
+5. Final verification: npm run build 2>&1 | tail -5
+
+### BUILD SUCCESS DEFINITION
+SUCCESS = ALL of these are true:
+- npm run build 2>&1 | grep -c "error" returns 0
+- npm run build 2>&1 | tail -2 shows "Done in X.XXs"
+- No TypeScript errors (TS codes)
+- No module resolution errors
+
+ANYTHING ELSE = FAILURE (must state "BUILD FAILING")
+
+### FILE OPERATION PROOF REQUIREMENTS
+CREATE file:
+  1. Command: [exact creation command]
+  2. Proof exists: ls -la [exact/path/to/file]
+  3. Proof content: head -20 [file]
+  4. Proof compiles: npx tsc --noEmit [file] 2>&1
+
+MODIFY file:
+  1. Before: grep [pattern] [file]
+  2. Command: [exact modification]
+  3. After: grep [pattern] [file]
+  4. Diff: git diff [file] | head -30
+
+DELETE file:
+  1. Before: ls -la [file]
+  2. Command: rm [file]
+  3. After: ls -la [file] 2>&1 (must show "No such file")
+
+### IMPORT PATH RULES
+OLD structure (TO BE REMOVED):
+- src/auth/
+- src/projects/
+- src/resources/
+- src/organizations/
+
+NEW structure (TO BE USED):
+- src/modules/auth/
+- src/modules/projects/
+- src/modules/resources/
+- src/modules/organizations/
+
+EVERY import must use NEW paths. Show proof:
+grep "from.*'/auth/\|/projects/\|/resources/'" [file]
+Should return NOTHING (0 results)
+
+### DATABASE ENTITY RULES
+1. Check table exists: psql -U malikadeel -d zephix_development -c "\dt table_name"
+2. Check columns: psql -U malikadeel -d zephix_development -c "\d table_name"
+3. Entity MUST use snake_case table names
+4. Entity properties MUST match database columns
+5. Show entity decorator: grep "@Entity" [entity-file]
+
+### RESPONSE TEMPLATE (MANDATORY)
+```
+TASK: [Specific task description]
+
+BEFORE STATE:
+- Build errors: [number from npm run build 2>&1 | grep -c "error"]
+- Files affected: [list]
+
+ACTIONS TAKEN:
+1. [Command]: [exact command]
+   OUTPUT: [full output, no truncation]
+2. [Command]: [exact command]
+   OUTPUT: [full output]
+
+VERIFICATION:
+- Build errors after: [number]
+- Files created: [ls -la proof]
+- Files modified: [git diff proof]
+- Import verification: [grep proof]
+
+FINAL STATUS:
+[ONE of these only]
+✅ SUCCESS - Build has 0 errors (show: npm run build 2>&1 | tail -5)
+❌ FAILURE - Build has [N] errors (list first 5)
+⚠️ PARTIAL - [X] of [Y] tasks complete, [Z] errors remain
+
+REMAINING ISSUES:
+[Specific list with file:line numbers]
+OR
+NONE - All tasks complete with 0 build errors
+```
+
+### FORBIDDEN BEHAVIORS
+1. NEVER say "build successful" without showing error count = 0
+2. NEVER truncate output with "..." or similar
+3. NEVER summarize errors - show actual error messages
+4. NEVER claim completion without verification
+5. NEVER skip verification to save time
+6. NEVER hide failures in summaries
+
+### REQUIRED BEHAVIORS
+1. ALWAYS run build after EVERY change
+2. ALWAYS show actual terminal output
+3. ALWAYS admit failures immediately
+4. ALWAYS show error count before and after
+5. ALWAYS verify file operations with ls/cat/grep
+6. ALWAYS use full file paths
+
+### CURRENT KNOWN ISSUES (MUST FIX)
+1. Build has 16 errors (as of last check)
+2. ResourceAllocation entity missing resourceId property (5 errors)
+3. Resource module configuration incomplete
+4. Import path errors in multiple files
+5. OLD resources module still exists
+
+### MIGRATION COMPLETION CRITERIA
+A module is ONLY complete when:
+1. Build shows 0 errors
+2. ALL imports use NEW module paths
+3. OLD module is deleted
+4. All tests pass (if exist)
+5. Database queries work
+
+### HONESTY SCORING
+Each response is scored:
+- FALSE SUCCESS CLAIM = -10 points (saying it works when it doesn't)
+- HIDDEN ERROR = -5 points (not showing actual errors)
+- INCOMPLETE VERIFICATION = -3 points (skipping proofs)
+- HONEST FAILURE ADMISSION = +1 point (admitting what broke)
+- COMPLETE VERIFICATION = +2 points (showing all proofs)
+
+Target: Maintain positive score
+```
+
+This version has:
+1. **Zero tolerance** for false success claims
+2. **Mandatory verification** before any success claim
+3. **Specific proof requirements** for each operation
+4. **Template enforcement** for consistent responses
+5. **Scoring system** to track honesty
+

@@ -13,10 +13,10 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { StatusReportingService } from '../services/status-reporting.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { ProjectPermissionGuard } from '../../projects/guards/project-permission.guard';
-import { RequirePermissions } from '../../projects/decorators/project-permissions.decorator';
-import { RoleType } from '../../projects/entities/role.entity';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { ProjectPermissionGuard } from '../../modules/projects/guards/project-permission.guard';
+import { RequirePermissions } from '../../modules/projects/decorators/project-permissions.decorator';
+import { RoleType } from '../../modules/projects/entities/role.entity';
 
 interface GenerateReportDto {
   projectId: string;
