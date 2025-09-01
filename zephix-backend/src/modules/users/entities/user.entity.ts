@@ -19,29 +19,32 @@ export class User {
   @Column()
   password: string;
 
-  @Column()
+  @Column({ name: 'first_name' })
   firstName: string;
 
-  @Column()
+  @Column({ name: 'last_name' })
   lastName: string;
 
   @Column({ default: 'user' })
   role: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'organization_id', nullable: true })
   organizationId?: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'profile_picture', nullable: true })
   profilePicture?: string;
 
-  @Column({ default: true })
+  @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ default: false })
+  @Column({ name: 'is_email_verified', default: false })
   isEmailVerified: boolean;
 
-  @Column({ nullable: true })
-  lastLogin?: Date;
+  @Column({ name: 'email_verified_at', type: 'timestamp', nullable: true })
+  emailVerifiedAt?: Date;
+
+  @Column({ name: 'last_login_at', type: 'timestamp', nullable: true })
+  lastLoginAt?: Date;
 
   @Column({ nullable: true })
   resetToken?: string;
@@ -52,15 +55,12 @@ export class User {
   @Column({ nullable: true })
   verificationToken?: string;
 
-  @Column({ default: false })
-  emailVerified: boolean;
-
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
