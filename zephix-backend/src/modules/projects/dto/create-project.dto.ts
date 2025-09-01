@@ -1,9 +1,8 @@
 import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID } from 'class-validator';
-import { ProjectStatus, ProjectMethodology } from '../entities/project.entity';
+import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from '../entities/project.entity';
 
 export class CreateProjectDto {
   @IsString()
-  @IsOptional()
   name: string;
 
   @IsString()
@@ -14,10 +13,6 @@ export class CreateProjectDto {
   @IsOptional()
   status?: ProjectStatus;
 
-  @IsEnum(ProjectMethodology)
-  @IsOptional()
-  methodology?: ProjectMethodology;
-
   @IsDateString()
   @IsOptional()
   startDate?: Date;
@@ -26,23 +21,31 @@ export class CreateProjectDto {
   @IsOptional()
   endDate?: Date;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
-  priority?: string;
+  estimatedEndDate?: Date;
+
+  @IsEnum(ProjectPriority)
+  @IsOptional()
+  priority?: ProjectPriority;
 
   @IsNumber()
   @Min(0)
-  @Max(100)
   @IsOptional()
   budget?: number;
 
-  @IsString()
+  @IsNumber()
+  @Min(0)
   @IsOptional()
-  riskLevel?: string;
+  actualCost?: number;
+
+  @IsEnum(ProjectRiskLevel)
+  @IsOptional()
+  riskLevel?: ProjectRiskLevel;
 
   @IsUUID()
   @IsOptional()
-  assignedTo?: string;
+  projectManagerId?: string;
 
   @IsOptional()
   metadata?: Record<string, any>;
