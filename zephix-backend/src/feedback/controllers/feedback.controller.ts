@@ -16,7 +16,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FeedbackService } from '../services/feedback.service';
 import { CreateFeedbackDto } from '../dto/create-feedback.dto';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator';
 import { User } from '../../modules/users/entities/user.entity';
 
 @ApiTags('Feedback')

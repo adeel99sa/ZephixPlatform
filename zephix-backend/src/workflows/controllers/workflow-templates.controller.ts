@@ -24,7 +24,7 @@ import {
   ApiQuery,
   ApiBody,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { WorkflowTemplatesService } from '../services/workflow-templates.service';

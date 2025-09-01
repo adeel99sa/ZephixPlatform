@@ -31,6 +31,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionExpiry: number | null;
+  isLoggingOut: boolean; // Add flag to prevent multiple logout attempts
 
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
@@ -54,6 +55,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       sessionExpiry: null,
+      isLoggingOut: false,
 
       // Initialize authentication on app load
       initializeAuth: async () => {
@@ -155,16 +157,30 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // Logout
+      // Logout - Fixed to prevent infinite loop
       logout: async () => {
-        set({ isLoading: true });
+        const state = get();
+        
+        // Prevent multiple simultaneous logout attempts
+        if (state.isLoggingOut || state.isLoading) {
+          return;
+        }
+        
+        set({ isLoggingOut: true, isLoading: true });
 
         try {
-          await apiJson('/auth/logout', { method: 'POST' });
+          // Only try to call logout API if we have a token
+          if (state.token) {
+            await apiJson('/auth/logout', { method: 'POST' });
+          }
         } catch (error) {
-          console.error('Logout error:', error);
+          // Don't throw or retry, just log the error
+          // This is expected if the token is already invalid
+          console.log('Logout API call failed (this is normal):', error);
         } finally {
+          // Always clear the auth state regardless of API call success
           get().clearAuth();
+          set({ isLoggingOut: false });
           toast.success('Logged out successfully');
         }
       },
@@ -215,7 +231,7 @@ export const useAuthStore = create<AuthState>()(
         return get().validateSession();
       },
 
-      // Clear auth
+      // Clear auth - This never calls API, just clears local state
       clearAuth: () => {
         set({
           user: null,
@@ -224,6 +240,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
           sessionExpiry: null,
+          isLoggingOut: false,
         });
 
         localStorage.removeItem('auth-storage');
@@ -248,4 +265,4 @@ export const useAuthStore = create<AuthState>()(
       }),
     }
   )
-); 
+);

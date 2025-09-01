@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, Check } from 'typeorm';
 
-@Entity('workItems')
+@Entity('work_items')
 @Index('idx_work_items_project', ['projectId'])
 @Index('idx_work_items_assigned', ['assignedTo'])
 @Index('idx_work_items_status', ['status'])

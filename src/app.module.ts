@@ -5,6 +5,8 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TemplateModule } from './modules/templates/template.module';
+import { ResourceModule } from './modules/resources/resource.module';
 import { HealthModule } from './health/health.module';
 import { SharedModule } from './shared/shared.module';
 
@@ -39,6 +41,8 @@ import { SharedModule } from './shared/shared.module';
     AuthModule,
     OrganizationsModule,
     ProjectsModule,
+    TemplateModule,
+    ResourceModule,
     HealthModule,
     SharedModule,
   ],

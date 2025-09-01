@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Waitlist } from './entities/waitlist.entity';
 import { CreateWaitlistDto } from './dto/create-waitlist.dto';
-import { EmailService } from '../email/email.service';
+import { EmailService } from '../shared/services/email.service';
 
 @Injectable()
 export class WaitlistService {

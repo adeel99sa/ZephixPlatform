@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Project } from '../../projects/entities/project.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
 import { Risk } from '../entities/risk.entity';
 import { RiskAssessment } from '../entities/risk-assessment.entity';
 import { RiskResponse } from '../entities/risk-response.entity';

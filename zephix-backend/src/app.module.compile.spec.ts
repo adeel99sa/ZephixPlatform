@@ -6,9 +6,9 @@ import { DataSource } from 'typeorm';
 
 // Import all entities that need repository mocking
 import { User } from "./modules/users/entities/user.entity"
-import { Project } from './projects/entities/project.entity';
-import { TeamMember } from './projects/entities/team-member.entity';
-import { Role } from './projects/entities/role.entity';
+import { Project } from './modules/projects/entities/project.entity';
+import { TeamMember } from './modules/projects/entities/team-member.entity';
+import { Role } from './modules/projects/entities/role.entity';
 import { UserProject } from './pm/entities/user-project.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
 import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';

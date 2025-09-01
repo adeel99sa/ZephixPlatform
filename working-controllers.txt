@@ -1,0 +1,3 @@
+src/auth/controllers/auth.controller.ts
+src/projects/controllers/projects.controller.ts
+src/health/health.controller.ts

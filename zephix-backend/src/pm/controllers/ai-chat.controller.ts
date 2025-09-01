@@ -13,7 +13,7 @@ import {
   ChatResponse,
   ChatContext,
 } from '../services/ai-chat.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 
 export interface SendMessageRequest {
   message: string;

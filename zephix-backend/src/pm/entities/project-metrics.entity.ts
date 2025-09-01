@@ -7,7 +7,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { Project } from '../../projects/entities/project.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
 
 @Entity('project_metrics')
 @Index(['projectId', 'metricDate'])

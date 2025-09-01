@@ -1,0 +1,20 @@
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE TABLE risk_signals (
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_risk_signals_project ON risk_signals(project_id);
+src/database/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_risk_signals_status ON risk_signals(status);
+src/database/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        // 5. Recreate risk_signals table with camelCase naming
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE TABLE "riskSignals" (
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE INDEX "idx_risk_signals_project" ON "riskSignals"("projectId");
+src/migrations/1756400000002-FixNamingAndConstraints.ts:            CREATE INDEX "idx_risk_signals_status" ON "riskSignals"("status");
+src/migrations/1756400000002-FixNamingAndConstraints.ts:        await queryRunner.query(`DROP TABLE IF EXISTS "riskSignals" CASCADE`);
+src/migrations/1756400000000-CoreTables.ts:            CREATE TABLE risk_signals (
+src/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_risk_signals_project ON risk_signals(project_id);
+src/migrations/1756400000000-CoreTables.ts:            CREATE INDEX idx_risk_signals_status ON risk_signals(status);
+src/migrations/1756400000000-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
+src/migrations/1756400000001-CoreTables.ts:            CREATE TABLE risk_signals (
+src/migrations/1756400000001-CoreTables.ts:            CREATE INDEX idx_risk_signals_project ON risk_signals(project_id);
+src/migrations/1756400000001-CoreTables.ts:            CREATE INDEX idx_risk_signals_status ON risk_signals(status);
+src/migrations/1756400000001-CoreTables.ts:        await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
+src/modules/projects/entities/project.entity.ts:import { RiskSignal } from '../../risks/entities/risk-signal.entity';
+src/modules/projects/entities/project.entity.ts:  riskSignals: RiskSignal[];

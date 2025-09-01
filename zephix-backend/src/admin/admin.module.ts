@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { User } from '../modules/users/entities/user.entity';
-import { Project } from '../projects/entities/project.entity';
+import { Project } from '../modules/projects/entities/project.entity';
 import { WorkflowTemplate } from '../pm/entities/workflow-template.entity';
 import { WorkflowInstance } from '../pm/entities/workflow-instance.entity';
 
