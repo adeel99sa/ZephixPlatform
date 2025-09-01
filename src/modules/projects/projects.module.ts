@@ -11,6 +11,6 @@ import { Role } from './entities/role.entity';
   imports: [TypeOrmModule.forFeature([Project, Team, TeamMember, Role])],
   controllers: [ProjectsController],
   providers: [ProjectsService],
+  exports: [ProjectsService],
 })
 export class ProjectsModule {}
-
