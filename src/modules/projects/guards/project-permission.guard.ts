@@ -58,5 +58,5 @@ export class ProjectPermissionGuard implements CanActivate {
     }
 
     return true;
-    }
+  }
 }
