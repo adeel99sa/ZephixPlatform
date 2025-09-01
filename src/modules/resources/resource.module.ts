@@ -1,18 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
-import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
-import { ResourceConflict } from './entities/resource-conflict.entity';
-import { ResourceAllocationService } from './resource-allocation.service';
-import { ResourceConflictService } from './resource-conflict.service';
-import { ResourceValidationService } from './resource-validation.service';
-import { ResourceAllocationController } from './resource-allocation.controller';
+import { ResourceAllocationService } from './services/resource-allocation.service';
+import { ResourceAllocationController } from './controllers/resource-allocation.controller';
 import { ResourcesController } from './resources.controller';
+import { ResourceHeatMapService } from './services/resource-heat-map.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ResourceAllocation, UserDailyCapacity, ResourceConflict])],
-  providers: [ResourceAllocationService, ResourceConflictService, ResourceValidationService],
+  imports: [TypeOrmModule.forFeature([ResourceAllocation])],
   controllers: [ResourceAllocationController, ResourcesController],
-  exports: [ResourceAllocationService, ResourceConflictService, ResourceValidationService],
+  providers: [ResourceAllocationService, ResourceHeatMapService],
+  exports: [ResourceAllocationService, ResourceHeatMapService],
 })
 export class ResourceModule {}
