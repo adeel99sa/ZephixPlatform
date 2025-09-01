@@ -78,10 +78,9 @@ import jwtConfig from '../../config/jwt.config';
     OrganizationSignupService,
     EmailVerificationService,
     JwtStrategy,
-    JwtAuthGuard,
-    AdminGuard,
+  
   ],
-  exports: [AuthService, EmailVerificationService, JwtAuthGuard, AdminGuard, JwtStrategy, JwtModule, CurrentUser], // export JwtModule for use in other modules
+  exports: [AuthService, EmailVerificationService, JwtStrategy, JwtModule], // export JwtModule for use in other modules
 })
 export class AuthModule {
   constructor() {
