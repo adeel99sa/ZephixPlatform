@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import api from '../services/api';
+import { apiGet, apiPost } from '../services/api.service';
 
 export interface ProjectGenerationRequest {
   methodology: string;
@@ -40,8 +40,8 @@ export const useProjectGeneration = () => {
         customSettings,
       };
 
-      const response = await api.post(`/api/v1/projects/generate-from-document/${documentId}`, payload);
-      return response.data;
+      const response = await apiPost(`/api/v1/projects/generate-from-document/${documentId}`, payload);
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to generate project';
       setError(errorMessage);
@@ -53,8 +53,8 @@ export const useProjectGeneration = () => {
 
   const checkProjectStatus = useCallback(async (projectId: string): Promise<ProjectGenerationStatus> => {
     try {
-      const response = await api.get(`/api/v1/projects/generation-status/${projectId}`);
-      return response.data;
+      const response = await apiGet(`/api/v1/projects/generation-status/${projectId}`);
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to check project generation status';
       throw new Error(errorMessage);
@@ -63,8 +63,8 @@ export const useProjectGeneration = () => {
 
   const getProjectDetails = useCallback(async (projectId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/v1/projects/${projectId}`);
-      return response.data;
+      const response = await apiGet(`/api/v1/projects/${projectId}`);
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to get project details';
       throw new Error(errorMessage);

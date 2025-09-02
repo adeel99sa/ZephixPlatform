@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { feedbackApi } from '../services/api';
+import { apiPost } from '../services/api.service';
 import type { FeedbackData } from '../types';
 
 export const useFeedback = () => {
@@ -9,7 +9,7 @@ export const useFeedback = () => {
   const submitFeedback = async (data: FeedbackData) => {
     try {
       setIsSubmitting(true);
-      const response = await feedbackApi.submit(data);
+      const response = await apiPost('/api/feedback', data);
       toast.success('Thank you for your feedback! 🎉');
       return response;
     } catch (error) {

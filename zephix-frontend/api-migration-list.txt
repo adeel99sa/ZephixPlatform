@@ -1,0 +1,50 @@
+=== Files using response.data ===
+src/hooks/useApi.ts
+src/hooks/useDocumentProcessing.ts
+src/hooks/useProjectGeneration.ts
+src/hooks/useProjectInitiation.ts
+src/pages/ai/AISuggestionsPage.tsx
+src/pages/collaboration/CollaborationPage.tsx
+src/pages/intake/IntakeFormsPage.tsx
+src/pages/reports/ReportsPage.tsx
+src/pages/settings/SettingsPage.tsx
+src/pages/team/TeamPage.tsx
+src/pages/templates/TemplatesPage.tsx
+src/pages/workflows/WorkflowsPage.tsx
+src/pages/WorkflowTemplateList.tsx
+src/stores/organizationStore.ts
+
+=== Files importing from mockApi ===
+src/stores/mockApi.ts
+
+=== Files using old api import ===
+src/api/auth.ts
+src/api/waitlist.ts
+src/components/ChatInterface.tsx
+src/components/dashboard/AIIntelligenceDashboard.tsx
+src/components/intake/NaturalLanguageDesigner.tsx
+src/components/intelligence/DocumentIntelligence.tsx
+src/components/pm/risk-management/RiskManagementDashboard.tsx
+src/components/pm/risk-management/RiskRegister.tsx
+src/hooks/useApi.ts
+src/hooks/useEnterpriseAuth.ts
+src/hooks/useProjectInitiation.ts
+src/hooks/useStatusReporting.ts
+src/pages/ai/AISuggestionsPage.tsx
+src/pages/AnalyticsPage.tsx
+src/pages/auth/EmailVerificationPage.tsx
+src/pages/auth/PendingVerificationPage.tsx
+src/pages/collaboration/CollaborationPage.tsx
+src/pages/intake/IntakeFormsPage.tsx
+src/pages/reports/ReportsPage.tsx
+src/pages/ResourcesPage.tsx
+src/pages/settings/SettingsPage.tsx
+src/pages/team/TeamPage.tsx
+src/pages/templates/TemplatesPage.tsx
+src/pages/workflows/WorkflowsPage.tsx
+src/services/workflowService.ts
+
+=== Summary ===
+Files with response.data:       14
+Files with mockApi:        1
+Files with old api import:       25

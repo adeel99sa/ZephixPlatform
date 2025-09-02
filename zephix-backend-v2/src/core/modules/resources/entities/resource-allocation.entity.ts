@@ -1,0 +1,40 @@
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, Check } from 'typeorm';
+
+@Entity('resource_allocations')
+@Index('idx_allocations_project', ['projectId'])
+@Check('"startDate" <= "endDate"')
+@Check('"allocationPercentage" > 0 AND "allocationPercentage" <= 200')
+export class ResourceAllocation {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'resourceId' })
+  resourceId: string;
+
+  @Column({ name: 'projectId' })
+  projectId: string;
+
+  @Column({ name: 'taskId', nullable: true })
+  taskId: string;
+
+  @Column({ name: 'startDate', type: 'date' })
+  startDate: Date;
+
+  @Column({ name: 'endDate', type: 'date' })
+  endDate: Date;
+
+  @Column({ name: 'allocationPercentage', type: 'numeric', precision: 5, scale: 2 })
+  allocationPercentage: number;
+
+  @Column({ name: 'hoursPerDay', default: 8 })
+  hoursPerDay: number;
+
+  @CreateDateColumn({ name: 'createdAt' })
+  createdAt: Date;
+
+  @Column({ name: 'organization_id', nullable: true })
+  organizationId: string;
+
+  @Column({ name: 'updated_at', nullable: true })
+  updatedAt: Date;
+}

@@ -1,0 +1,581 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { WorkflowTemplatesService } from '../services/workflow-templates.service';
+import { WorkflowTemplate } from '../entities/workflow-template.entity';
+import { WorkflowStage } from '../entities/workflow-stage.entity';
+import { WorkflowApproval } from '../entities/workflow-approval.entity';
+import { WorkflowVersion } from '../entities/workflow-version.entity';
+import { 
+  CreateWorkflowTemplateDto, 
+  UpdateWorkflowTemplateDto,
+  WorkflowType,
+  WorkflowStatus,
+  StageType,
+  StageStatus,
+  ApprovalType,
+  ApprovalStatus,
+  ApprovalLevel
+} from '../dto/workflow.dto';
+
+describe('WorkflowTemplatesService', () => {
+  let service: WorkflowTemplatesService;
+  let workflowTemplateRepository: Repository<WorkflowTemplate>;
+  let workflowStageRepository: Repository<WorkflowStage>;
+  let workflowApprovalRepository: Repository<WorkflowApproval>;
+  let workflowVersionRepository: Repository<WorkflowVersion>;
+  let configService: ConfigService;
+
+  const mockWorkflowTemplateRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(),
+    count: jest.fn(),
+    update: jest.fn(),
+    increment: jest.fn(),
+  };
+
+  const mockWorkflowStageRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockWorkflowApprovalRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockWorkflowVersionRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WorkflowTemplatesService,
+        {
+          provide: getRepositoryToken(WorkflowTemplate),
+          useValue: mockWorkflowTemplateRepository,
+        },
+        {
+          provide: getRepositoryToken(WorkflowStage),
+          useValue: mockWorkflowStageRepository,
+        },
+        {
+          provide: getRepositoryToken(WorkflowApproval),
+          useValue: mockWorkflowApprovalRepository,
+        },
+        {
+          provide: getRepositoryToken(WorkflowVersion),
+          useValue: mockWorkflowVersionRepository,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<WorkflowTemplatesService>(WorkflowTemplatesService);
+    workflowTemplateRepository = module.get<Repository<WorkflowTemplate>>(getRepositoryToken(WorkflowTemplate));
+    workflowStageRepository = module.get<Repository<WorkflowStage>>(getRepositoryToken(WorkflowStage));
+    workflowApprovalRepository = module.get<Repository<WorkflowApproval>>(getRepositoryToken(WorkflowApproval));
+    workflowVersionRepository = module.get<Repository<WorkflowVersion>>(getRepositoryToken(WorkflowVersion));
+    configService = module.get<ConfigService>(ConfigService);
+
+    // Reset mocks
+    jest.clearAllMocks();
+    
+    // Default config values
+    mockConfigService.get.mockImplementation((key: string, defaultValue: any) => {
+      const config = {
+        'WORKFLOW_MAX_TEMPLATES_PER_ORG': 50,
+        'WORKFLOW_ENABLE_AUDIT_LOGGING': true,
+      };
+      return config[key] || defaultValue;
+    });
+  });
+
+  describe('createWorkflowTemplate', () => {
+    const createDto: CreateWorkflowTemplateDto = {
+      name: 'Test Workflow',
+      description: 'A test workflow template',
+      type: WorkflowType.AGILE,
+      stages: [
+        {
+          name: 'Planning',
+          description: 'Project planning phase',
+          type: StageType.PLANNING,
+          order: 1,
+          estimatedDuration: 5,
+          durationUnit: 'days',
+          requiresApproval: false,
+          isMilestone: false,
+        },
+        {
+          name: 'Execution',
+          description: 'Project execution phase',
+          type: StageType.EXECUTION,
+          order: 2,
+          estimatedDuration: 10,
+          durationUnit: 'days',
+          requiresApproval: true,
+          isMilestone: true,
+          approvals: [
+            {
+              title: 'Milestone Review',
+              description: 'Review project progress',
+              type: ApprovalType.MILESTONE,
+              level: ApprovalLevel.PROJECT_MANAGER,
+              isRequired: true,
+              canBeSkipped: false,
+            },
+          ],
+        },
+      ],
+    };
+
+    const organizationId = 'org-123';
+    const userId = 'user-123';
+
+    it('should create a workflow template successfully', async () => {
+      // Mock repository responses
+      const mockTemplate = {
+        id: 'template-123',
+        ...createDto,
+        status: WorkflowStatus.DRAFT,
+        version: 1,
+        isDefault: false,
+        isPublic: false,
+        usageCount: 0,
+        tags: [],
+        metadata: {},
+        organizationId,
+        createdBy: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockStages = [
+        { id: 'stage-1', workflowTemplateId: 'template-123' },
+        { id: 'stage-2', workflowTemplateId: 'template-123' },
+      ];
+
+      mockWorkflowTemplateRepository.count.mockResolvedValue(0);
+      mockWorkflowTemplateRepository.create.mockReturnValue(mockTemplate);
+      mockWorkflowTemplateRepository.save.mockResolvedValue(mockTemplate);
+      mockWorkflowStageRepository.create.mockReturnValue(mockStages[0]);
+      mockWorkflowStageRepository.save.mockResolvedValue(mockStages[0]);
+      mockWorkflowApprovalRepository.create.mockReturnValue({ id: 'approval-1' });
+      mockWorkflowApprovalRepository.save.mockResolvedValue({ id: 'approval-1' });
+
+      // Mock the loadTemplateWithRelations method
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue(mockTemplate);
+
+      const result = await service.createWorkflowTemplate(createDto, organizationId, userId);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('template-123');
+      expect(result.status).toBe(WorkflowStatus.DRAFT);
+      expect(mockWorkflowTemplateRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+        name: createDto.name,
+        type: createDto.type,
+        organizationId,
+        createdBy: userId,
+      }));
+    });
+
+    it('should throw error when organization template limit exceeded', async () => {
+      mockWorkflowTemplateRepository.count.mockResolvedValue(50);
+
+      await expect(
+        service.createWorkflowTemplate(createDto, organizationId, userId)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when template has no stages', async () => {
+      const invalidDto = { ...createDto, stages: [] };
+
+      await expect(
+        service.createWorkflowTemplate(invalidDto, organizationId, userId)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when stage order is not sequential', async () => {
+      const invalidDto = {
+        ...createDto,
+        stages: [
+          { ...createDto.stages[0], order: 1 },
+          { ...createDto.stages[1], order: 3 }, // Missing order 2
+        ],
+      };
+
+      await expect(
+        service.createWorkflowTemplate(invalidDto, organizationId, userId)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when stage dependency not found', async () => {
+      const invalidDto = {
+        ...createDto,
+        stages: [
+          { ...createDto.stages[0], order: 1 },
+          { 
+            ...createDto.stages[1], 
+            order: 2,
+            dependencies: ['NonExistentStage'],
+          },
+        ],
+      };
+
+      await expect(
+        service.createWorkflowTemplate(invalidDto, organizationId, userId)
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getWorkflowTemplates', () => {
+    const organizationId = 'org-123';
+
+    it('should return paginated workflow templates', async () => {
+      const mockTemplates = [
+        { id: 'template-1', name: 'Template 1' },
+        { id: 'template-2', name: 'Template 2' },
+      ];
+
+      mockWorkflowTemplateRepository.count.mockResolvedValue(2);
+      mockWorkflowTemplateRepository.find.mockResolvedValue(mockTemplates);
+
+      // Mock the loadTemplateWithRelations method for each template
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue({
+        id: 'template-1',
+        name: 'Template 1',
+        stages: [],
+      });
+
+      const result = await service.getWorkflowTemplates(organizationId);
+
+      expect(result.total).toBe(2);
+      expect(result.templates).toHaveLength(2);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(20);
+      expect(result.totalPages).toBe(1);
+    });
+
+    it('should apply filters correctly', async () => {
+      const filters = {
+        status: WorkflowStatus.ACTIVE,
+        type: WorkflowType.AGILE,
+        isDefault: true,
+      };
+
+      mockWorkflowTemplateRepository.count.mockResolvedValue(1);
+      mockWorkflowTemplateRepository.find.mockResolvedValue([]);
+
+      await service.getWorkflowTemplates(
+        organizationId,
+        filters.status,
+        filters.type,
+        filters.isDefault
+      );
+
+      expect(mockWorkflowTemplateRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId,
+            status: filters.status,
+            type: filters.type,
+            isDefault: filters.isDefault,
+          }),
+        })
+      );
+    });
+  });
+
+  describe('getWorkflowTemplateById', () => {
+    const templateId = 'template-123';
+    const organizationId = 'org-123';
+
+    it('should return workflow template when found', async () => {
+      const mockTemplate = { id: templateId, name: 'Test Template' };
+      
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue(mockTemplate);
+
+      const result = await service.getWorkflowTemplateById(templateId, organizationId);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(templateId);
+    });
+
+    it('should throw NotFoundException when template not found', async () => {
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.getWorkflowTemplateById(templateId, organizationId)
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateWorkflowTemplate', () => {
+    const templateId = 'template-123';
+    const organizationId = 'org-123';
+    const userId = 'user-123';
+    const updateDto: UpdateWorkflowTemplateDto = {
+      name: 'Updated Template Name',
+      description: 'Updated description',
+    };
+
+    it('should update workflow template successfully', async () => {
+      const mockTemplate = {
+        id: templateId,
+        status: WorkflowStatus.DRAFT,
+        name: 'Old Name',
+        description: 'Old description',
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+      mockWorkflowTemplateRepository.save.mockResolvedValue(mockTemplate);
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue(mockTemplate);
+
+      const result = await service.updateWorkflowTemplate(
+        templateId,
+        updateDto,
+        organizationId,
+        userId
+      );
+
+      expect(result).toBeDefined();
+      expect(mockWorkflowTemplateRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...mockTemplate,
+          ...updateDto,
+        })
+      );
+    });
+
+    it('should throw error when template cannot be modified', async () => {
+      const mockTemplate = {
+        id: templateId,
+        status: WorkflowStatus.ARCHIVED, // Archived templates cannot be modified
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+
+      await expect(
+        service.updateWorkflowTemplate(templateId, updateDto, organizationId, userId)
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('deleteWorkflowTemplate', () => {
+    const templateId = 'template-123';
+    const organizationId = 'org-123';
+
+    it('should delete workflow template successfully', async () => {
+      const mockTemplate = {
+        id: templateId,
+        status: WorkflowStatus.DRAFT,
+        usageCount: 0,
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+      mockWorkflowStageRepository.find.mockResolvedValue([]);
+
+      await service.deleteWorkflowTemplate(templateId, organizationId);
+
+      expect(mockWorkflowTemplateRepository.update).toHaveBeenCalledWith(
+        { id: templateId },
+        { deletedAt: expect.any(Date) }
+      );
+    });
+
+    it('should throw error when template cannot be deleted', async () => {
+      const mockTemplate = {
+        id: templateId,
+        status: WorkflowStatus.ACTIVE, // Active templates cannot be deleted
+        usageCount: 0,
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+
+      await expect(
+        service.deleteWorkflowTemplate(templateId, organizationId)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw error when template has usage', async () => {
+      const mockTemplate = {
+        id: templateId,
+        status: WorkflowStatus.DRAFT,
+        usageCount: 5, // Template has been used
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockTemplate);
+
+      await expect(
+        service.deleteWorkflowTemplate(templateId, organizationId)
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('cloneWorkflowTemplate', () => {
+    const templateId = 'template-123';
+    const organizationId = 'org-123';
+    const userId = 'user-123';
+
+    it('should clone workflow template successfully', async () => {
+      const mockOriginalTemplate = {
+        id: templateId,
+        name: 'Original Template',
+        description: 'Original description',
+        type: WorkflowType.AGILE,
+        stages: [
+          {
+            name: 'Stage 1',
+            description: 'Stage description',
+            type: StageType.PLANNING,
+            order: 1,
+            estimatedDuration: 5,
+            durationUnit: 'days',
+            requiresApproval: false,
+            isMilestone: false,
+          },
+        ],
+      };
+
+      const mockClonedTemplate = {
+        id: 'cloned-template-123',
+        name: 'Original Template (Copy)',
+        description: 'Original description',
+        type: WorkflowType.AGILE,
+        status: WorkflowStatus.DRAFT,
+        version: 1,
+        isDefault: false,
+        isPublic: false,
+        usageCount: 0,
+        tags: ['cloned'],
+        metadata: { clonedFrom: templateId },
+        organizationId,
+        createdBy: userId,
+      };
+
+      jest.spyOn(service, 'getWorkflowTemplateById').mockResolvedValue(mockOriginalTemplate as any);
+      mockWorkflowTemplateRepository.create.mockReturnValue(mockClonedTemplate);
+      mockWorkflowTemplateRepository.save.mockResolvedValue(mockClonedTemplate);
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue(mockClonedTemplate as any);
+
+      const result = await service.cloneWorkflowTemplate(
+        templateId,
+        organizationId,
+        userId
+      );
+
+      expect(result).toBeDefined();
+      expect(result.name).toBe('Original Template (Copy)');
+      expect(result.isDefault).toBe(false);
+      expect(result.isPublic).toBe(false);
+      expect(result.tags).toContain('cloned');
+    });
+  });
+
+  describe('getDefaultTemplate', () => {
+    const organizationId = 'org-123';
+
+    it('should return default template when exists', async () => {
+      const mockDefaultTemplate = {
+        id: 'default-template-123',
+        name: 'Default Template',
+        isDefault: true,
+        status: WorkflowStatus.ACTIVE,
+      };
+
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(mockDefaultTemplate);
+      jest.spyOn(service as any, 'loadTemplateWithRelations').mockResolvedValue(mockDefaultTemplate as any);
+
+      const result = await service.getDefaultTemplate(organizationId);
+
+      expect(result).toBeDefined();
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('should return null when no default template exists', async () => {
+      mockWorkflowTemplateRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.getDefaultTemplate(organizationId);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('incrementUsageCount', () => {
+    const templateId = 'template-123';
+    const organizationId = 'org-123';
+
+    it('should increment usage count successfully', async () => {
+      mockWorkflowTemplateRepository.increment.mockResolvedValue({ affected: 1 });
+      mockWorkflowTemplateRepository.update.mockResolvedValue({ affected: 1 });
+
+      await service.incrementUsageCount(templateId, organizationId);
+
+      expect(mockWorkflowTemplateRepository.increment).toHaveBeenCalledWith(
+        { id: templateId, organizationId },
+        'usageCount',
+        1
+      );
+      expect(mockWorkflowTemplateRepository.update).toHaveBeenCalledWith(
+        { id: templateId, organizationId },
+        { lastUsedAt: expect.any(Date) }
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockWorkflowTemplateRepository.increment.mockRejectedValue(new Error('Database error'));
+
+      // Should not throw error
+      await expect(
+        service.incrementUsageCount(templateId, organizationId)
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle database errors gracefully', async () => {
+      const organizationId = 'org-123';
+      
+      mockWorkflowTemplateRepository.count.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(
+        service.getWorkflowTemplates(organizationId)
+      ).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it('should log errors appropriately', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const organizationId = 'org-123';
+      
+      mockWorkflowTemplateRepository.count.mockRejectedValue(new Error('Test error'));
+
+      try {
+        await service.getWorkflowTemplates(organizationId);
+      } catch (error) {
+        // Expected to throw
+      }
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+});

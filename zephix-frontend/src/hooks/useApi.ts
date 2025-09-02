@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { apiJson } from '../services/api';
+import { apiRequest } from '../services/api.service';
 import toast from 'react-hot-toast';
 
 interface UseApiOptions {
@@ -49,15 +49,15 @@ export function useApi<T = any>(
       setLoading(true);
       setError(null);
 
-      const response = await apiJson(endpoint, {
+      const response = await apiRequest(endpoint, {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
 
-      setData(response.data || response);
+      setData(response || response);
       setRetryAttempts(0);
-      onSuccess?.(response.data || response);
+      onSuccess?.(response || response);
     } catch (err: any) {
       const errorMessage = err?.message || 'Failed to fetch data';
       setError(errorMessage);
@@ -136,7 +136,7 @@ export function useApiMutation<T = any>(
       setError(null);
 
       const targetEndpoint = customEndpoint || endpoint;
-      const response = await apiJson(targetEndpoint, {
+      const response = await apiRequest(targetEndpoint, {
         method,
         body,
         headers: {

@@ -175,8 +175,8 @@ export const useOrganizationStore = create<OrganizationState>()(
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           set({
-            organizations: response.data,
-            currentOrganization: response.data[0] || null, // Set first org as current
+            organizations: response,
+            currentOrganization: response[0] || null, // Set first org as current
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
@@ -186,7 +186,7 @@ export const useOrganizationStore = create<OrganizationState>()(
           
           return {
             success: true,
-            data: response.data
+            data: response
           };
         } catch (error) {
           const endTime = performance.now();
@@ -235,23 +235,23 @@ export const useOrganizationStore = create<OrganizationState>()(
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           const currentOrgs = get().organizations;
-          const newOrgs = [...currentOrgs, response.data];
+          const newOrgs = [...currentOrgs, response];
           
           set({
             organizations: newOrgs,
-            currentOrganization: response.data, // Switch to new organization
+            currentOrganization: response, // Switch to new organization
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
-            lastSuccess: `Organization "${response.data.name}" created successfully`,
+            lastSuccess: `Organization "${response.name}" created successfully`,
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(`Organization "${response.data.name}" created successfully`);
+          toast.success(`Organization "${response.name}" created successfully`);
           
           return {
             success: true,
-            data: response.data
+            data: response
           };
         } catch (error) {
           const endTime = performance.now();
@@ -300,19 +300,19 @@ export const useOrganizationStore = create<OrganizationState>()(
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           set({
-            currentOrganization: response.data,
+            currentOrganization: response,
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
-            lastSuccess: `Switched to ${response.data.name}`,
+            lastSuccess: `Switched to ${response.name}`,
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(`Switched to ${response.data.name}`);
+          toast.success(`Switched to ${response.name}`);
           
           return {
             success: true,
-            data: response.data
+            data: response
           };
         } catch (error) {
           const endTime = performance.now();
@@ -413,15 +413,15 @@ export const useOrganizationStore = create<OrganizationState>()(
           set({
             isLoading: false,
             loadingAction: undefined,
-            lastSuccess: response.data.message,
+            lastSuccess: response.message,
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(response.data.message);
+          toast.success(response.message);
           
           return {
             success: true,
-            data: response.data
+            data: response
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to invite user';

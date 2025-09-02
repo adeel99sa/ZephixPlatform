@@ -1,134 +1,121 @@
-/**
- * Enterprise-Secure Signup Page
- * Implements OWASP ASVS Level 1 compliance for user registration
- */
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, UserPlus, Lock } from 'lucide-react';
-import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
-import { useSecurity } from '../../hooks/useSecurity';
+import { Zap, Eye, EyeOff, AlertCircle, Shield, Lock } from 'lucide-react';
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signup, authState, isLoading, error, clearError } = useEnterpriseAuth();
-  const [securityState, securityActions] = useSecurity();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
+    organizationName: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (authState.isAuthenticated) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [authState.isAuthenticated, navigate]);
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    if (password.length < 12) errors.push('At least 12 characters');
+    if (!/[A-Z]/.test(password)) errors.push('One uppercase letter');
+    if (!/[a-z]/.test(password)) errors.push('One lowercase letter');
+    if (!/[0-9]/.test(password)) errors.push('One number');
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.push('One special character');
+    return errors;
+  };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
     
-    // Clear error when user starts typing
-    if (error) {
-      clearError();
+    if (name === 'password') {
+      setPasswordErrors(validatePassword(value));
     }
+    
+    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Log security event for form submission attempt
-    securityActions.logEvent('enterprise_signup_form_submission', {
-      email: formData.email,
-      hasFirstName: !!formData.firstName,
-      hasLastName: !!formData.lastName,
-      passwordLength: formData.password.length,
-      timestamp: new Date().toISOString(),
-    }, 'medium');
-    
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      securityActions.logEvent('enterprise_signup_validation_failure', {
-        reason: 'password_mismatch',
-        email: formData.email,
-        timestamp: new Date().toISOString(),
-      }, 'medium');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      securityActions.logEvent('enterprise_signup_validation_failure', {
-        reason: 'password_too_short',
-        email: formData.email,
-        passwordLength: formData.password.length,
-        timestamp: new Date().toISOString(),
-      }, 'medium');
+      setError('Passwords do not match');
       return;
     }
 
     // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      securityActions.logEvent('enterprise_signup_validation_failure', {
-        reason: 'password_weak',
-        email: formData.email,
-        timestamp: new Date().toISOString(),
-      }, 'medium');
+    const pwdErrors = validatePassword(formData.password);
+    if (pwdErrors.length > 0) {
+      setError('Password does not meet security requirements');
       return;
     }
 
-    try {
-      // Log security event for registration attempt
-      securityActions.logEvent('enterprise_user_registration_attempt', {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        timestamp: new Date().toISOString(),
-      }, 'medium');
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
-      const success = await signup({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
+    // Sanitize inputs (basic XSS prevention)
+    const sanitizedData = {
+      email: formData.email.toLowerCase().trim(),
+      password: formData.password,
+      firstName: formData.firstName.trim().replace(/[<>]/g, ''),
+      lastName: formData.lastName.trim().replace(/[<>]/g, ''),
+      organizationName: formData.organizationName.trim().replace(/[<>]/g, '')
+    };
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:3000/api/v1/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sanitizedData),
       });
 
-      if (success) {
-        // Log successful registration
-        securityActions.logEvent('enterprise_user_registration_success', {
-          email: formData.email,
-          userId: authState.user?.id,
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store tokens securely
+        localStorage.setItem('token', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('user', JSON.stringify({
+          id: data.user.id,
+          email: data.user.email,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          organizationId: data.user.organizationId
+        }));
+        
+        // Log security event
+        console.log('Security Event: User signup', {
+          email: sanitizedData.email,
           timestamp: new Date().toISOString(),
-        }, 'low');
+          ip: 'client-side'
+        });
         
-        setIsSubmitted(true);
-        
-        // Redirect to login with success message
-        setTimeout(() => {
-          navigate('/login', {
-            state: {
-              message: 'Enterprise account created successfully! Please sign in.',
-              email: formData.email,
-            },
-          });
-        }, 2000);
+        navigate('/dashboard');
+      } else {
+        setError(data.message || 'Signup failed. Please try again.');
       }
-    } catch (err: any) {
-      // Error handling is done in the hook
-      securityActions.logEvent('enterprise_user_registration_error', {
-        email: formData.email,
-        error: err.message || 'Unknown error',
-        timestamp: new Date().toISOString(),
-      }, 'high');
+    } catch (err) {
+      console.error('Signup error:', err);
+      setError('Unable to connect to server. Please check your connection.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -136,7 +123,7 @@ export function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          <Link to="/" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
@@ -144,7 +131,7 @@ export function SignupPage() {
           </Link>
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Create Enterprise Account
+          Create your account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
@@ -156,228 +143,205 @@ export function SignupPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {isSubmitted ? (
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-blue-600" />
+          {/* Security Notice */}
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-md p-4">
+            <div className="flex">
+              <Shield className="h-5 w-5 text-green-600 mr-2 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-green-800">Secure Signup</p>
+                <p className="text-green-700 mt-1">Your data is encrypted and protected</p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Enterprise Account Created Successfully!
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Welcome to Zephix! Your enterprise account has been created with full security compliance.
-              </p>
-              <p className="text-sm text-blue-600">
-                Redirecting to secure login...
-              </p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <div className="flex">
-                    <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                    <p className="text-sm text-red-800">{error}</p>
-                  </div>
-                </div>
-              )}
+          </div>
 
-              {/* Enterprise Security Status */}
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-md p-4">
-                <div className="flex items-start">
-                  <div className="p-2 bg-green-100 rounded-lg mr-3">
-                    <Shield className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-green-800 mb-1">
-                      🚀 Enterprise Security Active
-                    </p>
-                    <p className="text-sm text-green-700 mb-2">
-                      {securityState.environmentValid 
-                        ? 'All security checks passed. Your data is protected by enterprise-grade security.'
-                        : 'Security validation in progress...'
-                      }
-                    </p>
-                    <div className="flex items-center space-x-2 text-xs text-green-600">
-                      <Lock className="h-3 w-3" />
-                      <span>OWASP ASVS Level 1 Compliant</span>
-                    </div>
-                  </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <div className="flex">
+                  <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                  <p className="text-sm text-red-800">{error}</p>
                 </div>
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      autoComplete="given-name"
-                      required
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="First name"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      autoComplete="family-name"
-                      required
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="Last name"
-                    />
-                  </div>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                  First Name *
                 </label>
-                <div className="mt-1">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="Enter your enterprise email"
-                  />
-                </div>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  maxLength={50}
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
               </div>
-
+              
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                  Last Name *
                 </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
-                    placeholder="Create a secure password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Must contain 8+ characters, uppercase, lowercase, number, and special character
-                </p>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  maxLength={50}
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm Password
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
-                    placeholder="Confirm your secure password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
+            <div>
+              <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700">
+                Organization Name *
+              </label>
+              <input
+                id="organizationName"
+                name="organizationName"
+                type="text"
+                required
+                maxLength={100}
+                value={formData.organizationName}
+                onChange={handleInputChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Your company name"
+              />
+            </div>
 
-              {/* Enterprise Security Features */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                <div className="flex items-start">
-                  <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                    <Lock className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-blue-800 mb-2">
-                      🔒 Enterprise Security Features
-                    </p>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      <li>• JWT Token Integrity Validation</li>
-                      <li>• Real-time Security Event Logging</li>
-                      <li>• Session Lifecycle Management</li>
-                      <li>• XSS & Injection Prevention</li>
-                      <li>• Secure Token Storage</li>
-                      <li>• Activity Monitoring & Timeout</li>
-                      <li>• Password Strength Validation</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address *
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                maxLength={255}
+                value={formData.email}
+                onChange={handleInputChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
 
-              <div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password *
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                />
                 <button
-                  type="submit"
-                  disabled={isLoading || !formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  {isLoading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Creating Enterprise Account...
-                    </div>
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
                   ) : (
-                    'Create Enterprise Account'
+                    <Eye className="h-4 w-4 text-gray-400" />
                   )}
                 </button>
               </div>
-
-              {/* Security Notice */}
-              <div className="text-center">
-                <p className="text-xs text-gray-500">
-                  🔐 Your account will be created immediately with enterprise-grade security
-                </p>
+              
+              {/* Password Requirements */}
+              <div className="mt-2 text-xs">
+                <p className="font-medium text-gray-700 mb-1">Password must contain:</p>
+                <ul className="space-y-1">
+                  {[
+                    'At least 12 characters',
+                    'One uppercase letter',
+                    'One lowercase letter', 
+                    'One number',
+                    'One special character'
+                  ].map((req) => (
+                    <li key={req} className={`flex items-center ${
+                      passwordErrors.includes(req) ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {passwordErrors.includes(req) ? '✗' : '✓'} {req}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </form>
-          )}
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password *
+              </label>
+              <div className="mt-1 relative">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Security Features */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className="flex items-start text-sm">
+                <Lock className="h-4 w-4 text-blue-600 mr-2 mt-0.5" />
+                <div className="text-blue-700">
+                  <p className="font-semibold mb-1">Security Features:</p>
+                  <ul className="text-xs space-y-0.5">
+                    <li>• Password hashed with bcrypt</li>
+                    <li>• JWT token authentication</li>
+                    <li>• HTTPS encrypted connection</li>
+                    <li>• Multi-tenant data isolation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading || passwordErrors.length > 0}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Creating secure account...' : 'Create Account'}
+              </button>
+            </div>
+
+            <p className="text-xs text-center text-gray-500">
+              By signing up, you agree to our Terms of Service and Privacy Policy
+            </p>
+          </form>
         </div>
       </div>
     </div>
   );
 }
+
+export default SignupPage;

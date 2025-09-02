@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 
 interface LocationState {
   email?: string;
@@ -34,7 +34,7 @@ const PendingVerificationPage: React.FC = () => {
       }
 
       try {
-        await apiJson('/auth/resend-verification', {
+        await apiRequest('/auth/resend-verification', {
           method: 'POST',
         });
         setResendSuccess(true);

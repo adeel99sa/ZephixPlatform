@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { apiJson } from '../../../services/api';
+import { apiRequest } from '../../../services/api.service';
 
 interface Risk {
   id: string;
@@ -29,7 +29,7 @@ export const RiskRegister: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const data = await apiJson(`/pm/risk-management/register/${projectId}`);
+        const data = await apiRequest(`/pm/risk-management/register/${projectId}`);
         setRisks(data.risks || data || []);
       } catch (err: any) {
         setError(err?.message || 'Failed to fetch risks');

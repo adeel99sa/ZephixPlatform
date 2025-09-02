@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiJson } from '../services/api';
+import { apiRequest } from '../services/api.service';
 
 export interface UseProjectInitiationReturn {
   analyzeDocument: (file: File, type: string, orgContext: any) => Promise<any>;
@@ -20,7 +20,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
     data?: any;
     headers?: any;
   }) => {
-    return apiJson(options.url, {
+    return apiRequest(options.url, {
       method: options.method,
       body: options.data,
       headers: options.headers,
@@ -46,7 +46,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         },
       });
 
-      return response.data;
+      return response;
     } catch (err: any) {
       setError(err.message || 'Analysis failed');
       throw err;
@@ -61,7 +61,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         method: 'GET',
         url: `/pm/project-initiation/${projectId}`,
       });
-      return response.data;
+      return response;
     } catch (err: any) {
       setError(err.message || 'Failed to get project');
       throw err;
@@ -75,7 +75,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         url: `/pm/project-initiation/${projectId}/charter`,
         data: updates,
       });
-      return response.data;
+      return response;
     } catch (err: any) {
       setError(err.message || 'Failed to update charter');
       throw err;
@@ -89,7 +89,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         url: `/pm/project-initiation/${projectId}/export`,
         data: options,
       });
-      return response.data;
+      return response;
     } catch (err: any) {
       setError(err.message || 'Export failed');
       throw err;

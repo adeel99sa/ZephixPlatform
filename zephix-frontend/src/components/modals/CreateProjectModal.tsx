@@ -1,216 +1,290 @@
-import React from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import React, { useState } from 'react';
 import { Button } from '../ui/Button';
-import type { CreateProjectData } from '../../types';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useProjectStore } from '../../stores/projectStore';
-
-const createProjectSchema = z.object({
-  name: z.string().min(3, 'Project name must be at least 3 characters'),
-  description: z.string().optional(),
-  priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  budget: z.number().min(0, 'Budget must be positive').optional(),
-});
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  prefilledData?: any;
 }
 
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  prefilledData
 }) => {
-  const { createProject, isLoading } = useProjectStore();
-  
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<CreateProjectData>({
-    resolver: zodResolver(createProjectSchema),
-    defaultValues: {
-      priority: 'medium',
-    },
+  const { createProject } = useProjectStore();
+  const [formData, setFormData] = useState({
+    name: prefilledData?.name || '',
+    description: prefilledData?.description || '',
+    startDate: '',
+    endDate: '',
+    status: 'planning',
+    budget: '',
+    template: prefilledData?.template || 'software',
+    methodology: prefilledData?.methodology || 'agile',
+    priority: prefilledData?.priority || 'medium',
+    department: '',
+    stakeholders: '',
+    organizationId: '1' // Default organization
   });
 
-  const onSubmit = async (data: CreateProjectData) => {
-    // Convert budget to number if provided
-    const projectData = {
-      ...data,
-      budget: data.budget ? Number(data.budget) : undefined,
-    };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const success = await createProject(projectData);
-    if (success) {
-      reset();
-      onSuccess();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Prepare data for API call
+      const projectData = {
+        name: formData.name,
+        description: formData.description,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        status: formData.status,
+        budget: formData.budget ? parseFloat(formData.budget) : undefined,
+        template: formData.template,
+        methodology: formData.methodology,
+        priority: formData.priority,
+        department: formData.department || undefined,
+        stakeholders: formData.stakeholders ? formData.stakeholders.split(',').map(s => s.trim()).filter(s => s) : undefined,
+        organizationId: formData.organizationId
+      };
+
+      const success = await createProject(projectData);
+      
+      if (success) {
+        onSuccess();
+        onClose();
+      } else {
+        // Error is handled by the store
+        console.error('Failed to create project');
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleClose = () => {
-    reset();
-    onClose();
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={handleClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden glass p-6 text-left align-middle shadow-xl transition-all">
-                <div className="flex items-center justify-between mb-4">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-white"
-                  >
-                    Create New Project
-                  </Dialog.Title>
-                  <button
-                    onClick={handleClose}
-                    className="rounded-md text-gray-400 hover:text-gray-300 transition-all duration-300 hover:scale-[1.015] focus-visible:ring-2 focus-visible:ring-indigo-400"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200">
-                      Project Name *
-                    </label>
-                    <input
-                      {...register('name')}
-                      type="text"
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                      placeholder="Enter project name"
-                    />
-                    {errors.name && (
-                      <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200">
-                      Description
-                    </label>
-                    <textarea
-                      {...register('description')}
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                      placeholder="Describe your project..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200">
-                      Priority
-                    </label>
-                    <select
-                      {...register('priority')}
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200">
-                        Start Date
-                      </label>
-                      <input
-                        {...register('startDate')}
-                        type="date"
-                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200">
-                        End Date
-                      </label>
-                      <input
-                        {...register('endDate')}
-                        type="date"
-                        className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200">
-                      Budget
-                    </label>
-                    <input
-                      {...register('budget', { valueAsNumber: true })}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm transition-all duration-300 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-400 sm:text-sm"
-                      placeholder="0.00"
-                    />
-                    {errors.budget && (
-                      <p className="mt-1 text-sm text-red-400">{errors.budget.message}</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end space-x-3 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleClose}
-                      disabled={isLoading}
-                      className="bg-gray-700 text-gray-200 border-gray-600 hover:bg-gray-600"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      loading={isLoading}
-                      className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
-                    >
-                      Create Project
-                    </Button>
-                  </div>
-                </form>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">Create New Project</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
         </div>
-      </Dialog>
-    </Transition>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Project Name *
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter project name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter project description"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Start Date
+              </label>
+              <input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                End Date
+              </label>
+              <input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Status
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="planning">Planning</option>
+                <option value="active">Active</option>
+                <option value="on-hold">On Hold</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Priority
+              </label>
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Template
+              </label>
+              <select
+                name="template"
+                value={formData.template}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="software">Software Development</option>
+                <option value="marketing">Marketing Campaign</option>
+                <option value="research">Research Project</option>
+                <option value="infrastructure">Infrastructure</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Methodology
+              </label>
+              <select
+                name="methodology"
+                value={formData.methodology}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="agile">Agile</option>
+                <option value="waterfall">Waterfall</option>
+                <option value="scrum">Scrum</option>
+                <option value="kanban">Kanban</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Budget
+            </label>
+            <input
+              type="number"
+              name="budget"
+              value={formData.budget}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter budget amount"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Department
+            </label>
+            <input
+              type="text"
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter department"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Stakeholders
+            </label>
+            <input
+              type="text"
+              name="stakeholders"
+              value={formData.stakeholders}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter stakeholders (comma-separated)"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Project'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
-}; 
+};

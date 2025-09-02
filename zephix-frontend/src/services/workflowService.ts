@@ -9,11 +9,11 @@ import {
   CreateWorkflowInstanceRequest,
   WorkflowActionRequest
 } from '../types/workflow';
-import { apiJson } from './api';
+import { apiRequest } from './api.service';
 
 class WorkflowTemplateService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return apiJson(endpoint, options);
+    return apiRequest(endpoint, options);
   }
 
   // Workflow Templates
@@ -33,7 +33,8 @@ class WorkflowTemplateService {
       });
     }
 
-    return this.request(`/api/pm/workflow-templates?${queryParams}`);
+    const response = await this.request(`/api/pm/workflow-templates?${queryParams}`);
+    return response;
   }
 
   async getById(id: string): Promise<WorkflowTemplate> {

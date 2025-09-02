@@ -19,7 +19,7 @@ import { Button } from '../ui/Button';
 import { AIFormPreview } from './AIFormPreview';
 import { RefinementInterface } from './RefinementInterface';
 import { DeploymentOptions } from './DeploymentOptions';
-import { apiJson } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 
 interface ConversationMessage {
   id: string;
@@ -176,7 +176,7 @@ export const NaturalLanguageDesigner: React.FC = () => {
 
     try {
       // Call the AI form generation API
-      const result: GeneratedFormResult = await apiJson('/pm/intake-designer/generate', {
+      const result: GeneratedFormResult = await apiRequest('/pm/intake-designer/generate', {
         method: 'POST',
         body: {
           description,
@@ -228,7 +228,7 @@ export const NaturalLanguageDesigner: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const refinedForm: GeneratedFormResult = await apiJson('/pm/intake-designer/temp/refine', {
+      const refinedForm: GeneratedFormResult = await apiRequest('/pm/intake-designer/temp/refine', {
         method: 'POST',
         body: {
           existingForm: generatedForm,
@@ -266,7 +266,7 @@ export const NaturalLanguageDesigner: React.FC = () => {
     if (!generatedForm) return;
 
     try {
-      const result = await apiJson('/pm/intake-designer/temp/deploy', {
+      const result = await apiRequest('/pm/intake-designer/temp/deploy', {
         method: 'POST',
         body: {
           formStructure: generatedForm.formStructure,

@@ -3,7 +3,7 @@
  * Handles form submissions for early access requests
  */
 
-import { api } from '../services/api';
+import { apiPost } from '../services/api.service';
 
 export interface WaitlistData {
   name: string;
@@ -14,7 +14,7 @@ export interface WaitlistData {
 
 export const waitlistApi = {
   async join(data: WaitlistData) {
-    const response = await api.post('/waitlist', {
+    const response = await apiPost('/waitlist', {
       ...data,
       source: 'landing-page'
     });

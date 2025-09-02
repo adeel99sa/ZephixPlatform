@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 import toast from 'react-hot-toast';
 
 interface OrganizationSettings {
@@ -75,29 +75,29 @@ export const SettingsPage: React.FC = () => {
       setError(null);
       
       // Load organization settings
-      const orgResponse = await apiJson('/organizations/settings', {
+      const orgResponse = await apiRequest('/organizations/settings', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
       // Load user settings
-      const userResponse = await apiJson('/users/settings', {
+      const userResponse = await apiRequest('/users/settings', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
       // Load security settings
-      const securityResponse = await apiJson('/organizations/security', {
+      const securityResponse = await apiRequest('/organizations/security', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
-      setOrganizationSettings(orgResponse.data || null);
-      setUserSettings(userResponse.data || null);
-      setSecuritySettings(securityResponse.data || null);
+      setOrganizationSettings(orgResponse || null);
+      setUserSettings(userResponse || null);
+      setSecuritySettings(securityResponse || null);
     } catch (error) {
       console.error('Failed to load settings:', error);
       setError('Failed to load settings');
@@ -114,7 +114,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/organizations/settings', {
+      const response = await apiRequest('/organizations/settings', {
         method: 'PATCH',
         body: settings,
         headers: {
@@ -122,7 +122,7 @@ export const SettingsPage: React.FC = () => {
         }
       });
       
-      setOrganizationSettings(prev => ({ ...prev, ...response.data }));
+      setOrganizationSettings(prev => ({ ...prev, ...response }));
       toast.success('Organization settings saved');
     } catch (error) {
       console.error('Failed to save organization settings:', error);
@@ -140,7 +140,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/users/settings', {
+      const response = await apiRequest('/users/settings', {
         method: 'PATCH',
         body: settings,
         headers: {
@@ -148,7 +148,7 @@ export const SettingsPage: React.FC = () => {
         }
       });
       
-      setUserSettings(prev => ({ ...prev, ...response.data }));
+      setUserSettings(prev => ({ ...prev, ...response }));
       toast.success('User settings saved');
     } catch (error) {
       console.error('Failed to save user settings:', error);
@@ -166,7 +166,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/organizations/security', {
+      const response = await apiRequest('/organizations/security', {
         method: 'PATCH',
         body: settings,
         headers: {
@@ -174,7 +174,7 @@ export const SettingsPage: React.FC = () => {
         }
       });
       
-      setSecuritySettings(prev => ({ ...prev, ...response.data }));
+      setSecuritySettings(prev => ({ ...prev, ...response }));
       toast.success('Security settings saved');
     } catch (error) {
       console.error('Failed to save security settings:', error);
