@@ -14,10 +14,12 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  error: string | null;
   
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => void;
+  clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -25,9 +27,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isAuthenticated: false,
   isLoading: false,
+  error: null,
 
   login: async (email: string, password: string) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const data = await auth.login(email, password);
       
@@ -40,11 +43,17 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: data.access_token,
         isAuthenticated: true,
         isLoading: false,
+        error: null,
       });
       return true;
     } catch (error) {
       console.error('Login error:', error);
-      set({ isLoading: false });
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      set({ 
+        isLoading: false, 
+        error: errorMessage,
+        isAuthenticated: false 
+      });
       return false;
     }
   },
@@ -53,7 +62,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false, error: null });
+  },
+
+  clearError: () => {
+    set({ error: null });
   },
 
   checkAuth: () => {

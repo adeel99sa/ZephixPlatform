@@ -4,6 +4,7 @@ import type { BaseStoreState, AsyncResult } from '../types/store';
 import type { Organization, UserOrganization, CreateOrganizationData, InviteUserData } from '../types/organization';
 import { createError } from '../types/store';
 import { toast } from 'sonner';
+import { apiGet, apiPost, apiPut, apiDelete } from '../services/api.service';
 
 interface OrganizationState extends BaseStoreState {
   organizations: Organization[];
@@ -27,88 +28,34 @@ interface OrganizationState extends BaseStoreState {
   clearSuccess: () => void;
 }
 
-// Mock API functions - these would be replaced with real API calls
+// Real API functions using the new API service
 const organizationApi = {
-  getUserOrganizations: async (): Promise<{ data: Organization[] }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return {
-      data: [
-        {
-          id: '1',
-          name: 'Acme Corporation',
-          slug: 'acme-corp',
-          status: 'active' as const,
-          description: 'Leading provider of enterprise solutions',
-          industry: 'Technology',
-          size: 'large' as const,
-          settings: { timezone: 'UTC', currency: 'USD' },
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-15T00:00:00Z',
-        },
-        {
-          id: '2',
-          name: 'StartupXYZ',
-          slug: 'startupxyz',
-          status: 'trial' as const,
-          description: 'Innovative startup disrupting the market',
-          industry: 'Technology',
-          size: 'startup' as const,
-          trialEndsAt: '2024-03-01T00:00:00Z',
-          settings: { timezone: 'UTC', currency: 'USD' },
-          createdAt: '2024-02-01T00:00:00Z',
-          updatedAt: '2024-02-15T00:00:00Z',
-        },
-      ]
-    };
+  getUserOrganizations: async (): Promise<Organization[]> => {
+    return await apiGet<Organization[]>('organizations');
   },
 
-  createOrganization: async (data: CreateOrganizationData): Promise<{ data: Organization }> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      data: {
-        id: Math.random().toString(36).substr(2, 9),
-        name: data.name,
-        slug: data.slug || data.name.toLowerCase().replace(/\s+/g, '-'),
-        status: 'trial' as const,
-        description: data.description,
-        industry: data.industry,
-        size: data.size,
-        settings: data.settings || { timezone: 'UTC', currency: 'USD' },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    };
+  createOrganization: async (data: CreateOrganizationData): Promise<Organization> => {
+    return await apiPost<Organization>('organizations', data);
   },
 
-  switchOrganization: async (organizationId: string): Promise<{ data: Organization }> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Mock organization data - in real app this would come from API
-    const mockOrg: Organization = {
-      id: organizationId,
-      name: organizationId === '1' ? 'Acme Corporation' : 'StartupXYZ',
-      slug: organizationId === '1' ? 'acme-corp' : 'startupxyz',
-      status: organizationId === '1' ? 'active' : 'trial',
-      settings: { timezone: 'UTC', currency: 'USD' },
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-15T00:00:00Z',
-    };
-    
-    return { data: mockOrg };
+  updateOrganization: async (id: string, data: Partial<CreateOrganizationData>): Promise<Organization> => {
+    return await apiPut<Organization>(`organizations/${id}`, data);
+  },
+
+  switchOrganization: async (organizationId: string): Promise<Organization> => {
+    return await apiPost<Organization>(`organizations/${organizationId}/switch`, {});
   },
 
   inviteUser: async (organizationId: string, data: InviteUserData) => {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    return {
-      data: {
-        success: true,
-        message: `User ${data.email} invited successfully with role ${data.role}`
-      }
-    };
+    return await apiPost(`organizations/${organizationId}/invite`, data);
+  },
+
+  removeUser: async (organizationId: string, userId: string) => {
+    return await apiDelete(`organizations/${organizationId}/users/${userId}`);
+  },
+
+  updateUserRole: async (organizationId: string, userId: string, role: 'admin' | 'pm' | 'viewer') => {
+    return await apiPut(`organizations/${organizationId}/users/${userId}/role`, { role });
   },
 };
 
@@ -169,14 +116,14 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          const response = await organizationApi.getUserOrganizations();
+          const organizations = await organizationApi.getUserOrganizations();
           const endTime = performance.now();
           
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           set({
-            organizations: response,
-            currentOrganization: response[0] || null, // Set first org as current
+            organizations,
+            currentOrganization: organizations[0] || null, // Set first org as current
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
@@ -186,7 +133,7 @@ export const useOrganizationStore = create<OrganizationState>()(
           
           return {
             success: true,
-            data: response
+            data: organizations
           };
         } catch (error) {
           const endTime = performance.now();
@@ -229,29 +176,29 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          const response = await organizationApi.createOrganization(data);
+          const newOrganization = await organizationApi.createOrganization(data);
           const endTime = performance.now();
           
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           const currentOrgs = get().organizations;
-          const newOrgs = [...currentOrgs, response];
+          const newOrgs = [...currentOrgs, newOrganization];
           
           set({
             organizations: newOrgs,
-            currentOrganization: response, // Switch to new organization
+            currentOrganization: newOrganization, // Switch to new organization
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
-            lastSuccess: `Organization "${response.name}" created successfully`,
+            lastSuccess: `Organization "${newOrganization.name}" created successfully`,
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(`Organization "${response.name}" created successfully`);
+          toast.success(`Organization "${newOrganization.name}" created successfully`);
           
           return {
             success: true,
-            data: response
+            data: newOrganization
           };
         } catch (error) {
           const endTime = performance.now();
@@ -294,25 +241,25 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          const response = await organizationApi.switchOrganization(organizationId);
+          const organization = await organizationApi.switchOrganization(organizationId);
           const endTime = performance.now();
           
           console.log(`✅ OrganizationStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
           
           set({
-            currentOrganization: response,
+            currentOrganization: organization,
             isLoading: false,
             loadingAction: undefined,
             loadingStartTime: undefined,
-            lastSuccess: `Switched to ${response.name}`,
+            lastSuccess: `Switched to ${organization.name}`,
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(`Switched to ${response.name}`);
+          toast.success(`Switched to ${organization.name}`);
           
           return {
             success: true,
-            data: response
+            data: organization
           };
         } catch (error) {
           const endTime = performance.now();
@@ -351,19 +298,16 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          // Mock implementation
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const updatedOrganization = await organizationApi.updateOrganization(id, data);
           
           const organizations = get().organizations;
           const updatedOrgs = organizations.map(org => 
-            org.id === id ? { ...org, ...data, updatedAt: new Date().toISOString() } : org
+            org.id === id ? updatedOrganization : org
           );
-          
-          const updatedOrg = updatedOrgs.find(org => org.id === id)!;
           
           set({
             organizations: updatedOrgs,
-            currentOrganization: get().currentOrganization?.id === id ? updatedOrg : get().currentOrganization,
+            currentOrganization: get().currentOrganization?.id === id ? updatedOrganization : get().currentOrganization,
             isLoading: false,
             loadingAction: undefined,
             lastSuccess: 'Organization updated successfully',
@@ -374,7 +318,7 @@ export const useOrganizationStore = create<OrganizationState>()(
           
           return {
             success: true,
-            data: updatedOrg
+            data: updatedOrganization
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to update organization';
@@ -408,20 +352,20 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          const response = await organizationApi.inviteUser(organizationId, data);
+          const result = await organizationApi.inviteUser(organizationId, data);
           
           set({
             isLoading: false,
             loadingAction: undefined,
-            lastSuccess: response.message,
+            lastSuccess: result.message || 'User invited successfully',
             successTimestamp: new Date().toISOString()
           });
           
-          toast.success(response.message);
+          toast.success(result.message || 'User invited successfully');
           
           return {
             success: true,
-            data: response
+            data: result
           };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to invite user';
@@ -455,8 +399,7 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          // Mock implementation
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await organizationApi.removeUser(organizationId, userId);
           
           set({
             isLoading: false,
@@ -502,8 +445,7 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
         
         try {
-          // Mock implementation
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await organizationApi.updateUserRole(organizationId, userId, role);
           
           set({
             isLoading: false,

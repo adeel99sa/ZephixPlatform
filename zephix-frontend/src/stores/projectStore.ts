@@ -29,6 +29,7 @@ interface ProjectStore {
   createProject: (data: Partial<Project>) => Promise<boolean>;
   updateProject: (id: string, data: Partial<Project>) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
+  clearError: () => void;
 }
 
 export const useProjectStore = create<ProjectStore>()(
@@ -103,6 +104,10 @@ export const useProjectStore = create<ProjectStore>()(
           });
           return false;
         }
+      },
+
+      clearError: () => {
+        set({ error: null });
       },
     }),
     {
