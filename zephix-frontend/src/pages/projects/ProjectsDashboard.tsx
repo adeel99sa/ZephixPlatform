@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { ProjectCard } from '../../components/ui/ProjectCard';
-import { EnhancedCreateProjectModal } from '../../components/modals/EnhancedCreateProjectModal';
+import { CreateProjectModal } from '../../components/modals/CreateProjectModal';
 import { useProjectStore } from '../../stores/projectStore';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import type { Project } from '../../types';
@@ -127,7 +127,7 @@ export const ProjectsDashboard: React.FC = () => {
       </div>
 
       {/* Create Project Modal */}
-      <EnhancedCreateProjectModal
+      <CreateProjectModal
         isOpen={isCreateModalOpen}
         onClose={handleCloseModal}
         prefilledData={prefilledData}

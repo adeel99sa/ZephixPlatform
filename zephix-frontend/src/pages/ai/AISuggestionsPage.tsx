@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 import toast from 'react-hot-toast';
 
 interface AISuggestion {
@@ -64,13 +64,13 @@ export const AISuggestionsPage: React.FC = () => {
       setError(null);
       
       // Use existing API pattern with proper organization scoping
-      const response = await apiJson('/ai/suggestions', {
+      const response = await apiRequest('/ai/suggestions', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
-      setSuggestions(response.data || []);
+      setSuggestions(response || []);
     } catch (error) {
       console.error('Failed to load AI suggestions:', error);
       setError('Failed to load AI suggestions');
@@ -119,7 +119,7 @@ export const AISuggestionsPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await apiJson(`/ai/suggestions/${suggestionId}/status`, {
+      const response = await apiRequest(`/ai/suggestions/${suggestionId}/status`, {
         method: 'PATCH',
         body: { status: newStatus },
         headers: {

@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { apiJson } from '../services/api';
+import { apiRequest } from '../services/api.service';
 
 export const useEnterpriseAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +20,7 @@ export const useEnterpriseAuth = () => {
     setError(null);
     
     try {
-      const res = await apiJson('/auth/login', { method: 'POST', body: { email, password } });
+      const res = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
       const token = res?.accessToken;
       
       if (!token) throw new Error('TOKEN_MISSING');
@@ -57,7 +57,7 @@ export const useEnterpriseAuth = () => {
     setError(null);
     
     try {
-      const res = await apiJson('/auth/register', { method: 'POST', body: userData });
+      const res = await apiRequest('/auth/register', { method: 'POST', body: userData });
       const token = res?.accessToken;
       
       if (!token) throw new Error('TOKEN_MISSING');
@@ -91,7 +91,7 @@ export const useEnterpriseAuth = () => {
 
   const logout = useCallback(async () => {
     try {
-      await apiJson('/auth/logout', { method: 'POST' });
+      await apiRequest('/auth/logout', { method: 'POST' });
     } catch (err) {
       // Continue with logout even if API call fails
       console.warn('Logout API call failed:', err);

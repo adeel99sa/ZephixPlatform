@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "title": "Sample Business Requirements Document",
+    "summary": "A comprehensive BRD for implementing a new customer management system",
+    "industry": "Technology",
+    "department": "IT",
+    "priority": "High",
+    "version": "1.0",
+    "author": "Product Manager",
+    "stakeholders": ["Business Users", "IT Team", "End Customers"],
+    "approvalDate": "2024-01-15"
+  },
+  "businessContext": {
+    "problemStatement": "Current customer management system lacks modern features, causing inefficiencies in customer service and data management",
+    "businessObjective": "Implement a new customer management system that improves customer service efficiency, data accuracy, and user experience",
+    "successCriteria": [
+      "Reduce customer service response time by 50%",
+      "Improve data accuracy to 99.9%",
+      "Increase user satisfaction score to 4.5/5.0"
+    ],
+    "assumptions": [
+      "Users have basic computer literacy",
+      "System will integrate with existing ERP",
+      "Data migration will be completed within 2 weeks"
+    ],
+    "constraints": {
+      "timeline": "6 months",
+      "budget": "$500,000",
+      "technology": "Must use approved cloud platform",
+      "regulatory": "Must comply with GDPR and SOX"
+    }
+  },
+  "functionalRequirements": [
+    {
+      "id": "FR-001",
+      "description": "User authentication and authorization",
+      "priority": "High",
+      "acceptanceCriteria": [
+        "Users can log in with email and password",
+        "Role-based access control is implemented",
+        "Password reset functionality is available"
+      ]
+    },
+    {
+      "id": "FR-002",
+      "description": "Customer profile management",
+      "priority": "High",
+      "acceptanceCriteria": [
+        "Create, read, update, and delete customer profiles",
+        "Store customer contact information",
+        "Track customer interaction history"
+      ]
+    },
+    {
+      "id": "FR-003",
+      "description": "Case management system",
+      "priority": "Medium",
+      "acceptanceCriteria": [
+        "Create and track support cases",
+        "Assign cases to appropriate agents",
+        "Update case status and resolution"
+      ]
+    }
+  ],
+  "nonFunctionalRequirements": {
+    "performance": "System must handle 1000 concurrent users with response time under 2 seconds",
+    "security": "All data must be encrypted in transit and at rest, with regular security audits",
+    "scalability": "System must scale horizontally to support 10,000 users within 2 years",
+    "usability": "Interface must be intuitive with 95% user adoption rate within 3 months"
+  },
+  "risks": [
+    {
+      "id": "RISK-001",
+      "description": "Data migration complexity",
+      "probability": "Medium",
+      "impact": "High",
+      "mitigation": "Detailed migration plan with rollback procedures"
+    },
+    {
+      "id": "RISK-002",
+      "description": "User resistance to change",
+      "probability": "High",
+      "impact": "Medium",
+      "mitigation": "Comprehensive training program and change management"
+    }
+  ],
+  "timeline": {
+    "phases": [
+      {
+        "name": "Planning and Analysis",
+        "duration": "4 weeks",
+        "deliverables": ["Detailed requirements", "Technical architecture", "Project plan"]
+      },
+      {
+        "name": "Design and Development",
+        "duration": "16 weeks",
+        "deliverables": ["System design", "Core functionality", "Integration components"]
+      },
+      {
+        "name": "Testing and Deployment",
+        "duration": "4 weeks",
+        "deliverables": ["System testing", "User acceptance testing", "Production deployment"]
+      }
+    ]
+  }
+}

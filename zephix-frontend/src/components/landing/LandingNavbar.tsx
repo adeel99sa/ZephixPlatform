@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Menu, X, ArrowRight, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const LandingNavbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -31,7 +32,7 @@ export const LandingNavbar: React.FC = () => {
         <div className="flex items-center justify-between h-20">
           
           {/* Logo */}
-          <div className="flex items-center space-x-3 group cursor-pointer">
+          <Link to="/" className="flex items-center space-x-3 group cursor-pointer">
             <div className="relative">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/25 transition-all duration-300 group-hover:scale-110">
                 <Zap className="w-6 h-6 text-white" />
@@ -40,14 +41,14 @@ export const LandingNavbar: React.FC = () => {
             </div>
             <div>
               <div className="text-xl font-bold text-white">Zephix</div>
-              <div className="text-xs text-slate-400 leading-none">Co-pilot</div>
+              <div className="text-xs text-slate-400 leading-none">Beta Q1 2026</div>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item, index) => (
-              <a
+              
                 key={index}
                 href={item.href}
                 className="text-slate-300 hover:text-white transition-all duration-300 relative group py-2"
@@ -60,18 +61,24 @@ export const LandingNavbar: React.FC = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
-            <button className="text-slate-300 hover:text-white transition-colors px-4 py-2">
+            <Link 
+              to="/login"
+              className="text-slate-300 hover:text-white transition-colors px-4 py-2"
+            >
               Sign In
-            </button>
+            </Link>
             
-            <button className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-indigo-500/25 overflow-hidden">
+            <Link 
+              to="/signup"
+              className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-indigo-500/25 overflow-hidden inline-flex"
+            >
               <div className="flex items-center space-x-2 relative z-10">
                 <Sparkles className="w-4 h-4" />
                 <span>Get Early Access</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            </button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -90,7 +97,7 @@ export const LandingNavbar: React.FC = () => {
           <div className="py-6 bg-slate-800/50 backdrop-blur-xl rounded-2xl mt-4 border border-white/10">
             <div className="space-y-4 px-6">
               {navItems.map((item, index) => (
-                <a
+                
                   key={index}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -101,12 +108,20 @@ export const LandingNavbar: React.FC = () => {
               ))}
               
               <div className="pt-4 space-y-3">
-                <button className="w-full text-slate-300 hover:text-white transition-colors py-3 text-left">
+                <Link 
+                  to="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block w-full text-slate-300 hover:text-white transition-colors py-3 text-left"
+                >
                   Sign In
-                </button>
-                <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold">
+                </Link>
+                <Link 
+                  to="/signup"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold text-center"
+                >
                   Get Early Access
-                </button>
+                </Link>
               </div>
             </div>
           </div>

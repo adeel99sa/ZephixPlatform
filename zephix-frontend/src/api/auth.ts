@@ -1,9 +1,4 @@
-/**
- * Authentication API Service
- * Handles all authentication-related API calls
- */
-
-import { api } from '../services/api';
+import { apiPost } from '../services/api.service';
 
 export interface LoginData {
   email: string;
@@ -32,33 +27,28 @@ export interface AuthResponse {
 
 export const authApi = {
   async login(data: LoginData): Promise<AuthResponse> {
-    const response = await api.post('/auth/login', data);
-    return response.data;
+    const response = await apiPost('auth/login', data);
+    // Store token
+    if (response.accessToken) {
+      localStorage.setItem('token', response.accessToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+    }
+    return response;
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await api.post('/auth/register', data);
-    return response.data;
-  },
-
-  async forgotPassword(email: string): Promise<void> {
-    await api.post('/auth/forgot-password', { email });
-  },
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    await api.post('/auth/reset-password', { token, newPassword });
-  },
-
-  async verifyEmail(token: string): Promise<void> {
-    await api.post('/auth/verify-email', { token });
-  },
-
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-    const response = await api.post('/auth/refresh', { refreshToken });
-    return response.data;
+    const response = await apiPost('auth/signup', data);
+    // Store token
+    if (response.accessToken) {
+      localStorage.setItem('token', response.accessToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+    }
+    return response;
   },
 
   async logout(): Promise<void> {
-    await api.post('/auth/logout');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
   }
 };

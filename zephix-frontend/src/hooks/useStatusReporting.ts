@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { apiJson } from '../services/api';
+import { apiRequest } from '../services/api.service';
 
 export interface UseStatusReportingReturn {
   generateReport: (config: any) => Promise<any>;
@@ -20,7 +20,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
     setError(null);
     
     try {
-      const data = await apiJson('/pm/status-reporting/generate', {
+      const data = await apiRequest('/pm/status-reporting/generate', {
         method: 'POST',
         body: config,
       });
@@ -35,7 +35,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const getMetrics = useCallback(async (projectId: string) => {
     try {
-      return await apiJson(`/pm/status-reporting/${projectId}/metrics`);
+      return await apiRequest(`/pm/status-reporting/${projectId}/metrics`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
       throw err;
@@ -44,7 +44,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const getTrends = useCallback(async (projectId: string) => {
     try {
-      return await apiJson(`/pm/status-reporting/${projectId}/trends`);
+      return await apiRequest(`/pm/status-reporting/${projectId}/trends`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch trends');
       throw err;
@@ -53,7 +53,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const exportReport = useCallback(async (reportId: string, format: string) => {
     try {
-      return await apiJson(`/pm/status-reporting/${reportId}/export`, {
+      return await apiRequest(`/pm/status-reporting/${reportId}/export`, {
         method: 'POST',
         body: { format, stakeholderType: 'executive' },
       });
@@ -65,7 +65,7 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
 
   const configureAlerts = useCallback(async (projectId: string, config: any) => {
     try {
-      return await apiJson(`/pm/status-reporting/${projectId}/alerts/configure`, {
+      return await apiRequest(`/pm/status-reporting/${projectId}/alerts/configure`, {
         method: 'POST',
         body: config,
       });

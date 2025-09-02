@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '@/services/api';
+import { apiRequest } from '@/services/api.service';
 
 interface ProjectMetrics {
   projectId: string;
@@ -56,7 +56,7 @@ export const AnalyticsPage: React.FC = () => {
       setError(null);
 
       // Fetch dashboard stats
-      const statsResponse = await api.get('/projects/organization/statistics');
+      const statsResponse = await apiRequest('/projects/organization/statistics');
       setStats(statsResponse);
 
       // Mock data for demonstration (replace with real API calls when available)

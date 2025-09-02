@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 import { cn } from '../../utils';
-import { aiApi } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 import { toast } from 'sonner';
 
 interface Message {

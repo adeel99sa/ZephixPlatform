@@ -1,0 +1,550 @@
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { v4 as uuidv4 } from 'uuid';
+import { LLMProviderService } from '../llm-provider.service';
+import {
+  AISuggestionDto,
+  GenerateSuggestionsRequestDto,
+  UpdateSuggestionStatusDto,
+  SuggestionsResponseDto,
+  SuggestionCategory,
+  SuggestionPriority,
+  SuggestionStatus,
+} from '../dto/ai-suggestions.dto';
+
+export interface ProjectData {
+  id: string;
+  name: string;
+  status: string;
+  timeline: {
+    startDate: Date;
+    endDate: Date;
+    milestones: Array<{
+      name: string;
+      dueDate: Date;
+      status: string;
+    }>;
+  };
+  budget: {
+    estimated: number;
+    actual: number;
+    currency: string;
+  };
+  resources: {
+    teamSize: number;
+    skillGaps: string[];
+    workload: number;
+  };
+  risks: Array<{
+    description: string;
+    probability: string;
+    impact: string;
+    status: string;
+  }>;
+  metrics: {
+    completionRate: number;
+    qualityScore: number;
+    stakeholderSatisfaction: number;
+  };
+}
+
+@Injectable()
+export class AISuggestionsService {
+  private readonly logger = new Logger(AISuggestionsService.name);
+  private readonly openaiApiKey: string;
+  private readonly maxSuggestionsPerRequest: number;
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly llmProviderService: LLMProviderService,
+  ) {
+    this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
+    this.maxSuggestionsPerRequest = this.configService.get<number>(
+      'AI_MAX_SUGGESTIONS_PER_REQUEST',
+      10,
+    );
+  }
+
+  async getSuggestions(
+    organizationId: string,
+    userId: string,
+    category?: string,
+    priority?: string,
+    status?: string,
+    projectId?: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SuggestionsResponseDto> {
+    try {
+      this.logger.log(
+        `Retrieving suggestions for organization: ${organizationId}`,
+      );
+
+      // TODO: Implement database retrieval with proper filtering
+      // For now, return empty response with proper structure
+      const suggestions: AISuggestionDto[] = [];
+
+      return {
+        suggestions: suggestions.slice(offset, offset + limit),
+        total: suggestions.length,
+        page: Math.floor(offset / limit) + 1,
+        limit,
+        totalPages: Math.ceil(suggestions.length / limit),
+        generatedAt: new Date(),
+        nextRefresh: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to retrieve suggestions: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to retrieve suggestions');
+    }
+  }
+
+  async generateSuggestions(
+    request: GenerateSuggestionsRequestDto,
+    organizationId: string,
+    userId: string,
+  ): Promise<{ message: string; jobId: string }> {
+    try {
+      this.logger.log(
+        `Starting AI suggestions generation for organization: ${organizationId}`,
+      );
+
+      if (!this.openaiApiKey) {
+        throw new BadRequestException('OpenAI API key not configured');
+      }
+
+      const jobId = `suggestions_${Date.now()}`;
+
+      // Start async processing
+      this.processSuggestionsAsync(jobId, request, organizationId, userId);
+
+      return {
+        message: 'Suggestion generation started successfully',
+        jobId,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate suggestions: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `Failed to generate suggestions: ${error.message}`,
+      );
+    }
+  }
+
+  async updateSuggestionStatus(
+    suggestionId: string,
+    updateDto: UpdateSuggestionStatusDto,
+    organizationId: string,
+    userId: string,
+  ): Promise<AISuggestionDto> {
+    try {
+      this.logger.log(`Updating suggestion status: ${suggestionId}`);
+
+      // TODO: Implement database update with proper validation
+      // For now, throw not implemented
+      throw new BadRequestException(
+        'Suggestion status update not yet implemented - database integration required',
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to update suggestion status: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async getSuggestionById(
+    suggestionId: string,
+    organizationId: string,
+  ): Promise<AISuggestionDto> {
+    try {
+      this.logger.log(`Retrieving suggestion: ${suggestionId}`);
+
+      // TODO: Implement database retrieval
+      // For now, throw not implemented
+      throw new BadRequestException(
+        'Suggestion retrieval not yet implemented - database integration required',
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to retrieve suggestion: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  private async processSuggestionsAsync(
+    jobId: string,
+    request: GenerateSuggestionsRequestDto,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(`Processing AI suggestions generation for job: ${jobId}`);
+
+      // Step 1: Collect project data for analysis
+      const projectData = await this.collectProjectData(
+        organizationId,
+        request.projectId ? [request.projectId] : undefined,
+      );
+      this.logger.log(
+        `Collected data for ${projectData.length} projects: ${jobId}`,
+      );
+
+      // Step 2: Analyze project patterns and generate insights
+      const analysisResults = await this.analyzeProjectPatterns(
+        projectData,
+        request,
+      );
+      this.logger.log(`Project analysis completed: ${jobId}`);
+
+      // Step 3: Generate AI-powered suggestions
+      const suggestions = await this.generateAISuggestions(
+        analysisResults,
+        request,
+        organizationId,
+        userId,
+      );
+      this.logger.log(`Generated ${suggestions.length} suggestions: ${jobId}`);
+
+      // Step 4: Store suggestions in database
+      await this.storeSuggestions(suggestions, organizationId, userId);
+      this.logger.log(`Suggestions stored successfully: ${jobId}`);
+
+      // Step 5: Update job status to completed
+      await this.updateJobStatus(
+        jobId,
+        'completed',
+        'Suggestions generated successfully',
+      );
+      this.logger.log(
+        `AI suggestions generation completed successfully: ${jobId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `AI suggestions generation failed for job ${jobId}: ${error.message}`,
+        error.stack,
+      );
+
+      // Update job status to failed
+      await this.updateJobStatus(
+        jobId,
+        'failed',
+        `Generation failed: ${error.message}`,
+      );
+
+      // TODO: Implement proper error notification system
+      this.notifyGenerationFailure(
+        jobId,
+        error.message,
+        organizationId,
+        userId,
+      );
+    }
+  }
+
+  private async collectProjectData(
+    organizationId: string,
+    projectIds?: string[],
+  ): Promise<ProjectData[]> {
+    try {
+      // TODO: Implement actual project data collection from database
+      // This would query the projects table with proper organization scoping
+
+      this.logger.log(
+        `Collecting project data for organization: ${organizationId}`,
+      );
+
+      // Mock data structure for now - replace with real database queries
+      const mockProjects: ProjectData[] = [];
+
+      return mockProjects;
+    } catch (error) {
+      this.logger.error(
+        `Failed to collect project data: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Project data collection failed: ${error.message}`);
+    }
+  }
+
+  private async analyzeProjectPatterns(
+    projectData: ProjectData[],
+    request: GenerateSuggestionsRequestDto,
+  ): Promise<any> {
+    try {
+      // TODO: Implement ML-based pattern analysis
+      // This would analyze project data for trends, risks, and optimization opportunities
+
+      this.logger.log(
+        `Analyzing project patterns for ${projectData.length} projects`,
+      );
+
+      // For now, return basic analysis structure
+      return {
+        timelineTrends: [],
+        budgetVariances: [],
+        resourceUtilization: [],
+        riskPatterns: [],
+        qualityMetrics: [],
+        processEfficiencies: [],
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to analyze project patterns: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Project pattern analysis failed: ${error.message}`);
+    }
+  }
+
+  private async generateAISuggestions(
+    analysisResults: any,
+    request: GenerateSuggestionsRequestDto,
+    organizationId: string,
+    userId: string,
+  ): Promise<AISuggestionDto[]> {
+    try {
+      if (!this.openaiApiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      // Create analysis prompt for AI suggestions
+      const prompt = this.createSuggestionsPrompt(analysisResults, request);
+
+      // Use LLM service for suggestion generation
+      const llmResult = await this.llmProviderService.sendRequest({
+        prompt,
+        model: 'gpt-4',
+        temperature: 0.3,
+        maxTokens: 3000,
+      });
+
+      // Parse and validate LLM response
+      const suggestions = this.parseSuggestionsResponse(
+        llmResult.content,
+        organizationId,
+        userId,
+      );
+
+      return suggestions;
+    } catch (error) {
+      this.logger.error(
+        `AI suggestion generation failed: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`AI suggestion generation failed: ${error.message}`);
+    }
+  }
+
+  private createSuggestionsPrompt(
+    analysisResults: any,
+    request: GenerateSuggestionsRequestDto,
+  ): string {
+    const categoryFocus = request.categories?.length
+      ? `Focus on these categories: ${request.categories.join(', ')}`
+      : 'Provide suggestions across all categories';
+
+    const priorityFocus = 'Provide a mix of priority levels';
+
+    return `
+      Based on the following project analysis, generate actionable AI-powered suggestions for project optimization.
+      
+      ${categoryFocus}
+      ${priorityFocus}
+      
+      Analysis Results:
+      ${JSON.stringify(analysisResults, null, 2)}
+      
+      Generate suggestions that are:
+      - Specific and actionable
+      - Based on data patterns
+      - Prioritized by impact and effort
+      - Include implementation steps
+      - Have measurable outcomes
+      
+      Return suggestions in the following JSON format:
+      [
+        {
+          "category": "timeline|budget|resources|risks|process|quality",
+          "priority": "critical|high|medium|low",
+          "title": "Suggestion Title",
+          "description": "Detailed description",
+          "reasoning": "AI reasoning based on data",
+          "impact": {
+            "description": "Impact description",
+            "magnitude": "low|medium|high",
+            "effort": "low|medium|high",
+            "timeline": "Implementation timeline"
+          },
+          "actionableSteps": [
+            {
+              "step": "Step description",
+              "owner": "Responsible person",
+              "timeline": "Step timeline",
+              "dependencies": ["dependency1", "dependency2"]
+            }
+          ],
+          "implementationTimeline": "Overall timeline",
+          "expectedOutcome": "Expected result",
+          "confidence": 0.85,
+          "dataSources": ["source1", "source2"],
+          "relatedProjects": ["project1", "project2"]
+        }
+      ]
+    `;
+  }
+
+  private parseSuggestionsResponse(
+    llmResponse: string,
+    organizationId: string,
+    userId: string,
+  ): AISuggestionDto[] {
+    try {
+      // Extract JSON from LLM response
+      const jsonMatch = llmResponse.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('Invalid LLM response format - no JSON array found');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      // Validate and transform suggestions
+      const suggestions: AISuggestionDto[] = parsed.map(
+        (suggestion: any, index: number) => {
+          this.validateSuggestion(suggestion, index);
+
+          return {
+            ...suggestion,
+            id: uuidv4(),
+            status: SuggestionStatus.PENDING,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            organizationId,
+            userId,
+          };
+        },
+      );
+
+      return suggestions;
+    } catch (error) {
+      this.logger.error(
+        `Failed to parse suggestions response: ${error.message}`,
+      );
+      throw new Error(`Failed to parse AI suggestions: ${error.message}`);
+    }
+  }
+
+  private validateSuggestion(suggestion: any, index: number): void {
+    const requiredFields = [
+      'category',
+      'priority',
+      'title',
+      'description',
+      'reasoning',
+      'impact',
+      'actionableSteps',
+      'implementationTimeline',
+      'expectedOutcome',
+    ];
+
+    for (const field of requiredFields) {
+      if (!suggestion[field]) {
+        throw new Error(
+          `Suggestion ${index}: Missing required field: ${field}`,
+        );
+      }
+    }
+
+    // Validate enums
+    if (!Object.values(SuggestionCategory).includes(suggestion.category)) {
+      throw new Error(
+        `Suggestion ${index}: Invalid category: ${suggestion.category}`,
+      );
+    }
+
+    if (!Object.values(SuggestionPriority).includes(suggestion.priority)) {
+      throw new Error(
+        `Suggestion ${index}: Invalid priority: ${suggestion.priority}`,
+      );
+    }
+  }
+
+  private async storeSuggestions(
+    suggestions: AISuggestionDto[],
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    // TODO: Implement database storage
+    this.logger.log(
+      `Storing ${suggestions.length} suggestions for organization: ${organizationId}`,
+    );
+  }
+
+  private async updateJobStatus(
+    jobId: string,
+    status: string,
+    message: string,
+  ): Promise<void> {
+    // TODO: Implement job status update
+    this.logger.log(`Updating job status for ${jobId}: ${status} - ${message}`);
+  }
+
+  private async notifyGenerationFailure(
+    jobId: string,
+    errorMessage: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    // TODO: Implement notification system
+    this.logger.error(
+      `Generation failure notification for ${jobId}: ${errorMessage}`,
+    );
+  }
+
+  private getCategoryCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
+    const counts: Record<string, number> = {};
+    Object.values(SuggestionCategory).forEach((category) => {
+      counts[category] = suggestions.filter(
+        (s) => s.category === category,
+      ).length;
+    });
+    return counts;
+  }
+
+  private getPriorityCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
+    const counts: Record<string, number> = {};
+    Object.values(SuggestionPriority).forEach((priority) => {
+      counts[priority] = suggestions.filter(
+        (s) => s.priority === priority,
+      ).length;
+    });
+    return counts;
+  }
+
+  private getStatusCounts(
+    suggestions: AISuggestionDto[],
+  ): Record<string, number> {
+    const counts: Record<string, number> = {};
+    Object.values(SuggestionStatus).forEach((status) => {
+      counts[status] = suggestions.filter((s) => s.status === status).length;
+    });
+    return counts;
+  }
+}

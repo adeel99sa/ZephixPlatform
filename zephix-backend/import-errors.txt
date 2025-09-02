@@ -1,0 +1,16 @@
+../../shared/services/audit.service
+../../shared/services/email.service
+../auth/decorators/current-user.decorator
+../auth/guards/admin.guard
+../auth/guards/jwt-auth.guard
+../modules/organizations/decorators/current-org.decorator
+../modules/organizations/decorators/roles.decorator
+../modules/organizations/entities/organization.entity
+../modules/organizations/entities/user-organization.entity
+../modules/organizations/guards/organization.guard
+../modules/organizations/guards/roles.guard
+../modules/users/entities/user.entity
+../organizations/entities/organization.entity
+../organizations/entities/user-organization.entity
+../shared/shared.module
+../users/entities/user.entity

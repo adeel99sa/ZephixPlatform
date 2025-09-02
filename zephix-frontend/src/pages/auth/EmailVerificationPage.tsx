@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Mail, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { apiJson } from '../../services/api';
+import { apiRequest } from '../../services/api.service';
 
 interface VerificationResult {
   success: boolean;
@@ -37,7 +37,7 @@ const EmailVerificationPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const data = await apiJson(`/auth/verify-email/${verificationToken}`);
+      const data = await apiRequest(`/auth/verify-email/${verificationToken}`);
       setResult(data);
       // Auto-redirect to login after 3 seconds
       setTimeout(() => {

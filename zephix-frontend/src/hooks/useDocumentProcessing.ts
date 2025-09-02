@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import api from '../services/api';
+import { apiGet, apiPost } from '../services/api.service';
 
 export interface DocumentUploadResponse {
   jobId: string;
@@ -29,13 +29,13 @@ export const useDocumentProcessing = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/api/v1/documents/upload', formData, {
+      const response = await apiPost('/api/v1/documents/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      return response.data;
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to upload document';
       setError(errorMessage);
@@ -47,8 +47,8 @@ export const useDocumentProcessing = () => {
 
   const checkStatus = useCallback(async (jobId: string): Promise<JobStatusResponse> => {
     try {
-      const response = await api.get(`/api/v1/documents/status/${jobId}`);
-      return response.data;
+      const response = await apiGet(`/api/v1/documents/status/${jobId}`);
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to check job status';
       throw new Error(errorMessage);
@@ -57,8 +57,8 @@ export const useDocumentProcessing = () => {
 
   const getDocumentResults = useCallback(async (jobId: string): Promise<any> => {
     try {
-      const response = await api.get(`/api/v1/documents/results/${jobId}`);
-      return response.data;
+      const response = await apiGet(`/api/v1/documents/results/${jobId}`);
+      return response;
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to get document results';
       throw new Error(errorMessage);

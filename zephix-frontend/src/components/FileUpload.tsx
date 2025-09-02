@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { DocumentArrowUpIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from './ui/Button';
-import { fileApi } from '../services/api';
+import { apiRequest } from '../services/api.service';
 import { toast } from 'sonner';
 
 interface FileUploadProps {
@@ -88,7 +88,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
     try {
       setIsUploading(true);
-              const response = await fileApi.uploadDocument(selectedFile, projectId);
+              const response = await apiRequest('/api/files/upload', {
+                method: 'POST',
+                body: { file: selectedFile, projectId }
+              });
       
       toast.success('File uploaded successfully!');
       onUploadSuccess?.(response.fileId);

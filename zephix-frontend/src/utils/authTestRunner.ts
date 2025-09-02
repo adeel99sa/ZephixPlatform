@@ -3,7 +3,7 @@
  * Comprehensive testing of authentication endpoints and security features
  */
 
-import { authApi } from '../services/api';
+import { apiPost } from '../services/api.service';
 import { securityTester } from './securityTest';
 import { securityMiddleware } from '../middleware/security.middleware';
 
@@ -208,7 +208,7 @@ export class AuthTestRunner {
         password: 'TestPassword123!'
       };
       
-      const response = await authApi.register(testUserData);
+      const response = await apiPost('auth/register', testUserData);
       const duration = Date.now() - startTime;
       
       this.addTestResult({
@@ -268,7 +268,7 @@ export class AuthTestRunner {
         password: 'ZephixDemo2024!'
       };
       
-      const response = await authApi.login(testCredentials);
+      const response = await apiPost('auth/login', testCredentials);
       const duration = Date.now() - startTime;
       
       this.addTestResult({
@@ -321,7 +321,7 @@ export class AuthTestRunner {
       };
       
       try {
-        await authApi.login(invalidCredentials);
+        await apiPost('auth/login', invalidCredentials);
         
         // If we get here, the test should fail (we expect an error)
         this.addTestResult({
@@ -377,7 +377,7 @@ export class AuthTestRunner {
       };
       
       try {
-        await authApi.login(malformedData as any);
+        await apiPost('auth/login', malformedData as any);
         
         // If we get here, the test should fail (we expect an error)
         this.addTestResult({
