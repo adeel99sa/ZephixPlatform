@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { auth } from '../services/api.service';
 
 interface User {
   id: string;
@@ -28,30 +29,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true });
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
+      const data = await auth.login(email, password);
       
-      if (response.ok) {
-        localStorage.setItem('token', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        set({
-          user: data.user,
-          token: data.accessToken,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        return true;
-      }
-      set({ isLoading: false });
-      return false;
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('refreshToken', data.refresh_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      set({
+        user: data.user,
+        token: data.access_token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      return true;
     } catch (error) {
+      console.error('Login error:', error);
       set({ isLoading: false });
       return false;
     }

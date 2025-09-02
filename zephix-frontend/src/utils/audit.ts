@@ -1,3 +1,5 @@
+import { apiPost } from '../services/api.service';
+
 interface AuditEntry {
   userId: string;
   action?: string;
@@ -11,14 +13,7 @@ interface AuditEntry {
 export const logAdminAccess = async (entry: AuditEntry) => {
   try {
     // Send to backend for persistent storage
-    await fetch('/api/admin/audit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify(entry)
-    });
+    await apiPost('/admin/audit', entry);
   } catch (error) {
     // Log to console as fallback
     console.error('Audit log failed:', error);

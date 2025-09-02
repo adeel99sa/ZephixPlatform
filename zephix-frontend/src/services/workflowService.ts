@@ -9,7 +9,7 @@ import {
   CreateWorkflowInstanceRequest,
   WorkflowActionRequest
 } from '../types/workflow';
-import { apiRequest } from './api.service';
+import { apiRequest, apiJson } from './api.service';
 
 class WorkflowTemplateService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

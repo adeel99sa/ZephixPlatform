@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, AlertCircle, Shield, Lock } from 'lucide-react';
+import { auth } from '../../services/api.service';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -78,39 +79,26 @@ export function SignupPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(sanitizedData),
+      const data = await auth.signup({
+        email: sanitizedData.email,
+        password: sanitizedData.password,
+        name: `${sanitizedData.firstName} ${sanitizedData.lastName}`,
+        organizationName: sanitizedData.organizationName
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store tokens securely
-        localStorage.setItem('token', data.accessToken);
-        localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('user', JSON.stringify({
-          id: data.user.id,
-          email: data.user.email,
-          firstName: data.user.firstName,
-          lastName: data.user.lastName,
-          organizationId: data.user.organizationId
-        }));
+      // Store tokens securely
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('refreshToken', data.refresh_token);
+              localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Log security event
-        console.log('Security Event: User signup', {
-          email: sanitizedData.email,
-          timestamp: new Date().toISOString(),
-          ip: 'client-side'
-        });
+      // Log security event
+      console.log('Security Event: User signup', {
+        email: sanitizedData.email,
+        timestamp: new Date().toISOString(),
+        ip: 'client-side'
+      });
         
-        navigate('/dashboard');
-      } else {
-        setError(data.message || 'Signup failed. Please try again.');
-      }
+      navigate('/dashboard');
     } catch (err) {
       console.error('Signup error:', err);
       setError('Unable to connect to server. Please check your connection.');
