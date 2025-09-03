@@ -70,7 +70,7 @@ export class ResourcesService {
         resourceId: data.resourceId,
         conflictDate: data.startDate,
         totalAllocation: conflicts.totalAllocation + data.allocationPercentage,
-        conflictingProjects: conflicts.projects,
+        affectedProjects: conflicts.projects,
         severity: conflicts.totalAllocation > 120 ? 'critical' : 'high',
       });
       await this.conflictRepository.save(conflict);
@@ -112,7 +112,7 @@ export class ResourcesService {
 
   async getResourceHeatMap(organizationId: string, startDate?: Date, endDate?: Date) {
     const resources = await this.findAll(organizationId);
-    const heatMap = [];
+    const heatMap: any[] = [];
 
     for (const resource of resources) {
       const allocations = await this.allocationRepository.find({
