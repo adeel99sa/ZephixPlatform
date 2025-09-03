@@ -34,13 +34,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const data = await auth.login(email, password);
       
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('refreshToken', data.refresh_token);
+      localStorage.setItem('token', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
       
       set({
         user: data.user,
-        token: data.access_token,
+        token: data.accessToken,
         isAuthenticated: true,
         isLoading: false,
         error: null,

@@ -15,9 +15,9 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LandingPage from '@/pages/LandingPage';
 import { CommandPalette } from '@/components/CommandPalette';
-
+import { useAuthInit } from "@/hooks/useAuthInit";
 function App() {
- return (
+  useAuthInit(); return (
    <ErrorBoundary>
      <Router>
        <CommandPalette />

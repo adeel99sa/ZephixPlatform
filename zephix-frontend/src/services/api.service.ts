@@ -3,8 +3,8 @@ import { API_CONFIG } from '../config/api.config';
 
 // Types for API responses
 interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
+  accessToken: string;
+  refreshToken: string;
   user: {
     id: string;
     email: string;
@@ -131,11 +131,11 @@ apiClient.interceptors.response.use(
             { token: refreshToken }
           );
 
-          const { access_token } = response.data;
-          localStorage.setItem('token', access_token);
+          const { accessToken } = response.data;
+          localStorage.setItem('token', accessToken);
 
           // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
@@ -179,12 +179,12 @@ export const auth = {
   }): Promise<AuthResponse> =>
     api.post<AuthResponse>('/auth/signup', data),
   
-  refresh: (): Promise<{ access_token: string }> => {
+  refresh: (): Promise<{ accessToken: string }> => {
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
-    return api.post<{ access_token: string }>('/auth/refresh', { token: refreshToken });
+    return api.post<{ accessToken: string }>('/auth/refresh', { token: refreshToken });
   },
 };
 

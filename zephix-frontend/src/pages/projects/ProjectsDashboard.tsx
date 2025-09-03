@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { ProjectCard } from '../../components/ui/ProjectCard';
 import { CreateProjectModal } from '../../components/modals/CreateProjectModal';
@@ -10,6 +10,7 @@ import type { Project } from '../../types';
 export const ProjectsDashboard: React.FC = () => {
   const { projects, fetchProjects, isLoading, error } = useProjectStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [prefilledData, setPrefilledData] = useState<any>(null);
 
@@ -43,8 +44,7 @@ export const ProjectsDashboard: React.FC = () => {
   };
 
   const handleProjectClick = (project: Project) => {
-    // Navigate to project details or open project
-    console.log('Project clicked:', project);
+    navigate(`/projects/${project.id}`);
   };
 
   if (error) {
