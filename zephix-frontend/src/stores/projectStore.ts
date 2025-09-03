@@ -1,17 +1,18 @@
 import { create } from 'zustand';
-import { mockApi } from './mockApi';
+import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import type { Project } from '../types';
 import type { BaseStoreState, AsyncResult } from '../types/store';
 import { createError } from '../types/store';
 
-// Enhanced TypeScript interfaces for better type safety
 interface ProjectState extends BaseStoreState {
-  // State properties
   projects: Project[];
+  totalProjects: number;
+  currentPage: number;
+  pageSize: number;
   
   // Actions
-  fetchProjects: () => Promise<AsyncResult<Project[]>>;
-  addProject: (project: Project) => Promise<AsyncResult<Project>>;
+  fetchProjects: (page?: number) => Promise<AsyncResult<Project[]>>;
+  createProject: (data: Partial<Project>) => Promise<AsyncResult<Project>>;
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<AsyncResult<Project>>;
   deleteProject: (projectId: string) => Promise<AsyncResult<void>>;
   clearError: () => void;
@@ -19,23 +20,12 @@ interface ProjectState extends BaseStoreState {
   clearSuccess: () => void;
 }
 
-// Type for store actions
-type ProjectActions = {
-  fetchProjects: () => Promise<AsyncResult<Project[]>>;
-  addProject: (project: Project) => Promise<AsyncResult<Project>>;
-  updateProject: (projectId: string, updates: Partial<Project>) => Promise<AsyncResult<Project>>;
-  deleteProject: (projectId: string) => Promise<AsyncResult<void>>;
-  clearError: () => void;
-  setLoading: (loading: boolean, action?: string) => void;
-  clearSuccess: () => void;
-};
-
-// Type for store state
-type ProjectStore = ProjectState & ProjectActions;
-
-export const useProjectStore = create<ProjectStore>((set, get) => ({
+export const useProjectStore = create<ProjectState>((set, get) => ({
   // Initial state
   projects: [],
+  totalProjects: 0,
+  currentPage: 1,
+  pageSize: 20,
   isLoading: false,
   loadingAction: undefined,
   loadingStartTime: undefined,
@@ -44,12 +34,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   lastSuccess: undefined,
   successTimestamp: undefined,
   
-  // Actions with enhanced error handling and performance monitoring
-  fetchProjects: async () => {
+  fetchProjects: async (page = 1) => {
     const startTime = performance.now();
     const action = 'fetchProjects';
-    
-    console.log(`🔄 ProjectStore: Starting ${action}...`);
     
     set({ 
       isLoading: true, 
@@ -59,14 +46,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
     
     try {
-      const projects = await mockApi.getProjects();
+      const response = await apiGet(`/projects?page=${page}&limit=${get().pageSize}`);
       const endTime = performance.now();
       
-      console.log(`✅ ProjectStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
-      console.log(`📊 ProjectStore: Loaded ${projects.length} projects`);
+      // Handle both paginated and non-paginated responses
+      const projects = response.data || response;
+      const total = response.total || projects.length;
       
       set({ 
-        projects, 
+        projects: Array.isArray(projects) ? projects : [],
+        totalProjects: total,
+        currentPage: page,
         isLoading: false,
         loadingAction: undefined,
         loadingStartTime: undefined,
@@ -79,15 +69,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         data: projects
       };
     } catch (error) {
-      const endTime = performance.now();
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch projects';
       const storeError = createError('api', errorMessage, {
         endpoint: '/projects',
         method: 'GET'
       });
-      
-      console.error(`❌ ProjectStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
-      console.error('ProjectStore Error:', error);
       
       set({ 
         error: storeError,
@@ -104,11 +90,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
   
-  addProject: async (project) => {
+  createProject: async (data) => {
     const startTime = performance.now();
-    const action = 'addProject';
-    
-    console.log(`➕ ProjectStore: Starting ${action} for project: ${project.name}`);
+    const action = 'createProject';
     
     set({ 
       isLoading: true, 
@@ -118,19 +102,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const endTime = performance.now();
-      
-      console.log(`✅ ProjectStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+      const response = await apiPost('/projects', data);
+      const project = response;
       
       set((state) => ({ 
-        projects: [project, ...state.projects],
+        projects: [project, ...state.projects].slice(0, state.pageSize),
+        totalProjects: state.totalProjects + 1,
         isLoading: false,
         loadingAction: undefined,
         loadingStartTime: undefined,
-        lastSuccess: `Project "${project.name}" added successfully`,
+        lastSuccess: `Project "${project.name}" created successfully`,
         successTimestamp: new Date().toISOString()
       }));
       
@@ -139,15 +120,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         data: project
       };
     } catch (error) {
-      const endTime = performance.now();
-      const errorMessage = error instanceof Error ? error.message : 'Failed to add project';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create project';
       const storeError = createError('api', errorMessage, {
         endpoint: '/projects',
         method: 'POST'
       });
-      
-      console.error(`❌ ProjectStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
-      console.error('ProjectStore Error:', error);
       
       set({ 
         error: storeError,
@@ -168,8 +145,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const startTime = performance.now();
     const action = 'updateProject';
     
-    console.log(`✏️ ProjectStore: Starting ${action} for project: ${projectId}`);
-    
     set({ 
       isLoading: true, 
       loadingAction: action,
@@ -178,44 +153,30 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const response = await apiPut(`/projects/${projectId}`, updates);
+      const updatedProject = response;
       
-      const endTime = performance.now();
-      
-      console.log(`✅ ProjectStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
-      
-      set((state) => {
-        const updatedProjects = state.projects.map(p => 
-          p.id === projectId ? { ...p, ...updates } : p
-        );
-        
-        return {
-          projects: updatedProjects,
-          isLoading: false,
-          loadingAction: undefined,
-          loadingStartTime: undefined,
-          lastSuccess: `Project updated successfully`,
-          successTimestamp: new Date().toISOString()
-        };
-      });
-      
-      const updatedProject = get().projects.find(p => p.id === projectId);
+      set((state) => ({
+        projects: state.projects.map(p => 
+          p.id === projectId ? updatedProject : p
+        ),
+        isLoading: false,
+        loadingAction: undefined,
+        loadingStartTime: undefined,
+        lastSuccess: `Project updated successfully`,
+        successTimestamp: new Date().toISOString()
+      }));
       
       return {
         success: true,
         data: updatedProject
       };
     } catch (error) {
-      const endTime = performance.now();
       const errorMessage = error instanceof Error ? error.message : 'Failed to update project';
       const storeError = createError('api', errorMessage, {
         endpoint: `/projects/${projectId}`,
         method: 'PUT'
       });
-      
-      console.error(`❌ ProjectStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
-      console.error('ProjectStore Error:', error);
       
       set({ 
         error: storeError,
@@ -236,8 +197,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const startTime = performance.now();
     const action = 'deleteProject';
     
-    console.log(`🗑️ ProjectStore: Starting ${action} for project: ${projectId}`);
-    
     set({ 
       isLoading: true, 
       loadingAction: action,
@@ -246,15 +205,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const endTime = performance.now();
-      
-      console.log(`✅ ProjectStore: ${action} completed in ${(endTime - startTime).toFixed(2)}ms`);
+      await apiDelete(`/projects/${projectId}`);
       
       set((state) => ({
         projects: state.projects.filter(p => p.id !== projectId),
+        totalProjects: state.totalProjects - 1,
         isLoading: false,
         loadingAction: undefined,
         loadingStartTime: undefined,
@@ -266,15 +221,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         success: true
       };
     } catch (error) {
-      const endTime = performance.now();
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete project';
       const storeError = createError('api', errorMessage, {
         endpoint: `/projects/${projectId}`,
         method: 'DELETE'
       });
-      
-      console.error(`❌ ProjectStore: ${action} failed after ${(endTime - startTime).toFixed(2)}ms`);
-      console.error('ProjectStore Error:', error);
       
       set({ 
         error: storeError,
@@ -292,7 +243,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
   
   clearError: () => {
-    console.log('🧹 ProjectStore: Clearing error state');
     set({ 
       error: null,
       errorTimestamp: undefined
@@ -300,7 +250,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
   
   setLoading: (loading, action) => {
-    console.log(`⏳ ProjectStore: Setting loading state to ${loading}${action ? ` for ${action}` : ''}`);
     set({ 
       isLoading: loading,
       loadingAction: action,
@@ -309,10 +258,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
   
   clearSuccess: () => {
-    console.log('🧹 ProjectStore: Clearing success state');
     set({ 
       lastSuccess: undefined,
       successTimestamp: undefined
     });
   },
-})); 
+}));
