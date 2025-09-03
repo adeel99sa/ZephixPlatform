@@ -28,8 +28,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     methodology: prefilledData?.methodology || 'agile',
     priority: prefilledData?.priority || 'medium',
     department: '',
-    stakeholders: '',
-    organizationId: '1' // Default organization
+    stakeholders: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,8 +50,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         methodology: formData.methodology,
         priority: formData.priority,
         department: formData.department || undefined,
-        stakeholders: formData.stakeholders ? formData.stakeholders.split(',').map(s => s.trim()).filter(s => s) : undefined,
-        organizationId: formData.organizationId
+        stakeholders: formData.stakeholders ? formData.stakeholders.split(',').map(s => s.trim()).filter(s => s) : undefined
       };
 
       const success = await createProject(projectData);
