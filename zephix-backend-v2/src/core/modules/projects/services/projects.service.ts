@@ -11,18 +11,15 @@ export class ProjectsService {
   ) {}
 
   async create(data: any, organizationId: string, userId: string) {
-    // Fix stakeholders format - ensure it's properly formatted for PostgreSQL
     const projectData = {
       ...data,
       organizationId,
       createdById: userId,
     };
     
-    // If stakeholders is an array, keep it as array for TypeORM
     if (data.stakeholders && Array.isArray(data.stakeholders)) {
       projectData.stakeholders = data.stakeholders;
     } else if (data.stakeholders && typeof data.stakeholders === 'string') {
-      // If it's a string, split it
       projectData.stakeholders = data.stakeholders.split(',').map(s => s.trim());
     }
     
@@ -30,7 +27,6 @@ export class ProjectsService {
     const savedProject = await this.projectRepository.save(project);
     const projectId = (savedProject as any).id;
 
-    // Copy template phases if templateId exists
     if (data.templateId && projectId) {
       try {
         const templatePhases = await this.projectRepository.query(
@@ -39,21 +35,20 @@ export class ProjectsService {
         );
 
         if (templatePhases && templatePhases.length > 0) {
-          for (const phase of templatePhases) {
-            await this.projectRepository.query(
-              `INSERT INTO project_phases (project_id, name, order_index, gate_requirements, status)
-               VALUES ($1, $2, $3, $4, 'pending')`,
-              [projectId, phase.name, phase.order_index, phase.gate_requirements || '[]']
-            );
-          }
+          // Bulk insert all phases at once instead of loop
+          const phaseValues = templatePhases.map((phase, index) => 
+            `('${projectId}', '${phase.name}', ${phase.order_index}, '${phase.gate_requirements || '[]'}', 'pending')`
+          ).join(',');
+          
+          await this.projectRepository.query(
+            `INSERT INTO project_phases (project_id, name, order_index, gate_requirements, status) VALUES ${phaseValues}`
+          );
+          
           console.log(`Copied ${templatePhases.length} phases to project ${projectId}`);
         }
 
-        // Copy KPIs from template
         const templateKpis = await this.projectRepository.query(
-          `SELECT kd.* FROM kpi_definitions kd 
-           WHERE kd.is_system = true 
-           LIMIT 5`,
+          `SELECT kd.* FROM kpi_definitions kd WHERE kd.is_system = true LIMIT 5`,
           []
         );
 
@@ -69,18 +64,26 @@ export class ProjectsService {
         }
       } catch (error) {
         console.error('Error copying template data:', error);
-        // Don't fail the entire project creation
       }
     }
 
     return savedProject;
   }
 
-  async findAllByOrganization(organizationId: string) {
-    return this.projectRepository.find({
+  async findAllByOrganization(organizationId: string, page = 1, limit = 20) {
+    const [projects, total] = await this.projectRepository.findAndCount({
       where: { organizationId },
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
     });
+    
+    return {
+      data: projects,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string, organizationId: string) {
@@ -98,7 +101,6 @@ export class ProjectsService {
   async update(id: string, data: any, organizationId: string) {
     const project = await this.findOne(id, organizationId);
     
-    // Handle stakeholders array for updates too
     if (data.stakeholders && Array.isArray(data.stakeholders)) {
       data.stakeholders = data.stakeholders;
     } else if (data.stakeholders && typeof data.stakeholders === 'string') {
