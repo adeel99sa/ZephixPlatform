@@ -16,24 +16,24 @@ export class RiskDetectionService {
     private allocationRepository: Repository<ResourceAllocation>,
   ) {}
 
-  async scanProject(projectId: string, organizationId: string): Promise<Risk[]> {
+  async scanProject(projectId: string: string): Promise<Risk[]> {
     const detectedRisks: Risk[] = [];
     
-    const overallocationRisk = await this.detectResourceOverallocation(projectId, organizationId);
+    const overallocationRisk = await this.detectResourceOverallocation(projectId);
     if (overallocationRisk) detectedRisks.push(overallocationRisk);
 
-    const scheduleRisk = await this.detectScheduleVariance(projectId, organizationId);
+    const scheduleRisk = await this.detectScheduleVariance(projectId);
     if (scheduleRisk) detectedRisks.push(scheduleRisk);
 
-    const budgetRisk = await this.detectBudgetVariance(projectId, organizationId);
+    const budgetRisk = await this.detectBudgetVariance(projectId);
     if (budgetRisk) detectedRisks.push(budgetRisk);
 
     return detectedRisks;
   }
 
-  private async detectResourceOverallocation(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async detectResourceOverallocation(projectId: string: string): Promise<Risk | null> {
     const allocations = await this.allocationRepository.find({
-      where: { projectId, organizationId },
+      where: { projectId },
     });
 
     const overallocated = allocations.filter(a => Number(a.allocationPercentage) > 100);
@@ -54,9 +54,9 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async detectScheduleVariance(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async detectScheduleVariance(projectId: string: string): Promise<Risk | null> {
     const project = await this.projectRepository.findOne({
-      where: { id: projectId, organizationId },
+      where: { id: projectId },
     });
 
     if (project && project.endDate && project.estimatedEndDate) {
@@ -80,9 +80,9 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async detectBudgetVariance(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async detectBudgetVariance(projectId: string: string): Promise<Risk | null> {
     const project = await this.projectRepository.findOne({
-      where: { id: projectId, organizationId },
+      where: { id: projectId },
     });
 
     if (project && project.budget && project.actualCost) {
@@ -105,9 +105,9 @@ export class RiskDetectionService {
     return null;
   }
 
-  async getRisksByProject(projectId: string, organizationId: string): Promise<Risk[]> {
+  async getRisksByProject(projectId: string: string): Promise<Risk[]> {
     return this.riskRepository.find({
-      where: { projectId, organizationId },
+      where: { projectId },
       order: { detectedAt: 'DESC' },
     });
   }

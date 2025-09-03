@@ -67,10 +67,10 @@ export class ResourcesService {
 
     if (conflicts.totalAllocation + data.allocationPercentage > 100) {
       const conflict = this.conflictRepository.create({
-        resource_id: data.resourceId,
-        conflict_date: data.startDate,
-        total_allocation: conflicts.totalAllocation + data.allocationPercentage,
-        conflicting_projects: conflicts.projects,
+        resourceId: data.resourceId,
+        conflictDate: data.startDate,
+        totalAllocation: conflicts.totalAllocation + data.allocationPercentage,
+        conflictingProjects: conflicts.projects,
         severity: conflicts.totalAllocation > 120 ? 'critical' : 'high',
       });
       await this.conflictRepository.save(conflict);
