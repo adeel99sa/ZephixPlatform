@@ -24,14 +24,16 @@ interface TemplateSelectorProps {
   onTemplateSelect: (template: Template) => void;
   onBack: () => void;
   onNext: () => void;
+  selectedTemplate?: Template | null;
 }
 
 export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
   onTemplateSelect,
   onBack,
   onNext,
+  selectedTemplate,
 }) => {
-  const { templates, selectedTemplate, isLoading, error, fetchTemplates, selectTemplate } = useTemplateStore();
+  const { templates, isLoading, error, fetchTemplates, selectTemplate } = useTemplateStore();
 
   useEffect(() => {
     fetchTemplates();

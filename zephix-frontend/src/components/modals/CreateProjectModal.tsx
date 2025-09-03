@@ -68,7 +68,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   };
 
   const handleNext = () => {
-    if (currentStep === 'template' && selectedTemplate) {
+    if (currentStep === 'template' && selectedTemplateData) {
       setCurrentStep('details');
     }
   };
@@ -183,6 +183,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               onTemplateSelect={handleTemplateSelect}
               onBack={handleClose}
               onNext={handleNext}
+              selectedTemplate={selectedTemplateData}
             />
           )}
 

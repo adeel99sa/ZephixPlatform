@@ -7,30 +7,22 @@ import { Button } from '../../components/ui/Button';
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { projects, fetchProjects } = useProjectStore();
+  const { getProjectById } = useProjectStore();
   const [project, setProject] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadProject = async () => {
       if (id) {
-        // First try to find in existing projects
-        const existingProject = projects.find(p => p.id === id);
-        if (existingProject) {
-          setProject(existingProject);
-          setIsLoading(false);
-        } else {
-          // If not found, fetch all projects and try again
-          await fetchProjects();
-          const foundProject = projects.find(p => p.id === id);
-          setProject(foundProject || null);
-          setIsLoading(false);
-        }
+        setIsLoading(true);
+        const projectData = await getProjectById(id);
+        setProject(projectData);
+        setIsLoading(false);
       }
     };
 
     loadProject();
-  }, [id, projects, fetchProjects]);
+  }, [id, getProjectById]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Not set';
