@@ -11,14 +11,24 @@ export class ProjectsService {
   ) {}
 
   async create(data: any, organizationId: string, userId: string) {
-    const project = this.projectRepository.create({
+    // Fix stakeholders format - ensure it's properly formatted for PostgreSQL
+    const projectData = {
       ...data,
       organizationId,
       createdById: userId,
-    });
+    };
     
+    // If stakeholders is an array, keep it as array for TypeORM
+    if (data.stakeholders && Array.isArray(data.stakeholders)) {
+      projectData.stakeholders = data.stakeholders;
+    } else if (data.stakeholders && typeof data.stakeholders === 'string') {
+      // If it's a string, split it
+      projectData.stakeholders = data.stakeholders.split(',').map(s => s.trim());
+    }
+    
+    const project = this.projectRepository.create(projectData);
     const savedProject = await this.projectRepository.save(project);
-    const projectId = (savedProject as any).id;
+    const projectId = savedProject.id;
 
     // Copy template phases if templateId exists
     if (data.templateId && projectId) {
@@ -33,7 +43,7 @@ export class ProjectsService {
             await this.projectRepository.query(
               `INSERT INTO project_phases (project_id, name, order_index, gate_requirements, status)
                VALUES ($1, $2, $3, $4, 'pending')`,
-              [projectId, phase.name, phase.order_index, phase.gate_requirements]
+              [projectId, phase.name, phase.order_index, phase.gate_requirements || '[]']
             );
           }
           console.log(`Copied ${templatePhases.length} phases to project ${projectId}`);
@@ -47,16 +57,19 @@ export class ProjectsService {
           []
         );
 
-        for (const kpi of templateKpis) {
-          await this.projectRepository.query(
-            `INSERT INTO project_kpis (project_id, kpi_definition_id, name, unit, target_value)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [projectId, kpi.id, kpi.name, kpi.unit, 100]
-          );
+        if (templateKpis && templateKpis.length > 0) {
+          for (const kpi of templateKpis) {
+            await this.projectRepository.query(
+              `INSERT INTO project_kpis (project_id, kpi_definition_id, name, unit, target_value)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [projectId, kpi.id, kpi.name, kpi.unit, 100]
+            );
+          }
+          console.log(`Copied ${templateKpis.length} KPIs to project ${projectId}`);
         }
-        console.log(`Copied ${templateKpis.length} KPIs to project ${projectId}`);
       } catch (error) {
-        console.error('Error copying template phases:', error);
+        console.error('Error copying template data:', error);
+        // Don't fail the entire project creation
       }
     }
 
@@ -84,6 +97,14 @@ export class ProjectsService {
 
   async update(id: string, data: any, organizationId: string) {
     const project = await this.findOne(id, organizationId);
+    
+    // Handle stakeholders array for updates too
+    if (data.stakeholders && Array.isArray(data.stakeholders)) {
+      data.stakeholders = data.stakeholders;
+    } else if (data.stakeholders && typeof data.stakeholders === 'string') {
+      data.stakeholders = data.stakeholders.split(',').map(s => s.trim());
+    }
+    
     Object.assign(project, data);
     return this.projectRepository.save(project);
   }
