@@ -28,7 +28,7 @@ export class ProjectsService {
     
     const project = this.projectRepository.create(projectData);
     const savedProject = await this.projectRepository.save(project);
-    const projectId = savedProject.id;
+    const projectId = (savedProject as any).id;
 
     // Copy template phases if templateId exists
     if (data.templateId && projectId) {
