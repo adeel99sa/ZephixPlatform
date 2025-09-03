@@ -8,6 +8,7 @@ import { ProjectsModule } from './core/modules/projects/projects.module';
 import { ResourcesModule } from './core/modules/resources/resources.module';
 import { RisksModule } from './core/modules/risks/risks.module';
 import { AIAssistantModule } from './core/modules/ai-assistant/ai-assistant.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AIAssistantModule } from './core/modules/ai-assistant/ai-assistant.modu
     ResourcesModule,
     RisksModule,
     AIAssistantModule,
+    TemplatesModule,
   ],
 })
 export class AppModule {}
