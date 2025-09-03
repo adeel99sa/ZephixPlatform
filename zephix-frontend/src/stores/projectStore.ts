@@ -27,6 +27,7 @@ interface ProjectStore {
   // Actions
   fetchProjects: () => Promise<void>;
   createProject: (data: Partial<Project>) => Promise<boolean>;
+  getProjectById: (id: string) => Promise<Project | null>;
   updateProject: (id: string, data: Partial<Project>) => Promise<boolean>;
   deleteProject: (id: string) => Promise<boolean>;
   clearError: () => void;
@@ -67,6 +68,26 @@ export const useProjectStore = create<ProjectStore>()(
             isLoading: false 
           });
           return false;
+        }
+      },
+
+      getProjectById: async (id: string) => {
+        try {
+          // First try to find in existing projects
+          const existingProject = get().projects.find(p => p.id === id);
+          if (existingProject) {
+            return existingProject;
+          }
+          
+          // If not found, fetch from API
+          const project = await apiGet(`projects/${id}`);
+          return project;
+        } catch (error) {
+          console.error('Failed to get project:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to get project'
+          });
+          return null;
         }
       },
 

@@ -1,55 +1,62 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum, IsDateString, IsNumber, IsArray } from 'class-validator';
-import { ProjectStatus, ProjectPriority } from '../entities/project.entity';
+import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsUUID, IsDateString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProjectDto {
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
   name: string;
 
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   description?: string;
 
-  @IsEnum(ProjectStatus)
-  @IsOptional()
-  status?: ProjectStatus;
-
-  @IsEnum(ProjectPriority)
-  @IsOptional()
-  priority?: ProjectPriority;
-
+  @ApiPropertyOptional()
   @IsDateString()
   @IsOptional()
   startDate?: string;
 
+  @ApiPropertyOptional()
   @IsDateString()
   @IsOptional()
   endDate?: string;
 
+  @ApiPropertyOptional()
+  @IsEnum(['planning', 'active', 'on_hold', 'completed', 'cancelled'])
+  @IsOptional()
+  status?: string;
+
+  @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
   budget?: number;
 
-  @IsString()
+  @ApiPropertyOptional()
+  @IsUUID()
   @IsOptional()
-  programId?: string;
+  templateId?: string;  // ADD THIS FIELD
 
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   template?: string;
 
-  @IsString()
-  @IsOptional()
-  templateId?: string;
-
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   methodology?: string;
 
+  @ApiPropertyOptional()
+  @IsEnum(['low', 'medium', 'high', 'critical'])
+  @IsOptional()
+  priority?: string;
+
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   department?: string;
 
+  @ApiPropertyOptional()
   @IsArray()
   @IsOptional()
   stakeholders?: string[];
