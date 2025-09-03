@@ -1,8 +1,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
+COPY zephix-backend-v2/package*.json ./
 RUN npm ci
-COPY . ./
+COPY zephix-backend-v2/ ./
 RUN npm run build
 
 FROM node:20-alpine
