@@ -203,6 +203,30 @@ export const projects = {
     api.delete<void>(`/projects/${id}`),
 };
 
+// Templates API methods
+export const templates = {
+  getAll: (): Promise<any[]> =>
+    api.get<any[]>('/templates'),
+  
+  getSystemTemplates: (): Promise<any[]> =>
+    api.get<any[]>('/templates/system'),
+  
+  getOrganizationTemplates: (): Promise<any[]> =>
+    api.get<any[]>('/templates/organization'),
+  
+  getById: (id: string): Promise<any> =>
+    api.get<any>(`/templates/${id}`),
+  
+  create: (data: any): Promise<any> =>
+    api.post<any>('/templates', data),
+  
+  update: (id: string, data: any): Promise<any> =>
+    api.patch<any>(`/templates/${id}`, data),
+  
+  delete: (id: string): Promise<void> =>
+    api.delete<void>(`/templates/${id}`),
+};
+
 // Resources API methods
 export const resources = {
   allocate: (data: Partial<ResourceAllocation>): Promise<ResourceAllocation> =>

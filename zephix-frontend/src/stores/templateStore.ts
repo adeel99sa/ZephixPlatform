@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiGet } from '../services/api.service';
+import { templates } from '../services/api.service';
 
 interface TemplatePhase {
   id: string;
@@ -46,8 +46,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
   fetchTemplates: async () => {
     set({ isLoading: true, error: null });
     try {
-      const templates = await apiGet<Template[]>('templates/system');
-      set({ templates, isLoading: false });
+      const templatesData = await templates.getSystemTemplates();
+      set({ templates: templatesData, isLoading: false });
     } catch (error) {
       console.error('Failed to fetch templates:', error);
       set({ 

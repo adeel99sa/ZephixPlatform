@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { Program } from '../../programs/entities/program.entity';
+import { Template } from '../../../../modules/templates/entities/template.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -80,6 +81,9 @@ export class Project {
   @Column({ type: 'varchar', length: 50, nullable: true })
   template: string;
 
+  @Column({ name: 'template_id', type: 'uuid', nullable: true })
+  templateId: string;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   methodology: string;
 
@@ -119,4 +123,8 @@ export class Project {
   @ManyToOne(() => Program, program => program.projects, { nullable: true })
   @JoinColumn({ name: 'program_id' })
   program: Program;
+
+  @ManyToOne(() => Template, { nullable: true })
+  @JoinColumn({ name: 'template_id' })
+  templateEntity: Template;
 }

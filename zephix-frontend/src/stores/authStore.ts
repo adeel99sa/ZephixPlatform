@@ -19,6 +19,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => void;
+  refreshToken: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -80,6 +81,22 @@ export const useAuthStore = create<AuthState>((set) => ({
       } catch {
         set({ user: null, token: null, isAuthenticated: false });
       }
+    }
+  },
+
+  refreshToken: async () => {
+    try {
+      const data = await auth.refresh();
+      localStorage.setItem('token', data.access_token);
+      set({ token: data.access_token, isAuthenticated: true });
+      return true;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      set({ user: null, token: null, isAuthenticated: false });
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      return false;
     }
   },
 }));
