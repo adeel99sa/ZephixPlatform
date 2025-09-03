@@ -16,7 +16,7 @@ export class RiskDetectionService {
     private allocationRepository: Repository<ResourceAllocation>,
   ) {}
 
-  async scanProject(projectId: string: string): Promise<Risk[]> {
+  async scanProject(projectId: string): Promise<Risk[]> {
     const detectedRisks: Risk[] = [];
     
     const overallocationRisk = await this.detectResourceOverallocation(projectId);
@@ -31,7 +31,7 @@ export class RiskDetectionService {
     return detectedRisks;
   }
 
-  private async detectResourceOverallocation(projectId: string: string): Promise<Risk | null> {
+  private async detectResourceOverallocation(projectId: string): Promise<Risk | null> {
     const allocations = await this.allocationRepository.find({
       where: { projectId },
     });
@@ -41,7 +41,6 @@ export class RiskDetectionService {
     if (overallocated.length > 0) {
       const risk = this.riskRepository.create({
         projectId,
-        organizationId,
         type: RiskType.RESOURCE_OVERALLOCATION,
         severity: RiskSeverity.HIGH,
         title: 'Resource Overallocation Detected',
@@ -54,7 +53,7 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async detectScheduleVariance(projectId: string: string): Promise<Risk | null> {
+  private async detectScheduleVariance(projectId: string): Promise<Risk | null> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
     });
@@ -66,7 +65,6 @@ export class RiskDetectionService {
       if (daysDiff > 3) {
         const risk = this.riskRepository.create({
           projectId,
-          organizationId,
           type: RiskType.SCHEDULE_VARIANCE,
           severity: daysDiff > 7 ? RiskSeverity.HIGH : RiskSeverity.MEDIUM,
           title: 'Schedule Variance Detected',
@@ -80,7 +78,7 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async detectBudgetVariance(projectId: string: string): Promise<Risk | null> {
+  private async detectBudgetVariance(projectId: string): Promise<Risk | null> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
     });
@@ -91,7 +89,6 @@ export class RiskDetectionService {
       if (variance > 0.2) {
         const risk = this.riskRepository.create({
           projectId,
-          organizationId,
           type: RiskType.BUDGET_VARIANCE,
           severity: variance > 0.5 ? RiskSeverity.CRITICAL : RiskSeverity.HIGH,
           title: 'Budget Overrun Detected',
@@ -105,7 +102,7 @@ export class RiskDetectionService {
     return null;
   }
 
-  async getRisksByProject(projectId: string: string): Promise<Risk[]> {
+  async getRisksByProject(projectId: string): Promise<Risk[]> {
     return this.riskRepository.find({
       where: { projectId },
       order: { detectedAt: 'DESC' },
