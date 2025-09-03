@@ -14,5 +14,6 @@ USER app
 COPY --chown=app:app --from=builder /app/package*.json ./
 RUN npm ci --omit=dev
 COPY --chown=app:app --from=builder /app/dist ./dist
+COPY --chown=app:app --from=builder /app/nest-cli.json ./
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
