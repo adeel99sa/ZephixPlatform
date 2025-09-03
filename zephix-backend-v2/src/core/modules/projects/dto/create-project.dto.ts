@@ -40,6 +40,10 @@ export class CreateProjectDto {
 
   @IsString()
   @IsOptional()
+  templateId?: string;
+
+  @IsString()
+  @IsOptional()
   methodology?: string;
 
   @IsString()
