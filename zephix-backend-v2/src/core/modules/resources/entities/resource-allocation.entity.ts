@@ -1,9 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, Check } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Resource } from './resource.entity';
 
 @Entity('resource_allocations')
-@Index('idx_allocations_project', ['projectId'])
-@Check('"startDate" <= "endDate"')
-@Check('"allocationPercentage" > 0 AND "allocationPercentage" <= 200')
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -29,12 +27,16 @@ export class ResourceAllocation {
   @Column({ name: 'hoursPerDay', default: 8 })
   hoursPerDay: number;
 
-  @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
-
   @Column({ name: 'organization_id', nullable: true })
-  organizationId: string;
+  organization_id: string;
+
+  @ManyToOne(() => Resource)
+  @JoinColumn({ name: 'resourceId' })
+  resource: Resource;
+
+  @CreateDateColumn()
+  created_at: Date;
 
   @Column({ name: 'updated_at', nullable: true })
-  updatedAt: Date;
+  updated_at: Date;
 }

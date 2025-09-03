@@ -1,39 +1,64 @@
-import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
-import { ResourcesService } from '../services/resources.service';
-import { AllocateResourceDto } from '../dto/allocate-resource.dto';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../../organizations/guards/organization.guard';
-import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
+import { ResourcesService } from '../services/resources.service';
 
-@Controller({ path: 'resources', version: '1' })
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@ApiTags('resources')
+@Controller('api/v1/resources')
+@UseGuards(JwtAuthGuard)
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
+  @Post()
+  @ApiOperation({ summary: 'Create a new resource' })
+  async create(@Body() createDto: any, @Req() req) {
+    return this.resourcesService.create(createDto, req.user.organizationId);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all resources' })
+  async findAll(@Req() req) {
+    return this.resourcesService.findAll(req.user.organizationId);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get resource by id' })
+  async findOne(@Param('id') id: string, @Req() req) {
+    return this.resourcesService.findOne(id, req.user.organizationId);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update resource' })
+  async update(@Param('id') id: string, @Body() updateDto: any, @Req() req) {
+    return this.resourcesService.update(id, updateDto, req.user.organizationId);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete resource' })
+  async remove(@Param('id') id: string, @Req() req) {
+    return this.resourcesService.remove(id, req.user.organizationId);
+  }
+
   @Post('allocate')
-  allocate(
-    @Body() dto: AllocateResourceDto,
-    @CurrentOrg() organizationId: string,
-  ) {
-    return this.resourcesService.allocateResource(dto, organizationId);
+  @ApiOperation({ summary: 'Allocate resource to project/task' })
+  async allocate(@Body() allocateDto: any, @Req() req) {
+    return this.resourcesService.allocateResource(allocateDto, req.user.organizationId);
   }
 
   @Get('heat-map')
-  getHeatMap(
-    @CurrentOrg() organizationId: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
+  @ApiOperation({ summary: 'Get resource utilization heat map' })
+  async getHeatMap(@Req() req, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     return this.resourcesService.getResourceHeatMap(
-      organizationId,
+      req.user.organizationId,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
     );
   }
 
   @Get('conflicts')
-  async getConflicts(@CurrentOrg() organizationId: string) {
-    // This would return unresolved conflicts
+  @ApiOperation({ summary: 'Get resource conflicts' })
+  async getConflicts(@Req() req) {
+    // To be implemented
     return [];
   }
 }
