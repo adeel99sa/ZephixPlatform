@@ -1,82 +1,74 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ProjectsService } from '../services/projects.service';
-import { CreateProjectDto } from '../dto/create-project.dto';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../../organizations/guards/organization.guard';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
+import { ProjectsService } from '../services/projects.service';
 import { ProjectStatus } from '../entities/project.entity';
 
-@Controller({ path: 'projects', version: '1' })
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@ApiTags('projects')
+@Controller('api/v1/projects')
+@UseGuards(JwtAuthGuard)
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get('organization/statistics')
-  async getOrganizationStatistics(@CurrentOrg() organizationId: string) {
-    const projects = await this.projectsService.findAllByOrganization(organizationId);
+  @ApiOperation({ summary: 'Get organization project statistics' })
+  async getOrganizationStatistics(@Req() req) {
+    // Get all projects for statistics (set high limit)
+    const result = await this.projectsService.findAllByOrganization(req.user.organizationId, 1, 1000);
+    const projects = result.data;
     
-    const totalProjects = projects.length;
+    const totalProjects = result.total;
     const activeProjects = projects.filter(p => p.status === ProjectStatus.ACTIVE).length;
     const completedProjects = projects.filter(p => p.status === ProjectStatus.COMPLETED).length;
     const onHoldProjects = projects.filter(p => p.status === ProjectStatus.ON_HOLD).length;
-    
+
     const totalBudget = projects.reduce((sum, p) => sum + (Number(p.budget) || 0), 0);
-    const avgBudget = totalProjects > 0 ? totalBudget / totalProjects : 0;
-    
+
     return {
-      projects: {
-        total: totalProjects,
-        active: activeProjects,
-        completed: completedProjects,
-        onHold: onHoldProjects,
-      },
-      budget: {
-        total: totalBudget,
-        average: avgBudget,
-      },
-      timeline: {
-        onTime: Math.floor(totalProjects * 0.7),
-        delayed: Math.floor(totalProjects * 0.2),
-        atRisk: Math.floor(totalProjects * 0.1),
-      },
-      resources: {
-        totalAllocated: 0,
-        utilization: 0,
-      }
+      totalProjects,
+      activeProjects,
+      completedProjects,
+      onHoldProjects,
+      totalBudget,
+      averageBudget: totalProjects > 0 ? totalBudget / totalProjects : 0,
     };
   }
 
   @Post()
-  create(
-    @Body() createProjectDto: CreateProjectDto,
-    @CurrentOrg() organizationId: string,
-    @CurrentUser() user: any,
-  ) {
-    return this.projectsService.create(createProjectDto, organizationId, user.id);
+  @ApiOperation({ summary: 'Create a new project' })
+  async create(@Body() createProjectDto: any, @Req() req) {
+    return this.projectsService.create(createProjectDto, req.user.organizationId, req.user.id);
   }
 
   @Get()
-  findAll(@CurrentOrg() organizationId: string) {
-    return this.projectsService.findAllByOrganization(organizationId);
+  @ApiOperation({ summary: 'Get all projects' })
+  async findAll(
+    @Req() req,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projectsService.findAllByOrganization(
+      req.user.organizationId,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+    );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @CurrentOrg() organizationId: string) {
-    return this.projectsService.findOne(id, organizationId);
+  @ApiOperation({ summary: 'Get project by id' })
+  async findOne(@Param('id') id: string, @Req() req) {
+    return this.projectsService.findOne(id, req.user.organizationId);
   }
 
   @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateProjectDto: CreateProjectDto,
-    @CurrentOrg() organizationId: string,
-  ) {
-    return this.projectsService.update(id, updateProjectDto, organizationId);
+  @ApiOperation({ summary: 'Update project' })
+  async update(@Param('id') id: string, @Body() updateProjectDto: any, @Req() req) {
+    return this.projectsService.update(id, updateProjectDto, req.user.organizationId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentOrg() organizationId: string) {
-    return this.projectsService.remove(id, organizationId);
+  @ApiOperation({ summary: 'Delete project' })
+  async remove(@Param('id') id: string, @Req() req) {
+    return this.projectsService.remove(id, req.user.organizationId);
   }
 }
