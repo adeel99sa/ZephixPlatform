@@ -1,27 +1,25 @@
-import { Controller, Post, Get, Param, UseGuards } from '@nestjs/common';
-import { RiskDetectionService } from '../services/risk-detection.service';
+import { Controller, Post, Get, Param, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../../organizations/guards/organization.guard';
-import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
+import { RiskDetectionService } from '../services/risk-detection.service';
 
-@Controller({ path: 'risks', version: '1' })
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@ApiTags('risks')
+@Controller('api/v1/risks')
+@UseGuards(JwtAuthGuard)
 export class RisksController {
   constructor(private readonly riskService: RiskDetectionService) {}
 
   @Post('scan/:projectId')
-  scanProject(
-    @Param('projectId') projectId: string,
-    @CurrentOrg() organizationId: string,
-  ) {
-    return this.riskService.scanProject(projectId, organizationId);
+  @ApiOperation({ summary: 'Scan project for risks' })
+  async scanProject(@Param('projectId') projectId: string, @Req() req) {
+    // Service only needs projectId - we fixed the service earlier to not use organizationId
+    return this.riskService.scanProject(projectId);
   }
 
   @Get('project/:projectId')
-  getProjectRisks(
-    @Param('projectId') projectId: string,
-    @CurrentOrg() organizationId: string,
-  ) {
-    return this.riskService.getRisksByProject(projectId, organizationId);
+  @ApiOperation({ summary: 'Get risks by project' })
+  async getRisksByProject(@Param('projectId') projectId: string, @Req() req) {
+    // Service only needs projectId
+    return this.riskService.getRisksByProject(projectId);
   }
 }
