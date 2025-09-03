@@ -90,7 +90,7 @@ export class Project {
   @Column({ type: 'varchar', length: 100, nullable: true })
   department: string;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column('text', { array: true, nullable: true })
   stakeholders: string[];
 
   @Column({ name: 'actual_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
