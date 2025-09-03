@@ -42,7 +42,7 @@ export class ProjectsService {
         // Copy KPIs from template
         const templateKpis = await this.projectRepository.query(
           `SELECT kd.* FROM kpi_definitions kd 
-           WHERE kd.is_system_kpi = true 
+           WHERE kd.is_system = true 
            LIMIT 5`,
           []
         );
