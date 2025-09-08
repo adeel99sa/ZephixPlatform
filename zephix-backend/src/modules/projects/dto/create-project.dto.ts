@@ -1,5 +1,23 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from '../entities/project.entity';
+
+class CreatePhaseDto {
+  @IsString()
+  phaseName: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsEnum(['agile', 'waterfall', 'hybrid', 'scrum', 'kanban'])
+  methodology?: string;
+}
 
 export class CreateProjectDto {
   @IsString()
@@ -49,4 +67,14 @@ export class CreateProjectDto {
 
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsOptional()
+  @IsEnum(['agile', 'waterfall', 'hybrid', 'scrum', 'kanban'])
+  methodology?: 'agile' | 'waterfall' | 'hybrid' | 'scrum' | 'kanban';
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePhaseDto)
+  phases?: CreatePhaseDto[];
 }
