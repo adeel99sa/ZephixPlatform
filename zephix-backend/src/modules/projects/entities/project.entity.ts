@@ -9,6 +9,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Organization } from '../../../organizations/entities/organization.entity';
+import { ProjectAssignment } from './project-assignment.entity';
+import { ProjectPhase } from './project-phase.entity';
+import { Task } from './task.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -83,6 +87,12 @@ export class Project {
   })
   riskLevel: ProjectRiskLevel;
 
+  @Column({ 
+    type: 'varchar',
+    default: 'agile'
+  })
+  methodology: 'agile' | 'waterfall' | 'hybrid' | 'scrum' | 'kanban';
+
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
@@ -93,6 +103,10 @@ export class Project {
   updatedAt: Date;
 
   // Relations
+  @ManyToOne(() => Organization, org => org.projects)
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
   createdByUser: User;
@@ -100,4 +114,13 @@ export class Project {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
+
+  @OneToMany(() => ProjectAssignment, assignment => assignment.project)
+  assignments: ProjectAssignment[];
+
+  @OneToMany(() => ProjectPhase, phase => phase.project)
+  phases: ProjectPhase[];
+
+  @OneToMany(() => Task, task => task.project)
+  tasks: Task[];
 }
