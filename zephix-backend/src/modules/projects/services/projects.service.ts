@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, Logger, ForbiddenException } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions } from 'typeorm';
 import { Project, ProjectStatus } from '../entities/project.entity';
+import { ProjectAssignment } from '../entities/project-assignment.entity';
+import { ProjectPhase } from '../entities/project-phase.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
@@ -13,7 +15,12 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   constructor(
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
+    @InjectRepository(ProjectAssignment)
+    private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
+    @InjectRepository(ProjectPhase)
+    private readonly projectPhaseRepository: Repository<ProjectPhase>,
   ) {
+    console.log('🚀 ProjectsService constructor called!');
     super(projectRepository, 'Project');
   }
 
@@ -29,11 +36,20 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       this.logger.log(`Creating project for org: ${organizationId}, user: ${userId}`);
 
       // Use parent class create method which automatically sets organizationId
+      const { phases, ...projectData } = createProjectDto;
       const project = await this.create({
-        ...createProjectDto,
+        ...projectData,
         createdById: userId,
         status: createProjectDto.status || ProjectStatus.PLANNING,
       }, organizationId);
+
+      // Auto-assign creator as owner
+      await this.assignUser(
+        project.id,
+        userId,
+        'owner',
+        organizationId,
+      );
 
       this.logger.log(`✅ Project created: ${project.id} in org: ${organizationId}`);
       return project;
@@ -42,6 +58,35 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       this.logger.error(`❌ Failed to create project for org ${organizationId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Create a new project with phases - TENANT SECURE
+   */
+  async createProjectWithPhases(createProjectDto: CreateProjectDto, organizationId: string, userId: string): Promise<Project> {
+    const { phases, ...projectData } = createProjectDto;
+    
+    // Create project
+    const project = await this.createProject(projectData, organizationId, userId);
+
+    // Create phases if provided
+    if (phases && phases.length > 0) {
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i];
+        await this.projectPhaseRepository.save({
+          projectId: project.id,
+          phaseName: phase.phaseName,
+          orderIndex: i + 1,
+          startDate: phase.startDate ? new Date(phase.startDate) : undefined,
+          endDate: phase.endDate ? new Date(phase.endDate) : undefined,
+          methodology: phase.methodology || project.methodology,
+          status: 'not_started',
+          isActive: i === 0 // First phase is active
+        });
+      }
+    }
+
+    return this.findOne(project.id);
   }
 
   /**
@@ -79,7 +124,6 @@ export class ProjectsService extends TenantAwareRepository<Project> {
           .where('project.organizationId = :orgId', { orgId: organizationId })
           .andWhere('(project.name ILIKE :search OR project.description ILIKE :search)', 
                    { search: `%${search}%` })
-          .leftJoinAndSelect('project.createdByUser', 'user')
           .orderBy('project.createdAt', 'DESC')
           .skip(skip)
           .take(limit)
@@ -98,7 +142,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       // Regular find with org filter
       const [projects, total] = await this.projectRepository.findAndCount({
         where: whereClause,
-        relations: ['createdByUser'],
+        
         order: { createdAt: 'DESC' },
         skip,
         take: limit,
@@ -125,7 +169,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   async findProjectById(id: string, organizationId: string): Promise<Project> {
     try {
       const project = await this.findById(id, organizationId, [
-        'createdByUser'
+        'createdByUser',
+        'phases'
       ]);
 
       if (!project) {
@@ -160,8 +205,9 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     try {
       this.logger.log(`Updating project ${id} for org: ${organizationId}, user: ${userId}`);
 
+      const { phases, ...projectData } = updateProjectDto;
       const updatedProject = await this.update(id, organizationId, {
-        ...updateProjectDto,
+        ...projectData,
         updatedAt: new Date(),
       });
 
@@ -272,5 +318,97 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     }
 
     return project;
+  }
+
+  /**
+   * Assign user to project - TENANT SECURE
+   */
+  async assignUser(
+    projectId: string,
+    userId: string,
+    role: string,
+    organizationId: string,
+  ): Promise<ProjectAssignment> {
+    try {
+      this.logger.log(`Assigning user ${userId} to project ${projectId} with role ${role}`);
+
+      // Verify project exists and user has access
+      await this.validateProjectAccess(projectId, organizationId);
+
+      const assignment = this.projectAssignmentRepository.create({
+        projectId,
+        userId,
+        role: role,
+        organizationId,
+        assignedAt: new Date(),
+      });
+
+      const savedAssignment = await this.projectAssignmentRepository.save(assignment);
+      this.logger.log(`✅ User ${userId} assigned to project ${projectId}`);
+      return savedAssignment;
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to assign user ${userId} to project ${projectId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get project assignments - TENANT SECURE
+   */
+  async getProjectAssignments(
+    projectId: string,
+    organizationId: string,
+  ): Promise<ProjectAssignment[]> {
+    try {
+      this.logger.log(`Fetching assignments for project ${projectId}`);
+
+      // Verify project exists and user has access
+      await this.validateProjectAccess(projectId, organizationId);
+
+      const assignments = await this.projectAssignmentRepository.find({
+        where: { projectId, organizationId },
+        order: { assignedAt: 'DESC' },
+      });
+
+      this.logger.log(`✅ Found ${assignments.length} assignments for project ${projectId}`);
+      return assignments;
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to fetch assignments for project ${projectId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove user from project - TENANT SECURE
+   */
+  async removeUser(
+    projectId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(`Removing user ${userId} from project ${projectId}`);
+
+      // Verify project exists and user has access
+      await this.validateProjectAccess(projectId, organizationId);
+
+      const result = await this.projectAssignmentRepository.delete({
+        projectId,
+        userId,
+        organizationId,
+      });
+
+      if (result.affected === 0) {
+        throw new NotFoundException(`Assignment not found for user ${userId} in project ${projectId}`);
+      }
+
+      this.logger.log(`✅ User ${userId} removed from project ${projectId}`);
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to remove user ${userId} from project ${projectId}:`, error);
+      throw error;
+    }
   }
 }
