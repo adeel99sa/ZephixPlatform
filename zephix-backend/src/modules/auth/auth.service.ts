@@ -15,6 +15,7 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from '../../modules/users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UsersService } from '../users/users.service';
@@ -33,11 +34,13 @@ export class AuthService {
     @Optional()
     @InjectRepository(RefreshToken)
     private refreshTokenRepository?: Repository<RefreshToken>,
+    @Optional()
+    @InjectRepository(UserOrganization)
+    private userOrganizationRepository?: Repository<UserOrganization>,
     @Optional() private usersService?: UsersService,
   ) {
-    // Check if database is available
     this.isDatabaseAvailable = process.env.SKIP_DATABASE !== 'true';
-    this.logger.log(`Database available: ${this.isDatabaseAvailable}`);
+    this.logger.log(`AuthService initialized - Database: ${this.isDatabaseAvailable ? 'Connected' : 'Disconnected'}`);
   }
 
   /**
@@ -79,7 +82,7 @@ export class AuthService {
     }
 
     const { email, password } = loginDto;
-
+    
     // Find user by email
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
@@ -90,20 +93,19 @@ export class AuthService {
         'firstName',
         'lastName',
         'role',
-        'isActive',
+        'organizationId'
       ],
     });
-
-    if (!user || !user.isActive) {
-      this.logger.warn(`Failed login attempt for email: ${email}`);
-      return null;
+    
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-
-    // Verify password
+    
+    // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    
     if (!isPasswordValid) {
-      this.logger.warn(`Invalid password for email: ${email}`);
-      return null;
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Generate tokens
@@ -112,7 +114,7 @@ export class AuthService {
     // Save refresh token
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
-    // Log successful login
+    // Log successful login (no sensitive data)
     this.logger.log(`User logged in successfully: ${user.email}`);
 
     // Remove password from response
@@ -178,7 +180,7 @@ export class AuthService {
     // Save refresh token
     await this.saveRefreshToken(savedUser.id, tokens.refreshToken);
 
-    // Log new signup
+    // Log new signup (no sensitive data)
     this.logger.log(`New user signed up: ${savedUser.email}`);
 
     return {
@@ -322,17 +324,25 @@ export class AuthService {
    * Generate JWT and refresh tokens
    */
   private async generateTokens(user: User) {
+    // Simple query without joins
+    const userOrg = await this.userOrganizationRepository?.findOne({
+      where: { userId: user.id, isActive: true },
+      select: ['organizationId']
+    });
+    
+    const organizationId = userOrg?.organizationId || null;
+
     const payload = {
       sub: user.id,
       email: user.email,
-      organizationId: user.organizationId,
+      organizationId: organizationId,
       role: user.role,
       permissions: await this.getPermissions(user),
       iat: Math.floor(Date.now() / 1000),
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '15m', // Short-lived access tokens
+      expiresIn: '15m',
       issuer: 'zephix-platform',
     });
     const refreshToken = uuidv4();
