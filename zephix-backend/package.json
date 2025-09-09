@@ -35,7 +35,7 @@
       "docker:run": "docker run -p 3000:3000 --env-file .env.production zephix-backend",
       "docker:test": "npm run docker:build && npm run docker:run",
       "deploy:check": "npm run validate:deployment",
-      "start:railway": "npm run start:prod"
+      "start:railway": "npm run build && npm run start:prod"
    },
    "dependencies": {
       "@nestjs/common": "^10.0.0",
