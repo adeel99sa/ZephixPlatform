@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+// Force rebuild - imports are correct
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './controllers/users.controller';
