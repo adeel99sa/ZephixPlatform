@@ -26,7 +26,7 @@ export class DependencyService {
       externalId: dto.externalId,
       vendorName: dto.vendorName,
       dependsOnTaskId: dto.dependsOnTaskId,
-      createdBy: userId || null,
+      createdBy: userId || undefined,
     });
     
     return this.dependencyRepository.save(dependency);
