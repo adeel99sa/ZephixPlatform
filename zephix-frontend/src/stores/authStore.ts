@@ -31,7 +31,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionExpiry: number | null;
-  isLoggingOut: boolean; // Add flag to prevent multiple logout attempts
+  isLoggingOut: boolean;
 
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
@@ -48,12 +48,12 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      // Initial state
+      // Initial state - FIXED: isLoading should be false
       user: null,
       token: null,
       refreshToken: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false,  // CHANGED FROM true TO false
       sessionExpiry: null,
       isLoggingOut: false,
 
@@ -174,8 +174,6 @@ export const useAuthStore = create<AuthState>()(
             await apiJson('/auth/logout', { method: 'POST' });
           }
         } catch (error) {
-          // Don't throw or retry, just log the error
-          // This is expected if the token is already invalid
           console.log('Logout API call failed (this is normal):', error);
         } finally {
           // Always clear the auth state regardless of API call success
@@ -257,11 +255,14 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
+      // FIXED: Never persist isLoading as true
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         refreshToken: state.refreshToken,
         sessionExpiry: state.sessionExpiry,
+        isLoading: false,  // ADDED: Always save as false
+        isAuthenticated: state.isAuthenticated,  // ADDED: Persist auth state
       }),
     }
   )

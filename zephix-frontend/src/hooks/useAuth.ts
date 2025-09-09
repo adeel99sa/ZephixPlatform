@@ -1,47 +1,28 @@
-// src/hooks/useAuth.ts (replace entire file)
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore } from '../stores/authStore';
 
-export function useAuth() {
-  const { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    login: storeLogin, 
-    logout: storeLogout 
-  } = useAuthStore();
+export const useAuth = () => {
+  const store = useAuthStore();
   
-  // Map Zustand store to expected format for existing components
-  const permissions = {
-    canViewProjects: isAuthenticated,
-    canManageResources: user?.role === 'ADMIN' || user?.role === 'MANAGER',
-    canViewAnalytics: isAuthenticated,
-    canManageUsers: user?.role === 'ADMIN',
-    isAdmin: user?.role === 'ADMIN',
-  };
-
-  // Map user to expected format with name field
-  const mappedUser = user ? {
-    ...user,
-    name: `${user.firstName} ${user.lastName}`.trim()
-  } : null;
-
-  // Wrap login to match expected signature
-  const login = async (email: string, password: string) => {
-    const success = await storeLogin(email, password);
-    if (!success) {
-      throw new Error('Login failed');
-    }
-  };
-
+  // Extract what components need
   return {
-    user: mappedUser,
-    permissions,
-    login,
-    logout: storeLogout,
-    isLoading,
-    isAuthenticated
+    user: store.user,
+    token: store.token,
+    isAuthenticated: store.isAuthenticated,
+    isLoading: store.isLoading,
+    permissions: store.user ? {
+      canViewProjects: true, // Set based on user.role or actual permissions
+      canManageResources: store.user.role === 'admin',
+      canViewAnalytics: store.user.role === 'admin',
+      canManageUsers: store.user.role === 'admin',
+      isAdmin: store.user.role === 'admin'
+    } : {
+      canViewProjects: false,
+      canManageResources: false,
+      canViewAnalytics: false,
+      canManageUsers: false,
+      isAdmin: false
+    },
+    login: store.login,
+    logout: store.logout
   };
-}
-
-// Export the auth store directly for components that want to use it
-export { useAuthStore } from '@/stores/authStore';
+};

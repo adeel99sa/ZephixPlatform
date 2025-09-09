@@ -23,6 +23,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/helmet": "^0.0.48",
-    "@types/passport-jwt": "^4.0.1"
+    "@types/passport-jwt": "^4.0.1",
+    "typescript": "^5.9.2"
   }
 }
