@@ -29,7 +29,7 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { ValidationPipe } from '@nestjs/common'
 import helmet from 'helmet'
-import cookieParser from 'cookie-parser'
+import * as cookieParser from 'cookie-parser'
 import { AllExceptionsFilter } from './filters/all-exceptions.filter'
 import * as crypto from 'crypto'
 
@@ -65,16 +65,14 @@ async function bootstrap() {
 
   console.log('🌐 Configuring CORS...');
   app.enableCors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true)
-      if (allowed.includes(origin)) return cb(null, true)
-      return cb(new Error('CORS blocked'), false)
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id'],
-    exposedHeaders: ['X-Request-Id', 'Content-Length'],
+    origin: [
+      'http://localhost:5173',  // Vite default
+      'http://localhost:3001',  // Alternative frontend port
+      'http://localhost:3000',  // In case frontend runs on 3000
+    ],
     credentials: true,
-    maxAge: 600
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 
   console.log('🆔 Configuring request ID middleware...');
@@ -87,7 +85,7 @@ async function bootstrap() {
   })
 
   console.log('✅ Configuring global validation pipe...');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false }))
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new AllExceptionsFilter());
