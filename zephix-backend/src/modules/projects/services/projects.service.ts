@@ -86,7 +86,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       }
     }
 
-    return this.findOne(project.id);
+    return this.findOne(project.id) || project;
   }
 
   /**
