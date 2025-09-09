@@ -10,6 +10,7 @@ import { ProjectAssignment } from './entities/project-assignment.entity';
 import { ProjectPhase } from './entities/project-phase.entity';
 import { Task } from './entities/task.entity';
 import { TaskDependency } from './entities/task-dependency.entity';
+import { User } from '../users/entities/user.entity';
 
 // Import all services
 import { ProjectsService } from './services/projects.service';
@@ -29,6 +30,7 @@ import { TaskController } from './controllers/task.controller';
       ProjectPhase,
       Task,
       TaskDependency,
+      User,
     ]),
     UsersModule,  // This provides access to User entity for TaskService
   ],
