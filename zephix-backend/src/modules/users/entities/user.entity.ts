@@ -1,12 +1,6 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
-} from 'typeorm';
-import { RefreshToken } from '../../auth/entities/refresh-token.entity';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Organization } from '../../../organizations/entities/organization.entity';
+import { Task } from '../../projects/entities/task.entity';
 
 @Entity('users')
 export class User {
@@ -19,20 +13,21 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ name: 'first_name' })
+  @Column({ name: 'first_name', nullable: true })
   firstName: string;
 
-  @Column({ name: 'last_name' })
+  @Column({ name: 'last_name', nullable: true })
   lastName: string;
 
   @Column({ default: 'user' })
   role: string;
 
-  @Column({ name: 'organization_id', nullable: true })
-  organizationId?: string;
+  @Column({ name: 'organization_id' })
+  organizationId: string;
 
-  @Column({ name: 'profile_picture', nullable: true })
-  profilePicture?: string;
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
@@ -40,27 +35,20 @@ export class User {
   @Column({ name: 'is_email_verified', default: false })
   isEmailVerified: boolean;
 
-  @Column({ name: 'email_verified_at', type: 'timestamp', nullable: true })
-  emailVerifiedAt?: Date;
+  @OneToMany(() => Task, task => task.assignee)
+  assignedTasks: Task[];
 
-  @Column({ name: 'last_login_at', type: 'timestamp', nullable: true })
-  lastLoginAt?: Date;
-
-  @Column({ nullable: true })
-  resetToken?: string;
-
-  @Column({ type: 'timestamp', nullable: true })
-  resetTokenExpiry?: Date;
-
-  @Column({ nullable: true })
-  verificationToken?: string;
-
-  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
-  refreshTokens: RefreshToken[];
+  @OneToMany('RefreshToken', 'user')
+  refreshTokens: any[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  // Computed property for display
+  get fullName(): string {
+    return `${this.firstName} ${this.lastName}`.trim();
+  }
 }

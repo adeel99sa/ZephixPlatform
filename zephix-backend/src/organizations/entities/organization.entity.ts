@@ -1,4 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { User } from '../../modules/users/entities/user.entity';
+import { Project } from '../../modules/projects/entities/project.entity';
 import { UserOrganization } from './user-organization.entity';
 
 @Entity('organizations')
@@ -42,6 +44,12 @@ export class Organization {
   // Relations
   @OneToMany(() => UserOrganization, userOrg => userOrg.organization)
   userOrganizations: UserOrganization[];
+
+  @OneToMany(() => User, user => user.organization)
+  users: User[];
+
+  @OneToMany(() => Project, project => project.organization)
+  projects: Project[];
 
   // Methods
   isActive(): boolean {
