@@ -14,7 +14,8 @@ import * as crypto from 'crypto';
 import configuration from './config/configuration';
 // import { AuthModule } from './auth/auth.module';
 // import { OrganizationsModule } from './organizations/organizations.module';
-// import { ProjectsModule } from './projects/projects.module';
+import { ProjectsModule } from './modules/projects/projects.module';
+import { UsersModule } from './modules/users/users.module';
 // import { ResourcesModule } from './resources/resources.module';
 import { SharedModule } from './shared/shared.module';
 // import { DiagnosticModule } from './projects/diagnostic.module';
@@ -84,7 +85,8 @@ if (!(global as any).crypto) {
     SharedModule,
     AuthModule,
     // OrganizationsModule,
-    // ProjectsModule,
+    ProjectsModule,
+    UsersModule,
     // ResourcesModule,
     // DiagnosticModule,
     HealthModule,
