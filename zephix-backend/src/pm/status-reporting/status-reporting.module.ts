@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StatusReportingService } from '../services/status-reporting.service';
 import { Project } from '../../modules/projects/entities/project.entity';
-import { TeamMember } from '../../modules/projects/entities/team-member.entity';
+// Removed team-related entities - using simplified project assignments
+// import { TeamMember } from '../../modules/projects/entities/team-member.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 // AccessControlModule removed - using built-in NestJS guards instead
 import { AIModule } from '../../ai/ai.module';
@@ -20,7 +21,7 @@ import { StakeholderCommunication } from '../entities/stakeholder-communication.
     // AccessControlModule removed - using built-in NestJS guards instead
     TypeOrmModule.forFeature([
       Project,
-      TeamMember,
+      // TeamMember, // Removed - using simplified project assignments
       UserOrganization,
       // Status Reporting Entities
       StatusReport,

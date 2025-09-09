@@ -1,5 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, Index, Check } from 'typeorm';
-import { Team } from './team.entity';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, Check } from 'typeorm';
 
 // Enums for backward compatibility
 export enum ProjectStatus {
@@ -82,6 +81,7 @@ export class Project {
   // @OneToMany('WorkItem', 'project')
   // workItems: any[];
 
-  @OneToOne(() => Team, (team) => team.project, { onDelete: 'CASCADE' })
-  team: Team;
+  // Team relationship removed - team entity doesn't exist
+  // @OneToOne(() => Team, (team) => team.project, { onDelete: 'CASCADE' })
+  // team: Team;
 }

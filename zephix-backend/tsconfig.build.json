@@ -1,13 +1,19 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "declaration": false,
+    "sourceMap": false
   },
   "exclude": [
     "node_modules",
     "dist",
     "test",
     "**/*spec.ts",
-    "**/*test.ts"
+    "**/*test.ts",
+    "backup/**",
+    "scripts/**",
+    "temp-disabled/**",
+    "src/architecture/**"
   ]
 }

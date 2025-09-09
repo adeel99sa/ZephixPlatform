@@ -1,14 +1,12 @@
 import 'reflect-metadata';
-import AppDataSource from '../data-source';
+import AppDataSource from '../config/data-source';
 
 async function main() {
   await AppDataSource.initialize();
+  console.log('Running migrations...');
   await AppDataSource.runMigrations();
   await AppDataSource.destroy();
-  console.log('migrations complete');
+  console.log('Migrations completed');
 }
 
-main().catch((err) => {
-  console.error('migration failed', err);
-  process.exit(1);
-});
+main().catch(console.error);

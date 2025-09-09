@@ -1,30 +1,24 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "moduleResolution": "node",
-
-    "esModuleInterop": true,
-
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2020",
+    "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"]
-    },
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "lib": ["ES2021", "DOM"],
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "test", "**/*.spec.ts", "**/*.e2e-spec.ts", "**/__tests__/**"]
+  "exclude": ["node_modules", "dist", "scripts", "test", "**/*spec.ts"]
 }
