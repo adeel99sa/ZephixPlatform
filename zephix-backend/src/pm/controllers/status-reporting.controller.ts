@@ -14,9 +14,11 @@ import {
 } from '@nestjs/common';
 import { StatusReportingService } from '../services/status-reporting.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
-import { ProjectPermissionGuard } from '../../modules/projects/guards/project-permission.guard';
-import { RequirePermissions } from '../../modules/projects/decorators/project-permissions.decorator';
-import { RoleType } from '../../modules/projects/entities/role.entity';
+// Removed team-related guards and decorators - using simplified project assignments
+// import { ProjectPermissionGuard } from '../../modules/projects/guards/project-permission.guard';
+// import { RequirePermissions } from '../../modules/projects/decorators/project-permissions.decorator';
+// Removed team-related entities - using simplified project assignments
+// import { RoleType } from '../../modules/projects/entities/role.entity';
 
 interface GenerateReportDto {
   projectId: string;
@@ -55,8 +57,7 @@ export class StatusReportingController {
   ) {}
 
   @Get('projects/:projectId/metrics')
-  @UseGuards(ProjectPermissionGuard)
-  @RequirePermissions(RoleType.VIEWER)
+  @UseGuards(JwtAuthGuard)
   async getProjectMetrics(
     @Param('projectId') projectId: string,
     @Query('startDate') startDate?: string,
@@ -82,8 +83,7 @@ export class StatusReportingController {
   }
 
   @Get('projects/:projectId/trends')
-  @UseGuards(ProjectPermissionGuard)
-  @RequirePermissions(RoleType.VIEWER)
+  @UseGuards(JwtAuthGuard)
   async getProjectTrends(
     @Param('projectId') projectId: string,
     @Query('period') period: string = '30d',
@@ -166,8 +166,7 @@ export class StatusReportingController {
   // }
 
   @Post('generate-report')
-  @UseGuards(ProjectPermissionGuard)
-  @RequirePermissions(RoleType.EDITOR)
+  @UseGuards(JwtAuthGuard)
   async generateReport(
     @Body() generateReportDto: GenerateReportDto,
     @Request() req: any,
@@ -209,8 +208,7 @@ export class StatusReportingController {
   }
 
   @Post('export-report')
-  @UseGuards(ProjectPermissionGuard)
-  @RequirePermissions(RoleType.VIEWER)
+  @UseGuards(JwtAuthGuard)
   async exportReport(@Body() exportReportDto: ExportReportDto) {
     try {
       const result = await this.statusReportingService.exportReport(

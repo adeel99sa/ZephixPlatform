@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project, ProjectStatus, ProjectPriority } from '../entities/project.entity';
+import { ProjectAssignment } from '../entities/project-assignment.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 
@@ -10,6 +11,8 @@ export class ProjectsService {
   constructor(
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
+    @InjectRepository(ProjectAssignment)
+    private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
   ) {}
 
   async getOrganizationStats(organizationId: string) {
@@ -35,7 +38,17 @@ export class ProjectsService {
       createdById: userId,
     });
 
-    return this.projectRepository.save(project);
+    const savedProject = await this.projectRepository.save(project);
+    
+    // Auto-assign creator as owner
+    await this.assignUser(
+      savedProject.id,
+      userId,
+      'owner',
+      organizationId,
+    );
+    
+    return savedProject;
   }
 
   async findProjectById(id: string, organizationId: string) {
@@ -72,5 +85,42 @@ export class ProjectsService {
 
     await this.projectRepository.remove(project);
     return { message: 'Project deleted successfully' };
+  }
+
+  async assignUser(
+    projectId: string,
+    userId: string,
+    role: string,
+    organizationId: string,
+  ): Promise<ProjectAssignment> {
+    const assignment = this.projectAssignmentRepository.create({
+      projectId,
+      userId,
+      role,
+      organizationId,
+      assignedAt: new Date(),
+    });
+    return this.projectAssignmentRepository.save(assignment);
+  }
+
+  async getProjectAssignments(
+    projectId: string,
+    organizationId: string,
+  ): Promise<ProjectAssignment[]> {
+    return this.projectAssignmentRepository.find({
+      where: { projectId, organizationId },
+    });
+  }
+
+  async removeUser(
+    projectId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<void> {
+    await this.projectAssignmentRepository.delete({
+      projectId,
+      userId,
+      organizationId,
+    });
   }
 }
