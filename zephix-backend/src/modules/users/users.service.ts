@@ -44,8 +44,17 @@ export class UsersService {
   }
 
   async delete(id: string): Promise<boolean> {
-    this.checkDatabaseAvailability();
-    const result = await this.userRepository!.delete(id);
-    return (result.affected ?? 0) > 0;
-  }
+  this.checkDatabaseAvailability();
+  const result = await this.userRepository!.delete(id);
+  return (result.affected ?? 0) > 0;
+}  // <- This closing brace was missing
+
+async findByOrganization(organizationId: string): Promise<User[]> {
+  this.checkDatabaseAvailability();
+  return this.userRepository!.find({
+    where: { organizationId, isActive: true },
+    select: ['id', 'email', 'firstName', 'lastName', 'role'],
+    order: { firstName: 'ASC' }
+  });
+}
 }
