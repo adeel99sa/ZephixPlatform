@@ -1,4 +1,4 @@
-import sgMail from '@sendgrid/mail';
+const sgMail = require('@sendgrid/mail');
 import { Injectable } from '@nestjs/common';
 
 export interface InvitationEmailData {
