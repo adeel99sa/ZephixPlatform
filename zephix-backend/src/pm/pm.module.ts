@@ -46,7 +46,8 @@ import { WorkflowInstance } from './entities/workflow-instance.entity';
 import { IntakeForm } from './entities/intake-form.entity';
 import { IntakeSubmission } from './entities/intake-submission.entity';
 import { Project } from '../modules/projects/entities/project.entity';
-import { TeamMember } from '../modules/projects/entities/team-member.entity';
+// Removed team-related entities - using simplified project assignments
+// import { TeamMember } from '../modules/projects/entities/team-member.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { JiraIntegration } from './integrations/jira.integration';
 import { GitHubIntegration } from './integrations/github.integration';
@@ -76,7 +77,7 @@ import { AIModule } from '../ai/ai.module';
             RiskResponse,
             RiskMonitoring,
             Project,
-            TeamMember,
+            // TeamMember, // Removed - using simplified project assignments
             UserOrganization,
             // Workflow Framework Entities
             WorkflowTemplate,

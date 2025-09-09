@@ -30,6 +30,9 @@ const Navigation: React.FC = () => {
             <button onClick={() => scrollToSection('roadmap')} className="text-gray-600 hover:text-gray-900 transition-colors">
               Roadmap
             </button>
+            <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
+              Sign In
+            </Link>
             <button onClick={() => scrollToSection('waitlist')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
               Join Waitlist
             </button>

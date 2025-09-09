@@ -6,6 +6,7 @@ import { SignupPage } from '@/pages/auth/SignupPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { ProjectsPage } from '@/pages/projects/ProjectsPage';
+import { ProjectDetailPage } from '@/pages/projects/ProjectDetailPage';
 import { ResourcesPage } from '@/pages/ResourcesPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
@@ -40,6 +41,14 @@ function App() {
             <ProtectedRoute requiredPermission="canViewProjects">
               <DashboardLayout>
                 <ProjectsPage />
+              </DashboardLayout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/projects/:projectId" element={
+            <ProtectedRoute requiredPermission="canViewProjects">
+              <DashboardLayout>
+                <ProjectDetailPage />
               </DashboardLayout>
             </ProtectedRoute>
           } />

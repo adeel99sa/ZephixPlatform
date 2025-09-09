@@ -39,3 +39,4 @@ export class CreateDependencyDto {
   @IsOptional()
   vendorName?: string;
 }
+
