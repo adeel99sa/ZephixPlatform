@@ -3,14 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectsService } from './services/projects.service';
 import { ProjectsController } from './projects.controller';
 import { Project } from './entities/project.entity';
-import { Team } from './entities/team.entity';
-import { TeamMember } from './entities/team-member.entity';
-import { Role } from './entities/role.entity';
+import { ProjectAssignment } from './entities/project-assignment.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Project, Team, TeamMember, Role])],
+  imports: [TypeOrmModule.forFeature([Project, ProjectAssignment])],
   controllers: [ProjectsController],
   providers: [ProjectsService],
   exports: [ProjectsService],
 })
-export class ProjectsModule {}
+export class ProjectsModule {
+  constructor() {
+    console.log('🚀 ProjectsModule loaded with simplified assignments!');
+  }
+}
