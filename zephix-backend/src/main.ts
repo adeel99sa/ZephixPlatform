@@ -29,7 +29,7 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { ValidationPipe } from '@nestjs/common'
 import helmet from 'helmet'
-import * as cookieParser from 'cookie-parser'
+import cookieParser from 'cookie-parser'
 import { AllExceptionsFilter } from './filters/all-exceptions.filter'
 import * as crypto from 'crypto'
 
