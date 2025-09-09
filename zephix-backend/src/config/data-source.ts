@@ -9,15 +9,16 @@ import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
+import { ProjectPhase } from '../modules/projects/entities/project-phase.entity';
 import { Template } from '../modules/templates/entities/template.entity';
 import { WorkItem } from '../modules/work-items/entities/work-item.entity';
-import { Team } from '../modules/projects/entities/team.entity';
-import { TeamMember } from '../modules/projects/entities/team-member.entity';
-import { Role } from '../modules/projects/entities/role.entity';
 import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 import { EmailVerification } from '../modules/auth/entities/email-verification.entity';
 import { Feedback } from '../feedback/entities/feedback.entity';
 import { Waitlist } from '../waitlist/entities/waitlist.entity';
+import { ProjectAssignment } from '../modules/projects/entities/project-assignment.entity';
+import { Task } from '../modules/projects/entities/task.entity';
+import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -33,15 +34,17 @@ export default new DataSource({
     Organization,
     UserOrganization,
     Project,
+    ProjectPhase,
     Template,
     WorkItem,
-    Team,
-    TeamMember,
-    Role,
     RefreshToken,
     EmailVerification,
     Feedback,
     Waitlist,
+    ProjectAssignment,
+    Task,
+    TaskDependency,
+    User,
   ],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   synchronize: false,
