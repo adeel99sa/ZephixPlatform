@@ -38,7 +38,7 @@ export class TaskService {
             dependencyType: 'quick_text',
             description: depDescription.trim(),
             relationshipType: 'blocks',
-          }, userId || null); // Pass null instead of 'system'
+          }, userId || undefined); // Pass undefined instead of 'system'
         }
       }
     }
