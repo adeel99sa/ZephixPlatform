@@ -38,7 +38,7 @@ export class TaskService {
             dependencyType: 'quick_text',
             description: depDescription.trim(),
             relationshipType: 'blocks',
-          }, userId || undefined); // Pass undefined instead of 'system'
+          }, userId || 'system');
         }
       }
     }
@@ -122,7 +122,7 @@ export class TaskService {
       progressPercentage,
       status,
       actualStartDate: progressPercentage > 0 && !task.actualStartDate ? new Date() : task.actualStartDate,
-      actualEndDate: progressPercentage === 100 ? new Date() : null,
+      actualEndDate: progressPercentage === 100 ? new Date() : undefined,
     });
 
     if (task.phaseId) {
