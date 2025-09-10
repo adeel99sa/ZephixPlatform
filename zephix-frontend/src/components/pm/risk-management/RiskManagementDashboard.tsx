@@ -74,7 +74,7 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
   const loadRiskData = async () => {
     setLoading(true);
     try {
-      const data = await apiJson(`/pm/risk-management/${projectId}/register`);
+      const data = await apiJson(`/pm/risk-management/register/${projectId}`);
       setRiskData(data.data.risks);
       setRiskSummary(data.data.summary);
     } catch (error) {
@@ -755,7 +755,7 @@ const ForecastingTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   const loadForecastData = async () => {
     try {
-      const data = await apiJson(`/pm/risk-management/${projectId}/forecasting`);
+      const data = await apiJson(`/pm/risk-management/forecasting/${projectId}`);
       setForecastData(data.data);
     } catch (error) {
       console.error('Failed to load forecast data:', error);
