@@ -1,8 +1,12 @@
 import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceHeatMapService } from './services/resource-heat-map.service';
 import { HeatMapQueryDto } from './dto/heat-map-query.dto';
+import { CreateAllocationDto } from './dto/create-allocation.dto';
+import { DetectConflictsDto } from './dto/detect-conflicts.dto';
+import { AuthenticatedRequest } from './dto/authenticated-request.dto';
 import { ResourcesService } from './resources.service';
 import { AuditService } from './services/audit.service';
 import { CacheService } from '../cache/cache.service';
@@ -28,9 +32,10 @@ export class ResourcesController {
   }
 
   @Get()
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute
   @ApiOperation({ summary: 'Get all resources for organization with caching and audit' })
   @ApiResponse({ status: 200, description: 'Resources retrieved successfully' })
-  async getAllResources(@Req() req: any) {
+  async getAllResources(@Req() req: AuthenticatedRequest) {
     const requestId = uuidv4();
     const organizationId = req.user?.organizationId;
     
@@ -90,7 +95,7 @@ export class ResourcesController {
   @Get('conflicts')
   @ApiOperation({ summary: 'Get resource conflicts' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
-  async getConflicts(@Req() req: any) {
+  async getConflicts(@Req() req: AuthenticatedRequest) {
     const organizationId = req.user.organizationId;
     if (!organizationId) {
       return { data: [] };
@@ -99,31 +104,30 @@ export class ResourcesController {
   }
 
   @Post('detect-conflicts')
+  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 checks per minute
   @ApiOperation({ summary: 'Detect resource conflicts for allocation' })
   @ApiResponse({ status: 200, description: 'Conflict detection completed' })
-  async detectConflicts(@Body() body: any) {
-    if (!body.resourceId || !body.startDate || !body.endDate || !body.allocationPercentage) {
-      throw new BadRequestException('Missing required fields: resourceId, startDate, endDate, allocationPercentage');
-    }
+  async detectConflicts(@Body() dto: DetectConflictsDto) {
     return this.resourcesService.detectConflicts(
-      body.resourceId,
-      new Date(body.startDate),
-      new Date(body.endDate),
-      body.allocationPercentage
+      dto.resourceId,
+      new Date(dto.startDate),
+      new Date(dto.endDate),
+      dto.allocationPercentage
     );
   }
 
   @Post('allocations')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 creates per minute
   @ApiOperation({ summary: 'Create resource allocation with audit and cache invalidation' })
   @ApiResponse({ status: 201, description: 'Allocation created successfully' })
-  async createAllocation(@Body() body: any, @Req() req: any) {
+  async createAllocation(@Body() dto: CreateAllocationDto, @Req() req: AuthenticatedRequest) {
     const requestId = uuidv4();
     const organizationId = req.user?.organizationId;
 
     try {
       // 1. Create allocation
       const result = await this.resourcesService.createAllocation({
-        ...body,
+        ...dto,
         organizationId,
       });
 
@@ -138,7 +142,7 @@ export class ResourcesController {
         entityType: 'resource_allocation',
         entityId: result.id,
         action: 'create',
-        newValue: body,
+        newValue: dto,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
         requestId,
@@ -152,7 +156,7 @@ export class ResourcesController {
         organizationId,
         entityType: 'resource_allocation',
         action: 'create_failed',
-        newValue: { error: error.message, data: body },
+        newValue: { error: error.message, data: dto },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
         requestId,

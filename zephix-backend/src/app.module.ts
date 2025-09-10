@@ -28,7 +28,7 @@ import { RiskManagementModule } from './pm/risk-management/risk-management.modul
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
-import { getDatabaseConfig } from './config/database.config';
+import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
@@ -70,7 +70,7 @@ if (!(global as any).crypto) {
           TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => {
-              const dbConfig = getDatabaseConfig();
+              const dbConfig = databaseConfig;
               return {
                 ...dbConfig,
                 entities: [__dirname + '/**/*.entity{.ts,.js}'],
