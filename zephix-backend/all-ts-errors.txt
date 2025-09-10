@@ -1,0 +1,41 @@
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(10,38): error TS2307: Cannot find module './entities/organization-settings.entity' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(11,34): error TS2307: Cannot find module './entities/security-settings.entity' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(3,41): error TS2307: Cannot find module './controllers/organizations.controller' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(4,48): error TS2307: Cannot find module './controllers/organization-settings.controller' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(5,44): error TS2307: Cannot find module './controllers/security-settings.controller' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(6,38): error TS2307: Cannot find module './services/organizations.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(7,45): error TS2307: Cannot find module './services/organization-settings.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(8,41): error TS2307: Cannot find module './services/security-settings.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/organization-settings.controller.ts(9,30): error TS2307: Cannot find module './entities/organization.entity' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/security-settings.controller.ts(22,30): error TS2307: Cannot find module '../../auth/guards/jwt-auth.guard' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/security-settings.controller.ts(23,28): error TS2307: Cannot find module '../../auth/guards/roles.guard' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/security-settings.controller.ts(24,23): error TS2307: Cannot find module '../../auth/decorators/roles.decorator' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/security-settings.controller.ts(25,26): error TS2307: Cannot find module '../../auth/enums/user-role.enum' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/controllers/security-settings.controller.ts(26,41): error TS2307: Cannot find module '../services/security-settings.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/entities/organization-settings.entity.ts(2,30): error TS2307: Cannot find module './organization.entity' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/entities/security-settings.entity.ts(2,30): error TS2307: Cannot find module './organization.entity' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(3,41): error TS2307: Cannot find module './controllers/organizations.controller' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(4,10): error TS2459: Module '"./controllers/organization-settings.controller"' declares 'OrganizationSettingsController' locally, but it is not exported.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(6,38): error TS2307: Cannot find module './services/organizations.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(7,45): error TS2307: Cannot find module './services/organization-settings.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(8,41): error TS2307: Cannot find module './services/security-settings.service' or its corresponding type declarations.
+backup/broken-modules-20250830_004912/organizations/organizations.module.ts(9,30): error TS2307: Cannot find module './entities/organization.entity' or its corresponding type declarations.
+src/architecture/architecture.controller.ts(118,58): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/architecture/architecture.controller.ts(206,66): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/architecture/architecture.controller.ts(296,54): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/architecture/architecture.controller.ts(378,58): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/test/tenant-isolation.test.ts(12,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/test/tenant-isolation.test.ts(21,7): error TS2304: Cannot find name 'expect'.
+src/test/tenant-isolation.test.ts(25,3): error TS2593: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/test/tenant-isolation.test.ts(36,5): error TS2304: Cannot find name 'expect'.
+src/test/tenant-isolation.test.ts(4,1): error TS2593: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha` and then add 'jest' or 'mocha' to the types field in your tsconfig.
+src/test/tenant-isolation.test.ts(7,3): error TS2304: Cannot find name 'beforeEach'.
+temp-disabled/collaboration/collaboration.service.ts(138,9): error TS2322: Type '"user_joined"' is not assignable to type 'ActivityType'.
+temp-disabled/collaboration/collaboration.service.ts(158,9): error TS2322: Type '"user_left"' is not assignable to type 'ActivityType'.
+temp-disabled/collaboration/collaboration.service.ts(4,25): error TS2307: Cannot find module '../../projects/entities/project.entity' or its corresponding type declarations.
+temp-disabled/collaboration/collaboration.service.ts(5,22): error TS2307: Cannot find module '../../users/entities/user.entity' or its corresponding type declarations.
+temp-disabled/collaboration/entities/activity-log.entity.ts(10,25): error TS2307: Cannot find module '../../projects/entities/project.entity' or its corresponding type declarations.
+temp-disabled/collaboration/entities/activity-log.entity.ts(9,22): error TS2307: Cannot find module '../../users/entities/user.entity' or its corresponding type declarations.
+temp-disabled/collaboration/entities/comment.entity.ts(11,22): error TS2307: Cannot find module '../../users/entities/user.entity' or its corresponding type declarations.
+temp-disabled/collaboration/entities/comment.entity.ts(12,25): error TS2307: Cannot find module '../../projects/entities/project.entity' or its corresponding type declarations.
+temp-disabled/collaboration/entities/user-presence.entity.ts(10,22): error TS2307: Cannot find module '../../users/entities/user.entity' or its corresponding type declarations.

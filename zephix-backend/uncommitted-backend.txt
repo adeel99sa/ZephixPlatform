@@ -1,0 +1,64 @@
+ M ../.cursor/rules/zephixapp.mdc
+ M ../package-lock.json
+ M ../package.json
+ M ../src/auth/strategies/jwt.strategy.ts
+ D ../src/modules/projects/guards/project-permission.guard.ts
+ M ../src/projects/controllers/projects.controller.ts
+ M ../src/projects/dto/create-project.dto.ts
+ M ../src/projects/dto/update-project.dto.ts
+ M ../src/projects/entities/project.entity.ts
+ D ../src/projects/entities/team.entity.ts
+ M ../src/projects/projects.module.ts
+ M ../src/projects/services/projects.service.ts
+ M .gitignore
+ M nest-cli.json
+ M package-lock.json
+ M package.json
+ D src/data-source.ts
+ D src/modules/projects/decorators/project-permissions.decorator.ts
+ M src/modules/projects/dto/create-dependency.dto.ts
+ D src/modules/projects/entities/role.entity.ts
+ D src/modules/projects/entities/team-member.entity.ts
+ D src/modules/projects/entities/team-member.entity.ts.backup
+ D src/modules/projects/entities/team.entity.ts
+ D src/modules/projects/entities/team.entity.ts.backup
+ D src/modules/projects/guards/project-permission.guard.ts
+ M src/pm/controllers/status-reporting.controller.ts
+ M src/pm/pm.module.ts
+ M src/pm/status-reporting/status-reporting.module.ts
+ M src/scripts/run-migrations.ts
+ M src/shared/services/email.service.ts
+ M tsconfig.build.json
+ M tsconfig.json
+ M ../zephix-frontend/package.json
+ M ../zephix-frontend/src/App.tsx
+ M ../zephix-frontend/src/components/ErrorBoundary.tsx
+ M ../zephix-frontend/src/components/landing/Navigation.tsx
+ M ../zephix-frontend/src/hooks/useAuth.ts
+ M ../zephix-frontend/src/hooks/useEnterpriseAuth.ts
+ M ../zephix-frontend/src/pages/projects/ProjectsPage.tsx
+ M ../zephix-frontend/src/services/api.ts
+ M ../zephix-frontend/src/stores/authStore.ts
+?? ../src/migrations/20250906132242-remove-teams-add-assignments.migration.ts
+?? ../src/modules/projects/dto/
+?? ../src/modules/projects/entities/project-assignment.entity.ts
+?? ../src/projects/dto/assign-user.dto.ts
+?? ../src/projects/entities/project-assignment.entity.ts
+?? ../typescript-errors.txt
+?? build-output.txt
+?? generate-hash.js
+?? src/auth/
+?? src/config/data-source.backup.ts
+?? src/entity/
+?? src/migrations/1757227595839-AddProjectPhases.ts
+?? src/migrations/1757254542149-AddTaskManagementSystem.ts
+?? src/migrations/1757255630596-CreateUsersTable.ts
+?? src/migrations/1757255642228-FixTaskUserReferences.ts
+?? src/modules/users/services/
+?? uncommitted-backend.txt
+?? uncommitted-files.txt
+?? ../zephix-frontend/src/components/projects/
+?? ../zephix-frontend/src/pages/projects/ProjectDetailPage.tsx
+?? ../zephix-frontend/src/services/authService.ts
+?? ../zephix-frontend/src/services/projectService.ts
+?? ../zephix-frontend/src/types/api.types.ts
