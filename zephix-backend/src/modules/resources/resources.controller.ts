@@ -4,6 +4,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceHeatMapService } from './services/resource-heat-map.service';
 import { HeatMapQueryDto } from './dto/heat-map-query.dto';
 import { ResourcesService } from './resources.service';
+import { AuditService } from './services/audit.service';
+import { CacheService } from '../cache/cache.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Controller('resources')
 @ApiTags('resources')
@@ -12,7 +15,9 @@ import { ResourcesService } from './resources.service';
 export class ResourcesController {
   constructor(
     private readonly heatMapService: ResourceHeatMapService,
-    private readonly resourcesService: ResourcesService
+    private readonly resourcesService: ResourcesService,
+    private readonly auditService: AuditService,
+    private readonly cacheService: CacheService
   ) {}
 
   @Get('heat-map')
@@ -23,16 +28,63 @@ export class ResourcesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all resources for organization' })
+  @ApiOperation({ summary: 'Get all resources for organization with caching and audit' })
   @ApiResponse({ status: 200, description: 'Resources retrieved successfully' })
   async getAllResources(@Req() req: any) {
-    const organizationId = req.user.organizationId;
+    const requestId = uuidv4();
+    const organizationId = req.user?.organizationId;
+    
+    // 1. Validate organization
     if (!organizationId) {
-      // Return empty array for users without organization
-      // This allows the frontend to load without errors
+      await this.auditService.logAction({
+        userId: req.user?.id || 'unknown',
+        organizationId: 'none',
+        entityType: 'resources',
+        action: 'list_failed',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestId,
+      });
       return { data: [] };
     }
-    return this.resourcesService.findAll(organizationId);
+
+    // 2. Check cache first
+    const cacheKey = `resources:${organizationId}`;
+    const cached = await this.cacheService.get(cacheKey);
+    
+    if (cached) {
+      // Log cache hit
+      await this.auditService.logAction({
+        userId: req.user.id,
+        organizationId,
+        entityType: 'resources',
+        action: 'list_cached',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestId,
+      });
+      return cached;
+    }
+
+    // 3. Get from database
+    const resources = await this.resourcesService.findAll(organizationId);
+    
+    // 4. Cache the result
+    await this.cacheService.set(cacheKey, resources, 300); // 5 minutes
+    
+    // 5. Log the access
+    await this.auditService.logAction({
+      userId: req.user.id,
+      organizationId,
+      entityType: 'resources',
+      action: 'list',
+      newValue: { count: resources.data?.length || 0 },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      requestId,
+    });
+
+    return resources;
   }
 
   @Get('conflicts')
@@ -62,17 +114,51 @@ export class ResourcesController {
   }
 
   @Post('allocations')
-  @ApiOperation({ summary: 'Create resource allocation' })
+  @ApiOperation({ summary: 'Create resource allocation with audit and cache invalidation' })
   @ApiResponse({ status: 201, description: 'Allocation created successfully' })
   async createAllocation(@Body() body: any, @Req() req: any) {
-    const organizationId = req.user.organizationId;
-    if (!organizationId) {
-      throw new BadRequestException('User must belong to an organization');
+    const requestId = uuidv4();
+    const organizationId = req.user?.organizationId;
+
+    try {
+      // 1. Create allocation
+      const result = await this.resourcesService.createAllocation({
+        ...body,
+        organizationId,
+      });
+
+      // 2. Invalidate cache
+      await this.cacheService.delete(`resources:${organizationId}`);
+      await this.cacheService.delete(`allocations:${organizationId}`);
+
+      // 3. Log successful creation
+      await this.auditService.logAction({
+        userId: req.user.id,
+        organizationId,
+        entityType: 'resource_allocation',
+        entityId: result.id,
+        action: 'create',
+        newValue: body,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestId,
+      });
+
+      return result;
+    } catch (error) {
+      // 4. Log failure
+      await this.auditService.logAction({
+        userId: req.user.id,
+        organizationId,
+        entityType: 'resource_allocation',
+        action: 'create_failed',
+        newValue: { error: error.message, data: body },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        requestId,
+      });
+      throw error;
     }
-    return this.resourcesService.createAllocation({
-      ...body,
-      organizationId
-    });
   }
 
   @Get('test')
