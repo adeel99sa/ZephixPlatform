@@ -32,64 +32,38 @@ export class ResourcesController {
   }
 
   @Get()
-  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute
-  @ApiOperation({ summary: 'Get all resources for organization with caching and audit' })
-  @ApiResponse({ status: 200, description: 'Resources retrieved successfully' })
-  async getAllResources(@Req() req: AuthenticatedRequest) {
-    const requestId = uuidv4();
-    const organizationId = req.user?.organizationId;
-    
-    // 1. Validate organization
-    if (!organizationId) {
-      await this.auditService.logAction({
-        userId: req.user?.id || 'unknown',
-        organizationId: 'none',
-        entityType: 'resources',
-        action: 'list_failed',
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        requestId,
-      });
-      return { data: [] };
+  async getAllResources(@Req() req: any) {
+    try {
+      console.log('📍 Resources endpoint called');
+      
+      // Get user context
+      const userId = req.user?.id || req.user?.sub;
+      const organizationId = req.user?.organizationId;
+      
+      console.log('📍 User:', req.user?.email, 'Org:', organizationId);
+      
+      // Call service
+      const result = await this.resourcesService.findAll(organizationId);
+      
+      // Only log audit if we have valid context
+      if (userId && organizationId) {
+        await this.auditService.logAction({
+          userId: userId,
+          organizationId: organizationId,
+          entityType: 'resources',
+          action: 'list',
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.headers['user-agent'] || 'unknown',
+        }).catch(err => {
+          console.error('Audit log failed:', err);
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Resources controller error:', error);
+      throw new BadRequestException('Failed to fetch resources');
     }
-
-    // 2. Check cache first
-    const cacheKey = `resources:${organizationId}`;
-    const cached = await this.cacheService.get(cacheKey);
-    
-    if (cached) {
-      // Log cache hit
-      await this.auditService.logAction({
-        userId: req.user.id,
-        organizationId,
-        entityType: 'resources',
-        action: 'list_cached',
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        requestId,
-      });
-      return cached;
-    }
-
-    // 3. Get from database
-    const resources = await this.resourcesService.findAll(organizationId);
-    
-    // 4. Cache the result
-    await this.cacheService.set(cacheKey, resources, 300); // 5 minutes
-    
-    // 5. Log the access
-    await this.auditService.logAction({
-      userId: req.user.id,
-      organizationId,
-      entityType: 'resources',
-      action: 'list',
-      newValue: { count: resources.data?.length || 0 },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      requestId,
-    });
-
-    return resources;
   }
 
   @Get('conflicts')
@@ -126,10 +100,15 @@ export class ResourcesController {
 
     try {
       // 1. Create allocation
-      const result = await this.resourcesService.createAllocation({
-        ...dto,
-        organizationId,
-      });
+      const result = await this.resourcesService.createAllocationWithAudit(
+        dto,
+        {
+          userId: req.user.id,
+          organizationId,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        }
+      );
 
       // 2. Invalidate cache
       await this.cacheService.delete(`resources:${organizationId}`);

@@ -1,45 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
-
-@Entity('audit_logs')
-export class AuditLog {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'user_id', type: 'uuid' })
-  userId: string;
-
-  @Column({ name: 'organization_id', type: 'uuid' })
-  organizationId: string;
-
-  @Column({ name: 'entity_type', type: 'varchar', length: 50 })
-  entityType: string;
-
-  @Column({ name: 'entity_id', type: 'uuid', nullable: true })
-  entityId: string;
-
-  @Column({ type: 'varchar', length: 50 })
-  action: string;
-
-  @Column({ name: 'old_value', type: 'jsonb', nullable: true })
-  oldValue: any;
-
-  @Column({ name: 'new_value', type: 'jsonb', nullable: true })
-  newValue: any;
-
-  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
-  ipAddress: string;
-
-  @Column({ name: 'user_agent', type: 'text', nullable: true })
-  userAgent: string;
-
-  @Column({ name: 'request_id', type: 'uuid', nullable: true })
-  requestId: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-}
+import { Repository } from 'typeorm';
+import { AuditLog } from '../entities/audit-log.entity';
 
 @Injectable()
 export class AuditService {
@@ -60,25 +22,41 @@ export class AuditService {
     userAgent?: string;
     requestId?: string;
   }): Promise<void> {
+    // Add debug logging
+    console.log('🔍 AUDIT: logAction called with:', {
+      userId: params.userId,
+      organizationId: params.organizationId,
+      action: params.action,
+      entityType: params.entityType
+    });
+
+    // Validate required fields
+    if (!params.userId || !params.organizationId) {
+      console.error('❌ AUDIT: Missing required fields');
+      return;
+    }
+
     try {
+      // Create audit entry
       const auditEntry = this.auditRepository.create({
         userId: params.userId,
         organizationId: params.organizationId,
         entityType: params.entityType,
-        entityId: params.entityId,
+        entityId: params.entityId || null,
         action: params.action,
-        oldValue: params.oldValue,
-        newValue: params.newValue,
-        ipAddress: params.ipAddress,
-        userAgent: params.userAgent,
-        requestId: params.requestId,
+        oldValue: params.oldValue ? JSON.stringify(params.oldValue) : null,
+        newValue: params.newValue ? JSON.stringify(params.newValue) : null,
+        ipAddress: params.ipAddress || 'unknown',
+        userAgent: params.userAgent || 'unknown',
+        requestId: params.requestId || null,
       });
 
-      await this.auditRepository.save(auditEntry);
-      console.log(`Audit logged: ${params.action} on ${params.entityType}`);
+      // Save to database
+      const saved = await this.auditRepository.save(auditEntry);
+      console.log('✅ AUDIT: Saved with ID:', saved.id);
     } catch (error) {
-      console.error('Failed to log audit:', error);
-      // Don't throw - audit failure shouldn't break the operation
+      console.error('❌ AUDIT: Save failed:', error.message);
+      // Don't throw - audit shouldn't break the app
     }
   }
 
