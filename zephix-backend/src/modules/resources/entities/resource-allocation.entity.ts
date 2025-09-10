@@ -1,46 +1,42 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, Check } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Resource } from './resource.entity';
 
 @Entity('resource_allocations')
-@Index('idx_allocations_project', ['projectId'])
-@Check('"startDate" <= "endDate"')
-@Check('"allocationPercentage" > 0 AND "allocationPercentage" <= 100')
+@Index('idx_ra_dates', ['startDate', 'endDate'])
+@Index('idx_ra_org_resource', ['organizationId', 'resourceId'])
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'resourceId' })
-  resourceId: string;
-
-  @Column({ name: 'projectId' })
-  projectId: string;
-
-  @Column({ name: 'taskId', nullable: true })
-  taskId: string;
-
-  @Column({ name: 'startDate', type: 'date' })
-  startDate: Date;
-
-  @Column({ name: 'endDate', type: 'date' })
-  endDate: Date;
-
-  @Column({ name: 'allocationPercentage', type: 'numeric', precision: 5, scale: 2 })
-  allocationPercentage: number;
-
-  @Column({ name: 'hoursPerDay', default: 8 })
-  hoursPerDay: number;
-
-  @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
-
-  @Column({ name: 'workItemId', nullable: true })
-  workItemId: string;
-
-  @Column({ name: 'organization_id', nullable: true })
+  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
   organizationId: string;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'project_id', type: 'uuid', nullable: true })
+  projectId: string;
+
+  @Column({ name: 'resource_id', type: 'uuid', nullable: true })
+  resourceId: string;
+
+  @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId: string;
 
-  @Column({ name: 'updated_at', nullable: true })
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate: Date;
+
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date;
+
+  @Column({ name: 'allocation_percentage', type: 'integer', nullable: true })
+  allocationPercentage: number;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp without time zone' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp without time zone' })
   updatedAt: Date;
+
+  // Relations
+  @ManyToOne(() => Resource, resource => resource.allocations)
+  @JoinColumn({ name: 'resource_id' })
+  resource: Resource;
 }
