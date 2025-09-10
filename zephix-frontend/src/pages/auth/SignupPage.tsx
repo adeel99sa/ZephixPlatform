@@ -23,6 +23,7 @@ export function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -47,6 +48,12 @@ export function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🚀 Signup form submitted with data:', formData);
+    
+    // Clear previous validation errors
+    setValidationError(null);
+    clearError();
+    
     // Log security event for form submission attempt
     securityActions.logEvent('enterprise_signup_form_submission', {
       email: formData.email,
@@ -56,7 +63,29 @@ export function SignupPage() {
       timestamp: new Date().toISOString(),
     }, 'medium');
     
+    // Validate required fields
+    if (!formData.firstName.trim()) {
+      setValidationError('First name is required');
+      return;
+    }
+    
+    if (!formData.lastName.trim()) {
+      setValidationError('Last name is required');
+      return;
+    }
+    
+    if (!formData.email.trim()) {
+      setValidationError('Email address is required');
+      return;
+    }
+    
+    if (!formData.password) {
+      setValidationError('Password is required');
+      return;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
+      setValidationError('Passwords do not match');
       securityActions.logEvent('enterprise_signup_validation_failure', {
         reason: 'password_mismatch',
         email: formData.email,
@@ -66,6 +95,7 @@ export function SignupPage() {
     }
 
     if (formData.password.length < 8) {
+      setValidationError('Password must be at least 8 characters long');
       securityActions.logEvent('enterprise_signup_validation_failure', {
         reason: 'password_too_short',
         email: formData.email,
@@ -78,6 +108,7 @@ export function SignupPage() {
     // Validate password strength
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
+      setValidationError('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)');
       securityActions.logEvent('enterprise_signup_validation_failure', {
         reason: 'password_weak',
         email: formData.email,
@@ -173,11 +204,11 @@ export function SignupPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
+              {(error || validationError) && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
                   <div className="flex">
                     <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                    <p className="text-sm text-red-800">{error}</p>
+                    <p className="text-sm text-red-800">{error || validationError}</p>
                   </div>
                 </div>
               )}
