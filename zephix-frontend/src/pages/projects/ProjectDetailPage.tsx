@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Settings, Users, Calendar, AlertTriangle, Flag } from 'lucide-react';
 import { apiJson } from '../../services/api';
 import { TaskManagement } from '../../components/projects/TaskManagement';
+import RiskManagementDashboard from '../../components/pm/risk-management/RiskManagementDashboard';
 
 interface Project {
   id: string;
@@ -141,14 +142,23 @@ export const ProjectDetailPage: React.FC = () => {
         
         {activeTab === 'resources' && (
           <div className="bg-white rounded-lg p-6">
-            <p className="text-gray-500">Resource management coming soon...</p>
+            <h3 className="text-lg font-semibold mb-4">Resource Allocations for {project.name}</h3>
+            <p className="text-gray-600 mb-4">
+              Resource management is available in the main Resources page. 
+              <a href="/resources" className="text-blue-600 hover:text-blue-800 ml-1">
+                Go to Resource Management →
+              </a>
+            </p>
           </div>
         )}
         
         {activeTab === 'risks' && (
-          <div className="bg-white rounded-lg p-6">
-            <p className="text-gray-500">Risk management coming soon...</p>
-          </div>
+          <RiskManagementDashboard 
+            projectId={project.id} 
+            onRiskAnalyzed={(analysisId) => {
+              console.log('Risk analysis completed:', analysisId);
+            }}
+          />
         )}
         
         {activeTab === 'documents' && (
