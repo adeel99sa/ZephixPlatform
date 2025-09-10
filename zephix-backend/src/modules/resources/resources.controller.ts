@@ -28,7 +28,9 @@ export class ResourcesController {
   async getAllResources(@Req() req: any) {
     const organizationId = req.user.organizationId;
     if (!organizationId) {
-      throw new BadRequestException('User must belong to an organization');
+      // Return empty array for users without organization
+      // This allows the frontend to load without errors
+      return { data: [] };
     }
     return this.resourcesService.findAll(organizationId);
   }
@@ -39,7 +41,7 @@ export class ResourcesController {
   async getConflicts(@Req() req: any) {
     const organizationId = req.user.organizationId;
     if (!organizationId) {
-      throw new BadRequestException('User must belong to an organization');
+      return { data: [] };
     }
     return this.resourcesService.getConflicts(organizationId);
   }
