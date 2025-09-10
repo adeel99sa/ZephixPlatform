@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, DataSource } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
+import { AuditLog } from './services/audit.service';
 
 @Injectable()
 export class ResourcesService {
@@ -11,6 +12,7 @@ export class ResourcesService {
     private resourceRepository: Repository<Resource>,
     @InjectRepository(ResourceAllocation)
     private allocationRepository: Repository<ResourceAllocation>,
+    private dataSource: DataSource,
   ) {}
 
   async findAll(organizationId: string) {
@@ -151,6 +153,48 @@ export class ResourcesService {
   private async getAllocationsForResource(resourceId: string) {
     return this.allocationRepository.find({
       where: { resourceId }
+    });
+  }
+
+  async createAllocationWithAudit(
+    dto: any,
+    auditData: {
+      userId: string;
+      organizationId: string;
+      ipAddress?: string;
+      userAgent?: string;
+      requestId?: string;
+    }
+  ): Promise<ResourceAllocation> {
+    return this.dataSource.transaction(async manager => {
+      // 1. Create allocation
+      const allocation = manager.create(ResourceAllocation, {
+        resourceId: dto.resourceId,
+        projectId: dto.projectId,
+        userId: dto.userId,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        allocationPercentage: dto.allocationPercentage,
+        organizationId: dto.organizationId
+      });
+      const savedAllocation = await manager.save(allocation);
+      
+      // 2. Create audit log IN SAME TRANSACTION
+      const auditLog = manager.create(AuditLog, {
+        userId: auditData.userId,
+        organizationId: auditData.organizationId,
+        entityType: 'resource_allocation',
+        entityId: savedAllocation.id,
+        action: 'create',
+        newValue: dto,
+        ipAddress: auditData.ipAddress,
+        userAgent: auditData.userAgent,
+        requestId: auditData.requestId,
+      });
+      await manager.save(auditLog);
+      
+      // 3. Both succeed or both fail
+      return savedAllocation;
     });
   }
 }
