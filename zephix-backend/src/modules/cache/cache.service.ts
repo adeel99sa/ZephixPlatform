@@ -14,24 +14,20 @@ export class CacheService {
       // If Redis is available, use it
       if (process.env.REDIS_URL) {
         // This would be implemented with actual Redis client
-        console.log(`Cache MISS (Redis): ${key}`);
         return null;
       }
 
       // Fallback to in-memory for development
       const item = this.cache.get(key);
       if (!item) {
-        console.log(`Cache MISS: ${key}`);
         return null;
       }
 
       if (Date.now() > item.expires) {
         this.cache.delete(key);
-        console.log(`Cache EXPIRED: ${key}`);
         return null;
       }
 
-      console.log(`Cache HIT: ${key}`);
       return item.value;
     } catch (error) {
       console.error(`Cache GET error for ${key}:`, error);
@@ -44,14 +40,12 @@ export class CacheService {
       // If Redis is available, use it
       if (process.env.REDIS_URL) {
         // This would be implemented with actual Redis client
-        console.log(`Cache SET (Redis): ${key} with TTL ${ttl}s`);
         return;
       }
 
       // Fallback to in-memory for development
       const expires = Date.now() + (ttl * 1000);
       this.cache.set(key, { value, expires });
-      console.log(`Cache SET: ${key} (TTL: ${ttl}s)`);
     } catch (error) {
       console.error(`Cache SET error for ${key}:`, error);
       // Don't throw - caching is not critical
@@ -63,13 +57,11 @@ export class CacheService {
       // If Redis is available, use it
       if (process.env.REDIS_URL) {
         // This would be implemented with actual Redis client
-        console.log(`Cache DELETE (Redis): ${key}`);
         return;
       }
 
       // Fallback to in-memory for development
       this.cache.delete(key);
-      console.log(`Cache DELETE: ${key}`);
     } catch (error) {
       console.error(`Cache DELETE error for ${key}:`, error);
     }

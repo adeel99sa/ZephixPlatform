@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, DataSource } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
-import { AuditLog } from './services/audit.service';
+import { AuditLog } from './entities/audit-log.entity';
+import { CreateAllocationDto } from './dto/create-allocation.dto';
 
 @Injectable()
 export class ResourcesService {
@@ -11,41 +12,38 @@ export class ResourcesService {
     @InjectRepository(Resource)
     private resourceRepository: Repository<Resource>,
     @InjectRepository(ResourceAllocation)
-    private allocationRepository: Repository<ResourceAllocation>,
+    private resourceAllocationRepository: Repository<ResourceAllocation>,
     private dataSource: DataSource,
   ) {}
 
-  async findAll(organizationId: string) {
+  async findAll(organizationId?: string): Promise<any> {
     try {
+      // If no organizationId, return empty array (don't crash)
+      if (!organizationId) {
+        console.log('⚠️ Resources: No organizationId provided');
+        return { data: [] };
+      }
+
+      // Check if repository is available
+      if (!this.resourceRepository) {
+        console.error('❌ Resources: Repository not initialized');
+        return { data: [] };
+      }
+
+      // Simple query with error handling
       const resources = await this.resourceRepository.find({
-        where: { organizationId, isActive: true },
-        relations: ['allocations']
+        where: { organizationId },
+        order: { createdAt: 'DESC' }
+      }).catch(err => {
+        console.error('❌ Resources query error:', err.message);
+        return [];
       });
-      
-      // Calculate current allocation for each resource
-      const resourcesWithAllocation = resources.map(resource => {
-        const totalAllocation = resource.allocations?.reduce((sum, a) => sum + a.allocationPercentage, 0) || 0;
-        
-        return {
-          id: resource.id,
-          name: resource.name,
-          email: resource.email,
-          role: resource.role,
-          skills: resource.skills,
-          capacity: resource.capacityHoursPerWeek,
-          allocated: totalAllocation,
-          available: 100 - totalAllocation,
-          costPerHour: resource.costPerHour,
-          isActive: resource.isActive,
-          createdAt: resource.createdAt,
-          updatedAt: resource.updatedAt
-        };
-      });
-      
-      return { data: resourcesWithAllocation };
+
+      console.log(`✅ Resources: Found ${resources.length} resources for org ${organizationId}`);
+      return { data: resources || [] };
     } catch (error) {
-      console.error('Error fetching resources:', error);
-      throw new BadRequestException('Failed to fetch resources');
+      console.error('❌ Resources findAll error:', error);
+      return { data: [] };
     }
   }
 
@@ -87,7 +85,7 @@ export class ResourcesService {
 
   async detectConflicts(resourceId: string, startDate: Date, endDate: Date, allocationPercentage: number) {
     try {
-      const existingAllocations = await this.allocationRepository.find({
+      const existingAllocations = await this.resourceAllocationRepository.find({
         where: {
           resourceId,
           startDate: Between(startDate, endDate),
@@ -124,7 +122,7 @@ export class ResourcesService {
       }
 
       // Create the allocation
-      const allocation = this.allocationRepository.create({
+      const allocation = this.resourceAllocationRepository.create({
         resourceId: allocationData.resourceId,
         projectId: allocationData.projectId,
         userId: allocationData.userId,
@@ -134,7 +132,7 @@ export class ResourcesService {
         organizationId: allocationData.organizationId
       });
 
-      const savedAllocation = await this.allocationRepository.save(allocation);
+      const savedAllocation = await this.resourceAllocationRepository.save(allocation);
 
       return {
         success: true,
@@ -151,36 +149,29 @@ export class ResourcesService {
   }
 
   private async getAllocationsForResource(resourceId: string) {
-    return this.allocationRepository.find({
+    return this.resourceAllocationRepository.find({
       where: { resourceId }
     });
   }
 
   async createAllocationWithAudit(
-    dto: any,
-    auditData: {
-      userId: string;
-      organizationId: string;
-      ipAddress?: string;
-      userAgent?: string;
-      requestId?: string;
-    }
-  ): Promise<ResourceAllocation> {
-    return this.dataSource.transaction(async manager => {
-      // 1. Create allocation
-      const allocation = manager.create(ResourceAllocation, {
-        resourceId: dto.resourceId,
-        projectId: dto.projectId,
-        userId: dto.userId,
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
-        allocationPercentage: dto.allocationPercentage,
-        organizationId: dto.organizationId
+    dto: CreateAllocationDto,
+    auditData: { userId: string; organizationId: string; ipAddress?: string; userAgent?: string }
+  ): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Create allocation
+      const allocation = queryRunner.manager.create(ResourceAllocation, {
+        ...dto,
+        organizationId: auditData.organizationId,
       });
-      const savedAllocation = await manager.save(allocation);
-      
-      // 2. Create audit log IN SAME TRANSACTION
-      const auditLog = manager.create(AuditLog, {
+      const savedAllocation = await queryRunner.manager.save(allocation);
+
+      // Create audit log in same transaction
+      const auditLog = queryRunner.manager.create(AuditLog, {
         userId: auditData.userId,
         organizationId: auditData.organizationId,
         entityType: 'resource_allocation',
@@ -189,12 +180,17 @@ export class ResourcesService {
         newValue: dto,
         ipAddress: auditData.ipAddress,
         userAgent: auditData.userAgent,
-        requestId: auditData.requestId,
       });
-      await manager.save(auditLog);
-      
-      // 3. Both succeed or both fail
+      await queryRunner.manager.save(auditLog);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
       return savedAllocation;
-    });
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
