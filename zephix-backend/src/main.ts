@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import 'reflect-metadata';
 
 // Enterprise-secure SSL override for Railway PostgreSQL
@@ -36,6 +38,7 @@ import * as crypto from 'crypto'
 async function bootstrap() {
   console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule)
+
 
   console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api')

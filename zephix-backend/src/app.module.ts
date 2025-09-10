@@ -60,9 +60,8 @@ if (!(global as any).crypto) {
     }),
 
     ThrottlerModule.forRoot([{
-      name: 'short',
-      ttl: 60000,
-      limit: process.env.NODE_ENV === 'development' ? 1000 : 100,
+      ttl: 60000,  // 60 seconds in milliseconds
+      limit: 10,    // 10 requests per minute
     }]),
 
     ...(process.env.SKIP_DATABASE !== 'true'
@@ -85,20 +84,24 @@ if (!(global as any).crypto) {
     SharedModule,
     AuthModule,
     // OrganizationsModule,
-    ProjectsModule,
-    UsersModule,
-    // ResourcesModule,
-    // DiagnosticModule,
-    HealthModule,
-    DashboardModule,
-    RiskManagementModule,
-    ResourceModule,
-    WorkItemModule,
-    TemplateModule,
-    ObservabilityModule,
-    WaitlistModule,
-    PortfoliosModule,
-    ProgramsModule,
+    ...(process.env.SKIP_DATABASE !== 'true' ? [
+      ProjectsModule,
+      UsersModule,
+      // ResourcesModule,
+      // DiagnosticModule,
+      HealthModule,
+      DashboardModule,
+      RiskManagementModule,
+      ResourceModule,
+      WorkItemModule,
+      TemplateModule,
+      ObservabilityModule,
+      WaitlistModule,
+      PortfoliosModule,
+      ProgramsModule,
+    ] : [
+      HealthModule, // Keep health module for basic health checks
+    ]),
   ],
   controllers: [AppController],
   providers: [
