@@ -57,7 +57,7 @@ export const useEnterpriseAuth = () => {
     setError(null);
     
     try {
-      const res = await apiJson('/auth/register', { method: 'POST', body: userData });
+      const res = await apiJson('/auth/signup', { method: 'POST', body: userData });
       const token = res?.accessToken;
       
       if (!token) throw new Error('TOKEN_MISSING');
