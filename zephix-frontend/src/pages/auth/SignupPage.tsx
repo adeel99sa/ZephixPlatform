@@ -26,10 +26,10 @@ export function SignupPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (authState.isAuthenticated) {
+    if (authState?.isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
-  }, [authState.isAuthenticated, navigate]);
+  }, [authState?.isAuthenticated, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

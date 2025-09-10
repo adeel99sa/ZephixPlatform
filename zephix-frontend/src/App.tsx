@@ -14,14 +14,16 @@ import { AIMappingPage } from '@/pages/ai/AIMappingPage';
 import { AISuggestionsPage } from '@/pages/ai/AISuggestionsPage';
 import { WorkflowsPage } from '@/pages/workflows/WorkflowsPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LandingPage from '@/pages/LandingPage';
 
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <Routes>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -103,8 +105,9 @@ function App() {
           
           {/* Catch all - redirect to dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
