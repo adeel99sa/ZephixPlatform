@@ -18,7 +18,7 @@ if (
     process.env.DATABASE_SSL_MODE = 'require';
   }
 
-  console.log('�� Railway SSL configuration set:');
+  console.log('🔒 Railway SSL configuration set:');
   console.log(
     `   RAILWAY_SSL_REJECT_UNAUTHORIZED: ${process.env.RAILWAY_SSL_REJECT_UNAUTHORIZED}`,
   );
@@ -32,18 +32,6 @@ import helmet from 'helmet'
 const cookieParser = require('cookie-parser')
 import { AllExceptionsFilter } from './filters/all-exceptions.filter'
 import * as crypto from 'crypto'
-
-function parseOrigins() {
-  const defaults = [
-    'http://localhost:5173'
-  ]
-  const extra = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
-  const set = new Set([...defaults, ...extra])
-  return Array.from(set)
-}
 
 async function bootstrap() {
   console.log('🚀 Creating NestJS application...');
@@ -61,18 +49,19 @@ async function bootstrap() {
   console.log('🍪 Configuring cookie parser...');
   app.use(cookieParser())
 
-  const allowed = parseOrigins()
-
   console.log('🌐 Configuring CORS...');
   app.enableCors({
     origin: [
-      'http://localhost:5173',  // Vite default
-      'http://localhost:3001',  // Alternative frontend port
-      'http://localhost:3000',  // In case frontend runs on 3000
+      'https://getzephix.com',           // Production frontend
+      'https://www.getzephix.com',       // Production with www
+      'http://localhost:5173',           // Vite local development
+      'http://localhost:3001',           // Alternative frontend port
+      'http://localhost:3000',           // Alternative frontend port
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
   })
 
   console.log('🆔 Configuring request ID middleware...');
@@ -85,15 +74,24 @@ async function bootstrap() {
   })
 
   console.log('✅ Configuring global validation pipe...');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false }))
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    forbidNonWhitelisted: false,
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true
+    }
+  }))
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  console.log('🚀 Starting server...');
-  await app.listen(process.env.PORT || 3000)
+  const port = process.env.PORT || 3000;
+  console.log('🚀 Starting server on port:', port);
+  await app.listen(port, '0.0.0.0') // Bind to all interfaces for Railway
   
-  console.log('✅ Application is running on:', `http://localhost:${process.env.PORT || 3000}`);
+  console.log('✅ Application is running on:', `http://localhost:${port}`);
+  console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
   
   // Post-startup router verification
   const server = app.getHttpServer();
@@ -105,7 +103,10 @@ async function bootstrap() {
   }
 }
 
-bootstrap()
+bootstrap().catch(err => {
+  console.error('❌ Application failed to start:', err);
+  process.exit(1);
+});
 
 // CRITICAL: Railway container fixes
 // Handle graceful shutdown for SIGTERM
@@ -159,5 +160,3 @@ console.log(
   `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
 );
 console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
-
-// Updated: Mon Aug 28 22:27:00 CDT 2025
