@@ -6,13 +6,15 @@ import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
 import { ResourceAllocationService } from './resource-allocation.service';
 import { ResourcesService } from './resources.service';
 import { ResourceHeatMapService } from './services/resource-heat-map.service';
+import { AuditService, AuditLog } from './services/audit.service';
+import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationController } from './resource-allocation.controller';
 import { ResourcesController } from './resources.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Resource, ResourceAllocation, UserDailyCapacity])],
-  providers: [ResourceAllocationService, ResourcesService, ResourceHeatMapService],
+  imports: [TypeOrmModule.forFeature([Resource, ResourceAllocation, UserDailyCapacity, AuditLog])],
+  providers: [ResourceAllocationService, ResourcesService, ResourceHeatMapService, AuditService, CacheService],
   controllers: [ResourceAllocationController, ResourcesController],
-  exports: [ResourceAllocationService, ResourcesService, ResourceHeatMapService],
+  exports: [ResourceAllocationService, ResourcesService, ResourceHeatMapService, AuditService, CacheService],
 })
 export class ResourceModule {}
