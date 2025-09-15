@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface Report {
@@ -65,7 +65,7 @@ export const ReportsPage: React.FC = () => {
       setError(null);
       
       // Use existing API pattern with proper organization scoping
-      const response = await apiJson('/reports', {
+      const response = await api.get('/reports', {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -120,7 +120,7 @@ export const ReportsPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await apiJson(`/reports/${reportId}/generate`, {
+      const response = await api.get(`/reports/${reportId}/generate`, {
         method: 'POST',
         headers: {
           'X-Org-Id': user.organizationId
@@ -151,7 +151,7 @@ export const ReportsPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await apiJson(`/reports/${reportId}/download`, {
+      const response = await api.get(`/reports/${reportId}/download`, {
         headers: {
           'X-Org-Id': user.organizationId
         }

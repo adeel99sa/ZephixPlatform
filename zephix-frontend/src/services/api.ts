@@ -211,40 +211,8 @@ export const getErrorMessage = (error: any): string => {
 // Request cancellation support
 export const createCancelToken = () => axios.CancelToken.source();
 
-// Type-safe API methods
-export const apiClient = {
-  get: <T = any>(url: string, config?: any) => 
-    api.get<T>(url, config).then(res => res.data),
-  
-  post: <T = any>(url: string, data?: any, config?: any) => 
-    api.post<T>(url, data, config).then(res => res.data),
-  
-  put: <T = any>(url: string, data?: any, config?: any) => 
-    api.put<T>(url, data, config).then(res => res.data),
-  
-  patch: <T = any>(url: string, data?: any, config?: any) => 
-    api.patch<T>(url, data, config).then(res => res.data),
-  
-  delete: <T = any>(url: string, config?: any) => 
-    api.delete<T>(url, config).then(res => res.data),
-};
-
 // Default export for backward compatibility
 export default api;
 
 // Named export for explicit usage
 export { api };
-
-// Backward compatibility export for legacy code
-export const apiJson = async (url: string, options: any = {}) => {
-  const config = {
-    url,
-    method: options.method || 'GET',
-    data: options.body,
-    headers: options.headers || {},
-    ...options
-  };
-  
-  const response = await api(config);
-  return response.data;
-};

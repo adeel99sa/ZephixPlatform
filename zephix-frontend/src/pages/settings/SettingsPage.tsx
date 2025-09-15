@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface OrganizationSettings {
@@ -75,21 +75,21 @@ export const SettingsPage: React.FC = () => {
       setError(null);
       
       // Load organization settings
-      const orgResponse = await apiJson('/organizations/settings', {
+      const orgResponse = await api.get('/organizations/settings', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
       // Load user settings
-      const userResponse = await apiJson('/users/settings', {
+      const userResponse = await api.get('/users/settings', {
         headers: {
           'X-Org-Id': user.organizationId
         }
       });
       
       // Load security settings
-      const securityResponse = await apiJson('/organizations/security', {
+      const securityResponse = await api.get('/organizations/security', {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -114,9 +114,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/organizations/settings', {
-        method: 'PATCH',
-        body: settings,
+      const response = await api.patch('/organizations/settings', settings, {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -140,9 +138,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/users/settings', {
-        method: 'PATCH',
-        body: settings,
+      const response = await api.patch('/users/settings', settings, {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -166,9 +162,7 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await apiJson('/organizations/security', {
-        method: 'PATCH',
-        body: settings,
+      const response = await api.patch('/organizations/security', settings, {
         headers: {
           'X-Org-Id': user.organizationId
         }

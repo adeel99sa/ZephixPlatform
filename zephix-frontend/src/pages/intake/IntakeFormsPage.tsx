@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface IntakeForm {
@@ -71,7 +71,7 @@ export const IntakeFormsPage: React.FC = () => {
       setError(null);
       
       // Use existing API pattern with proper organization scoping
-      const response = await apiJson('/intake/forms', {
+      const response = await api.get('/intake/forms', {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -127,7 +127,7 @@ export const IntakeFormsPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await apiJson(`/intake/forms/${formId}/status`, {
+      const response = await api.get(`/intake/forms/${formId}/status`, {
         method: 'PATCH',
         body: { status: newStatus },
         headers: {
