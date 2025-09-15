@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { Resource } from './resource.entity';
+import { Task } from '../../tasks/entities/task.entity';
 
 @Entity('resource_allocations')
 @Index('idx_ra_dates', ['startDate', 'endDate'])
@@ -29,6 +30,12 @@ export class ResourceAllocation {
   @Column({ name: 'allocation_percentage', type: 'integer', nullable: true })
   allocationPercentage: number;
 
+  @Column({ name: 'task_id', nullable: true })
+  taskId: string;
+
+  @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
+  hoursPerWeek: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp without time zone' })
   createdAt: Date;
 
@@ -39,4 +46,8 @@ export class ResourceAllocation {
   @ManyToOne(() => Resource, resource => resource.allocations)
   @JoinColumn({ name: 'resource_id' })
   resource: Resource;
+
+  @ManyToOne(() => Task, { nullable: true })
+  @JoinColumn({ name: 'task_id' })
+  task: Task;
 }

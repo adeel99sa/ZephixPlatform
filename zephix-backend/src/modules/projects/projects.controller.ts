@@ -42,18 +42,11 @@ export class ProjectsController {
     @Body() createProjectDto: CreateProjectDto,
     @GetTenant() tenant: TenantContext,
   ) {
-    // Temporary hardcoded values for testing
-    const testTenant = {
-      organizationId: '06452a38-a9ca-471d-a21a-a24c31890647',
-      userId: '841cae1b-d24d-48e0-a0bd-8fd9a2d3f00b',
-      userRole: 'user'
-    };
-    
-    this.logger.log(`Creating project for user ${testTenant.userId} in org ${testTenant.organizationId}`);
+    this.logger.log(`Creating project for user ${tenant.userId} in org ${tenant.organizationId}`);
     return this.projectsService.createProject(
       createProjectDto,
-      testTenant.organizationId,
-      testTenant.userId,
+      tenant.organizationId,
+      tenant.userId,
     );
   }
 
@@ -65,14 +58,7 @@ export class ProjectsController {
     @Query('status') status?: string,
     @Query('search') search?: string,
   ) {
-    // Temporary hardcoded values for testing
-    const testTenant = {
-      organizationId: '06452a38-a9ca-471d-a21a-a24c31890647',
-      userId: '841cae1b-d24d-48e0-a0bd-8fd9a2d3f00b',
-      userRole: 'user'
-    };
-    
-    this.logger.log(`Fetching projects for org ${testTenant.organizationId}`);
+    this.logger.log(`Fetching projects for org ${tenant.organizationId}`);
     
     const options = {
       page: page ? parseInt(page, 10) : 1,
@@ -81,7 +67,7 @@ export class ProjectsController {
       search,
     };
 
-    return this.projectsService.findAllProjects(testTenant.organizationId, options);
+    return this.projectsService.findAllProjects(tenant.organizationId, options);
   }
 
   @Get('stats')

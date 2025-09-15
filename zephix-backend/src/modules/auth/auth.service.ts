@@ -138,4 +138,59 @@ export class AuthService {
     const { password, ...sanitized } = user;
     return sanitized;
   }
+
+  async getUserById(userId: string): Promise<User | null> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: [
+          'id', 'email', 'firstName', 'lastName', 
+          'organizationId', 'role', 'isActive'
+        ]
+      });
+      return user;
+    } catch (error) {
+      console.error('Error fetching user by ID:', error);
+      return null;
+    }
+  }
+
+  async refreshToken(refreshToken: string, ip: string, userAgent: string) {
+    // For MVP, we'll just validate the current token and issue a new one
+    // In production, you'd validate against a stored refresh token
+    try {
+      // Decode the refresh token to get user ID
+      const decoded = this.jwtService.verify(refreshToken);
+      const user = await this.getUserById(decoded.sub);
+      
+      if (!user) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const payload = {
+        sub: user.id,
+        email: user.email,
+        organizationId: user.organizationId,
+        role: user.role,
+      };
+
+      return {
+        accessToken: this.jwtService.sign(payload),
+        expiresIn: 86400
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logout(userId: string): Promise<void> {
+    // For MVP, logout is handled client-side by removing the token
+    // In production, you might want to blacklist the token or track logout events
+    console.log(`User ${userId} logged out`);
+    
+    // Add audit log if you have audit service
+    // await this.auditService.log('USER_LOGOUT', userId);
+    
+    return;
+  }
 }

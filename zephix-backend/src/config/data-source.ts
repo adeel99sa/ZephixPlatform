@@ -1,53 +1,28 @@
 import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
-
-// Load environment variables
-config();
-
-// Import ONLY ESSENTIAL entities (avoiding ALL circular dependencies)
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
-import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
-import { ProjectPhase } from '../modules/projects/entities/project-phase.entity';
-import { Template } from '../modules/templates/entities/template.entity';
-import { WorkItem } from '../modules/work-items/entities/work-item.entity';
-import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
-import { EmailVerification } from '../modules/auth/entities/email-verification.entity';
-import { Feedback } from '../feedback/entities/feedback.entity';
-import { Waitlist } from '../waitlist/entities/waitlist.entity';
-import { ProjectAssignment } from '../modules/projects/entities/project-assignment.entity';
 import { Task } from '../modules/projects/entities/task.entity';
-import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
+// Remove these lines:
+// import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
+// import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
 
-export default new DataSource({
+export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || process.env.DATABASE_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || process.env.DATABASE_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || process.env.DATABASE_USERNAME || 'zephix_user',
-  password: process.env.DB_PASSWORD || process.env.DATABASE_PASSWORD || '',
-  database: process.env.DB_DATABASE || process.env.DATABASE_NAME || 'zephix_development',
-  url: process.env.DATABASE_URL,
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: parseInt(process.env.DATABASE_PORT, 10) || 5432,
+  username: process.env.DATABASE_USER || 'zephix_user',
+  password: process.env.DATABASE_PASSWORD || 'zephix_password',
+  database: process.env.DATABASE_NAME || 'zephix_auth_db',
   entities: [
-    // Core entities only - no circular dependencies
     User,
     Organization,
-    UserOrganization,
     Project,
-    ProjectPhase,
-    Template,
-    WorkItem,
-    RefreshToken,
-    EmailVerification,
-    Feedback,
-    Waitlist,
-    ProjectAssignment,
     Task,
-    TaskDependency,
-    User,
   ],
-  migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+  migrations: ['src/migrations/*.ts'],
   synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+// Add this line for default export
+export default AppDataSource;

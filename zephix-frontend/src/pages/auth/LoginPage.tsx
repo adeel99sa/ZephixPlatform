@@ -54,9 +54,12 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔴 Form submitted!', formData);  // ADD THIS LINE
     
     try {
+      console.log('🔵 Calling login with:', formData.email);  // ADD THIS LINE
       const success = await login(formData.email, formData.password);
+      console.log('🟢 Login result:', success);  // ADD THIS LINE
 
       if (success) {
         setIsSubmitted(true);
@@ -69,7 +72,7 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       // Error is already handled by the hook
-      console.error('Login error:', err);
+      console.error('🔴 Login error caught:', err);  // UPDATE THIS LINE
     }
   };
 

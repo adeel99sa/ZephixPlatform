@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Project } from './project.entity';
 import { Task } from './task.entity';
 
@@ -7,67 +7,66 @@ export class ProjectPhase {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'project_id' })  // FIX: Add proper mapping
+  @Column({ name: 'project_id' })
   projectId: string;
 
   @ManyToOne(() => Project, project => project.phases)
   @JoinColumn({ name: 'project_id' })
   project: Project;
 
-  @Column({ name: 'phase_name', nullable: true })  // FIX: nullable since some records might not have it
-  phaseName: string;
+  @Column({ name: 'organization_id' })
+  organizationId: string;
 
-  @Column({ name: 'phase_description', nullable: true })  // ADD: Missing from entity
-  phaseDescription?: string;
+  @Column()
+  name: string;
 
-  @Column({ name: 'order_index', nullable: true })  // FIX: Add nullable
-  orderIndex: number;
+  @Column({ type: 'text', nullable: true })
+  description: string;
 
-  @Column({ type: 'date', nullable: true, name: 'start_date' })
-  startDate?: Date;
+  @Column({ 
+    type: 'enum',
+    enum: ['planning', 'development', 'testing', 'deployment', 'maintenance'],
+    default: 'planning'
+  })
+  type: string;
 
-  @Column({ type: 'date', nullable: true, name: 'end_date' })
-  endDate?: Date;
+  @Column({ type: 'int', default: 0 })
+  order: number;
 
-  @Column({ default: 'not_started' })
-  status: 'not_started' | 'in_progress' | 'completed' | 'on_hold' | 'cancelled';
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate: Date;
 
-  @Column({ name: 'actual_start_date', type: 'date', nullable: true })  // ADD: Missing
-  actualStartDate?: Date;
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date;
 
-  @Column({ name: 'actual_end_date', type: 'date', nullable: true })  // ADD: Missing
-  actualEndDate?: Date;
+  @Column({ 
+    type: 'enum',
+    enum: ['not_started', 'in_progress', 'completed'],
+    default: 'not_started'
+  })
+  status: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })  // ADD: Missing
-  budget?: number;
+  @Column({ type: 'int', default: 0 })
+  progress: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true, name: 'actual_cost' })  // ADD: Missing
-  actualCost?: number;
+  @Column({ name: 'total_tasks', type: 'int', default: 0 })
+  totalTasks: number;
 
-  @Column({ name: 'is_milestone', default: false })  // ADD: Missing
-  isMilestone: boolean;
+  @Column({ name: 'completed_tasks', type: 'int', default: 0 })
+  completedTasks: number;
 
-  @Column({ name: 'owner_id', nullable: true })  // ADD: Missing
-  ownerId?: string;
+  @Column({ name: 'progress_percentage', type: 'int', default: 0 })
+  progressPercentage: number;
 
-  @Column({ name: 'predecessor_phase_id', nullable: true })  // ADD: Missing
-  predecessorPhaseId?: string;
+  @OneToMany(() => Task, task => task.phase)
+  tasks: Task[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  completionCriteria: string[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
-  @OneToMany(() => Task, task => task.phase)
-  tasks: Task[];
-
-  @Column({ name: 'total_tasks', default: 0 })
-  totalTasks: number;
-
-  @Column({ name: 'completed_tasks', default: 0 })
-  completedTasks: number;
-
-  @Column({ name: 'progress_percentage', default: 0 })
-  progressPercentage: number;
 }

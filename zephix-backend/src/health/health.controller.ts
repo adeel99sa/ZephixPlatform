@@ -128,6 +128,7 @@ export class HealthController {
     });
   }
 
+
   private async performHealthChecks(): Promise<HealthCheck[]> {
     const checks: HealthCheck[] = [];
 

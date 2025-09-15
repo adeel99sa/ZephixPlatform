@@ -134,20 +134,21 @@ export class TaskService {
 
 
   private async updatePhaseProgress(phaseId: string): Promise<void> {
-    const tasks = await this.taskRepository.find({
-      where: { phaseId },
-    });
+  const tasks = await this.taskRepository.find({
+    where: { phaseId },
+  });
 
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    await this.phaseRepository.update(phaseId, {
-      totalTasks,
-      completedTasks,
-      progressPercentage,
-    });
-  }
+  // Only update fields that exist in ProjectPhase entity
+  await this.phaseRepository.update(phaseId, {
+    progress: progressPercentage,
+    status: progressPercentage === 0 ? 'not_started' : 
+            progressPercentage === 100 ? 'completed' : 'in_progress'
+  });
+}
 
 
   async delete(id: string): Promise<void> {
