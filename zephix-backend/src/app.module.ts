@@ -34,6 +34,7 @@ import { AppService } from './app.service';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -61,23 +62,12 @@ if (!(global as any).crypto) {
 
     ThrottlerModule.forRoot([{
       ttl: 60000,  // 60 seconds in milliseconds
-      limit: 10,    // 10 requests per minute
+      limit: 100,   // CHANGE FROM 10 TO 100 requests per minute
     }]),
 
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
-          TypeOrmModule.forRootAsync({
-            imports: [ConfigModule],
-            useFactory: async (configService: ConfigService) => {
-              const dbConfig = databaseConfig;
-              return {
-                ...dbConfig,
-                entities: [__dirname + '/**/*.entity{.ts,.js}'],
-                synchronize: false,
-              };
-            },
-            inject: [ConfigService],
-          }),
+          TypeOrmModule.forRoot(databaseConfig),
         ]
       : []),
 
@@ -99,6 +89,7 @@ if (!(global as any).crypto) {
       WaitlistModule,
       PortfoliosModule,
       ProgramsModule,
+      TasksModule,
     ] : [
       HealthModule, // Keep health module for basic health checks
     ]),
