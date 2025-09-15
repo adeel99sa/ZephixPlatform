@@ -1,8 +1,10 @@
 import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, DataSource } from 'typeorm';
+import { Repository, Between, DataSource, In } from 'typeorm';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
+import { Resource } from './entities/resource.entity';
+import { Task } from '../tasks/entities/task.entity';
 
 @Injectable()
 export class ResourceAllocationService {
@@ -11,6 +13,10 @@ export class ResourceAllocationService {
     private allocationRepository: Repository<ResourceAllocation>,
     @InjectRepository(UserDailyCapacity)
     private capacityRepository: Repository<UserDailyCapacity>,
+    @InjectRepository(Resource)
+    private resourceRepository: Repository<Resource>,
+    @InjectRepository(Task)
+    private taskRepository: Repository<Task>,
     private dataSource: DataSource,
   ) {}
 
@@ -180,5 +186,69 @@ export class ResourceAllocationService {
       .getRawMany();
 
     return availableUsers.slice(0, 3); // Return top 3 suggestions
+  }
+
+  async getTaskBasedHeatMap(organizationId: string) {
+    // Get all resources
+    const resources = await this.resourceRepository.find({
+      where: { organizationId }
+    });
+
+    // Get all active tasks
+    const tasks = await this.taskRepository.find({
+      where: { 
+        organizationId,
+        status: In(['pending', 'in_progress'])
+      }
+    });
+
+    // Calculate allocations for next 4 weeks
+    const heatMap = [];
+    const today = new Date();
+    
+    for (const resource of resources) {
+      const weekData = [];
+      
+      for (let week = 0; week < 4; week++) {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() + (week * 7));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 7);
+        
+        // Count tasks assigned to this resource in this week
+        const tasksInWeek = tasks.filter(task => {
+          const startDate = task.startDate || task.createdAt;
+          const endDate = task.endDate || task.dueDate || startDate;
+          
+          return task.assignedTo === resource.userId &&
+                 new Date(startDate) <= weekEnd &&
+                 new Date(endDate) >= weekStart;
+        });
+        
+        // Simple model: each task = 25% allocation
+        const allocation = tasksInWeek.length * 25;
+        
+        weekData.push({
+          weekStart: weekStart.toISOString().split('T')[0],
+          taskCount: tasksInWeek.length,
+          allocation: allocation,
+          status: allocation > 100 ? 'critical' : 
+                  allocation > 75 ? 'warning' : 'available',
+          tasks: tasksInWeek.map(t => ({
+            id: t.id,
+            name: t.name || 'Task', // The entity maps 'title' column to 'name' property
+            projectId: t.projectId
+          }))
+        });
+      }
+      
+      heatMap.push({
+        resourceId: resource.id,
+        resourceName: resource.name || 'Unknown',
+        weeks: weekData
+      });
+    }
+    
+    return heatMap;
   }
 }
