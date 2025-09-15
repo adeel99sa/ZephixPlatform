@@ -32,8 +32,8 @@ export class AuthService {
     }
 
     // Simple password validation
-    if (password.length < 12) {
-      throw new BadRequestException('Password must be at least 12 characters');
+    if (password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
     }
 
     // Use transaction for consistency

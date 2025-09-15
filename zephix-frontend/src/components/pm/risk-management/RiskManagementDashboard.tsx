@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, AlertCircle, Info, Zap, Calendar,
   Filter, Search, Download, Settings, RefreshCcw, Bell
 } from 'lucide-react';
-import { apiJson } from '../../../services/api';
+import api from '../../../services/api';
 
 interface RiskManagementDashboardProps {
   projectId: string;
@@ -74,7 +74,7 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
   const loadRiskData = async () => {
     setLoading(true);
     try {
-      const data = await apiJson(`/pm/risk-management/register/${projectId}`);
+      const data = await api.get(`/pm/risk-management/register/${projectId}`);
       setRiskData(data.data.risks);
       setRiskSummary(data.data.summary);
     } catch (error) {
@@ -87,7 +87,7 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
   const performRiskAnalysis = async () => {
     setLoading(true);
     try {
-      const data = await apiJson(`/pm/risk-management/analyze`, {
+      const data = await api.get(`/pm/risk-management/analyze`, {
         method: 'POST',
         body: {
           projectId,
@@ -755,7 +755,7 @@ const ForecastingTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   const loadForecastData = async () => {
     try {
-      const data = await apiJson(`/pm/risk-management/forecasting/${projectId}`);
+      const data = await api.get(`/pm/risk-management/forecasting/${projectId}`);
       setForecastData(data.data);
     } catch (error) {
       console.error('Failed to load forecast data:', error);

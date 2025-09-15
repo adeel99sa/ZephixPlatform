@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { apiJson } from '../services/api';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 
 interface UseApiOptions {
@@ -49,7 +49,7 @@ export function useApi<T = any>(
       setLoading(true);
       setError(null);
 
-      const response = await apiJson(endpoint, {
+      const response = await api.get(endpoint, {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -136,9 +136,7 @@ export function useApiMutation<T = any>(
       setError(null);
 
       const targetEndpoint = customEndpoint || endpoint;
-      const response = await apiJson(targetEndpoint, {
-        method,
-        body,
+      const response = await api.post(targetEndpoint, body, {
         headers: {
           'X-Org-Id': user.organizationId
         }
