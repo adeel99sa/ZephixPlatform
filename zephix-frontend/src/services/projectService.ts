@@ -1,4 +1,4 @@
-import { apiClient } from './auth.interceptor';
+import api from './api';
 
 export interface Project {
   id: string;
@@ -15,36 +15,37 @@ export interface Project {
 export interface CreateProjectDto {
   name: string;
   description?: string;
-  status: string;
+  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   startDate?: string;
   endDate?: string;
 }
 
 export const projectService = {
   async getProjects(page = 1, limit = 10) {
-    const response = await apiClient.get('/projects', {
+    const response = await api.get('/projects', {
       params: { page, limit }
     });
     return response.data;
   },
 
   async getProject(id: string) {
-    const response = await apiClient.get(`/projects/${id}`);
+    const response = await api.get(`/projects/${id}`);
     return response.data;
   },
 
   async createProject(project: CreateProjectDto) {
-    const response = await apiClient.post('/projects', project);
+    const response = await api.post('/projects', project);
     return response.data;
   },
 
   async updateProject(id: string, updates: Partial<CreateProjectDto>) {
-    const response = await apiClient.patch(`/projects/${id}`, updates);
+    const response = await api.patch(`/projects/${id}`, updates);
     return response.data;
   },
 
   async deleteProject(id: string) {
-    const response = await apiClient.delete(`/projects/${id}`);
+    const response = await api.delete(`/projects/${id}`);
     return response.data;
   },
 };

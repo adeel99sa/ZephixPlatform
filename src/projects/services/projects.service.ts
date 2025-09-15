@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Project, ProjectStatus, ProjectPriority } from '../entities/project.entity';
+import { Project } from '../entities/project.entity';
 import { ProjectAssignment } from '../entities/project-assignment.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
+import { ProjectStatus, ProjectPriority } from '../../shared/enums/project.enums';
 
 @Injectable()
 export class ProjectsService {
@@ -31,12 +32,19 @@ export class ProjectsService {
   }
 
   async createProject(createProjectDto: CreateProjectDto, organizationId: string, userId: string) {
-    const project = this.projectRepository.create({
-      ...createProjectDto,
+    const projectData = {
+      name: createProjectDto.name,
+      description: createProjectDto.description,
+      status: createProjectDto.status || ProjectStatus.PLANNING,
+      priority: createProjectDto.priority || ProjectPriority.MEDIUM,
+      startDate: createProjectDto.startDate ? new Date(createProjectDto.startDate) : null,
+      endDate: createProjectDto.endDate ? new Date(createProjectDto.endDate) : null,
       organizationId,
       created_by: userId,
       createdById: userId,
-    });
+    };
+    
+    const project = this.projectRepository.create(projectData);
 
     const savedProject = await this.projectRepository.save(project);
     

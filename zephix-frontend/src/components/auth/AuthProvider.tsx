@@ -11,8 +11,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     // Check authentication status on app startup
     console.log('🔐 Checking authentication status...');
-    checkAuth();
-  }, [checkAuth]);
+    // Temporarily disabled to prevent API calls during infinite loop
+    // checkAuth();
+  }, []); // Remove checkAuth from dependencies to prevent infinite loop
   
   return <>{children}</>;
 }

@@ -1,19 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
-
-export enum ProjectStatus {
-  PLANNING = 'planning',
-  ACTIVE = 'active',
-  ON_HOLD = 'on_hold',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-}
-
-export enum ProjectPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  URGENT = 'urgent',
-}
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import { ProjectStatus, ProjectPriority } from '../../shared/enums/project.enums';
 
 export class CreateProjectDto {
   @IsString()
@@ -32,11 +18,11 @@ export class CreateProjectDto {
   @IsOptional()
   priority?: ProjectPriority = ProjectPriority.MEDIUM;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   startDate?: string;
 
-  @IsString()
+  @IsDateString()
   @IsOptional()
   endDate?: string;
 }

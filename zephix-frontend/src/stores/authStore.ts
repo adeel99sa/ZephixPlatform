@@ -38,6 +38,31 @@ interface SignupData {
   organizationName: string;
 }
 
+// Helper function to validate token
+const isValidToken = (token: string | null): boolean => {
+  return !!(token && token !== 'null' && token !== null && typeof token === 'string' && token.length > 0);
+};
+
+// Cleanup corrupted localStorage on app start
+const cleanupCorruptedAuth = () => {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage);
+      if (parsed.state?.accessToken === 'null') {
+        console.warn('Cleaning up corrupted auth storage on app start');
+        localStorage.removeItem('auth-storage');
+      }
+    }
+  } catch (error) {
+    console.error('Error during auth cleanup:', error);
+    localStorage.removeItem('auth-storage');
+  }
+};
+
+// Run cleanup immediately
+cleanupCorruptedAuth();
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -189,7 +214,33 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => localStorage, {
+        serialize: (state) => {
+          // Custom serialization to handle null values properly
+          const serialized = JSON.stringify(state, (key, value) => {
+            // Convert null to null primitive, not "null" string
+            if (value === null) return null;
+            return value;
+          });
+          return serialized;
+        },
+        deserialize: (str) => {
+          try {
+            const parsed = JSON.parse(str);
+            // Ensure accessToken is null primitive, not "null" string
+            if (parsed.state?.accessToken === 'null') {
+              console.warn('Detected corrupted token "null" string, clearing auth storage');
+              localStorage.removeItem('auth-storage');
+              return { state: { user: null, accessToken: null, expiresAt: null, isAuthenticated: false }, version: 0 };
+            }
+            return parsed;
+          } catch (error) {
+            console.error('Failed to deserialize auth storage:', error);
+            localStorage.removeItem('auth-storage');
+            return { state: { user: null, accessToken: null, expiresAt: null, isAuthenticated: false }, version: 0 };
+          }
+        },
+      }),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
