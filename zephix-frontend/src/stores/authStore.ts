@@ -16,6 +16,7 @@ interface User {
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   expiresAt: number | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -68,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       accessToken: null,
+      refreshToken: null,
       expiresAt: null,
       isAuthenticated: false,
       isLoading: false,
@@ -82,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
             twoFactorCode,
           });
 
-          const { user, accessToken, expiresIn } = response.data;
+          const { user, accessToken, refreshToken, expiresIn } = response.data;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Set auth header for future requests
@@ -91,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user,
             accessToken,
+            refreshToken,
             expiresAt,
             isAuthenticated: true,
             isLoading: false,
@@ -112,7 +115,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.post('/auth/signup', data);
           
-          const { user, accessToken, expiresIn, message } = response.data;
+          const { user, accessToken, refreshToken, expiresIn, message } = response.data;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Set auth header
@@ -121,6 +124,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user,
             accessToken,
+            refreshToken,
             expiresAt,
             isAuthenticated: true,
             isLoading: false,
@@ -151,6 +155,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             accessToken: null,
+            refreshToken: null,
             expiresAt: null,
             isAuthenticated: false,
           });
@@ -159,8 +164,13 @@ export const useAuthStore = create<AuthState>()(
 
       refreshToken: async () => {
         try {
-          const response = await api.post('/auth/refresh');
-          const { accessToken, expiresIn } = response.data;
+          const { refreshToken } = get();
+          if (!refreshToken) {
+            throw new Error('No refresh token available');
+          }
+          
+          const response = await api.post('/auth/refresh', { refreshToken });
+          const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Update auth header
@@ -168,6 +178,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             accessToken,
+            refreshToken: newRefreshToken,
             expiresAt,
           });
 
@@ -244,6 +255,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         expiresAt: state.expiresAt,
         isAuthenticated: state.isAuthenticated,
       }),
