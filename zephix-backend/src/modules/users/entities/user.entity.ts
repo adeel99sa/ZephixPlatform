@@ -1,6 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { Organization } from '../../../organizations/entities/organization.entity';
-import { Task } from '../../projects/entities/task.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
@@ -13,33 +11,14 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ name: 'first_name', nullable: true })
+  @Column({ name: 'first_name' })
   firstName: string;
 
-  @Column({ name: 'last_name', nullable: true })
+  @Column({ name: 'last_name' })
   lastName: string;
-
-  @Column({ default: 'user' })
-  role: string;
-
-  @Column({ name: 'organization_id' })
-  organizationId: string;
-
-  @ManyToOne(() => Organization)
-  @JoinColumn({ name: 'organization_id' })
-  organization: Organization;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
-
-  @Column({ name: 'is_email_verified', default: false })
-  isEmailVerified: boolean;
-
-  @OneToMany(() => Task, task => task.assignee)
-  assignedTasks: Task[];
-
-  @OneToMany('RefreshToken', 'user')
-  refreshTokens: any[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -47,8 +26,48 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // Computed property for display
-  get fullName(): string {
-    return `${this.firstName} ${this.lastName}`.trim();
-  }
+  @Column({ name: 'is_email_verified', default: false })
+  isEmailVerified: boolean;
+
+  @Column({ name: 'email_verified_at', nullable: true, type: 'timestamp' })
+  emailVerifiedAt: Date;
+
+  @Column({ default: 'user' })
+  role: string;
+
+  @Column({ name: 'organization_id', nullable: true, type: 'uuid' })
+  organizationId: string;
+
+  @Column({ name: 'profile_picture', nullable: true })
+  profilePicture: string;
+
+  @Column({ name: 'last_login_at', nullable: true, type: 'timestamp' })
+  lastLoginAt: Date;
+
+  @Column({ name: 'failed_login_attempts', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ name: 'locked_until', nullable: true, type: 'timestamp' })
+  lockedUntil: Date;
+
+  @Column({ name: 'two_factor_enabled', default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ name: 'two_factor_secret', nullable: true })
+  twoFactorSecret: string;
+
+  @Column({ name: 'email_verification_token', nullable: true })
+  emailVerificationToken: string;
+
+  @Column({ name: 'password_reset_token', nullable: true })
+  passwordResetToken: string;
+
+  @Column({ name: 'last_password_change', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  lastPasswordChange: Date;
+
+  @Column({ name: 'email_verification_expires', nullable: true, type: 'timestamp' })
+  emailVerificationExpires: Date;
+
+  @Column({ name: 'password_reset_expires', nullable: true, type: 'timestamp' })
+  passwordResetExpires: Date;
 }
