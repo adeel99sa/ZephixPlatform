@@ -2,213 +2,470 @@
 alwaysApply: true
 ---
 
-# These Rules Are for the ENTIRE Zephix App
+## **ENHANCED CURSOR RULES FOR ZEPHIX - ENTERPRISE GRADE V3**
 
+Your Cursor rules are solid but need more specificity for Zephix's unique requirements. Here are critical gaps and enhancements:
 
-## **Complete Zephix Platform Development Rules**
+---
 
+## **GAPS IDENTIFIED & FIXES**
+
+### **1. Missing Zephix-Specific Domain Rules**
 ```yaml
-# .cursorrules - ZEPHIX PLATFORM STANDARDS
+## ZEPHIX DOMAIN REQUIREMENTS
 
-## PLATFORM SCOPE
-These rules apply to ALL Zephix development:
-- Project Management (tasks, phases, resources)
-- AI Assistant features
-- Risk Management system
-- Resource Allocation & Heat Maps
-- Admin Dashboards
-- Template System
-- Reporting & Analytics
-- Integration Layer
-- Authentication & Security
-- All future features
-
-## MANDATORY RESPONSE FORMAT
-[Keep the same simple template for consistency]
-
-## CORE PLATFORM PRINCIPLES
-
-### 1. SECURITY FIRST (All Features)
-- Authentication required for all endpoints
-- Organization-level data isolation
-- Row-level security on all queries
-- Input validation on every endpoint
-- No sensitive data in frontend storage
-
-### 2. MULTI-TENANCY (Platform-Wide)
-Every database query MUST include organization filtering:
+### PERCENTAGE ALLOCATION RULES:
 ```typescript
-// WRONG
-const projects = await projectRepository.find();
+// ❌ WRONG - Hours-based allocation
+const allocation = {
+  projectId: 'abc',
+  hours: 40
+}
 
-// RIGHT
-const projects = await projectRepository.find({
-  where: { organizationId: user.organizationId }
-});
-```
-
-### 3. AI INTEGRATION STANDARDS
-When building AI features:
-- Always provide evidence/reasoning
-- Human in the loop (no autonomous actions)
-- Token usage tracking
-- Fallback for when AI unavailable
-- Cache AI responses when possible
-
-### 4. RESOURCE MANAGEMENT RULES
-For any resource allocation feature:
-- Check conflicts before assignment
-- Respect configurable thresholds
-- Show heat maps/utilization
-- Calculate cascading impacts
-- Provide override capability
-
-### 5. RISK DETECTION STANDARDS
-For risk-related features:
-- Run automated rules on schedule
-- Provide evidence for each risk
-- Allow acknowledgment/dismissal
-- Track mitigation actions
-- Roll up to portfolio level
-
-## PLATFORM-WIDE TECHNICAL STANDARDS
-
-### Database Architecture
-- Every table has: id, created_at, updated_at, organization_id
-- Soft deletes where appropriate (deleted_at)
-- Audit fields (created_by, updated_by)
-- Proper indexes for common queries
-- Foreign keys for data integrity
-
-### API Standards
-- Versioned endpoints (/api/v1/)
-- Consistent error responses
-- Pagination for lists
-- Rate limiting
-- Request/response logging
-
-### Frontend Standards
-- Loading states for all async operations
-- Error boundaries on components
-- Responsive design (mobile-first)
-- Accessibility (WCAG 2.2 AA)
-- Performance (lazy loading, code splitting)
-
-### Integration Standards
-- Webhook support for events
-- Bulk operations where needed
-- Import/export capabilities
-- API documentation (OpenAPI)
-- Rate limit compliance for external APIs
-
-## FEATURE-SPECIFIC RULES
-
-### Project Management Features
-- Tasks must belong to phases
-- Phases must belong to projects
-- Dependencies create network effects
-- Progress rolls up automatically
-
-### AI Assistant Features
-- Pre-built questions to save tokens
-- Context from current view
-- Explainable recommendations
-- Audit trail of suggestions
-
-### Resource Management Features
-- Real-time availability checking
-- Conflict prevention (not just detection)
-- What-if scenarios
-- Capacity forecasting
-
-### Admin Dashboard Features
-- Aggregated views across projects
-- Drill-down capability
-- Export functionality
-- Real-time updates
-
-## PLATFORM CONSISTENCY REQUIREMENTS
-
-### Naming Conventions (Everywhere)
-- Database: snake_case
-- TypeScript: camelCase
-- Components: PascalCase
-- Files: kebab-case
-- Routes: kebab-case
-
-### State Management
-- Zustand for global state
-- React Query for server state
-- Local state for component-only
-- No prop drilling beyond 2 levels
-
-### Error Handling Pattern
-```typescript
-try {
-  // Operation
-  return { success: true, data };
-} catch (error) {
-  logger.error('Context', error);
-  return { 
-    success: false, 
-    error: {
-      code: 'ERROR_CODE',
-      message: 'User-friendly message'
+// ✅ CORRECT - Percentage-based with auto-adjust
+const allocation = {
+  projectId: 'abc',
+  resourceId: 'xyz',
+  allocationPercentage: 30,  // 30% of capacity
+  autoAdjust: true,          // Maintains % when timeline changes
+  
+  // MUST validate total across ALL projects
+  validate: async () => {
+    const total = await getTotalAllocation(resourceId);
+    if (total + 30 > thresholds.maximum) {
+      throw new ConflictException(`Would exceed ${thresholds.maximum}%`);
     }
-  };
+  }
 }
 ```
 
-## BUILD VERIFICATION (All Components)
+### THRESHOLD HIERARCHY ENFORCEMENT:
+```typescript
+// Every allocation MUST check in order:
+1. Individual override (if exists)
+2. Group/Department threshold
+3. Organization default
+4. NEVER allow exceeding without approval trail
 
-### Backend Services
-- npm run build (must pass)
-- npm run test (if tests exist)
-- npm run lint (no errors)
-
-### Frontend Application
-- npm run type-check (no errors)
-- npm run build (must complete)
-- npm run test (if tests exist)
-
-### Database Changes
-- Migration runs successfully
-- Rollback works
-- Indexes created
-- Constraints enforced
-
-## PLATFORM INTEGRATION POINTS
-
-When building ANY feature, consider:
-1. How does it affect resource allocation?
-2. What risks does it create/mitigate?
-3. What AI assistance would help?
-4. What admin visibility is needed?
-5. What reports should include this?
-
-## SUCCESS CRITERIA FOR ANY FEATURE
-
-✅ Follows multi-tenancy rules
-✅ Has proper error handling
-✅ Includes loading/error states
-✅ Respects organization boundaries
-✅ Integrates with existing systems
-✅ Has verification tests
-✅ Maintains platform consistency
+// Verification command:
+SELECT r.name, r.allocation_percentage, 
+       COALESCE(r.custom_thresholds, g.thresholds, o.default_thresholds) as active_threshold
+FROM resources r
+LEFT JOIN resource_groups g ON r.group_id = g.id
+LEFT JOIN organizations o ON r.organization_id = o.id;
 ```
 
-## **Why Platform-Wide Rules Matter**
+### **2. Missing Test Data Requirements**
+```yaml
+## TEST DATA VERIFICATION
 
-1. **Consistency** - Users expect the same patterns everywhere
-2. **Maintainability** - Developers know what to expect
-3. **Security** - One weak feature compromises everything
-4. **Integration** - Features must work together
-5. **Scalability** - Standards ensure growth capability
+### BEFORE ANY FEATURE TEST:
+```bash
+# Verify test organization exists
+psql $DATABASE_URL -c "SELECT * FROM organizations WHERE name = 'TestOrg';"
 
-The rules should cover the entire platform because Zephix is an integrated system where:
-- Project tasks affect resource allocation
-- Resource allocation triggers risk detection
-- Risks need AI assistance for mitigation
-- Everything rolls up to admin dashboards
+# Verify test resources exist
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM resources WHERE organization_id = 'test-org-id';"
+# MUST return >= 10
 
-A mistake in any module affects the whole platform.
+# Verify allocation test data
+psql $DATABASE_URL -c "SELECT * FROM resource_allocations WHERE allocation_percentage IS NOT NULL;"
+# MUST have mix of 70%, 90%, 110% allocations
+```
+
+### STANDARD TEST SCENARIOS:
+- Normal allocation: John at 80% (should work)
+- Warning allocation: Sarah at 95% (should warn)
+- Approval needed: Mike at 110% (should require approval)
+- Blocked allocation: Jane at 130% (should block without exec approval)
+```
+
+### **3. Missing Frontend-Backend Contract Verification**
+```yaml
+## API CONTRACT VERIFICATION
+
+### BEFORE CONNECTING FRONTEND:
+```bash
+# 1. Document actual response
+curl -X GET http://localhost:3000/api/resources/allocations \
+  -H "Authorization: Bearer $TOKEN" | jq > actual-response.json
+
+# 2. Compare with expected
+diff expected-response.json actual-response.json
+
+# 3. Verify field names match
+# Backend returns: allocation_percentage
+# Frontend expects: allocationPercentage
+# MUST have DTO transformation
+```
+
+### DTO TRANSFORMATION RULE:
+```typescript
+// Backend (snake_case from DB)
+class AllocationEntity {
+  @Column({ name: 'allocation_percentage' })
+  allocation_percentage: number;
+}
+
+// DTO (camelCase for frontend)
+class AllocationResponseDto {
+  @Expose({ name: 'allocationPercentage' })
+  @Transform(({ obj }) => obj.allocation_percentage)
+  allocationPercentage: number;
+}
+```
+
+### **4. Missing AI Token Management Rules**
+```yaml
+## AI INTEGRATION REQUIREMENTS
+
+### TOKEN USAGE VERIFICATION:
+```typescript
+// ❌ WRONG - Uncontrolled token usage
+const response = await claude.complete(prompt);
+
+// ✅ CORRECT - Token management
+const response = await this.aiService.query({
+  prompt: optimizedPrompt,
+  maxTokens: 200,
+  cache: true,
+  
+  // MUST track usage
+  onComplete: (usage) => {
+    await this.tokenService.track(userId, usage);
+    if (usage.total > monthlyLimit * 0.8) {
+      this.notificationService.warn('Approaching token limit');
+    }
+  }
+});
+
+// Verification:
+SELECT user_id, SUM(tokens_used) as total, 
+       5000 - SUM(tokens_used) as remaining
+FROM token_usage 
+WHERE month = CURRENT_DATE 
+GROUP BY user_id;
+```
+
+### **5. Missing Risk Detection Verification**
+```yaml
+## RISK DETECTION VALIDATION
+
+### EVERY RISK RULE MUST:
+```typescript
+// Include evidence
+const risk = {
+  type: 'OVERALLOCATION',
+  severity: 'HIGH',
+  evidence: {
+    resource: 'John Smith',
+    currentAllocation: 125,
+    breakdown: [
+      { project: 'Alpha', percentage: 50 },
+      { project: 'Beta', percentage: 45 },
+      { project: 'Gamma', percentage: 30 }
+    ],
+    conflictDates: ['2025-09-16', '2025-09-17']
+  },
+  // MUST provide specific resolution
+  suggestedActions: [
+    { action: 'Move Gamma to Sarah', impact: 'Reduces to 95%' },
+    { action: 'Delay Beta by 2 days', impact: 'No conflict' }
+  ]
+}
+
+// Verification query:
+SELECT r.*, 
+       json_agg(json_build_object(
+         'project', p.name, 
+         'percentage', ra.allocation_percentage
+       )) as evidence
+FROM risks r
+JOIN risk_evidence re ON r.id = re.risk_id
+WHERE r.status = 'ACTIVE';
+```
+
+### **6. Missing Performance Benchmarks**
+```yaml
+## PERFORMANCE VERIFICATION
+
+### CRITICAL PATH BENCHMARKS:
+```bash
+# Resource conflict check (MUST be < 200ms)
+time curl -X GET http://localhost:3000/api/resources/conflicts \
+  -H "Authorization: Bearer $TOKEN"
+
+# Heat map generation (MUST be < 500ms)
+time curl -X GET http://localhost:3000/api/resources/heat-map \
+  -H "Authorization: Bearer $TOKEN"
+
+# Cross-project allocation (MUST be < 300ms)
+time curl -X GET http://localhost:3000/api/allocations/cross-project/user-123 \
+  -H "Authorization: Bearer $TOKEN"
+
+# If ANY exceed limits:
+1. Check database indexes
+2. Add caching
+3. Optimize query
+4. Re-test
+```
+
+### **7. Missing Admin Workspace Verification**
+```yaml
+## ADMIN FEATURES VALIDATION
+
+### PREVENTION CENTER MUST SHOW:
+```bash
+# Real-time conflicts (not cached)
+SELECT COUNT(*) FROM resource_allocations 
+WHERE allocation_percentage > 100 
+AND start_date <= CURRENT_DATE + INTERVAL '7 days';
+
+# Upcoming risks
+SELECT * FROM risks 
+WHERE predicted_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
+ORDER BY severity DESC;
+
+# Intervention queue
+SELECT * FROM interventions 
+WHERE status = 'PENDING' 
+ORDER BY priority DESC, created_at ASC;
+```
+
+### **8. Critical Addition: State Management Verification**
+```yaml
+## FRONTEND STATE CONSISTENCY
+
+### AFTER EVERY API CALL:
+```typescript
+// ❌ WRONG - Inconsistent state
+const response = await api.updateAllocation(data);
+// State not updated
+
+// ✅ CORRECT - State synchronized
+const response = await api.updateAllocation(data);
+// Update local state
+dispatch(updateAllocation(response.data));
+// Update cache
+queryClient.invalidateQueries(['allocations', resourceId]);
+// Update UI optimistically
+setAllocation(response.data);
+
+// Verification in browser console:
+console.log('Store state:', store.getState().allocations);
+console.log('Cache state:', queryClient.getQueryData(['allocations']));
+console.log('Component state:', allocation);
+// ALL THREE MUST MATCH
+```
+
+---
+
+## **UPDATED CURSOR RULES - FINAL VERSION**
+
+```yaml
+# .cursorrules - ZEPHIX ENTERPRISE V3
+
+## ABSOLUTE REQUIREMENTS
+
+### STOP AND FIX IMMEDIATELY IF:
+1. Authentication returns 401 → Nothing else matters
+2. organizationId is null → Security breach
+3. Total allocation > maximum threshold → Core feature broken
+4. Build fails → Cannot proceed
+5. Response time > 500ms → Performance violation
+
+## IMPLEMENTATION SEQUENCE
+
+### FOR EVERY FEATURE:
+1. **Database First**
+   - Verify columns exist
+   - Run migrations
+   - Add test data
+   
+2. **Backend Second**
+   - Entity matches database exactly
+   - Service includes organization filter
+   - DTO transforms snake_case to camelCase
+   
+3. **API Third**
+   - Test with curl
+   - Verify response format
+   - Check performance
+   
+4. **Frontend Last**
+   - Match API response structure
+   - Handle loading/error states
+   - Update all state stores
+
+## VERIFICATION COMMANDS
+
+### PASTE THESE OUTPUTS IN RESPONSE:
+```bash
+# 1. Database state
+psql -c "\d resource_allocations" | head -20
+
+# 2. API response
+curl -X GET localhost:3000/api/[endpoint] -H "Authorization: Bearer $TOKEN" | jq
+
+# 3. Build status
+npm run build 2>&1 | tail -5
+
+# 4. Test results
+npm test [feature].spec.ts 2>&1 | grep -E "(PASS|FAIL)"
+
+# 5. Performance
+time curl [endpoint] | grep "real"
+```
+
+## ZEPHIX-SPECIFIC CHECKLIST
+
+### ✅ Percentage Allocation
+- [ ] Stores as percentage, not hours
+- [ ] Auto-adjusts when timeline changes
+- [ ] Validates across ALL projects
+- [ ] Respects threshold hierarchy
+- [ ] Shows conflicts with evidence
+
+### ✅ Threshold Management
+- [ ] Organization → Group → Individual precedence
+- [ ] Audit trail for changes
+- [ ] Bulk operations work
+- [ ] Visual preview of impact
+
+### ✅ Risk Detection
+- [ ] Provides specific evidence
+- [ ] Calculates severity correctly
+- [ ] Suggests resolutions
+- [ ] Tracks mitigation
+
+### ✅ AI Integration
+- [ ] Tracks token usage
+- [ ] Caches responses
+- [ ] Shows suggestions first
+- [ ] Never auto-invokes
+
+## FAILURE DOCUMENTATION
+
+### WHEN SOMETHING BREAKS:
+```markdown
+### Failure Report
+**Attempted**: [What you tried to build]
+**Expected**: [What should happen]
+**Actual**: [What actually happened]
+**Error**: [Exact error message]
+**Debug Steps**: [What you tried to fix it]
+**Root Cause**: [Why it failed]
+**Solution**: [How you fixed it OR "Still investigating"]
+**Verification**: [Proof it works now OR "Pending"]
+```
+```
+## **UPDATED CURSOR RULES - DATABASE VERIFICATION REQUIREMENTS**
+
+Here are the critical additions needed to prevent Cursor from making database schema mistakes:
+
+### **Add to Section: VERIFICATION PROTOCOL**
+
+```yaml
+### BEFORE ANY DATABASE-RELATED INVESTIGATION:
+```bash
+# 1. ALWAYS verify actual database schema first
+psql $DATABASE_URL -c "\d table_name" > actual_schema.txt
+
+# 2. Compare with entity definition
+cat src/path/to/entity.ts | grep "@Column\|@CreateDateColumn\|@UpdateDateColumn"
+
+# 3. State the comparison explicitly
+Database column: [exact_name_from_database]
+Entity expects: [exact_name_from_decorator]
+Match: [YES/NO]
+
+# NEVER assume column names - ALWAYS verify
+```
+
+### CRITICAL: Database Truth Verification
+- NEVER state "column is X" without showing \d output
+- NEVER assume camelCase vs snake_case - CHECK
+- When investigating, show ACTUAL vs EXPECTED:
+  ```
+  ACTUAL (from \d command): createdAt
+  EXPECTED (from entity): created_at
+  STATUS: MISMATCH
+  ```
+
+### Add to Section: STOP CONDITIONS
+- Database column name assumption → Verify with \d command first
+- Stating "already correct" without proof → Show actual schema
+```
+
+### **Add New Section: DATABASE INVESTIGATION RULES**
+
+```yaml
+## DATABASE INVESTIGATION REQUIREMENTS
+
+### For EVERY database investigation:
+1. Run \d table_name and PASTE the output
+2. Show entity decorators and PASTE them
+3. Create comparison table:
+   | Column | Database Has | Entity Expects | Status |
+   |--------|-------------|----------------|--------|
+   | created | created_at  | created_at     | MATCH  |
+   
+### FORBIDDEN STATEMENTS without proof:
+- "Column is already X"
+- "Database has X"
+- "This is correct"
+
+### REQUIRED EVIDENCE for claims:
+- Database claim → Show \d output
+- Entity claim → Show @Column decorator
+- "Works" claim → Show successful query output
+```
+
+### **Add to Section: FAILURE REPORTING FORMAT**
+
+```yaml
+### When Investigating Database Issues:
+**Database Schema (from \d command):**
+[PASTE ACTUAL OUTPUT]
+
+**Entity Definition (from .entity.ts):**
+[PASTE ACTUAL DECORATORS]
+
+**Comparison:**
+- Database has: [exact column name]
+- Entity expects: [exact name from decorator]
+- Mismatch: [YES/NO]
+
+**Never say "already correct" without showing both sides**
+```
+
+### **Specific Rule for Column Name Verification**
+
+```yaml
+## COLUMN NAME VERIFICATION PROTOCOL
+
+When checking if columns match:
+1. NEVER trust file names or assumptions
+2. ALWAYS run: psql -c "\d table_name"
+3. ALWAYS show: grep "@Column\|@CreateDate\|@UpdateDate" entity.ts
+4. ALWAYS state explicitly:
+   - What you see in database (copy-paste)
+   - What you see in entity (copy-paste)
+   - Whether they match (with evidence)
+
+Example of WRONG approach:
+"The columns are already snake_case" ← NO EVIDENCE
+
+Example of CORRECT approach:
+"Database \d output shows: createdAt (camelCase)
+ Entity decorator shows: @CreateDateColumn({ name: 'created_at' })
+ MISMATCH: Database has camelCase, entity expects snake_case"
+```
+
+
+---
+
+
+
+
+
