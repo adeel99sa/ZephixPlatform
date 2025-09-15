@@ -11,6 +11,7 @@ import { User } from '../modules/users/entities/user.entity';
       : []),
   ],
   controllers: [HealthController],
+  providers: [],
   exports: [],
 })
 export class HealthModule {}

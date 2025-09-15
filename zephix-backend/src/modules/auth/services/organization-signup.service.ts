@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
@@ -95,8 +95,7 @@ export class OrganizationSignupService {
     }
 
     // Hash password
-    const saltOrRounds = 10;
-    const hashedPassword = await bcrypt.hash(signupDto.password, saltOrRounds);
+    const hashedPassword = await argon2.hash(signupDto.password);
 
     // Create user
     const user = this.userRepository.create({

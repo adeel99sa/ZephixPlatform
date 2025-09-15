@@ -10,6 +10,7 @@ import { AuthenticatedRequest } from './dto/authenticated-request.dto';
 import { ResourcesService } from './resources.service';
 import { AuditService } from './services/audit.service';
 import { CacheService } from '../cache/cache.service';
+import { ResourceAllocationService } from './resource-allocation.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Controller('resources')
@@ -21,7 +22,8 @@ export class ResourcesController {
     private readonly heatMapService: ResourceHeatMapService,
     private readonly resourcesService: ResourcesService,
     private readonly auditService: AuditService,
-    private readonly cacheService: CacheService
+    private readonly cacheService: CacheService,
+    private readonly allocationService: ResourceAllocationService
   ) {}
 
   @Get('heat-map')
@@ -142,6 +144,14 @@ export class ResourcesController {
       });
       throw error;
     }
+  }
+
+  @Get('task-heat-map')
+  @UseGuards(JwtAuthGuard)
+  async getTaskHeatMap(@Req() req) {
+    return await this.allocationService.getTaskBasedHeatMap(
+      req.user.organizationId
+    );
   }
 
   @Get('test')

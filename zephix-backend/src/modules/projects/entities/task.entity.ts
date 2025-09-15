@@ -51,7 +51,7 @@ export class Task {
   @Column({ name: 'assigned_to', nullable: true })
   assignedTo?: string;
 
-  @ManyToOne(() => User, user => user.assignedTasks, { nullable: true })
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'assigned_to' })
   assignee?: User;
 

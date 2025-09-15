@@ -11,9 +11,10 @@ import { AuditLog } from './entities/audit-log.entity';
 import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationController } from './resource-allocation.controller';
 import { ResourcesController } from './resources.controller';
+import { Task } from '../tasks/entities/task.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Resource, ResourceAllocation, UserDailyCapacity, AuditLog])],
+  imports: [TypeOrmModule.forFeature([Resource, ResourceAllocation, UserDailyCapacity, AuditLog, Task])],
   providers: [ResourceAllocationService, ResourcesService, ResourceHeatMapService, AuditService, CacheService],
   controllers: [ResourceAllocationController, ResourcesController],
   exports: [ResourceAllocationService, ResourcesService, ResourceHeatMapService, AuditService, CacheService],

@@ -27,7 +27,7 @@ export class Resource {
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ name: 'name', nullable: true })
   name: string;
 
   @Column({ type: 'varchar', length: 255 })

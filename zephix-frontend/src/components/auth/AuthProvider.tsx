@@ -6,13 +6,13 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const initializeAuth = useAuthStore((state) => state.initializeAuth);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
   
   useEffect(() => {
-    // Initialize auth store on app startup
-    console.log('🔐 Initializing auth store...');
-    initializeAuth();
-  }, [initializeAuth]);
+    // Check authentication status on app startup
+    console.log('🔐 Checking authentication status...');
+    checkAuth();
+  }, [checkAuth]);
   
   return <>{children}</>;
 }

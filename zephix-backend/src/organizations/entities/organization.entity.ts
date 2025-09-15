@@ -29,8 +29,7 @@ export class Organization {
   @Column({ nullable: true })
   description: string;
 
-  @Column({ nullable: true })
-  trialEndsAt: Date;
+  @Column({ nullable: true, name: 'trial_ends_at' })  trialEndsAt: Date;
 
   @Column({ type: 'jsonb', default: {} })
   settings: object;
@@ -45,7 +44,7 @@ export class Organization {
   @OneToMany(() => UserOrganization, userOrg => userOrg.organization)
   userOrganizations: UserOrganization[];
 
-  @OneToMany(() => User, user => user.organization)
+  @OneToMany(() => User, user => user.organizationId)
   users: User[];
 
   @OneToMany(() => Project, project => project.organization)

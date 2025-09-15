@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AxiosError } from 'axios';
-import projectService, { Project, CreateProjectDto } from '../../services/projectService';
-import authService from '../../services/authService';
-import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
+import { projectService } from '../../services/projectService';
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const ProjectsPage: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -12,14 +20,6 @@ const ProjectsPage: React.FC = () => {
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const navigate = useNavigate();
 
-  // Check authentication
-  useEffect(() => {
-    if (!authService.isAuthenticated()) {
-      navigate('/login');
-    }
-  }, [navigate]);
-
-  // Fetch projects on mount
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -29,19 +29,14 @@ const ProjectsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await projectService.getProjects();
-      setProjects(data.projects);
-    } catch (err) {
-      if (err instanceof AxiosError) {
-        setError(err.response?.data?.message || 'Failed to fetch projects');
-      } else {
-        setError('An unexpected error occurred');
-      }
+      setProjects(data.projects || data.data || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch projects');
       console.error('Error fetching projects:', err);
     } finally {
       setLoading(false);
     }
   };
-
 
   const handleDeleteProject = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
@@ -49,16 +44,32 @@ const ProjectsPage: React.FC = () => {
     try {
       await projectService.deleteProject(id);
       setProjects(projects.filter(p => p.id !== id));
-    } catch (err) {
-      if (err instanceof AxiosError) {
-        setError(err.response?.data?.message || 'Failed to delete project');
-      } else {
-        setError('An unexpected error occurred');
-      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete project');
     }
   };
 
-  if (loading && projects.length === 0) {
+  const handleCreateProject = async () => {
+    const name = prompt('Enter project name:');
+    if (!name) return;
+
+    const description = prompt('Enter project description:');
+    
+    try {
+      const newProject = await projectService.createProject({
+        name,
+        description: description || '',
+        status: 'planning',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      setProjects([...projects, newProject]);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create project');
+    }
+  };
+
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -71,7 +82,7 @@ const ProjectsPage: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Projects</h1>
         <button
-          onClick={() => setShowCreatePanel(true)}
+          onClick={handleCreateProject}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Create Project
@@ -84,44 +95,45 @@ const ProjectsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {projects.map((project) => (
-          <div key={project.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
-            <Link to={`/projects/${project.id}`} className="text-xl font-semibold mb-2 hover:text-blue-600">
-              {project.name}
-            </Link>
-            <p className="text-gray-600 mb-4">{project.description}</p>
-            <div className="flex justify-between items-center">
-              <span className={`px-2 py-1 rounded text-sm ${
-                project.status === 'active' ? 'bg-green-100 text-green-800' :
-                project.status === 'planning' ? 'bg-blue-100 text-blue-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {project.status}
-              </span>
-              <button
-                onClick={() => handleDeleteProject(project.id)}
-                className="text-red-600 hover:text-red-800"
+      {projects.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No projects found. Create your first project to get started.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project) => (
+            <div key={project.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+              <Link 
+                to={`/projects/${project.id}`} 
+                className="block text-xl font-semibold mb-2 text-blue-600 hover:text-blue-800"
               >
-                Delete
-              </button>
+                {project.name}
+              </Link>
+              <p className="text-gray-600 mb-4">{project.description || 'No description'}</p>
+              <div className="flex justify-between items-center">
+                <span className={`px-2 py-1 rounded text-sm ${
+                  project.status === 'active' ? 'bg-green-100 text-green-800' :
+                  project.status === 'planning' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {project.status}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDeleteProject(project.id);
+                  }}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Create Project Panel */}
-      <CreateProjectPanel 
-        isOpen={showCreatePanel}
-        onClose={() => setShowCreatePanel(false)}
-        onSuccess={() => {
-          fetchProjects(); // Refresh the list
-          setShowCreatePanel(false);
-        }}
-      />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
 export default ProjectsPage;
-export { ProjectsPage };

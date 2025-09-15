@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Calendar, User, Flag, ChevronRight } from 'lucide-react';
-import projectService from '../../services/projectService';
+import { projectService } from '../../services/projectService';
 
 interface CreateProjectPanelProps {
   isOpen: boolean;
@@ -312,4 +312,5 @@ function calculateDuration(startDate: string, endDate: string): number {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
 }
+
 

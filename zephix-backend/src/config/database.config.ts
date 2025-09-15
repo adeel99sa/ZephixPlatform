@@ -1,16 +1,16 @@
-export const databaseConfig = {
-  type: 'postgres' as const,
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
+export const databaseConfig: TypeOrmModuleOptions = {
+  type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: false, // NEVER true in production
-  logging: process.env.NODE_ENV === 'development',
-  
-  // ADD THESE FOR PRODUCTION:
+  synchronize: false,
+  ssl: { rejectUnauthorized: false }, // Critical for Railway
   extra: {
-    max: 10, // Maximum pool size
-    min: 2,  // Minimum pool size
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-    statement_timeout: 30000, // 30 seconds
-  }
+    max: 5,  // Critical for connection limit
+    connectionTimeoutMillis: 5000,
+  },
+  retryAttempts: 3,
+  retryDelay: 3000,
+  logging: process.env.NODE_ENV === 'production' ? ['error'] : 'all',
 };
