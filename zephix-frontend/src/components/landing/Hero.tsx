@@ -1,11 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
   return (
     <section className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center pt-20">
       <div className="container mx-auto px-4">
         <div className="max-w-5xl mx-auto text-center">
-          {/* Updated headline to include full platform */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
             The AI-Powered Platform That Sees
             <span className="text-blue-600"> What Your PM Tools Miss</span>
@@ -13,22 +13,21 @@ const Hero: React.FC = () => {
           
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             Zephix combines work management, risk intelligence, and resource optimization 
-            to prevent project failures before they happen. We're building the future of 
-            project intelligence—and we need your help.
+            to prevent project failures before they happen.
           </p>
           
-          {/* Primary CTA */}
+          {/* Primary CTA - Updated */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="#waitlist" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg">
-              Join the Q1 2026 Beta Waitlist
-            </a>
+            <Link to="/signup" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg">
+              Start Free Trial
+            </Link>
             <button className="text-gray-600 hover:text-gray-900 font-medium py-3 px-6">
               Watch 2-min Demo →
             </button>
           </div>
           
           <p className="text-sm text-gray-500 mt-4">
-            Be among the first 50 founding users • No credit card required
+            Free forever for up to 5 users • No credit card required
           </p>
           
           {/* Visual showing the three pillars */}
