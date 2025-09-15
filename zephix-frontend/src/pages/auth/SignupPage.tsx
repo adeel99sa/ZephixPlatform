@@ -6,12 +6,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, UserPlus, Lock } from 'lucide-react';
-import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signup, authState, isLoading, error, clearError } = useEnterpriseAuth();
+  const { signup, user, isAuthenticated, isLoading, error, clearError } = useAuth();
   const [securityState, securityActions] = useSecurity();
   const [formData, setFormData] = useState({
     firstName: '',

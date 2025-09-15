@@ -1,12 +1,12 @@
 import { Navigate } from 'react-router-dom';
-import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
+import { useAuth } from '../../hooks/useAuth';
 
 interface RequireAdminProps {
   children: React.ReactNode;
 }
 
 export function RequireAdmin({ children }: RequireAdminProps) {
-  const { user, isLoading } = useEnterpriseAuth();
+  const { user, isLoading } = useAuth();
   
   if (isLoading) {
     return <div>Loading...</div>;

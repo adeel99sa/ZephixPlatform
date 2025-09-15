@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiJson } from '../services/api';
+import api from '../services/api';
 
 export interface UseProjectInitiationReturn {
   analyzeDocument: (file: File, type: string, orgContext: any) => Promise<any>;
@@ -20,7 +20,7 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
     data?: any;
     headers?: any;
   }) => {
-    return apiJson(options.url, {
+    return api.get(options.url, {
       method: options.method,
       body: options.data,
       headers: options.headers,

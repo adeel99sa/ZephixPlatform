@@ -6,12 +6,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
-import { useEnterpriseAuth } from '../../hooks/useEnterpriseAuth';
+import { useAuth } from '../../hooks/useAuth';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user, isAuthenticated, isLoading, error, clearError } = useEnterpriseAuth();
+  const { login, user, isAuthenticated, isLoading, error, clearError } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
