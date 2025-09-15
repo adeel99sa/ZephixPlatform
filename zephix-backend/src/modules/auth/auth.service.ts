@@ -1,432 +1,141 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-  Logger,
-  ServiceUnavailableException,
-  Inject,
-  Optional,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
-import { User } from '../../modules/users/entities/user.entity';
-import { RefreshToken } from './entities/refresh-token.entity';
-import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { LoginDto } from './dto/login.dto';
+import { User } from '../users/entities/user.entity';  // Fixed path
+import { Organization } from '../../organizations/entities/organization.entity';
 import { SignupDto } from './dto/signup.dto';
-import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-  private readonly isDatabaseAvailable: boolean;
-
   constructor(
-    private jwtService: JwtService,
-    private configService: ConfigService,
-    @Optional()
     @InjectRepository(User)
-    private userRepository?: Repository<User>,
-    @Optional()
-    @InjectRepository(RefreshToken)
-    private refreshTokenRepository?: Repository<RefreshToken>,
-    @Optional()
-    @InjectRepository(UserOrganization)
-    private userOrganizationRepository?: Repository<UserOrganization>,
-    @Optional() private usersService?: UsersService,
-  ) {
-    this.isDatabaseAvailable = process.env.SKIP_DATABASE !== 'true';
-    this.logger.log(`AuthService initialized - Database: ${this.isDatabaseAvailable ? 'Connected' : 'Disconnected'}`);
-  }
+    private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
+    private jwtService: JwtService,
+    private dataSource: DataSource,
+  ) {}
 
-  /**
-   * Check if database is available
-   */
-  private checkDatabaseAvailability() {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      throw new ServiceUnavailableException(
-        'Authentication service temporarily unavailable. Database not configured.',
-      );
-    }
-  }
-
-  /**
-   * Fallback method when database is not available
-   */
-  private getFallbackResponse() {
-    return {
-      message: 'Authentication service temporarily unavailable',
-      error: 'Database not configured',
-      status: 'service_unavailable',
-    };
-  }
-
-  /**
-   * Authenticate user and generate tokens
-   */
-  async login(loginDto: LoginDto) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return this.getFallbackResponse();
-    }
-
-    const { email, password } = loginDto;
-    
-    // Find user by email
-    const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-      select: [
-        'id',
-        'email',
-        'password',
-        'firstName',
-        'lastName',
-        'role',
-        'organizationId'
-      ],
-    });
-    
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    
-    // Compare passwords
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Generate tokens
-    const tokens = await this.generateTokens(user);
-
-    // Save refresh token
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
-
-    // Log successful login (no sensitive data)
-    this.logger.log(`User logged in successfully: ${user.email}`);
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-      },
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-    };
-  }
-
-  /**
-   * Create new user account
-   */
   async signup(signupDto: SignupDto) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return this.getFallbackResponse();
-    }
-
-    const { email, password, firstName, lastName, organizationName } =
-      signupDto;
+    const { email, password, firstName, lastName, organizationName } = signupDto;
 
     // Check if user exists
     const existingUser = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
+      where: { email: email.toLowerCase() }
     });
 
     if (existingUser) {
-      throw new BadRequestException('Email already exists');
+      throw new ConflictException('Email already registered');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Simple password validation
+    if (password.length < 12) {
+      throw new BadRequestException('Password must be at least 12 characters');
+    }
 
-    // Create user
-    const user = this.userRepository.create({
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      firstName,
-      lastName,
-      role: 'user',
-      isActive: true,
+    // Use transaction for consistency
+    return this.dataSource.transaction(async manager => {
+      // Create organization
+      const organization = manager.create(Organization, {
+        name: organizationName,
+        slug: organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        settings: {
+          resourceManagement: {
+            maxAllocationPercentage: 150,
+            warningThreshold: 80,
+            criticalThreshold: 100
+          }
+        }
+      });
+      const savedOrg = await manager.save(organization);
+
+      // Create user
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = manager.create(User, {
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        firstName,
+        lastName,
+        organizationId: savedOrg.id,
+        isEmailVerified: true, // Skip email verification for MVP
+        role: 'admin' // First user is admin
+      });
+      const savedUser = await manager.save(user);
+
+      // Generate JWT
+      const token = this.generateToken(savedUser);
+
+      return {
+        user: this.sanitizeUser(savedUser),
+        accessToken: token,
+        organizationId: savedOrg.id,
+        expiresIn: 86400  // ADD THIS LINE - 24 hours in seconds
+      };
+    });
+  }
+
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+
+    // Find user with organization
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() }
     });
 
-    // Save user
-    const savedUser = await this.userRepository.save(user);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    // Generate tokens
-    const tokens = await this.generateTokens(savedUser);
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    // Save refresh token
-    await this.saveRefreshToken(savedUser.id, tokens.refreshToken);
+    // Update last login
+    await this.userRepository.update(user.id, {
+      lastLoginAt: new Date()
+    });
 
-    // Log new signup (no sensitive data)
-    this.logger.log(`New user signed up: ${savedUser.email}`);
+    // Generate JWT
+    const token = this.generateToken(user);
 
     return {
-      user: {
-        id: savedUser.id,
-        email: savedUser.email,
-        firstName: savedUser.firstName,
-        lastName: savedUser.lastName,
-        role: savedUser.role,
-      },
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
+      user: this.sanitizeUser(user),
+      accessToken: token,
+      organizationId: user.organizationId,
+      expiresIn: 86400  // ADD THIS LINE - 24 hours in seconds
     };
   }
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(refreshToken: string) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return this.getFallbackResponse();
-    }
-
-    // Find refresh token in database
-    const tokenRecord = await this.refreshTokenRepository.findOne({
-      where: { token: refreshToken, isRevoked: false },
-      relations: ['user'],
-    });
-
-    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
-      this.logger.warn('Invalid or expired refresh token attempt');
-      return null;
-    }
-
-    // Generate new tokens
-    const tokens = await this.generateTokens(tokenRecord.user);
-
-    // Revoke old refresh token
-    tokenRecord.isRevoked = true;
-    await this.refreshTokenRepository.save(tokenRecord);
-
-    // Save new refresh token
-    await this.saveRefreshToken(tokenRecord.user.id, tokens.refreshToken);
-
-    this.logger.log(`Token refreshed for user: ${tokenRecord.user.email}`);
-
-    return tokens;
-  }
-
-  /**
-   * Logout user and revoke refresh tokens
-   */
-  async logout(userId: string) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return this.getFallbackResponse();
-    }
-
-    // Revoke all refresh tokens for user
-    await this.refreshTokenRepository.update(
-      { user: { id: userId }, isRevoked: false },
-      { isRevoked: true },
-    );
-
-    this.logger.log(`User logged out: ${userId}`);
-  }
-
-  /**
-   * Get user by ID
-   */
-  async getUserById(userId: string) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return this.getFallbackResponse();
-    }
-
-    return this.userRepository.findOne({
-      where: { id: userId },
-      select: [
-        'id',
-        'email',
-        'firstName',
-        'lastName',
-        'role',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
-  }
-
-  /**
-   * Validate user credentials (for local strategy)
-   */
-  async validateUser(email: string, password: string) {
-    if (
-      !this.isDatabaseAvailable ||
-      !this.userRepository ||
-      !this.refreshTokenRepository
-    ) {
-      return null;
-    }
-
+  async validateUser(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-      select: [
-        'id',
-        'email',
-        'password',
-        'firstName',
-        'lastName',
-        'role',
-        'isActive',
-      ],
+      where: { id: userId, isActive: true }
     });
 
-    if (!user || !user.isActive) {
-      return null;
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return user;
   }
 
-  /**
-   * Generate JWT and refresh tokens
-   */
-  private async generateTokens(user: User) {
-    // Simple query without joins
-    const userOrg = await this.userOrganizationRepository?.findOne({
-      where: { userId: user.id, isActive: true },
-      select: ['organizationId']
-    });
-    
-    const organizationId = userOrg?.organizationId || null;
-
+  private generateToken(user: User): string {
     const payload = {
       sub: user.id,
       email: user.email,
-      organizationId: organizationId,
-      role: user.role,
-      permissions: await this.getPermissions(user),
-      iat: Math.floor(Date.now() / 1000),
+      organizationId: user.organizationId,
+      role: user.role
     };
 
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '15m',
-      issuer: 'zephix-platform',
-    });
-    const refreshToken = uuidv4();
-
-    const expiresIn = this.configService.get('jwt.expiresIn', '15m');
-    const expiresInSeconds = this.parseExpiresIn(expiresIn);
-
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn: expiresInSeconds,
-    };
+    return this.jwtService.sign(payload);
   }
 
-  /**
-   * Get user permissions based on role
-   */
-  private async getPermissions(user: User) {
-    const rolePermissions = {
-      admin: {
-        canViewProjects: true,
-        canManageResources: true, 
-        canViewAnalytics: true,
-        canManageUsers: true,
-        isAdmin: true,
-      },
-      project_manager: {
-        canViewProjects: true,
-        canManageResources: true,
-        canViewAnalytics: true,
-        canManageUsers: false,
-        isAdmin: false,
-      },
-      user: {
-        canViewProjects: true,
-        canManageResources: false,
-        canViewAnalytics: false,
-        canManageUsers: false,
-        isAdmin: false,
-      },
-    };
-
-    return rolePermissions[user.role] || rolePermissions.user;
-  }
-
-  /**
-   * Save refresh token to database
-   */
-  private async saveRefreshToken(userId: string, token: string) {
-    this.checkDatabaseAvailability();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
-
-    const refreshToken = this.refreshTokenRepository!.create({
-      token,
-      user: { id: userId },
-      expiresAt,
-      isRevoked: false,
-    });
-
-    await this.refreshTokenRepository!.save(refreshToken);
-  }
-
-  /**
-   * Parse expires in string to seconds
-   */
-  private parseExpiresIn(expiresIn: string): number {
-    const match = expiresIn.match(/(\d+)([smhd])/);
-    if (!match) return 900; // Default 15 minutes
-
-    const value = parseInt(match[1]);
-    const unit = match[2];
-
-    switch (unit) {
-      case 's':
-        return value;
-      case 'm':
-        return value * 60;
-      case 'h':
-        return value * 3600;
-      case 'd':
-        return value * 86400;
-      default:
-        return 900;
-    }
+  private sanitizeUser(user: User) {
+    const { password, ...sanitized } = user;
+    return sanitized;
   }
 }
