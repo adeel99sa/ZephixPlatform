@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ProjectsService } from './services/projects.service';
-import { ProjectsController } from './projects.controller';
+import { ProjectsService } from '../../projects/services/projects.service';
+import { ProjectsController } from '../../projects/controllers/projects.controller';
 import { Project } from './entities/project.entity';
 import { ProjectAssignment } from './entities/project-assignment.entity';
 
