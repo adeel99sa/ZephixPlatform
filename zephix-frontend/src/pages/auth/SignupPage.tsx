@@ -17,6 +17,7 @@ export function SignupPage() {
     firstName: '',
     lastName: '',
     email: '',
+    organizationName: '',  // ADD THIS LINE
     password: '',
     confirmPassword: '',
   });
@@ -84,7 +85,7 @@ export function SignupPage() {
       return;
     }
     
-    if (formData.password !== formData.confirmPassword) {
+    console.log("Password check:", { password: formData.password, confirmPassword: formData.confirmPassword, match: formData.password === formData.confirmPassword });    if (formData.password !== formData.confirmPassword) {
       setValidationError('Passwords do not match');
       securityActions.logEvent('enterprise_signup_validation_failure', {
         reason: 'password_mismatch',
@@ -106,9 +107,9 @@ export function SignupPage() {
     }
 
     // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*\W)[A-Za-z\d\W]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
-      setValidationError('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)');
+      setValidationError('Password must contain uppercase, lowercase, number, and special character');
       securityActions.logEvent('enterprise_signup_validation_failure', {
         reason: 'password_weak',
         email: formData.email,
@@ -130,6 +131,7 @@ export function SignupPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
+        organizationName: formData.organizationName,  // ADD THIS LINE
         password: formData.password,
       });
 
@@ -143,11 +145,11 @@ export function SignupPage() {
         
         setIsSubmitted(true);
         
-        // Redirect to login with success message
+        // Redirect to dashboard after successful signup
         setTimeout(() => {
-          navigate('/login', {
+          navigate('/dashboard', {
             state: {
-              message: 'Enterprise account created successfully! Please sign in.',
+              message: 'Enterprise account created successfully! Welcome to Zephix.',
               email: formData.email,
             },
           });
@@ -203,7 +205,7 @@ export function SignupPage() {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form autoComplete="new-password" onSubmit={handleSubmit} className="space-y-6">
               {(error || validationError) && (
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
                   <div className="flex">
@@ -294,6 +296,24 @@ export function SignupPage() {
                     placeholder="Enter your enterprise email"
                   />
                 </div>
+              </div>
+
+              {/* Organization Name Field - ADD THIS ENTIRE BLOCK */}
+              <div>
+                <label htmlFor="organizationName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Organization Name
+                </label>
+                <input
+                  type="text"
+                  id="organizationName"
+                  name="organizationName"
+                  autoComplete="organization"
+                  value={formData.organizationName}
+                  onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Your company name"
+                  required
+                />
               </div>
 
               <div>
