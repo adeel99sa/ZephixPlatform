@@ -63,7 +63,14 @@ api.interceptors.request.use(
         const { state } = JSON.parse(authStorage) as { state: AuthState };
         
         // Check if we have a valid token that hasn't expired
-        if (state?.accessToken && state?.expiresAt) {
+        const hasValidToken = state?.accessToken && 
+                             state.accessToken !== 'null' && 
+                             state.accessToken !== null &&
+                             typeof state.accessToken === 'string' &&
+                             state.accessToken.length > 0 &&
+                             state?.expiresAt;
+        
+        if (hasValidToken) {
           const now = Date.now();
           
           if (now < state.expiresAt) {

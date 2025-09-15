@@ -1,7 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, Check } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index, Check, ManyToOne, JoinColumn } from 'typeorm';
 import { Organization } from '../../../organizations/entities/organization.entity';
-import { User } from '../../users/entities/user.entity';
-import { Project } from '../projects/entities/project.entity';
+import { User } from '../../../auth/entities/user.entity';
+import { Project } from '../../projects/entities/project.entity';
 
 @Entity('resource_allocations')
 @Index('idx_allocations_project', ['projectId'])

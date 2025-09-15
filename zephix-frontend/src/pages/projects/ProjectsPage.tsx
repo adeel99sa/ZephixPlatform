@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { projectService } from '../../services/projectService';
+import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
 
 interface Project {
   id: string;
@@ -49,24 +50,8 @@ const ProjectsPage: React.FC = () => {
     }
   };
 
-  const handleCreateProject = async () => {
-    const name = prompt('Enter project name:');
-    if (!name) return;
-
-    const description = prompt('Enter project description:');
-    
-    try {
-      const newProject = await projectService.createProject({
-        name,
-        description: description || '',
-        status: 'planning',
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-      setProjects([...projects, newProject]);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create project');
-    }
+  const handleCreateProject = () => {
+    setShowCreatePanel(true);
   };
 
   if (loading) {
@@ -132,6 +117,16 @@ const ProjectsPage: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Create Project Panel */}
+      <CreateProjectPanel
+        isOpen={showCreatePanel}
+        onClose={() => setShowCreatePanel(false)}
+        onSuccess={() => {
+          setShowCreatePanel(false);
+          fetchProjects(); // Refresh the list
+        }}
+      />
     </div>
   );
 };
