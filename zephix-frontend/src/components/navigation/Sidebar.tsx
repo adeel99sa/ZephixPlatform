@@ -1,3 +1,4 @@
+// File: src/components/navigation/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
 import { FolderIcon, UsersIcon, ChartBarIcon, CogIcon } from '@heroicons/react/24/outline';
 
@@ -11,21 +12,26 @@ interface SidebarProps {
 }
 
 export function Sidebar({ permissions }: SidebarProps) {
+  console.log('[Sidebar] Received permissions:', permissions);
+  
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: ChartBarIcon, show: true },
-    { name: 'Projects', href: '/projects', icon: FolderIcon, show: permissions.canViewProjects },
-    { name: 'Resources', href: '/resources', icon: UsersIcon, show: permissions.canManageResources },
-    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon, show: permissions.canViewAnalytics },
-    { name: 'Settings', href: '/settings', icon: CogIcon, show: permissions.isAdmin },
+    { name: 'Projects', href: '/projects', icon: FolderIcon, show: permissions?.canViewProjects ?? false },
+    { name: 'Resources', href: '/resources', icon: UsersIcon, show: permissions?.canManageResources ?? false },
+    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon, show: permissions?.canViewAnalytics ?? false },
+    { name: 'Settings', href: '/settings', icon: CogIcon, show: permissions?.isAdmin ?? false },
   ];
-
+  
+  const visibleItems = navigation.filter(item => item.show);
+  console.log('[Sidebar] Visible navigation items:', visibleItems.map(i => i.name));
+  
   return (
     <nav className="w-64 bg-white border-r border-gray-200 min-h-screen">
       <div className="p-4">
         <h2 className="text-lg font-semibold text-gray-800">Zephix</h2>
       </div>
       <ul className="space-y-2 p-4">
-        {navigation.filter(item => item.show).map((item) => (
+        {visibleItems.map((item) => (
           <li key={item.name}>
             <NavLink
               to={item.href}
@@ -46,4 +52,3 @@ export function Sidebar({ permissions }: SidebarProps) {
     </nav>
   );
 }
-

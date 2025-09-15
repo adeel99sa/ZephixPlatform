@@ -23,9 +23,16 @@ async function bootstrap() {
   
   // Validation
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
+    whitelist: true,           // Strip unknown properties
+    forbidNonWhitelisted: true, // Throw error on unknown properties
+    transform: true,           // Transform to DTO types
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+    validationError: {
+      target: false,          // Don't include target in errors
+      value: false,           // Don't include value in errors
+    },
   }));
   
   // Global prefix
