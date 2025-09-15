@@ -9,11 +9,11 @@ import {
   CreateWorkflowInstanceRequest,
   WorkflowActionRequest
 } from '../types/workflow';
-import { apiJson } from './api';
+import api from './api';
 
 class WorkflowTemplateService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return apiJson(endpoint, options);
+    return api.get(endpoint, options);
   }
 
   // Workflow Templates
@@ -155,7 +155,7 @@ class WorkflowTemplateService {
 
 class IntakeFormService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return apiJson(endpoint, options);
+    return api.get(endpoint, options);
   }
 
   // Intake Forms Management

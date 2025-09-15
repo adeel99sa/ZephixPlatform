@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import { apiJson } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface Template {
@@ -69,7 +69,7 @@ export const TemplatesPage: React.FC = () => {
       setError(null);
       
       // Use existing API pattern with proper organization scoping
-      const response = await apiJson('/templates', {
+      const response = await api.get('/templates', {
         headers: {
           'X-Org-Id': user.organizationId
         }
@@ -119,7 +119,7 @@ export const TemplatesPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await apiJson(`/templates/${templateId}/status`, {
+      const response = await api.get(`/templates/${templateId}/status`, {
         method: 'PATCH',
         body: { status: newStatus },
         headers: {

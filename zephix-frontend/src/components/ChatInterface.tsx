@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PaperAirplaneIcon, SparklesIcon, BrainIcon, LightBulbIcon, ChartBarIcon, ExclamationTriangleIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { Button } from './ui/Button';
-import { aiApi, apiJson } from '../services/api';
+import api from '../services/api';
 import { toast } from 'sonner';
 
 interface Message {
@@ -60,7 +60,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const loadQuickActions = async () => {
     try {
-      const response = await apiJson('/ai-chat/quick-actions');
+      const response = await api.get('/ai-chat/quick-actions');
       setQuickActions(response.actions);
     } catch (error) {
       console.error('Failed to load quick actions:', error);
@@ -137,7 +137,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
 
     try {
-      const data = await apiJson('/ai-chat/send-message', {
+      const data = await api.get('/ai-chat/send-message', {
         method: 'POST',
         body: {
           message: textToSend,
