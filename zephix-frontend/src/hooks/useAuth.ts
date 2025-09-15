@@ -4,13 +4,6 @@ import { useAuthStore } from '../stores/authStore';
 export const useAuth = () => {
   const store = useAuthStore();
   
-  // DEBUG LOGGING
-  console.log('[useAuth] Store state:', {
-    user: store.user,
-    isAuthenticated: store.isAuthenticated,
-    token: store.token ? 'exists' : 'null'
-  });
-  
   const permissions = store.user ? {
     canViewProjects: true, // Always true for authenticated users
     canManageResources: store.user.role === 'admin',
@@ -25,11 +18,9 @@ export const useAuth = () => {
     isAdmin: false
   };
   
-  console.log('[useAuth] Computed permissions:', permissions);
-  
   return {
     user: store.user,
-    token: store.token,
+    token: store.accessToken,
     isAuthenticated: store.isAuthenticated,
     isLoading: store.isLoading,
     permissions,

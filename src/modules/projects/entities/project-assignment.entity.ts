@@ -24,7 +24,7 @@ export class ProjectAssignment {
   @Column({ name: 'assigned_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   assignedAt: Date;
 
-  @ManyToOne(() => Project, project => project.assignments)
+  @ManyToOne('Project', 'assignments')
   @JoinColumn({ name: 'project_id' })
   project: Project;
 }

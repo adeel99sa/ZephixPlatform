@@ -1,31 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, Check } from 'typeorm';
-
-// Enums for backward compatibility
-export enum ProjectStatus {
-  PLANNING = 'planning',
-  ACTIVE = 'active',
-  ON_HOLD = 'on-hold',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
-}
-
-export enum ProjectPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
-}
-
-export enum Methodology {
-  Waterfall = 'Waterfall',
-  Scrum = 'Scrum',
-  Agile = 'Agile'
-}
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, Check, OneToMany } from 'typeorm';
+import { ProjectStatus, ProjectPriority, Methodology } from '../../shared/enums/project.enums';
+import { ProjectAssignment } from './project-assignment.entity';
 
 @Entity('projects')
 @Index('idx_projects_org', ['organizationId'])
 @Index('idx_projects_status', ['status'])
-@Check(`status IN ('planning', 'active', 'on-hold', 'completed', 'cancelled')`)
+@Check(`status IN ('planning', 'active', 'on_hold', 'completed', 'cancelled')`)
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -84,4 +64,8 @@ export class Project {
   // Team relationship removed - team entity doesn't exist
   // @OneToOne(() => Team, (team) => team.project, { onDelete: 'CASCADE' })
   // team: Team;
+
+  // Project assignments relationship
+  @OneToMany(() => ProjectAssignment, (assignment) => assignment.project)
+  assignments: ProjectAssignment[];
 }
