@@ -13,7 +13,7 @@ export const useEnterpriseAuth = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   
-  const { user, token, isAuthenticated, login: storeLogin, logout: storeLogout } = useAuthStore();
+  const { user, accessToken, isAuthenticated, login: storeLogin, logout: storeLogout } = useAuthStore();
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
@@ -21,21 +21,21 @@ export const useEnterpriseAuth = () => {
     
     try {
       const res = await apiJson('/auth/login', { method: 'POST', body: { email, password } });
+      console.log("✅ API Response:", res);
       const token = res?.accessToken;
       
       if (!token) throw new Error('TOKEN_MISSING');
       
       // Update the store with the response data
-      const { user, refreshToken, expiresIn } = res;
-      const sessionExpiry = Date.now() + (expiresIn * 1000);
+      const { user, expiresIn } = res;
+      const expiresAt = Date.now() + (expiresIn * 1000);
       
       // Update the store directly
       useAuthStore.setState({
         user,
-        token,
-        refreshToken,
+        accessToken: token,  // CORRECT PROPERTY NAME
         isAuthenticated: true,
-        sessionExpiry,
+        expiresAt,
         isLoading: false,
       });
       
@@ -44,6 +44,7 @@ export const useEnterpriseAuth = () => {
       
       return true;
     } catch (err) {
+      console.error("Signup error:", err);
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
       setError(errorMessage);
       return false;
@@ -54,25 +55,27 @@ export const useEnterpriseAuth = () => {
 
   const signup = useCallback(async (userData: any) => {
     setIsLoading(true);
+    console.log("🚀 Signup hook called with:", userData);
+    console.log("📡 About to call API /auth/signup");
     setError(null);
     
     try {
       const res = await apiJson('/auth/signup', { method: 'POST', body: userData });
+      console.log("✅ API Response:", res);
       const token = res?.accessToken;
       
       if (!token) throw new Error('TOKEN_MISSING');
       
       // Update the store with the response data
-      const { user, refreshToken, expiresIn } = res;
-      const sessionExpiry = Date.now() + (expiresIn * 1000);
+      const { user, expiresIn } = res;
+      const expiresAt = Date.now() + (expiresIn * 1000);
       
       // Update the store directly
       useAuthStore.setState({
         user,
-        token,
-        refreshToken,
+        accessToken: token,  // CORRECT PROPERTY NAME
         isAuthenticated: true,
-        sessionExpiry,
+        expiresAt,
         isLoading: false,
       });
       
@@ -81,6 +84,7 @@ export const useEnterpriseAuth = () => {
       
       return true;
     } catch (err) {
+      console.error("Signup error:", err);
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       setError(errorMessage);
       return false;
@@ -107,7 +111,7 @@ export const useEnterpriseAuth = () => {
 
   return {
     user,
-    token,
+    accessToken,
     isAuthenticated,
     isLoading,
     error,

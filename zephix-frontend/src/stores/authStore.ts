@@ -1,18 +1,33 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { apiJson } from '../services/api';
-import toast from 'react-hot-toast';
+import { api } from '../services/api';
 
 interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  organizationId: string;
   role: string;
-  organizationId?: string;
-  profilePicture?: string;
-  createdAt: string;
-  updatedAt: string;
+  isEmailVerified: boolean;
+  twoFactorEnabled: boolean;
+}
+
+interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  expiresAt: number | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  login: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
+  signup: (data: SignupData) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshToken: () => Promise<void>;
+  clearError: () => void;
+  checkAuth: () => Promise<void>;
 }
 
 interface SignupData {
@@ -20,250 +35,190 @@ interface SignupData {
   password: string;
   firstName: string;
   lastName: string;
-  organizationName?: string;
-}
-
-interface AuthState {
-  // State
-  user: User | null;
-  token: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  sessionExpiry: number | null;
-  isLoggingOut: boolean;
-
-  // Actions
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (data: SignupData) => Promise<boolean>;
-  logout: () => Promise<void>;
-  refreshSession: () => Promise<boolean>;
-  validateSession: () => Promise<boolean>;
-  initializeAuth: () => Promise<void>;
-  clearAuth: () => void;
-  updateUser: (user: Partial<User>) => void;
-  checkAuth: () => Promise<boolean>;
+  organizationName: string;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      // Initial state - FIXED: isLoading should be false
       user: null,
-      token: null,
-      refreshToken: null,
+      accessToken: null,
+      expiresAt: null,
       isAuthenticated: false,
-      isLoading: false,  // CHANGED FROM true TO false
-      sessionExpiry: null,
-      isLoggingOut: false,
+      isLoading: false,
+      error: null,
 
-      // Initialize authentication on app load
-      initializeAuth: async () => {
-        set({ isLoading: true });
-        
+      login: async (email, password, twoFactorCode) => {
+        set({ isLoading: true, error: null });
         try {
-          const { token, refreshToken } = get();
+          const response = await api.post('/auth/login', {
+            email,
+            password,
+            twoFactorCode,
+          });
+
+          const { user, accessToken, expiresIn } = response.data;
+          const expiresAt = Date.now() + (expiresIn * 1000);
+
+          // Set auth header for future requests
+          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+          set({
+            user,
+            accessToken,
+            expiresAt,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+
+          // Schedule token refresh
+          get().scheduleTokenRefresh(expiresIn);
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.message || 'Login failed',
+            isLoading: false,
+          });
+          throw error;
+        }
+      },
+
+      signup: async (data) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await api.post('/auth/signup', data);
           
-          if (!token) {
-            set({ isLoading: false, isAuthenticated: false });
-            return;
-          }
+          const { user, accessToken, expiresIn, message } = response.data;
+          const expiresAt = Date.now() + (expiresIn * 1000);
 
-          // Parse JWT to check expiry
-          try {
-            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-            const isExpired = tokenPayload.exp * 1000 < Date.now();
-
-            if (isExpired && refreshToken) {
-              const refreshed = await get().refreshSession();
-              if (!refreshed) {
-                get().clearAuth();
-              }
-            } else if (!isExpired) {
-              const isValid = await get().validateSession();
-              if (!isValid) {
-                get().clearAuth();
-              }
-            } else {
-              get().clearAuth();
-            }
-          } catch (error) {
-            // Invalid token format
-            get().clearAuth();
-          }
-        } catch (error) {
-          console.error('Auth initialization error:', error);
-          get().clearAuth();
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      // Login
-      login: async (email: string, password: string) => {
-        set({ isLoading: true });
-
-        try {
-          const response = await apiJson('/auth/login', { method: 'POST', body: { email, password } });
-          const { user, accessToken, refreshToken, expiresIn } = response;
-
-          const sessionExpiry = Date.now() + (expiresIn * 1000);
+          // Set auth header
+          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
           set({
             user,
-            token: accessToken,
-            refreshToken,
+            accessToken,
+            expiresAt,
             isAuthenticated: true,
-            sessionExpiry,
             isLoading: false,
           });
 
-          toast.success(`Welcome back, ${user.firstName}!`);
-          return true;
+          // Schedule token refresh
+          get().scheduleTokenRefresh(expiresIn);
+
+          // Return message for UI to display
+          return message;
         } catch (error: any) {
-          const message = error.message || 'Login failed';
-          toast.error(message);
-          set({ isLoading: false });
-          return false;
-        }
-      },
-
-      // Signup
-      signup: async (data: SignupData) => {
-        set({ isLoading: true });
-
-        try {
-          const response = await apiJson('/auth/register', { method: 'POST', body: data });
-          const { user, accessToken, refreshToken, expiresIn } = response;
-
-          const sessionExpiry = Date.now() + (expiresIn * 1000);
-
           set({
-            user,
-            token: accessToken,
-            refreshToken,
-            isAuthenticated: true,
-            sessionExpiry,
+            error: error.response?.data?.message || 'Signup failed',
             isLoading: false,
           });
-
-          toast.success('Account created successfully!');
-          return true;
-        } catch (error: any) {
-          const message = error.message || 'Signup failed';
-          toast.error(message);
-          set({ isLoading: false });
-          return false;
+          throw error;
         }
       },
 
-      // Logout - Fixed to prevent infinite loop
       logout: async () => {
+        try {
+          await api.post('/auth/logout');
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          // Clear auth state regardless
+          delete api.defaults.headers.common['Authorization'];
+          set({
+            user: null,
+            accessToken: null,
+            expiresAt: null,
+            isAuthenticated: false,
+          });
+        }
+      },
+
+      refreshToken: async () => {
+        try {
+          const response = await api.post('/auth/refresh');
+          const { accessToken, expiresIn } = response.data;
+          const expiresAt = Date.now() + (expiresIn * 1000);
+
+          // Update auth header
+          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+          set({
+            accessToken,
+            expiresAt,
+          });
+
+          // Schedule next refresh
+          get().scheduleTokenRefresh(expiresIn);
+        } catch (error) {
+          // Refresh failed, logout user
+          get().logout();
+        }
+      },
+
+      checkAuth: async () => {
         const state = get();
         
-        // Prevent multiple simultaneous logout attempts
-        if (state.isLoggingOut || state.isLoading) {
+        // Check if token expired
+        if (state.expiresAt && Date.now() >= state.expiresAt) {
+          await get().refreshToken();
           return;
         }
-        
-        set({ isLoggingOut: true, isLoading: true });
 
-        try {
-          // Only try to call logout API if we have a token
-          if (state.token) {
-            await apiJson('/auth/logout', { method: 'POST' });
+        // Verify token with backend
+        if (state.accessToken) {
+          try {
+            api.defaults.headers.common['Authorization'] = `Bearer ${state.accessToken}`;
+            const response = await api.get('/auth/me');
+            set({ user: response.data.user, isAuthenticated: true });
+          } catch (error) {
+            get().logout();
           }
-        } catch (error) {
-          console.log('Logout API call failed (this is normal):', error);
-        } finally {
-          // Always clear the auth state regardless of API call success
-          get().clearAuth();
-          set({ isLoggingOut: false });
-          toast.success('Logged out successfully');
         }
       },
 
-      // Refresh session
-      refreshSession: async () => {
-        const { refreshToken } = get();
+      clearError: () => set({ error: null }),
+
+      // Private helper method
+      scheduleTokenRefresh: (expiresIn: number) => {
+        // Refresh 1 minute before expiry
+        const refreshTime = (expiresIn - 60) * 1000;
         
-        if (!refreshToken) {
-          return false;
-        }
-
-        try {
-          const response = await apiJson('/auth/refresh', { method: 'POST', body: { refreshToken } });
-          const { token, refreshToken: newRefreshToken, expiresIn } = response;
-
-          const sessionExpiry = Date.now() + (expiresIn * 1000);
-
-          set({
-            token,
-            refreshToken: newRefreshToken,
-            sessionExpiry,
-          });
-
-          return true;
-        } catch (error) {
-          console.error('Token refresh failed:', error);
-          return false;
-        }
-      },
-
-      // Validate session
-      validateSession: async () => {
-        try {
-          const response = await apiJson('/auth/me');
-          const { user } = response;
-
-          set({ user });
-          return true;
-        } catch (error) {
-          console.error('Session validation failed:', error);
-          return false;
-        }
-      },
-
-      // Check auth (compatibility method)
-      checkAuth: async () => {
-        return get().validateSession();
-      },
-
-      // Clear auth - This never calls API, just clears local state
-      clearAuth: () => {
-        set({
-          user: null,
-          token: null,
-          refreshToken: null,
-          isAuthenticated: false,
-          isLoading: false,
-          sessionExpiry: null,
-          isLoggingOut: false,
-        });
-
-        localStorage.removeItem('auth-storage');
-      },
-
-      // Update user
-      updateUser: (userData: Partial<User>) => {
-        const { user } = get();
-        if (user) {
-          set({ user: { ...user, ...userData } });
-        }
+        setTimeout(() => {
+          get().refreshToken();
+        }, refreshTime);
       },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
-      // FIXED: Never persist isLoading as true
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
-        sessionExpiry: state.sessionExpiry,
-        isLoading: false,  // ADDED: Always save as false
-        isAuthenticated: state.isAuthenticated,  // ADDED: Persist auth state
+        accessToken: state.accessToken,
+        expiresAt: state.expiresAt,
+        isAuthenticated: state.isAuthenticated,
       }),
     }
   )
+);
+
+// Axios interceptor for token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await useAuthStore.getState().refreshToken();
+        return api(originalRequest);
+      } catch (refreshError) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
