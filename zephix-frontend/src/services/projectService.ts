@@ -1,11 +1,10 @@
-import api from './api';
+import { apiClient } from './auth.interceptor';
 
 export interface Project {
   id: string;
   name: string;
   description?: string;
-  status: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  status: string;
   startDate?: string;
   endDate?: string;
   organizationId: string;
@@ -16,46 +15,36 @@ export interface Project {
 export interface CreateProjectDto {
   name: string;
   description?: string;
-  status?: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  status: string;
   startDate?: string;
   endDate?: string;
 }
 
-export interface ProjectsResponse {
-  projects: Project[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
-
-class ProjectService {
-  async getProjects(page = 1, limit = 10): Promise<ProjectsResponse> {
-    const response = await api.get('/projects', {
+export const projectService = {
+  async getProjects(page = 1, limit = 10) {
+    const response = await apiClient.get('/projects', {
       params: { page, limit }
     });
     return response.data;
-  }
+  },
 
-  async getProject(id: string): Promise<Project> {
-    const response = await api.get(`/projects/${id}`);
+  async getProject(id: string) {
+    const response = await apiClient.get(`/projects/${id}`);
     return response.data;
-  }
+  },
 
-  async createProject(data: CreateProjectDto): Promise<Project> {
-    const response = await api.post('/projects', data);
+  async createProject(project: CreateProjectDto) {
+    const response = await apiClient.post('/projects', project);
     return response.data;
-  }
+  },
 
-  async updateProject(id: string, data: Partial<CreateProjectDto>): Promise<Project> {
-    const response = await api.patch(`/projects/${id}`, data);
+  async updateProject(id: string, updates: Partial<CreateProjectDto>) {
+    const response = await apiClient.patch(`/projects/${id}`, updates);
     return response.data;
-  }
+  },
 
-  async deleteProject(id: string): Promise<void> {
-    await api.delete(`/projects/${id}`);
-  }
-}
-
-export default new ProjectService();
-
+  async deleteProject(id: string) {
+    const response = await apiClient.delete(`/projects/${id}`);
+    return response.data;
+  },
+};
