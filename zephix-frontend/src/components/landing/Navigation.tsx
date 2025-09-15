@@ -10,10 +10,9 @@ const Navigation: React.FC = () => {
     <nav className="fixed top-0 w-full bg-white border-b border-gray-200 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
-          {/* Logo - MUST be clickable */}
+          {/* Logo - without Beta badge */}
           <Link to="/" className="flex items-center space-x-2 cursor-pointer">
             <span className="text-2xl font-bold text-blue-600">Zephix</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Beta Q1 2026</span>
           </Link>
           
           {/* Navigation Links */}
@@ -33,9 +32,12 @@ const Navigation: React.FC = () => {
             <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
               Sign In
             </Link>
-            <button onClick={() => scrollToSection('waitlist')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-              Join Waitlist
-            </button>
+            <Link to="/signup" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+              Sign Up Free
+            </Link>
+            <Link to="/signup" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+              Get Started
+            </Link>
           </div>
         </div>
       </div>
