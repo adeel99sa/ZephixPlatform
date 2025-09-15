@@ -65,14 +65,16 @@ export class AuthService {
       });
       const savedUser = await manager.save(user);
 
-      // Generate JWT
-      const token = this.generateToken(savedUser);
+      // Generate JWT tokens
+      const accessToken = this.generateToken(savedUser);
+      const refreshToken = this.generateRefreshToken(savedUser);
 
       return {
         user: this.sanitizeUser(savedUser),
-        accessToken: token,
+        accessToken,
+        refreshToken,
         organizationId: savedOrg.id,
-        expiresIn: 86400  // ADD THIS LINE - 24 hours in seconds
+        expiresIn: 900  // 15 minutes in seconds
       };
     });
   }
@@ -100,14 +102,16 @@ export class AuthService {
       lastLoginAt: new Date()
     });
 
-    // Generate JWT
-    const token = this.generateToken(user);
+    // Generate JWT tokens
+    const accessToken = this.generateToken(user);
+    const refreshToken = this.generateRefreshToken(user);
 
     return {
       user: this.sanitizeUser(user),
-      accessToken: token,
+      accessToken,
+      refreshToken,
       organizationId: user.organizationId,
-      expiresIn: 86400  // ADD THIS LINE - 24 hours in seconds
+      expiresIn: 900  // 15 minutes in seconds
     };
   }
 
@@ -131,7 +135,18 @@ export class AuthService {
       role: user.role
     };
 
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { expiresIn: '15m' });
+  }
+
+  private generateRefreshToken(user: User): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      organizationId: user.organizationId,
+      role: user.role
+    };
+
+    return this.jwtService.sign(payload, { expiresIn: '7d' });
   }
 
   private sanitizeUser(user: User) {
@@ -174,9 +189,13 @@ export class AuthService {
         role: user.role,
       };
 
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+      const newRefreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
       return {
-        accessToken: this.jwtService.sign(payload),
-        expiresIn: 86400
+        accessToken,
+        refreshToken: newRefreshToken,
+        expiresIn: 900  // 15 minutes in seconds
       };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -193,4 +212,5 @@ export class AuthService {
     
     return;
   }
+
 }
