@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ChevronRight, ChevronDown, Clock, User, Flag, AlertCircle, CheckCircle, Building } from 'lucide-react';
-import { apiJson } from '../../services/api';
+import api from '../../services/api';
 
 interface TaskDependency {
   id: string;
@@ -76,7 +76,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const fetchAvailableUsers = async () => {
     try {
-      const users = await apiJson('/users/available');
+      const users = await api.get('/users/available');
       setAvailableUsers(users);
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -86,7 +86,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await apiJson(`/projects/${projectId}/tasks`);
+      const data = await api.get(`/projects/${projectId}/tasks`);
       setTasks(data);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
@@ -125,7 +125,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
-      await apiJson(`/projects/${projectId}/tasks/${taskId}`, {
+      await api.get(`/projects/${projectId}/tasks/${taskId}`, {
         method: 'PUT',
         body: { status }
       });
@@ -137,7 +137,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskProgress = async (taskId: string, progress: number) => {
     try {
-      await apiJson(`/projects/${projectId}/tasks/${taskId}/progress`, {
+      await api.get(`/projects/${projectId}/tasks/${taskId}/progress`, {
         method: 'PUT',
         body: { progress }
       });
@@ -149,7 +149,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      await apiJson(`/projects/${projectId}/tasks/${updatedTask.id}`, {
+      await api.get(`/projects/${projectId}/tasks/${updatedTask.id}`, {
         method: 'PATCH',
         body: updatedTask
       });
@@ -428,7 +428,7 @@ const CreateTaskModal: React.FC<{
     console.log('Sending task data:', payload);
     
     try {
-      await apiJson(`/projects/${projectId}/tasks`, {
+      await api.get(`/projects/${projectId}/tasks`, {
         method: 'POST',
         body: payload
       });
