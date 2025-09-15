@@ -1,40 +1,51 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-
-interface Permissions {
-  canViewProjects: boolean;
-  canManageResources: boolean;
-  canViewAnalytics: boolean;
-  canManageUsers: boolean;
-  isAdmin: boolean;
-}
+// File: src/components/auth/ProtectedRoute.tsx
+import React, { useEffect, useState } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
-  requiredPermission?: keyof Permissions;
+  children: React.ReactNode;
+  requiredPermission?: string;
 }
 
 export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteProps) {
-  const { user, permissions, isLoading } = useAuth();
+  const token = useAuthStore(state => state.accessToken);
+  const user = useAuthStore(state => state.user);
+  const location = useLocation();
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
+  // Wait for Zustand to hydrate from localStorage
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  // Debug logging
+  useEffect(() => {
+    if (isHydrated) {
+      console.log('ProtectedRoute check after hydration:', {
+        path: location.pathname,
+        hasToken: !!token,
+        hasUser: !!user,
+        tokenPreview: token ? token.substring(0, 20) + '...' : null
+      });
+    }
+  }, [isHydrated, location.pathname, token, user]);
 
-  if (requiredPermission && !permissions[requiredPermission]) {
+  // Don't check auth until store is hydrated
+  if (!isHydrated) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Access Denied</h2>
-          <p className="text-gray-500">You don't have permission to access this page.</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     );
+  }
+
+  // Check authentication after hydration
+  const hasValidSession = !!(token && user);
+
+  if (!hasValidSession) {
+    console.log('No valid session, redirecting to login');
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
