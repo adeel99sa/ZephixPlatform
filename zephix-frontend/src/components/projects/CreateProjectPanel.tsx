@@ -39,17 +39,17 @@ export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, 
     setError(null);
     
     try {
-      // Prepare phases data
-      const phases = formData.selectedPhases.map((phaseName, index) => ({
-        phaseName,
-        // Calculate phase dates based on project start date
-        // This is simplified - you'd want more sophisticated date calculation
-      }));
-
-      await projectService.createProject({
-        ...formData,
-        phases
-      });
+      // Only send fields that the backend DTO expects
+      const { selectedPhases, methodology, ...projectData } = formData;
+      
+      // Convert dates to ISO 8601 format
+      const formattedData = {
+        ...projectData,
+        startDate: projectData.startDate ? new Date(projectData.startDate).toISOString() : undefined,
+        endDate: projectData.endDate ? new Date(projectData.endDate).toISOString() : undefined,
+      };
+      
+      await projectService.createProject(formattedData);
       
       onSuccess();
       onClose();
@@ -152,10 +152,10 @@ export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, 
                       onChange={(e) => setFormData({...formData, priority: e.target.value})}
                       className="w-full rounded border px-3 py-2"
                     >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+      <option value="urgent">Urgent</option>
                     </select>
                   </div>
 

@@ -5,7 +5,7 @@ import './index.css'
 import { initializeAnalytics } from './lib/analytics'
 
 // Initialize analytics
-initializeAnalytics();
+// initializeAnalytics(); // Temporarily disabled for debugging
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
