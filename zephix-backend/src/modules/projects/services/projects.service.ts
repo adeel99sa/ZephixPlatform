@@ -37,11 +37,18 @@ export class ProjectsService extends TenantAwareRepository<Project> {
 
       // Use parent class create method which automatically sets organizationId
       const { phases, ...projectData } = createProjectDto;
-      const project = await this.create({
+      
+      // Convert string dates to Date objects
+      const processedData = {
         ...projectData,
+        startDate: projectData.startDate ? new Date(projectData.startDate) : undefined,
+        endDate: projectData.endDate ? new Date(projectData.endDate) : undefined,
+        estimatedEndDate: projectData.estimatedEndDate ? new Date(projectData.estimatedEndDate) : undefined,
         createdById: userId,
         status: createProjectDto.status || ProjectStatus.PLANNING,
-      }, organizationId);
+      };
+      
+      const project = await this.create(processedData, organizationId);
 
       // Auto-assign creator as owner
       await this.assignUser(
@@ -168,10 +175,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
    */
   async findProjectById(id: string, organizationId: string): Promise<Project> {
     try {
-      const project = await this.findById(id, organizationId, [
-        'createdByUser',
-        'phases'
-      ]);
+      const project = await this.findById(id, organizationId, []);
 
       if (!project) {
         throw new NotFoundException(`Project with ID ${id} not found or access denied`);
@@ -206,10 +210,17 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       this.logger.log(`Updating project ${id} for org: ${organizationId}, user: ${userId}`);
 
       const { phases, ...projectData } = updateProjectDto;
-      const updatedProject = await this.update(id, organizationId, {
+      
+      // Convert string dates to Date objects
+      const processedData = {
         ...projectData,
+        startDate: projectData.startDate ? new Date(projectData.startDate) : undefined,
+        endDate: projectData.endDate ? new Date(projectData.endDate) : undefined,
+        estimatedEndDate: projectData.estimatedEndDate ? new Date(projectData.estimatedEndDate) : undefined,
         updatedAt: new Date(),
-      });
+      };
+      
+      const updatedProject = await this.update(id, organizationId, processedData);
 
       if (!updatedProject) {
         throw new NotFoundException(`Project with ID ${id} not found or access denied`);

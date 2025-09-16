@@ -135,7 +135,10 @@ export class AuthService {
       role: user.role
     };
 
-    return this.jwtService.sign(payload, { expiresIn: '15m' });
+    return this.jwtService.sign(payload, { 
+      secret: process.env.JWT_SECRET || 'fallback-secret-key',
+      expiresIn: '15m' 
+    });
   }
 
   private generateRefreshToken(user: User): string {
@@ -146,7 +149,10 @@ export class AuthService {
       role: user.role
     };
 
-    return this.jwtService.sign(payload, { expiresIn: '7d' });
+    return this.jwtService.sign(payload, { 
+      secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+      expiresIn: '7d' 
+    });
   }
 
   private sanitizeUser(user: User) {
@@ -175,7 +181,9 @@ export class AuthService {
     // In production, you'd validate against a stored refresh token
     try {
       // Decode the refresh token to get user ID
-      const decoded = this.jwtService.verify(refreshToken);
+      const decoded = this.jwtService.verify(refreshToken, { 
+        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret' 
+      });
       const user = await this.getUserById(decoded.sub);
       
       if (!user) {
@@ -189,8 +197,14 @@ export class AuthService {
         role: user.role,
       };
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-      const newRefreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const accessToken = this.jwtService.sign(payload, { 
+        secret: process.env.JWT_SECRET || 'fallback-secret-key',
+        expiresIn: '15m' 
+      });
+      const newRefreshToken = this.jwtService.sign(payload, { 
+        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        expiresIn: '7d' 
+      });
 
       return {
         accessToken,
