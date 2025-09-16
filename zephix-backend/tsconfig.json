@@ -20,5 +20,5 @@
     "lib": ["ES2021", "DOM"],
     "types": ["node"]
   },
-  "exclude": ["node_modules", "dist", "scripts", "test", "**/*spec.ts"]
+  "exclude": ["node_modules", "dist", "scripts", "test", "**/*spec.ts", "backup/**/*", "temp-disabled/**/*", "src/test/**/*"]
 }

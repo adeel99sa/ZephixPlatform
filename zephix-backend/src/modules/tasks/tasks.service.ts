@@ -13,8 +13,12 @@ export class TasksService {
   ) {}
 
   async create(createTaskDto: CreateTaskDto, organizationId: string): Promise<Task> {
+    // Generate task number if not provided
+    const taskNumber = createTaskDto.taskNumber || `TASK-${Date.now()}`;
+    
     const task = this.taskRepository.create({
       ...createTaskDto,
+      taskNumber,
       organizationId,
     });
     return await this.taskRepository.save(task);

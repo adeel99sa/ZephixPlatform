@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChartBarIcon, UsersIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import TaskList from '../../components/tasks/TaskList';
+import { TaskList } from '../../components/tasks/TaskList';
 import ResourceHeatMap from '../../components/resources/ResourceHeatMap';
+import { ProjectResources } from '../../components/projects/ProjectResources';
+import { ProjectDisplay } from '../../components/projects/ProjectDisplay';
+import { ProjectEditForm } from '../../components/projects/ProjectEditForm';
 import { projectService } from '../../services/projectService';
 
 const ProjectDetailPage = () => {
@@ -12,6 +15,7 @@ const ProjectDetailPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (!id || id === 'undefined') {
@@ -76,26 +80,30 @@ const ProjectDetailPage = () => {
       {/* Header */}
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <button
-                onClick={() => navigate('/projects')}
-                className="text-gray-500 hover:text-gray-700 mb-2"
-              >
-                ← Back to Projects
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-              <p className="text-gray-600 mt-1">{project.description}</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                project.status === 'active' 
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {project.status}
-              </span>
-            </div>
+          <button
+            onClick={() => navigate('/projects')}
+            className="text-gray-500 hover:text-gray-700 mb-4"
+          >
+            ← Back to Projects
+          </button>
+          
+          {/* Project Details with Edit Capability */}
+          <div className="bg-white rounded-lg shadow p-6">
+            {isEditing ? (
+              <ProjectEditForm 
+                project={project}
+                onSave={(updated) => {
+                  setProject(updated);
+                  setIsEditing(false);
+                }}
+                onCancel={() => setIsEditing(false)}
+              />
+            ) : (
+              <ProjectDisplay 
+                project={project}
+                onEdit={() => setIsEditing(true)}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -157,12 +165,10 @@ const ProjectDetailPage = () => {
         )}
 
         {activeTab === 'resources' && (
-          <ResourceHeatMap 
-            projectId={project.id}
-            onResourceSelect={(resourceId) => {
-              console.log('Selected resource:', resourceId);
-            }}
-          />
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Project Resources</h2>
+            <ProjectResources projectId={project.id} />
+          </div>
         )}
 
         {activeTab === 'risks' && (
