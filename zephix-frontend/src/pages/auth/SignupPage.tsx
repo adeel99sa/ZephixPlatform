@@ -28,10 +28,10 @@ export function SignupPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (authState?.isAuthenticated) {
+    if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
-  }, [authState?.isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -139,7 +139,7 @@ export function SignupPage() {
         // Log successful registration
         securityActions.logEvent('enterprise_user_registration_success', {
           email: formData.email,
-          userId: authState.user?.id,
+          userId: user?.id,
           timestamp: new Date().toISOString(),
         }, 'low');
         

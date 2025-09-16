@@ -325,7 +325,7 @@ export class DocumentParserService {
   /**
    * Validate file format and size
    */
-  validateFile(file: Express.Multer.File): { valid: boolean; error?: string } {
+  validateFile(file: any): { valid: boolean; error?: string } {
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = ['.docx', '.pdf'];
 
