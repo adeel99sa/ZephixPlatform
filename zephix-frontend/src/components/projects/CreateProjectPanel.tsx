@@ -40,7 +40,7 @@ export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, 
     
     try {
       // Only send fields that the backend DTO expects
-      const { selectedPhases, methodology, ...projectData } = formData;
+      const { selectedPhases, ...projectData } = formData;
       
       // Convert dates to ISO 8601 format
       const formattedData = {
@@ -155,7 +155,7 @@ export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, 
       <option value="low">Low</option>
       <option value="medium">Medium</option>
       <option value="high">High</option>
-      <option value="urgent">Urgent</option>
+      <option value="critical">Critical</option>
                     </select>
                   </div>
 

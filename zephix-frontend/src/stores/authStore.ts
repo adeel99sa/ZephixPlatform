@@ -26,7 +26,7 @@ interface AuthState {
   login: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<void>;
+  refreshAccessToken: () => Promise<void>;
   clearError: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -162,7 +162,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      refreshToken: async () => {
+      refreshAccessToken: async () => {
         try {
           const { refreshToken } = get();
           if (!refreshToken) {
@@ -195,7 +195,7 @@ export const useAuthStore = create<AuthState>()(
         
         // Check if token expired
         if (state.expiresAt && Date.now() >= state.expiresAt) {
-          await get().refreshToken();
+          await get().refreshAccessToken();
           return;
         }
 
@@ -219,7 +219,7 @@ export const useAuthStore = create<AuthState>()(
         const refreshTime = (expiresIn - 60) * 1000;
         
         setTimeout(() => {
-          get().refreshToken();
+          get().refreshAccessToken();
         }, refreshTime);
       },
     }),
@@ -273,7 +273,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        await useAuthStore.getState().refreshToken();
+        await useAuthStore.getState().refreshAccessToken();
         return api(originalRequest);
       } catch (refreshError) {
         useAuthStore.getState().logout();

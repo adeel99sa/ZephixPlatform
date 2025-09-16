@@ -16,7 +16,7 @@ export interface CreateProjectDto {
   name: string;
   description?: string;
   status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
   startDate?: string;
   endDate?: string;
 }

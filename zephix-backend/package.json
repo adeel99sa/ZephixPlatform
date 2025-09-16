@@ -71,7 +71,7 @@
       "class-validator": "^0.14.2",
       "compression": "^1.7.4",
       "cookie-parser": "^1.4.7",
-      "dotenv": "^16.4.5",
+      "dotenv": "^16.6.1",
       "express": "^4.19.2",
       "express-rate-limit": "^7.0.0",
       "helmet": "^7.0.0",

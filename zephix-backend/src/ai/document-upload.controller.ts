@@ -111,7 +111,7 @@ export class DocumentUploadController {
     }),
   )
   async uploadDocument(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
     @Request() req: any,
   ): Promise<UploadDocumentResponse> {
     if (!file) {
