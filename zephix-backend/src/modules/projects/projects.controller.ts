@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetTenant, TenantContext } from '../../common/decorators/tenant.decorator';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard)  // TEMPORARILY DISABLED FOR TESTING
+@UseGuards(JwtAuthGuard)
 export class ProjectsController {
   private readonly logger = new Logger(ProjectsController.name);
 
