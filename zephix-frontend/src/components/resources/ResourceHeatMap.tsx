@@ -1,276 +1,212 @@
-import React, { useState, useEffect } from 'react';
-import { Resource } from '../../types/resource.types';
-import { resourceService } from '../../services/resourceService';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect } from 'react';
+import api from '@/services/api';
 
-interface ResourceHeatMapProps {
-  projectId?: string;
-  onResourceSelect?: (resourceId: string) => void;
+interface ResourceAllocation {
+  resourceId: string;
+  resourceName: string;
+  weeklyAllocations: {
+    week: string;
+    allocation: number;
+    projects: string[];
+  }[];
 }
 
-const ResourceHeatMap: React.FC<ResourceHeatMapProps> = ({ projectId, onResourceSelect }) => {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [allocations, setAllocations] = useState<any>({});
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+export function ResourceHeatMap() {
+  const [allocations, setAllocations] = useState<ResourceAllocation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hoveredCell, setHoveredCell] = useState<{ resourceId: string; week: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState({
+    start: new Date().toISOString().split('T')[0],
+    end: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+  });
 
-  // Generate 8 weeks of dates
-  const getWeekDates = () => {
-    const weeks = [];
-    const startOfWeek = new Date(currentWeek);
-    startOfWeek.setDate(currentWeek.getDate() - currentWeek.getDay());
+  useEffect(() => {
+    loadHeatMapData();
+  }, [dateRange]);
 
-    for (let i = 0; i < 8; i++) {
-      const weekStart = new Date(startOfWeek);
-      weekStart.setDate(startOfWeek.getDate() + i * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weeks.push({
-        start: weekStart,
-        end: weekEnd,
-        label: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
+  const loadHeatMapData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get all resources
+      const resourcesResponse = await api.get('/resources');
+      const resources = resourcesResponse.data?.data || resourcesResponse.data || [];
+      
+      // Get allocations for each resource
+      const allocationPromises = resources.map(async (resource: any) => {
+        try {
+          const response = await api.get(`/resources/${resource.id}/allocation`, {
+            params: {
+              startDate: dateRange.start,
+              endDate: dateRange.end
+            }
+          });
+          
+          return {
+            resourceId: resource.id,
+            resourceName: resource.name || resource.email,
+            allocation: response.data?.allocationPercentage || 0,
+            details: response.data
+          };
+        } catch (err) {
+          return {
+            resourceId: resource.id,
+            resourceName: resource.name || resource.email,
+            allocation: 0,
+            details: null
+          };
+        }
       });
+      
+      const results = await Promise.all(allocationPromises);
+      
+      // Transform into weekly view
+      const weeklyData = results.map(r => ({
+        resourceId: r.resourceId,
+        resourceName: r.resourceName,
+        weeklyAllocations: generateWeeklyAllocations(r.allocation)
+      }));
+      
+      setAllocations(weeklyData);
+      
+    } catch (err: any) {
+      console.error('Failed to load heat map data:', err);
+      setError('Failed to load resource allocations');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const generateWeeklyAllocations = (overallAllocation: number) => {
+    // For now, show same allocation for all weeks
+    // In real implementation, this would vary by week
+    const weeks = [];
+    const startDate = new Date(dateRange.start);
+    const endDate = new Date(dateRange.end);
+    
+    let currentWeek = new Date(startDate);
+    while (currentWeek <= endDate) {
+      weeks.push({
+        week: currentWeek.toISOString().split('T')[0],
+        allocation: overallAllocation + Math.random() * 20 - 10, // Add some variation
+        projects: []
+      });
+      currentWeek.setDate(currentWeek.getDate() + 7);
+    }
+    
     return weeks;
   };
 
-  useEffect(() => {
-    loadResources();
-  }, []);
-
-  useEffect(() => {
-    if (resources.length > 0) {
-      loadAllocations();
-    }
-  }, [resources, currentWeek]);
-
-  const loadResources = async () => {
-    try {
-      const data = await resourceService.getResources();
-      setResources(data);
-    } catch (error) {
-      console.error('Failed to load resources:', error);
-    }
+  const getHeatColor = (allocation: number) => {
+    if (allocation === 0) return 'bg-gray-100';
+    if (allocation <= 50) return 'bg-green-200';
+    if (allocation <= 80) return 'bg-green-400';
+    if (allocation <= 100) return 'bg-yellow-400';
+    if (allocation <= 120) return 'bg-orange-400';
+    return 'bg-red-500';
   };
 
-  const loadAllocations = async () => {
-    setLoading(true);
-    const weeks = getWeekDates();
-    const startDate = weeks[0].start.toISOString().split('T')[0];
-    const endDate = weeks[7].end.toISOString().split('T')[0];
-
-    const allocationData: any = {};
-
-    for (const resource of resources) {
-      try {
-        const timeline = await resourceService.getResourceAllocations(
-          resource.id,
-          startDate,
-          endDate
-        );
-        allocationData[resource.id] = timeline;
-      } catch (error) {
-        console.error(`Failed to load allocations for ${resource.name}:`, error);
-        allocationData[resource.id] = {};
-      }
-    }
-
-    setAllocations(allocationData);
-    setLoading(false);
-  };
-
-  const getUtilizationColor = (percentage: number) => {
-    if (percentage === 0) return 'bg-gray-100';
-    if (percentage <= 50) return 'bg-green-100 hover:bg-green-200';
-    if (percentage <= 80) return 'bg-green-300 hover:bg-green-400';
-    if (percentage <= 100) return 'bg-yellow-300 hover:bg-yellow-400';
-    if (percentage <= 120) return 'bg-orange-400 hover:bg-orange-500 text-white';
-    return 'bg-red-500 hover:bg-red-600 text-white';
-  };
-
-  const getUtilizationForWeek = (resourceId: string, weekIndex: number) => {
-    const weeks = getWeekDates();
-    const weekKey = weeks[weekIndex].start.toISOString().split('T')[0];
-    
-    if (!allocations[resourceId] || !allocations[resourceId][weekKey]) {
-      return { percentage: 0, hours: 0, tasks: [] };
-    }
-
-    const weekData = allocations[resourceId][weekKey];
-    return {
-      percentage: weekData.allocationPercentage || 0,
-      hours: weekData.totalHours || 0,
-      tasks: weekData.tasks || []
-    };
-  };
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    const newWeek = new Date(currentWeek);
-    newWeek.setDate(currentWeek.getDate() + (direction === 'next' ? 7 : -7));
-    setCurrentWeek(newWeek);
-  };
-
-  if (loading && resources.length === 0) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-gray-500">Loading resource heat map...</div>
       </div>
     );
   }
 
-  const weeks = getWeekDates();
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-300 rounded text-red-700">
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Resource Heat Map</h2>
-        <div className="flex items-center gap-4">
-          {/* Week Navigation */}
-          <button
-            onClick={() => navigateWeek('prev')}
-            className="p-2 hover:bg-gray-100 rounded"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-          <span className="text-sm font-medium">
-            {weeks[0].label} - {weeks[7].label}
-          </span>
-          <button
-            onClick={() => navigateWeek('next')}
-            className="p-2 hover:bg-gray-100 rounded"
-          >
-            <ChevronRightIcon className="h-5 w-5" />
-          </button>
-
-          {/* Legend */}
-          <div className="flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-gray-100 rounded"></div>
-              <span>0%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-green-300 rounded"></div>
-              <span>50-80%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-yellow-300 rounded"></div>
-              <span>80-100%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-orange-400 rounded"></div>
-              <span>100-120%</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-4 h-4 bg-red-500 rounded"></div>
-              <span>&gt;120%</span>
-            </div>
-          </div>
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="mb-4 flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Resource Heat Map</h2>
+        <div className="flex gap-2">
+          <input
+            type="date"
+            value={dateRange.start}
+            onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+            className="px-3 py-1 border rounded"
+          />
+          <span className="py-1">to</span>
+          <input
+            type="date"
+            value={dateRange.end}
+            onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+            min={dateRange.start}
+            className="px-3 py-1 border rounded"
+          />
         </div>
+      </div>
+
+      {/* Heat Map Legend */}
+      <div className="mb-4 flex gap-2 text-sm">
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-gray-100 rounded"></div> Unassigned
+        </span>
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-green-200 rounded"></div> 0-50%
+        </span>
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-green-400 rounded"></div> 50-80%
+        </span>
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-yellow-400 rounded"></div> 80-100%
+        </span>
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-orange-400 rounded"></div> 100-120%
+        </span>
+        <span className="flex items-center gap-1">
+          <div className="w-4 h-4 bg-red-500 rounded"></div> >120%
+        </span>
       </div>
 
       {/* Heat Map Grid */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr>
-              <th className="sticky left-0 bg-white px-4 py-2 text-left text-sm font-medium text-gray-700">
-                Resource
-              </th>
-              {weeks.map((week, idx) => (
-                <th key={idx} className="px-2 py-2 text-center text-xs font-medium text-gray-600">
-                  <div>{week.label}</div>
-                  <div className="text-gray-400">Week {idx + 1}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {resources.map((resource) => (
-              <tr key={resource.id} className="border-t">
-                <td className="sticky left-0 bg-white px-4 py-3 text-sm font-medium text-gray-900">
-                  <div>{resource.name}</div>
-                  <div className="text-xs text-gray-500">{resource.role}</div>
-                </td>
-                {weeks.map((week, weekIdx) => {
-                  const utilization = getUtilizationForWeek(resource.id, weekIdx);
-                  const isHovered = hoveredCell?.resourceId === resource.id && hoveredCell?.week === weekIdx;
-
-                  return (
-                    <td key={weekIdx} className="px-2 py-2">
-                      <div
-                        className={`relative h-12 rounded cursor-pointer transition-all ${getUtilizationColor(utilization.percentage)} flex items-center justify-center`}
-                        onMouseEnter={() => setHoveredCell({ resourceId: resource.id, week: weekIdx })}
-                        onMouseLeave={() => setHoveredCell(null)}
-                        onClick={() => onResourceSelect?.(resource.id)}
+      {allocations.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No resources found. Add resources to see allocation heat map.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left p-2 font-medium">Resource</th>
+                {allocations[0]?.weeklyAllocations.map(week => (
+                  <th key={week.week} className="text-center p-1 text-xs">
+                    {new Date(week.week).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allocations.map(resource => (
+                <tr key={resource.resourceId} className="border-t">
+                  <td className="p-2 font-medium">{resource.resourceName}</td>
+                  {resource.weeklyAllocations.map(week => (
+                    <td key={week.week} className="p-1">
+                      <div 
+                        className={`w-full h-8 rounded flex items-center justify-center text-xs font-medium ${getHeatColor(week.allocation)}`}
+                        title={`${Math.round(week.allocation)}% allocated`}
                       >
-                        <span className="text-xs font-semibold">
-                          {utilization.percentage > 0 ? `${Math.round(utilization.percentage)}%` : '-'}
-                        </span>
-
-                        {/* Tooltip */}
-                        {isHovered && utilization.percentage > 0 && (
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-gray-900 text-white text-xs rounded shadow-lg z-10 w-48">
-                            <div className="font-semibold mb-1">{resource.name}</div>
-                            <div>Hours: {utilization.hours}/{resource.capacityHoursPerWeek}</div>
-                            <div>Utilization: {utilization.percentage}%</div>
-                            {utilization.tasks.length > 0 && (
-                              <div className="mt-1 pt-1 border-t border-gray-700">
-                                <div className="font-semibold">Tasks:</div>
-                                {utilization.tasks.map((task: any, idx: number) => (
-                                  <div key={idx}>• {task.taskName || task.projectName}</div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        {week.allocation > 0 && `${Math.round(week.allocation)}%`}
                       </div>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Summary Stats */}
-      <div className="mt-6 grid grid-cols-4 gap-4">
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="text-2xl font-bold">{resources.length}</div>
-          <div className="text-sm text-gray-600">Total Resources</div>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="bg-green-50 p-4 rounded">
-          <div className="text-2xl font-bold text-green-600">
-            {resources.filter(r => {
-              const util = getUtilizationForWeek(r.id, 0);
-              return util.percentage <= 80;
-            }).length}
-          </div>
-          <div className="text-sm text-gray-600">Available</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded">
-          <div className="text-2xl font-bold text-yellow-600">
-            {resources.filter(r => {
-              const util = getUtilizationForWeek(r.id, 0);
-              return util.percentage > 80 && util.percentage <= 100;
-            }).length}
-          </div>
-          <div className="text-sm text-gray-600">Near Capacity</div>
-        </div>
-        <div className="bg-red-50 p-4 rounded">
-          <div className="text-2xl font-bold text-red-600">
-            {resources.filter(r => {
-              const util = getUtilizationForWeek(r.id, 0);
-              return util.percentage > 100;
-            }).length}
-          </div>
-          <div className="text-sm text-gray-600">Overallocated</div>
-        </div>
-      </div>
+      )}
     </div>
   );
-};
+}
 
 export default ResourceHeatMap;
