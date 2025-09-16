@@ -23,8 +23,11 @@ export const useAuth = () => {
     token: store.accessToken,
     isAuthenticated: store.isAuthenticated,
     isLoading: store.isLoading,
+    error: store.error,
     permissions,
     login: store.login,
-    logout: store.logout
+    signup: store.signup,
+    logout: store.logout,
+    clearError: store.clearError
   };
 };

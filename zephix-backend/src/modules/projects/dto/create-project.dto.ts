@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID, IsArray, ValidateNested, IsISO8601 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from '../entities/project.entity';
 
@@ -31,17 +31,14 @@ export class CreateProjectDto {
   @IsOptional()
   status?: ProjectStatus;
 
-  @IsDateString()
   @IsOptional()
-  startDate?: Date;
+  startDate?: string;
 
-  @IsDateString()
   @IsOptional()
-  endDate?: Date;
+  endDate?: string;
 
-  @IsDateString()
   @IsOptional()
-  estimatedEndDate?: Date;
+  estimatedEndDate?: string;
 
   @IsEnum(ProjectPriority)
   @IsOptional()
