@@ -26,26 +26,27 @@ export const projectService = {
     const response = await api.get('/projects', {
       params: { page, limit }
     });
-    return response.data;
+    // Handle both interceptor-wrapped and direct responses
+    return response.data?.data || response.data;
   },
 
   async getProject(id: string) {
     const response = await api.get(`/projects/${id}`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   async createProject(project: CreateProjectDto) {
     const response = await api.post('/projects', project);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   async updateProject(id: string, updates: Partial<CreateProjectDto>) {
     const response = await api.patch(`/projects/${id}`, updates);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   async deleteProject(id: string) {
     const response = await api.delete(`/projects/${id}`);
-    return response.data;
+    return response.data?.data || response.data;
   },
 };
