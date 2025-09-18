@@ -42,4 +42,33 @@ export class TasksController {
   ) {
     return this.tasksService.updateProgress(id, progress, req.user.organizationId);
   }
+
+  @Get('my-tasks')
+  getMyTasks(@Req() req: any) {
+    const userEmail = req.user?.email;
+    return this.tasksService.findByAssignee(userEmail, req.user.organizationId);
+  }
+
+  @Post(':id/dependencies')
+  addDependency(
+    @Param('id') taskId: string,
+    @Body() dto: { predecessorId: string },
+    @Req() req: any
+  ) {
+    return this.tasksService.addDependency(taskId, dto.predecessorId, req.user.organizationId);
+  }
+
+  @Delete(':id/dependencies/:depId')
+  removeDependency(
+    @Param('id') taskId: string,
+    @Param('depId') dependencyId: string,
+    @Req() req: any
+  ) {
+    return this.tasksService.removeDependency(taskId, dependencyId, req.user.organizationId);
+  }
+
+  @Get(':id/dependencies')
+  getDependencies(@Param('id') taskId: string, @Req() req: any) {
+    return this.tasksService.getDependencies(taskId, req.user.organizationId);
+  }
 }

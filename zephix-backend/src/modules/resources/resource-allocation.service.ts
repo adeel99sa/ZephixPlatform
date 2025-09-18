@@ -1,10 +1,12 @@
-import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, DataSource, In } from 'typeorm';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
 import { Resource } from './entities/resource.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { CreateAllocationDto } from './dto/create-allocation.dto';
+import { UpdateAllocationDto } from './dto/update-allocation.dto';
 
 @Injectable()
 export class ResourceAllocationService {
@@ -19,6 +21,72 @@ export class ResourceAllocationService {
     private taskRepository: Repository<Task>,
     private dataSource: DataSource,
   ) {}
+
+  // Standard CRUD methods for consistent API
+  async create(createAllocationDto: CreateAllocationDto, organizationId: string, userId: string) {
+    const allocation = this.allocationRepository.create({
+      ...createAllocationDto,
+      organizationId,
+      userId,
+    });
+
+    return this.allocationRepository.save(allocation);
+  }
+
+  async findAll(organizationId: string, resourceId?: string, projectId?: string) {
+    const where: any = { organizationId };
+    
+    if (resourceId) where.resourceId = resourceId;
+    if (projectId) where.projectId = projectId;
+
+    return this.allocationRepository.find({
+      where,
+      relations: ['resource', 'task'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findOne(id: string, organizationId: string) {
+    const allocation = await this.allocationRepository.findOne({
+      where: { id, organizationId },
+      relations: ['resource', 'task']
+    });
+
+    if (!allocation) {
+      throw new NotFoundException('Resource allocation not found');
+    }
+
+    return allocation;
+  }
+
+  async update(id: string, updateAllocationDto: UpdateAllocationDto, organizationId: string) {
+    const allocation = await this.findOne(id, organizationId);
+    
+    Object.assign(allocation, updateAllocationDto);
+    return this.allocationRepository.save(allocation);
+  }
+
+  async remove(id: string, organizationId: string) {
+    const allocation = await this.findOne(id, organizationId);
+    await this.allocationRepository.remove(allocation);
+    return { message: 'Resource allocation deleted successfully' };
+  }
+
+  async findByResource(resourceId: string, organizationId: string) {
+    return this.allocationRepository.find({
+      where: { resourceId, organizationId },
+      relations: ['resource', 'task', 'project'],
+      order: { startDate: 'ASC' }
+    });
+  }
+
+  async findByProject(projectId: string, organizationId: string) {
+    return this.allocationRepository.find({
+      where: { projectId, organizationId },
+      relations: ['resource', 'task', 'project'],
+      order: { startDate: 'ASC' }
+    });
+  }
 
   async createAllocation(
     organizationId: string,

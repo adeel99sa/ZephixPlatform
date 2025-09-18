@@ -1,7 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 import 'reflect-metadata';
-import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 
 // Enterprise-secure SSL override for Railway PostgreSQL
 if (
@@ -64,7 +63,7 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'x-org-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id'],
   })
 
@@ -86,9 +85,6 @@ async function bootstrap() {
       enableImplicitConversion: true
     }
   }))
-
-  // Add response transformation interceptor
-  app.useGlobalInterceptors(new TransformResponseInterceptor());
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new AllExceptionsFilter());

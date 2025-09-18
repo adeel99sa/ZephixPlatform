@@ -6,13 +6,20 @@ export const databaseConfig: TypeOrmModuleOptions = {
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   synchronize: false,
-  namingStrategy: new SnakeNamingStrategy(), // Add this line
-  ssl: { rejectUnauthorized: false }, // Critical for Railway
+  namingStrategy: new SnakeNamingStrategy(),
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   extra: {
-    max: 5,  // Critical for connection limit
-    connectionTimeoutMillis: 5000,
+    max: 10,  // Increased connection limit
+    min: 2,   // Minimum connections
+    connectionTimeoutMillis: 10000,  // Increased timeout
+    idleTimeoutMillis: 30000,        // Idle timeout
+    acquireTimeoutMillis: 10000,     // Acquire timeout
   },
-  retryAttempts: 3,
-  retryDelay: 3000,
-  logging: process.env.NODE_ENV === 'production' ? ['error'] : 'all',
+  retryAttempts: 5,  // Increased retry attempts
+  retryDelay: 5000,  // Increased retry delay
+  logging: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
+  // Add connection health check
+  keepConnectionAlive: true,
+  // Add connection pool settings
+  poolSize: 10,
 };
