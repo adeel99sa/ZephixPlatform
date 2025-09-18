@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,6 +11,7 @@ import { ResourcesService } from './resources.service';
 import { AuditService } from './services/audit.service';
 import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationService } from './resource-allocation.service';
+import { ResponseService } from '../../shared/services/response.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Controller('resources')
@@ -23,7 +24,8 @@ export class ResourcesController {
     private readonly resourcesService: ResourcesService,
     private readonly auditService: AuditService,
     private readonly cacheService: CacheService,
-    private readonly allocationService: ResourceAllocationService
+    private readonly allocationService: ResourceAllocationService,
+    private readonly responseService: ResponseService
   ) {}
 
   @Get('heat-map')
@@ -61,10 +63,81 @@ export class ResourcesController {
         });
       }
       
-      return result;
+      return this.responseService.success(result);
     } catch (error) {
       console.error('❌ Resources controller error:', error);
       throw new BadRequestException('Failed to fetch resources');
+    }
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new resource' })
+  @ApiResponse({ status: 201, description: 'Resource created successfully' })
+  async createResource(@Body() createResourceDto: any, @Req() req: any) {
+    try {
+      const userId = req.user?.id || req.user?.sub;
+      const organizationId = req.user?.organizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const resource = await this.resourcesService.create({
+        ...createResourceDto,
+        organizationId,
+        createdBy: userId
+      });
+
+      // Log audit
+      if (userId && organizationId) {
+        await this.auditService.logAction({
+          userId: userId,
+          organizationId: organizationId,
+          entityType: 'resources',
+          entityId: resource.id,
+          action: 'create',
+          newValue: createResourceDto,
+          ipAddress: req.ip || 'unknown',
+          userAgent: req.headers['user-agent'] || 'unknown',
+        }).catch(err => {
+          console.error('Audit log failed:', err);
+        });
+      }
+
+      return resource;
+    } catch (error) {
+      console.error('❌ Create resource error:', error);
+      throw new BadRequestException('Failed to create resource');
+    }
+  }
+
+  @Get(':id/allocation')
+  @ApiOperation({ summary: 'Get resource allocation for a specific resource' })
+  @ApiResponse({ status: 200, description: 'Resource allocation retrieved successfully' })
+  async getResourceAllocation(
+    @Param('id') id: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user?.organizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const allocation = await this.resourcesService.getResourceAllocation(
+        id,
+        startDate,
+        endDate,
+        organizationId
+      );
+
+      return allocation;
+    } catch (error) {
+      console.error('❌ Get resource allocation error:', error);
+      throw new BadRequestException('Failed to get resource allocation');
     }
   }
 
@@ -152,6 +225,22 @@ export class ResourcesController {
     return await this.allocationService.getTaskBasedHeatMap(
       req.user.organizationId
     );
+  }
+
+  @Get('my-capacity')
+  @ApiOperation({ summary: 'Get current user capacity' })
+  @ApiResponse({ status: 200, description: 'User capacity retrieved successfully' })
+  async getMyCapacity(@Req() req: any) {
+    const userEmail = req.user?.email;
+    const organizationId = req.user?.organizationId;
+    
+    if (!userEmail || !organizationId) {
+      throw new BadRequestException('User email and organization ID are required');
+    }
+
+    // Calculate capacity based on assigned tasks
+    const capacity = await this.resourcesService.calculateUserCapacity(userEmail, organizationId);
+    return { capacityPercentage: capacity };
   }
 
   @Get('test')
