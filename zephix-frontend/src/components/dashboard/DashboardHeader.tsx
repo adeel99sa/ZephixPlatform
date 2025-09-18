@@ -1,7 +1,6 @@
 import React, { memo } from 'react';
 import {
   ChatBubbleLeftRightIcon,
-  PlusIcon,
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
@@ -10,13 +9,9 @@ import {
 import { useUser } from '../../hooks/useUser';
 import { useSidebar } from '../../hooks/useSidebar';
 
-interface DashboardHeaderProps {
-  onCreateProject: () => void;
-}
+interface DashboardHeaderProps {}
 
-export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(({
-  onCreateProject,
-}) => {
+export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(() => {
   const { user, logout } = useUser();
   const { isOpen, toggle } = useSidebar();
 
@@ -51,14 +46,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = memo(({
             <h1 className="text-xl font-bold tracking-tight text-gradient">Zephix AI</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <button
-              onClick={onCreateProject}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-400/60 transition-all duration-200"
-              aria-label="Create new project"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" aria-hidden="true" />
-              Create Project
-            </button>
             <button 
               className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
               aria-label="User profile"

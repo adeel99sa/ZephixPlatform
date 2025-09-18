@@ -17,7 +17,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader user={authData.user} />
+      <DashboardHeader />
       <div className="flex">
         <Sidebar permissions={authData.permissions} />
         <main className="flex-1 p-6">
