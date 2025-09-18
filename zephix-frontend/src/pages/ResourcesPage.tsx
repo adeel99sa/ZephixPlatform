@@ -36,12 +36,22 @@ const ResourcesPage = () => {
   const fetchHeatMapData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/resources/task-heat-map');
-      setHeatMapData(response.data);
       setError(null);
+      const response = await api.get('/resources/task-heat-map');
+      
+      // Handle both interceptor-wrapped and direct responses
+      const responseData = response.data?.data || response.data;
+      
+      // Ensure we always have an array
+      const heatMapArray = Array.isArray(responseData) ? responseData : 
+                          Array.isArray(responseData?.heatMap) ? responseData.heatMap : 
+                          Array.isArray(responseData?.data) ? responseData.data : [];
+      
+      setHeatMapData(heatMapArray);
     } catch (err: any) {
       console.error('Failed to fetch heat map data:', err);
       setError('Failed to load resource allocation data');
+      setHeatMapData([]);
     } finally {
       setLoading(false);
     }

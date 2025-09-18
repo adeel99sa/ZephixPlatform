@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { CreateTaskForm } from './CreateTaskForm';
 import { AssignResourceModal } from '../resources/AssignResourceModal';
-import { EditTaskModal } from './EditTaskModal';
 
 interface Task {
   id: string;
@@ -25,8 +24,6 @@ export function TaskList({ projectId }: TaskListProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingTask, setEditingTask] = useState<any>(null);
 
   useEffect(() => {
     loadTasks();
@@ -37,16 +34,7 @@ export function TaskList({ projectId }: TaskListProps) {
       setLoading(true);
       setError(null);
       const response = await api.get(`/projects/${projectId}/tasks`);
-      
-      // Handle both interceptor-wrapped and direct responses
-      const responseData = response.data?.data || response.data;
-      
-      // Ensure we always have an array
-      const tasksArray = Array.isArray(responseData) ? responseData : 
-                        Array.isArray(responseData?.tasks) ? responseData.tasks : 
-                        Array.isArray(responseData?.data) ? responseData.data : [];
-      
-      setTasks(tasksArray);
+      setTasks(response.data || []);
     } catch (error: any) {
       console.error('Failed to load tasks:', error);
       // Don't show error to user, just show empty state
@@ -59,18 +47,6 @@ export function TaskList({ projectId }: TaskListProps) {
   const handleAssignResource = (taskId: string) => {
     setSelectedTaskId(taskId);
     setShowAssignModal(true);
-  };
-
-  const handleEditTask = (task: any) => {
-    setEditingTask(task);
-    setShowEditModal(true);
-  };
-
-  const handleUpdateSuccess = (updatedTask: any) => {
-    // Refresh the tasks list
-    loadTasks();
-    setShowEditModal(false);
-    setEditingTask(null);
   };
 
   if (loading) {
@@ -159,24 +135,9 @@ export function TaskList({ projectId }: TaskListProps) {
                       Due: {new Date(task.dueDate).toLocaleDateString()}
                     </span>
                   )}
-                  {task.resourceImpactScore && (
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                      task.resourceImpactScore > 100 ? 'bg-red-100 text-red-800' :
-                      task.resourceImpactScore > 80 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {task.resourceImpactScore}% allocated
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="ml-4 flex-shrink-0 flex items-center gap-2">
-                <button
-                  onClick={() => handleEditTask(task)}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  Edit
-                </button>
                 <button
                   onClick={() => handleAssignResource(task.id)}
                   className="text-blue-600 hover:text-blue-800 text-sm"
@@ -210,16 +171,6 @@ export function TaskList({ projectId }: TaskListProps) {
             // Optionally reload tasks to show assignment
             loadTasks();
           }}
-        />
-      )}
-
-      {/* Edit Task Modal */}
-      {showEditModal && editingTask && (
-        <EditTaskModal
-          task={editingTask}
-          onClose={() => setShowEditModal(false)}
-          onSuccess={handleUpdateSuccess}
-          projectTasks={tasks}
         />
       )}
     </div>

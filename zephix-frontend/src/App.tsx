@@ -12,6 +12,8 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { AIMappingPage } from './pages/ai/AIMappingPage';
 import { AISuggestionsPage } from './pages/ai/AISuggestionsPage';
 import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
+import { TemplateHubPage } from './pages/templates/TemplateHubPage';
+import { CommandPalette } from './components/CommandPalette';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AuthProvider } from './components/auth/AuthProvider';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -103,9 +105,18 @@ function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/templates" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <TemplateHubPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            
             {/* Catch all - redirect to landing page */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <CommandPalette />
         </Router>
       </AuthProvider>
     </ErrorBoundary>
