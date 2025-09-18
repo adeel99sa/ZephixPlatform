@@ -53,4 +53,16 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   taskNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedResources?: string;
+
+  @IsOptional()
+  @IsNumber()
+  resourceImpactScore?: number;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: Date;
 }
