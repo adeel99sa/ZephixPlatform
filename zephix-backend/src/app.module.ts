@@ -35,6 +35,7 @@ import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { KPIModule } from './modules/kpi/kpi.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -90,6 +91,7 @@ if (!(global as any).crypto) {
       PortfoliosModule,
       ProgramsModule,
       TasksModule,
+      KPIModule,
     ] : [
       HealthModule, // Keep health module for basic health checks
     ]),
