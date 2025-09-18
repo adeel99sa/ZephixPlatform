@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import { CreateResourceModal } from '../resources/CreateResourceModal';
 
 interface Resource {
   id: string;
@@ -20,6 +21,7 @@ export function ProjectResources({ projectId }: ProjectResourcesProps) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     loadResources();
@@ -101,12 +103,20 @@ export function ProjectResources({ projectId }: ProjectResourcesProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Project Resources</h3>
-        <button 
-          onClick={() => {/* TODO: Add assign modal */}}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Assign Resource
-        </button>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Create Resource
+          </button>
+          <button 
+            onClick={() => {/* TODO: Add assign modal */}}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Assign Resource
+          </button>
+        </div>
       </div>
       
       {resources.length === 0 ? (
@@ -157,6 +167,18 @@ export function ProjectResources({ projectId }: ProjectResourcesProps) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Create Resource Modal */}
+      {showCreateModal && (
+        <CreateResourceModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={(resource) => {
+            console.log('Resource created:', resource);
+            setShowCreateModal(false);
+            loadResources(); // Reload resources to show the new one
+          }}
+        />
       )}
     </div>
   );

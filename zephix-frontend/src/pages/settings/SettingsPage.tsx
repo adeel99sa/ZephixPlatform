@@ -74,30 +74,46 @@ export const SettingsPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      // Load organization settings
-      const orgResponse = await api.get('/organizations/settings', {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
+      // Since settings endpoints don't exist yet, use mock data
+      // TODO: Replace with real API calls when endpoints are implemented
+      console.warn('Settings endpoints not implemented, using mock data');
+      
+      // Mock organization settings
+      setOrganizationSettings({
+        id: 'org-1',
+        name: user.organizationId || 'Default Organization',
+        domain: 'example.com',
+        timezone: 'UTC',
+        language: 'en',
+        dateFormat: 'MM/DD/YYYY',
+        currency: 'USD',
+        organizationId: user.organizationId
       });
       
-      // Load user settings
-      const userResponse = await api.get('/users/settings', {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
+      // Mock user settings
+      setUserSettings({
+        id: user.id || 'user-1',
+        email: user.email || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        timezone: 'UTC',
+        language: 'en',
+        emailNotifications: true,
+        pushNotifications: true,
+        theme: 'light',
+        organizationId: user.organizationId
       });
       
-      // Load security settings
-      const securityResponse = await api.get('/organizations/security', {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
+      // Mock security settings
+      setSecuritySettings({
+        id: 'security-1',
+        twoFactorEnabled: false,
+        sessionTimeout: 30,
+        passwordPolicy: 'Standard',
+        ipWhitelist: [],
+        organizationId: user.organizationId
       });
       
-      setOrganizationSettings(orgResponse.data || null);
-      setUserSettings(userResponse.data || null);
-      setSecuritySettings(securityResponse.data || null);
     } catch (error) {
       console.error('Failed to load settings:', error);
       setError('Failed to load settings');
@@ -114,14 +130,12 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await api.patch('/organizations/settings', settings, {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
-      });
+      // Mock save - update local state only
+      // TODO: Replace with real API call when endpoint is implemented
+      console.warn('Organization settings save not implemented, updating local state only');
       
-      setOrganizationSettings(prev => ({ ...prev, ...response.data }));
-      toast.success('Organization settings saved');
+      setOrganizationSettings(prev => ({ ...prev, ...settings }));
+      toast.success('Organization settings saved (local only)');
     } catch (error) {
       console.error('Failed to save organization settings:', error);
       toast.error('Failed to save organization settings');
@@ -138,14 +152,12 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await api.patch('/users/settings', settings, {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
-      });
+      // Mock save - update local state only
+      // TODO: Replace with real API call when endpoint is implemented
+      console.warn('User settings save not implemented, updating local state only');
       
-      setUserSettings(prev => ({ ...prev, ...response.data }));
-      toast.success('User settings saved');
+      setUserSettings(prev => ({ ...prev, ...settings }));
+      toast.success('User settings saved (local only)');
     } catch (error) {
       console.error('Failed to save user settings:', error);
       toast.error('Failed to save user settings');
@@ -162,14 +174,12 @@ export const SettingsPage: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const response = await api.patch('/organizations/security', settings, {
-        headers: {
-          'X-Org-Id': user.organizationId
-        }
-      });
+      // Mock save - update local state only
+      // TODO: Replace with real API call when endpoint is implemented
+      console.warn('Security settings save not implemented, updating local state only');
       
-      setSecuritySettings(prev => ({ ...prev, ...response.data }));
-      toast.success('Security settings saved');
+      setSecuritySettings(prev => ({ ...prev, ...settings }));
+      toast.success('Security settings saved (local only)');
     } catch (error) {
       console.error('Failed to save security settings:', error);
       toast.error('Failed to save security settings');
