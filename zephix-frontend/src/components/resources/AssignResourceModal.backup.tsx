@@ -35,7 +35,7 @@ export function AssignResourceModal({ projectId, taskId, onClose, onSuccess }: A
   const loadAvailableResources = async () => {
     try {
       const response = await api.get('/resources');
-      const resourceList = Array.isArray(response.data?.data) ? response.data.data : [];
+      const resourceList = response.data?.data || response.data || [];
       setResources(resourceList);
     } catch (err) {
       console.error('Failed to load resources:', err);
