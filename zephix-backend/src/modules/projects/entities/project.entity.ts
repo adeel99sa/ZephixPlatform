@@ -9,10 +9,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Organization } from '../../../organizations/entities/organization.entity';
-import { ProjectAssignment } from './project-assignment.entity';
-import { ProjectPhase } from './project-phase.entity';
 import { Task } from './task.entity';
+import { ProjectPhase } from './project-phase.entity';
+import { ProjectAssignment } from './project-assignment.entity';
+import { Organization } from '../../../organizations/entities/organization.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -87,12 +87,6 @@ export class Project {
   })
   riskLevel: ProjectRiskLevel;
 
-  @Column({ 
-    type: 'varchar',
-    default: 'agile'
-  })
-  methodology: 'agile' | 'waterfall' | 'hybrid' | 'scrum' | 'kanban';
-
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
@@ -103,10 +97,6 @@ export class Project {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Organization, org => org.projects)
-  @JoinColumn({ name: 'organization_id' })
-  organization: Organization;
-
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
   createdByUser: User;
@@ -115,12 +105,27 @@ export class Project {
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 
-  @OneToMany(() => ProjectAssignment, assignment => assignment.project)
-  assignments: ProjectAssignment[];
+  // Missing database columns
+  @Column({ name: 'program_id', type: 'uuid', nullable: true })
+  programId: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  size: string;
+
+  @Column({ type: 'varchar', length: 50, default: 'agile', nullable: true })
+  methodology: string;
+
+  // Missing relations that other entities expect
+  @OneToMany(() => Task, task => task.project)
+  tasks: Task[];
 
   @OneToMany(() => ProjectPhase, phase => phase.project)
   phases: ProjectPhase[];
 
-  @OneToMany(() => Task, task => task.project)
-  tasks: Task[];
+  @OneToMany(() => ProjectAssignment, assignment => assignment.project)
+  assignments: ProjectAssignment[];
+
+  @ManyToOne(() => Organization, organization => organization.projects)
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
 }

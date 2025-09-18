@@ -67,6 +67,18 @@ export class Task {
   @Column({ name: 'actual_hours', default: 0 })
   actualHours: number;
 
+  @Column({ name: 'resource_impact_score', type: 'integer', nullable: true })
+  resourceImpactScore: number;
+
+  @Column({ name: 'assigned_resources', type: 'text', nullable: true })
+  assignedResources: string;
+
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate: Date;
+
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date;
+
   @Column({ type: 'date', name: 'planned_start_date', nullable: true })
   plannedStartDate?: Date;
 
