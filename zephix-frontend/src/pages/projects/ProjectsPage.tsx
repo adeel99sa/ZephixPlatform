@@ -21,6 +21,8 @@ const ProjectsPage: React.FC = () => {
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const navigate = useNavigate();
 
+  console.log('ProjectsPage rendering...');
+
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -29,11 +31,13 @@ const ProjectsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching projects...');
       const data = await projectService.getProjects();
+      console.log('Projects data received:', data);
       setProjects(data.projects || data.data || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch projects');
       console.error('Error fetching projects:', err);
+      setError(err.message || 'Failed to fetch projects');
     } finally {
       setLoading(false);
     }

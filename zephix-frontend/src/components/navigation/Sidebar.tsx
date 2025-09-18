@@ -1,6 +1,6 @@
 // File: src/components/navigation/Sidebar.tsx
 import { NavLink } from 'react-router-dom';
-import { FolderIcon, UsersIcon, ChartBarIcon, CogIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, UsersIcon, ChartBarIcon, CogIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
   permissions: {
@@ -17,6 +17,7 @@ export function Sidebar({ permissions }: SidebarProps) {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: ChartBarIcon, show: true },
     { name: 'Projects', href: '/projects', icon: FolderIcon, show: permissions?.canViewProjects ?? false },
+    { name: 'Templates', href: '/templates', icon: DocumentDuplicateIcon, show: true },
     { name: 'Resources', href: '/resources', icon: UsersIcon, show: permissions?.canManageResources ?? false },
     { name: 'Analytics', href: '/analytics', icon: ChartBarIcon, show: permissions?.canViewAnalytics ?? false },
     { name: 'Settings', href: '/settings', icon: CogIcon, show: permissions?.isAdmin ?? false },

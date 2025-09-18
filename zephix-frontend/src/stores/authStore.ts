@@ -84,7 +84,9 @@ export const useAuthStore = create<AuthState>()(
             twoFactorCode,
           });
 
-          const { user, accessToken, refreshToken, expiresIn } = response.data;
+          // Handle both interceptor-wrapped and direct responses
+          const authData = response.data?.data || response.data;
+          const { user, accessToken, refreshToken, expiresIn } = authData;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Set auth header for future requests
@@ -115,7 +117,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.post('/auth/signup', data);
           
-          const { user, accessToken, refreshToken, expiresIn, message } = response.data;
+          // Handle both interceptor-wrapped and direct responses
+          const authData = response.data?.data || response.data;
+          const { user, accessToken, refreshToken, expiresIn, message } = authData;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Set auth header
@@ -170,7 +174,9 @@ export const useAuthStore = create<AuthState>()(
           }
           
           const response = await api.post('/auth/refresh', { refreshToken });
-          const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+          // Handle both interceptor-wrapped and direct responses
+          const authData = response.data?.data || response.data;
+          const { accessToken, refreshToken: newRefreshToken, expiresIn } = authData;
           const expiresAt = Date.now() + (expiresIn * 1000);
 
           // Update auth header
@@ -204,7 +210,9 @@ export const useAuthStore = create<AuthState>()(
           try {
             api.defaults.headers.common['Authorization'] = `Bearer ${state.accessToken}`;
             const response = await api.get('/auth/me');
-            set({ user: response.data.user, isAuthenticated: true });
+            // Handle both interceptor-wrapped and direct responses
+            const userData = response.data?.data || response.data;
+            set({ user: userData.user, isAuthenticated: true });
           } catch (error) {
             get().logout();
           }

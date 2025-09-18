@@ -6,13 +6,18 @@ import ResourceHeatMap from '../../components/resources/ResourceHeatMap';
 import { ProjectResources } from '../../components/projects/ProjectResources';
 import { ProjectDisplay } from '../../components/projects/ProjectDisplay';
 import { ProjectEditForm } from '../../components/projects/ProjectEditForm';
+import { BoardView } from '../../components/views/BoardView';
+import { TimelineView } from '../../components/views/TimelineView';
 import { projectService } from '../../services/projectService';
+import api from '../../services/api';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [viewType, setViewType] = useState<'list' | 'board' | 'timeline'>('list');
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -24,6 +29,7 @@ const ProjectDetailPage = () => {
       return;
     }
     loadProject();
+    loadTasks();
   }, [id]);
 
   const loadProject = async () => {
@@ -37,6 +43,30 @@ const ProjectDetailPage = () => {
       setError('Failed to load project details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTasks = async () => {
+    try {
+      const response = await api.get(`/projects/${id}/tasks`);
+      const responseData = response.data?.data || response.data;
+      const tasksArray = Array.isArray(responseData) ? responseData : [];
+      setTasks(tasksArray);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      setTasks([]);
+    }
+  };
+
+  const handleTaskUpdate = async (taskId: string, updates: any) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, updates);
+      // Refresh tasks list
+      await loadTasks();
+      // Trigger KPI recalculation
+      await api.post(`/kpi/project/${id}/refresh`);
+    } catch (error) {
+      console.error('Failed to update task:', error);
     }
   };
 
@@ -161,7 +191,34 @@ const ProjectDetailPage = () => {
         )}
 
         {activeTab === 'tasks' && (
-          <TaskList projectId={project.id} />
+          <div>
+            {/* View Toggle Buttons */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setViewType('list')}
+                className={`px-4 py-2 rounded ${viewType === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setViewType('board')}
+                className={`px-4 py-2 rounded ${viewType === 'board' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              >
+                Board
+              </button>
+              <button
+                onClick={() => setViewType('timeline')}
+                className={`px-4 py-2 rounded ${viewType === 'timeline' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              >
+                Timeline
+              </button>
+            </div>
+
+            {/* Conditional View Rendering */}
+            {viewType === 'list' && <TaskList projectId={project.id} />}
+            {viewType === 'board' && <BoardView projectId={project.id} tasks={tasks} onTaskUpdate={handleTaskUpdate} />}
+            {viewType === 'timeline' && <TimelineView tasks={tasks} onTaskUpdate={handleTaskUpdate} />}
+          </div>
         )}
 
         {activeTab === 'resources' && (

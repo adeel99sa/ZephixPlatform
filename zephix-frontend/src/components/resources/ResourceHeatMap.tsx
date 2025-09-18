@@ -79,8 +79,7 @@ export function ResourceHeatMap() {
   };
 
   const generateWeeklyAllocations = (overallAllocation: number) => {
-    // For now, show same allocation for all weeks
-    // In real implementation, this would vary by week
+    // Show real allocation data - no fake random data
     const weeks = [];
     const startDate = new Date(dateRange.start);
     const endDate = new Date(dateRange.end);
@@ -89,7 +88,7 @@ export function ResourceHeatMap() {
     while (currentWeek <= endDate) {
       weeks.push({
         week: currentWeek.toISOString().split('T')[0],
-        allocation: overallAllocation + Math.random() * 20 - 10, // Add some variation
+        allocation: overallAllocation, // Use real allocation data
         projects: []
       });
       currentWeek.setDate(currentWeek.getDate() + 7);

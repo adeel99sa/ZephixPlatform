@@ -13,10 +13,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
     description: '',
     estimatedHours: 8,
     status: 'todo',
-    priority: 'medium',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: '',
-    assignedResources: ''
+    priority: 'medium'
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,51 +114,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
-
-          {/* Date Range Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Start Date *
-              </label>
-              <input
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                End Date *
-              </label>
-              <input
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                min={formData.startDate}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Assigned Resources Field */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Assigned Resources
-              <span className="text-gray-500 text-xs ml-1">(comma separated names)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.assignedResources}
-              onChange={(e) => setFormData({...formData, assignedResources: e.target.value})}
-              placeholder="e.g., John Smith, Sarah Lee, External QA Team"
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-            />
-          </div>        </div>
+        </div>
       </div>
       
       {/* Error Display */}
