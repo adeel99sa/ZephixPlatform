@@ -8,19 +8,15 @@ import { UsersModule } from '../users/users.module';
 import { Project } from './entities/project.entity';
 import { ProjectAssignment } from './entities/project-assignment.entity';
 import { ProjectPhase } from './entities/project-phase.entity';
-import { Task } from './entities/task.entity';
-import { TaskDependency } from './entities/task-dependency.entity';
 import { User } from '../users/entities/user.entity';
 
 // Import all services
 import { ProjectsService } from './services/projects.service';
 import { ProjectAssignmentService } from './services/project-assignment.service';
-import { TaskService } from './services/task.service';
 import { DependencyService } from './services/dependency.service';
 
 // Import all controllers
 import { ProjectsController } from './projects.controller';
-import { TaskController } from './controllers/task.controller';
 
 @Module({
   imports: [
@@ -28,26 +24,21 @@ import { TaskController } from './controllers/task.controller';
       Project,
       ProjectAssignment,
       ProjectPhase,
-      Task,
-      TaskDependency,
       User,
     ]),
     UsersModule,  // This provides access to User entity for TaskService
   ],
   controllers: [
     ProjectsController,
-    TaskController,
   ],
   providers: [
     ProjectsService,
     ProjectAssignmentService,
-    TaskService,
     DependencyService,
   ],
   exports: [
     ProjectsService,
     ProjectAssignmentService,
-    TaskService,
     DependencyService,
   ],
 })
