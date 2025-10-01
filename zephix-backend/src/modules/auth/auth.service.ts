@@ -82,19 +82,52 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // Find user with organization
-    const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() }
-    });
+    console.log('Login attempt for email:', email);
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    let user: User;
+    try {
+      // Find user with organization
+      user = await this.userRepository.findOne({
+        where: { email: email.toLowerCase() },
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          organizationId: true,
+          organizationRole: true,
+          role: true
+        }
+      });
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      console.log('User found:', user ? 'Yes' : 'No');
+      if (user) {
+        console.log('User details:', {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          isActive: user.isActive
+        });
+      }
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Check password
+      console.log('Checking password...');
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      console.log('Password valid:', isPasswordValid);
+      
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
 
     // Update last login

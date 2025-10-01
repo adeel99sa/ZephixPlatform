@@ -1,13 +1,19 @@
 import { DataSource } from 'typeorm';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
+import { Resource } from '../modules/resources/entities/resource.entity';
+import { ResourceAllocation } from '../modules/resources/entities/resource-allocation.entity';
+import { ResourceConflict } from '../modules/resources/entities/resource-conflict.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { Task } from '../modules/projects/entities/task.entity';
+import { ProjectPhase } from '../modules/projects/entities/project-phase.entity';
+import { ProjectAssignment } from '../modules/projects/entities/project-assignment.entity';
+import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
 
-export const AppDataSource = new DataSource({
+const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DATABASE_HOST || 'localhost',
   port: parseInt(process.env.DATABASE_PORT, 10) || 5432,
@@ -17,12 +23,17 @@ export const AppDataSource = new DataSource({
   entities: [
     User,
     Organization,
+    Resource,
+    ResourceAllocation,
+    ResourceConflict,
     Project,
     Task,
+    ProjectPhase,
+    ProjectAssignment,
+    TaskDependency,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
 });
 
-// Add this line for default export
 export default AppDataSource;

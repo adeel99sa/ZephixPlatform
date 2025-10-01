@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { User } from '../../modules/users/entities/user.entity';
 import { Project } from '../../modules/projects/entities/project.entity';
 import { UserOrganization } from './user-organization.entity';
+import { Workspace } from '../../modules/workspaces/entities/workspace.entity';
 
 @Entity('organizations')
 export class Organization {
@@ -49,6 +50,9 @@ export class Organization {
 
   @OneToMany(() => Project, project => project.organization)
   projects: Project[];
+
+  @OneToMany(() => Workspace, workspace => workspace.organization)
+  workspaces: Workspace[];
 
   // Methods
   isActive(): boolean {

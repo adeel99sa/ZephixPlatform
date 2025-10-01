@@ -6,6 +6,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import {
   AIChatService,
@@ -14,6 +15,7 @@ import {
   ChatContext,
 } from '../services/ai-chat.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 
 export interface SendMessageRequest {
   message: string;
@@ -36,7 +38,7 @@ export interface ChatHistoryRequest {
 }
 
 @Controller('ai-chat')
-// @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard)
 export class AIChatController {
   constructor(private readonly aiChatService: AIChatService) {
     console.log('AIChatController initialized');
@@ -45,6 +47,7 @@ export class AIChatController {
   @Post('send-message')
   async sendMessage(
     @Body() request: SendMessageRequest,
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: request.message,
@@ -53,7 +56,7 @@ export class AIChatController {
       documents: request.documents,
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('analyze-project')
@@ -69,6 +72,7 @@ export class AIChatController {
         | 'resource'
         | 'communication';
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Analyze this project with ${request.analysisType || 'comprehensive'} analysis`,
@@ -76,7 +80,7 @@ export class AIChatController {
       projectData: { projectId: request.projectId },
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('create-project')
@@ -93,6 +97,7 @@ export class AIChatController {
       };
       context: ChatContext;
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Create a new project: ${request.projectDetails.name} - ${request.projectDetails.description || ''}`,
@@ -100,7 +105,7 @@ export class AIChatController {
       projectData: request.projectDetails,
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('optimize-resources')
@@ -111,6 +116,7 @@ export class AIChatController {
       context: ChatContext;
       optimizationType?: 'team' | 'workload' | 'skills' | 'budget';
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Optimize ${request.optimizationType || 'team'} resources for this project`,
@@ -118,7 +124,7 @@ export class AIChatController {
       projectData: { projectId: request.projectId },
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('assess-risks')
@@ -134,6 +140,7 @@ export class AIChatController {
         | 'stakeholder'
         | 'comprehensive';
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Assess ${request.riskType || 'comprehensive'} risks for this project`,
@@ -141,7 +148,7 @@ export class AIChatController {
       projectData: { projectId: request.projectId },
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('plan-communication')
@@ -152,6 +159,7 @@ export class AIChatController {
       context: ChatContext;
       communicationType?: 'stakeholder' | 'team' | 'executive' | 'client';
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Plan ${request.communicationType || 'stakeholder'} communication for this project`,
@@ -159,7 +167,7 @@ export class AIChatController {
       projectData: { projectId: request.projectId },
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Post('monitor-health')
@@ -170,6 +178,7 @@ export class AIChatController {
       context: ChatContext;
       healthMetrics?: string[];
     },
+    @Request() req: any,
   ): Promise<ChatResponse> {
     const aiRequest: AIAnalysisRequest = {
       message: `Monitor project health and provide status update`,
@@ -180,11 +189,10 @@ export class AIChatController {
       },
     };
 
-    return this.aiChatService.processMessage(aiRequest);
+    return this.aiChatService.processMessage(aiRequest, req.validatedOrganizationId);
   }
 
   @Get('capabilities')
-  @UseGuards() // Temporarily remove authentication for testing
   async getCapabilities(): Promise<{
     capabilities: string[];
     intents: string[];
@@ -236,7 +244,6 @@ export class AIChatController {
   }
 
   @Get('quick-actions')
-  @UseGuards() // Temporarily remove authentication for testing
   async getQuickActions(): Promise<{
     actions: Array<{
       id: string;

@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { Resource } from './resource.entity';
 import { Task } from '../../tasks/entities/task.entity';
+import { Project } from '../../projects/entities/project.entity';
 
 @Entity('resource_allocations')
 @Index('idx_ra_dates', ['startDate', 'endDate'])
@@ -36,6 +37,15 @@ export class ResourceAllocation {
   @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
   hoursPerWeek: number;
 
+  @Column({ name: 'justification', type: 'text', nullable: true })
+  justification: string;
+
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'active' })
+  status: string;
+
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp without time zone' })
   createdAt: Date;
 
@@ -50,4 +60,10 @@ export class ResourceAllocation {
   @ManyToOne(() => Task, { nullable: true })
   @JoinColumn({ name: 'task_id' })
   task: Task;
+
+  @ManyToOne(() => Project, project => project.resourceAllocations, {
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'project_id' })
+  project: Project;
 }

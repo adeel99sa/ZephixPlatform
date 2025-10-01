@@ -57,4 +57,18 @@ async findByOrganization(organizationId: string): Promise<User[]> {
     order: { firstName: 'ASC' }
   });
 }
+
+async countByOrganization(organizationId: string): Promise<number> {
+  this.checkDatabaseAvailability();
+  return this.userRepository!.count({
+    where: { organizationId, isActive: true }
+  });
+}
+
+async countAdmins(organizationId: string): Promise<number> {
+  this.checkDatabaseAvailability();
+  return this.userRepository!.count({
+    where: { organizationId, isActive: true, role: 'admin' }
+  });
+}
 }
