@@ -1,0 +1,5 @@
+// Add this to the login method where user is queried
+user = await this.userRepository.findOne({
+  where: { email: email.toLowerCase() },
+  select: ['id', 'email', 'password', 'firstName', 'lastName', 'isActive', 'organizationId', 'organizationRole', 'role']
+});

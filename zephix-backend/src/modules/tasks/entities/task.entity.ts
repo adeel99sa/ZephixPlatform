@@ -28,6 +28,9 @@ export class Task {
   @Column({ name: 'title' })
   name: string;
 
+  @Column({ name: 'title' })
+  title: string;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 
@@ -55,6 +58,21 @@ export class Task {
 
   @Column({ name: 'planned_end_date', type: 'date', nullable: true })
   endDate: Date;
+
+  @Column({ name: 'planned_start', type: 'date', nullable: true })
+  plannedStart: Date;
+
+  @Column({ name: 'planned_end', type: 'date', nullable: true })
+  plannedEnd: Date;
+
+  @Column({ name: 'duration_days', type: 'int', default: 1 })
+  durationDays: number;
+
+  @Column({ name: 'completion_percentage', type: 'int', default: 0 })
+  completionPercentage: number;
+
+  @Column({ name: 'is_critical_path', type: 'boolean', default: false })
+  isCriticalPath: boolean;
 
   @Column({ name: 'due_date', type: 'timestamptz', nullable: true })
   dueDate: Date;

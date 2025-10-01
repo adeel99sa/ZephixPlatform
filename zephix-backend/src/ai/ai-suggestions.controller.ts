@@ -22,7 +22,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { OrganizationValidationGuard } from '../guards/organization-validation.guard';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AISuggestionsService } from './services/ai-suggestions.service';
 import { 
@@ -34,7 +34,7 @@ import {
 
 @ApiTags('AI Suggestions')
 @Controller('ai/suggestions')
-@UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AISuggestionsController {
   constructor(
@@ -67,12 +67,8 @@ export class AISuggestionsController {
     @Query('offset') offset = 0,
   ): Promise<SuggestionsResponseDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
+      const organizationId = req.validatedOrganizationId;
       const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
 
       return await this.aiSuggestionsService.getSuggestions(
         organizationId,
@@ -105,12 +101,8 @@ export class AISuggestionsController {
     @Request() req: any,
   ): Promise<{ message: string; jobId: string }> {
     try {
-      const organizationId = req.headers['x-org-id'];
+      const organizationId = req.validatedOrganizationId;
       const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
 
       return await this.aiSuggestionsService.generateSuggestions(
         request,
@@ -140,12 +132,8 @@ export class AISuggestionsController {
     @Request() req: any,
   ): Promise<AISuggestionDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
+      const organizationId = req.validatedOrganizationId;
       const userId = req.user.id;
-      
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
 
       return await this.aiSuggestionsService.updateSuggestionStatus(
         id,

@@ -102,12 +102,12 @@ export class AIPMAssistantService {
     }
   }
 
-  async analyzeProjectHealth(projectId: string): Promise<ProjectHealthReport> {
+  async analyzeProjectHealth(projectId: string, organizationId: string): Promise<ProjectHealthReport> {
     this.logger.log(`Analyzing project health for project: ${projectId}`);
 
     try {
       const project = await this.projectRepository.findOne({
-        where: { id: projectId },
+        where: { id: projectId, organizationId },
         relations: ['tasks', 'risks', 'stakeholders'],
       });
 
@@ -161,12 +161,13 @@ export class AIPMAssistantService {
 
   async optimizePortfolio(
     portfolioId: string,
+    organizationId: string,
   ): Promise<PortfolioRecommendations> {
     this.logger.log(`Optimizing portfolio: ${portfolioId}`);
 
     try {
       const projects = await this.projectRepository.find({
-        where: { portfolioId },
+        where: { portfolioId, organizationId },
         relations: ['tasks', 'risks', 'stakeholders'],
       });
 
@@ -212,12 +213,13 @@ export class AIPMAssistantService {
 
   async generateStakeholderUpdates(
     projectId: string,
+    organizationId: string,
   ): Promise<CommunicationPlan> {
     this.logger.log(`Generating stakeholder updates for project: ${projectId}`);
 
     try {
       const project = await this.projectRepository.findOne({
-        where: { id: projectId },
+        where: { id: projectId, organizationId },
         relations: ['stakeholders', 'tasks', 'risks'],
       });
 

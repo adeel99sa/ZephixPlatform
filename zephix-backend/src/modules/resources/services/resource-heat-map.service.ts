@@ -41,7 +41,7 @@ export class ResourceHeatMapService {
   private processAllocations(allocations: ResourceAllocation[], startDate: Date, endDate: Date) {
     const heatMapData: any = {};
     
-    // Group by resource and week
+    // Group by resource and week, then aggregate by project
     allocations.forEach(allocation => {
       const resourceId = allocation.resourceId || allocation.userId;
       
@@ -64,15 +64,29 @@ export class ResourceHeatMapService {
         if (!heatMapData[resourceId].weeks[weekKey]) {
           heatMapData[resourceId].weeks[weekKey] = {
             totalAllocation: 0,
-            projects: []
+            projects: {}
           };
         }
 
-        heatMapData[resourceId].weeks[weekKey].totalAllocation = Number(heatMapData[resourceId].weeks[weekKey].totalAllocation) + Number(allocation.allocationPercentage);
-        heatMapData[resourceId].weeks[weekKey].projects.push({
-          projectId: allocation.projectId,
-          allocation: allocation.allocationPercentage
-        });
+        // Aggregate by project to prevent duplicates
+        const projectKey = allocation.projectId;
+        if (!heatMapData[resourceId].weeks[weekKey].projects[projectKey]) {
+          heatMapData[resourceId].weeks[weekKey].projects[projectKey] = 0;
+        }
+        
+        heatMapData[resourceId].weeks[weekKey].projects[projectKey] += Number(allocation.allocationPercentage);
+      });
+    });
+
+    // Convert projects object to array and calculate total allocation
+    Object.keys(heatMapData).forEach(resourceId => {
+      Object.keys(heatMapData[resourceId].weeks).forEach(weekKey => {
+        const weekData = heatMapData[resourceId].weeks[weekKey];
+        weekData.totalAllocation = Object.values(weekData.projects).reduce((sum: number, allocation: any) => sum + allocation, 0);
+        weekData.projects = Object.entries(weekData.projects).map(([projectId, allocation]) => ({
+          projectId,
+          allocation
+        }));
       });
     });
 

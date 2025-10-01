@@ -23,6 +23,27 @@ export class TaskDependency {
   @Column({ name: 'type', default: 'finish-to-start' })
   type: 'finish-to-start' | 'start-to-start' | 'finish-to-finish' | 'start-to-finish';
 
+  @Column({ name: 'task_id' })
+  taskId: string;
+
+  @Column({ name: 'depends_on_task_id' })
+  dependsOnTaskId: string;
+
+  @Column({ name: 'lead_lag_days', type: 'int', default: 0 })
+  leadLagDays: number;
+
+  @Column({ name: 'dependency_type', type: 'varchar', length: 50, default: 'finish-to-start' })
+  dependencyType: string;
+
+  @Column({ name: 'description', type: 'text', nullable: true })
+  description: string;
+
+  @Column({ name: 'relationship_type', type: 'varchar', length: 50, default: 'blocks' })
+  relationshipType: string;
+
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'active' })
+  status: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
