@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TaskDependency } from '../entities/task-dependency.entity';
+import { TaskDependency } from '../../tasks/entities/task-dependency.entity';
 import { CreateDependencyDto } from '../dto/create-dependency.dto';
 
 @Injectable()
@@ -14,19 +14,16 @@ export class DependencyService {
   async create(taskId: string, dto: CreateDependencyDto, userId: string): Promise<TaskDependency> {
     // Create the dependency with proper field mapping
     const dependency = this.dependencyRepository.create({
-      taskId,
-      dependencyType: dto.dependencyType as any,
-      description: dto.description,
-      relationshipType: (dto.relationshipType || 'blocks') as any,
-      targetDate: dto.targetDate,
-      leadLagDays: dto.leadLagDays || 0,
-      status: 'pending' as any,
-      externalUrl: dto.externalUrl,
-      externalSystem: dto.externalSystem,
-      externalId: dto.externalId,
-      vendorName: dto.vendorName,
+      predecessorId: dto.dependsOnTaskId,
+      successorId: taskId,
+      type: (dto.dependencyType || 'finish-to-start') as 'finish-to-start' | 'start-to-start' | 'finish-to-finish' | 'start-to-finish',
+      taskId: taskId,
       dependsOnTaskId: dto.dependsOnTaskId,
-      createdBy: userId || undefined,
+      leadLagDays: dto.leadLagDays || 0,
+      dependencyType: dto.dependencyType || 'finish-to-start',
+      description: dto.description,
+      relationshipType: dto.relationshipType || 'blocks',
+      status: 'active',
     });
     
     return this.dependencyRepository.save(dependency);
@@ -48,11 +45,7 @@ export class DependencyService {
     const dependency = await this.dependencyRepository.findOne({ where: { id } });
     if (!dependency) throw new Error('Dependency not found');
     
-    dependency.status = status as any;
-    if (status === 'completed') {
-      dependency.completedAt = new Date();
-      dependency.completedBy = userId;
-    }
+    dependency.status = status;
     
     return this.dependencyRepository.save(dependency);
   }

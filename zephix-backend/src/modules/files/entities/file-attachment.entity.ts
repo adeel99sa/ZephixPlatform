@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Task } from '../../projects/entities/task.entity';
+import { Task } from '../../tasks/entities/task.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('file_attachments')

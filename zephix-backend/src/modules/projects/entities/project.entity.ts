@@ -9,7 +9,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Task } from './task.entity';
+import { Task } from '../../tasks/entities/task.entity';
 import { ProjectPhase } from './project-phase.entity';
 import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
