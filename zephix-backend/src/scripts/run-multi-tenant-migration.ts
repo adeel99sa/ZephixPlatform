@@ -58,10 +58,16 @@ async function runMigration() {
       const teams = dataSource.getRepository('Team');
       await teams.update({}, { organizationId: sampleOrg.id });
 
+      // FIXED: Only update team members whose users belong to the sample organization
       const teamMembers = dataSource.getRepository('TeamMember');
-      await teamMembers.update({}, { organizationId: sampleOrg.id });
+      await teamMembers
+        .createQueryBuilder()
+        .update()
+        .set({ organizationId: sampleOrg.id })
+        .where('userId IN (SELECT id FROM users WHERE organizationId = :orgId)', { orgId: sampleOrg.id })
+        .execute();
 
-      console.log('✅ Updated existing projects and teams with organization');
+      console.log('✅ Updated existing projects and teams with organization (with proper validation)');
     } else {
       console.log('Organization already exists, skipping sample data creation');
     }

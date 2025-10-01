@@ -28,14 +28,14 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
-import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { OrganizationValidationGuard } from '../guards/organization-validation.guard';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AIMappingService } from './services/ai-mapping.service';
 import { AIMappingRequestDto, AIMappingResponseDto, AIMappingStatusDto } from './dto/ai-mapping.dto';
 
 @ApiTags('AI Document Mapping')
 @Controller('ai/mapping')
-@UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AIMappingController {
   constructor(
@@ -130,12 +130,8 @@ export class AIMappingController {
     @Request() req: any,
   ): Promise<AIMappingResponseDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
+      const organizationId = req.validatedOrganizationId;
       const userId = req.user.id;
-
-      if (!organizationId) {
-        throw new BadRequestException('Organization context required');
-      }
 
       return await this.aiMappingService.analyzeDocument(
         file,
@@ -167,11 +163,7 @@ export class AIMappingController {
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<AIMappingResponseDto> {
-    const organizationId = req.headers['x-org-id'];
-    
-    if (!organizationId) {
-      throw new BadRequestException('Organization context required');
-    }
+    const organizationId = req.validatedOrganizationId;
 
     return await this.aiMappingService.getAnalysisResult(id, organizationId);
   }
@@ -191,11 +183,7 @@ export class AIMappingController {
     @Param('id') id: string,
     @Request() req: any,
   ): Promise<AIMappingStatusDto> {
-    const organizationId = req.headers['x-org-id'];
-    
-    if (!organizationId) {
-      throw new BadRequestException('Organization context required');
-    }
+    const organizationId = req.validatedOrganizationId;
 
     return await this.aiMappingService.getAnalysisStatus(id, organizationId);
   }
@@ -221,11 +209,7 @@ export class AIMappingController {
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
   ): Promise<AIMappingResponseDto[]> {
-    const organizationId = req.headers['x-org-id'];
-    
-    if (!organizationId) {
-      throw new BadRequestException('Organization context required');
-    }
+    const organizationId = req.validatedOrganizationId;
 
     return await this.aiMappingService.listAnalyses(
       organizationId,

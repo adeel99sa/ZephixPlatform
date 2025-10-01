@@ -79,7 +79,7 @@ export class AIChatService {
     private aiIntelligenceService: ZephixAIIntelligenceService,
   ) {}
 
-  async processMessage(request: AIAnalysisRequest): Promise<ChatResponse> {
+  async processMessage(request: AIAnalysisRequest, organizationId: string): Promise<ChatResponse> {
     this.logger.log(`Processing AI chat message: ${request.message}`);
 
     try {
@@ -87,30 +87,31 @@ export class AIChatService {
       const intent = this.analyzeIntent(request.message);
 
       // Get relevant project context
-      const projectContext = await this.getProjectContext(request.context);
+      const projectContext = await this.getProjectContext(request.context, organizationId);
 
       // Process based on intent
       switch (intent.type) {
         case 'project_analysis':
-          return await this.handleProjectAnalysis(request, projectContext);
+          return await this.handleProjectAnalysis(request, projectContext, organizationId);
 
         case 'project_creation':
           return await this.handleProjectCreation(request, projectContext);
 
         case 'resource_optimization':
-          return await this.handleResourceOptimization(request, projectContext);
+          return await this.handleResourceOptimization(request, projectContext, organizationId);
 
         case 'risk_assessment':
-          return await this.handleRiskAssessment(request, projectContext);
+          return await this.handleRiskAssessment(request, projectContext, organizationId);
 
         case 'communication_planning':
           return await this.handleCommunicationPlanning(
             request,
             projectContext,
+            organizationId,
           );
 
         case 'health_monitoring':
-          return await this.handleHealthMonitoring(request, projectContext);
+          return await this.handleHealthMonitoring(request, projectContext, organizationId);
 
         case 'general_question':
           return await this.handleGeneralQuestion(request, projectContext);
@@ -234,8 +235,9 @@ export class AIChatService {
   private async handleProjectAnalysis(
     request: AIAnalysisRequest,
     projectContext: any,
+    organizationId: string,
   ): Promise<ChatResponse> {
-    const project = await this.getProject(request.context.projectId || '');
+    const project = await this.getProject(request.context.projectId || '', organizationId);
 
     if (!project) {
       return {
@@ -361,8 +363,9 @@ export class AIChatService {
   private async handleResourceOptimization(
     request: AIAnalysisRequest,
     projectContext: any,
+    organizationId: string,
   ): Promise<ChatResponse> {
-    const project = await this.getProject(request.context.projectId || '');
+    const project = await this.getProject(request.context.projectId || '', organizationId);
 
     if (!project) {
       return {
@@ -430,8 +433,9 @@ export class AIChatService {
   private async handleRiskAssessment(
     request: AIAnalysisRequest,
     projectContext: any,
+    organizationId: string,
   ): Promise<ChatResponse> {
-    const project = await this.getProject(request.context.projectId || '');
+    const project = await this.getProject(request.context.projectId || '', organizationId);
 
     if (!project) {
       return {
@@ -520,8 +524,9 @@ export class AIChatService {
   private async handleCommunicationPlanning(
     request: AIAnalysisRequest,
     projectContext: any,
+    organizationId: string,
   ): Promise<ChatResponse> {
-    const project = await this.getProject(request.context.projectId || '');
+    const project = await this.getProject(request.context.projectId || '', organizationId);
 
     if (!project) {
       return {
@@ -599,8 +604,9 @@ export class AIChatService {
   private async handleHealthMonitoring(
     request: AIAnalysisRequest,
     projectContext: any,
+    organizationId: string,
   ): Promise<ChatResponse> {
-    const project = await this.getProject(request.context.projectId || '');
+    const project = await this.getProject(request.context.projectId || '', organizationId);
 
     if (!project) {
       return {
@@ -714,16 +720,16 @@ export class AIChatService {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async getProjectContext(context: ChatContext): Promise<any> {
+  private async getProjectContext(context: ChatContext, organizationId: string): Promise<any> {
     if (context.projectId) {
-      return await this.getProject(context.projectId);
+      return await this.getProject(context.projectId, organizationId);
     }
     return null;
   }
 
-  private async getProject(projectId: string): Promise<any> {
+  private async getProject(projectId: string, organizationId: string): Promise<any> {
     if (!projectId) return null;
-    return await this.projectRepository.findOne({ where: { id: projectId } });
+    return await this.projectRepository.findOne({ where: { id: projectId, organizationId } });
   }
 
   private async getTeamMembers(projectId: string): Promise<any[]> {

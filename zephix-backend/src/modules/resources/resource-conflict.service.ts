@@ -157,7 +157,7 @@ export class ResourceConflictService {
 
   // Run every hour to detect conflicts
   @Cron(CronExpression.EVERY_HOUR)
-  async detectConflicts() {
+  async detectConflicts(organizationId?: string) {
     const next30Days = new Date();
     next30Days.setDate(next30Days.getDate() + 30);
     
@@ -201,7 +201,7 @@ export class ResourceConflictService {
         const existingConflict = await this.conflictRepo.findOne({
           where: {
             resourceId,
-            conflictDate: new Date(dateStr),
+            weekStart: new Date(dateStr),
             resolved: false
           }
         });
@@ -209,16 +209,11 @@ export class ResourceConflictService {
         if (!existingConflict) {
           const conflict = this.conflictRepo.create({
             resourceId,
-            conflictDate: new Date(dateStr),
-            totalAllocation,
-            severity,
-            affectedProjects: dayAllocations.map(a => ({
-              projectId: a.projectId,
-              projectName: 'Unknown', // Will be populated from separate query if needed
-              taskId: a.taskId,
-              taskName: 'Unknown', // Will be populated from separate query if needed
-              allocation: Number(a.allocationPercentage)
-            }))
+            weekStart: new Date(dateStr),
+            allocationPercentage: totalAllocation,
+            conflictType: severity,
+            projectId: dayAllocations[0]?.projectId || 'unknown',
+            organizationId: organizationId || 'default-org'
           });
 
           await this.conflictRepo.save(conflict);
@@ -227,22 +222,21 @@ export class ResourceConflictService {
     }
   }
 
-  private calculateSeverity(totalAllocation: number): 'low' | 'medium' | 'high' | 'critical' {
-    if (totalAllocation <= 110) return 'low';
-    if (totalAllocation <= 125) return 'medium';
-    if (totalAllocation <= 150) return 'high';
-    return 'critical';
+  private calculateSeverity(totalAllocation: number): 'warning' | 'critical' | 'over_max' {
+    if (totalAllocation <= 100) return 'warning';
+    if (totalAllocation <= 120) return 'critical';
+    return 'over_max';
   }
 
   async getActiveConflicts() {
     return this.conflictRepo.find({
       where: {
         resolved: false,
-        conflictDate: MoreThan(new Date())
+        weekStart: MoreThan(new Date())
       },
       order: {
-        severity: 'DESC',
-        conflictDate: 'ASC'
+        conflictType: 'DESC',
+        weekStart: 'ASC'
       }
     });
   }
@@ -254,7 +248,7 @@ export class ResourceConflictService {
         resolved: false
       },
       order: {
-        conflictDate: 'ASC'
+        weekStart: 'ASC'
       }
     });
   }

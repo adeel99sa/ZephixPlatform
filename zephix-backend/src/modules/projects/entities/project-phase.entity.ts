@@ -10,7 +10,9 @@ export class ProjectPhase {
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @ManyToOne(() => Project, project => project.phases)
+  @ManyToOne(() => Project, project => project.phases, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'project_id' })
   project: Project;
 

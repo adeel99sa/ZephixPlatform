@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException, Param, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -7,6 +7,7 @@ import { HeatMapQueryDto } from './dto/heat-map-query.dto';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { DetectConflictsDto } from './dto/detect-conflicts.dto';
 import { AuthenticatedRequest } from './dto/authenticated-request.dto';
+import { UpdateResourceThresholdDto } from './dto/resource-threshold.dto';
 import { ResourcesService } from './resources.service';
 import { AuditService } from './services/audit.service';
 import { CacheService } from '../cache/cache.service';
@@ -243,10 +244,184 @@ export class ResourcesController {
     return { capacityPercentage: capacity };
   }
 
+  @Get('by-skill')
+  @ApiOperation({ summary: 'Get resources by skill' })
+  @ApiResponse({ status: 200, description: 'Resources retrieved successfully' })
+  async getResourcesBySkill(
+    @Query('skill') skill: string,
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user?.organizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      if (!skill) {
+        throw new BadRequestException('Skill parameter is required');
+      }
+
+      const result = await this.resourcesService.getResourcesBySkill(skill, organizationId);
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Get resources by skill error:', error);
+      throw new BadRequestException('Failed to get resources by skill');
+    }
+  }
+
+  @Get('availability/:id')
+  @ApiOperation({ summary: 'Check resource availability' })
+  @ApiResponse({ status: 200, description: 'Resource availability retrieved successfully' })
+  async checkResourceAvailability(
+    @Param('id') id: string,
+    @Query('start') startDate: string,
+    @Query('end') endDate: string,
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user?.organizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      if (!startDate || !endDate) {
+        throw new BadRequestException('Start date and end date are required');
+      }
+
+      const result = await this.resourcesService.checkResourceAvailability(
+        id,
+        new Date(startDate),
+        new Date(endDate),
+        organizationId
+      );
+
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Check resource availability error:', error);
+      throw new BadRequestException('Failed to check resource availability');
+    }
+  }
+
+  @Get('utilization/:id')
+  @ApiOperation({ summary: 'Get resource utilization' })
+  @ApiResponse({ status: 200, description: 'Resource utilization retrieved successfully' })
+  async getResourceUtilization(
+    @Param('id') id: string,
+    @Query('period') period: string = 'month',
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user?.organizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const result = await this.resourcesService.getResourceUtilization(
+        id,
+        period,
+        organizationId
+      );
+
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Get resource utilization error:', error);
+      throw new BadRequestException('Failed to get resource utilization');
+    }
+  }
+
+  @Post('allocate/:id')
+  @ApiOperation({ summary: 'Allocate resource to project' })
+  @ApiResponse({ status: 201, description: 'Resource allocated successfully' })
+  async allocateResource(
+    @Param('id') resourceId: string,
+    @Body() allocationData: any,
+    @Req() req: any
+  ) {
+    try {
+      const organizationId = req.user?.organizationId;
+      const userId = req.user?.id || req.user?.sub;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      // Validate required fields
+      if (!allocationData.projectId || !allocationData.startDate || !allocationData.endDate || !allocationData.allocationPercentage) {
+        throw new BadRequestException('Project ID, start date, end date, and allocation percentage are required');
+      }
+
+      const allocationDto = {
+        resourceId,
+        projectId: allocationData.projectId,
+        userId: allocationData.userId || userId,
+        startDate: allocationData.startDate,
+        endDate: allocationData.endDate,
+        allocationPercentage: allocationData.allocationPercentage,
+        organizationId
+      };
+
+      const result = await this.resourcesService.createAllocationWithAudit(
+        allocationDto,
+        {
+          userId,
+          organizationId,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        }
+      );
+
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Allocate resource error:', error);
+      throw new BadRequestException('Failed to allocate resource');
+    }
+  }
+
   @Get('test')
   @ApiOperation({ summary: 'Test endpoint for resources module' })
   @ApiResponse({ status: 200, description: 'Resources module is working' })
   async test() {
     return { message: 'Resources module is working!', timestamp: new Date() };
+  }
+
+  @Get('test-conflicts')
+  @ApiOperation({ summary: 'Get resource allocation conflicts (test endpoint)' })
+  @ApiResponse({ status: 200, description: 'Resource conflicts retrieved successfully' })
+  async getResourceConflictsTest() {
+    console.log('🚨 TEST ENDPOINT CALLED');
+    // Test endpoint that bypasses authentication for testing
+    const testOrgId = '06b54693-2b4b-4c10-b553-6dea5c5631c9'; // Use the demo org ID
+    const result = await this.resourcesService.checkResourceConflicts(testOrgId);
+    console.log('🚨 TEST ENDPOINT RESULT:', result);
+    return result;
+  }
+
+  @Get('conflicts')
+  @ApiOperation({ summary: 'Get resource allocation conflicts' })
+  @ApiResponse({ status: 200, description: 'Resource conflicts retrieved successfully' })
+  async getResourceConflicts(@Req() req: any) {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+    return this.resourcesService.checkResourceConflicts(organizationId);
+  }
+
+  @Patch(':id/thresholds')
+  @ApiOperation({ summary: 'Update resource allocation thresholds' })
+  @ApiResponse({ status: 200, description: 'Resource thresholds updated successfully' })
+  async updateThresholds(
+    @Param('id') id: string,
+    @Body() thresholds: UpdateResourceThresholdDto,
+    @Req() req: any
+  ) {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+    return this.resourcesService.updateResourceThresholds(id, thresholds, organizationId);
   }
 }

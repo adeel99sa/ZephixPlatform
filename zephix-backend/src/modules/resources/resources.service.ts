@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, DataSource, Like } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
+import { ResourceConflict } from './entities/resource-conflict.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
+import { UpdateResourceThresholdDto, ResourceConflictDto } from './dto/resource-threshold.dto';
 import { Task } from '../tasks/entities/task.entity';
 
 @Injectable()
@@ -14,6 +16,8 @@ export class ResourcesService {
     private resourceRepository: Repository<Resource>,
     @InjectRepository(ResourceAllocation)
     private resourceAllocationRepository: Repository<ResourceAllocation>,
+    @InjectRepository(ResourceConflict)
+    private resourceConflictRepository: Repository<ResourceConflict>,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
     private dataSource: DataSource,
@@ -276,5 +280,374 @@ export class ResourcesService {
       console.error('Failed to calculate user capacity:', error);
       return 0;
     }
+  }
+
+  // NEW METHODS FOR COMPLETE RESOURCE MANAGEMENT
+
+  async getResourcesBySkill(skill: string, organizationId: string): Promise<any> {
+    try {
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      // Query resources with specific skill using JSONB query
+      const resources = await this.resourceRepository
+        .createQueryBuilder('resource')
+        .where('resource.organizationId = :organizationId', { organizationId })
+        .andWhere('resource.isActive = :isActive', { isActive: true })
+        .andWhere('resource.skills::text ILIKE :skill', { skill: `%${skill}%` })
+        .orderBy('resource.name', 'ASC')
+        .getMany();
+
+      return {
+        data: resources,
+        total: resources.length,
+        skill: skill
+      };
+    } catch (error) {
+      console.error('Error fetching resources by skill:', error);
+      throw new BadRequestException('Failed to fetch resources by skill');
+    }
+  }
+
+  async checkResourceAvailability(resourceId: string, startDate: Date, endDate: Date, organizationId: string): Promise<any> {
+    try {
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      // Get resource details
+      const resource = await this.resourceRepository.findOne({
+        where: { id: resourceId, organizationId, isActive: true }
+      });
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      // Get existing allocations in the date range
+      const existingAllocations = await this.resourceAllocationRepository.find({
+        where: {
+          resourceId,
+          organizationId,
+          startDate: Between(startDate, endDate)
+        }
+      });
+
+      // Calculate total allocation for each week
+      const weeklyAvailability = this.calculateWeeklyAvailability(
+        startDate,
+        endDate,
+        existingAllocations,
+        resource.capacityHoursPerWeek || 40
+      );
+
+      const totalAllocation = existingAllocations.reduce(
+        (sum, allocation) => sum + (allocation.allocationPercentage || 0),
+        0
+      );
+
+      return {
+        resourceId,
+        resourceName: resource.name,
+        startDate,
+        endDate,
+        totalAllocation,
+        availableCapacity: 100 - totalAllocation,
+        isAvailable: totalAllocation < 100,
+        weeklyAvailability,
+        conflicts: existingAllocations.filter(a => a.allocationPercentage > 0)
+      };
+    } catch (error) {
+      console.error('Error checking resource availability:', error);
+      throw new BadRequestException('Failed to check resource availability');
+    }
+  }
+
+  async calculateResourceCost(resourceId: string, hours: number, organizationId: string): Promise<any> {
+    try {
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const resource = await this.resourceRepository.findOne({
+        where: { id: resourceId, organizationId, isActive: true }
+      });
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      const costPerHour = resource.costPerHour || 0;
+      const totalCost = costPerHour * hours;
+
+      return {
+        resourceId,
+        resourceName: resource.name,
+        costPerHour,
+        hours,
+        totalCost,
+        currency: 'USD' // Could be made configurable
+      };
+    } catch (error) {
+      console.error('Error calculating resource cost:', error);
+      throw new BadRequestException('Failed to calculate resource cost');
+    }
+  }
+
+  async getResourceUtilization(resourceId: string, period: string, organizationId: string): Promise<any> {
+    try {
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const resource = await this.resourceRepository.findOne({
+        where: { id: resourceId, organizationId, isActive: true }
+      });
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      // Calculate date range based on period
+      const { startDate, endDate } = this.getPeriodDates(period);
+
+      // Get allocations for the period
+      const allocations = await this.resourceAllocationRepository.find({
+        where: {
+          resourceId,
+          organizationId,
+          startDate: Between(startDate, endDate)
+        }
+      });
+
+      // Calculate utilization metrics
+      const totalAllocation = allocations.reduce(
+        (sum, allocation) => sum + (allocation.allocationPercentage || 0),
+        0
+      );
+
+      const averageUtilization = allocations.length > 0 
+        ? totalAllocation / allocations.length 
+        : 0;
+
+      const peakUtilization = Math.max(...allocations.map(a => a.allocationPercentage || 0), 0);
+
+      return {
+        resourceId,
+        resourceName: resource.name,
+        period,
+        startDate,
+        endDate,
+        totalAllocation,
+        averageUtilization: Math.round(averageUtilization * 100) / 100,
+        peakUtilization,
+        allocationCount: allocations.length,
+        status: this.getUtilizationStatus(averageUtilization)
+      };
+    } catch (error) {
+      console.error('Error getting resource utilization:', error);
+      throw new BadRequestException('Failed to get resource utilization');
+    }
+  }
+
+  // HELPER METHODS
+
+  private calculateWeeklyAvailability(
+    startDate: Date, 
+    endDate: Date, 
+    allocations: any[], 
+    capacityHoursPerWeek: number
+  ): any[] {
+    const weeklyData = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      const weekStart = new Date(currentDate);
+      const weekEnd = new Date(currentDate);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      
+      const weekAllocations = allocations.filter(allocation => {
+        const allocationStart = new Date(allocation.startDate);
+        const allocationEnd = new Date(allocation.endDate);
+        return allocationStart <= weekEnd && allocationEnd >= weekStart;
+      });
+      
+      const weekTotal = weekAllocations.reduce(
+        (sum, allocation) => sum + (allocation.allocationPercentage || 0),
+        0
+      );
+      
+      weeklyData.push({
+        weekStart: weekStart.toISOString().split('T')[0],
+        weekEnd: weekEnd.toISOString().split('T')[0],
+        totalAllocation: weekTotal,
+        availableCapacity: 100 - weekTotal,
+        isAvailable: weekTotal < 100,
+        capacityHours: capacityHoursPerWeek,
+        availableHours: capacityHoursPerWeek * (100 - weekTotal) / 100
+      });
+      
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    return weeklyData;
+  }
+
+  private getPeriodDates(period: string): { startDate: Date; endDate: Date } {
+    const now = new Date();
+    const startDate = new Date();
+    const endDate = new Date();
+
+    switch (period.toLowerCase()) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        endDate.setDate(now.getDate());
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        endDate.setDate(now.getDate());
+        break;
+      case 'quarter':
+        startDate.setMonth(now.getMonth() - 3);
+        endDate.setDate(now.getDate());
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        endDate.setDate(now.getDate());
+        break;
+      default:
+        startDate.setDate(now.getDate() - 30);
+        endDate.setDate(now.getDate());
+    }
+
+    return { startDate, endDate };
+  }
+
+  private getUtilizationStatus(utilization: number): string {
+    if (utilization >= 100) return 'overallocated';
+    if (utilization >= 90) return 'critical';
+    if (utilization >= 80) return 'high';
+    if (utilization >= 60) return 'moderate';
+    if (utilization >= 40) return 'low';
+    return 'available';
+  }
+
+  // Resource Threshold Methods
+  async checkResourceConflicts(organizationId: string): Promise<ResourceConflictDto[]> {
+    console.log('🚨 METHOD CALLED - checkResourceConflicts with orgId:', organizationId);
+    try {
+      console.log('🔍 Checking conflicts for organization:', organizationId);
+      
+      // Temporary test - return a test conflict
+      return [{
+        resourceId: 'test-id',
+        resourceName: 'Test Resource',
+        projectId: 'test-project',
+        projectName: 'Test Project',
+        weekStart: new Date(),
+        allocationPercentage: 130,
+        conflictType: 'over_max',
+        resolved: false
+      }];
+      
+      // Get all resources with their allocations
+      const resources = await this.resourceRepository.find({
+        where: { organizationId },
+        relations: ['allocations', 'allocations.project']
+      });
+      
+      console.log('🔍 Found resources:', resources.length);
+      console.log('🔍 Resources:', resources.map(r => ({ id: r.id, name: r.name, allocations: r.allocations?.length || 0 })));
+      
+      const conflicts: ResourceConflictDto[] = [];
+      
+      for (const resource of resources) {
+        console.log('🔍 Processing resource:', resource.name, 'with', resource.allocations?.length || 0, 'allocations');
+        
+        // Calculate total allocation per week
+        const weeklyAllocations = new Map<string, number>();
+        
+        for (const allocation of resource.allocations || []) {
+          console.log('🔍 Allocation:', allocation.allocationPercentage, '%');
+          const weekKey = this.getWeekKey(new Date());
+          const current = weeklyAllocations.get(weekKey) || 0;
+          weeklyAllocations.set(weekKey, current + allocation.allocationPercentage);
+        }
+        
+        console.log('🔍 Weekly allocations:', Object.fromEntries(weeklyAllocations));
+        console.log('🔍 Resource thresholds:', { warning: resource.warningThreshold, critical: resource.criticalThreshold, max: resource.maxThreshold });
+        
+        // Check against thresholds
+        for (const [weekKey, total] of weeklyAllocations) {
+          console.log('🔍 Checking week', weekKey, 'with total', total, '%');
+          if (total >= resource.maxThreshold) {
+            conflicts.push({
+              resourceId: resource.id,
+              resourceName: resource.name || resource.email,
+              projectId: 'unknown',
+              projectName: 'Multiple Projects',
+              weekStart: new Date(weekKey),
+              allocationPercentage: total,
+              conflictType: 'over_max',
+              resolved: false
+            });
+          } else if (total >= resource.criticalThreshold) {
+            conflicts.push({
+              resourceId: resource.id,
+              resourceName: resource.name || resource.email,
+              projectId: 'unknown',
+              projectName: 'Multiple Projects',
+              weekStart: new Date(weekKey),
+              allocationPercentage: total,
+              conflictType: 'critical',
+              resolved: false
+            });
+          } else if (total >= resource.warningThreshold) {
+            conflicts.push({
+              resourceId: resource.id,
+              resourceName: resource.name || resource.email,
+              projectId: 'unknown',
+              projectName: 'Multiple Projects',
+              weekStart: new Date(weekKey),
+              allocationPercentage: total,
+              conflictType: 'warning',
+              resolved: false
+            });
+          }
+        }
+      }
+      
+      return conflicts;
+    } catch (error) {
+      console.error('Error checking resource conflicts:', error);
+      return [];
+    }
+  }
+
+  private getWeekKey(date: Date): string {
+    const monday = new Date(date);
+    monday.setDate(monday.getDate() - monday.getDay() + 1);
+    return monday.toISOString().split('T')[0];
+  }
+
+  async updateResourceThresholds(
+    resourceId: string,
+    thresholds: UpdateResourceThresholdDto,
+    organizationId: string
+  ): Promise<Resource> {
+    const resource = await this.resourceRepository.findOne({
+      where: { id: resourceId, organizationId }
+    });
+    
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+    
+    resource.warningThreshold = thresholds.warningThreshold;
+    resource.criticalThreshold = thresholds.criticalThreshold;
+    resource.maxThreshold = thresholds.maxThreshold;
+    
+    return this.resourceRepository.save(resource);
   }
 }

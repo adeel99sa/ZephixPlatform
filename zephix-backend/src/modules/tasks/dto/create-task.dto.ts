@@ -39,6 +39,30 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsDateString()
+  endDate?: Date;
+
+  @IsOptional()
+  @IsDateString()
+  plannedStart?: Date;
+
+  @IsOptional()
+  @IsDateString()
+  plannedEnd?: Date;
+
+  @IsOptional()
+  @IsNumber()
+  durationDays?: number;
+
+  @IsOptional()
+  @IsNumber()
+  completionPercentage?: number;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsDateString()
   dueDate?: Date;
 
   @IsOptional()
@@ -61,8 +85,4 @@ export class CreateTaskDto {
   @IsOptional()
   @IsNumber()
   resourceImpactScore?: number;
-
-  @IsOptional()
-  @IsDateString()
-  endDate?: Date;
 }
