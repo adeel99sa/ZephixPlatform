@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Task } from '../projects/entities/task.entity';
+import { Task } from '../tasks/entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { KPIService, ProjectKPIs, PortfolioKPIs } from './kpi.service';
@@ -137,7 +137,7 @@ export class KPIAggregationService {
     return {
       id: task.id,
       status: task.status,
-      progress: task.progressPercentage || 0,
+      progress: task.progress || 0,
       estimatedHours: task.estimatedHours || 0,
       actualHours: 0, // TODO: Calculate from time tracking
       isOverdue,

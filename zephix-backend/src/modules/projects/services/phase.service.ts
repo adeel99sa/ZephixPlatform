@@ -52,7 +52,7 @@ export class PhaseService {
 
     // Calculate progress based on tasks
     if (phase.tasks && phase.tasks.length > 0) {
-      const totalProgress = phase.tasks.reduce((sum, task) => sum + task.progressPercentage, 0);
+      const totalProgress = phase.tasks.reduce((sum, task) => sum + task.progress, 0);
       phase.progress = Math.round(totalProgress / phase.tasks.length);
       
       // Update status based on progress

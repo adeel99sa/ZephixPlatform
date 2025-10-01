@@ -5,10 +5,10 @@ import { Resource } from '../modules/resources/entities/resource.entity';
 import { ResourceAllocation } from '../modules/resources/entities/resource-allocation.entity';
 import { ResourceConflict } from '../modules/resources/entities/resource-conflict.entity';
 import { Project } from '../modules/projects/entities/project.entity';
-import { Task } from '../modules/projects/entities/task.entity';
+import { Task } from '../modules/tasks/entities/task.entity';
 import { ProjectPhase } from '../modules/projects/entities/project-phase.entity';
 import { ProjectAssignment } from '../modules/projects/entities/project-assignment.entity';
-import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
+import { TaskDependency } from '../modules/tasks/entities/task-dependency.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
