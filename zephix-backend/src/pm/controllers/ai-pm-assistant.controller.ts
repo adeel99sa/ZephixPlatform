@@ -17,6 +17,7 @@ import {
   CommunicationPlan,
 } from '../services/ai-pm-assistant.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 
 export class PMQuestionDto {
   question: string;
@@ -74,7 +75,7 @@ export class NextActionsDto {
 }
 
 @Controller('ai-pm-assistant')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard)
 export class AIPMAssistantController {
   constructor(private readonly aiPMAssistantService: AIPMAssistantService) {}
 
@@ -99,7 +100,7 @@ export class AIPMAssistantController {
     // Verify project belongs to user
     // This would be implemented with proper authorization
 
-    return this.aiPMAssistantService.analyzeProjectHealth(dto.projectId);
+    return this.aiPMAssistantService.analyzeProjectHealth(dto.projectId, req.validatedOrganizationId);
   }
 
   @Post('generate-plan')
@@ -129,7 +130,7 @@ export class AIPMAssistantController {
     // Verify portfolio belongs to user
     // This would be implemented with proper authorization
 
-    return this.aiPMAssistantService.optimizePortfolio(dto.portfolioId);
+    return this.aiPMAssistantService.optimizePortfolio(dto.portfolioId, req.validatedOrganizationId);
   }
 
   @Post('risk-analysis')
@@ -152,7 +153,7 @@ export class AIPMAssistantController {
     // Verify project belongs to user
     // This would be implemented with proper authorization
 
-    return this.aiPMAssistantService.generateStakeholderUpdates(dto.projectId);
+    return this.aiPMAssistantService.generateStakeholderUpdates(dto.projectId, req.validatedOrganizationId);
   }
 
   @Post('progress-report')
@@ -209,7 +210,6 @@ export class AIPMAssistantController {
   }
 
   @Get('test-ai-chat')
-  @UseGuards() // Temporarily remove authentication for testing
   async testAIChat(): Promise<any> {
     console.log('AI Chat test endpoint called');
     return {

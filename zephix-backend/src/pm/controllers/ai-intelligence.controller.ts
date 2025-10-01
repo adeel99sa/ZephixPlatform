@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ZephixAIIntelligenceService } from '../services/zephix-ai-intelligence.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 import * as Interfaces from '../interfaces/project-intelligence.interface';
 
 // Request DTOs
@@ -51,7 +52,7 @@ export interface LearnFromOutcomesRequest {
 }
 
 @Controller('ai-intelligence')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard)
 export class AIIntelligenceController {
   constructor(
     private readonly aiIntelligenceService: ZephixAIIntelligenceService,

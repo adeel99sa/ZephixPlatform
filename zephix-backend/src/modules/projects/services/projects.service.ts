@@ -242,11 +242,43 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     try {
       this.logger.log(`Deleting project ${id} for org: ${organizationId}, user: ${userId}`);
 
-      const deleted = await this.delete(id, organizationId);
-
-      if (!deleted) {
+      // First verify the project exists and belongs to org
+      const project = await this.findById(id, organizationId);
+      if (!project) {
         throw new NotFoundException(`Project with ID ${id} not found or access denied`);
       }
+
+      // Use a transaction to handle related records
+      await this.projectRepository.manager.transaction(async (transactionalEntityManager) => {
+        // Delete related records in the correct order
+        // 1. Delete tasks first (they might reference phases)
+        await transactionalEntityManager.query(
+          'DELETE FROM tasks WHERE project_id = $1',
+          [id]
+        );
+
+        // 2. Delete project phases
+        await transactionalEntityManager.query(
+          'DELETE FROM project_phases WHERE project_id = $1',
+          [id]
+        );
+
+        // 3. Delete project assignments
+        await transactionalEntityManager.query(
+          'DELETE FROM project_assignments WHERE project_id = $1',
+          [id]
+        );
+
+        // 4. Finally delete the project
+        const result = await transactionalEntityManager.query(
+          'DELETE FROM projects WHERE id = $1 AND organization_id = $2',
+          [id, organizationId]
+        );
+        
+        if (result[1] === 0) {
+          throw new NotFoundException(`Project with ID ${id} not found or access denied`);
+        }
+      });
 
       this.logger.log(`✅ Project deleted: ${id} from org: ${organizationId}`);
 
@@ -421,5 +453,12 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       this.logger.error(`❌ Failed to remove user ${userId} from project ${projectId}:`, error);
       throw error;
     }
+  }
+
+  async countByOrganization(organizationId: string): Promise<number> {
+    this.logger.log(`Counting projects for organization: ${organizationId}`);
+    return this.projectRepository.count({
+      where: { organizationId }
+    });
   }
 }

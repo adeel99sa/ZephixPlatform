@@ -48,6 +48,54 @@ export class Resource {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'resource_type', type: 'varchar', length: 50, default: 'human' })
+  resourceType: string;
+
+  @Column({ name: 'invitation_status', type: 'varchar', length: 20, default: 'pending' })
+  invitationStatus: string;
+
+  @Column({ name: 'invited_by', type: 'uuid', nullable: true })
+  invitedBy: string;
+
+  @Column({ name: 'invited_at', type: 'timestamp', nullable: true })
+  invitedAt: Date;
+
+  @Column({ name: 'requires_account', type: 'boolean', default: false })
+  requiresAccount: boolean;
+
+  @Column({ name: 'accepted_at', type: 'timestamp', nullable: true })
+  acceptedAt: Date;
+
+  @Column({ name: 'allocation_threshold', type: 'int', default: 100 })
+  allocationThreshold: number;
+
+  @Column({ name: 'requires_justification', type: 'boolean', default: false })
+  requiresJustification: boolean;
+
+  @Column({ name: 'requires_approval', type: 'boolean', default: false })
+  requiresApproval: boolean;
+
+  @Column({ name: 'approval_required_by', type: 'jsonb', nullable: true })
+  approvalRequiredBy: string[];
+
+  @Column({ name: 'team_id', type: 'uuid', nullable: true })
+  teamId: string;
+
+  @Column({ name: 'current_allocation', type: 'int', default: 0 })
+  currentAllocation: number;
+
+  @Column({ name: 'is_overallocated', type: 'boolean', default: false })
+  isOverallocated: boolean;
+
+  @Column({ name: 'warning_threshold', type: 'integer', default: 80 })
+  warningThreshold: number;
+
+  @Column({ name: 'critical_threshold', type: 'integer', default: 100 })
+  criticalThreshold: number;
+
+  @Column({ name: 'max_threshold', type: 'integer', default: 120 })
+  maxThreshold: number;
+
   @Column({ type: 'jsonb', nullable: true })
   preferences: {
     maxAllocation: number;

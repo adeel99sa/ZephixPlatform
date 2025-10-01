@@ -1,0 +1,192 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Request,
+  HttpStatus,
+  HttpCode,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiBody,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
+import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
+import { OrganizationValidationGuard } from '../guards/organization-validation.guard';
+import { AISuggestionsService } from './services/ai-suggestions.service';
+import { 
+  AISuggestionDto, 
+  GenerateSuggestionsRequestDto, 
+  UpdateSuggestionStatusDto, 
+  SuggestionsResponseDto 
+} from './dto/ai-suggestions.dto';
+
+@ApiTags('AI Suggestions')
+@Controller('ai/suggestions')
+@UseGuards(JwtAuthGuard, OrganizationValidationGuard, OrganizationGuard, RateLimiterGuard)
+@ApiBearerAuth()
+export class AISuggestionsController {
+  constructor(
+    private readonly aiSuggestionsService: AISuggestionsService,
+  ) {}
+
+  @Get()
+  @ApiOperation({ 
+    summary: 'Get AI-powered project suggestions',
+    description: 'Retrieve AI-generated recommendations for project optimization across the organization'
+  })
+  @ApiQuery({ name: 'category', required: false, enum: ['timeline', 'budget', 'resources', 'risks', 'process', 'quality'] })
+  @ApiQuery({ name: 'priority', required: false, enum: ['critical', 'high', 'medium', 'low'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'in_progress', 'implemented', 'rejected', 'archived'] })
+  @ApiQuery({ name: 'projectId', required: false, description: 'Filter by specific project' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of suggestions to return' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Number of suggestions to skip' })
+  @ApiResponse({
+    status: 200,
+    description: 'Suggestions retrieved successfully',
+    type: SuggestionsResponseDto,
+  })
+  async getSuggestions(
+    @Request() req: any,
+    @Query('category') category?: string,
+    @Query('priority') priority?: string,
+    @Query('status') status?: string,
+    @Query('projectId') projectId?: string,
+    @Query('limit') limit = 20,
+    @Query('offset') offset = 0,
+  ): Promise<SuggestionsResponseDto> {
+    try {
+      const organizationId = req.validatedOrganizationId;
+      const userId = req.user.id;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization context required');
+      }
+
+      return await this.aiSuggestionsService.getSuggestions(
+        organizationId,
+        // CRITICAL: Pass workspaceId from guard
+        userId,
+        category,
+        priority,
+        status,
+        projectId,
+        limit,
+        offset,
+      );
+    } catch (error) {
+      throw new BadRequestException(`Failed to retrieve suggestions: ${error.message}`);
+    }
+  }
+
+  @Post('generate')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ 
+    summary: 'Generate new AI suggestions',
+    description: 'Trigger AI analysis to generate new project optimization suggestions'
+  })
+  @ApiBody({ type: GenerateSuggestionsRequestDto })
+  @ApiResponse({
+    status: 202,
+    description: 'Suggestion generation started successfully',
+  })
+  async generateSuggestions(
+    @Body() request: GenerateSuggestionsRequestDto,
+    @Request() req: any,
+  ): Promise<{ message: string; jobId: string }> {
+    try {
+      const organizationId = req.validatedOrganizationId;
+      const userId = req.user.id;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization context required');
+      }
+
+      return await this.aiSuggestionsService.generateSuggestions(
+        request,
+        organizationId,
+        // CRITICAL: Pass workspaceId from guard
+        userId,
+      );
+    } catch (error) {
+      throw new BadRequestException(`Failed to generate suggestions: ${error.message}`);
+    }
+  }
+
+  @Put(':id/status')
+  @ApiOperation({ 
+    summary: 'Update suggestion status',
+    description: 'Update the implementation status of a suggestion'
+  })
+  @ApiParam({ name: 'id', description: 'Suggestion ID' })
+  @ApiBody({ type: UpdateSuggestionStatusDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Suggestion status updated successfully',
+    type: AISuggestionDto,
+  })
+  async updateSuggestionStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateSuggestionStatusDto,
+    @Request() req: any,
+  ): Promise<AISuggestionDto> {
+    try {
+      const organizationId = req.validatedOrganizationId;
+      const userId = req.user.id;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization context required');
+      }
+
+      return await this.aiSuggestionsService.updateSuggestionStatus(
+        id,
+        updateDto,
+        organizationId,
+        // CRITICAL: Pass workspaceId from guard
+        userId,
+      );
+    } catch (error) {
+      throw new BadRequestException(`Failed to update suggestion status: ${error.message}`);
+    }
+  }
+
+  @Get(':id')
+  @ApiOperation({ 
+    summary: 'Get specific suggestion details',
+    description: 'Retrieve detailed information about a specific AI suggestion'
+  })
+  @ApiParam({ name: 'id', description: 'Suggestion ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Suggestion details retrieved successfully',
+    type: AISuggestionDto,
+  })
+  async getSuggestionById(
+    @Param('id') id: string,
+    @Request() req: any,
+  ): Promise<AISuggestionDto> {
+    try {
+      const organizationId = req.validatedOrganizationId;
+      
+      if (!organizationId) {
+        throw new BadRequestException('Organization context required');
+      }
+
+      return await this.aiSuggestionsService.getSuggestionById(id, organizationId);
+    } catch (error) {
+      throw new BadRequestException(`Failed to retrieve suggestion: ${error.message}`);
+    }
+  }
+}

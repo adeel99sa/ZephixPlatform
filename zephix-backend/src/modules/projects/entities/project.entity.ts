@@ -13,6 +13,8 @@ import { Task } from './task.entity';
 import { ProjectPhase } from './project-phase.entity';
 import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { ResourceAllocation } from '../../resources/entities/resource-allocation.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -71,6 +73,15 @@ export class Project {
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string;
+
+  @Column({ name: 'hierarchy_type', type: 'varchar', length: 50, default: 'project' })
+  hierarchyType: string;
+
+  @Column({ name: 'hierarchy_path', type: 'text', nullable: true })
+  hierarchyPath: string;
+
   @Column({ name: 'project_manager_id', type: 'uuid', nullable: true })
   projectManagerId: string;
 
@@ -105,6 +116,10 @@ export class Project {
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 
+  @ManyToOne(() => Workspace, { nullable: true })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace: Workspace;
+
   // Missing database columns
   @Column({ name: 'program_id', type: 'uuid', nullable: true })
   programId: string;
@@ -116,14 +131,29 @@ export class Project {
   methodology: string;
 
   // Missing relations that other entities expect
-  @OneToMany(() => Task, task => task.project)
+  @OneToMany(() => Task, task => task.project, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
   tasks: Task[];
 
-  @OneToMany(() => ProjectPhase, phase => phase.project)
+  @OneToMany(() => ProjectPhase, phase => phase.project, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
   phases: ProjectPhase[];
 
-  @OneToMany(() => ProjectAssignment, assignment => assignment.project)
+  @OneToMany(() => ProjectAssignment, assignment => assignment.project, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
   assignments: ProjectAssignment[];
+
+  @OneToMany(() => ResourceAllocation, allocation => allocation.project, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
+  resourceAllocations: ResourceAllocation[];
 
   @ManyToOne(() => Organization, organization => organization.projects)
   @JoinColumn({ name: 'organization_id' })

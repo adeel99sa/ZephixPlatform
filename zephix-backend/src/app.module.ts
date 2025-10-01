@@ -36,6 +36,9 @@ import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { RisksModule } from './modules/risks/risks.module';
+import { OrganizationValidationGuard } from './guards/organization-validation.guard';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -92,6 +95,8 @@ if (!(global as any).crypto) {
       ProgramsModule,
       TasksModule,
       KPIModule,
+      TeamsModule,
+      RisksModule,
     ] : [
       HealthModule, // Keep health module for basic health checks
     ]),
@@ -99,6 +104,7 @@ if (!(global as any).crypto) {
   controllers: [AppController],
   providers: [
     AppService,
+    OrganizationValidationGuard,
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
