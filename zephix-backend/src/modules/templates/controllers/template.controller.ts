@@ -30,17 +30,17 @@ export class TemplateController {
 
   @Post('create-project')
   async createProjectFromTemplate(@Body() dto: CreateProjectFromTemplateDto, @Request() req) {
-    return this.templateService.createProjectFromTemplate(dto, req.user.id, req.user.organizationId);
+    return this.templateService.createProjectFromTemplate(dto.templateId, dto, req.user.id, req.user.organizationId);
   }
 
-  @Post('projects/:projectId/blocks/:blockId')
-  async addBlockToProject(
-    @Param('projectId') projectId: string,
-    @Param('blockId') blockId: string,
-    @Body() configuration: any
-  ) {
-    return this.templateService.addBlockToProject(projectId, blockId, configuration);
-  }
+  // @Post('projects/:projectId/blocks/:blockId')
+  // async addBlockToProject(
+  //   @Param('projectId') projectId: string,
+  //   @Param('blockId') blockId: string,
+  //   @Body() configuration: any
+  // ) {
+  //   return this.templateService.addBlockToProject(projectId, blockId, configuration);
+  // }
 }
 
 

@@ -87,7 +87,7 @@ export class ResourcesController {
         ...createResourceDto,
         organizationId,
         createdBy: userId
-      });
+      }, organizationId);
 
       // Log audit
       if (userId && organizationId) {
@@ -157,12 +157,18 @@ export class ResourcesController {
   @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 checks per minute
   @ApiOperation({ summary: 'Detect resource conflicts for allocation' })
   @ApiResponse({ status: 200, description: 'Conflict detection completed' })
-  async detectConflicts(@Body() dto: DetectConflictsDto) {
+  async detectConflicts(@Body() dto: DetectConflictsDto, @Req() req: any) {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+    
     return this.resourcesService.detectConflicts(
       dto.resourceId,
       new Date(dto.startDate),
       new Date(dto.endDate),
-      dto.allocationPercentage
+      dto.allocationPercentage,
+      organizationId
     );
   }
 

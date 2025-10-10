@@ -23,12 +23,11 @@ export class ResourcesService {
     private dataSource: DataSource,
   ) {}
 
-  async findAll(organizationId?: string): Promise<any> {
+  async findAll(organizationId: string): Promise<any> {
     try {
-      // If no organizationId, return empty array (don't crash)
+      // organizationId is now required
       if (!organizationId) {
-        console.log('⚠️ Resources: No organizationId provided');
-        return { data: [] };
+        throw new Error('Organization ID is required');
       }
 
       // Check if repository is available
@@ -54,10 +53,13 @@ export class ResourcesService {
     }
   }
 
-  async create(createResourceDto: any): Promise<Resource> {
+  async create(createResourceDto: any, organizationId: string): Promise<Resource> {
     try {
       const resource = new Resource();
-      Object.assign(resource, createResourceDto);
+      Object.assign(resource, {
+        ...createResourceDto,
+        organizationId
+      });
       return await this.resourceRepository.save(resource);
     } catch (error) {
       console.error('❌ Create resource error:', error);
@@ -140,11 +142,12 @@ export class ResourcesService {
     }
   }
 
-  async detectConflicts(resourceId: string, startDate: Date, endDate: Date, allocationPercentage: number) {
+  async detectConflicts(resourceId: string, startDate: Date, endDate: Date, allocationPercentage: number, organizationId: string) {
     try {
       const existingAllocations = await this.resourceAllocationRepository.find({
         where: {
           resourceId,
+          organizationId,
           startDate: Between(startDate, endDate),
         }
       });
@@ -164,14 +167,15 @@ export class ResourcesService {
     }
   }
 
-  async createAllocation(allocationData: any) {
+  async createAllocation(allocationData: any, organizationId: string) {
     try {
       // First detect conflicts
       const conflictCheck = await this.detectConflicts(
         allocationData.resourceId,
         new Date(allocationData.startDate),
         new Date(allocationData.endDate),
-        allocationData.allocationPercentage
+        allocationData.allocationPercentage,
+        organizationId
       );
 
       if (conflictCheck.hasConflicts) {
@@ -186,7 +190,7 @@ export class ResourcesService {
         startDate: new Date(allocationData.startDate),
         endDate: new Date(allocationData.endDate),
         allocationPercentage: allocationData.allocationPercentage,
-        organizationId: allocationData.organizationId
+        organizationId
       });
 
       const savedAllocation = await this.resourceAllocationRepository.save(allocation);
@@ -205,9 +209,9 @@ export class ResourcesService {
     }
   }
 
-  private async getAllocationsForResource(resourceId: string) {
+  private async getAllocationsForResource(resourceId: string, organizationId: string) {
     return this.resourceAllocationRepository.find({
-      where: { resourceId }
+      where: { resourceId, organizationId }
     });
   }
 

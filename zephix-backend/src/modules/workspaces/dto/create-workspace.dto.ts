@@ -1,13 +1,26 @@
-import { IsString, IsOptional, IsUUID, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsNotEmpty, MaxLength } from 'class-validator';
 
 export class CreateWorkspaceDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   name: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   description?: string;
 
+  @IsOptional()
+  @IsUUID()
+  parentWorkspaceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  workspaceType?: string;
+
+  // Legacy fields for backward compatibility
   @IsOptional()
   @IsUUID()
   organizationId?: string;
@@ -17,10 +30,6 @@ export class CreateWorkspaceDto {
   ownerId?: string;
 
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  @IsUUID()
+  createdBy?: string;
 }
-
-
-
-

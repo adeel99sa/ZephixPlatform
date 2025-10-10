@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -109,6 +110,13 @@ export class Resource {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  // Soft delete columns
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy?: string;
+
   // Relations
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
@@ -117,6 +125,10 @@ export class Resource {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'deleted_by' })
+  deletedByUser?: User;
 
   @OneToMany(() => ResourceAllocation, allocation => allocation.resource)
   allocations: ResourceAllocation[];

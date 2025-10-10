@@ -21,7 +21,7 @@ export class TasksController {
 
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: any) {
-    return this.tasksService.findOne(id, req.user.organizationId);
+    return this.tasksService.findTaskById(id, req.user.organizationId);
   }
 
   @Patch(':id')
@@ -31,7 +31,7 @@ export class TasksController {
 
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: any) {
-    return this.tasksService.delete(id, req.user.organizationId);
+    return this.tasksService.delete(id, req.user.organizationId, req.user.id);
   }
 
   @Patch(':id/progress')

@@ -19,7 +19,7 @@ export class WorkspaceGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    const role = await this.workspacesService.getUserRoleInWorkspace(userId, workspaceId);
+    const role = await this.workspacesService.getUserRoleInWorkspace(userId, workspaceId, request.user?.organizationId);
 
     if (!role) {
       throw new ForbiddenException('You do not have access to this workspace');
@@ -46,7 +46,7 @@ export class WorkspaceWriteGuard implements CanActivate {
       return false;
     }
 
-    const role = await this.workspacesService.getUserRoleInWorkspace(userId, workspaceId);
+    const role = await this.workspacesService.getUserRoleInWorkspace(userId, workspaceId, request.user?.organizationId);
 
     // Only owner, admin, and member can write
     return role === WorkspaceRole.OWNER || 
@@ -54,6 +54,9 @@ export class WorkspaceWriteGuard implements CanActivate {
            role === WorkspaceRole.MEMBER;
   }
 }
+
+
+
 
 
 
