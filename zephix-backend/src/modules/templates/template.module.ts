@@ -4,8 +4,8 @@ import { ProjectTemplate } from './entities/project-template.entity';
 import { LegoBlock } from './entities/lego-block.entity';
 import { Project } from '../projects/entities/project.entity';
 import { ProjectPhase } from '../projects/entities/project-phase.entity';
-import { TemplateService } from './services/template.service';
-import { TemplateController } from './controllers/template.controller';
+import { TemplateService } from './template.service';
+import { TemplateController } from './template.controller';
 
 @Module({
   imports: [

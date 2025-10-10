@@ -1,20 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Template } from './entities/template.entity';
+import { ProjectTemplate } from './entities/project-template.entity';
+import { CreateProjectFromTemplateDto } from './dto/create-from-template.dto';
 
 @Injectable()
 export class TemplateService {
   constructor(
-    @InjectRepository(Template)
-    private templateRepository: Repository<Template>,
+    @InjectRepository(ProjectTemplate)
+    private templateRepository: Repository<ProjectTemplate>,
   ) {}
 
   async getSystemTemplates(organizationId: string) {
     return this.templateRepository.find({
       where: [
-        { isSystem: true, isActive: true },
-        { organizationId, isActive: true }
+        { isSystem: true },
+        { organizationId }
+      ]
+    });
+  }
+
+  async getAllTemplates(organizationId: string) {
+    return this.templateRepository.find({
+      where: [
+        { isSystem: true },
+        { organizationId }
       ]
     });
   }
@@ -37,5 +47,26 @@ export class TemplateService {
     });
 
     return this.templateRepository.save(orgTemplate);
+  }
+
+  async createProjectFromTemplate(templateId: string, dto: CreateProjectFromTemplateDto, userId: string, organizationId: string) {
+    // For now, just return the template data
+    // Full project creation will be implemented later
+    const template = await this.templateRepository.findOne({
+      where: { id: templateId }
+    });
+    
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+    
+    return {
+      message: 'Project creation from template is not yet fully implemented',
+      template: template,
+      projectName: dto.projectName,
+      projectDescription: dto.projectDescription,
+      userId,
+      organizationId
+    };
   }
 }

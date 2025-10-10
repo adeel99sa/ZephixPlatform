@@ -98,7 +98,8 @@ export class AuthService {
           isActive: true,
           organizationId: true,
           organizationRole: true,
-          role: true
+          role: true,
+          currentWorkspaceId: true
         }
       });
 
@@ -165,7 +166,9 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role
+      workspaceId: user.currentWorkspaceId || null,
+      role: user.role,
+      organizationRole: user.organizationRole
     };
 
     return this.jwtService.sign(payload, { 
@@ -179,7 +182,9 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role
+      workspaceId: user.currentWorkspaceId || null,
+      role: user.role,
+      organizationRole: user.organizationRole
     };
 
     return this.jwtService.sign(payload, { 
@@ -227,7 +232,9 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         organizationId: user.organizationId,
+        workspaceId: user.currentWorkspaceId || null,
         role: user.role,
+        organizationRole: user.organizationRole,
       };
 
       const accessToken = this.jwtService.sign(payload, { 

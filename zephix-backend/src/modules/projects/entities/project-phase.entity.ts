@@ -22,9 +22,6 @@ export class ProjectPhase {
   @Column()
   name: string;
 
-  @Column({ type: 'text', nullable: true })
-  description: string;
-
   @Column({ 
     type: 'enum',
     enum: ['planning', 'development', 'testing', 'deployment', 'maintenance'],

@@ -4,7 +4,7 @@ import { OrganizationValidationGuard } from '../../guards/organization-validatio
 import { TasksService } from './tasks.service';
 import { DependencyService } from './services/dependency.service';
 import { ResourcesService } from '../resources/resources.service';
-import { KPIAggregationService } from '../kpi/kpi-aggregation.service';
+import { KPIService } from '../kpi/kpi.service';
 
 @Controller('timeline')
 @UseGuards(JwtAuthGuard, OrganizationValidationGuard)
@@ -13,7 +13,7 @@ export class TimelineController {
     private taskService: TasksService,
     private dependencyService: DependencyService,
     private resourceService: ResourcesService,
-    private kpiService: KPIAggregationService,
+    private kpiService: KPIService,
   ) {}
 
   @Get('project/:projectId')
@@ -69,7 +69,7 @@ export class TimelineController {
       console.log('Moving task:', taskId, 'to:', dto.newStartDate);
       
       // Get the task to verify ownership
-      const task = await this.taskService.findOne(taskId, organizationId);
+      const task = await this.taskService.findTaskById(taskId, organizationId);
       if (!task) {
         throw new Error('Task not found');
       }
@@ -91,18 +91,18 @@ export class TimelineController {
       }, organizationId);
       
       // Cascade to dependencies
-      await this.dependencyService.recalculateDates(taskId);
+      await this.dependencyService.recalculateDates(taskId, organizationId);
       
       // Update critical path (simplified for now)
       try {
-        await this.dependencyService.updateCriticalPathFlags(task.projectId);
+        await this.dependencyService.updateCriticalPathFlags(task.projectId, organizationId);
       } catch (error) {
         console.warn('Critical path update failed:', error);
       }
       
       // Trigger KPI recalculation
       try {
-        await this.kpiService.onTaskUpdate(taskId);
+        await this.kpiService.invalidateProjectCache(task.projectId);
       } catch (error) {
         console.warn('KPI recalculation failed:', error);
       }
@@ -133,8 +133,8 @@ export class TimelineController {
       console.log('Creating dependency:', dto);
       
       // Verify both tasks belong to the same organization
-      const predecessor = await this.taskService.findOne(dto.predecessorId, organizationId);
-      const successor = await this.taskService.findOne(dto.successorId, organizationId);
+      const predecessor = await this.taskService.findTaskById(dto.predecessorId, organizationId);
+      const successor = await this.taskService.findTaskById(dto.successorId, organizationId);
       
       if (!predecessor || !successor) {
         throw new Error('One or both tasks not found');
@@ -148,11 +148,12 @@ export class TimelineController {
         dto.predecessorId,
         dto.successorId,
         dto.type || 'finish_to_start',
-        dto.lagDays || 0
+        dto.lagDays || 0,
+        organizationId
       );
 
       // Update critical path
-      await this.dependencyService.updateCriticalPathFlags(successor.projectId);
+      await this.dependencyService.updateCriticalPathFlags(successor.projectId, organizationId);
 
       return {
         success: true,
@@ -181,15 +182,15 @@ export class TimelineController {
       }
 
       // Verify organization access
-      const task = await this.taskService.findOne(dependency.taskId, organizationId);
+      const task = await this.taskService.findTaskById(dependency.taskId, organizationId);
       if (!task) {
         throw new Error('Access denied');
       }
 
-      await this.dependencyService.removeDependency(id);
+      await this.dependencyService.removeDependency(id, organizationId);
       
       // Update critical path
-      await this.dependencyService.updateCriticalPathFlags(task.projectId);
+      await this.dependencyService.updateCriticalPathFlags(task.projectId, organizationId);
 
       return { success: true };
     } catch (error) {
@@ -210,7 +211,7 @@ export class TimelineController {
       }
 
       // Simplified critical path calculation
-      const criticalPath = await this.dependencyService.updateCriticalPathFlags(projectId);
+      const criticalPath = await this.dependencyService.updateCriticalPathFlags(projectId, organizationId);
       
       return {
         success: true,
@@ -239,11 +240,11 @@ export class TimelineController {
 
     // Recalculate all dependencies
     for (const task of tasks) {
-      await this.dependencyService.recalculateDates(task.id);
+      await this.dependencyService.recalculateDates(task.id, organizationId);
     }
 
     // Update critical path
-    const criticalPath = await this.dependencyService.updateCriticalPathFlags(projectId);
+    const criticalPath = await this.dependencyService.updateCriticalPathFlags(projectId, organizationId);
 
     // Recalculate KPIs
     try {

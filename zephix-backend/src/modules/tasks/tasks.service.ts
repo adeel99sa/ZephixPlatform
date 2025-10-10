@@ -7,9 +7,10 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ResourceCalculationService } from '../resources/services/resource-calculation.service';
 import { KPIService } from '../kpi/kpi.service';
+import { BaseSoftDeleteService } from '../../common/base-soft-delete.service';
 
 @Injectable()
-export class TasksService {
+export class TasksService extends BaseSoftDeleteService<Task> {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
@@ -17,7 +18,9 @@ export class TasksService {
     private dependencyRepository: Repository<TaskDependency>,
     private resourceCalculationService: ResourceCalculationService,
     private kpiService: KPIService,
-  ) {}
+  ) {
+    super(taskRepository);
+  }
 
   async create(createTaskDto: CreateTaskDto, organizationId: string): Promise<Task> {
     // Generate task number if not provided
@@ -53,7 +56,7 @@ export class TasksService {
     });
   }
 
-  async findOne(id: string, organizationId: string): Promise<Task> {
+  async findTaskById(id: string, organizationId: string): Promise<Task> {
     const task = await this.taskRepository.findOne({
       where: { id, organizationId },
       relations: ['assignee', 'phase', 'project'],
@@ -67,7 +70,7 @@ export class TasksService {
   }
 
   async update(id: string, updateTaskDto: UpdateTaskDto, organizationId: string): Promise<Task> {
-    const task = await this.findOne(id, organizationId);
+    const task = await this.findTaskById(id, organizationId);
     
     // Update progress to 100 if status is done
     if (updateTaskDto.status === 'done') {
@@ -105,9 +108,12 @@ export class TasksService {
     return updatedTask;
   }
 
-  async delete(id: string, organizationId: string): Promise<void> {
-    const task = await this.findOne(id, organizationId);
-    await this.taskRepository.remove(task);
+  async delete(id: string, organizationId: string, userId: string): Promise<void> {
+    const task = await this.findTaskById(id, organizationId);
+    if (!task) {
+      throw new NotFoundException(`Task with ID ${id} not found`);
+    }
+    await this.softDelete(id, userId);
   }
 
   async getTasksWithDependencies(projectId: string, organizationId: string): Promise<Task[]> {
