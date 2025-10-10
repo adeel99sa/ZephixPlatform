@@ -171,4 +171,23 @@ test-results.xml
 docs/build/
 
 # Local development
-.local/ 
+.local/
+
+# Secrets / env
+.env
+.env.*
+*.env
+*.env.*.local
+*.pem
+*.key
+*.p12
+secrets/
+# Accidental backups
+*.backup
+*.bak
+*~
+# Node & builds
+node_modules/
+dist/
+coverage/
+.DS_Store 
