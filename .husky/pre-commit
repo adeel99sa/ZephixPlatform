@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Block accidental secret-like files
+if git diff --cached --name-only | grep -E '\.env(\.|$)|\.pem$|\.key$|\.p12$|\.backup$|\.bak$' >/dev/null; then
+  echo "❌ Secret-like file staged. Unstage it and use environment variables instead."
+  exit 1
+fi

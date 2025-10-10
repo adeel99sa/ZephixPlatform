@@ -33,6 +33,10 @@
     "@types/cookie-parser": "^1.4.9",
     "@types/helmet": "^0.0.48",
     "@types/passport-jwt": "^4.0.1",
+    "husky": "^9.1.7",
     "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "prepare": "husky install"
   }
 }
