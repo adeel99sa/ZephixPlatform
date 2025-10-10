@@ -4,6 +4,8 @@ import { Task } from './entities/task.entity';
 import { TaskDependency } from './entities/task-dependency.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
+import { TimelineController } from './timeline.controller';
+import { DependencyService } from './services/dependency.service';
 import { ResourceModule } from '../resources/resource.module';
 import { KPIModule } from '../kpi/kpi.module';
 
@@ -13,8 +15,8 @@ import { KPIModule } from '../kpi/kpi.module';
     ResourceModule,
     KPIModule,
   ],
-  controllers: [TasksController],
-  providers: [TasksService],
-  exports: [TasksService],
+  controllers: [TasksController, TimelineController],
+  providers: [TasksService, DependencyService],
+  exports: [TasksService, DependencyService],
 })
 export class TasksModule {}

@@ -1,365 +1,162 @@
-# Zephix Backend Cleanup - Step by Step
+# Zephix Backend Cleanup - STRICT EXECUTION MODE
 
-## CRITICAL RULES
-1. Execute steps IN ORDER - do not skip
-2. After EACH step, run tests to verify nothing broke
-3. If ANY step fails, STOP and report the error
-4. Do not make assumptions - follow instructions exactly
-5. Create git commit after each major step
+## ABSOLUTE RULES
+1. Never say "COMPLETED ✅" unless you actually tested and verified
+2. If you see an error or issue, FIX IT IMMEDIATELY - do not skip
+3. Every curl command must be executed and results shared
+4. If ANY test fails, STOP and report the exact failure
+5. Do not use phrases like "might", "seems", "appears" - only state facts
 
-## STEP 1: Verify Current State (5 minutes)
+## STEP 7: Runtime Test - CORRECTED VERSION
 
-### 1.1 Check what files exist
+### 7.1 Start backend in separate process
 ```bash
-# List all task-related files
-find src/ -type f -name "*task*" -o -name "*work-item*"
+# Start backend in background
+npm run start:dev > backend.log 2>&1 &
+echo $! > backend.pid
+
+# Wait 10 seconds for startup
+sleep 10
+
+# Check if running
+ps -p $(cat backend.pid)
 ```
 
-### 1.2 Expected output should show:
-- src/modules/tasks/
-- src/modules/work-items/
-- src/modules/projects/entities/task.entity.ts (duplicate)
-- src/modules/projects/controllers/task.controller.ts (duplicate)
-- src/modules/projects/services/task.service.ts (duplicate)
+If process not found, read backend.log and report error.
 
-### 1.3 Document current imports
+### 7.2 Test authentication
 ```bash
-# Find all files importing Task entity
-grep -r "from.*task.entity" src/ --include="*.ts"
-grep -r "from.*work-item.entity" src/ --include="*.ts"
-```
-
-Save this output to `task-imports.txt` for reference.
-
-## STEP 2: Remove Duplicate Task Files (10 minutes)
-
-### 2.1 Delete duplicate task files in projects module
-```bash
-# From backend root directory
-rm src/modules/projects/entities/task.entity.ts
-rm src/modules/projects/entities/task-dependency.entity.ts
-rm src/modules/projects/controllers/task.controller.ts
-rm src/modules/projects/services/task.service.ts
-```
-
-### 2.2 Verify deletion
-```bash
-ls -la src/modules/projects/entities/
-ls -la src/modules/projects/controllers/
-ls -la src/modules/projects/services/
-```
-
-These directories should NOT contain task-related files anymore.
-
-### 2.3 Git checkpoint
-```bash
-git add .
-git commit -m "Remove duplicate task files from projects module"
-```
-
-## STEP 3: Update Projects Module Imports (15 minutes)
-
-### 3.1 Find all imports in projects module
-```bash
-grep -r "task.entity\|task.controller\|task.service" src/modules/projects/ --include="*.ts"
-```
-
-### 3.2 For EACH file found, update imports
-
-**If file imports from projects module:**
-```typescript
-// OLD (will break now)
-import { Task } from '../entities/task.entity';
-
-// NEW (use tasks module instead)
-import { Task } from '../../tasks/entities/task.entity';
-```
-
-**If file imports Task, update path to:**
-```typescript
-import { Task } from '../../tasks/entities/task.entity';
-import { TaskService } from '../../tasks/tasks.service';
-```
-
-### 3.3 Check projects.module.ts
-File: `src/modules/projects/projects.module.ts`
-
-Remove any Task-related imports:
-```typescript
-// Remove these lines if present
-import { TaskController } from './controllers/task.controller';
-import { TaskService } from './services/task.service';
-```
-
-From `@Module` decorator, remove:
-```typescript
-controllers: [
-  ProjectsController,
-  // TaskController, // REMOVE THIS
-],
-providers: [
-  ProjectsService,
-  // TaskService, // REMOVE THIS
-],
-```
-
-### 3.4 Compile check
-```bash
-npm run build
-```
-
-If compilation fails, check error message. Common issues:
-- Missing imports (add them from tasks module)
-- Circular dependencies (remove unused imports)
-
-## STEP 4: Verify Tasks Module is Complete (10 minutes)
-
-### 4.1 Check tasks module structure
-```bash
-ls -la src/modules/tasks/
-```
-
-Must have:
-- entities/task.entity.ts
-- entities/task-dependency.entity.ts
-- tasks.controller.ts
-- tasks.service.ts
-- tasks.module.ts
-
-### 4.2 Verify Task entity matches database
-File: `src/modules/tasks/entities/task.entity.ts`
-
-Must have these @Column decorators with correct database column names:
-```typescript
-@Entity('tasks')
-export class Task {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ name: 'project_id' })
-  projectId: string;
-
-  @Column()
-  title: string;
-
-  @Column({ type: 'text', nullable: true })
-  description: string;
-
-  @Column({ default: 'pending' })
-  status: string;
-
-  @Column({ name: 'task_number' })
-  taskNumber: string;
-
-  @Column({ name: 'phase_id', nullable: true })
-  phaseId: string;
-
-  @Column({ default: 'medium' })
-  priority: string;
-
-  @Column({ name: 'estimated_hours', default: 0 })
-  estimatedHours: number;
-
-  @Column({ name: 'actual_hours', default: 0 })
-  actualHours: number;
-
-  @Column({ name: 'assigned_to', nullable: true })
-  assignedTo: string;
-
-  @Column({ name: 'assigned_by', nullable: true })
-  assignedBy: string;
-
-  @Column({ name: 'created_by', nullable: true })
-  createdBy: string;
-
-  @Column({ name: 'organization_id' })
-  organizationId: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
-
-  // Relationships
-  @ManyToOne(() => Project, project => project.tasks, {
-    onDelete: 'CASCADE'
-  })
-  @JoinColumn({ name: 'project_id' })
-  project: Project;
-
-  @ManyToOne(() => Organization)
-  @JoinColumn({ name: 'organization_id' })
-  organization: Organization;
-}
-```
-
-### 4.3 Check tasks.controller.ts has CRUD endpoints
-File: `src/modules/tasks/tasks.controller.ts`
-
-Must have:
-```typescript
-@Controller('api/tasks')
-@UseGuards(JwtAuthGuard)
-export class TasksController {
-  
-  @Get()
-  findAll(@GetTenant() tenant: TenantContext) {
-    // Implementation
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
-    // Implementation
-  }
-
-  @Post()
-  create(@Body() dto: CreateTaskDto, @GetTenant() tenant: TenantContext) {
-    // Implementation
-  }
-
-  @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateTaskDto, @GetTenant() tenant: TenantContext) {
-    // Implementation
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string, @GetTenant() tenant: TenantContext) {
-    // Implementation
-  }
-}
-```
-
-## STEP 5: Update App Module (5 minutes)
-
-### 5.1 Check app.module.ts imports
-File: `src/app.module.ts`
-
-Ensure TasksModule is imported:
-```typescript
-import { TasksModule } from './modules/tasks/tasks.module';
-
-@Module({
-  imports: [
-    // ... other modules
-    TasksModule,
-    // ... other modules
-  ],
-})
-export class AppModule {}
-```
-
-### 5.2 Verify no duplicate imports
-```bash
-grep -n "TasksModule\|TaskModule" src/app.module.ts
-```
-
-Should only appear ONCE in imports array.
-
-## STEP 6: Test Compilation (5 minutes)
-
-### 6.1 Clean build
-```bash
-rm -rf dist/
-npm run build
-```
-
-### 6.2 Check for errors
-If build succeeds, output should end with:
-```
-webpack compiled successfully
-```
-
-If build fails, read error carefully:
-- "Cannot find module" → Missing import, add it
-- "Circular dependency" → Remove unused imports
-- "Property does not exist" → Entity field mismatch with database
-
-### 6.3 Git checkpoint
-```bash
-git add .
-git commit -m "Backend cleanup complete - tasks module consolidated"
-```
-
-## STEP 7: Runtime Test (10 minutes)
-
-### 7.1 Start backend
-```bash
-npm run start:dev
-```
-
-Watch terminal for errors. Application should start without crashes.
-
-### 7.2 Test tasks endpoint
-```bash
-# Get JWT token
-TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
+# Test login
+curl -v -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"adeel99sa@yahoo.com","password":"ReAdY4wK73967#!@"}' \
-  | jq -r '.access_token')
-
-# Test GET tasks
-curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/tasks
-
-# Should return JSON array of tasks (may be empty)
+  -d '{"email":"adeel99sa@yahoo.com","password":"ReAdY4wK73967#!@"}'
 ```
 
-### 7.3 Expected response
-```json
-{
-  "data": [...],
-  "total": 26,
-  "page": 1,
-  "limit": 10
-}
-```
+**Expected:** Status 200 or 201 with JSON containing `access_token`
+**If 401:** Credentials wrong
+**If 404:** Route not registered
+**If connection refused:** Backend not running
 
-If you get 401: Auth issue
-If you get 404: Route not registered
-If you get 500: Check backend terminal for error
+Save the access_token from response.
 
-## STEP 8: Test Project Delete (5 minutes)
-
-### 8.1 Try deleting a project
+### 7.3 Test tasks endpoint
 ```bash
-# List projects first
-curl -H "Authorization: Bearer $TOKEN" http://localhost:3000/api/projects
+TOKEN="[paste token from previous step]"
 
-# Delete one (use actual ID from list)
-curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  http://localhost:3000/api/projects/[PROJECT_ID]
+curl -v http://localhost:3000/api/tasks \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### 8.2 Expected response
-```json
-{
-  "message": "Project deleted successfully"
-}
+**Expected:** Status 200 with JSON array
+**Share the exact response** - don't summarize
+
+### 7.4 Test projects endpoint
+```bash
+curl -v http://localhost:3000/api/projects \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-If you get 500 error with "foreign key constraint" → CASCADE fixes didn't work, check database
+**Expected:** Status 200 with project list
+**Share the exact response**
 
-## COMPLETION CHECKLIST
+## STEP 8: Test Project Delete - MANDATORY
 
-Run through this checklist:
+### 8.1 Get project ID
+From Step 7.4 response, find a project ID. If no projects exist, create one first:
 
-- [ ] No duplicate task files in projects module
-- [ ] npm run build succeeds with no errors
-- [ ] Backend starts without crashes
-- [ ] GET /api/tasks returns data
-- [ ] GET /api/projects returns data
-- [ ] DELETE /api/projects/[id] works
-- [ ] No console errors in terminal
-- [ ] Git commits created
+```bash
+curl -X POST http://localhost:3000/api/projects \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Delete Project",
+    "description": "Testing CASCADE delete",
+    "organizationId": "06b54693-2b4b-4c10-b553-6dea5c5631c9",
+    "methodology": "agile"
+  }'
+```
 
-## IF ANYTHING FAILS
+Save the returned project ID.
 
-**STOP IMMEDIATELY**
+### 8.2 Add resource allocation to project
+This tests CASCADE delete actually works:
 
-Report the error with:
-1. Which step failed
-2. Exact error message
-3. Output of: `git status`
-4. Output of: `npm run build`
+```bash
+curl -X POST http://localhost:3000/api/resource-allocations \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "[project id from 8.1]",
+    "userId": "8f83a908-abe3-4569-94af-8ca0b0629f57",
+    "allocationPercentage": 50,
+    "startDate": "2025-10-01",
+    "endDate": "2025-12-31"
+  }'
+```
 
-Do not proceed to next step until current step succeeds.
+### 8.3 Delete project with allocations
+```bash
+curl -v -X DELETE http://localhost:3000/api/projects/[project id] \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Expected:** Status 200, project deleted
+**If 500:** CASCADE not working, report exact error from backend.log
+
+### 8.4 Verify deletion
+```bash
+# Try to get deleted project
+curl http://localhost:3000/api/projects/[project id] \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Expected:** Status 404 (not found)
+
+### 8.5 Cleanup
+```bash
+# Stop backend
+kill $(cat backend.pid)
+rm backend.pid
+```
+
+## ISSUE DETECTION RULES
+
+### If you see "duplicate title columns" in Task entity
+**STOP and FIX:**
+
+```bash
+# Edit src/modules/tasks/entities/task.entity.ts
+# Remove any duplicate @Column() decorators
+# Ensure each column matches database exactly
+```
+
+### If curl returns connection refused
+**STOP and CHECK:**
+
+```bash
+# Read last 50 lines of logs
+tail -50 backend.log
+
+# Check if port 3000 is in use
+lsof -i :3000
+```
+
+### If any test returns 500 error
+**STOP and REPORT:**
+1. Exact error from backend.log
+2. Which endpoint failed
+3. Request body sent
+
+## SUCCESS CRITERIA
+
+You can only report "COMPLETED" when:
+- [ ] npm run build succeeds with zero errors
+- [ ] Backend starts and stays running for 30 seconds
+- [ ] Login returns valid JWT token
+- [ ] GET /api/tasks returns 200
+- [ ] GET /api/projects returns 200
+- [ ] DELETE /api/projects returns 200
+- [ ] Deleted project returns 404 on GET
+- [ ] No errors in backend.log
+
+If even ONE criterion fails, the cleanup is INCOMPLETE.

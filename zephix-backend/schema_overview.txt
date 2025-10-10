@@ -1,0 +1,168 @@
+                                                   List of relations
+ Schema |             Name              | Type  |    Owner    | Persistence | Access method |    Size    | Description 
+--------+-------------------------------+-------+-------------+-------------+---------------+------------+-------------
+ public | activity_log                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | ai_feedback                   | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | ai_interactions               | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | ai_suggestions                | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | attachments                   | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | audit_logs                    | table | postgres    | permanent   | heap          | 56 kB      | 
+ public | auth_audit_log                | table | zephix_user | permanent   | heap          | 8192 bytes | 
+ public | brds                          | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | change_requests               | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | comments                      | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | custom_field_definitions      | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | custom_field_values           | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | dashboard_connections         | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | dashboard_permissions         | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | dashboard_templates           | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | dashboard_widgets             | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | dashboards                    | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | deliverable_reviews           | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | demo_requests                 | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | dependencies                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | dependency_audit_log          | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | document_activity             | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | document_templates            | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | email_verifications           | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | entity_tags                   | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | intake_forms                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | intake_submissions            | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | invitations                   | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | kpi_cache                     | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | lego_blocks                   | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | login_attempts                | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | migrations                    | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | notifications                 | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | organization_phase_templates  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | organization_settings         | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | organization_workspace_config | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | organizations                 | table | postgres    | permanent   | heap          | 56 kB      | 
+ public | phase_documents               | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | portfolios                    | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | programs                      | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | project_assignments           | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | project_budgets               | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | project_documents             | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | project_expenses              | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | project_phases                | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | project_template_usage        | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | project_templates             | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | projects                      | table | postgres    | permanent   | heap          | 56 kB      | 
+ public | quality_metrics               | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | refresh_tokens                | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | report_templates              | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | resource_allocations          | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | resource_availability         | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | resource_conflicts            | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | resource_policies             | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | resource_rates                | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | resource_skills               | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | resources                     | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | risk_assessments              | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | risk_impacts                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | risk_mitigations              | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | risk_triggers                 | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | risks                         | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | roles                         | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | scheduled_reports             | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | sprint_tasks                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | sprints                       | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | status_reports                | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | tags                          | table | postgres    | permanent   | heap          | 0 bytes    | 
+ public | task_attachments              | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | task_comments                 | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | task_dependencies             | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | tasks                         | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | team_members                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | team_members_backup_20250928  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | teams                         | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | template_blocks               | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | time_entries                  | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | user_mfa                      | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | user_organizations            | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | user_workspaces               | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | users                         | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | waitlist                      | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | work_items                    | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | workflow_instances            | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | workflow_templates            | table | postgres    | permanent   | heap          | 8192 bytes | 
+ public | workspace_folders             | table | postgres    | permanent   | heap          | 16 kB      | 
+ public | workspaces                    | table | postgres    | permanent   | heap          | 16 kB      | 
+(88 rows)
+
+                                                                       Table "public.tasks"
+        Column         |            Type             | Collation | Nullable |            Default            | Storage  | Compression | Stats target | Description 
+-----------------------+-----------------------------+-----------+----------+-------------------------------+----------+-------------+--------------+-------------
+ id                    | uuid                        |           | not null | gen_random_uuid()             | plain    |             |              | 
+ project_id            | uuid                        |           |          |                               | plain    |             |              | 
+ title                 | text                        |           | not null |                               | extended |             |              | 
+ description           | text                        |           |          |                               | extended |             |              | 
+ status                | text                        |           |          | 'pending'::text               | extended |             |              | 
+ due_date              | timestamp with time zone    |           |          |                               | plain    |             |              | 
+ created_at            | timestamp with time zone    |           |          | now()                         | plain    |             |              | 
+ updated_at            | timestamp with time zone    |           |          | now()                         | plain    |             |              | 
+ task_number           | character varying(20)       |           | not null |                               | extended |             |              | 
+ phase_id              | uuid                        |           |          |                               | plain    |             |              | 
+ priority              | character varying(20)       |           |          | 'medium'::character varying   | extended |             |              | 
+ estimated_hours       | integer                     |           |          | 0                             | plain    |             |              | 
+ progress_percentage   | integer                     |           |          | 0                             | plain    |             |              | 
+ task_type             | character varying(50)       |           |          | 'task'::character varying     | extended |             |              | 
+ actual_hours          | integer                     |           |          | 0                             | plain    |             |              | 
+ planned_start_date    | date                        |           |          |                               | plain    |             |              | 
+ planned_end_date      | date                        |           |          |                               | plain    |             |              | 
+ actual_start_date     | date                        |           |          |                               | plain    |             |              | 
+ actual_end_date       | date                        |           |          |                               | plain    |             |              | 
+ is_milestone          | boolean                     |           |          | false                         | plain    |             |              | 
+ is_blocked            | boolean                     |           |          | false                         | plain    |             |              | 
+ blocked_reason        | text                        |           |          |                               | extended |             |              | 
+ parent_task_id        | uuid                        |           |          |                               | plain    |             |              | 
+ assigned_by           | uuid                        |           |          |                               | plain    |             |              | 
+ created_by            | uuid                        |           |          |                               | plain    |             |              | 
+ assigned_to           | uuid                        |           |          |                               | plain    |             |              | 
+ assignment_type       | character varying(20)       |           |          | 'internal'::character varying | extended |             |              | 
+ vendor_name           | character varying(255)      |           |          |                               | extended |             |              | 
+ organization_id       | uuid                        |           |          |                               | plain    |             |              | 
+ completed_date        | date                        |           |          |                               | plain    |             |              | 
+ dependencies          | jsonb                       |           |          |                               | extended |             |              | 
+ resource_impact_score | integer                     |           |          |                               | plain    |             |              | 
+ assigned_resources    | text                        |           |          |                               | extended |             |              | 
+ start_date            | date                        |           |          |                               | plain    |             |              | 
+ end_date              | date                        |           |          |                               | plain    |             |              | 
+ duration_days         | integer                     |           |          | 1                             | plain    |             |              | 
+ completion_percentage | integer                     |           |          | 0                             | plain    |             |              | 
+ is_critical_path      | boolean                     |           |          | false                         | plain    |             |              | 
+ planned_start         | date                        |           |          |                               | plain    |             |              | 
+ planned_end           | date                        |           |          |                               | plain    |             |              | 
+ actual_start          | date                        |           |          |                               | plain    |             |              | 
+ actual_end            | date                        |           |          |                               | plain    |             |              | 
+ assigned_team_id      | uuid                        |           |          |                               | plain    |             |              | 
+ deleted_at            | timestamp without time zone |           |          |                               | plain    |             |              | 
+ deleted_by            | uuid                        |           |          |                               | plain    |             |              | 
+Indexes:
+    "tasks_pkey" PRIMARY KEY, btree (id)
+    "idx_tasks_assigned" btree (assigned_to)
+    "idx_tasks_critical_path" btree (is_critical_path)
+    "idx_tasks_deleted" btree (deleted_at) WHERE deleted_at IS NOT NULL
+    "idx_tasks_phase" btree (phase_id)
+    "idx_tasks_planned_end" btree (planned_end)
+    "idx_tasks_planned_start" btree (planned_start)
+    "idx_tasks_project" btree (project_id)
+    "idx_tasks_project_timeline" btree (project_id, planned_start, planned_end)
+    "idx_tasks_status" btree (status)
+Foreign-key constraints:
+    "tasks_assigned_to_fkey" FOREIGN KEY (assigned_to) REFERENCES users(id)
+    "tasks_deleted_by_fkey" FOREIGN KEY (deleted_by) REFERENCES users(id)
+    "tasks_organization_id_fkey" FOREIGN KEY (organization_id) REFERENCES organizations(id)
+    "tasks_phase_id_fkey" FOREIGN KEY (phase_id) REFERENCES project_phases(id)
+Referenced by:
+    TABLE "dependency_audit_log" CONSTRAINT "dependency_audit_log_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    TABLE "resource_allocations" CONSTRAINT "resource_allocations_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id)
+    TABLE "sprint_tasks" CONSTRAINT "sprint_tasks_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    TABLE "task_attachments" CONSTRAINT "task_attachments_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id)
+    TABLE "task_comments" CONSTRAINT "task_comments_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id)
+    TABLE "task_dependencies" CONSTRAINT "task_dependencies_depends_on_task_id_fkey" FOREIGN KEY (depends_on_task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    TABLE "task_dependencies" CONSTRAINT "task_dependencies_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    TABLE "time_entries" CONSTRAINT "time_entries_task_id_fkey" FOREIGN KEY (task_id) REFERENCES tasks(id)
+Access method: heap
+

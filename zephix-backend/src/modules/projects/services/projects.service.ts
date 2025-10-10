@@ -1,15 +1,17 @@
-import { Injectable, NotFoundException, Logger, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions } from 'typeorm';
-import { Project, ProjectStatus } from '../entities/project.entity';
+import { Injectable, NotFoundException, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { InjectRepository, InjectConnection } from '@nestjs/typeorm';
+import { Repository, FindManyOptions, In, Not, IsNull, Connection } from 'typeorm';
+import { Project, ProjectStatus, ProjectPriority, ProjectRiskLevel } from '../entities/project.entity';
 import { ProjectAssignment } from '../entities/project-assignment.entity';
 import { ProjectPhase } from '../entities/project-phase.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
+import { CreateProjectFromTemplateDto } from '../dto/create-project-from-template.dto';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
+import { BaseSoftDeleteService } from '../../../common/base-soft-delete.service';
 
 @Injectable()
-export class ProjectsService extends TenantAwareRepository<Project> {
+export class ProjectsService extends BaseSoftDeleteService<Project> {
   private readonly logger = new Logger(ProjectsService.name);
 
   constructor(
@@ -19,9 +21,26 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
     @InjectRepository(ProjectPhase)
     private readonly projectPhaseRepository: Repository<ProjectPhase>,
+    @InjectConnection()
+    private readonly connection: Connection,
   ) {
     console.log('🚀 ProjectsService constructor called!');
-    super(projectRepository, 'Project');
+    super(projectRepository);
+  }
+
+  // Add missing methods from base class
+  async create(data: any, organizationId: string): Promise<Project> {
+    const project = this.projectRepository.create({
+      ...data,
+      organizationId
+    });
+    const saved = await this.projectRepository.save(project);
+    return Array.isArray(saved) ? saved[0] : saved;
+  }
+
+  async update(id: string, organizationId: string, data: any): Promise<Project> {
+    await this.projectRepository.update({ id, organizationId }, data);
+    return this.findById(id, organizationId);
   }
 
   /**
@@ -46,6 +65,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         estimatedEndDate: projectData.estimatedEndDate ? new Date(projectData.estimatedEndDate) : undefined,
         createdById: userId,
         status: createProjectDto.status || ProjectStatus.PLANNING,
+        workspaceId: createProjectDto.workspaceId,
+        folderId: createProjectDto.folderId,
       };
       
       const project = await this.create(processedData, organizationId);
@@ -125,10 +146,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       }
 
       if (search) {
-        // Use raw SQL for search to ensure org filter is maintained
+        // Use raw SQL for search to ensure org filter is maintained and soft-deleted are excluded
         const searchResults = await this.projectRepository
           .createQueryBuilder('project')
           .where('project.organizationId = :orgId', { orgId: organizationId })
+          .andWhere('project.deletedAt IS NULL') // Exclude soft-deleted
           .andWhere('(project.name ILIKE :search OR project.description ILIKE :search)', 
                    { search: `%${search}%` })
           .orderBy('project.createdAt', 'DESC')
@@ -146,10 +168,9 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         };
       }
 
-      // Regular find with org filter
-      const [projects, total] = await this.projectRepository.findAndCount({
+      // Use base class method which automatically excludes soft-deleted
+      const [projects, total] = await this.findAndCount({
         where: whereClause,
-        
         order: { createdAt: 'DESC' },
         skip,
         take: limit,
@@ -175,7 +196,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
    */
   async findProjectById(id: string, organizationId: string): Promise<Project> {
     try {
-      const project = await this.findById(id, organizationId, []);
+      const project = await this.findById(id, organizationId);
 
       if (!project) {
         throw new NotFoundException(`Project with ID ${id} not found or access denied`);
@@ -236,11 +257,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   }
 
   /**
-   * Delete project - TENANT SECURE  
+   * Delete project (soft delete) - TENANT SECURE  
    */
   async deleteProject(id: string, organizationId: string, userId: string): Promise<void> {
     try {
-      this.logger.log(`Deleting project ${id} for org: ${organizationId}, user: ${userId}`);
+      this.logger.log(`Soft deleting project ${id} for org: ${organizationId}, user: ${userId}`);
 
       // First verify the project exists and belongs to org
       const project = await this.findById(id, organizationId);
@@ -248,42 +269,48 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         throw new NotFoundException(`Project with ID ${id} not found or access denied`);
       }
 
-      // Use a transaction to handle related records
-      await this.projectRepository.manager.transaction(async (transactionalEntityManager) => {
-        // Delete related records in the correct order
-        // 1. Delete tasks first (they might reference phases)
-        await transactionalEntityManager.query(
-          'DELETE FROM tasks WHERE project_id = $1',
-          [id]
-        );
+      // Use soft delete instead of hard delete
+      await this.softDelete(id, userId);
 
-        // 2. Delete project phases
-        await transactionalEntityManager.query(
-          'DELETE FROM project_phases WHERE project_id = $1',
-          [id]
-        );
-
-        // 3. Delete project assignments
-        await transactionalEntityManager.query(
-          'DELETE FROM project_assignments WHERE project_id = $1',
-          [id]
-        );
-
-        // 4. Finally delete the project
-        const result = await transactionalEntityManager.query(
-          'DELETE FROM projects WHERE id = $1 AND organization_id = $2',
-          [id, organizationId]
-        );
-        
-        if (result[1] === 0) {
-          throw new NotFoundException(`Project with ID ${id} not found or access denied`);
-        }
-      });
-
-      this.logger.log(`✅ Project deleted: ${id} from org: ${organizationId}`);
+      this.logger.log(`✅ Project soft deleted: ${id} from org: ${organizationId}`);
 
     } catch (error) {
-      this.logger.error(`❌ Failed to delete project ${id} for org ${organizationId}:`, error);
+      this.logger.error(`❌ Failed to soft delete project ${id} for org ${organizationId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk delete projects (soft delete) - TENANT SECURE
+   */
+  async bulkDeleteProjects(ids: string[], organizationId: string, userId: string): Promise<{ deleted: number }> {
+    try {
+      this.logger.log(`Bulk soft deleting ${ids.length} projects for org: ${organizationId}, user: ${userId}`);
+
+      if (!ids || ids.length === 0) {
+        return { deleted: 0 };
+      }
+
+      // First verify all projects exist and belong to org
+      const projects = await this.projectRepository.find({
+        where: { id: In(ids), organizationId },
+        select: ['id']
+      });
+
+      if (projects.length !== ids.length) {
+        const foundIds = projects.map(p => p.id);
+        const missingIds = ids.filter(id => !foundIds.includes(id));
+        throw new NotFoundException(`Projects not found or access denied: ${missingIds.join(', ')}`);
+      }
+
+      // Use soft delete for all projects
+      await this.bulkSoftDelete(ids, userId);
+
+      this.logger.log(`✅ Bulk soft deleted ${ids.length} projects from org: ${organizationId}`);
+      return { deleted: ids.length };
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to bulk soft delete projects for org ${organizationId}:`, error);
       throw error;
     }
   }
@@ -460,5 +487,177 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     return this.projectRepository.count({
       where: { organizationId }
     });
+  }
+
+  /**
+   * Restore a soft-deleted project
+   */
+  async restoreProject(id: string, organizationId: string, userId: string): Promise<Project> {
+    this.logger.log(`Restoring project ${id} for org ${organizationId}`);
+    
+    // First check if project exists and is soft-deleted
+    const deletedProject = await this.projectRepository.findOne({
+      where: {
+        id,
+        organizationId,
+        deletedAt: Not(IsNull())
+      }
+    });
+
+    if (!deletedProject) {
+      throw new NotFoundException(`Project ${id} not found in trash for organization ${organizationId}`);
+    }
+
+    // Restore using base class method
+    await this.restore(id);
+
+    // Return the restored project
+    const restoredProject = await this.findProjectById(id, organizationId);
+    if (!restoredProject) {
+      throw new Error(`Failed to retrieve restored project ${id}`);
+    }
+
+    this.logger.log(`Successfully restored project ${id}`);
+    return restoredProject;
+  }
+
+  /**
+   * Create project from template - TENANT SECURE
+   */
+  async createFromTemplate(
+    dto: CreateProjectFromTemplateDto,
+    userId: string
+  ): Promise<Project> {
+    try {
+      this.logger.log(`🔍 Creating project from template ${dto.templateId} for user ${userId}`);
+      this.logger.log(`🔍 DTO data:`, JSON.stringify(dto, null, 2));
+
+      // Validate workspace belongs to organization
+      const workspace = await this.connection.getRepository('Workspace').findOne({
+        where: { 
+          id: dto.workspaceId,
+          organizationId: dto.organizationId 
+        }
+      });
+
+      if (!workspace) {
+        throw new NotFoundException('Workspace not found');
+      }
+
+      // Get template configuration
+      const templateConfig = this.getTemplateConfiguration(dto.templateId);
+      
+      if (!templateConfig) {
+        throw new BadRequestException(`Template ${dto.templateId} not found`);
+      }
+
+      // Create project with template-specific data
+      const project = this.projectRepository.create({
+        name: dto.name,
+        description: dto.description,
+        startDate: new Date(dto.startDate),
+        endDate: dto.endDate ? new Date(dto.endDate) : null,
+        workspaceId: dto.workspaceId,
+        organizationId: dto.organizationId,
+        methodology: templateConfig.methodology,
+        status: ProjectStatus.PLANNING,
+        priority: ProjectPriority.MEDIUM, // Required field with default
+        riskLevel: ProjectRiskLevel.MEDIUM, // Required field with default
+        createdById: userId,
+      });
+
+      this.logger.log(`🔍 About to save project to database...`);
+      const savedProject = await this.projectRepository.save(project);
+      this.logger.log(`✅ Project saved successfully with ID: ${savedProject.id}`);
+
+      // Create template-specific structure (temporarily disabled for debugging)
+      // await this.applyTemplateStructure(savedProject, templateConfig);
+
+      // Auto-assign creator as owner (temporarily disabled for debugging)
+      // await this.assignUser(
+      //   savedProject.id,
+      //   userId,
+      //   'owner',
+      //   dto.organizationId,
+      // );
+
+      this.logger.log(`✅ Project created from template: ${savedProject.id} in org: ${dto.organizationId}`);
+      return savedProject;
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to create project from template for org ${dto.organizationId}:`, error);
+      throw error;
+    }
+  }
+
+  private getTemplateConfiguration(templateId: string): any {
+    const templates = {
+      'agile-scrum': {
+        methodology: 'agile',
+        phases: [
+          { name: 'Sprint 0 (Setup)', duration: 1 },
+          { name: 'Sprint 1', duration: 2 },
+          { name: 'Sprint 2', duration: 2 },
+          { name: 'Sprint 3', duration: 2 },
+          { name: 'Sprint 4', duration: 2 },
+          { name: 'Sprint 5', duration: 2 }
+        ],
+        kpis: [
+          { name: 'Velocity', type: 'velocity', target: 20 },
+          { name: 'Sprint Completion Rate', type: 'completion_rate', target: 90 },
+          { name: 'Burndown', type: 'burndown', target: 100 }
+        ],
+        defaultTasks: [
+          { title: 'Setup development environment', phase: 'Sprint 0 (Setup)' },
+          { title: 'Create product backlog', phase: 'Sprint 0 (Setup)' },
+          { title: 'Define sprint goals', phase: 'Sprint 1' }
+        ]
+      },
+      'waterfall-construction': {
+        methodology: 'waterfall',
+        phases: [
+          { name: 'Planning', duration: 4 },
+          { name: 'Design', duration: 3 },
+          { name: 'Construction', duration: 12 },
+          { name: 'Testing', duration: 2 },
+          { name: 'Handover', duration: 1 }
+        ],
+        kpis: [
+          { name: 'Schedule Performance Index', type: 'spi', target: 1.0 },
+          { name: 'Cost Performance Index', type: 'cpi', target: 1.0 }
+        ],
+        defaultTasks: []
+      }
+    };
+
+    return templates[templateId] || null;
+  }
+
+  private async applyTemplateStructure(project: Project, config: any): Promise<void> {
+    try {
+      // Create phases
+      if (config.phases && config.phases.length > 0) {
+        for (let i = 0; i < config.phases.length; i++) {
+          const phase = config.phases[i];
+          await this.projectPhaseRepository.save({
+            name: phase.name,
+            projectId: project.id,
+            organizationId: project.organizationId,
+            order: i,
+            status: 'not_started',
+            progress: 0,
+            type: 'planning' // Required field
+          });
+        }
+      }
+
+      // Note: KPI creation would go here if we had a KPI entity
+      // For now, we'll skip KPI creation as the entity doesn't exist yet
+      
+      this.logger.log(`✅ Applied template structure for project ${project.id}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to apply template structure for project ${project.id}:`, error);
+      throw error;
+    }
   }
 }

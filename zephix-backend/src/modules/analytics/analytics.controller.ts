@@ -1,28 +1,30 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { AnalyticsService } from './analytics.service';
+import { Controller, Post, Get, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
+import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
-@UseGuards(JwtAuthGuard, OrganizationValidationGuard)
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private analyticsService: AnalyticsService) {}
 
-  @Get('project-metrics')
-  async getProjectMetrics(@Request() req) {
-    const organizationId = req.user.organizationId;
-    return this.analyticsService.getProjectMetrics(organizationId);
+  @Post('track')
+  @UseGuards(JwtAuthGuard)
+  async track(@Body() event: any, @Request() req) {
+    return this.analyticsService.track({
+      ...event,
+      userId: req.user.userId,
+      organizationId: req.user.organizationId
+    });
   }
 
-  @Get('resource-metrics')
-  async getResourceMetrics(@Request() req) {
-    const organizationId = req.user.organizationId;
-    return this.analyticsService.getResourceMetrics(organizationId);
+  @Get('events')
+  @UseGuards(JwtAuthGuard)
+  async getEvents(@Request() req, @Query('eventName') eventName?: string) {
+    return this.analyticsService.getEvents(req.user.organizationId, eventName);
   }
 
-  @Get('risk-metrics')
-  async getRiskMetrics(@Request() req) {
-    const organizationId = req.user.organizationId;
-    return this.analyticsService.getRiskMetrics(organizationId);
+  @Get('soft-delete-stats')
+  @UseGuards(JwtAuthGuard)
+  async getSoftDeleteStats(@Request() req) {
+    return this.analyticsService.getSoftDeleteStats(req.user.organizationId);
   }
 }

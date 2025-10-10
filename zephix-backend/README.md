@@ -14,6 +14,7 @@ A secure, scalable NestJS backend service for the Zephix project management plat
 - 📊 **Project Management** features with comprehensive PM workflows
 - 🔄 **Status Reporting** with external integrations (Jira, GitHub, Teams)
 - 📈 **Risk Management** with AI-powered analysis
+- 🚨 **Database Error Handling** with user-friendly constraint violation messages
 
 ## Environment Configuration
 
@@ -264,6 +265,71 @@ npm run test:e2e -- test/app.e2e-spec.ts
 - **Prometheus Metrics**: Comprehensive metrics for HTTP, errors, LLM usage, and system resources
 - **Request Tracing**: Automatic request ID generation and propagation
 - **Error Tracking**: Centralized error counting and categorization
+
+## Database Error Handling
+
+The application uses database constraints as the source of truth for data integrity. A global exception filter converts PostgreSQL constraint violations into user-friendly HTTP error responses.
+
+### Error Codes
+
+- **409 Conflict**: Duplicate entity (unique constraint violation)
+- **422 Unprocessable Entity**: Invalid data (check constraint violation)
+- **400 Bad Request**: Referenced record doesn't exist (foreign key violation)
+- **500 Internal Server Error**: Unexpected database error
+
+### Testing Error Responses
+
+#### Test 1: Duplicate Project Name (409)
+
+```bash
+curl -X POST http://localhost:3000/api/projects \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -d '{
+    "name": "Existing Project Name",
+    "workspaceId": "967f37e5-4749-4da2-a1a4-7fa7db96d002",
+    "organizationId": "06b54693-2b4b-4c10-b553-6dea5c5631c9"
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "statusCode": 409,
+  "error": "Conflict",
+  "message": "A project with this name already exists in this workspace",
+  "constraint": "uq_projects_name_ws",
+  "path": "/api/projects",
+  "timestamp": "2025-10-07T12:00:00.000Z"
+}
+```
+
+#### Test 2: Invalid Allocation Percentage (422)
+
+```bash
+curl -X POST http://localhost:3000/api/resource-allocations \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -d '{
+    "organizationId": "06b54693-2b4b-4c10-b553-6dea5c5631c9",
+    "taskId": "some-task-id",
+    "userId": "some-user-id",
+    "startDate": "2025-10-07",
+    "allocationPercentage": 200
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "statusCode": 422,
+  "error": "Unprocessable Entity",
+  "message": "Allocation percentage must be between 0 and 150",
+  "constraint": "chk_ra_pct",
+  "path": "/api/resource-allocations",
+  "timestamp": "2025-10-07T12:00:00.000Z"
+}
+```
 
 ## Manual Testing
 

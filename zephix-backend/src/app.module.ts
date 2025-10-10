@@ -27,10 +27,15 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { RiskManagementModule } from './pm/risk-management/risk-management.module';
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { TestModule } from './modules/test/test.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
+
+// Only load TestModule in non-production environments
+const DEV_MODULES = process.env.NODE_ENV === 'production' ? [] : [TestModule];
 import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { MigrationController } from './controllers/migration.controller';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -38,6 +43,10 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { RisksModule } from './modules/risks/risks.module';
+import { TrashModule } from './modules/trash/trash.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { FoldersModule } from './modules/folders/folders.module';
 import { OrganizationValidationGuard } from './guards/organization-validation.guard';
 
 if (!(global as any).crypto) {
@@ -97,11 +106,16 @@ if (!(global as any).crypto) {
       KPIModule,
       TeamsModule,
       RisksModule,
+      TrashModule,
+      AnalyticsModule,
+      WorkspacesModule,
+      FoldersModule,
+      ...DEV_MODULES,
     ] : [
       HealthModule, // Keep health module for basic health checks
     ]),
   ],
-  controllers: [AppController],
+  controllers: [AppController, MigrationController],
   providers: [
     AppService,
     OrganizationValidationGuard,

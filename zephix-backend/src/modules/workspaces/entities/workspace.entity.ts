@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -43,10 +44,34 @@ export class Workspace {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  // Soft delete columns
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy?: string;
+
+  // NEW: Hierarchy support
+  @Column({ name: 'parent_workspace_id', type: 'uuid', nullable: true })
+  parentWorkspaceId?: string;
+
+  @Column({ name: 'workspace_type', type: 'varchar', length: 50, default: 'standard' })
+  workspaceType: string;
+
+  @Column({ name: 'hierarchy_level', type: 'int', default: 0 })
+  hierarchyLevel: number;
+
+  // @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  // createdBy?: string;
+
   // Relations
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'owner_id' })
   owner: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'deleted_by' })
+  deletedByUser?: User;
 
   @ManyToOne(() => Organization, organization => organization.workspaces)
   @JoinColumn({ name: 'organization_id' })
@@ -58,8 +83,20 @@ export class Workspace {
   @OneToMany(() => Team, team => team.workspace)
   teams: Team[];
 
-  // @ManyToMany(() => User, user => user.workspaces)
-  // users: User[];
+  // NEW: Hierarchy relations
+  @ManyToOne(() => Workspace, workspace => workspace.children, { nullable: true })
+  @JoinColumn({ name: 'parent_workspace_id' })
+  parent?: Workspace;
+
+  @OneToMany(() => Workspace, workspace => workspace.parent)
+  children: Workspace[];
+
+  // @ManyToOne(() => User, { nullable: true })
+  // @JoinColumn({ name: 'created_by' })
+  // createdByUser?: User;
+
+  @ManyToMany(() => User, user => user.workspaces)
+  users: User[];
 }
 
 

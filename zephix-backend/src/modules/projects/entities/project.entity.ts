@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -14,6 +15,7 @@ import { ProjectPhase } from './project-phase.entity';
 import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { Folder } from '../../folders/entities/folder.entity';
 import { ResourceAllocation } from '../../resources/entities/resource-allocation.entity';
 
 export enum ProjectStatus {
@@ -107,6 +109,13 @@ export class Project {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  // Soft delete columns
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy?: string;
+
   // Relations
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
@@ -116,9 +125,20 @@ export class Project {
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'deleted_by' })
+  deletedByUser?: User;
+
   @ManyToOne(() => Workspace, { nullable: true })
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
+
+  @Column({ name: 'folder_id', type: 'uuid', nullable: true })
+  folderId?: string;
+
+  @ManyToOne(() => Folder, folder => folder.projects, { nullable: true })
+  @JoinColumn({ name: 'folder_id' })
+  folder?: Folder;
 
   // Missing database columns
   @Column({ name: 'program_id', type: 'uuid', nullable: true })

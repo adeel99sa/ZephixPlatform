@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { ProjectPhase } from '../../projects/entities/project-phase.entity';
 import { User } from '../../users/entities/user.entity';
@@ -26,10 +26,12 @@ export class Task {
   organizationId: string;
 
   @Column({ name: 'title' })
-  name: string;
-
-  @Column({ name: 'title' })
   title: string;
+
+  // Alias for title to maintain compatibility
+  get name(): string {
+    return this.title;
+  }
 
   @Column({ type: 'text', nullable: true })
   description: string;
@@ -134,4 +136,16 @@ export class Task {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  // Soft delete columns
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy?: string;
+
+  // Relations
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'deleted_by' })
+  deletedByUser?: User;
 }

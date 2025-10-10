@@ -14,9 +14,9 @@ export class TeamsService {
     private teamMemberRepository: Repository<TeamMember>,
   ) {}
 
-  async findByWorkspace(workspaceId: string): Promise<Team[]> {
+  async findByWorkspace(workspaceId: string, organizationId: string): Promise<Team[]> {
     return this.teamRepository.find({
-      where: { workspaceId },
+      where: { workspaceId, organizationId },
       relations: ['members', 'members.user'],
     });
   }
@@ -31,33 +31,40 @@ export class TeamsService {
       .getMany();
   }
 
-  async create(createTeamDto: CreateTeamDto): Promise<Team> {
-    const team = this.teamRepository.create(createTeamDto);
+  async create(createTeamDto: CreateTeamDto, organizationId: string): Promise<Team> {
+    const team = this.teamRepository.create({
+      ...createTeamDto,
+      organizationId
+    });
     return this.teamRepository.save(team);
   }
 
-  async findOne(id: string, organizationId?: string): Promise<Team> {
+  async findOne(id: string, organizationId: string): Promise<Team> {
     const queryBuilder = this.teamRepository
       .createQueryBuilder('team')
       .leftJoinAndSelect('team.members', 'member')
       .leftJoinAndSelect('member.user', 'user')
-      .where('team.id = :id', { id });
-
-    if (organizationId) {
-      queryBuilder
-        .andWhere('team.organizationId = :organizationId', { organizationId })
-        .andWhere('(user.organizationId = :organizationId OR user.organizationId IS NULL)', { organizationId });
-    }
+      .where('team.id = :id', { id })
+      .andWhere('team.organizationId = :organizationId', { organizationId })
+      .andWhere('(user.organizationId = :organizationId OR user.organizationId IS NULL)', { organizationId });
 
     return queryBuilder.getOne();
   }
 
-  async update(id: string, updateData: Partial<Team>): Promise<Team> {
-    await this.teamRepository.update(id, updateData);
-    return this.findOne(id);
+  async update(id: string, updateData: Partial<Team>, organizationId: string): Promise<Team> {
+    const team = await this.findOne(id, organizationId);
+    if (!team) {
+      throw new Error('Team not found');
+    }
+    Object.assign(team, updateData);
+    return this.teamRepository.save(team);
   }
 
-  async remove(id: string): Promise<void> {
-    await this.teamRepository.delete(id);
+  async remove(id: string, organizationId: string): Promise<void> {
+    const team = await this.findOne(id, organizationId);
+    if (!team) {
+      throw new Error('Team not found');
+    }
+    await this.teamRepository.delete({ id, organizationId });
   }
 }
