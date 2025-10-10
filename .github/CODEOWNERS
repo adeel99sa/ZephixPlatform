@@ -1,0 +1,8 @@
+* @adeel99sa
+
+# Backend core
+/zephix-backend/src/common/filters/ @adeel99sa
+/zephix-backend/src/app.module.ts @adeel99sa
+/zephix-backend/src/main.ts @adeel99sa
+/zephix-backend/src/modules/test/ @adeel99sa
+/zephix-backend/src/migrations/ @adeel99sa
