@@ -33,7 +33,8 @@ import { AppModule } from './app.module'
 import { ValidationPipe } from '@nestjs/common'
 import helmet from 'helmet'
 const cookieParser = require('cookie-parser')
-import { AllExceptionsFilter } from './filters/all-exceptions.filter'
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
+import { DatabaseExceptionFilter } from './common/filters/database-exception.filter'
 import * as crypto from 'crypto'
 
 async function bootstrap() {
@@ -55,13 +56,12 @@ async function bootstrap() {
 
   console.log('🌐 Configuring CORS...');
   app.enableCors({
-    origin: [
-      'https://getzephix.com',           // Production frontend
-      'https://www.getzephix.com',       // Production with www
-      'http://localhost:5173',           // Vite local development
-      'http://localhost:3001',           // Alternative frontend port
-      'http://localhost:3000',           // Alternative frontend port
-    ],
+    origin: process.env.NODE_ENV === 'production'
+      ? [
+          'https://getzephix.com',           // Production frontend
+          'https://www.getzephix.com',       // Production with www
+        ]
+      : /^http:\/\/localhost:\d+$/,         // Any localhost port in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'x-org-id'],
@@ -90,8 +90,12 @@ async function bootstrap() {
   // Add response transformation interceptor
   app.useGlobalInterceptors(new TransformResponseInterceptor());
 
-  console.log('🚨 Configuring global exception filter...');
-  app.useGlobalFilters(new AllExceptionsFilter());
+  console.log('🚨 Configuring global exception filters...');
+  // ✅ Register DB filter first, then generic (DB runs first)
+  app.useGlobalFilters(
+    new DatabaseExceptionFilter(),
+    new AllExceptionsFilter(),
+  );
 
   const port = process.env.PORT || 3000;
   console.log('🚀 Starting server on port:', port);
@@ -105,6 +109,23 @@ async function bootstrap() {
   if (server._router && server._router.stack) {
     const routes = server._router.stack.filter(layer => layer.route);
     console.log(`🎯 Router verification: ${routes.length} routes registered in Express stack`);
+    
+    // DEV: dump routes (Express only)
+    const httpAdapter = app.getHttpAdapter();
+    const instance: any = httpAdapter.getInstance?.();
+    if (instance?._router?.stack) {
+      const routes = [];
+      instance._router.stack.forEach((r: any) => {
+        if (r.route && r.route.path) {
+          const methods = Object.keys(r.route.methods)
+            .filter(Boolean)
+            .map(m => m.toUpperCase())
+            .join(',');
+          routes.push(`${methods} ${r.route.path}`);
+        }
+      });
+      console.log('🛣  Registered routes:\n', routes.sort().join('\n '));
+    }
   } else {
     console.log('⚠️ Warning: Router stack not found after startup');
   }
@@ -148,13 +169,12 @@ setInterval(() => {
 
 // Monitor for uncaught exceptions and unhandled rejections
 process.on('uncaughtException', (error) => {
-  console.error('🚨 Uncaught Exception:', error);
+  console.error('🔴 Uncaught Exception:', error);
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+process.on('unhandledRejection', (reason) => {
+  console.error('🔴 Unhandled Rejection:', reason);
 });
 
 // Log Railway environment information

@@ -44,6 +44,9 @@ export class TaskDependency {
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'active' })
   status: string;
 
+  @Column({ name: 'organization_id', type: 'uuid' })
+  organizationId: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

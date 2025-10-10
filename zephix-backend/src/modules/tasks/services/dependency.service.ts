@@ -17,10 +17,24 @@ export class DependencyService {
     predecessorId: string, 
     successorId: string, 
     type: string = 'finish_to_start',
-    lagDays: number = 0
+    lagDays: number = 0,
+    organizationId: string
   ) {
+    // Verify both tasks belong to the organization
+    const predecessor = await this.taskRepo.findOne({
+      where: { id: predecessorId, organizationId }
+    });
+    
+    const successor = await this.taskRepo.findOne({
+      where: { id: successorId, organizationId }
+    });
+
+    if (!predecessor || !successor) {
+      throw new BadRequestException('One or both tasks not found in this organization');
+    }
+
     // Check for circular dependencies
-    if (await this.wouldCreateCircularDependency(predecessorId, successorId)) {
+    if (await this.wouldCreateCircularDependency(predecessorId, successorId, organizationId)) {
       throw new BadRequestException('This would create a circular dependency');
     }
 
@@ -43,20 +57,21 @@ export class DependencyService {
       description: `Task ${successorId} depends on ${predecessorId}`,
       relationshipType: 'blocks',
       leadLagDays: lagDays,
-      status: 'pending'
+      status: 'pending',
+      organizationId
     });
 
     await this.dependencyRepo.save(dependency);
     
     // Recalculate dates for all affected tasks
-    await this.recalculateDates(successorId);
+    await this.recalculateDates(successorId, organizationId);
     
     return dependency;
   }
 
-  async removeDependency(dependencyId: string) {
+  async removeDependency(dependencyId: string, organizationId: string) {
     const dependency = await this.dependencyRepo.findOne({
-      where: { id: dependencyId }
+      where: { id: dependencyId, organizationId }
     });
 
     if (!dependency) {
@@ -66,18 +81,18 @@ export class DependencyService {
     await this.dependencyRepo.remove(dependency);
     
     // Recalculate dates for affected task
-    await this.recalculateDates(dependency.taskId);
+    await this.recalculateDates(dependency.taskId, organizationId);
     
     return { success: true };
   }
 
-  async recalculateDates(taskId: string) {
+  async recalculateDates(taskId: string, organizationId: string) {
     try {
-      const task = await this.taskRepo.findOne({ where: { id: taskId } });
+      const task = await this.taskRepo.findOne({ where: { id: taskId, organizationId } });
       if (!task) return;
 
       const dependencies = await this.dependencyRepo.find({ 
-        where: { taskId: taskId },
+        where: { taskId: taskId, organizationId },
         relations: ['dependsOnTask']
       });
 
@@ -88,7 +103,7 @@ export class DependencyService {
         
         for (const dep of dependencies) {
           const predecessor = await this.taskRepo.findOne({ 
-            where: { id: dep.dependsOnTaskId }
+            where: { id: dep.dependsOnTaskId, organizationId }
           });
           
           if (predecessor?.plannedEnd || predecessor?.endDate) {
@@ -118,11 +133,11 @@ export class DependencyService {
         
         // Cascade to successors
         const successors = await this.dependencyRepo.find({
-          where: { dependsOnTaskId: taskId }
+          where: { dependsOnTaskId: taskId, organizationId }
         });
         
         for (const successor of successors) {
-          await this.recalculateDates(successor.taskId);
+          await this.recalculateDates(successor.taskId, organizationId);
         }
       }
     } catch (error) {
@@ -131,16 +146,17 @@ export class DependencyService {
     }
   }
 
-  async calculateCriticalPath(projectId: string): Promise<string[]> {
+  async calculateCriticalPath(projectId: string, organizationId: string): Promise<string[]> {
     const tasks = await this.taskRepo.find({ 
-      where: { projectId },
+      where: { projectId, organizationId },
       order: { plannedStart: 'ASC' }
     });
     
     const dependencies = await this.dependencyRepo.find({
       where: { 
         taskId: In(tasks.map(t => t.id)),
-        dependsOnTaskId: In(tasks.map(t => t.id))
+        dependsOnTaskId: In(tasks.map(t => t.id)),
+        organizationId
       }
     });
 
@@ -260,17 +276,17 @@ export class DependencyService {
     return criticalPath;
   }
 
-  async updateCriticalPathFlags(projectId: string) {
+  async updateCriticalPathFlags(projectId: string, organizationId: string) {
     try {
       // Simplified critical path calculation for now
       const tasks = await this.taskRepo.find({ 
-        where: { projectId },
+        where: { projectId, organizationId },
         order: { plannedStart: 'ASC' }
       });
 
       // Reset all critical path flags
       await this.taskRepo.update(
-        { projectId },
+        { projectId, organizationId },
         { isCriticalPath: false }
       );
 
@@ -287,7 +303,7 @@ export class DependencyService {
 
       if (criticalTasks.length > 0) {
         await this.taskRepo.update(
-          { id: In(criticalTasks.map(t => t.id)) },
+          { id: In(criticalTasks.map(t => t.id)), organizationId },
           { isCriticalPath: true }
         );
       }
@@ -299,7 +315,7 @@ export class DependencyService {
     }
   }
 
-  private async wouldCreateCircularDependency(pred: string, succ: string): Promise<boolean> {
+  private async wouldCreateCircularDependency(pred: string, succ: string, organizationId: string): Promise<boolean> {
     // BFS to check if adding this creates a cycle
     const visited = new Set<string>();
     const queue = [succ];
@@ -311,7 +327,7 @@ export class DependencyService {
       if (!visited.has(current)) {
         visited.add(current);
         const deps = await this.dependencyRepo.find({
-          where: { dependsOnTaskId: current }
+          where: { dependsOnTaskId: current, organizationId }
         });
         queue.push(...deps.map(d => d.taskId).filter(Boolean));
       }
@@ -320,16 +336,16 @@ export class DependencyService {
     return false;
   }
 
-  async getTaskDependencies(taskId: string) {
+  async getTaskDependencies(taskId: string, organizationId: string) {
     return this.dependencyRepo.find({
-      where: { taskId: taskId },
+      where: { taskId: taskId, organizationId },
       relations: ['dependsOnTask']
     });
   }
 
-  async getTaskSuccessors(taskId: string) {
+  async getTaskSuccessors(taskId: string, organizationId: string) {
     return this.dependencyRepo.find({
-      where: { dependsOnTaskId: taskId },
+      where: { dependsOnTaskId: taskId, organizationId },
       relations: ['task']
     });
   }

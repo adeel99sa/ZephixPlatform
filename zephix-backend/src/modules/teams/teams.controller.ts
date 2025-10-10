@@ -23,7 +23,7 @@ export class TeamsController {
       ...dto,
       workspaceId,
       createdBy: req.user.id
-    });
+    }, req.user.organizationId);
   }
 
   @Get(':id')
@@ -32,13 +32,13 @@ export class TeamsController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateData: Partial<CreateTeamDto>) {
-    return this.teamsService.update(id, updateData);
+  async update(@Request() req, @Param('id') id: string, @Body() updateData: Partial<CreateTeamDto>) {
+    return this.teamsService.update(id, updateData, req.user.organizationId);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    await this.teamsService.remove(id);
+  async remove(@Request() req, @Param('id') id: string) {
+    await this.teamsService.remove(id, req.user.organizationId);
     return { message: 'Team deleted successfully' };
   }
 }

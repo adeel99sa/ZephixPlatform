@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
@@ -11,6 +12,7 @@ import {
 } from 'typeorm';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { Project } from '../../projects/entities/project.entity';
+import { User } from '../../users/entities/user.entity';
 import { RiskMitigation } from './risk-mitigation.entity';
 import { RiskImpact } from './risk-impact.entity';
 import { RiskTrigger } from './risk-trigger.entity';
@@ -109,6 +111,13 @@ export class Risk {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  // Soft delete columns
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true })
+  deletedBy?: string;
+
   // Relations
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
@@ -117,6 +126,10 @@ export class Risk {
   @ManyToOne(() => Project, { nullable: true })
   @JoinColumn({ name: 'project_id' })
   project: Project;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'deleted_by' })
+  deletedByUser?: User;
 
   @OneToMany(() => RiskMitigation, mitigation => mitigation.risk)
   mitigations: RiskMitigation[];

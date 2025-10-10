@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, ManyToMany } from 'typeorm';
 import { Organization } from '../../../organizations/entities/organization.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 @Entity('users')
 export class User {
@@ -90,4 +91,11 @@ export class User {
   @ManyToOne(() => Organization, { nullable: true })
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @ManyToMany(() => Workspace, workspace => workspace.users)
+  workspaces: Workspace[];
+
+  @ManyToOne(() => Workspace, { nullable: true })
+  @JoinColumn({ name: 'current_workspace_id' })
+  currentWorkspace: Workspace;
 }

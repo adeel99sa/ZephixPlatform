@@ -13,7 +13,9 @@ import { KPIAggregationService } from './kpi-aggregation.service';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.NODE_ENV === 'production'
+      ? process.env.FRONTEND_URL || 'https://getzephix.com'
+      : /^http:\/\/localhost:\d+$/,
     credentials: true,
   },
   namespace: '/kpi',

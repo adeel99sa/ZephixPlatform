@@ -39,7 +39,7 @@ export class WorkItemController {
     return this.workItemService.getProjectWorkItems(projectId);
   }
 
-  @Patch(':id/status')
+  @Patch('work-item/:id/status')
   async updateStatus(
     @Param('id') id: string,
     @Body('status') status: 'todo' | 'in_progress' | 'done' | 'blocked'

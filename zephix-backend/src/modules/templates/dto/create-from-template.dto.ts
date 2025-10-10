@@ -1,7 +1,7 @@
 import { IsString, IsUUID, IsOptional } from 'class-validator';
 
 export class CreateProjectFromTemplateDto {
-  @IsUUID()
+  @IsString()
   templateId: string;
 
   @IsString()
