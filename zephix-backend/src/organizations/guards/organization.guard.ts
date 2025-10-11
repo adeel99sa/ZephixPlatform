@@ -16,22 +16,19 @@ export class OrganizationGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest() as Request & { 
+      organizationId?: string;
+      userOrganization?: any;
+      organizationRole?: string;
+    };
     const user = request.user;
 
     if (!user) {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    // Extract organization ID from headers or query params
-    const headerOrgId = request.headers['x-org-id'] as string;
-    const organizationId =
-      headerOrgId ||
-      request.params.organizationId ||
-      request.params.id ||
-      (request.query.organizationId as string) ||
-      user?.defaultOrganizationId ||
-      user?.organizationId;
+    // Use the normalized organizationId from middleware
+    const organizationId = request.organizationId;
 
     // If no organizationId provided, throw error
     if (!organizationId) {
@@ -49,7 +46,6 @@ export class OrganizationGuard implements CanActivate {
     }
 
     // Store organization context in request for controllers to use
-    request.organizationId = organizationId;
     request.userOrganization = this.getUserOrganizationFromClaims(
       user,
       organizationId,
