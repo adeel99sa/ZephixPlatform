@@ -28,7 +28,7 @@ import { RiskManagementModule } from './pm/risk-management/risk-management.modul
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { TestModule } from './modules/test/test.module';
-import { TenantMiddleware } from './middleware/tenant.middleware';
+// import { TenantMiddleware } from './middleware/tenant.middleware';
 
 // Only load TestModule in non-production environments
 const DEV_MODULES = process.env.NODE_ENV === 'production' ? [] : [TestModule];
@@ -140,6 +140,7 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    // TenantMiddleware removed - organization context now handled by OrganizationContextGuard
+    // consumer.apply(TenantMiddleware).forRoutes('*');
   }
 }

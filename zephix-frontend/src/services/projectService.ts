@@ -1,5 +1,7 @@
 import api from './api';
 
+type ApiEnvelope<T> = { data: T };
+
 export interface Project {
   id: string;
   name: string;
@@ -23,30 +25,29 @@ export interface CreateProjectDto {
 
 export const projectService = {
   async getProjects(page = 1, limit = 10) {
-    const response = await api.get('/projects', {
+    const res = await api.get<ApiEnvelope<Project[]> | Project[]>('/projects', {
       params: { page, limit }
     });
-    // Handle both interceptor-wrapped and direct responses
-    return response.data?.data || response.data;
+    return (res.data as any).data ?? (res.data as any);
   },
 
   async getProject(id: string) {
-    const response = await api.get(`/projects/${id}`);
-    return response.data?.data || response.data;
+    const res = await api.get<ApiEnvelope<Project> | Project>(`/projects/${id}`);
+    return (res.data as any).data ?? (res.data as any);
   },
 
   async createProject(project: CreateProjectDto) {
-    const response = await api.post('/projects', project);
-    return response.data?.data || response.data;
+    const res = await api.post<ApiEnvelope<Project> | Project>('/projects', project);
+    return (res.data as any).data ?? (res.data as any);
   },
 
   async updateProject(id: string, updates: Partial<CreateProjectDto>) {
-    const response = await api.patch(`/projects/${id}`, updates);
-    return response.data?.data || response.data;
+    const res = await api.patch<ApiEnvelope<Project> | Project>(`/projects/${id}`, updates);
+    return (res.data as any).data ?? (res.data as any);
   },
 
   async deleteProject(id: string) {
-    const response = await api.delete(`/projects/${id}`);
-    return response.data?.data || response.data;
+    const res = await api.delete<ApiEnvelope<Project> | Project>(`/projects/${id}`);
+    return (res.data as any).data ?? (res.data as any);
   },
 };

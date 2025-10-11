@@ -21,12 +21,14 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { AssignUserDto } from './dto/assign-user.dto';
 import { CreateProjectFromTemplateDto } from './dto/create-project-from-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrganizationContextGuard } from '../../guards/organization-context.guard';
+import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 import { GetTenant, TenantContext } from '../../common/decorators/tenant.decorator';
 import { ApiResponse } from '../../shared/utils/response.utils';
 import { QueryFailedError } from 'typeorm';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, OrganizationValidationGuard)
 export class ProjectsController {
   private readonly logger = new Logger(ProjectsController.name);
 

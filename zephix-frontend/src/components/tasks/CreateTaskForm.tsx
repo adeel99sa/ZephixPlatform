@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '@/services/api';
+import { useCreateTask } from '../../hooks/useTasks';
 
 interface CreateTaskFormProps {
   projectId: string;
@@ -18,10 +18,11 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
     endDate: '',
     assignedResources: ''
   });
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const createTaskMutation = useCreateTask();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim()) {
@@ -29,32 +30,25 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
       return;
     }
     
-    setSaving(true);
     setError(null);
     
-    try {
-      console.log('Creating task with data:', { ...formData, projectId });
-      
-      const response = await api.post('/tasks', {
-        ...formData,
-        projectId,
-        estimatedHours: parseInt(formData.estimatedHours.toString()) || 0
-      });
-      
-      console.log('Task created successfully:', response.data);
-      onSuccess(response.data);
-      
-    } catch (err: any) {
-      console.error('Task creation error:', err);
-      const errorMessage = typeof err.response?.data?.message === 'string' 
-        ? err.response.data.message 
-        : typeof err.response?.data?.error === 'string'
-        ? err.response.data.error
-        : 'Failed to create task';
-      setError(errorMessage);
-    } finally {
-      setSaving(false);
-    }
+    const taskData = {
+      ...formData,
+      projectId,
+      estimatedHours: parseInt(formData.estimatedHours.toString()) || 0
+    };
+    
+    createTaskMutation.mutate(taskData, {
+      onSuccess: (newTask) => {
+        console.log('Task created successfully:', newTask);
+        onSuccess(newTask);
+      },
+      onError: (err: any) => {
+        console.error('Task creation error:', err);
+        const errorMessage = err?.message || 'Failed to create task';
+        setError(errorMessage);
+      }
+    });
   };
 
   return (
@@ -175,15 +169,15 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={saving || !formData.name.trim()}
+          disabled={createTaskMutation.isPending || !formData.name.trim()}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving ? 'Creating...' : 'Create Task'}
+          {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          disabled={saving}
+          disabled={createTaskMutation.isPending}
           className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 disabled:opacity-50"
         >
           Cancel

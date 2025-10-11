@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChartBarIcon, UsersIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { TaskList } from '../../components/tasks/TaskList';
@@ -8,61 +8,48 @@ import { ProjectDisplay } from '../../components/projects/ProjectDisplay';
 import { ProjectEditForm } from '../../components/projects/ProjectEditForm';
 import { BoardView } from '../../components/views/BoardView';
 import { TimelineView } from '../../components/views/TimelineView';
-import { projectService } from '../../services/projectService';
+import { useProject, useUpdateProject } from '../../hooks/useProject';
+import { useTasksByProject, useUpdateTask } from '../../hooks/useTasks';
 import api from '../../services/api';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [viewType, setViewType] = useState<'list' | 'board' | 'timeline'>('list');
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (!id || id === 'undefined') {
-      setError('Invalid project ID');
-      setLoading(false);
-      return;
-    }
-    loadProject();
-    loadTasks();
-  }, [id]);
+  // Guard params
+  const projectId = id ?? '';
+  if (!projectId) {
+    return <div className="p-6">Invalid project id</div>;
+  }
 
-  const loadProject = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await projectService.getProject(id!);
-      setProject(data);
-    } catch (error: any) {
-      console.error('Failed to load project:', error);
-      setError('Failed to load project details');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use React Query hooks
+  const { 
+    data: project, 
+    isLoading: isProjectLoading, 
+    isError: isProjectError, 
+    error: projectError 
+  } = useProject(projectId);
+  
+  const { 
+    data: tasks = [], 
+    isLoading: isTasksLoading, 
+    isError: isTasksError, 
+    error: tasksError 
+  } = useTasksByProject(projectId);
+  
+  const updateProjectMutation = useUpdateProject();
+  const updateTaskMutation = useUpdateTask();
 
-  const loadTasks = async () => {
-    try {
-      const response = await api.get(`/projects/${id}/tasks`);
-      const responseData = response.data?.data || response.data;
-      const tasksArray = Array.isArray(responseData) ? responseData : [];
-      setTasks(tasksArray);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-      setTasks([]);
-    }
-  };
+  // Derived loading and error states
+  const loading = isProjectLoading || isTasksLoading;
+  const error = projectError || tasksError;
 
   const handleTaskUpdate = async (taskId: string, updates: any) => {
     try {
-      await api.patch(`/tasks/${taskId}`, updates);
-      // Refresh tasks list
-      await loadTasks();
+      await updateTaskMutation.mutateAsync({ id: taskId, updates });
       // Trigger KPI recalculation
       await api.post(`/kpi/project/${id}/refresh`);
     } catch (error) {
@@ -78,11 +65,31 @@ const ProjectDetailPage = () => {
     );
   }
 
-  if (error) {
+  if (isProjectError) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+          <p className="text-red-800">
+            Failed to load project: {(projectError as any)?.message || 'Unknown error'}
+          </p>
+          <button 
+            onClick={() => navigate('/projects')}
+            className="mt-2 text-red-600 hover:text-red-800"
+          >
+            ← Back to Projects
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isTasksError) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">
+            Failed to load tasks: {(tasksError as any)?.message || 'Unknown error'}
+          </p>
           <button 
             onClick={() => navigate('/projects')}
             className="mt-2 text-red-600 hover:text-red-800"
@@ -122,11 +129,19 @@ const ProjectDetailPage = () => {
             {isEditing ? (
               <ProjectEditForm 
                 project={project}
-                onSave={(updated) => {
-                  setProject(updated);
-                  setIsEditing(false);
+                onSave={async (updated) => {
+                  try {
+                    await updateProjectMutation.mutateAsync({ 
+                      id: project.id, 
+                      updates: updated 
+                    });
+                    setIsEditing(false);
+                  } catch (error) {
+                    console.error('Failed to update project:', error);
+                  }
                 }}
                 onCancel={() => setIsEditing(false)}
+                isSaving={updateProjectMutation.isPending}
               />
             ) : (
               <ProjectDisplay 

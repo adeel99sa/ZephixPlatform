@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     private jwtService: JwtService,
+    private configService: ConfigService,
     private dataSource: DataSource,
   ) {}
 
@@ -172,8 +174,8 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, { 
-      secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn: '15m' 
+      secret: this.configService.get<string>('jwt.secret'),
+      expiresIn: this.configService.get<string>('jwt.expiresIn') || '15m'
     });
   }
 
@@ -188,8 +190,8 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, { 
-      secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-      expiresIn: '7d' 
+      secret: this.configService.get<string>('jwt.refreshSecret') || this.configService.get<string>('jwt.secret'),
+      expiresIn: this.configService.get<string>('jwt.refreshExpiresIn') || '7d'
     });
   }
 

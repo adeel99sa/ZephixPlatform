@@ -2,470 +2,289 @@
 alwaysApply: true
 ---
 
-## **ENHANCED CURSOR RULES FOR ZEPHIX - ENTERPRISE GRADE V3**
-
-Your Cursor rules are solid but need more specificity for Zephix's unique requirements. Here are critical gaps and enhancements:
-
----
-
-## **GAPS IDENTIFIED & FIXES**
-
-### **1. Missing Zephix-Specific Domain Rules**
-```yaml
-## ZEPHIX DOMAIN REQUIREMENTS
-
-### PERCENTAGE ALLOCATION RULES:
-```typescript
-// ❌ WRONG - Hours-based allocation
-const allocation = {
-  projectId: 'abc',
-  hours: 40
-}
-
-// ✅ CORRECT - Percentage-based with auto-adjust
-const allocation = {
-  projectId: 'abc',
-  resourceId: 'xyz',
-  allocationPercentage: 30,  // 30% of capacity
-  autoAdjust: true,          // Maintains % when timeline changes
-  
-  // MUST validate total across ALL projects
-  validate: async () => {
-    const total = await getTotalAllocation(resourceId);
-    if (total + 30 > thresholds.maximum) {
-      throw new ConflictException(`Would exceed ${thresholds.maximum}%`);
-    }
-  }
-}
-```
-
-### THRESHOLD HIERARCHY ENFORCEMENT:
-```typescript
-// Every allocation MUST check in order:
-1. Individual override (if exists)
-2. Group/Department threshold
-3. Organization default
-4. NEVER allow exceeding without approval trail
-
-// Verification command:
-SELECT r.name, r.allocation_percentage, 
-       COALESCE(r.custom_thresholds, g.thresholds, o.default_thresholds) as active_threshold
-FROM resources r
-LEFT JOIN resource_groups g ON r.group_id = g.id
-LEFT JOIN organizations o ON r.organization_id = o.id;
-```
-
-### **2. Missing Test Data Requirements**
-```yaml
-## TEST DATA VERIFICATION
-
-### BEFORE ANY FEATURE TEST:
-```bash
-# Verify test organization exists
-psql $DATABASE_URL -c "SELECT * FROM organizations WHERE name = 'TestOrg';"
-
-# Verify test resources exist
-psql $DATABASE_URL -c "SELECT COUNT(*) FROM resources WHERE organization_id = 'test-org-id';"
-# MUST return >= 10
-
-# Verify allocation test data
-psql $DATABASE_URL -c "SELECT * FROM resource_allocations WHERE allocation_percentage IS NOT NULL;"
-# MUST have mix of 70%, 90%, 110% allocations
-```
-
-### STANDARD TEST SCENARIOS:
-- Normal allocation: John at 80% (should work)
-- Warning allocation: Sarah at 95% (should warn)
-- Approval needed: Mike at 110% (should require approval)
-- Blocked allocation: Jane at 130% (should block without exec approval)
-```
-
-### **3. Missing Frontend-Backend Contract Verification**
-```yaml
-## API CONTRACT VERIFICATION
-
-### BEFORE CONNECTING FRONTEND:
-```bash
-# 1. Document actual response
-curl -X GET http://localhost:3000/api/resources/allocations \
-  -H "Authorization: Bearer $TOKEN" | jq > actual-response.json
-
-# 2. Compare with expected
-diff expected-response.json actual-response.json
-
-# 3. Verify field names match
-# Backend returns: allocation_percentage
-# Frontend expects: allocationPercentage
-# MUST have DTO transformation
-```
-
-### DTO TRANSFORMATION RULE:
-```typescript
-// Backend (snake_case from DB)
-class AllocationEntity {
-  @Column({ name: 'allocation_percentage' })
-  allocation_percentage: number;
-}
-
-// DTO (camelCase for frontend)
-class AllocationResponseDto {
-  @Expose({ name: 'allocationPercentage' })
-  @Transform(({ obj }) => obj.allocation_percentage)
-  allocationPercentage: number;
-}
-```
-
-### **4. Missing AI Token Management Rules**
-```yaml
-## AI INTEGRATION REQUIREMENTS
-
-### TOKEN USAGE VERIFICATION:
-```typescript
-// ❌ WRONG - Uncontrolled token usage
-const response = await claude.complete(prompt);
-
-// ✅ CORRECT - Token management
-const response = await this.aiService.query({
-  prompt: optimizedPrompt,
-  maxTokens: 200,
-  cache: true,
-  
-  // MUST track usage
-  onComplete: (usage) => {
-    await this.tokenService.track(userId, usage);
-    if (usage.total > monthlyLimit * 0.8) {
-      this.notificationService.warn('Approaching token limit');
-    }
-  }
-});
-
-// Verification:
-SELECT user_id, SUM(tokens_used) as total, 
-       5000 - SUM(tokens_used) as remaining
-FROM token_usage 
-WHERE month = CURRENT_DATE 
-GROUP BY user_id;
-```
-
-### **5. Missing Risk Detection Verification**
-```yaml
-## RISK DETECTION VALIDATION
-
-### EVERY RISK RULE MUST:
-```typescript
-// Include evidence
-const risk = {
-  type: 'OVERALLOCATION',
-  severity: 'HIGH',
-  evidence: {
-    resource: 'John Smith',
-    currentAllocation: 125,
-    breakdown: [
-      { project: 'Alpha', percentage: 50 },
-      { project: 'Beta', percentage: 45 },
-      { project: 'Gamma', percentage: 30 }
-    ],
-    conflictDates: ['2025-09-16', '2025-09-17']
-  },
-  // MUST provide specific resolution
-  suggestedActions: [
-    { action: 'Move Gamma to Sarah', impact: 'Reduces to 95%' },
-    { action: 'Delay Beta by 2 days', impact: 'No conflict' }
-  ]
-}
-
-// Verification query:
-SELECT r.*, 
-       json_agg(json_build_object(
-         'project', p.name, 
-         'percentage', ra.allocation_percentage
-       )) as evidence
-FROM risks r
-JOIN risk_evidence re ON r.id = re.risk_id
-WHERE r.status = 'ACTIVE';
-```
-
-### **6. Missing Performance Benchmarks**
-```yaml
-## PERFORMANCE VERIFICATION
-
-### CRITICAL PATH BENCHMARKS:
-```bash
-# Resource conflict check (MUST be < 200ms)
-time curl -X GET http://localhost:3000/api/resources/conflicts \
-  -H "Authorization: Bearer $TOKEN"
-
-# Heat map generation (MUST be < 500ms)
-time curl -X GET http://localhost:3000/api/resources/heat-map \
-  -H "Authorization: Bearer $TOKEN"
-
-# Cross-project allocation (MUST be < 300ms)
-time curl -X GET http://localhost:3000/api/allocations/cross-project/user-123 \
-  -H "Authorization: Bearer $TOKEN"
-
-# If ANY exceed limits:
-1. Check database indexes
-2. Add caching
-3. Optimize query
-4. Re-test
-```
-
-### **7. Missing Admin Workspace Verification**
-```yaml
-## ADMIN FEATURES VALIDATION
-
-### PREVENTION CENTER MUST SHOW:
-```bash
-# Real-time conflicts (not cached)
-SELECT COUNT(*) FROM resource_allocations 
-WHERE allocation_percentage > 100 
-AND start_date <= CURRENT_DATE + INTERVAL '7 days';
-
-# Upcoming risks
-SELECT * FROM risks 
-WHERE predicted_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
-ORDER BY severity DESC;
-
-# Intervention queue
-SELECT * FROM interventions 
-WHERE status = 'PENDING' 
-ORDER BY priority DESC, created_at ASC;
-```
-
-### **8. Critical Addition: State Management Verification**
-```yaml
-## FRONTEND STATE CONSISTENCY
-
-### AFTER EVERY API CALL:
-```typescript
-// ❌ WRONG - Inconsistent state
-const response = await api.updateAllocation(data);
-// State not updated
-
-// ✅ CORRECT - State synchronized
-const response = await api.updateAllocation(data);
-// Update local state
-dispatch(updateAllocation(response.data));
-// Update cache
-queryClient.invalidateQueries(['allocations', resourceId]);
-// Update UI optimistically
-setAllocation(response.data);
-
-// Verification in browser console:
-console.log('Store state:', store.getState().allocations);
-console.log('Cache state:', queryClient.getQueryData(['allocations']));
-console.log('Component state:', allocation);
-// ALL THREE MUST MATCH
-```
-
----
-
-## **UPDATED CURSOR RULES - FINAL VERSION**
-
-```yaml
-# .cursorrules - ZEPHIX ENTERPRISE V3
-
-## ABSOLUTE REQUIREMENTS
-
-### STOP AND FIX IMMEDIATELY IF:
-1. Authentication returns 401 → Nothing else matters
-2. organizationId is null → Security breach
-3. Total allocation > maximum threshold → Core feature broken
-4. Build fails → Cannot proceed
-5. Response time > 500ms → Performance violation
-
-## IMPLEMENTATION SEQUENCE
-
-### FOR EVERY FEATURE:
-1. **Database First**
-   - Verify columns exist
-   - Run migrations
-   - Add test data
-   
-2. **Backend Second**
-   - Entity matches database exactly
-   - Service includes organization filter
-   - DTO transforms snake_case to camelCase
-   
-3. **API Third**
-   - Test with curl
-   - Verify response format
-   - Check performance
-   
-4. **Frontend Last**
-   - Match API response structure
-   - Handle loading/error states
-   - Update all state stores
-
-## VERIFICATION COMMANDS
-
-### PASTE THESE OUTPUTS IN RESPONSE:
-```bash
-# 1. Database state
-psql -c "\d resource_allocations" | head -20
-
-# 2. API response
-curl -X GET localhost:3000/api/[endpoint] -H "Authorization: Bearer $TOKEN" | jq
-
-# 3. Build status
-npm run build 2>&1 | tail -5
-
-# 4. Test results
-npm test [feature].spec.ts 2>&1 | grep -E "(PASS|FAIL)"
-
-# 5. Performance
-time curl [endpoint] | grep "real"
-```
-
-## ZEPHIX-SPECIFIC CHECKLIST
-
-### ✅ Percentage Allocation
-- [ ] Stores as percentage, not hours
-- [ ] Auto-adjusts when timeline changes
-- [ ] Validates across ALL projects
-- [ ] Respects threshold hierarchy
-- [ ] Shows conflicts with evidence
-
-### ✅ Threshold Management
-- [ ] Organization → Group → Individual precedence
-- [ ] Audit trail for changes
-- [ ] Bulk operations work
-- [ ] Visual preview of impact
-
-### ✅ Risk Detection
-- [ ] Provides specific evidence
-- [ ] Calculates severity correctly
-- [ ] Suggests resolutions
-- [ ] Tracks mitigation
-
-### ✅ AI Integration
-- [ ] Tracks token usage
-- [ ] Caches responses
-- [ ] Shows suggestions first
-- [ ] Never auto-invokes
-
-## FAILURE DOCUMENTATION
-
-### WHEN SOMETHING BREAKS:
-```markdown
-### Failure Report
-**Attempted**: [What you tried to build]
-**Expected**: [What should happen]
-**Actual**: [What actually happened]
-**Error**: [Exact error message]
-**Debug Steps**: [What you tried to fix it]
-**Root Cause**: [Why it failed]
-**Solution**: [How you fixed it OR "Still investigating"]
-**Verification**: [Proof it works now OR "Pending"]
-```
-```
-## **UPDATED CURSOR RULES - DATABASE VERIFICATION REQUIREMENTS**
-
-Here are the critical additions needed to prevent Cursor from making database schema mistakes:
-
-### **Add to Section: VERIFICATION PROTOCOL**
-
-```yaml
-### BEFORE ANY DATABASE-RELATED INVESTIGATION:
-```bash
-# 1. ALWAYS verify actual database schema first
-psql $DATABASE_URL -c "\d table_name" > actual_schema.txt
-
-# 2. Compare with entity definition
-cat src/path/to/entity.ts | grep "@Column\|@CreateDateColumn\|@UpdateDateColumn"
-
-# 3. State the comparison explicitly
-Database column: [exact_name_from_database]
-Entity expects: [exact_name_from_decorator]
-Match: [YES/NO]
-
-# NEVER assume column names - ALWAYS verify
-```
-
-### CRITICAL: Database Truth Verification
-- NEVER state "column is X" without showing \d output
-- NEVER assume camelCase vs snake_case - CHECK
-- When investigating, show ACTUAL vs EXPECTED:
-  ```
-  ACTUAL (from \d command): createdAt
-  EXPECTED (from entity): created_at
-  STATUS: MISMATCH
-  ```
-
-### Add to Section: STOP CONDITIONS
-- Database column name assumption → Verify with \d command first
-- Stating "already correct" without proof → Show actual schema
-```
-
-### **Add New Section: DATABASE INVESTIGATION RULES**
-
-```yaml
-## DATABASE INVESTIGATION REQUIREMENTS
-
-### For EVERY database investigation:
-1. Run \d table_name and PASTE the output
-2. Show entity decorators and PASTE them
-3. Create comparison table:
-   | Column | Database Has | Entity Expects | Status |
-   |--------|-------------|----------------|--------|
-   | created | created_at  | created_at     | MATCH  |
-   
-### FORBIDDEN STATEMENTS without proof:
-- "Column is already X"
-- "Database has X"
-- "This is correct"
-
-### REQUIRED EVIDENCE for claims:
-- Database claim → Show \d output
-- Entity claim → Show @Column decorator
-- "Works" claim → Show successful query output
-```
-
-### **Add to Section: FAILURE REPORTING FORMAT**
-
-```yaml
-### When Investigating Database Issues:
-**Database Schema (from \d command):**
-[PASTE ACTUAL OUTPUT]
-
-**Entity Definition (from .entity.ts):**
-[PASTE ACTUAL DECORATORS]
-
-**Comparison:**
-- Database has: [exact column name]
-- Entity expects: [exact name from decorator]
-- Mismatch: [YES/NO]
-
-**Never say "already correct" without showing both sides**
-```
-
-### **Specific Rule for Column Name Verification**
-
-```yaml
-## COLUMN NAME VERIFICATION PROTOCOL
-
-When checking if columns match:
-1. NEVER trust file names or assumptions
-2. ALWAYS run: psql -c "\d table_name"
-3. ALWAYS show: grep "@Column\|@CreateDate\|@UpdateDate" entity.ts
-4. ALWAYS state explicitly:
-   - What you see in database (copy-paste)
-   - What you see in entity (copy-paste)
-   - Whether they match (with evidence)
-
-Example of WRONG approach:
-"The columns are already snake_case" ← NO EVIDENCE
-
-Example of CORRECT approach:
-"Database \d output shows: createdAt (camelCase)
- Entity decorator shows: @CreateDateColumn({ name: 'created_at' })
- MISMATCH: Database has camelCase, entity expects snake_case"
-```
-
-
----
-
-
-
-
-
+safeMode: true
+
+# High-level execution policy
+workflow:
+  phases:
+    - name: ANALYZE
+      must:
+        - "Locate files before editing (grep/ls). Show matched paths."
+        - "For DB claims, run psql \\d+ <table> and paste output."
+        - "For API claims, call local endpoints and paste response (redact tokens)."
+        - "For frontend claims, show component/hook paths and imports."
+      outputSections: ["FINDINGS", "RISKS", "QUESTIONS_OR_ASSUMPTIONS"]
+    - name: PLAN
+      must:
+        - "List concrete changes as a checklist; scope minimal blast radius."
+        - "Show exact files to touch and why."
+        - "Declare stop conditions and rollback plan."
+      outputSections: ["PLAN", "AFFECTED_FILES", "STOP_CONDITIONS", "ROLLBACK"]
+    - name: APPLY
+      must:
+        - "Implement only items in PLAN. Do not expand scope."
+        - "Show minimal diffs (old vs new) for each file edited."
+        - "Run commands exactly as listed in PLAN."
+      outputSections: ["CHANGES (diffs)", "COMMANDS_RUN"]
+    - name: VERIFY
+      must:
+        - "Prove success with real outputs (tests, curl, \d)."
+        - "For failures, produce Failure Report and STOP."
+      outputSections: ["PROOF", "FOLLOWUPS"]
+
+stopConditions:
+  - "Auth endpoints return 401 for valid tokens"
+  - "organizationId is null/undefined in any guarded request"
+  - "DB schema mismatch (entity vs \\d+) without migration plan"
+  - "Build/test errors"
+  - "Any endpoint p95 > 500ms on local run (measured)"
+onStop:
+  - "Produce Failure Report (template below) and halt further edits."
+
+# Security & Git hygiene
+git:
+  branch: "cursor/${taskSlug}"
+  never:
+    - "commit/push .env* *.pem *.key secrets/"
+    - "print secret values in logs (use REDACTED)"
+  push:
+    requirePassing:
+      - "npm run build"
+      - "npm test - if present"
+  commitMessageTemplate: |
+    {{type}}: {{subject}}
+
+    Scope: {{area}}
+    Why: {{why}}
+    What: {{what}}
+    Tests: {{tests}}
+    Risk: {{risk}}
+    BreakingChange: {{breaking}}
+
+# DB rules (Zephix-specific)
+db:
+  verifySchema:
+    must:
+      - "ALWAYS run: psql $DATABASE_URL -c \"\\d+ <table>\" and paste output"
+      - "Show entity decorators side-by-side with DB columns"
+      - "Use a comparison table: Column | Database | Entity | Status"
+  constraints:
+    - "Unique: name+workspace_id; task_number+project_id"
+    - "Checks: allocation_percentage BETWEEN 0 AND 150; hours_per_week 0..168"
+  tenancy:
+    - "ALWAYS filter by organization_id in queries/services"
+  migrations:
+    - "Write forward-only migrations; no destructive ops without approval"
+  performanceBudgets:
+    p95ms:
+      conflicts: 200
+      heat_map: 500
+      cross_project_alloc: 300
+    verifyWith: "EXPLAIN ANALYZE and time curl; paste results"
+  evidenceFirst: true
+
+# Backend (NestJS) rules
+backend:
+  jwt:
+    - "Single JwtModule (AppModule async using ConfigService)."
+    - "Sign with payload {sub,email,organizationId,roles} via config.jwt.secret."
+    - "JwtStrategy validates payload.sub; returns {id,email,organizationId,roles}."
+    - "Dev-only TestModule route /api/test-auth/me using ONLY JwtAuthGuard for isolation."
+  filters:
+    - "AllExceptionsFilter @Catch(HttpException) only."
+    - "DatabaseExceptionFilter @Catch(QueryFailedError) maps 23505→409, 23514→422, 23503→400."
+    - "Register DB filter before all-catch; show order in main.ts."
+  dtoTransform:
+    - "Expose camelCase to frontend using class-transformer; map snake_case → camelCase."
+    - "Return ApiEnvelope<T> = { data, meta? } consistently."
+  guards:
+    - "Use 401 only for auth failures; use 403 for org/tenant violations (with clear message)."
+  tests:
+    - "Unit tests for DatabaseExceptionFilter (9/9) must pass."
+    - "Add dev-only routes behind NODE_ENV !== 'production'."
+
+# Frontend (React + Vite) rules
+frontend:
+  reactQuery:
+    - "Use TanStack Query v5 object syntax only."
+    - "Query keys: ['project', id], ['tasks', 'byProject', projectId]."
+    - "Provider: add QueryClientProvider + Devtools at app shell."
+    - "Invalidate on mutations; optimistic update where sensible."
+  apiClient:
+    - "Single Axios instance in src/services/api.ts; no duplicate clients."
+    - "Unwrap ApiEnvelope consistently; map errors to user-friendly messages."
+  scopeControl:
+    - "Refactor ONE path at a time; show before/after diff."
+    - "Do not change shared services unless proving no regressions (grep all usages + run dev)."
+  stateConsistency:
+    - "After any mutation: state store, react-query cache, and UI must align; show verification logs once."
+
+# Zephix domain requirements
+domain:
+  allocation:
+    - "Store percentage, not hours; auto-adjust on timeline changes."
+    - "Validate total percentage across all projects for a resource."
+    - "Threshold order: Individual > Group > Org (never exceed without approval trail)."
+    - "Return conflicts with evidence (breakdown + dates + suggestions)."
+
+# Required outputs (always paste)
+evidence:
+  database: "psql \\d output"
+  api: "curl responses (redacted)"
+  build: "last 10 lines of build/test output"
+  performance: "time curl + EXPLAIN if > budget"
+
+# Failure report template
+failureTemplate: |
+  ### Failure Report
+  **Attempted**: ...
+  **Expected**: ...
+  **Actual**: ...
+  **Error**: (exact)
+  **Debug Steps**: ...
+  **Root Cause**: ...
+  **Solution**: ...
+  **Verification**: (proof pasted)
+safeMode: true
+
+# High-level execution policy
+workflow:
+  phases:
+    - name: ANALYZE
+      must:
+        - "Locate files before editing (grep/ls). Show matched paths."
+        - "For DB claims, run psql \\d+ <table> and paste output."
+        - "For API claims, call local endpoints and paste response (redact tokens)."
+        - "For frontend claims, show component/hook paths and imports."
+      outputSections: ["FINDINGS", "RISKS", "QUESTIONS_OR_ASSUMPTIONS"]
+    - name: PLAN
+      must:
+        - "List concrete changes as a checklist; scope minimal blast radius."
+        - "Show exact files to touch and why."
+        - "Declare stop conditions and rollback plan."
+      outputSections: ["PLAN", "AFFECTED_FILES", "STOP_CONDITIONS", "ROLLBACK"]
+    - name: APPLY
+      must:
+        - "Implement only items in PLAN. Do not expand scope."
+        - "Show minimal diffs (old vs new) for each file edited."
+        - "Run commands exactly as listed in PLAN."
+      outputSections: ["CHANGES (diffs)", "COMMANDS_RUN"]
+    - name: VERIFY
+      must:
+        - "Prove success with real outputs (tests, curl, \d)."
+        - "For failures, produce Failure Report and STOP."
+      outputSections: ["PROOF", "FOLLOWUPS"]
+
+stopConditions:
+  - "Auth endpoints return 401 for valid tokens"
+  - "organizationId is null/undefined in any guarded request"
+  - "DB schema mismatch (entity vs \\d+) without migration plan"
+  - "Build/test errors"
+  - "Any endpoint p95 > 500ms on local run (measured)"
+onStop:
+  - "Produce Failure Report (template below) and halt further edits."
+
+# Security & Git hygiene
+git:
+  branch: "cursor/${taskSlug}"
+  never:
+    - "commit/push .env* *.pem *.key secrets/"
+    - "print secret values in logs (use REDACTED)"
+  push:
+    requirePassing:
+      - "npm run build"
+      - "npm test - if present"
+  commitMessageTemplate: |
+    {{type}}: {{subject}}
+
+    Scope: {{area}}
+    Why: {{why}}
+    What: {{what}}
+    Tests: {{tests}}
+    Risk: {{risk}}
+    BreakingChange: {{breaking}}
+
+# DB rules (Zephix-specific)
+db:
+  verifySchema:
+    must:
+      - "ALWAYS run: psql $DATABASE_URL -c \"\\d+ <table>\" and paste output"
+      - "Show entity decorators side-by-side with DB columns"
+      - "Use a comparison table: Column | Database | Entity | Status"
+  constraints:
+    - "Unique: name+workspace_id; task_number+project_id"
+    - "Checks: allocation_percentage BETWEEN 0 AND 150; hours_per_week 0..168"
+  tenancy:
+    - "ALWAYS filter by organization_id in queries/services"
+  migrations:
+    - "Write forward-only migrations; no destructive ops without approval"
+  performanceBudgets:
+    p95ms:
+      conflicts: 200
+      heat_map: 500
+      cross_project_alloc: 300
+    verifyWith: "EXPLAIN ANALYZE and time curl; paste results"
+  evidenceFirst: true
+
+# Backend (NestJS) rules
+backend:
+  jwt:
+    - "Single JwtModule (AppModule async using ConfigService)."
+    - "Sign with payload {sub,email,organizationId,roles} via config.jwt.secret."
+    - "JwtStrategy validates payload.sub; returns {id,email,organizationId,roles}."
+    - "Dev-only TestModule route /api/test-auth/me using ONLY JwtAuthGuard for isolation."
+  filters:
+    - "AllExceptionsFilter @Catch(HttpException) only."
+    - "DatabaseExceptionFilter @Catch(QueryFailedError) maps 23505→409, 23514→422, 23503→400."
+    - "Register DB filter before all-catch; show order in main.ts."
+  dtoTransform:
+    - "Expose camelCase to frontend using class-transformer; map snake_case → camelCase."
+    - "Return ApiEnvelope<T> = { data, meta? } consistently."
+  guards:
+    - "Use 401 only for auth failures; use 403 for org/tenant violations (with clear message)."
+  tests:
+    - "Unit tests for DatabaseExceptionFilter (9/9) must pass."
+    - "Add dev-only routes behind NODE_ENV !== 'production'."
+
+# Frontend (React + Vite) rules
+frontend:
+  reactQuery:
+    - "Use TanStack Query v5 object syntax only."
+    - "Query keys: ['project', id], ['tasks', 'byProject', projectId]."
+    - "Provider: add QueryClientProvider + Devtools at app shell."
+    - "Invalidate on mutations; optimistic update where sensible."
+  apiClient:
+    - "Single Axios instance in src/services/api.ts; no duplicate clients."
+    - "Unwrap ApiEnvelope consistently; map errors to user-friendly messages."
+  scopeControl:
+    - "Refactor ONE path at a time; show before/after diff."
+    - "Do not change shared services unless proving no regressions (grep all usages + run dev)."
+  stateConsistency:
+    - "After any mutation: state store, react-query cache, and UI must align; show verification logs once."
+
+# Zephix domain requirements
+domain:
+  allocation:
+    - "Store percentage, not hours; auto-adjust on timeline changes."
+    - "Validate total percentage across all projects for a resource."
+    - "Threshold order: Individual > Group > Org (never exceed without approval trail)."
+    - "Return conflicts with evidence (breakdown + dates + suggestions)."
+
+# Required outputs (always paste)
+evidence:
+  database: "psql \\d output"
+  api: "curl responses (redacted)"
+  build: "last 10 lines of build/test output"
+  performance: "time curl + EXPLAIN if > budget"
+
+# Failure report template
+failureTemplate: |
+  ### Failure Report
+  **Attempted**: ...
+  **Expected**: ...
+  **Actual**: ...
+  **Error**: (exact)
+  **Debug Steps**: ...
+  **Root Cause**: ...
+  **Solution**: ...
+  **Verification**: (proof pasted)

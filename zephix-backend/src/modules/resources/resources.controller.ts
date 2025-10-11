@@ -2,6 +2,8 @@ import { Controller, Get, Post, Query, UseGuards, Req, Body, BadRequestException
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrganizationContextGuard } from '../../guards/organization-context.guard';
+import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 import { ResourceHeatMapService } from './services/resource-heat-map.service';
 import { HeatMapQueryDto } from './dto/heat-map-query.dto';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
@@ -17,7 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Controller('resources')
 @ApiTags('resources')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, OrganizationValidationGuard)
 @ApiBearerAuth()
 export class ResourcesController {
   constructor(
