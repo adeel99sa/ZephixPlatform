@@ -12,6 +12,7 @@ export interface AuthenticatedRequest {
       isAdmin: boolean;
     };
   };
+  organizationId?: string;
   ip: string;
   headers: {
     'user-agent'?: string;

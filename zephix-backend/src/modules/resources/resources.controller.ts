@@ -43,7 +43,7 @@ export class ResourcesController {
       
       // Get user context
       const userId = req.user?.id || req.user?.sub;
-      const organizationId = req.user?.organizationId;
+      const organizationId = req.organizationId;
       
       console.log('📍 User:', req.user?.email, 'Org:', organizationId);
       
@@ -146,7 +146,7 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Get resource conflicts' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
   async getConflicts(@Req() req: AuthenticatedRequest) {
-    const organizationId = req.user.organizationId;
+    const organizationId = req.organizationId;
     if (!organizationId) {
       return { data: [] };
     }
@@ -230,7 +230,7 @@ export class ResourcesController {
   @UseGuards(JwtAuthGuard)
   async getTaskHeatMap(@Req() req) {
     return await this.allocationService.getTaskBasedHeatMap(
-      req.user.organizationId
+      req.organizationId
     );
   }
 
