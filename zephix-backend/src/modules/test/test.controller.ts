@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 type PgCode = '23505' | '23514' | '23503';
 
@@ -41,5 +42,25 @@ export class TestController {
       'tasks_project_id_fkey',
       'Key (project_id)=(00000000...) is not present in table "projects".'
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('auth/me')
+  testAuth(@Req() req: any) {
+    return { 
+      ok: true, 
+      user: req.user,
+      message: 'JWT authentication working correctly'
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('test-auth/me')
+  testAuthOnly(@Req() req: any) {
+    return { 
+      ok: true, 
+      user: req.user,
+      message: 'JWT guard only - no organization/tenant guards'
+    };
   }
 }

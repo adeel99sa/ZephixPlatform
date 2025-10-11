@@ -1,3 +1,5 @@
+import { User } from './global';
+
 export interface Task {
   id: string;
   projectId: string;

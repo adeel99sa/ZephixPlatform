@@ -96,3 +96,4 @@ INSERT INTO lego_blocks (name, type, category, description, configuration, compa
 
 
 
+

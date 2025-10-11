@@ -1,0 +1,1 @@
+{"statusCode":409,"timestamp":"2025-09-17T03:26:30.184Z","path":"/api/auth/signup","message":{"message":"Email already registered","error":"Conflict","statusCode":409}}

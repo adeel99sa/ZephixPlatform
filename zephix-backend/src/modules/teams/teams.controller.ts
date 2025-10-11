@@ -2,10 +2,11 @@ import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Request }
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OrganizationContextGuard } from '../../guards/organization-context.guard';
 import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 
 @Controller('teams')
-@UseGuards(JwtAuthGuard, OrganizationValidationGuard)
+@UseGuards(JwtAuthGuard, OrganizationContextGuard, OrganizationValidationGuard)
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
 

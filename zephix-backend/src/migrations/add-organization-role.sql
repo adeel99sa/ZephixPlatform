@@ -16,3 +16,4 @@ UPDATE users SET organization_role = 'member' WHERE organization_role IS NULL;
 
 
 
+

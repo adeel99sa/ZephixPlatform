@@ -1,0 +1,285 @@
+.dependency-view {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-top: 20px;
+}
+
+.dependency-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dependency-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.dependency-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.toggle-btn, .refresh-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover, .refresh-btn:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.toggle-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.dependency-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: bold;
+  color: #2563eb;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.error-message {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #ffeaa7;
+}
+
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-size: 16px;
+}
+
+.no-dependencies {
+  padding: 40px;
+  text-align: center;
+  color: #4CAF50;
+  font-size: 18px;
+  background: #f0f8f0;
+  border-radius: 8px;
+  border: 1px solid #4CAF50;
+}
+
+.dependency-list {
+  margin-bottom: 30px;
+}
+
+.dependency-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: white;
+  transition: all 0.2s;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dependency-item:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: #ccc;
+}
+
+.dependency-item.critical {
+  border-color: #ff6b6b;
+  background: #fff5f5;
+}
+
+.dependency-content {
+  flex: 1;
+  min-width: 200px;
+}
+
+.dependency-arrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.source, .target {
+  padding: 4px 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.arrow {
+  color: #666;
+  font-weight: bold;
+}
+
+.dependency-details {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dependency-type {
+  font-size: 12px;
+  color: #666;
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.lag-days {
+  font-size: 12px;
+  color: #ff9800;
+  background: #fff3e0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.critical-badge {
+  font-size: 12px;
+  color: #d32f2f;
+  background: #ffebee;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.dependency-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.dependency-help {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.dependency-help h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.help-item {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.help-item strong {
+  color: #333;
+  font-weight: 600;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .dependency-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .dependency-controls {
+    justify-content: center;
+  }
+  
+  .dependency-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .dependency-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .dependency-actions {
+    justify-content: center;
+    margin-top: 10px;
+  }
+  
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .dependency-view {
+    padding: 15px;
+  }
+  
+  .dependency-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+  }
+}

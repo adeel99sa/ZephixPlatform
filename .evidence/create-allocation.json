@@ -1,0 +1,1 @@
+{"statusCode":400,"timestamp":"2025-09-17T03:28:49.679Z","path":"/api/resource-allocations","message":{"message":["property hoursPerWeek should not exist","resourceId must be a UUID"],"error":"Bad Request","statusCode":400}}

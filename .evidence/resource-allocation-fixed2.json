@@ -1,0 +1,1 @@
+{"statusCode":400,"timestamp":"2025-09-17T03:37:32.899Z","path":"/api/resource-allocations","message":{"message":["resourceId must be a UUID"],"error":"Bad Request","statusCode":400}}
