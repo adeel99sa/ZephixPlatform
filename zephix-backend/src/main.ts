@@ -36,10 +36,26 @@ const cookieParser = require('cookie-parser')
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
 import { DatabaseExceptionFilter } from './common/filters/database-exception.filter'
 import * as crypto from 'crypto'
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule)
+
+  // Hard fail if JWT secret is missing (prevents silent 401s)
+  const cfg = app.get(ConfigService);
+  const jwtSecret = cfg.get<string>('jwt.secret') || process.env.JWT_SECRET;
+
+  if (!jwtSecret || jwtSecret.length < 10) {
+    console.error('FATAL: jwt.secret is missing. Check .env / ConfigModule envFilePath.');
+    process.exit(1);
+  }
+  console.log('✅ JWT secret loaded successfully');
+
+  // Quick-fail guard rail to prevent regressions
+  if (!cfg.get<string>('jwt.secret')) {
+    throw new Error('FATAL: jwt.secret missing (check .env / envFilePath)');
+  }
 
 
   console.log('🔧 Setting global prefix...');

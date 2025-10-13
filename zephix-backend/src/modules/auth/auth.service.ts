@@ -6,6 +6,8 @@ import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';  // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
+import { Folder } from '../folders/entities/folder.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -16,6 +18,10 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    @InjectRepository(Workspace)
+    private workspaceRepository: Repository<Workspace>,
+    @InjectRepository(Folder)
+    private folderRepository: Repository<Folder>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private dataSource: DataSource,
@@ -67,8 +73,31 @@ export class AuthService {
       });
       const savedUser = await manager.save(user);
 
-      // Generate JWT tokens
-      const accessToken = this.generateToken(savedUser);
+      // Create default workspace
+      const workspace = manager.create(Workspace, {
+        name: 'Default Workspace',
+        description: 'Default workspace for your organization',
+        organizationId: savedOrg.id,
+        createdBy: savedUser.id,
+      });
+      const savedWorkspace = await manager.save(workspace);
+
+      // Create root folder for the workspace
+      const rootFolder = manager.create(Folder, {
+        name: 'Root',
+        workspaceId: savedWorkspace.id,
+        organizationId: savedOrg.id,
+        createdBy: savedUser.id,
+        parentFolderId: null,
+      });
+      await manager.save(rootFolder);
+
+      // Update user with current workspace
+      savedUser.currentWorkspaceId = savedWorkspace.id;
+      await manager.save(savedUser);
+
+      // Generate JWT tokens with workspaceId
+      const accessToken = this.generateToken(savedUser, savedWorkspace.id);
       const refreshToken = this.generateRefreshToken(savedUser);
 
       return {
@@ -163,12 +192,12 @@ export class AuthService {
     return user;
   }
 
-  private generateToken(user: User): string {
+  private generateToken(user: User, workspaceId?: string): string {
     const payload = {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      workspaceId: user.currentWorkspaceId || null,
+      workspaceId: workspaceId || user.currentWorkspaceId || null,
       role: user.role,
       organizationRole: user.organizationRole
     };

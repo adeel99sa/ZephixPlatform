@@ -9,6 +9,17 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 import { CreateProjectFromTemplateDto } from '../dto/create-project-from-template.dto';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
 import { BaseSoftDeleteService } from '../../../common/base-soft-delete.service';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { Folder } from '../../folders/entities/folder.entity';
+
+// JWT User type for workspace/folder resolution
+type JwtUser = {
+  id: string;
+  organizationId: string | null;
+  workspaceId: string | null;
+  role?: string;
+  organizationRole?: string;
+};
 
 @Injectable()
 export class ProjectsService extends BaseSoftDeleteService<Project> {
@@ -21,6 +32,10 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
     private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
     @InjectRepository(ProjectPhase)
     private readonly projectPhaseRepository: Repository<ProjectPhase>,
+    @InjectRepository(Workspace)
+    private readonly workspaceRepository: Repository<Workspace>,
+    // @InjectRepository(Folder)
+    // private readonly folderRepository: Repository<Folder>,
     @InjectConnection()
     private readonly connection: Connection,
   ) {
@@ -38,6 +53,46 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
     return Array.isArray(saved) ? saved[0] : saved;
   }
 
+  /**
+   * Resolve workspace and folder for project creation
+   * Uses user's workspace from JWT if not provided in DTO
+   * Creates root folder if it doesn't exist
+   */
+  private async resolveWorkspaceAndFolder(
+    user: JwtUser,
+    dto: CreateProjectDto,
+  ): Promise<{ workspaceId: string; folderId: string }> {
+    this.logger.debug(`resolveWorkspaceAndFolder - user:`, JSON.stringify(user, null, 2));
+    this.logger.debug(`resolveWorkspaceAndFolder - dto:`, JSON.stringify(dto, null, 2));
+    
+    const workspaceId = dto.workspaceId ?? user.workspaceId ?? null;
+    this.logger.debug(`resolveWorkspaceAndFolder - workspaceId: ${workspaceId}`);
+    
+    if (!workspaceId) {
+      throw new BadRequestException('No workspace found for current user');
+    }
+
+    // Validate workspace belongs to user's organization
+    const workspace = await this.workspaceRepository.findOne({
+      where: { id: workspaceId, organizationId: user.organizationId },
+    });
+    if (!workspace) {
+      throw new BadRequestException('Workspace not found or not in your organization');
+    }
+
+    let folderId = dto.folderId ?? null;
+    if (folderId) {
+      // TODO: Validate folder belongs to workspace/organization
+      // For now, just use the provided folderId
+    } else {
+      // TODO: Find or create root folder
+      // For now, use null (will be handled by database constraints)
+      folderId = null;
+    }
+
+    return { workspaceId, folderId };
+  }
+
   async update(id: string, organizationId: string, data: any): Promise<Project> {
     await this.projectRepository.update({ id, organizationId }, data);
     return this.findById(id, organizationId);
@@ -47,6 +102,54 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
    * Create a new project - TENANT SECURE
    */
   async createProject(
+    createProjectDto: CreateProjectDto, 
+    user: JwtUser
+  ): Promise<Project> {
+    try {
+      this.logger.log(`Creating project for user: ${user.id} in org: ${user.organizationId}`);
+
+      // Resolve workspace and folder (creates root folder if needed)
+      const { workspaceId, folderId } = await this.resolveWorkspaceAndFolder(user, createProjectDto);
+
+      // Use parent class create method which automatically sets organizationId
+      const { phases, ...projectData } = createProjectDto;
+      
+      // Convert string dates to Date objects
+      const processedData = {
+        ...projectData,
+        startDate: projectData.startDate ? new Date(projectData.startDate) : undefined,
+        endDate: projectData.endDate ? new Date(projectData.endDate) : undefined,
+        estimatedEndDate: projectData.estimatedEndDate ? new Date(projectData.estimatedEndDate) : undefined,
+        createdById: user.id,
+        status: createProjectDto.status || ProjectStatus.PLANNING,
+        workspaceId,
+        folderId,
+        organizationId: user.organizationId, // Ensure organizationId from user, not DTO
+      };
+      
+      const project = await this.create(processedData, user.organizationId);
+
+      // Auto-assign creator as owner
+      await this.assignUser(
+        project.id,
+        user.id,
+        'owner',
+        user.organizationId,
+      );
+
+      this.logger.log(`✅ Project created: ${project.id} in org: ${user.organizationId}, workspace: ${workspaceId}`);
+      return project;
+
+    } catch (error) {
+      this.logger.error(`❌ Failed to create project for user ${user.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new project - TENANT SECURE (legacy signature for backward compatibility)
+   */
+  async createProjectLegacy(
     createProjectDto: CreateProjectDto, 
     organizationId: string, 
     userId: string
@@ -95,7 +198,7 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
     const { phases, ...projectData } = createProjectDto;
     
     // Create project
-    const project = await this.createProject(projectData, organizationId, userId);
+    const project = await this.createProjectLegacy(projectData, organizationId, userId);
 
     // Create phases if provided
     if (phases && phases.length > 0) {

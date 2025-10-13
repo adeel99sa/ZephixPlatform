@@ -17,6 +17,13 @@ export class OrganizationContextGuard implements CanActivate {
     // const fromHeader = req.header('X-Organization-Id');
 
     req.organizationId = fromJwt ?? undefined;
+    
+    // Debug logging
+    console.log('[OrganizationContextGuard]', { 
+      organizationId: req.organizationId, 
+      source: 'JWT' 
+    });
+    
     return true;
   }
 }

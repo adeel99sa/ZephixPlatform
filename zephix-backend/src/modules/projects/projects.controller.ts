@@ -13,6 +13,8 @@ import {
   Logger,
   HttpCode,
   HttpStatus,
+  Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProjectsService } from './services/projects.service';
 import { ProjectAssignmentService } from './services/project-assignment.service';
@@ -21,6 +23,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { AssignUserDto } from './dto/assign-user.dto';
 import { CreateProjectFromTemplateDto } from './dto/create-project-from-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+// import { JwtAuthVerboseGuard } from '../auth/guards/jwt-auth-verbose.guard';
 import { OrganizationContextGuard } from '../../guards/organization-context.guard';
 import { OrganizationValidationGuard } from '../../guards/organization-validation.guard';
 import { GetTenant, TenantContext } from '../../common/decorators/tenant.decorator';
@@ -62,14 +65,35 @@ export class ProjectsController {
   async create(
     @Body() createProjectDto: CreateProjectDto,
     @GetTenant() tenant: TenantContext,
+    @Req() req: any,
   ) {
-    this.logger.log(`Creating project for user ${tenant.userId} in org ${tenant.organizationId}`);
-    const project = await this.projectsService.createProject(
-      createProjectDto,
-      tenant.organizationId,
-      tenant.userId,
-    );
-    return ApiResponse.success(ApiResponse.serializeProject(project));
+    const requestId = req.headers['x-request-id'] || 'unknown';
+    this.logger.log(`[${requestId}] Creating project for user ${tenant.userId} in org ${tenant.organizationId}`);
+    
+    try {
+      // Server-side defaults: use user's workspace if not provided
+      if (!createProjectDto.workspaceId) {
+        const user = req.user;
+        createProjectDto.workspaceId = user.workspaceId;
+        this.logger.log(`[${requestId}] Set workspaceId to user's workspace: ${createProjectDto.workspaceId}`);
+        
+        if (!createProjectDto.workspaceId) {
+          throw new BadRequestException('No workspace found for current user');
+        }
+      }
+      
+      const project = await this.projectsService.createProjectLegacy(
+        createProjectDto,
+        tenant.organizationId,
+        tenant.userId,
+      );
+      
+      this.logger.log(`[${requestId}] Project created successfully: ${project.id}`);
+      return ApiResponse.success(ApiResponse.serializeProject(project));
+    } catch (error) {
+      this.logger.error(`[${requestId}] Project creation failed:`, error);
+      throw error;
+    }
   }
 
   @Post('from-template')

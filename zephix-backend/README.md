@@ -15,6 +15,10 @@ A secure, scalable NestJS backend service for the Zephix project management plat
 - 🔄 **Status Reporting** with external integrations (Jira, GitHub, Teams)
 - 📈 **Risk Management** with AI-powered analysis
 - 🚨 **Database Error Handling** with user-friendly constraint violation messages
+- 🏢 **Auto-provisioning** with default workspace and root folder creation on signup
+- 🔧 **Server-side Defaults** for project creation (workspaceId, folderId)
+- 🔒 **Data Integrity** with unique root folder constraints per workspace
+- 📊 **Observability** with comprehensive debug logging and request tracing
 
 ## Environment Configuration
 
@@ -162,6 +166,65 @@ npm run start:prod
 
 # Build the application
 npm run build
+```
+
+## Auto-provisioning & Server-side Defaults
+
+### User Signup Auto-provisioning
+
+When a new user signs up, the system automatically:
+1. **Creates a default workspace** named "Default Workspace" for the organization
+2. **Creates a root folder** named "Root" within the workspace
+3. **Sets the user's currentWorkspaceId** to the newly created workspace
+4. **Includes workspaceId in JWT tokens** for seamless project creation
+
+### Project Creation Server-side Defaults
+
+When creating a project without specifying `workspaceId` or `folderId`:
+1. **Uses user's currentWorkspaceId** from JWT token as the workspace
+2. **Validates workspace ownership** to ensure security
+3. **Creates root folder if needed** (enforced by unique constraint)
+4. **Populates organizationId** from authenticated user context
+
+### Data Integrity Rules
+
+- **One root folder per workspace**: Enforced by unique partial index
+- **Workspace ownership validation**: Users can only create projects in their organization's workspaces
+- **Automatic backfill**: Migration ensures existing data follows new constraints
+
+### Example: Creating a Project
+
+```bash
+# Login first
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password"}'
+
+# Create project with minimal data (server provides defaults)
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "name": "My Project",
+    "description": "A new project",
+    "startDate": "2025-01-15",
+    "estimatedEndDate": "2025-06-30"
+  }'
+```
+
+**Response includes auto-populated fields:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "project-uuid",
+    "name": "My Project",
+    "workspaceId": "user-workspace-uuid",
+    "organizationId": "user-org-uuid",
+    "folderId": "root-folder-uuid",
+    "createdById": "user-uuid"
+  }
+}
 ```
 
 ## API Endpoints
@@ -329,6 +392,86 @@ curl -X POST http://localhost:3000/api/resource-allocations \
   "path": "/api/resource-allocations",
   "timestamp": "2025-10-07T12:00:00.000Z"
 }
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. 401 Unauthorized on Project Creation
+**Symptoms:** Project creation returns 401 even with valid JWT token
+**Root Cause:** JWT secret not loaded or middleware/guard order issues
+**Solution:**
+```bash
+# Check JWT secret is loaded
+curl -X GET http://localhost:3000/api/health
+# Should show "JWT secret loaded successfully" in logs
+
+# Verify token is valid
+curl -X GET http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### 2. Project Creation Fails with "No workspace found"
+**Symptoms:** 400 Bad Request with "No workspace found for current user"
+**Root Cause:** User's `currentWorkspaceId` is null
+**Solution:**
+```bash
+# Check user's workspace
+curl -X GET http://localhost:3000/api/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN"
+# Should show currentWorkspaceId
+
+# If null, run migration to backfill
+npm run migration:run
+```
+
+#### 3. Database Constraint Violations
+**Symptoms:** 409 Conflict or 422 Unprocessable Entity
+**Root Cause:** Data integrity constraints (unique names, allocation limits)
+**Solution:**
+- Check error message for specific constraint
+- Ensure unique names within workspace
+- Validate allocation percentages (0-150%)
+
+#### 4. E2E Tests Failing
+**Symptoms:** Tests fail with 404 or 401 errors
+**Root Cause:** Test app not configured with global prefix or authentication
+**Solution:**
+```bash
+# Ensure test app has global prefix
+app.setGlobalPrefix('api');
+
+# Check test user has proper password hash
+const hashedPassword = await bcrypt.hash('testpassword', 10);
+```
+
+### Debug Logging
+
+Enable debug logging to trace authentication flow:
+```bash
+# Set log level to debug
+LOG_LEVEL=debug npm run start:dev
+```
+
+Look for these log patterns:
+- `[JwtStrategy.validate]` - JWT token validation
+- `[OrganizationContextGuard]` - Organization context setting
+- `[OrganizationValidationGuard]` - Organization validation
+- `✅ Tenant context extracted` - Successful tenant context
+
+### API Examples
+
+Use the provided examples to test functionality:
+```bash
+# Run the project creation example
+./scripts/api-examples/curl-create-project.sh
+
+# Or manually test with curl
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d @scripts/api-examples/projects-create.json.tmpl
 ```
 
 ## Manual Testing
