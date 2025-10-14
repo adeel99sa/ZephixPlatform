@@ -164,5 +164,20 @@ export class ProjectsController {
       organizationId: tenant.organizationId,
     });
   }
+
+  // ===== PHASES ROUTES =====
+  @Get(':id/phases')
+  async listPhases(
+    @Param('id') projectId: string,
+    @GetTenant() tenant: TenantContext,
+  ) {
+    this.logger.log(`Listing phases for project ${projectId}`);
+    return {
+      success: true,
+      data: await this.projectsService.listPhases(projectId, {
+        organizationId: tenant.organizationId,
+      }),
+    };
+  }
 }
 
