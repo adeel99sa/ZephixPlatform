@@ -1,72 +1,55 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Project } from './project.entity';
-import { Task } from './task.entity';
 
-@Entity('project_phases')
+export type PhaseStatus = 'not-started' | 'in-progress' | 'blocked' | 'done';
+
+@Entity({ name: 'project_phases' })
+@Index(['projectId', 'order'], { unique: true })
 export class ProjectPhase {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
-  @Column({ name: 'project_id' })
-  projectId: string;
+  @Column('uuid')
+  projectId!: string;
 
-  @ManyToOne(() => Project, project => project.phases)
-  @JoinColumn({ name: 'project_id' })
-  project: Project;
+  @ManyToOne(() => Project, (p) => p.id, { onDelete: 'CASCADE' })
+  project!: Project;
 
-  @Column({ name: 'organization_id' })
-  organizationId: string;
+  @Column('uuid')
+  organizationId!: string;
 
-  @Column()
-  name: string;
+  @Column('uuid', { nullable: true })
+  workspaceId!: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  description: string;
+  @Column({ type: 'varchar', length: 160 })
+  name!: string;
 
-  @Column({ 
-    type: 'enum',
-    enum: ['planning', 'development', 'testing', 'deployment', 'maintenance'],
-    default: 'planning'
-  })
-  type: string;
+  @Column({ type: 'varchar', length: 32, default: 'not-started' })
+  status!: PhaseStatus;
 
-  @Column({ type: 'int', default: 0 })
-  order: number;
+  @Column({ type: 'int' })
+  order!: number;
 
-  @Column({ name: 'start_date', type: 'date', nullable: true })
-  startDate: Date;
+  @Column({ type: 'date', nullable: true })
+  startDate?: string | null;
 
-  @Column({ name: 'end_date', type: 'date', nullable: true })
-  endDate: Date;
+  @Column({ type: 'date', nullable: true })
+  endDate?: string | null;
 
-  @Column({ 
-    type: 'enum',
-    enum: ['not_started', 'in_progress', 'completed'],
-    default: 'not_started'
-  })
-  status: string;
+  @Column({ type: 'uuid', nullable: true })
+  ownerUserId?: string | null;
 
-  @Column({ type: 'int', default: 0 })
-  progress: number;
+  @CreateDateColumn()
+  createdAt!: Date;
 
-  @Column({ name: 'total_tasks', type: 'int', default: 0 })
-  totalTasks: number;
-
-  @Column({ name: 'completed_tasks', type: 'int', default: 0 })
-  completedTasks: number;
-
-  @Column({ name: 'progress_percentage', type: 'int', default: 0 })
-  progressPercentage: number;
-
-  @OneToMany(() => Task, task => task.phase)
-  tasks: Task[];
-
-  @Column({ type: 'jsonb', nullable: true })
-  completionCriteria: string[];
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @UpdateDateColumn()
+  updatedAt!: Date;
 }
