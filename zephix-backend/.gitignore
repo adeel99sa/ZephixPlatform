@@ -5,3 +5,5 @@ build/
 tmp/
 temp/
 /generated/prisma
+.env*
+.env.backup*
