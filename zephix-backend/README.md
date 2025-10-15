@@ -44,10 +44,10 @@ JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRES_IN=15m
 
 ## JWT Configuration
-- `JWT_SECRET` (required): symmetric key used by JwtModule and JwtStrategy
+- `JWT_SECRET` (required): symmetric key used by JwtModule/JwtStrategy
 - `JWT_EXPIRES_IN` (optional, default `15m`)
 - `jwt.iss` / `jwt.aud` (optional; defaults: `zephix` / `zephix-app`)
-Signing must use the configured JwtService (no per-call secret override).
+**Important:** Always sign with the configured JwtService. Do **not** pass a per-call secret.
 
 # CORS Security
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://app.getzephix.com,https://getzephix.com
