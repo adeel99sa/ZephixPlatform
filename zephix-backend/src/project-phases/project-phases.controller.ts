@@ -3,7 +3,7 @@ import { ProjectPhasesService } from './project-phases.service';
 import { CreatePhaseDto } from './dto/create-phase.dto';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 
-@Controller('/api/projects/:projectId/phases')
+@Controller('projects/:projectId/phases')
 @UseGuards(JwtAuthGuard)
 export class ProjectPhasesController {
   constructor(private readonly service: ProjectPhasesService) {}
