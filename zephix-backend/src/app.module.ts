@@ -38,7 +38,6 @@ import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
-import { ProjectPhasesController } from './modules/projects/controllers/project-phases.controller';
 // import { ProjectPhasesModule } from './project-phases/project-phases.module'; // Using ProjectsModule instead
 
 if (!(global as any).crypto) {
@@ -103,7 +102,7 @@ if (!(global as any).crypto) {
       HealthModule, // Keep health module for basic health checks
     ]),
   ],
-  controllers: [AppController, ProjectPhasesController],
+  controllers: [AppController],
   providers: [
     AppService,
     {
