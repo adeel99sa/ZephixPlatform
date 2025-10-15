@@ -136,7 +136,6 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, { 
-      secret: process.env.JWT_SECRET || 'fallback-secret-key',
       expiresIn: '15m' 
     });
   }
@@ -198,7 +197,6 @@ export class AuthService {
       };
 
       const accessToken = this.jwtService.sign(payload, { 
-        secret: process.env.JWT_SECRET || 'fallback-secret-key',
         expiresIn: '15m' 
       });
       const newRefreshToken = this.jwtService.sign(payload, { 
