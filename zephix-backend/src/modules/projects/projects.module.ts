@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 // Import the UsersModule to get access to User entity
 import { UsersModule } from '../users/users.module';
+import { AuthModule } from '../auth/auth.module';
 
 // Import all entities
 import { Project } from './entities/project.entity';
@@ -36,6 +37,7 @@ import { ProjectPhasesController } from './controllers/project-phases.controller
       // Folder,
     ]),
     UsersModule, // This provides access to User entity for TaskService
+    AuthModule, // This provides JWT authentication
   ],
   controllers: [ProjectsController, ProjectPhasesController],
   providers: [ProjectsService, ProjectAssignmentService, DependencyService],
