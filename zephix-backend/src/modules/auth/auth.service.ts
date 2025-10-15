@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     private jwtService: JwtService,
+    private configService: ConfigService,
     private dataSource: DataSource,
   ) {}
 
@@ -132,11 +134,13 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role
+      role: user.role,
+      iss: this.configService.get<string>('jwt.iss') ?? 'zephix',
+      aud: this.configService.get<string>('jwt.aud') ?? 'zephix-app',
     };
 
     return this.jwtService.sign(payload, { 
-      expiresIn: '15m' 
+      expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '15m',
     });
   }
 
@@ -194,10 +198,12 @@ export class AuthService {
         email: user.email,
         organizationId: user.organizationId,
         role: user.role,
+        iss: this.configService.get<string>('jwt.iss') ?? 'zephix',
+        aud: this.configService.get<string>('jwt.aud') ?? 'zephix-app',
       };
 
       const accessToken = this.jwtService.sign(payload, { 
-        expiresIn: '15m' 
+        expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '15m',
       });
       const newRefreshToken = this.jwtService.sign(payload, { 
         secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
