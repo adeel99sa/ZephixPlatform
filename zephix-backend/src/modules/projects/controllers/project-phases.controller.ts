@@ -6,8 +6,7 @@ import { RolesGuard } from '../../../organizations/guards/roles.guard';
 import { ProjectsService } from '../services/projects.service';
 
 @Controller('projects/:projectId/phases')
-// Temporarily comment for the drill:
-// @UseGuards(JwtAuthGuard, OrganizationContextGuard, OrganizationValidationGuard)
+@UseGuards(JwtAuthGuard)
 export class ProjectPhasesController {
   constructor(private readonly projectsService: ProjectsService) {}
 
