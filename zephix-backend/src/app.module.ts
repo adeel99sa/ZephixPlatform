@@ -34,6 +34,7 @@ import { FoldersModule } from './modules/folders/folders.module';
 import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DebugController } from './health/debug.controller';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -103,7 +104,7 @@ if (!(global as any).crypto) {
       HealthModule, // Keep health module for basic health checks
     ]),
   ],
-  controllers: [AppController],
+  controllers: [AppController, DebugController],
   providers: [
     AppService,
     {

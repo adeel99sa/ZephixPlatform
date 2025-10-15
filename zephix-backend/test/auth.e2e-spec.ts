@@ -1,18 +1,13 @@
 import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 
-// assumes you already bootstrap app in test setup
 describe('Auth + Guarded smoke', () => {
   let app: INestApplication;
-
   beforeAll(async () => {
-    // create testing module + app (your project's standard e2e bootstrap)
+    // bootstrap your e2e app here (project-specific)
     // app = await bootstrapTestApp();
   });
-
-  afterAll(async () => {
-    await app?.close();
-  });
+  afterAll(async () => { await app?.close(); });
 
   it('logs in and hits a guarded route', async () => {
     const res = await request(app.getHttpServer())
