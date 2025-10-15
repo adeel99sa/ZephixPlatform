@@ -28,6 +28,7 @@ import { UpdateProjectDto } from '../dto/update-project.dto';
 import { CreateProjectFromTemplateDto } from '../../templates/dto/create-from-template.dto';
 import { CreatePhaseDto, UpdatePhaseDto } from '../dtos/phase.dtos';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
+import { BaseSoftDeleteService } from '../../../common/services/base-soft-delete.service';
 // import { BaseSoftDeleteService } from '../../../common/base-soft-delete.service';
 // import { Workspace } from '../../workspaces/entities/workspace.entity';
 // import { Folder } from '../../folders/entities/folder.entity';
@@ -44,6 +45,7 @@ type JwtUser = {
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
+  private readonly soft: BaseSoftDeleteService<Project>;
 
   constructor(
     @InjectRepository(Project)
@@ -61,6 +63,7 @@ export class ProjectsService {
     private readonly dataSource: DataSource,
   ) {
     console.log('🚀 ProjectsService constructor called!');
+    this.soft = new BaseSoftDeleteService<Project>(this.projectRepository);
   }
 
   // Add missing methods from base class
@@ -74,20 +77,15 @@ export class ProjectsService {
   }
 
   async findById(id: string, organizationId: string): Promise<Project | null> {
-    return this.projectRepository.findOne({
-      where: { id, organizationId, deletedAt: IsNull() }
-    });
+    return this.soft.findById(id, organizationId);
   }
 
   async softDelete(id: string, userId: string): Promise<void> {
-    await this.projectRepository.update(id, {
-      deletedAt: new Date(),
-      deletedById: userId
-    });
+    return this.soft.softDelete(id, userId);
   }
 
   async findAndCount(options: any): Promise<[Project[], number]> {
-    return this.projectRepository.findAndCount(options);
+    return this.soft.findAndCount(options);
   }
 
   async bulkSoftDelete(ids: string[], userId: string): Promise<void> {
@@ -294,6 +292,21 @@ export class ProjectsService {
         createProjectDto,
         user,
       );
+
+      // Read-only validation (non-blocking, flagged)
+      const enableValidation = process.env.ENABLE_WS_VALIDATION === 'true';
+      if (enableValidation && workspaceId) {
+        const w = await this.projectRepository.query(
+          'select 1 from workspaces where id = $1 limit 1', [workspaceId],
+        );
+        if (w.length === 0) this.logger?.warn?.(`Workspace ${workspaceId} not found`);
+      }
+      if (enableValidation && folderId) {
+        const f = await this.projectRepository.query(
+          'select 1 from workspace_folders where id = $1 limit 1', [folderId],
+        );
+        if (f.length === 0) this.logger?.warn?.(`Folder ${folderId} not found`);
+      }
 
       // Convert string dates to Date objects
       const processedData = {

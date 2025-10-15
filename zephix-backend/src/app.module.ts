@@ -28,6 +28,8 @@ import { RiskManagementModule } from './pm/risk-management/risk-management.modul
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
+import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { FoldersModule } from './modules/folders/folders.module';
 import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -93,6 +95,8 @@ if (!(global as any).crypto) {
       ProgramsModule,
       TasksModule,
       KPIModule,
+      WorkspacesModule,
+      FoldersModule,
       // ProjectPhasesModule, // Using ProjectsModule instead
     ] : [
       HealthModule, // Keep health module for basic health checks
