@@ -36,7 +36,7 @@ import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
-import { ProjectPhasesModule } from './project-phases/project-phases.module';
+// import { ProjectPhasesModule } from './project-phases/project-phases.module'; // Using ProjectsModule instead
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -93,7 +93,7 @@ if (!(global as any).crypto) {
       ProgramsModule,
       TasksModule,
       KPIModule,
-      ProjectPhasesModule,
+      // ProjectPhasesModule, // Using ProjectsModule instead
     ] : [
       HealthModule, // Keep health module for basic health checks
     ]),
