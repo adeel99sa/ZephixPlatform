@@ -6,12 +6,14 @@ import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { ResourceModule } from '../resources/resource.module';
 import { KPIModule } from '../kpi/kpi.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Task, TaskDependency]),
     ResourceModule,
     KPIModule,
+    AuthModule,
   ],
   controllers: [TasksController],
   providers: [TasksService],
