@@ -90,6 +90,18 @@ export class Project {
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string;
 
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string;
+
+  @Column({ name: 'folder_id', type: 'uuid', nullable: true })
+  folderId: string;
+
+  @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deletedAt: Date;
+
+  @Column({ name: 'deleted_by_id', type: 'uuid', nullable: true })
+  deletedById: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

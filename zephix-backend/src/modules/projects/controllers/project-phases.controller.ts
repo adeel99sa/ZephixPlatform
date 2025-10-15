@@ -1,8 +1,8 @@
 import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { OrganizationContextGuard } from '../../../guards/organization-context.guard';
-import { OrganizationValidationGuard } from '../../../guards/organization-validation.guard';
+import { OrganizationGuard } from '../../../organizations/guards/organization.guard';
+import { RolesGuard } from '../../../organizations/guards/roles.guard';
 import { ProjectsService } from '../services/projects.service';
 
 @Controller('projects/:projectId/phases')

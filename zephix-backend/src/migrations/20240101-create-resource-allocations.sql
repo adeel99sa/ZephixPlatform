@@ -24,3 +24,4 @@ CREATE INDEX idx_resource_allocations_task ON resource_allocations(task_id);
 CREATE INDEX idx_resource_allocations_dates ON resource_allocations(start_date, end_date);
 
 
+

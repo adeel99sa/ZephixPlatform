@@ -143,20 +143,15 @@ export class TemplateService {
       const duration = phase.duration || 14;
       endDate.setDate(endDate.getDate() + duration);
 
-      const phaseEntity = this.phaseRepository.create({
-        projectId,
-        organizationId,
-        name: phase.name,
-        description: phase.description || `${phase.name} phase`,
-        order: i,
-        startDate,
-        endDate,
-        status: 'not_started',
-        progress: 0,
-        totalTasks: 0,
-        completedTasks: 0,
-        progressPercentage: 0
-      });
+      const phaseEntity = new ProjectPhase();
+      phaseEntity.projectId = projectId;
+      phaseEntity.organizationId = organizationId;
+      phaseEntity.name = phase.name;
+      phaseEntity.order = i;
+      phaseEntity.startDate = startDate.toISOString().split('T')[0];
+      phaseEntity.endDate = endDate.toISOString().split('T')[0];
+      phaseEntity.status = 'not-started';
+      phaseEntity.progress = 0;
       
       phaseEntities.push(phaseEntity);
       
