@@ -13,6 +13,8 @@ import { Task } from './task.entity';
 import { ProjectPhase } from './project-phase.entity';
 import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { Folder } from '../../folders/entities/folder.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -95,6 +97,14 @@ export class Project {
 
   @Column({ name: 'folder_id', type: 'uuid', nullable: true })
   folderId: string;
+
+  @ManyToOne(() => Workspace, (w) => w.projects, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace?: Workspace | null;
+
+  @ManyToOne(() => Folder, (f) => f.projects, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'folder_id' })
+  folder?: Folder | null;
 
   @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
   deletedAt: Date;
