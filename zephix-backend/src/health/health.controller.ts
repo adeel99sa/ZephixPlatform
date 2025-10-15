@@ -5,12 +5,19 @@ import {
   Res,
   Optional,
   Inject,
+  Req,
+  BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
+import type { Request } from 'express';
 
 // Define the health check interface
 interface HealthCheck {
@@ -27,6 +34,8 @@ export class HealthController {
   private readonly logger = new Logger(HealthController.name);
 
   constructor(
+    private readonly config: ConfigService,
+    private readonly jwt: JwtService,
     @Optional()
     @InjectDataSource()
     private dataSource?: DataSource,
@@ -126,6 +135,23 @@ export class HealthController {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
+  }
+
+  @Get('debug-ping')
+  debugPing() {
+    return { ok: true, name: 'debug-ping', ts: new Date().toISOString() };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('auth-debug')
+  authDebug(@Req() req: any) {
+    return {
+      ok: true,
+      user: req.user ?? null,
+      // minimal, safe introspection
+      authHeader: Boolean(req.headers?.authorization),
+      ts: new Date().toISOString(),
+    };
   }
 
 
