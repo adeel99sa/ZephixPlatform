@@ -137,22 +137,6 @@ export class HealthController {
     });
   }
 
-  @Get('debug-ping')
-  debugPing() {
-    return { ok: true, name: 'debug-ping', ts: new Date().toISOString() };
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('auth-debug')
-  authDebug(@Req() req: any) {
-    return {
-      ok: true,
-      user: req.user ?? null,
-      // minimal, safe introspection
-      authHeader: Boolean(req.headers?.authorization),
-      ts: new Date().toISOString(),
-    };
-  }
 
 
   private async performHealthChecks(): Promise<HealthCheck[]> {
