@@ -58,3 +58,4 @@ CREATE INDEX idx_blocks_org ON lego_blocks(organization_id);
 CREATE INDEX idx_template_usage_project ON project_template_usage(project_id);
 
 
+

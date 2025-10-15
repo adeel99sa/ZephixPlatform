@@ -74,4 +74,12 @@ export class CreateProjectDto {
   @ValidateNested({ each: true })
   @Type(() => CreatePhaseDto)
   phases?: CreatePhaseDto[];
+
+  @IsUUID()
+  @IsOptional()
+  workspaceId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  folderId?: string;
 }

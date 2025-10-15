@@ -145,8 +145,8 @@ export class TaskService {
   // Only update fields that exist in ProjectPhase entity
   await this.phaseRepository.update(phaseId, {
     progress: progressPercentage,
-    status: progressPercentage === 0 ? 'not_started' : 
-            progressPercentage === 100 ? 'completed' : 'in_progress'
+    status: progressPercentage === 0 ? 'not-started' : 
+            progressPercentage === 100 ? 'done' : 'in-progress'
   });
 }
 

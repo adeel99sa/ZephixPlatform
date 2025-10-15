@@ -32,7 +32,7 @@ export class HealthController {
     private dataSource?: DataSource,
   ) {}
 
-  @Get(['health', 'api/health'])
+  @Get('health')
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
@@ -78,7 +78,7 @@ export class HealthController {
     return res.status(statusCode).json(response);
   }
 
-  @Get(['ready', 'api/health/ready'])
+  @Get('ready')
   @ApiOperation({ summary: 'Readiness probe endpoint' })
   @ApiResponse({
     status: 200,
@@ -99,7 +99,7 @@ export class HealthController {
       });
   }
 
-  @Get(['version', 'api/version'])
+  @Get('version')
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
   async version() {
@@ -117,7 +117,7 @@ export class HealthController {
     };
   }
 
-  @Get(['live', 'api/health/live'])
+  @Get('live')
   @ApiOperation({ summary: 'Liveness probe endpoint' })
   @ApiResponse({ status: 200, description: 'Service is alive' })
   async liveness(@Res() res: Response) {

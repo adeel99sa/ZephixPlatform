@@ -3,11 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   Index,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Project } from './project.entity';
+import { Task } from './task.entity';
 
 export type PhaseStatus = 'not-started' | 'in-progress' | 'blocked' | 'done';
 
@@ -38,6 +40,9 @@ export class ProjectPhase {
   @Column({ type: 'int' })
   order!: number;
 
+  @Column({ type: 'int', default: 0 })
+  progress!: number;
+
   @Column({ type: 'date', nullable: true })
   startDate?: string | null;
 
@@ -46,6 +51,9 @@ export class ProjectPhase {
 
   @Column({ type: 'uuid', nullable: true })
   ownerUserId?: string | null;
+
+  @OneToMany(() => Task, task => task.phase)
+  tasks: Task[];
 
   @CreateDateColumn()
   createdAt!: Date;

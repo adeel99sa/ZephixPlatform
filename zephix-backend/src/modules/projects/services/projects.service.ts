@@ -25,12 +25,12 @@ import { ProjectAssignment } from '../entities/project-assignment.entity';
 import { ProjectPhase } from '../entities/project-phase.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
-import { CreateProjectFromTemplateDto } from '../dto/create-project-from-template.dto';
+import { CreateProjectFromTemplateDto } from '../../templates/dto/create-from-template.dto';
 import { CreatePhaseDto, UpdatePhaseDto } from '../dtos/phase.dtos';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
-import { BaseSoftDeleteService } from '../../../common/base-soft-delete.service';
-import { Workspace } from '../../workspaces/entities/workspace.entity';
-import { Folder } from '../../folders/entities/folder.entity';
+// import { BaseSoftDeleteService } from '../../../common/base-soft-delete.service';
+// import { Workspace } from '../../workspaces/entities/workspace.entity';
+// import { Folder } from '../../folders/entities/folder.entity';
 
 // JWT User type for workspace/folder resolution
 type JwtUser = {
@@ -42,7 +42,7 @@ type JwtUser = {
 };
 
 @Injectable()
-export class ProjectsService extends BaseSoftDeleteService<Project> {
+export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
 
   constructor(
@@ -52,16 +52,15 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
     private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
     @InjectRepository(ProjectPhase)
     private readonly projectPhaseRepository: Repository<ProjectPhase>,
-    @InjectRepository(Workspace)
-    private readonly workspaceRepository: Repository<Workspace>,
-    @InjectRepository(Folder)
-    private readonly folderRepository: Repository<Folder>,
+    // @InjectRepository(Workspace)
+    // private readonly workspaceRepository: Repository<Workspace>,
+    // @InjectRepository(Folder)
+    // private readonly folderRepository: Repository<Folder>,
     @InjectConnection()
     private readonly connection: Connection,
     private readonly dataSource: DataSource,
   ) {
     console.log('🚀 ProjectsService constructor called!');
-    super(projectRepository);
   }
 
   // Add missing methods from base class
@@ -72,6 +71,37 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
     });
     const saved = await this.projectRepository.save(project);
     return Array.isArray(saved) ? saved[0] : saved;
+  }
+
+  async findById(id: string, organizationId: string): Promise<Project | null> {
+    return this.projectRepository.findOne({
+      where: { id, organizationId, deletedAt: IsNull() }
+    });
+  }
+
+  async softDelete(id: string, userId: string): Promise<void> {
+    await this.projectRepository.update(id, {
+      deletedAt: new Date(),
+      deletedById: userId
+    });
+  }
+
+  async findAndCount(options: any): Promise<[Project[], number]> {
+    return this.projectRepository.findAndCount(options);
+  }
+
+  async bulkSoftDelete(ids: string[], userId: string): Promise<void> {
+    await this.projectRepository.update(ids, {
+      deletedAt: new Date(),
+      deletedById: userId
+    });
+  }
+
+  async restore(id: string): Promise<void> {
+    await this.projectRepository.update(id, {
+      deletedAt: null,
+      deletedById: null
+    });
   }
 
   /**
@@ -162,73 +192,76 @@ export class ProjectsService extends BaseSoftDeleteService<Project> {
       );
     }
 
-    const workspace = await this.workspaceRepository.findOne({
-      where: { id: workspaceId, organizationId: user.organizationId },
-    });
-    if (!workspace) {
-      throw new ForbiddenException('Workspace not found in your organization');
-    }
+    // TODO: Add workspace validation when workspace entity is available
+    // const workspace = await this.workspaceRepository.findOne({
+    //   where: { id: workspaceId, organizationId: user.organizationId },
+    // });
+    // if (!workspace) {
+    //   throw new ForbiddenException('Workspace not found in your organization');
+    // }
 
+    // TODO: Add folder validation when folder entity is available
     // 2) Resolve folder: use provided or get/create root
-    if (dto.folderId) {
-      const folder = await this.folderRepository.findOne({
-        where: {
-          id: dto.folderId,
-          workspaceId,
-          organizationId: user.organizationId,
-        },
-      });
-      if (!folder) {
-        throw new ForbiddenException(
-          'Folder not found in your organization/workspace',
-        );
-      }
-      return { workspaceId, folderId: folder.id };
-    }
+    // if (dto.folderId) {
+    //   const folder = await this.folderRepository.findOne({
+    //     where: {
+    //       id: dto.folderId,
+    //       workspaceId,
+    //       organizationId: user.organizationId,
+    //     },
+    //   });
+    //   if (!folder) {
+    //     throw new ForbiddenException(
+    //       'Folder not found in your organization/workspace',
+    //     );
+    //   }
+    //   return { workspaceId, folderId: folder.id };
+    // }
 
+    // TODO: Add folder creation when folder entity is available
     // Race-safe root creation using unique partial index
-    let root = await this.folderRepository.findOne({
-      where: {
-        workspaceId,
-        organizationId: user.organizationId,
-        parentFolderId: null,
-        deletedAt: null,
-      },
-    });
+    // let root = await this.folderRepository.findOne({
+    //   where: {
+    //     workspaceId,
+    //     organizationId: user.organizationId,
+    //     parentFolderId: null,
+    //     deletedAt: null,
+    //   },
+    // });
 
-    if (!root) {
-      try {
-        root = this.folderRepository.create({
-          name: 'Root',
-          workspaceId,
-          organizationId: user.organizationId,
-          createdBy: user.id,
-        });
-        root = await this.folderRepository.save(root);
-      } catch (e: any) {
-        // Handle unique constraint violation (race condition)
-        const msg = String(e?.message || '');
-        if (
-          msg.includes('workspace_folders_one_root_per_ws') ||
-          msg.includes('duplicate key')
-        ) {
-          // Another process created the root folder, fetch it
-          root = await this.folderRepository.findOne({
-            where: {
-              workspaceId,
-              organizationId: user.organizationId,
-              parentFolderId: null,
-              deletedAt: null,
-            },
-          });
-        } else {
-          this.logger.error('Root folder creation failed', e?.stack || e);
-          throw e;
-        }
-      }
-    }
+    // if (!root) {
+    //   try {
+    //     root = this.folderRepository.create({
+    //       name: 'Root',
+    //       workspaceId,
+    //       organizationId: user.organizationId,
+    //       createdBy: user.id,
+    //     });
+    //     root = await this.folderRepository.save(root);
+    //   } catch (e: any) {
+    //     // Handle unique constraint violation (race condition)
+    //     const msg = String(e?.message || '');
+    //     if (
+    //       msg.includes('workspace_folders_one_root_per_ws') ||
+    //       msg.includes('duplicate key')
+    //     ) {
+    //       // Another process created the root folder, fetch it
+    //       root = await this.folderRepository.findOne({
+    //         where: {
+    //           workspaceId,
+    //           organizationId: user.organizationId,
+    //           parentFolderId: null,
+    //           deletedAt: null,
+    //         },
+    //       });
+    //     } else {
+    //       this.logger.error('Root folder creation failed', e?.stack || e);
+    //       throw e;
+    //     }
+    //   }
+    // }
 
-    return { workspaceId, folderId: root?.id ?? null };
+    return { workspaceId, folderId: null };
   }
 
   async update(

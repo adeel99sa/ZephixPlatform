@@ -43,10 +43,16 @@ export class ProjectsController {
     @GetTenant() tenant: TenantContext,
   ) {
     this.logger.log(`Creating project for user ${tenant.userId} in org ${tenant.organizationId}`);
+    const user = {
+      id: tenant.userId,
+      organizationId: tenant.organizationId,
+      workspaceId: null,
+      role: tenant.userRole,
+      organizationRole: tenant.userRole
+    };
     return this.projectsService.createProject(
       createProjectDto,
-      tenant.organizationId,
-      tenant.userId,
+      user,
     );
   }
 

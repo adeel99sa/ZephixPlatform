@@ -57,11 +57,11 @@ export class PhaseService {
       
       // Update status based on progress
       if (phase.progress === 0) {
-        phase.status = 'not_started';
+        phase.status = 'not-started';
       } else if (phase.progress === 100) {
-        phase.status = 'completed';
+        phase.status = 'done';
       } else {
-        phase.status = 'in_progress';
+        phase.status = 'in-progress';
       }
     }
 
