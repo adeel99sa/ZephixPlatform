@@ -3,8 +3,14 @@ import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor() {
+    super();
+    console.log('🔐 [JwtAuthGuard LOADED] (path:', __filename, ')');
+  }
+
   canActivate(context: ExecutionContext) {
-    console.log('[JWT Guard] Checking authentication...');
+    const req = context.switchToHttp().getRequest();
+    console.log('🔐 [JwtAuthGuard HIT]:', req.method, req.url, 'auth header:', !!req.headers?.authorization);
     return super.canActivate(context);
   }
 }

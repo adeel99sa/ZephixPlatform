@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { DebugThrottlerGuard } from './debug/global-throttler-guard';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
@@ -116,7 +117,7 @@ if (!(global as any).crypto) {
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: DebugThrottlerGuard,
     },
   ],
 })

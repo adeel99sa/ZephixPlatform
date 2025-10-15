@@ -7,7 +7,12 @@ import { Request } from 'express';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
-    const secret = configService.get('jwt.secret');
+    console.log('🎯 [JwtStrategy LOADED]: file=', __filename);
+    const fromCfg = configService.get('jwt.secret');
+    const env = process.env.JWT_SECRET;
+    console.log('🎯 [JwtStrategy SECRETS]: cfg(jwt.secret)=', !!fromCfg, 'env(JWT_SECRET)=', !!env);
+    
+    const secret = fromCfg || env;
     if (!secret) {
       throw new Error('JWT_SECRET is not configured');
     }
@@ -20,14 +25,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    console.log('[JWT Strategy] Validating payload:', JSON.stringify(payload, null, 2));
+    console.log('🎯 [JwtStrategy VALIDATE CALLED]: keys=', Object.keys(payload || {}));
     
     if (!payload.sub || !payload.email) {
-      console.log('[JWT Strategy] Validation failed - missing sub or email');
+      console.log('🎯 [JwtStrategy VALIDATION FAILED]: missing sub or email');
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    console.log('[JWT Strategy] Validation successful');
+    console.log('🎯 [JwtStrategy VALIDATION SUCCESS]');
     return {
       id: payload.sub,
       email: payload.email,
