@@ -15,10 +15,10 @@ export class ProjectPhase {
   @Column('uuid', { name: 'workspace_id', nullable: true })
   workspaceId: string | null;
 
-  @Column('text')
+  @Column('text', { name: 'name' })
   name!: string;
 
-  @Column('text')
+  @Column('text', { name: 'status' })
   status!: 'not-started' | 'in-progress' | 'blocked' | 'done';
 
   // reserved word → must be mapped with name
