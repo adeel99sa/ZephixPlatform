@@ -27,10 +27,11 @@ export class ProjectPhasesController {
     const project = await this.projectRepo.findOne({ where: { id: projectId }});
     if (!project) throw new NotFoundException('Project not found');
 
-    const phases = await this.phaseRepo.createQueryBuilder('p')
-      .where('p.project_id = :projectId', { projectId })
-      .orderBy('p.order', 'ASC')
-      .getMany();
+    // ✅ Let TypeORM quote the "order" column for us
+    const phases = await this.phaseRepo.find({
+      where: { projectId },
+      order: { order: 'ASC' },
+    });
 
     return { success: true, data: phases };
   }
@@ -42,7 +43,7 @@ export class ProjectPhasesController {
 
     const max = await this.phaseRepo.createQueryBuilder('p')
       .where('p.project_id = :projectId', { projectId })
-      .select('COALESCE(MAX(p.order), 0)', 'max')
+      .select('COALESCE(MAX(p."order"), 0)', 'max')
       .getRawOne<{ max: number }>();
 
     const entity = this.phaseRepo.create({
