@@ -151,7 +151,6 @@ export class TemplateService {
       phaseEntity.startDate = startDate.toISOString().split('T')[0];
       phaseEntity.endDate = endDate.toISOString().split('T')[0];
       phaseEntity.status = 'not-started';
-      phaseEntity.progress = 0;
       
       phaseEntities.push(phaseEntity);
       

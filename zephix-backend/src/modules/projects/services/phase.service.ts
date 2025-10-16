@@ -50,15 +50,15 @@ export class PhaseService {
       throw new NotFoundException('Phase not found');
     }
 
-    // Calculate progress based on tasks
+    // Calculate status based on tasks
     if (phase.tasks && phase.tasks.length > 0) {
       const totalProgress = phase.tasks.reduce((sum, task) => sum + task.progressPercentage, 0);
-      phase.progress = Math.round(totalProgress / phase.tasks.length);
+      const averageProgress = Math.round(totalProgress / phase.tasks.length);
       
       // Update status based on progress
-      if (phase.progress === 0) {
+      if (averageProgress === 0) {
         phase.status = 'not-started';
-      } else if (phase.progress === 100) {
+      } else if (averageProgress === 100) {
         phase.status = 'done';
       } else {
         phase.status = 'in-progress';
