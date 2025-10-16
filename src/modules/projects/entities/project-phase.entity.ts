@@ -10,10 +10,10 @@ export class ProjectPhase {
   projectId!: string;
 
   @Column('uuid', { name: 'organization_id', nullable: true })
-  organizationId: string | null;
+  organizationId!: string | null;
 
   @Column('uuid', { name: 'workspace_id', nullable: true })
-  workspaceId: string | null;
+  workspaceId!: string | null;
 
   @Column('text', { name: 'name' })
   name!: string;
@@ -26,13 +26,13 @@ export class ProjectPhase {
   order!: number;
 
   @Column('date', { name: 'start_date', nullable: true })
-  startDate: Date | null;
+  startDate!: Date | null;
 
   @Column('date', { name: 'end_date', nullable: true })
-  endDate: Date | null;
+  endDate!: Date | null;
 
   @Column('uuid', { name: 'owner_user_id', nullable: true })
-  ownerUserId: string | null;
+  ownerUserId!: string | null;
 
   @Column('timestamptz', { name: 'created_at', default: () => 'now()' })
   createdAt!: Date;

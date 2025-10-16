@@ -45,6 +45,8 @@ export class ResourceHeatMapService {
     allocations.forEach(allocation => {
       const resourceId = allocation.resourceId || allocation.userId;
       
+      if (!resourceId) return; // Skip if no resource ID
+      
       if (!heatMapData[resourceId]) {
         heatMapData[resourceId] = {
           resourceId,
