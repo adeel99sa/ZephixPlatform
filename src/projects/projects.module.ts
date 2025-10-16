@@ -13,6 +13,5 @@ import { ProjectsService } from './services/projects.service';
 })
 export class ProjectsModule {
   constructor() {
-    console.log('🚀 ProjectsModule loaded with simplified assignments!');
   }
 }
