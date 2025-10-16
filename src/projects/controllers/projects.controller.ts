@@ -6,7 +6,7 @@ import { UpdateProjectDto } from "../dto/update-project.dto";
 import { AssignUserDto } from "../dto/assign-user.dto";
 
 @Controller("projects")
-// @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+@UseGuards(JwtAuthGuard)
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
