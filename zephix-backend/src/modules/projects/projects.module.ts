@@ -24,6 +24,7 @@ import { ProjectsController } from './projects.controller';
 // import { SetupController } from './controllers/setup.controller';
 // import { TestController } from './controllers/test.controller';
 import { ProjectPhasesController } from './controllers/project-phases.controller';
+import { ProjectPhasesDiagController } from './controllers/phases.diag.controller';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { ProjectPhasesController } from './controllers/project-phases.controller
     UsersModule, // This provides access to User entity for TaskService
     AuthModule, // This provides JWT authentication
   ],
-  controllers: [ProjectsController, ProjectPhasesController],
+  controllers: [ProjectsController, ProjectPhasesController, ProjectPhasesDiagController],
   providers: [ProjectsService, ProjectAssignmentService, DependencyService],
   exports: [
     ProjectsService,
