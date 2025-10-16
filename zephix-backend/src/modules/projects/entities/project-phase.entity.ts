@@ -41,9 +41,6 @@ export class ProjectPhase {
   @Column({ type: 'int', name: 'order' })
   order!: number;
 
-  @Column({ type: 'int', default: 0 })
-  progress!: number;
-
   @Column({ type: 'date', name: 'start_date', nullable: true })
   startDate?: string | null;
 
