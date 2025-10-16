@@ -19,16 +19,16 @@ export class ProjectPhase {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column('uuid')
+  @Column('uuid', { name: 'project_id' })
   projectId!: string;
 
   @ManyToOne(() => Project, (p) => p.id, { onDelete: 'CASCADE' })
   project!: Project;
 
-  @Column('uuid')
+  @Column('uuid', { name: 'organization_id' })
   organizationId!: string;
 
-  @Column('uuid', { nullable: true })
+  @Column('uuid', { name: 'workspace_id', nullable: true })
   workspaceId!: string | null;
 
   @Column({ type: 'varchar', length: 160 })
@@ -37,27 +37,28 @@ export class ProjectPhase {
   @Column({ type: 'varchar', length: 32, default: 'not-started' })
   status!: PhaseStatus;
 
-  @Column({ type: 'int' })
+  // 🔒 Reserve-safe mapping
+  @Column({ type: 'int', name: 'order' })
   order!: number;
 
   @Column({ type: 'int', default: 0 })
   progress!: number;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'date', name: 'start_date', nullable: true })
   startDate?: string | null;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'date', name: 'end_date', nullable: true })
   endDate?: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'uuid', name: 'owner_user_id', nullable: true })
   ownerUserId?: string | null;
 
   @OneToMany(() => Task, task => task.phase)
   tasks: Task[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 }
