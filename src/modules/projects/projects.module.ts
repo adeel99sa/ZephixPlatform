@@ -7,9 +7,13 @@ import { ProjectPhasesDiagController } from './controllers/phases.diag.controlle
 import { Project } from './entities/project.entity';
 import { ProjectAssignment } from './entities/project-assignment.entity';
 import { ProjectPhase } from './entities/project-phase.entity';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Project, ProjectAssignment, ProjectPhase])],
+  imports: [
+    TypeOrmModule.forFeature([Project, ProjectAssignment, ProjectPhase]),
+    AuthModule,
+  ],
   controllers: [ProjectsController, ProjectPhasesController, ProjectPhasesDiagController],
   providers: [ProjectsService],
   exports: [ProjectsService],
