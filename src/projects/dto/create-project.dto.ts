@@ -4,7 +4,7 @@ import { ProjectStatus, ProjectPriority } from '../../shared/enums/project.enums
 export class CreateProjectDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()

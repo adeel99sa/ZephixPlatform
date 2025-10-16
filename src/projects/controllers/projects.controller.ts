@@ -22,30 +22,30 @@ export class ProjectsController {
 
   // NEW ENDPOINT: Following Organizations controller pattern
   @Get("organization/statistics")
-  async getOrganizationStatistics(@Request() req) {
+  async getOrganizationStatistics(@Request() req: any) {
     return this.projectsService.getOrganizationStats(req.user.organizationId);
   }
 
   @Post()
-  async create(@Body() createProjectDto: CreateProjectDto, @Request() req) {
+  async create(@Body() createProjectDto: CreateProjectDto, @Request() req: any) {
     const user = req.user;
     return this.projectsService.createProject(createProjectDto, user.organizationId, user.id);
   }
 
   @Get(":id")
-  async findOne(@Param("id") id: string, @Request() req) {
+  async findOne(@Param("id") id: string, @Request() req: any) {
     const user = req.user;
     return this.projectsService.findProjectById(id, user.organizationId);
   }
 
   @Put(":id")
-  async update(@Param("id") id: string, @Body() updateProjectDto: UpdateProjectDto, @Request() req) {
+  async update(@Param("id") id: string, @Body() updateProjectDto: UpdateProjectDto, @Request() req: any) {
     const user = req.user;
     return this.projectsService.updateProject(id, updateProjectDto, user.organizationId, user.id);
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string, @Request() req) {
+  async remove(@Param("id") id: string, @Request() req: any) {
     const user = req.user;
     return this.projectsService.deleteProject(id, user.organizationId, user.id);
   }
@@ -54,7 +54,7 @@ export class ProjectsController {
   async assignUser(
     @Param('id') projectId: string,
     @Body() dto: AssignUserDto,
-    @Request() req,
+    @Request() req: any,
   ) {
     const user = req.user;
     return this.projectsService.assignUser(
@@ -68,7 +68,7 @@ export class ProjectsController {
   @Get(':id/assignments')
   async getAssignments(
     @Param('id') projectId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     const user = req.user;
     return this.projectsService.getProjectAssignments(projectId, user.organizationId);
@@ -78,7 +78,7 @@ export class ProjectsController {
   async removeUser(
     @Param('id') projectId: string,
     @Param('userId') userId: string,
-    @Request() req,
+    @Request() req: any,
   ) {
     const user = req.user;
     return this.projectsService.removeUser(projectId, userId, user.organizationId);

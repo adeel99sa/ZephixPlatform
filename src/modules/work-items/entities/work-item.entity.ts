@@ -9,64 +9,64 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Check(`priority IN ('low', 'medium', 'high', 'critical')`)
 export class WorkItem {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'projectId' })
-  projectId: string;
+  projectId!: string;
 
   @Column({ 
     length: 50,
     type: 'varchar'
   })
-  type: 'task' | 'story' | 'bug' | 'epic';
+  type!: 'task' | 'story' | 'bug' | 'epic';
 
   @Column({ length: 255 })
-  title: string;
+  title!: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description!: string | null;
 
   @Column({ 
     length: 20,
     default: 'todo'
   })
-  status: 'todo' | 'in_progress' | 'done' | 'blocked';
+  status!: 'todo' | 'in_progress' | 'done' | 'blocked';
 
   @Column({ name: 'phaseOrSprint', length: 100, nullable: true })
-  phaseOrSprint: string;
+  phaseOrSprint!: string | null;
 
   @Column({ name: 'assignedTo', nullable: true })
-  assignedTo: string;
+  assignedTo!: string | null;
 
   @Column({ name: 'plannedStart', type: 'date', nullable: true })
-  plannedStart: Date;
+  plannedStart!: Date | null;
 
   @Column({ name: 'plannedEnd', type: 'date', nullable: true })
-  plannedEnd: Date;
+  plannedEnd!: Date | null;
 
   @Column({ name: 'actualStart', type: 'date', nullable: true })
-  actualStart: Date;
+  actualStart!: Date | null;
 
   @Column({ name: 'actualEnd', type: 'date', nullable: true })
-  actualEnd: Date;
+  actualEnd!: Date | null;
 
   @Column({ name: 'effortPoints', nullable: true })
-  effortPoints: number;
+  effortPoints!: number | null;
 
   @Column({ 
     length: 10,
     default: 'medium'
   })
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updatedAt' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
   @ManyToOne('Project', 'workItems', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'projectId' })
-  project: any;
+  project!: any;
 }

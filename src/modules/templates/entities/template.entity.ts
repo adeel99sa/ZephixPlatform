@@ -4,42 +4,42 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 @Index('idx_templates_org', ['organizationId'])
 export class Template {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ length: 100 })
-  name: string;
+  name!: string;
 
   @Column({ 
     length: 50,
     type: 'varchar'
   })
-  methodology: 'waterfall' | 'scrum';
+  methodology!: 'waterfall' | 'scrum';
 
   @Column({ type: 'jsonb' })
-  structure: Record<string, any>;
+  structure!: Record<string, any>;
 
   @Column({ type: 'jsonb', default: [] })
-  metrics: string[];
+  metrics!: string[];
 
   @Column({ name: 'isActive', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ name: 'isSystem', default: true })
-  isSystem: boolean;
+  isSystem!: boolean;
 
   @Column({ name: 'organizationId', nullable: true })
-  organizationId: string;
+  organizationId!: string | null;
 
   @Column({ default: 1 })
-  version: number;
+  version!: number;
 
   @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updatedAt' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
   @OneToMany('Project', 'template')
-  projects: any[];
+  projects!: any[];
 }

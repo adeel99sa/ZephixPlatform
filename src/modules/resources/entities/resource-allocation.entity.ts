@@ -9,58 +9,58 @@ import { Project } from '../../projects/entities/project.entity';
 @Check('"allocationPercentage" > 0 AND "allocationPercentage" <= 100')
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'resourceId' })
-  resourceId: string;
+  resourceId!: string;
 
   @Column({ name: 'projectId' })
-  projectId: string;
+  projectId!: string;
 
   @Column({ name: 'taskId', nullable: true })
-  taskId: string;
+  taskId!: string | null;
 
   @Column({ name: 'startDate', type: 'date' })
-  startDate: Date;
+  startDate!: Date;
 
   @Column({ name: 'endDate', type: 'date' })
-  endDate: Date;
+  endDate!: Date;
 
   @Column({ name: 'allocationPercentage', type: 'numeric', precision: 5, scale: 2 })
-  allocationPercentage: number;
+  allocationPercentage!: number;
 
   @Column({ name: 'hoursPerDay', default: 8 })
-  hoursPerDay: number;
+  hoursPerDay!: number;
 
   @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @Column({ name: 'workItemId', nullable: true })
-  workItemId: string;
+  workItemId!: string | null;
 
   @Column({ name: 'organization_id', nullable: true })
-  organizationId: string;
+  organizationId!: string | null;
 
   @Column({ name: 'user_id', nullable: true })
-  userId: string;
+  userId!: string | null;
 
   @Column({ name: 'updated_at', nullable: true })
-  updatedAt: Date;
+  updatedAt!: Date | null;
 
   // Relations
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  organization!: Organization | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'resourceId' })
-  resource: User;
+  resource!: User;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User | null;
 
   @ManyToOne(() => Project)
   @JoinColumn({ name: 'projectId' })
-  project: Project;
+  project!: Project;
 }

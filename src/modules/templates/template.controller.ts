@@ -8,12 +8,12 @@ export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
 
   @Get()
-  async getSystemTemplates(@Request() req) {
+  async getSystemTemplates(@Request() req: any) {
     return this.templateService.getSystemTemplates(req.user.organizationId);
   }
 
   @Post(':id/activate')
-  async activateTemplate(@Param('id') id: string, @Request() req) {
+  async activateTemplate(@Param('id') id: string, @Request() req: any) {
     return this.templateService.activateTemplate(id, req.user.organizationId);
   }
 }

@@ -9,50 +9,50 @@ import { ResourceAllocation } from '../../resources/entities/resource-allocation
 @Check(`status IN ('planning', 'active', 'on-hold', 'completed', 'cancelled')`)
 export class Project {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ length: 255 })
-  name: string;
+  name!: string;
 
   @Column({ name: 'templateId', type: 'uuid', nullable: true })
-  templateId: string;
+  templateId!: string | null;
 
   @Column({ name: 'currentPhase', length: 100, nullable: true })
-  currentPhase: string;
+  currentPhase!: string | null;
 
   @Column({ 
     length: 20,
     default: 'planning',
     type: 'varchar'
   })
-  status: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
+  status!: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
 
   @Column({ name: 'startDate', type: 'date', nullable: true })
-  startDate: Date;
+  startDate!: Date | null;
 
   @Column({ name: 'endDate', type: 'date', nullable: true })
-  endDate: Date;
+  endDate!: Date | null;
 
   @Column({ name: 'organizationId' })
-  organizationId: string;
+  organizationId!: string;
 
   @Column({ name: 'created_by' })
-  created_by: string;
+  created_by!: string;
 
   @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updatedAt' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ManyToOne(() => Template, template => template.projects)
   @JoinColumn({ name: 'templateId' })
-  template: Template;
+  template!: Template | null;
 
   @OneToMany(() => WorkItem, workItem => workItem.project)
-  workItems: WorkItem[];
+  workItems!: WorkItem[];
 
   @OneToMany(() => ResourceAllocation, allocation => allocation.project)
-  allocations: ResourceAllocation[];
+  allocations!: ResourceAllocation[];
 
 }
