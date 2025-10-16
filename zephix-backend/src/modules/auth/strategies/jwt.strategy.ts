@@ -5,22 +5,20 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly config: ConfigService;
-
-  constructor(configService: ConfigService) {
+  constructor(config: ConfigService) {
     const secret =
-      configService.get<string>('jwt.secret') ??
-      configService.get<string>('JWT_SECRET');
+      config.get<string>('jwt.secret') ??
+      config.get<string>('JWT_SECRET');
+
+    if (!secret) throw new Error('JWT_SECRET is not configured');
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
-      issuer: configService.get<string>('jwt.iss') ?? 'zephix',
-      audience: configService.get<string>('jwt.aud') ?? 'zephix-app',
+      issuer: config.get<string>('jwt.iss') ?? 'zephix',
+      audience: config.get<string>('jwt.aud') ?? 'zephix-app',
     });
-
-    this.config = configService;
   }
 
   async validate(payload: any) {

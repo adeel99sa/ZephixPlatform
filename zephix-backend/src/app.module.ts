@@ -35,6 +35,8 @@ import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DebugController } from './health/debug.controller';
+import { MetaController } from './meta/meta.controller';
+import { ProbesController } from './health/probes.controller';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -104,7 +106,7 @@ if (!(global as any).crypto) {
       HealthModule, // Keep health module for basic health checks
     ]),
   ],
-  controllers: [AppController, DebugController],
+  controllers: [AppController, DebugController, MetaController, ProbesController],
   providers: [
     AppService,
     {
