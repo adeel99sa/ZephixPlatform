@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  Cog6ToothIcon,
+  UserIcon,
+  BuildingOfficeIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/ui/layout/PageHeader';
 import { Button } from '../../components/ui/button/Button';
 import { Input } from '../../components/ui/input/Input';
-import { Select } from '../../components/ui/form/Select';
+import { Select, SelectOption } from '../../components/ui/form/Select';
+import { Checkbox } from '../../components/ui/form/Checkbox';
 import { Switch } from '../../components/ui/form/Switch';
 import { Textarea } from '../../components/ui/form/Textarea';
 import { FormField } from '../../components/ui/form/FormField';
 import { FormGroup } from '../../components/ui/form/FormGroup';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/overlay/Tabs';
+import { Tabs, TabItem } from '../../components/ui/overlay/Tabs';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
 import { apiClient } from '../../lib/api/client';
 import { useUIStore } from '../../stores/uiStore';
@@ -46,52 +53,37 @@ interface SecuritySettings {
   organizationId: string;
 }
 
-const TIMEZONES = [
-  { value: 'UTC', label: 'UTC' },
-  { value: 'America/New_York', label: 'Eastern Time' },
-  { value: 'America/Chicago', label: 'Central Time' },
-  { value: 'America/Denver', label: 'Mountain Time' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time' },
-  { value: 'Europe/London', label: 'London' },
-  { value: 'Europe/Paris', label: 'Paris' },
-  { value: 'Asia/Tokyo', label: 'Tokyo' },
+const TIMEZONE_OPTIONS: SelectOption[] = [
+  { value: 'UTC', label: 'Coordinated Universal Time (UTC)' },
+  { value: 'America/New_York', label: 'Eastern Time (America/New_York)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (America/Los_Angeles)' },
 ];
 
-const LANGUAGES = [
+const LANGUAGE_OPTIONS: SelectOption[] = [
   { value: 'en', label: 'English' },
   { value: 'es', label: 'Spanish' },
   { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'ja', label: 'Japanese' },
 ];
 
-const DATE_FORMATS = [
+const DATE_FORMAT_OPTIONS: SelectOption[] = [
   { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
   { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
   { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
 ];
 
-const CURRENCIES = [
+const CURRENCY_OPTIONS: SelectOption[] = [
   { value: 'USD', label: 'USD ($)' },
   { value: 'EUR', label: 'EUR (€)' },
   { value: 'GBP', label: 'GBP (£)' },
-  { value: 'JPY', label: 'JPY (¥)' },
 ];
 
-const THEMES = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' },
-];
-
-const PASSWORD_POLICIES = [
+const PASSWORD_POLICY_OPTIONS: SelectOption[] = [
   { value: 'basic', label: 'Basic (8+ characters)' },
   { value: 'strong', label: 'Strong (12+ chars, mixed case, numbers)' },
   { value: 'enterprise', label: 'Enterprise (12+ chars, mixed case, numbers, symbols)' },
 ];
 
 export const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('organization');
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
 
@@ -100,6 +92,7 @@ export const SettingsPage: React.FC = () => {
     data: organizationData,
     isLoading: orgLoading,
     error: orgError,
+    refetch: refetchOrg,
   } = useQuery({
     queryKey: ['organization-settings'],
     queryFn: async () => {
@@ -114,6 +107,7 @@ export const SettingsPage: React.FC = () => {
     data: userData,
     isLoading: userLoading,
     error: userError,
+    refetch: refetchUser,
   } = useQuery({
     queryKey: ['user-settings'],
     queryFn: async () => {
@@ -128,6 +122,7 @@ export const SettingsPage: React.FC = () => {
     data: securityData,
     isLoading: securityLoading,
     error: securityError,
+    refetch: refetchSecurity,
   } = useQuery({
     queryKey: ['security-settings'],
     queryFn: async () => {
@@ -212,352 +207,259 @@ export const SettingsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <PageHeader title="Settings" description="Manage your account and organization settings" />
-        <div className="mt-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-          </div>
-        </div>
+        <PageHeader title="Settings" description="Manage your application settings" />
+        <div className="mt-6 text-center text-muted-foreground">Loading settings...</div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <PageHeader
-        title="Settings"
-        description="Manage your account and organization settings"
-      />
-
-      {error && (
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <PageHeader title="Settings" description="Manage your application settings" />
         <ErrorBanner
           description={error.message || 'Failed to load settings'}
-          onRetry={() => {
-            queryClient.invalidateQueries({ queryKey: ['organization-settings'] });
-            queryClient.invalidateQueries({ queryKey: ['user-settings'] });
-            queryClient.invalidateQueries({ queryKey: ['security-settings'] });
-          }}
+          onRetry={() => { refetchOrg(); refetchUser(); refetchSecurity(); }}
           retryLabel="Retry"
         />
-      )}
+      </div>
+    );
+  }
+
+  const organizationSettings = organizationData || {
+    id: '', name: '', domain: '', timezone: 'UTC', language: 'en', dateFormat: 'MM/DD/YYYY', currency: 'USD', organizationId: ''
+  };
+  const userSettings = userData || {
+    id: '', email: '', firstName: '', lastName: '', timezone: 'UTC', language: 'en', emailNotifications: false, pushNotifications: false, theme: 'system', organizationId: ''
+  };
+  const securitySettings = securityData || {
+    id: '', twoFactorEnabled: false, sessionTimeout: 30, passwordPolicy: 'basic', ipWhitelist: [], organizationId: ''
+  };
+
+  const tabItems: TabItem[] = [
+    {
+      id: 'organization',
+      label: 'Organization',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateOrgMutation.mutate(organizationSettings);
+        }}>
+          <FormGroup legend="Organization Profile" description="Update your organization's public profile information.">
+            <FormField label="Organization Name" htmlFor="orgName">
+              <Input
+                id="orgName"
+                value={organizationSettings.name}
+                onChange={(e) => updateOrgMutation.mutate({ name: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Domain" htmlFor="orgDomain" help="Your organization's primary domain.">
+              <Input
+                id="orgDomain"
+                value={organizationSettings.domain}
+                onChange={(e) => updateOrgMutation.mutate({ domain: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Regional Settings" description="Configure timezone, language, and currency for your organization.">
+            <FormField label="Timezone" htmlFor="orgTimezone">
+              <Select
+                id="orgTimezone"
+                options={TIMEZONE_OPTIONS}
+                value={organizationSettings.timezone}
+                onChange={(e) => updateOrgMutation.mutate({ timezone: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Language" htmlFor="orgLanguage">
+              <Select
+                id="orgLanguage"
+                options={LANGUAGE_OPTIONS}
+                value={organizationSettings.language}
+                onChange={(e) => updateOrgMutation.mutate({ language: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Date Format" htmlFor="orgDateFormat">
+              <Select
+                id="orgDateFormat"
+                options={DATE_FORMAT_OPTIONS}
+                value={organizationSettings.dateFormat}
+                onChange={(e) => updateOrgMutation.mutate({ dateFormat: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Currency" htmlFor="orgCurrency">
+              <Select
+                id="orgCurrency"
+                options={CURRENCY_OPTIONS}
+                value={organizationSettings.currency}
+                onChange={(e) => updateOrgMutation.mutate({ currency: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateOrgMutation.isPending} loading={updateOrgMutation.isPending}>
+            Save Organization Settings
+          </Button>
+        </form>
+      ),
+    },
+    {
+      id: 'account',
+      label: 'Account',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateUserMutation.mutate(userSettings);
+        }}>
+          <FormGroup legend="Personal Information" description="Update your personal details.">
+            <FormField label="First Name" htmlFor="userFirstName">
+              <Input
+                id="userFirstName"
+                value={userSettings.firstName}
+                onChange={(e) => updateUserMutation.mutate({ firstName: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Last Name" htmlFor="userLastName">
+              <Input
+                id="userLastName"
+                value={userSettings.lastName}
+                onChange={(e) => updateUserMutation.mutate({ lastName: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Email" htmlFor="userEmail" help="Your primary email address.">
+              <Input
+                id="userEmail"
+                type="email"
+                value={userSettings.email}
+                disabled
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Preferences" description="Manage your display and notification preferences.">
+            <FormField label="Timezone" htmlFor="userTimezone">
+              <Select
+                id="userTimezone"
+                options={TIMEZONE_OPTIONS}
+                value={userSettings.timezone}
+                onChange={(e) => updateUserMutation.mutate({ timezone: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Language" htmlFor="userLanguage">
+              <Select
+                id="userLanguage"
+                options={LANGUAGE_OPTIONS}
+                value={userSettings.language}
+                onChange={(e) => updateUserMutation.mutate({ language: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Email Notifications" htmlFor="emailNotifications">
+              <Switch
+                id="emailNotifications"
+                checked={userSettings.emailNotifications}
+                onCheckedChange={(checked) => updateUserMutation.mutate({ emailNotifications: checked })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Push Notifications" htmlFor="pushNotifications">
+              <Switch
+                id="pushNotifications"
+                checked={userSettings.pushNotifications}
+                onCheckedChange={(checked) => updateUserMutation.mutate({ pushNotifications: checked })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Theme" htmlFor="userTheme">
+              <Select
+                id="userTheme"
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'system', label: 'System' },
+                ]}
+                value={userSettings.theme}
+                onChange={(e) => updateUserMutation.mutate({ theme: e.target.value as 'light' | 'dark' | 'system' })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateUserMutation.isPending} loading={updateUserMutation.isPending}>
+            Save Account Settings
+          </Button>
+        </form>
+      ),
+    },
+    {
+      id: 'security',
+      label: 'Security',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateSecurityMutation.mutate(securitySettings);
+        }}>
+          <FormGroup legend="Authentication" description="Manage your account's security settings.">
+            <FormField label="Two-Factor Authentication" htmlFor="twoFactorEnabled">
+              <Switch
+                id="twoFactorEnabled"
+                checked={securitySettings.twoFactorEnabled}
+                onCheckedChange={(checked) => updateSecurityMutation.mutate({ twoFactorEnabled: checked })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Session Timeout (minutes)" htmlFor="sessionTimeout">
+              <Input
+                id="sessionTimeout"
+                type="number"
+                value={securitySettings.sessionTimeout}
+                onChange={(e) => updateSecurityMutation.mutate({ sessionTimeout: parseInt(e.target.value) })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Password Policy" htmlFor="passwordPolicy">
+              <Select
+                id="passwordPolicy"
+                options={PASSWORD_POLICY_OPTIONS}
+                value={securitySettings.passwordPolicy}
+                onChange={(e) => updateSecurityMutation.mutate({ passwordPolicy: e.target.value })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Network Access" description="Control access to your organization's account.">
+            <FormField label="IP Whitelist" htmlFor="ipWhitelist" help="Comma-separated list of allowed IP addresses.">
+              <Textarea
+                id="ipWhitelist"
+                value={securitySettings.ipWhitelist.join(', ')}
+                onChange={(e) => updateSecurityMutation.mutate({ ipWhitelist: e.target.value.split(',').map(ip => ip.trim()) })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateSecurityMutation.isPending} loading={updateSecurityMutation.isPending}>
+            Save Security Settings
+          </Button>
+        </form>
+      ),
+    },
+  ];
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <PageHeader title="Settings" description="Manage your application settings" />
 
       <div className="mt-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="organization">Organization</TabsTrigger>
-            <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="organization" className="mt-6">
-            <OrganizationSettingsTab
-              settings={organizationData}
-              onSave={updateOrgMutation.mutate}
-              isSaving={updateOrgMutation.isPending}
-            />
-          </TabsContent>
-
-          <TabsContent value="account" className="mt-6">
-            <AccountSettingsTab
-              settings={userData}
-              onSave={updateUserMutation.mutate}
-              isSaving={updateUserMutation.isPending}
-            />
-          </TabsContent>
-
-          <TabsContent value="security" className="mt-6">
-            <SecuritySettingsTab
-              settings={securityData}
-              onSave={updateSecurityMutation.mutate}
-              isSaving={updateSecurityMutation.isPending}
-            />
-          </TabsContent>
-        </Tabs>
+        <Tabs items={tabItems} defaultActiveTab="organization" />
       </div>
     </div>
-  );
-};
-
-// Organization Settings Tab Component
-const OrganizationSettingsTab: React.FC<{
-  settings?: OrganizationSettings;
-  onSave: (settings: Partial<OrganizationSettings>) => void;
-  isSaving: boolean;
-}> = ({ settings, onSave, isSaving }) => {
-  const [formData, setFormData] = useState({
-    name: settings?.name || '',
-    domain: settings?.domain || '',
-    timezone: settings?.timezone || 'UTC',
-    language: settings?.language || 'en',
-    dateFormat: settings?.dateFormat || 'MM/DD/YYYY',
-    currency: settings?.currency || 'USD',
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <FormGroup legend="Organization Information">
-        <FormField label="Organization Name" required>
-          <Input
-            id="org-name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-        </FormField>
-
-        <FormField label="Domain" help="Your organization's primary domain">
-          <Input
-            id="org-domain"
-            value={formData.domain}
-            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-            placeholder="example.com"
-          />
-        </FormField>
-      </FormGroup>
-
-      <FormGroup legend="Regional Settings">
-        <FormField label="Timezone">
-          <Select
-            id="timezone"
-            value={formData.timezone}
-            onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-            options={TIMEZONES}
-          />
-        </FormField>
-
-        <FormField label="Language">
-          <Select
-            id="language"
-            value={formData.language}
-            onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-            options={LANGUAGES}
-          />
-        </FormField>
-
-        <FormField label="Date Format">
-          <Select
-            id="date-format"
-            value={formData.dateFormat}
-            onChange={(e) => setFormData({ ...formData, dateFormat: e.target.value })}
-            options={DATE_FORMATS}
-          />
-        </FormField>
-
-        <FormField label="Currency">
-          <Select
-            id="currency"
-            value={formData.currency}
-            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-            options={CURRENCIES}
-          />
-        </FormField>
-      </FormGroup>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Organization Settings'}
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-// Account Settings Tab Component
-const AccountSettingsTab: React.FC<{
-  settings?: UserSettings;
-  onSave: (settings: Partial<UserSettings>) => void;
-  isSaving: boolean;
-}> = ({ settings, onSave, isSaving }) => {
-  const [formData, setFormData] = useState({
-    firstName: settings?.firstName || '',
-    lastName: settings?.lastName || '',
-    email: settings?.email || '',
-    timezone: settings?.timezone || 'UTC',
-    language: settings?.language || 'en',
-    theme: settings?.theme || 'light',
-    emailNotifications: settings?.emailNotifications ?? true,
-    pushNotifications: settings?.pushNotifications ?? true,
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <FormGroup legend="Personal Information">
-        <FormField label="First Name" required>
-          <Input
-            id="first-name"
-            value={formData.firstName}
-            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-            required
-          />
-        </FormField>
-
-        <FormField label="Last Name" required>
-          <Input
-            id="last-name"
-            value={formData.lastName}
-            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-            required
-          />
-        </FormField>
-
-        <FormField label="Email Address" required>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            required
-          />
-        </FormField>
-      </FormGroup>
-
-      <FormGroup legend="Preferences">
-        <FormField label="Timezone">
-          <Select
-            id="user-timezone"
-            value={formData.timezone}
-            onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-            options={TIMEZONES}
-          />
-        </FormField>
-
-        <FormField label="Language">
-          <Select
-            id="user-language"
-            value={formData.language}
-            onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-            options={LANGUAGES}
-          />
-        </FormField>
-
-        <FormField label="Theme">
-          <Select
-            id="theme"
-            value={formData.theme}
-            onChange={(e) => setFormData({ ...formData, theme: e.target.value as 'light' | 'dark' | 'system' })}
-            options={THEMES}
-          />
-        </FormField>
-      </FormGroup>
-
-      <FormGroup legend="Notifications">
-        <FormField>
-          <Switch
-            id="email-notifications"
-            checked={formData.emailNotifications}
-            onCheckedChange={(checked) => setFormData({ ...formData, emailNotifications: checked })}
-            label="Email Notifications"
-            help="Receive notifications via email"
-          />
-        </FormField>
-
-        <FormField>
-          <Switch
-            id="push-notifications"
-            checked={formData.pushNotifications}
-            onCheckedChange={(checked) => setFormData({ ...formData, pushNotifications: checked })}
-            label="Push Notifications"
-            help="Receive push notifications in your browser"
-          />
-        </FormField>
-      </FormGroup>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Account Settings'}
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-// Security Settings Tab Component
-const SecuritySettingsTab: React.FC<{
-  settings?: SecuritySettings;
-  onSave: (settings: Partial<SecuritySettings>) => void;
-  isSaving: boolean;
-}> = ({ settings, onSave, isSaving }) => {
-  const [formData, setFormData] = useState({
-    twoFactorEnabled: settings?.twoFactorEnabled ?? false,
-    sessionTimeout: settings?.sessionTimeout || 30,
-    passwordPolicy: settings?.passwordPolicy || 'basic',
-    ipWhitelist: settings?.ipWhitelist?.join('\n') || '',
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      ...formData,
-      ipWhitelist: formData.ipWhitelist.split('\n').filter(ip => ip.trim()),
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <FormGroup legend="Authentication">
-        <FormField>
-          <Switch
-            id="two-factor"
-            checked={formData.twoFactorEnabled}
-            onCheckedChange={(checked) => setFormData({ ...formData, twoFactorEnabled: checked })}
-            label="Two-Factor Authentication"
-            help="Add an extra layer of security to your account"
-          />
-        </FormField>
-
-        <FormField label="Session Timeout (minutes)">
-          <Input
-            id="session-timeout"
-            type="number"
-            min="5"
-            max="480"
-            value={formData.sessionTimeout}
-            onChange={(e) => setFormData({ ...formData, sessionTimeout: parseInt(e.target.value) })}
-            help="How long to keep users logged in (5-480 minutes)"
-          />
-        </FormField>
-      </FormGroup>
-
-      <FormGroup legend="Password Policy">
-        <FormField label="Password Requirements">
-          <Select
-            id="password-policy"
-            value={formData.passwordPolicy}
-            onChange={(e) => setFormData({ ...formData, passwordPolicy: e.target.value })}
-            options={PASSWORD_POLICIES}
-          />
-        </FormField>
-      </FormGroup>
-
-      <FormGroup legend="IP Whitelist">
-        <FormField label="Allowed IP Addresses" help="One IP address per line">
-          <Textarea
-            id="ip-whitelist"
-            value={formData.ipWhitelist}
-            onChange={(e) => setFormData({ ...formData, ipWhitelist: e.target.value })}
-            placeholder="192.168.1.1&#10;10.0.0.1"
-            rows={4}
-          />
-        </FormField>
-      </FormGroup>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Security Settings'}
-        </Button>
-      </div>
-    </form>
   );
 };

@@ -1,0 +1,14 @@
+# Global ownership
+* @malikadeel
+
+# Frontend architecture ownership
+src/components/** @malikadeel
+src/pages/**      @malikadeel
+src/lib/**        @malikadeel
+src/stores/**     @malikadeel
+
+# CI and infrastructure
+.github/**        @malikadeel
+dangerfile.ts     @malikadeel
+package.json      @malikadeel
+vite.config.ts    @malikadeel

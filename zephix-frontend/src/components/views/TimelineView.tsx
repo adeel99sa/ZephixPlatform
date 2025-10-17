@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { Gantt, Task as GanttTask, ViewMode } from 'gantt-task-react';
-import "gantt-task-react/dist/index.css";
-import dayjs from 'dayjs';
+import React, { lazy, Suspense } from 'react';
+import { Skeleton } from '../ui/feedback/Skeleton';
+
+// Lazy load heavy Gantt chart component
+const GanttChart = lazy(() => import('./GanttChart'));
 
 interface TimelineViewProps {
   tasks: Array<{
@@ -18,47 +19,9 @@ interface TimelineViewProps {
 }
 
 export function TimelineView({ tasks, onTaskUpdate }: TimelineViewProps) {
-  const ganttTasks: GanttTask[] = useMemo(() => {
-    return tasks
-      .filter(task => task.startDate && task.endDate)
-      .map(task => ({
-        start: new Date(task.startDate!),
-        end: new Date(task.endDate!),
-        name: task.name,
-        id: task.id,
-        type: 'task' as const,
-        progress: task.progress || 0,
-        isDisabled: false,
-        styles: {
-          backgroundColor: task.resourceImpactScore && task.resourceImpactScore > 100 
-            ? '#ef4444' 
-            : task.resourceImpactScore && task.resourceImpactScore > 80 
-            ? '#f59e0b' 
-            : '#22c55e',
-          backgroundSelectedColor: '#3b82f6',
-        },
-        dependencies: task.dependencies || []
-      }));
-  }, [tasks]);
+  const validTasks = tasks.filter(task => task.startDate && task.endDate);
 
-  const handleDateChange = async (task: GanttTask) => {
-    if (onTaskUpdate) {
-      await onTaskUpdate(task.id, {
-        startDate: task.start.toISOString(),
-        endDate: task.end.toISOString()
-      });
-    }
-  };
-
-  const handleProgressChange = async (task: GanttTask) => {
-    if (onTaskUpdate) {
-      await onTaskUpdate(task.id, {
-        progress: task.progress
-      });
-    }
-  };
-
-  if (ganttTasks.length === 0) {
+  if (validTasks.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500">
         <div className="mb-4">
@@ -92,21 +55,21 @@ export function TimelineView({ tasks, onTaskUpdate }: TimelineViewProps) {
           </span>
           <span className="flex items-center gap-2">
             <div className="w-4 h-4 bg-red-500 rounded"></div>
-              Overallocated (&gt;100%)
+            Overallocated (&gt;100%)
           </span>
         </div>
       </div>
       
       <div className="overflow-x-auto">
-        <Gantt
-          tasks={ganttTasks}
-          viewMode={ViewMode.Week}
-          onDateChange={handleDateChange}
-          onProgressChange={handleProgressChange}
-          listCellWidth="180px"
-          columnWidth={60}
-          locale="en"
-        />
+        <Suspense fallback={
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-8 w-3/4" />
+          </div>
+        }>
+          <GanttChart tasks={validTasks} onTaskUpdate={onTaskUpdate} />
+        </Suspense>
       </div>
     </div>
   );
