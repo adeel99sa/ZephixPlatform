@@ -31,6 +31,14 @@ jobs:
       - run: npx ts-prune --error || true
       - run: npx knip --changed || true
 
+      # Security checks
+      - run: npm audit --production || true
+      - run: npx license-checker --production --failOn "GPL;AGPL" || true
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # Optional: run headless Lighthouse on preview build
       - run: npm run lh:ci || true
 

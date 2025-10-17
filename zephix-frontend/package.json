@@ -35,6 +35,8 @@
     "debt:compare": "node scripts/debt-compare.mjs",
     "dead-code:check": "npx ts-prune --error && npx knip --changed",
     "dead-code:report": "npx ts-prune && npx knip",
+    "security:audit": "npm audit --production && npx license-checker --production --failOn 'GPL;AGPL'",
+    "security:check": "npm audit --production || true",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:run:headed": "cypress run --headed",
