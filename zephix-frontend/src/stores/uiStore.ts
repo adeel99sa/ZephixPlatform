@@ -1,215 +1,131 @@
-// uiStore.ts - UI state management for Zephix Platform
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { BaseStoreState } from '../types/store';
-import type { Project } from '../types';
 
-// Enhanced TypeScript interfaces for better type safety
-interface UIState extends BaseStoreState {
-  // Modal states
-  blueprintModalProjectId: string | null;
-  
-  // Sidebar state
-  isSidebarOpen: boolean;
-  
-  // Selected project state
-  selectedProject: Project | null;
-  
-  // Actions
-  openBlueprintModal: (projectId: string) => void;
-  closeBlueprintModal: () => void;
-  clearModalState: () => void;
-  
-  // Sidebar actions
-  toggleSidebar: () => void;
-  openSidebar: () => void;
-  closeSidebar: () => void;
-  
-  // Project selection actions
-  selectProject: (project: Project | null) => void;
-  clearSelectedProject: () => void;
-  
-  clearError: () => void;
-  clearSuccess: () => void;
-  setLoading: (loading: boolean, action?: string) => void;
+export interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message?: string;
+  duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
-// Type for store actions
-type UIActions = {
-  openBlueprintModal: (projectId: string) => void;
-  closeBlueprintModal: () => void;
-  clearModalState: () => void;
+export interface UIState {
+  // Sidebar state
+  sidebarOpen: boolean;
+  
+  // Theme state
+  theme: 'light' | 'dark' | 'system';
+  
+  // Toast notifications
+  toastQueue: Toast[];
+  
+  // Loading states
+  globalLoading: boolean;
+  
+  // Modal states
+  activeModal: string | null;
+  
+  // Actions
+  setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-  openSidebar: () => void;
-  closeSidebar: () => void;
-  selectProject: (project: Project | null) => void;
-  clearSelectedProject: () => void;
-  clearError: () => void;
-  clearSuccess: () => void;
-  setLoading: (loading: boolean, action?: string) => void;
-};
+  
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  
+  addToast: (toast: Omit<Toast, 'id'>) => void;
+  removeToast: (id: string) => void;
+  clearToasts: () => void;
+  
+  setGlobalLoading: (loading: boolean) => void;
+  
+  setActiveModal: (modalId: string | null) => void;
+}
 
-// Type for store state
-type UIStore = UIState & UIActions;
-
-export const useUIStore = create<UIStore>()(
+export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
       // Initial state
-      blueprintModalProjectId: null,
-      isSidebarOpen: true, // Default to open on desktop
-      selectedProject: null,
-      isLoading: false,
-      loadingAction: undefined,
-      loadingStartTime: undefined,
-      error: null,
-      errorTimestamp: undefined,
-      lastSuccess: undefined,
-      successTimestamp: undefined,
-      
-      // Modal actions with performance monitoring
-      openBlueprintModal: (projectId) => {
-        console.log(`🔍 UIStore: Opening blueprint modal for project: ${projectId}`);
-        const startTime = performance.now();
-        
-        set({ 
-          blueprintModalProjectId: projectId,
-          lastSuccess: `Opened modal for project: ${projectId}`,
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Modal opened in ${(endTime - startTime).toFixed(2)}ms`);
+      sidebarOpen: true,
+      theme: 'system',
+      toastQueue: [],
+      globalLoading: false,
+      activeModal: null,
+
+      // Actions
+      setSidebarOpen: (open: boolean) => {
+        set({ sidebarOpen: open });
       },
-      
-      closeBlueprintModal: () => {
-        console.log('❌ UIStore: Closing blueprint modal');
-        const startTime = performance.now();
-        
-        set({ 
-          blueprintModalProjectId: null,
-          lastSuccess: 'Modal closed successfully',
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Modal closed in ${(endTime - startTime).toFixed(2)}ms`);
-      },
-      
-      clearModalState: () => {
-        console.log('🧹 UIStore: Clearing all modal state');
-        set({ 
-          blueprintModalProjectId: null,
-          lastSuccess: 'Modal state cleared',
-          successTimestamp: new Date().toISOString()
-        });
-      },
-      
-      // Sidebar actions
+
       toggleSidebar: () => {
-        const { isSidebarOpen } = get();
-        console.log(`🔄 UIStore: Toggling sidebar from ${isSidebarOpen} to ${!isSidebarOpen}`);
-        const startTime = performance.now();
-        
-        set({ 
-          isSidebarOpen: !isSidebarOpen,
-          lastSuccess: `Sidebar ${!isSidebarOpen ? 'opened' : 'closed'}`,
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Sidebar toggled in ${(endTime - startTime).toFixed(2)}ms`);
+        set((state) => ({ sidebarOpen: !state.sidebarOpen }));
       },
-      
-      openSidebar: () => {
-        console.log('📖 UIStore: Opening sidebar');
-        const startTime = performance.now();
+
+      setTheme: (theme: 'light' | 'dark' | 'system') => {
+        set({ theme });
         
-        set({ 
-          isSidebarOpen: true,
-          lastSuccess: 'Sidebar opened',
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Sidebar opened in ${(endTime - startTime).toFixed(2)}ms`);
+        // Apply theme to document
+        const root = document.documentElement;
+        if (theme === 'dark') {
+          root.classList.add('dark');
+        } else if (theme === 'light') {
+          root.classList.remove('dark');
+        } else {
+          // System theme
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (prefersDark) {
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+          }
+        }
       },
-      
-      closeSidebar: () => {
-        console.log('📕 UIStore: Closing sidebar');
-        const startTime = performance.now();
-        
-        set({ 
-          isSidebarOpen: false,
-          lastSuccess: 'Sidebar closed',
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Sidebar closed in ${(endTime - startTime).toFixed(2)}ms`);
+
+      addToast: (toast: Omit<Toast, 'id'>) => {
+        const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const newToast: Toast = {
+          id,
+          duration: 5000,
+          ...toast,
+        };
+
+        set((state) => ({
+          toastQueue: [...state.toastQueue, newToast],
+        }));
+
+        // Auto-remove toast after duration
+        if (newToast.duration && newToast.duration > 0) {
+          setTimeout(() => {
+            get().removeToast(id);
+          }, newToast.duration);
+        }
       },
-      
-      // Project selection actions
-      selectProject: (project) => {
-        const projectName = project?.name || 'none';
-        console.log(`🎯 UIStore: Selecting project: ${projectName}`);
-        const startTime = performance.now();
-        
-        set({ 
-          selectedProject: project,
-          lastSuccess: project ? `Selected project: ${project.name}` : 'Cleared project selection',
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Project selection updated in ${(endTime - startTime).toFixed(2)}ms`);
+
+      removeToast: (id: string) => {
+        set((state) => ({
+          toastQueue: state.toastQueue.filter((toast) => toast.id !== id),
+        }));
       },
-      
-      clearSelectedProject: () => {
-        console.log('🧹 UIStore: Clearing selected project');
-        const startTime = performance.now();
-        
-        set({ 
-          selectedProject: null,
-          lastSuccess: 'Project selection cleared',
-          successTimestamp: new Date().toISOString()
-        });
-        
-        const endTime = performance.now();
-        console.log(`✅ UIStore: Project selection cleared in ${(endTime - startTime).toFixed(2)}ms`);
+
+      clearToasts: () => {
+        set({ toastQueue: [] });
       },
-      
-      clearError: () => {
-        console.log('🧹 UIStore: Clearing error state');
-        set({ 
-          error: null,
-          errorTimestamp: undefined
-        });
+
+      setGlobalLoading: (loading: boolean) => {
+        set({ globalLoading: loading });
       },
-      
-      clearSuccess: () => {
-        console.log('🧹 UIStore: Clearing success state');
-        set({ 
-          lastSuccess: undefined,
-          successTimestamp: undefined
-        });
-      },
-      
-      setLoading: (loading, action) => {
-        console.log(`⏳ UIStore: Setting loading state to ${loading}${action ? ` for ${action}` : ''}`);
-        set({ 
-          isLoading: loading,
-          loadingAction: action,
-          loadingStartTime: loading ? performance.now() : undefined
-        });
+
+      setActiveModal: (modalId: string | null) => {
+        set({ activeModal: modalId });
       },
     }),
     {
-      name: 'zephix-ui',
+      name: 'zephix-ui-storage',
       partialize: (state) => ({
-        isSidebarOpen: state.isSidebarOpen,
-        selectedProject: state.selectedProject,
-        blueprintModalProjectId: state.blueprintModalProjectId,
+        sidebarOpen: state.sidebarOpen,
+        theme: state.theme,
       }),
     }
   )
