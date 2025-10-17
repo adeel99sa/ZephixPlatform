@@ -33,6 +33,8 @@
     "lh:ci": "lighthouse http://localhost:4173 --preset=desktop --only-categories=accessibility,performance,best-practices,seo --output json --output-path reports/frontend/lh-report.json",
     "debt:snapshot": "node scripts/debt-snapshot.mjs",
     "debt:compare": "node scripts/debt-compare.mjs",
+    "dead-code:check": "npx ts-prune --error && npx knip --changed",
+    "dead-code:report": "npx ts-prune && npx knip",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:run:headed": "cypress run --headed",

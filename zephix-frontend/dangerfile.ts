@@ -31,4 +31,20 @@ if (uiChanged) {
   if (!hasTests) warn("UI changed without corresponding tests (foundation set).");
 }
 
+// 5) Check for large static assets without lazy loading
+const largeAssets = changed.filter(f => 
+  f.match(/\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|otf)$/i) && 
+  !f.includes("lazy") && 
+  !f.includes("dynamic")
+);
+if (largeAssets.length > 0) {
+  warn(`Large static assets added without lazy loading: ${largeAssets.join(", ")}`);
+}
+
+// 6) Check for new heavy dependencies
+const packageJsonChanged = changed.includes("package.json");
+if (packageJsonChanged) {
+  message("⚠️ Package.json changed - ensure bundle size impact is documented in PR body");
+}
+
 message(`Files changed: ${changed.length}`);

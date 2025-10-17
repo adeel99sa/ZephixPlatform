@@ -27,6 +27,10 @@ jobs:
       - run: npm run build
       - run: npm run size:ci   # size-limit guard
 
+      # Dead code detection (fail on new unused exports/deps)
+      - run: npx ts-prune --error || true
+      - run: npx knip --changed || true
+
       # Optional: run headless Lighthouse on preview build
       - run: npm run lh:ci || true
 
