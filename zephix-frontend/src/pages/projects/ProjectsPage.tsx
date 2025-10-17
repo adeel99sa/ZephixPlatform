@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectService } from '../../services/projectService';
+
+// import { projectService } from '../../services/projectService';
 import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
 import { PageHeader } from '../../components/ui/layout/PageHeader';
 import { Button } from '../../components/ui/button/Button';
@@ -25,7 +26,7 @@ interface Project {
 
 const ProjectsPage: React.FC = () => {
   const [showCreatePanel, setShowCreatePanel] = useState(false);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Fetch projects using React Query
