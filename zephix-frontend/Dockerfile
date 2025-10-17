@@ -8,7 +8,6 @@ RUN npm run build  # outputs /app/dist
 
 # ---- Runtime stage ----
 FROM nginx:alpine
-# For SPA routing you can optionally drop in a custom nginx conf later.
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
