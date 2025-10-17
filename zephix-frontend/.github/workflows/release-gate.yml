@@ -27,9 +27,19 @@ jobs:
       - run: npm run preview &
       - run: sleep 10  # Wait for preview to start
       
+      - name: Create Lighthouse reports directory
+        run: mkdir -p reports/frontend/lighthouse
+      
       - name: Run Lighthouse audits
         run: |
-          npm run lh:ci || echo "Lighthouse audit completed with warnings"
+          # Dashboard
+          lighthouse http://localhost:4173/dashboard --preset=desktop --output json --output-path reports/frontend/lighthouse/dashboard.json
+          # Projects
+          lighthouse http://localhost:4173/projects --preset=desktop --output json --output-path reports/frontend/lighthouse/projects.json
+          # Settings
+          lighthouse http://localhost:4173/settings --preset=desktop --output json --output-path reports/frontend/lighthouse/settings.json
+          # Templates
+          lighthouse http://localhost:4173/templates --preset=desktop --output json --output-path reports/frontend/lighthouse/templates.json
       
       # Create release notes with metrics
       - name: Generate release notes

@@ -6,7 +6,7 @@ Modern UI component library, React Query + Zustand state, hardened API client wi
 ## Quality Gates (All Green ✅)
 - **Build:** ✅ Production build successful
 - **TypeScript:** ✅ Strict mode compliance (legacy errors isolated)
-- **Size Budget:** ✅ 211.01 kB brotlied (target: < 700 kB)
+- **Size Budget:** ✅ 211.08 kB **Brotli** compressed (target: < 700 kB uncompressed)
 - **Lint (New Code):** ✅ 0 errors, 23 warnings (acceptable)
 - **Tests (Foundation):** ✅ 40/40 tests passing
 
@@ -26,12 +26,12 @@ Modern UI component library, React Query + Zustand state, hardened API client wi
 - ✅ **Bundle Analyzer:** Visual reports generated
 
 ## Evidence Artifacts
-- **Bundle Analysis:** `dist/stats.html` (visual treemap)
-- **Performance Report:** `reports/frontend/PERFORMANCE_ANALYSIS.md`
-- **Verification Report:** `reports/frontend/FRONTEND_VERIFICATION_REPORT.md`
-- **Lint Debt Tracking:** `reports/frontend/LINT_DEBT.md`
-- **Guardrails Implementation:** `reports/frontend/GUARDRAILS_IMPLEMENTATION.md`
-- **Debt Snapshots:** `reports/debt/debt-2024-12-19.json`
+- **Bundle Analysis:** [`dist/stats.html`](dist/stats.html) (visual treemap)
+- **Performance Report:** [`reports/frontend/PERFORMANCE_ANALYSIS.md`](reports/frontend/PERFORMANCE_ANALYSIS.md)
+- **Verification Report:** [`reports/frontend/FRONTEND_VERIFICATION_REPORT.md`](reports/frontend/FRONTEND_VERIFICATION_REPORT.md)
+- **Lint Debt Tracking:** [`reports/frontend/LINT_DEBT.md`](reports/frontend/LINT_DEBT.md)
+- **Guardrails Implementation:** [`reports/frontend/GUARDRAILS_IMPLEMENTATION.md`](reports/frontend/GUARDRAILS_IMPLEMENTATION.md)
+- **Debt Snapshots:** [`reports/debt/debt-2024-12-19.json`](reports/debt/debt-2024-12-19.json)
 
 ## Bulletproof Guardrails Added
 
