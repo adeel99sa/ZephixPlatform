@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button/Button';
 import { DataTable, Column } from '../../components/ui/table/DataTable';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
 import { apiClient } from '../../lib/api/client';
+import { useUIStore } from '../../stores/uiStore';
 
 interface Template {
   id: string;
@@ -33,6 +34,7 @@ interface Template {
 export const TemplatesPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const queryClient = useQueryClient();
+  const { addToast } = useUIStore();
 
   // Fetch templates using React Query
   const {
@@ -56,6 +58,18 @@ export const TemplatesPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
+      addToast({
+        type: 'success',
+        title: 'Template Deleted',
+        message: 'The template has been deleted successfully.',
+      });
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: error.message || 'Failed to delete template.',
+      });
     },
   });
 

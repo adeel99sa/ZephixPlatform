@@ -11,6 +11,7 @@ import { FormGroup } from '../../components/ui/form/FormGroup';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/overlay/Tabs';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
 import { apiClient } from '../../lib/api/client';
+import { useUIStore } from '../../stores/uiStore';
 
 interface OrganizationSettings {
   id: string;
@@ -92,6 +93,7 @@ const PASSWORD_POLICIES = [
 export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('organization');
   const queryClient = useQueryClient();
+  const { addToast } = useUIStore();
 
   // Fetch organization settings
   const {
@@ -143,6 +145,18 @@ export const SettingsPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Organization settings have been updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save organization settings.',
+      });
     },
   });
 
@@ -154,6 +168,18 @@ export const SettingsPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Account settings have been updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save account settings.',
+      });
     },
   });
 
@@ -165,6 +191,18 @@ export const SettingsPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['security-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Security settings have been updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save security settings.',
+      });
     },
   });
 
