@@ -11,7 +11,6 @@ export interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
   ({ className, label, description, error, required, children, ...props }, ref) => {
-    const fieldId = React.useId();
     const descriptionId = React.useId();
     const errorId = React.useId();
 

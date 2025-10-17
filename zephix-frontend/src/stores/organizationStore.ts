@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
+
 import type { BaseStoreState, AsyncResult } from '../types/store';
 import type { Organization, UserOrganization, CreateOrganizationData, InviteUserData } from '../types/organization';
 import { createError } from '../types/store';
-import { toast } from 'sonner';
 
 interface OrganizationState extends BaseStoreState {
   organizations: Organization[];

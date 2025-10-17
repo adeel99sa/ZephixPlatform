@@ -16,7 +16,7 @@ export interface RadioProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
 }
 
 const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
-  ({ className, label, help, error, options, name, id, ...props }, ref) => {
+  ({ className, label, help, error, options, name, id, ...props }, _ref) => {
     const radioId = id || React.useId();
     const helpId = React.useId();
     const errorId = React.useId();

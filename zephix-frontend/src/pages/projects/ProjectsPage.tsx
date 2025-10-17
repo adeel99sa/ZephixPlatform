@@ -6,10 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
 import { PageHeader } from '../../components/ui/layout/PageHeader';
 import { Button } from '../../components/ui/button/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/card/Card';
-import { Skeleton, SkeletonLines } from '../../components/ui/feedback/Skeleton';
+import { DataTable, Column } from '../../components/ui/table/DataTable';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
-import { EmptyState } from '../../components/ui/feedback/EmptyState';
 import { apiClient } from '../../lib/api/client';
 import { API_ENDPOINTS } from '../../lib/api/endpoints';
 
@@ -66,6 +64,72 @@ const ProjectsPage: React.FC = () => {
 
   const projects = projectsData?.projects || [];
 
+  // Define columns for the DataTable
+  const columns: Column<Project>[] = [
+    {
+      id: 'name',
+      header: 'Project Name',
+      accessor: (project) => (
+        <Link 
+          to={`/projects/${project.id}`} 
+          className="text-primary hover:text-primary/80 font-medium"
+        >
+          {project.name}
+        </Link>
+      ),
+      sortable: true,
+      filterable: true,
+    },
+    {
+      id: 'description',
+      header: 'Description',
+      accessor: (project) => project.description || 'No description',
+      sortable: true,
+      filterable: true,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      accessor: (project) => (
+        <span className={`px-2 py-1 rounded text-sm ${
+          project.status === 'active' ? 'bg-green-100 text-green-800' :
+          project.status === 'planning' ? 'bg-blue-100 text-blue-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {project.status}
+        </span>
+      ),
+      sortable: true,
+      filterable: true,
+    },
+    {
+      id: 'startDate',
+      header: 'Start Date',
+      accessor: (project) => project.startDate ? new Date(project.startDate).toLocaleDateString() : 'Not set',
+      sortable: true,
+    },
+    {
+      id: 'endDate',
+      header: 'End Date',
+      accessor: (project) => project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Not set',
+      sortable: true,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      accessor: (project) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleDeleteProject(project.id)}
+          className="text-destructive hover:text-destructive"
+        >
+          Delete
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <PageHeader
@@ -86,70 +150,23 @@ const ProjectsPage: React.FC = () => {
         />
       )}
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Card key={index}>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-              </CardHeader>
-              <CardBody>
-                <SkeletonLines lines={3} />
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      ) : projects.length === 0 ? (
-        <EmptyState
-          title="No projects found"
-          description="Create your first project to get started with project management."
-          action={
-            <Button onClick={handleCreateProject}>
-              Create Project
-            </Button>
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          data={projects}
+          caption="Projects list with sorting and filtering capabilities"
+          loading={isLoading}
+          emptyState={
+            <div className="text-center py-8">
+              <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects found</h3>
+              <p className="text-muted-foreground mb-4">Create your first project to get started with project management.</p>
+              <Button onClick={handleCreateProject}>
+                Create Project
+              </Button>
+            </div>
           }
         />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Link 
-                  to={`/projects/${project.id}`} 
-                  className="text-xl font-semibold text-primary hover:text-primary/80"
-                >
-                  {project.name}
-                </Link>
-              </CardHeader>
-              <CardBody>
-                <p className="text-muted-foreground mb-4">
-                  {project.description || 'No description'}
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className={`px-2 py-1 rounded text-sm ${
-                    project.status === 'active' ? 'bg-green-100 text-green-800' :
-                    project.status === 'planning' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.status}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeleteProject(project.id);
-                    }}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Create Project Panel */}
       <CreateProjectPanel

@@ -48,7 +48,7 @@ export function DataTable<T extends Record<string, any>>({
   onSortChange,
   pagination,
   filterText = '',
-  onFilterChange,
+  onFilterChange: _onFilterChange,
   caption,
   className,
   loading = false,
