@@ -9,6 +9,8 @@ import { TemplateModule } from './modules/templates/template.module';
 import { ResourceModule } from './modules/resources/resource.module';
 import { HealthModule } from './health/health.module';
 import { SharedModule } from './shared/shared.module';
+import { KPIModule } from './kpi/kpi.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { SharedModule } from './shared/shared.module';
     ResourceModule,
     HealthModule,
     SharedModule,
+    KPIModule,
+    ObservabilityModule, // temporary during stabilization
   ],
   controllers: [],
   providers: [],

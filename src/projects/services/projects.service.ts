@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Project } from '../entities/project.entity';
 import { ProjectAssignment } from '../entities/project-assignment.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
@@ -9,12 +9,31 @@ import { ProjectStatus, ProjectPriority } from '../../shared/enums/project.enums
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(ProjectAssignment)
     private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
+    private readonly ds: DataSource,
   ) {}
+
+  async findAll() {
+    try {
+      const sql = `
+        SELECT id, name, status, created_at
+        FROM projects
+        ORDER BY created_at DESC
+        LIMIT 200
+      `;
+      const rows = await this.ds.query(sql);
+      return rows ?? [];
+    } catch (e: any) {
+      this.logger.warn('DB issue in ProjectsService.findAll', e?.message ?? String(e));
+      throw e; // controller will return safe payload
+    }
+  }
 
   async getOrganizationStats(organizationId: string) {
     const [totalProjects, activeProjects, completedProjects] = await Promise.all([
@@ -37,8 +56,8 @@ export class ProjectsService {
       description: createProjectDto.description,
       status: createProjectDto.status || ProjectStatus.PLANNING,
       priority: createProjectDto.priority || ProjectPriority.MEDIUM,
-      startDate: createProjectDto.startDate ? new Date(createProjectDto.startDate) : null,
-      endDate: createProjectDto.endDate ? new Date(createProjectDto.endDate) : null,
+      startDate: createProjectDto.startDate ? new Date(createProjectDto.startDate) : undefined,
+      endDate: createProjectDto.endDate ? new Date(createProjectDto.endDate) : undefined,
       organizationId,
       created_by: userId,
       createdById: userId,
