@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import { projectsApi } from '../services/api';
 import type { Project } from '../types';
 import type { BaseStoreState, AsyncResult } from '../types/store';

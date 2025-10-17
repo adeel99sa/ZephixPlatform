@@ -40,7 +40,6 @@ const Tabs: React.FC<TabsProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, tabId: string) => {
-    const currentIndex = items.findIndex(item => item.id === tabId);
     const enabledItems = items.filter(item => !item.disabled);
     const currentEnabledIndex = enabledItems.findIndex(item => item.id === tabId);
 

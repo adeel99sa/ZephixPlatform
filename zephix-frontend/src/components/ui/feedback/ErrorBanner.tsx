@@ -1,6 +1,8 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+
 import { Button } from '../button/Button';
+
+import { cn } from '@/lib/utils';
 
 export interface ErrorBannerProps {
   title?: string;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-export interface FormGroupProps extends React.FieldSetHTMLAttributes<HTMLFieldSetElement> {
+export interface FormGroupProps extends React.FieldsetHTMLAttributes<HTMLFieldSetElement> {
   legend?: string;
   description?: string;
   children: React.ReactNode;
