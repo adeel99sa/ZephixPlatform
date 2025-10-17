@@ -1,11 +1,12 @@
 // File: src/pages/dashboard/DashboardPage.tsx
 import React from 'react';
+
 import { useAuth } from '../../hooks/useAuth';
 import { PortfolioDashboard } from '../../components/dashboard/PortfolioDashboard';
 import { MyTasksDashboard } from '../../components/dashboard/MyTasksDashboard';
 import { PageHeader } from '../../components/ui/layout/PageHeader';
-import { Card, CardBody } from '../../components/ui/card/Card';
-import { Skeleton } from '../../components/ui/feedback/Skeleton';
+// import { Card, CardBody } from '../../components/ui/card/Card';
+// import { Skeleton } from '../../components/ui/feedback/Skeleton';
 
 const DashboardPage = () => {
   const { user } = useAuth();

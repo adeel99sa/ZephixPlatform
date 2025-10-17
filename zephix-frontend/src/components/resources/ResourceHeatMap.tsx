@@ -162,7 +162,7 @@ export function ResourceHeatMap() {
           <div className="w-4 h-4 bg-orange-400 rounded"></div> 100-120%
         </span>
         <span className="flex items-center gap-1">
-          <div className="w-4 h-4 bg-red-500 rounded"></div> >120%
+          <div className="w-4 h-4 bg-red-500 rounded"></div> &gt;120%
         </span>
       </div>
 
