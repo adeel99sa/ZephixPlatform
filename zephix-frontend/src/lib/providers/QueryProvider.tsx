@@ -55,4 +55,3 @@ export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
   );
 };
 
-export { queryClient };

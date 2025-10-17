@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TemplatesPage } from '../TemplatesPage';
 
 // Mock the API client
-vi.mock('../../lib/api/client', () => ({
+vi.mock('../../../lib/api/client', () => ({
   apiClient: {
     get: vi.fn(),
     delete: vi.fn(),
@@ -48,7 +48,7 @@ describe('TemplatesPage', () => {
   });
 
   it('shows empty state when no templates', async () => {
-    const { apiClient } = await import('../../lib/api/client');
+    const { apiClient } = await import('../../../lib/api/client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: [] },
     });
@@ -62,7 +62,7 @@ describe('TemplatesPage', () => {
   });
 
   it('shows error banner when API fails', async () => {
-    const { apiClient } = await import('../../lib/api/client');
+    const { apiClient } = await import('../../../lib/api/client');
     vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('API Error'));
 
     renderWithQueryClient(<TemplatesPage />);
@@ -93,7 +93,7 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    const { apiClient } = await import('../../lib/api/client');
+    const { apiClient } = await import('../../../lib/api/client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });
@@ -128,7 +128,7 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    const { apiClient } = await import('../../lib/api/client');
+    const { apiClient } = await import('../../../lib/api/client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });
@@ -172,7 +172,7 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    const { apiClient } = await import('../../lib/api/client');
+    const { apiClient } = await import('../../../lib/api/client');
     vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });

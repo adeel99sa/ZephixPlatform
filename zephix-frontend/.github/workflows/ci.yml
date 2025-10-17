@@ -1,0 +1,49 @@
+name: CI
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ feat/**, fix/**, chore/** ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+
+      - run: npm ci
+
+      # Typecheck & unit tests on the "foundation set" only
+      - run: npm run typecheck
+      - run: npm run test:foundation -- --run
+
+      # Lint on new+modified paths only
+      - run: npm run lint:new
+
+      # Build and produce analyzer artifacts
+      - run: npm run build
+      - run: npm run size:ci   # size-limit guard
+
+      # Optional: run headless Lighthouse on preview build
+      - run: npm run lh:ci || true
+
+      # Upload useful artifacts for reviewers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-stats
+          path: |
+            dist/**
+            reports/**
+
+  # Block merge if Danger flags missing evidence/owners/etc.
+  danger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npx danger ci
