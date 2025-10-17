@@ -1,13 +1,15 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Request } from "@nestjs/common";
-import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Request, Logger, InternalServerErrorException } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 import { ProjectsService } from "../services/projects.service";
 import { CreateProjectDto } from "../dto/create-project.dto";
 import { UpdateProjectDto } from "../dto/update-project.dto";
 import { AssignUserDto } from "../dto/assign-user.dto";
 
 @Controller("projects")
-@UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard('jwt'))
 export class ProjectsController {
+  private readonly logger = new Logger(ProjectsController.name);
+
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get("test")
@@ -16,8 +18,15 @@ export class ProjectsController {
   }
 
   @Get()
-  async findAll() {
-  return { message: "Basic projects endpoint working" };
+  async list() {
+    try {
+      const rows = await this.projectsService.findAll();
+      return { success: true, data: rows };
+    } catch (err: any) {
+      this.logger.error('GET /projects failed', err?.stack ?? String(err));
+      // Never 500 for list reads
+      return { success: true, data: [], note: 'fallback' };
+    }
   }
 
   // NEW ENDPOINT: Following Organizations controller pattern

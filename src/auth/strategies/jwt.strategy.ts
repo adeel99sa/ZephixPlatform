@@ -1,24 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { User } from '../entities/user.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(cfg: ConfigService) {
+    const secret = cfg.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET is required but not configured');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'fallback-secret',
+      secretOrKey: secret,
+      issuer: cfg.get<string>('jwt.iss') ?? 'zephix',
+      audience: cfg.get<string>('jwt.aud') ?? 'zephix-app',
     });
   }
 
-  async validate(payload: any): Promise<User> {
+  async validate(payload: any) {
+    // Keep minimal and deterministic
     return {
-      id: payload.sub,
+      userId: payload.sub,
       email: payload.email,
       role: payload.role,
       organizationId: payload.organizationId,
-    } as User;
+    };
   }
 }

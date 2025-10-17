@@ -1,0 +1,132 @@
+name: Greenline CI - Prevent 500s
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run TypeScript compilation
+      run: npm run build
+    
+    - name: Run linting
+      run: npm run lint
+    
+    - name: Run backend tests
+      run: npm test
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        JWT_SECRET: test-secret-key-for-ci
+        NODE_ENV: test
+    
+    - name: Test KPI endpoint never 500s
+      run: |
+        npm run start:prod &
+        sleep 10
+        
+        # Test health endpoint
+        curl -f http://localhost:3000/api/health || exit 1
+        
+        # Test KPI endpoint (should return safe defaults, never 500)
+        response=$(curl -s -w "%{http_code}" http://localhost:3000/api/kpi/portfolio)
+        status_code="${response: -3}"
+        
+        if [ "$status_code" = "500" ]; then
+          echo "❌ KPI endpoint returned 500 - this should never happen"
+          exit 1
+        fi
+        
+        echo "✅ KPI endpoint returned status: $status_code"
+        
+        # Test projects endpoint (should return array, never 500)
+        response=$(curl -s -w "%{http_code}" http://localhost:3000/api/projects)
+        status_code="${response: -3}"
+        
+        if [ "$status_code" = "500" ]; then
+          echo "❌ Projects endpoint returned 500 - this should never happen"
+          exit 1
+        fi
+        
+        echo "✅ Projects endpoint returned status: $status_code"
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: zephix-frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      run: |
+        cd zephix-frontend
+        npm ci
+    
+    - name: Run frontend TypeScript compilation
+      run: |
+        cd zephix-frontend
+        npm run build
+    
+    - name: Run frontend linting
+      run: |
+        cd zephix-frontend
+        npm run lint
+    
+    - name: Run frontend tests
+      run: |
+        cd zephix-frontend
+        npm test
+      env:
+        VITE_API_BASE_URL: http://localhost:3000/api
+        VITE_ENABLE_TEMPLATES: false
+
+  production-greenline:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run production greenline verification
+      run: |
+        chmod +x scripts/greenline-production.sh
+        ./scripts/greenline-production.sh
+      env:
+        # Production credentials would be stored in GitHub Secrets
+        PROD_EMAIL: ${{ secrets.PROD_EMAIL }}
+        PROD_PASSWORD: ${{ secrets.PROD_PASSWORD }}

@@ -6,7 +6,7 @@ async function testDI() {
     const app = await NestFactory.create(AppModule);
     console.log('✅ All dependency injection working');
     await app.close();
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ DI Error:', error.message);
     console.error('Stack trace:', error.stack);
   }

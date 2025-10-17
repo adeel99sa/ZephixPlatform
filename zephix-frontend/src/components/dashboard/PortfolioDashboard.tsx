@@ -21,7 +21,16 @@ export function PortfolioDashboard() {
   };
 
   if (loading) return <div className="p-6">Loading portfolio data...</div>;
-  if (!portfolio) return <div className="p-6">No portfolio data available</div>;
+  if (!portfolio) {
+    return (
+      <div className="rounded-md border border-gray-200 p-10 text-center">
+        <h3 className="text-base font-medium text-gray-900">No portfolio data yet</h3>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-gray-600">
+          Create a project and assign tasks to see portfolio metrics here.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
