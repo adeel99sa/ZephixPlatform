@@ -104,8 +104,16 @@ export class AuthService {
       organizationId: user.organizationId,
     };
     
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const accessToken = this.jwtService.sign(payload, { 
+      expiresIn: '15m',
+      issuer: 'zephix',
+      audience: 'zephix-app',
+    });
+    const refreshToken = this.jwtService.sign(payload, { 
+      expiresIn: '7d',
+      issuer: 'zephix',
+      audience: 'zephix-app',
+    });
     
     return {
       accessToken,

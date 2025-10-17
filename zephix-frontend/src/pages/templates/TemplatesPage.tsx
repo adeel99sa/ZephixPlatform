@@ -17,6 +17,8 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { ENABLE_TEMPLATES } from '@/features/templates/flags';
+import { EmptyState } from '@/app/ui/EmptyState';
 
 interface Template {
   id: string;
@@ -37,6 +39,19 @@ interface Template {
 }
 
 export const TemplatesPage: React.FC = () => {
+  // Check feature flag first
+  if (!ENABLE_TEMPLATES) {
+    return (
+      <div className="p-6">
+        <PageHeader title="Template Library" subtitle="Manage and organize your project templates" />
+        <EmptyState
+          title="Templates are temporarily disabled"
+          description="This feature is behind a flag while we complete backend wiring. Set VITE_ENABLE_TEMPLATES=true to enable."
+        />
+      </div>
+    );
+  }
+
   const { user } = useAuthStore();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [filteredTemplates, setFilteredTemplates] = useState<Template[]>([]);

@@ -4,28 +4,28 @@ import { Project } from './project.entity';
 @Entity('project_assignments')
 export class ProjectAssignment {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'project_id' })
-  projectId: string;
+  projectId!: string;
 
   @Column({ name: 'user_id' })
-  userId: string;
+  userId!: string;
 
   @Column({ name: 'organization_id' })
-  organizationId: string;
+  organizationId!: string;
 
   @Column({ default: 'member' })
-  role: string;
+  role!: string;
 
   @Column({ name: 'assigned_by', nullable: true })
-  assignedBy: string;
+  assignedBy!: string;
 
   @Column({ name: 'assigned_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  assignedAt: Date;
+  assignedAt!: Date;
 
   @ManyToOne('Project', 'assignments')
   @JoinColumn({ name: 'project_id' })
-  project: Project;
+  project!: Project;
 }
 
