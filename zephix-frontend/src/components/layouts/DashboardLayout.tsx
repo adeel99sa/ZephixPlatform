@@ -17,10 +17,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Skip to content link for accessibility */}
+      <a 
+        href="#main-content" 
+        className="skip-to-content"
+        onFocus={(e) => e.target.style.top = '6px'}
+        onBlur={(e) => e.target.style.top = '-40px'}
+      >
+        Skip to main content
+      </a>
+      
       <DashboardHeader />
       <div className="flex">
         <Sidebar permissions={authData.permissions} />
-        <main className="flex-1 p-6">
+        <main id="main-content" className="flex-1 p-6" tabIndex={-1}>
           {children}
         </main>
       </div>
