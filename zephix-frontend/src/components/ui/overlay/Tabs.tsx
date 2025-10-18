@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+
 import { cn } from '@/lib/utils';
 
 export interface TabItem {
@@ -39,13 +40,13 @@ const Tabs: React.FC<TabsProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, tabId: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent, tabId: string): void => {
     const enabledItems = items.filter(item => !item.disabled);
     const currentEnabledIndex = enabledItems.findIndex(item => item.id === tabId);
 
     switch (e.key) {
       case 'ArrowLeft':
-      case 'ArrowUp':
+      case 'ArrowUp': {
         e.preventDefault();
         const prevIndex = currentEnabledIndex > 0 ? currentEnabledIndex - 1 : enabledItems.length - 1;
         const prevTab = enabledItems[prevIndex];
@@ -54,8 +55,9 @@ const Tabs: React.FC<TabsProps> = ({
           tabRefs.current.get(prevTab.id)?.focus();
         }
         break;
+      }
       case 'ArrowRight':
-      case 'ArrowDown':
+      case 'ArrowDown': {
         e.preventDefault();
         const nextIndex = currentEnabledIndex < enabledItems.length - 1 ? currentEnabledIndex + 1 : 0;
         const nextTab = enabledItems[nextIndex];
@@ -64,7 +66,8 @@ const Tabs: React.FC<TabsProps> = ({
           tabRefs.current.get(nextTab.id)?.focus();
         }
         break;
-      case 'Home':
+      }
+      case 'Home': {
         e.preventDefault();
         const firstTab = enabledItems[0];
         if (firstTab) {
@@ -72,7 +75,8 @@ const Tabs: React.FC<TabsProps> = ({
           tabRefs.current.get(firstTab.id)?.focus();
         }
         break;
-      case 'End':
+      }
+      case 'End': {
         e.preventDefault();
         const lastTab = enabledItems[enabledItems.length - 1];
         if (lastTab) {
@@ -80,6 +84,7 @@ const Tabs: React.FC<TabsProps> = ({
           tabRefs.current.get(lastTab.id)?.focus();
         }
         break;
+      }
     }
   };
 
