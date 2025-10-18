@@ -6,6 +6,7 @@ import {
   BuildingOfficeIcon,
   CogIcon,
 } from '@heroicons/react/24/outline';
+
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { cn } from '../../utils';
 import type { Organization } from '../../types/organization';

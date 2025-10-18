@@ -1,0 +1,10 @@
+# Gitleaks ignore file - only for vetted false positives
+# NEVER use this to mask real credentials
+
+# Example false positives (uncomment if needed):
+# ^.*test.*password.*$
+# ^.*example.*key.*$
+# ^.*demo.*token.*$
+
+# Note: This file should remain mostly empty
+# Real secrets should be rotated, not ignored

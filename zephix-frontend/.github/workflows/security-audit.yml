@@ -1,0 +1,31 @@
+name: Security Audit (Full History)
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 3 AM UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history
+      
+      - name: Gitleaks scan (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          log-level: warn
+          redact: true
+          no-git: false  # Scan full git history
+      
+      - name: License audit
+        run: |
+          npm ci
+          npx license-checker --production --failOn "GPL;AGPL;LGPL;MPL;EPL;CPOL;CDDL;EUPL;OSL;QPL;Sleepycat;WTFPL"
+      
+      - name: Dependency audit
+        run: |
+          npm audit --production --audit-level=moderate
