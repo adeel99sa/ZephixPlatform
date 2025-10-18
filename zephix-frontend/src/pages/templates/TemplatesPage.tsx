@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   EyeIcon,
@@ -6,6 +6,7 @@ import {
   TrashIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
+
 import { PageHeader } from '../../components/ui/layout/PageHeader';
 import { Button } from '../../components/ui/button/Button';
 import { DataTable, Column } from '../../components/ui/table/DataTable';
@@ -32,7 +33,6 @@ interface Template {
 }
 
 export const TemplatesPage: React.FC = () => {
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
 
@@ -79,7 +79,7 @@ export const TemplatesPage: React.FC = () => {
   };
 
   const handleCreateTemplate = () => {
-    setShowCreateModal(true);
+    // TODO: Implement create template modal
   };
 
   const templates = templatesData?.templates || [];

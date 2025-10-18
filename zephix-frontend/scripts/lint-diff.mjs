@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 // Get changed files from git
 const changedFiles = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' })
@@ -37,7 +36,7 @@ writeFileSync('.eslintrc.diff.json', JSON.stringify(eslintConfig, null, 2));
 
 try {
   // Run ESLint on changed files only
-  const result = execSync(
+  execSync(
     `npx eslint --config .eslintrc.diff.json ${changedFiles.join(' ')}`,
     { encoding: 'utf8', stdio: 'pipe' }
   );
