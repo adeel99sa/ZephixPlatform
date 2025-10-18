@@ -1,0 +1,77 @@
+name: Release Gate
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+
+jobs:
+  release-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      
+      - run: npm ci
+      
+      # Run all gates
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run size:ci
+      - run: npm run lint:new
+      - run: npm run test:foundation -- --run
+      
+      # Run Lighthouse on key pages
+      - run: npm run build
+      - run: npm run preview &
+      - run: sleep 10  # Wait for preview to start
+      
+      - name: Create Lighthouse reports directory
+        run: mkdir -p reports/frontend/lighthouse
+      
+      - name: Run Lighthouse audits
+        run: |
+          # Dashboard
+          lighthouse http://localhost:4173/dashboard --preset=desktop --output json --output-path reports/frontend/lighthouse/dashboard.json
+          # Projects
+          lighthouse http://localhost:4173/projects --preset=desktop --output json --output-path reports/frontend/lighthouse/projects.json
+          # Settings
+          lighthouse http://localhost:4173/settings --preset=desktop --output json --output-path reports/frontend/lighthouse/settings.json
+          # Templates
+          lighthouse http://localhost:4173/templates --preset=desktop --output json --output-path reports/frontend/lighthouse/templates.json
+      
+      # Create release notes with metrics
+      - name: Generate release notes
+        run: |
+          echo "# Release Validation Report" > release-validation.md
+          echo "" >> release-validation.md
+          echo "## Bundle Metrics" >> release-validation.md
+          echo "- Main bundle: $(du -h dist/assets/index-*.js | cut -f1)" >> release-validation.md
+          echo "- Gzipped size: $(gzip -c dist/assets/index-*.js | wc -c | awk '{print $1/1024 " KB"}')" >> release-validation.md
+          echo "" >> release-validation.md
+          echo "## Lighthouse Scores" >> release-validation.md
+          if [ -f "reports/frontend/lh-report.json" ]; then
+            echo "- Performance: $(jq -r '.categories.performance.score * 100' reports/frontend/lh-report.json)%" >> release-validation.md
+            echo "- Accessibility: $(jq -r '.categories.accessibility.score * 100' reports/frontend/lh-report.json)%" >> release-validation.md
+            echo "- Best Practices: $(jq -r '.categories."best-practices".score * 100' reports/frontend/lh-report.json)%" >> release-validation.md
+            echo "- SEO: $(jq -r '.categories.seo.score * 100' reports/frontend/lh-report.json)%" >> release-validation.md
+          else
+            echo "- Lighthouse report not available" >> release-validation.md
+          fi
+          echo "" >> release-validation.md
+          echo "## Quality Gates" >> release-validation.md
+          echo "- ✅ TypeScript: Strict mode compliance" >> release-validation.md
+          echo "- ✅ Build: Production build successful" >> release-validation.md
+          echo "- ✅ Size: Under 700 KB limit" >> release-validation.md
+          echo "- ✅ Lint: 0 errors on new code" >> release-validation.md
+          echo "- ✅ Tests: Foundation set passing" >> release-validation.md
+      
+      # Upload release validation report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-validation-${{ github.ref_name }}
+          path: |
+            release-validation.md
+            reports/frontend/lh-report.json
+            dist/stats.html

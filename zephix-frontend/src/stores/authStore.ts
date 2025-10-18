@@ -1,295 +1,159 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { api } from '../services/api';
+import { persist } from 'zustand/middleware';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  role: 'admin' | 'manager' | 'member';
   organizationId: string;
-  role: string;
+  avatar?: string;
   isEmailVerified: boolean;
-  twoFactorEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface AuthState {
+export interface AuthState {
+  // State
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
-  expiresAt: number | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
 
   // Actions
-  login: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
-  logout: () => Promise<void>;
-  refreshAccessToken: () => Promise<void>;
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  setUser: (user: User) => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  refreshAuthToken: () => Promise<void>;
   clearError: () => void;
-  checkAuth: () => Promise<void>;
+  setLoading: (loading: boolean) => void;
 }
-
-interface SignupData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  organizationName: string;
-}
-
-// Helper function to validate token
-const isValidToken = (token: string | null): boolean => {
-  return !!(token && token !== 'null' && token !== null && typeof token === 'string' && token.length > 0);
-};
-
-// Cleanup corrupted localStorage on app start
-const cleanupCorruptedAuth = () => {
-  try {
-    const authStorage = localStorage.getItem('auth-storage');
-    if (authStorage) {
-      const parsed = JSON.parse(authStorage);
-      if (parsed.state?.accessToken === 'null') {
-        console.warn('Cleaning up corrupted auth storage on app start');
-        localStorage.removeItem('auth-storage');
-      }
-    }
-  } catch (error) {
-    console.error('Error during auth cleanup:', error);
-    localStorage.removeItem('auth-storage');
-  }
-};
-
-// Run cleanup immediately
-cleanupCorruptedAuth();
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
+      // Initial state
       user: null,
       accessToken: null,
       refreshToken: null,
-      expiresAt: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
 
-      login: async (email, password, twoFactorCode) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await api.post('/auth/login', {
-            email,
-            password,
-            twoFactorCode,
-          });
-
-          // Handle both interceptor-wrapped and direct responses
-          const authData = response.data?.data || response.data;
-          const { user, accessToken, refreshToken, expiresIn } = authData;
-          const expiresAt = Date.now() + (expiresIn * 1000);
-
-          // Set auth header for future requests
-          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-
-          set({
-            user,
-            accessToken,
-            refreshToken,
-            expiresAt,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-
-          // Schedule token refresh
-          get().scheduleTokenRefresh(expiresIn);
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message || 'Login failed',
-            isLoading: false,
-          });
-          throw error;
-        }
+      // Actions
+      setTokens: (accessToken: string, refreshToken: string) => {
+        set({
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          error: null,
+        });
       },
 
-      signup: async (data) => {
+      setUser: (user: User) => {
+        set({ user, error: null });
+      },
+
+      login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
+        
         try {
-          const response = await api.post('/auth/signup', data);
+          // This will be connected to the API client later
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Login failed');
+          }
+
+          const data = await response.json();
           
-          // Handle both interceptor-wrapped and direct responses
-          const authData = response.data?.data || response.data;
-          const { user, accessToken, refreshToken, expiresIn, message } = authData;
-          const expiresAt = Date.now() + (expiresIn * 1000);
-
-          // Set auth header
-          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-
           set({
-            user,
-            accessToken,
-            refreshToken,
-            expiresAt,
+            user: data.user,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
             isAuthenticated: true,
             isLoading: false,
+            error: null,
           });
-
-          // Schedule token refresh
-          get().scheduleTokenRefresh(expiresIn);
-
-          // Return message for UI to display
-          return message;
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message || 'Signup failed',
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      logout: async () => {
-        try {
-          await api.post('/auth/logout');
         } catch (error) {
-          console.error('Logout error:', error);
-        } finally {
-          // Clear auth state regardless
-          delete api.defaults.headers.common['Authorization'];
           set({
-            user: null,
-            accessToken: null,
-            refreshToken: null,
-            expiresAt: null,
+            isLoading: false,
+            error: error instanceof Error ? error.message : 'Login failed',
             isAuthenticated: false,
           });
         }
       },
 
-      refreshAccessToken: async () => {
+      logout: () => {
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          error: null,
+        });
+      },
+
+      refreshAuthToken: async () => {
+        const { refreshToken } = get();
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
         try {
-          const { refreshToken } = get();
-          if (!refreshToken) {
-            throw new Error('No refresh token available');
-          }
-          
-          const response = await api.post('/auth/refresh', { refreshToken });
-          // Handle both interceptor-wrapped and direct responses
-          const authData = response.data?.data || response.data;
-          const { accessToken, refreshToken: newRefreshToken, expiresIn } = authData;
-          const expiresAt = Date.now() + (expiresIn * 1000);
-
-          // Update auth header
-          api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-
-          set({
-            accessToken,
-            refreshToken: newRefreshToken,
-            expiresAt,
+          const response = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refreshToken }),
           });
 
-          // Schedule next refresh
-          get().scheduleTokenRefresh(expiresIn);
-        } catch (error) {
-          // Refresh failed, logout user
-          get().logout();
-        }
-      },
-
-      checkAuth: async () => {
-        const state = get();
-        
-        // Check if token expired
-        if (state.expiresAt && Date.now() >= state.expiresAt) {
-          await get().refreshAccessToken();
-          return;
-        }
-
-        // Verify token with backend
-        if (state.accessToken) {
-          try {
-            api.defaults.headers.common['Authorization'] = `Bearer ${state.accessToken}`;
-            const response = await api.get('/auth/me');
-            // Handle both interceptor-wrapped and direct responses
-            const userData = response.data?.data || response.data;
-            set({ user: userData.user, isAuthenticated: true });
-          } catch (error) {
-            get().logout();
+          if (!response.ok) {
+            throw new Error('Token refresh failed');
           }
+
+          const data = await response.json();
+          
+          set({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          // If refresh fails, logout user
+          get().logout();
+          throw error;
         }
       },
 
-      clearError: () => set({ error: null }),
+      clearError: () => {
+        set({ error: null });
+      },
 
-      // Private helper method
-      scheduleTokenRefresh: (expiresIn: number) => {
-        // Refresh 1 minute before expiry
-        const refreshTime = (expiresIn - 60) * 1000;
-        
-        setTimeout(() => {
-          get().refreshAccessToken();
-        }, refreshTime);
+      setLoading: (loading: boolean) => {
+        set({ isLoading: loading });
       },
     }),
     {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => localStorage, {
-        serialize: (state) => {
-          // Custom serialization to handle null values properly
-          const serialized = JSON.stringify(state, (key, value) => {
-            // Convert null to null primitive, not "null" string
-            if (value === null) return null;
-            return value;
-          });
-          return serialized;
-        },
-        deserialize: (str) => {
-          try {
-            const parsed = JSON.parse(str);
-            // Ensure accessToken is null primitive, not "null" string
-            if (parsed.state?.accessToken === 'null') {
-              console.warn('Detected corrupted token "null" string, clearing auth storage');
-              localStorage.removeItem('auth-storage');
-              return { state: { user: null, accessToken: null, expiresAt: null, isAuthenticated: false }, version: 0 };
-            }
-            return parsed;
-          } catch (error) {
-            console.error('Failed to deserialize auth storage:', error);
-            localStorage.removeItem('auth-storage');
-            return { state: { user: null, accessToken: null, expiresAt: null, isAuthenticated: false }, version: 0 };
-          }
-        },
-      }),
+      name: 'zephix-auth-storage',
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
-        expiresAt: state.expiresAt,
         isAuthenticated: state.isAuthenticated,
       }),
     }
   )
-);
-
-// Axios interceptor for token refresh
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        await useAuthStore.getState().refreshAccessToken();
-        return api(originalRequest);
-      } catch (refreshError) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-
-    return Promise.reject(error);
-  }
 );

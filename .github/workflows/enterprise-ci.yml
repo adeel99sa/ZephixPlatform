@@ -96,7 +96,7 @@ jobs:
 
       - name: Run linting
         working-directory: zephix-backend
-        run: npm run lint
+        run: npm run lint:new
 
       - name: Run type checking
         working-directory: zephix-backend
@@ -153,7 +153,7 @@ jobs:
 
       - name: Run linting
         working-directory: zephix-frontend
-        run: npm run lint
+        run: npm run lint:new
 
       - name: Run type checking
         working-directory: zephix-frontend

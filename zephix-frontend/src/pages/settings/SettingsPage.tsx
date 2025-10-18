@@ -1,19 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Cog6ToothIcon, 
-  UserIcon, 
-  BuildingOfficeIcon, 
-  ShieldCheckIcon, 
-  BellIcon, 
-  GlobeAltIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  CheckCircleIcon
-} from '@heroicons/react/24/outline';
-import { PageHeader } from '../../components/layout/PageHeader';
-import { useAuthStore } from '../../stores/authStore';
-import api from '../../services/api';
-import toast from 'react-hot-toast';
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { PageHeader } from '../../components/ui/layout/PageHeader';
+import { Button } from '../../components/ui/button/Button';
+import { Input } from '../../components/ui/input/Input';
+import { Select, SelectOption } from '../../components/ui/form/Select';
+import { Switch } from '../../components/ui/form/Switch';
+import { Textarea } from '../../components/ui/form/Textarea';
+import { FormField } from '../../components/ui/form/FormField';
+import { FormGroup } from '../../components/ui/form/FormGroup';
+import { Tabs, TabItem } from '../../components/ui/overlay/Tabs';
+import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
+import { apiClient } from '../../lib/api/client';
+import { useUIStore } from '../../stores/uiStore';
 
 interface OrganizationSettings {
   id: string;
@@ -48,480 +47,412 @@ interface SecuritySettings {
   organizationId: string;
 }
 
+const TIMEZONE_OPTIONS: SelectOption[] = [
+  { value: 'UTC', label: 'Coordinated Universal Time (UTC)' },
+  { value: 'America/New_York', label: 'Eastern Time (America/New_York)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (America/Los_Angeles)' },
+];
+
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+];
+
+const DATE_FORMAT_OPTIONS: SelectOption[] = [
+  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+];
+
+const CURRENCY_OPTIONS: SelectOption[] = [
+  { value: 'USD', label: 'USD ($)' },
+  { value: 'EUR', label: 'EUR (€)' },
+  { value: 'GBP', label: 'GBP (£)' },
+];
+
+const PASSWORD_POLICY_OPTIONS: SelectOption[] = [
+  { value: 'basic', label: 'Basic (8+ characters)' },
+  { value: 'strong', label: 'Strong (12+ chars, mixed case, numbers)' },
+  { value: 'enterprise', label: 'Enterprise (12+ chars, mixed case, numbers, symbols)' },
+];
+
 export const SettingsPage: React.FC = () => {
-  const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('organization');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [organizationSettings, setOrganizationSettings] = useState<OrganizationSettings | null>(null);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [securitySettings, setSecuritySettings] = useState<SecuritySettings | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
+  const { addToast } = useUIStore();
 
-  // Load settings on component mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  // Fetch organization settings
+  const {
+    data: organizationData,
+    isLoading: orgLoading,
+    error: orgError,
+    refetch: refetchOrg,
+  } = useQuery({
+    queryKey: ['organization-settings'],
+    queryFn: async () => {
+      const response = await apiClient.get<OrganizationSettings>('/api/settings/organization');
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const loadSettings = async () => {
-    if (!user?.organizationId) {
-      setError('Organization context required');
-      setIsLoading(false);
-      return;
-    }
+  // Fetch user settings
+  const {
+    data: userData,
+    isLoading: userLoading,
+    error: userError,
+    refetch: refetchUser,
+  } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: async () => {
+      const response = await apiClient.get<UserSettings>('/api/settings/user');
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Since settings endpoints don't exist yet, use mock data
-      // TODO: Replace with real API calls when endpoints are implemented
-      console.warn('Settings endpoints not implemented, using mock data');
-      
-      // Mock organization settings
-      setOrganizationSettings({
-        id: 'org-1',
-        name: user.organizationId || 'Default Organization',
-        domain: 'example.com',
-        timezone: 'UTC',
-        language: 'en',
-        dateFormat: 'MM/DD/YYYY',
-        currency: 'USD',
-        organizationId: user.organizationId
+  // Fetch security settings
+  const {
+    data: securityData,
+    isLoading: securityLoading,
+    error: securityError,
+    refetch: refetchSecurity,
+  } = useQuery({
+    queryKey: ['security-settings'],
+    queryFn: async () => {
+      const response = await apiClient.get<SecuritySettings>('/api/settings/security');
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Update organization settings mutation
+  const updateOrgMutation = useMutation({
+    mutationFn: async (settings: Partial<OrganizationSettings>) => {
+      const response = await apiClient.patch('/api/settings/organization', settings);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Organization settings have been updated successfully.',
       });
-      
-      // Mock user settings
-      setUserSettings({
-        id: user.id || 'user-1',
-        email: user.email || '',
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        timezone: 'UTC',
-        language: 'en',
-        emailNotifications: true,
-        pushNotifications: true,
-        theme: 'light',
-        organizationId: user.organizationId
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save organization settings.',
       });
-      
-      // Mock security settings
-      setSecuritySettings({
-        id: 'security-1',
-        twoFactorEnabled: false,
-        sessionTimeout: 30,
-        passwordPolicy: 'Standard',
-        ipWhitelist: [],
-        organizationId: user.organizationId
+    },
+  });
+
+  // Update user settings mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (settings: Partial<UserSettings>) => {
+      const response = await apiClient.patch('/api/settings/user', settings);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Account settings have been updated successfully.',
       });
-      
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-      setError('Failed to load settings');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save account settings.',
+      });
+    },
+  });
 
-  const handleSaveOrganizationSettings = async (settings: Partial<OrganizationSettings>) => {
-    if (!user?.organizationId) {
-      toast.error('Organization context required');
-      return;
-    }
+  // Update security settings mutation
+  const updateSecurityMutation = useMutation({
+    mutationFn: async (settings: Partial<SecuritySettings>) => {
+      const response = await apiClient.patch('/api/settings/security', settings);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security-settings'] });
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Security settings have been updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: error.message || 'Failed to save security settings.',
+      });
+    },
+  });
 
-    setIsSaving(true);
-    try {
-      // Mock save - update local state only
-      // TODO: Replace with real API call when endpoint is implemented
-      console.warn('Organization settings save not implemented, updating local state only');
-      
-      setOrganizationSettings(prev => ({ ...prev, ...settings }));
-      toast.success('Organization settings saved (local only)');
-    } catch (error) {
-      console.error('Failed to save organization settings:', error);
-      toast.error('Failed to save organization settings');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const isLoading = orgLoading || userLoading || securityLoading;
+  const error = orgError || userError || securityError;
 
-  const handleSaveUserSettings = async (settings: Partial<UserSettings>) => {
-    if (!user?.organizationId) {
-      toast.error('Organization context required');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Mock save - update local state only
-      // TODO: Replace with real API call when endpoint is implemented
-      console.warn('User settings save not implemented, updating local state only');
-      
-      setUserSettings(prev => ({ ...prev, ...settings }));
-      toast.success('User settings saved (local only)');
-    } catch (error) {
-      console.error('Failed to save user settings:', error);
-      toast.error('Failed to save user settings');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveSecuritySettings = async (settings: Partial<SecuritySettings>) => {
-    if (!user?.organizationId) {
-      toast.error('Organization context required');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Mock save - update local state only
-      // TODO: Replace with real API call when endpoint is implemented
-      console.warn('Security settings save not implemented, updating local state only');
-      
-      setSecuritySettings(prev => ({ ...prev, ...settings }));
-      toast.success('Security settings saved (local only)');
-    } catch (error) {
-      console.error('Failed to save security settings:', error);
-      toast.error('Failed to save security settings');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const tabs = [
-    { id: 'organization', name: 'Organization', icon: BuildingOfficeIcon },
-    { id: 'user', name: 'User', icon: UserIcon },
-    { id: 'security', name: 'Security', icon: ShieldCheckIcon },
-    { id: 'notifications', name: 'Notifications', icon: BellIcon },
-    { id: 'integrations', name: 'Integrations', icon: GlobeAltIcon },
-  ];
-
-  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <ArrowPathIcon className="mx-auto h-12 w-12 text-indigo-600 animate-spin" />
-          <p className="mt-4 text-gray-600">Loading settings...</p>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <PageHeader title="Settings" description="Manage your application settings" />
+        <div className="mt-6 text-center text-muted-foreground">Loading settings...</div>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <PageHeader
-          title="Settings"
-          subtitle="Manage your account and organization preferences"
+      <div className="container mx-auto px-4 py-8">
+        <PageHeader title="Settings" description="Manage your application settings" />
+        <ErrorBanner
+          description={error.message || 'Failed to load settings'}
+          onRetry={() => { refetchOrg(); refetchUser(); refetchSecurity(); }}
+          retryLabel="Retry"
         />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <ExclamationTriangleIcon className="mx-auto h-8 w-8 text-red-600 mb-4" />
-            <h3 className="text-lg font-medium text-red-900 mb-2">Failed to Load Settings</h3>
-            <p className="text-red-700 mb-4">{error}</p>
-            <button
-              onClick={loadSettings}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              <ArrowPathIcon className="w-4 h-4 mr-2" />
-              Retry
-            </button>
-          </div>
-        </div>
       </div>
     );
   }
 
+  const organizationSettings = organizationData || {
+    id: '', name: '', domain: '', timezone: 'UTC', language: 'en', dateFormat: 'MM/DD/YYYY', currency: 'USD', organizationId: ''
+  };
+  const userSettings = userData || {
+    id: '', email: '', firstName: '', lastName: '', timezone: 'UTC', language: 'en', emailNotifications: false, pushNotifications: false, theme: 'system', organizationId: ''
+  };
+  const securitySettings = securityData || {
+    id: '', twoFactorEnabled: false, sessionTimeout: 30, passwordPolicy: 'basic', ipWhitelist: [], organizationId: ''
+  };
+
+  const tabItems: TabItem[] = [
+    {
+      id: 'organization',
+      label: 'Organization',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateOrgMutation.mutate(organizationSettings);
+        }}>
+          <FormGroup legend="Organization Profile" description="Update your organization's public profile information.">
+            <FormField label="Organization Name" htmlFor="orgName">
+              <Input
+                id="orgName"
+                value={organizationSettings.name}
+                onChange={(e) => updateOrgMutation.mutate({ name: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Domain" htmlFor="orgDomain" help="Your organization's primary domain.">
+              <Input
+                id="orgDomain"
+                value={organizationSettings.domain}
+                onChange={(e) => updateOrgMutation.mutate({ domain: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Regional Settings" description="Configure timezone, language, and currency for your organization.">
+            <FormField label="Timezone" htmlFor="orgTimezone">
+              <Select
+                id="orgTimezone"
+                options={TIMEZONE_OPTIONS}
+                value={organizationSettings.timezone}
+                onChange={(e) => updateOrgMutation.mutate({ timezone: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Language" htmlFor="orgLanguage">
+              <Select
+                id="orgLanguage"
+                options={LANGUAGE_OPTIONS}
+                value={organizationSettings.language}
+                onChange={(e) => updateOrgMutation.mutate({ language: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Date Format" htmlFor="orgDateFormat">
+              <Select
+                id="orgDateFormat"
+                options={DATE_FORMAT_OPTIONS}
+                value={organizationSettings.dateFormat}
+                onChange={(e) => updateOrgMutation.mutate({ dateFormat: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Currency" htmlFor="orgCurrency">
+              <Select
+                id="orgCurrency"
+                options={CURRENCY_OPTIONS}
+                value={organizationSettings.currency}
+                onChange={(e) => updateOrgMutation.mutate({ currency: e.target.value })}
+                disabled={updateOrgMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateOrgMutation.isPending} loading={updateOrgMutation.isPending}>
+            Save Organization Settings
+          </Button>
+        </form>
+      ),
+    },
+    {
+      id: 'account',
+      label: 'Account',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateUserMutation.mutate(userSettings);
+        }}>
+          <FormGroup legend="Personal Information" description="Update your personal details.">
+            <FormField label="First Name" htmlFor="userFirstName">
+              <Input
+                id="userFirstName"
+                value={userSettings.firstName}
+                onChange={(e) => updateUserMutation.mutate({ firstName: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Last Name" htmlFor="userLastName">
+              <Input
+                id="userLastName"
+                value={userSettings.lastName}
+                onChange={(e) => updateUserMutation.mutate({ lastName: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Email" htmlFor="userEmail" help="Your primary email address.">
+              <Input
+                id="userEmail"
+                type="email"
+                value={userSettings.email}
+                disabled
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Preferences" description="Manage your display and notification preferences.">
+            <FormField label="Timezone" htmlFor="userTimezone">
+              <Select
+                id="userTimezone"
+                options={TIMEZONE_OPTIONS}
+                value={userSettings.timezone}
+                onChange={(e) => updateUserMutation.mutate({ timezone: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Language" htmlFor="userLanguage">
+              <Select
+                id="userLanguage"
+                options={LANGUAGE_OPTIONS}
+                value={userSettings.language}
+                onChange={(e) => updateUserMutation.mutate({ language: e.target.value })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Email Notifications" htmlFor="emailNotifications">
+              <Switch
+                id="emailNotifications"
+                checked={userSettings.emailNotifications}
+                onCheckedChange={(checked) => updateUserMutation.mutate({ emailNotifications: checked })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Push Notifications" htmlFor="pushNotifications">
+              <Switch
+                id="pushNotifications"
+                checked={userSettings.pushNotifications}
+                onCheckedChange={(checked) => updateUserMutation.mutate({ pushNotifications: checked })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Theme" htmlFor="userTheme">
+              <Select
+                id="userTheme"
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'system', label: 'System' },
+                ]}
+                value={userSettings.theme}
+                onChange={(e) => updateUserMutation.mutate({ theme: e.target.value as 'light' | 'dark' | 'system' })}
+                disabled={updateUserMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateUserMutation.isPending} loading={updateUserMutation.isPending}>
+            Save Account Settings
+          </Button>
+        </form>
+      ),
+    },
+    {
+      id: 'security',
+      label: 'Security',
+      content: (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          updateSecurityMutation.mutate(securitySettings);
+        }}>
+          <FormGroup legend="Authentication" description="Manage your account's security settings.">
+            <FormField label="Two-Factor Authentication" htmlFor="twoFactorEnabled">
+              <Switch
+                id="twoFactorEnabled"
+                checked={securitySettings.twoFactorEnabled}
+                onCheckedChange={(checked) => updateSecurityMutation.mutate({ twoFactorEnabled: checked })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Session Timeout (minutes)" htmlFor="sessionTimeout">
+              <Input
+                id="sessionTimeout"
+                type="number"
+                value={securitySettings.sessionTimeout}
+                onChange={(e) => updateSecurityMutation.mutate({ sessionTimeout: parseInt(e.target.value) })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+            <FormField label="Password Policy" htmlFor="passwordPolicy">
+              <Select
+                id="passwordPolicy"
+                options={PASSWORD_POLICY_OPTIONS}
+                value={securitySettings.passwordPolicy}
+                onChange={(e) => updateSecurityMutation.mutate({ passwordPolicy: e.target.value })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+
+          <FormGroup legend="Network Access" description="Control access to your organization's account.">
+            <FormField label="IP Whitelist" htmlFor="ipWhitelist" help="Comma-separated list of allowed IP addresses.">
+              <Textarea
+                id="ipWhitelist"
+                value={securitySettings.ipWhitelist.join(', ')}
+                onChange={(e) => updateSecurityMutation.mutate({ ipWhitelist: e.target.value.split(',').map(ip => ip.trim()) })}
+                disabled={updateSecurityMutation.isPending}
+              />
+            </FormField>
+          </FormGroup>
+          <Button type="submit" disabled={updateSecurityMutation.isPending} loading={updateSecurityMutation.isPending}>
+            Save Security Settings
+          </Button>
+        </form>
+      ),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <PageHeader
-        title="Settings"
-        subtitle="Manage your account and organization preferences"
-      />
+    <div className="container mx-auto px-4 py-8">
+      <PageHeader title="Settings" description="Manage your application settings" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-          <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm
-                    ${activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{tab.name}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {activeTab === 'organization' && (
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Organization Settings</h3>
-              {organizationSettings ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Organization Name
-                      </label>
-                      <input
-                        type="text"
-                        value={organizationSettings.name}
-                        onChange={(e) => setOrganizationSettings(prev => prev ? { ...prev, name: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Domain
-                      </label>
-                      <input
-                        type="text"
-                        value={organizationSettings.domain}
-                        onChange={(e) => setOrganizationSettings(prev => prev ? { ...prev, domain: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Timezone
-                      </label>
-                      <select
-                        value={organizationSettings.timezone}
-                        onChange={(e) => setOrganizationSettings(prev => prev ? { ...prev, timezone: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="UTC">UTC</option>
-                        <option value="America/New_York">Eastern Time</option>
-                        <option value="America/Chicago">Central Time</option>
-                        <option value="America/Denver">Mountain Time</option>
-                        <option value="America/Los_Angeles">Pacific Time</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Language
-                      </label>
-                      <select
-                        value={organizationSettings.language}
-                        onChange={(e) => setOrganizationSettings(prev => prev ? { ...prev, language: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="en">English</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleSaveOrganizationSettings(organizationSettings)}
-                      disabled={isSaving}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? (
-                        <>
-                          <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircleIcon className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <BuildingOfficeIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">No organization settings found</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'user' && (
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">User Settings</h3>
-              {userSettings ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        First Name
-                      </label>
-                      <input
-                        type="text"
-                        value={userSettings.firstName}
-                        onChange={(e) => setUserSettings(prev => prev ? { ...prev, firstName: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Last Name
-                      </label>
-                      <input
-                        type="text"
-                        value={userSettings.lastName}
-                        onChange={(e) => setUserSettings(prev => prev ? { ...prev, lastName: e.target.value } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={userSettings.email}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Theme
-                      </label>
-                      <select
-                        value={userSettings.theme}
-                        onChange={(e) => setUserSettings(prev => prev ? { ...prev, theme: e.target.value as UserSettings['theme'] } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="system">System</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleSaveUserSettings(userSettings)}
-                      disabled={isSaving}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? (
-                        <>
-                          <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircleIcon className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <UserIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">No user settings found</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'security' && (
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Security Settings</h3>
-              {securitySettings ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={securitySettings.twoFactorEnabled}
-                          onChange={(e) => setSecuritySettings(prev => prev ? { ...prev, twoFactorEnabled: e.target.checked } : null)}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-2 text-sm font-medium text-gray-700">
-                          Enable Two-Factor Authentication
-                        </span>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Session Timeout (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        value={securitySettings.sessionTimeout}
-                        onChange={(e) => setSecuritySettings(prev => prev ? { ...prev, sessionTimeout: parseInt(e.target.value) } : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleSaveSecuritySettings(securitySettings)}
-                      disabled={isSaving}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? (
-                        <>
-                          <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircleIcon className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <ShieldCheckIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-500">No security settings found</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'notifications' && (
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Notification Settings</h3>
-              <div className="text-center py-8">
-                <BellIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">Notification settings coming soon</p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'integrations' && (
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Integration Settings</h3>
-              <div className="text-center py-8">
-                <GlobeAltIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">Integration settings coming soon</p>
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="mt-6">
+        <Tabs items={tabItems} defaultActiveTab="organization" />
       </div>
     </div>
   );
