@@ -11,7 +11,7 @@
     "build": "tsc && vite build",
     "build:analyze": "tsc && vite build && echo 'Bundle analysis available at reports/frontend/bundle-stats.html'",
     "start": "serve -s dist -l ${PORT:-8080}",
-    "preview": "vite preview",
+    "preview": "vite preview --host 0.0.0.0 --port $PORT",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
     "lint:new": "eslint 'src/components/ui/button/**/*.{ts,tsx}' 'src/components/ui/input/**/*.{ts,tsx}' 'src/components/ui/card/**/*.{ts,tsx}' 'src/components/ui/feedback/**/*.{ts,tsx}' 'src/components/ui/layout/**/*.{ts,tsx}' 'src/lib/api/**/*.{ts,tsx}' 'src/lib/providers/**/*.{ts,tsx}' 'src/stores/authStore.ts' 'src/stores/uiStore.ts' 'src/pages/projects/ProjectsPage.tsx' 'src/pages/dashboard/DashboardPage.tsx'",
