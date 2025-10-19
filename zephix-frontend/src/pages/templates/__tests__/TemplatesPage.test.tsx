@@ -147,7 +147,7 @@ describe('TemplatesPage', () => {
     fireEvent.click(deleteButton);
 
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this template?');
-    expect(apiClient.delete).toHaveBeenCalledWith('/api/templates/1');
+    expect(apiClient.delete).toHaveBeenCalledWith('/templates/1');
 
     confirmSpy.mockRestore();
   });
@@ -187,9 +187,9 @@ describe('TemplatesPage', () => {
     nameHeader.focus();
     
     fireEvent.keyDown(nameHeader, { key: 'Enter' });
-    expect(nameHeader).toHaveAttribute('aria-sort', 'asc');
+    expect(nameHeader).toHaveAttribute('aria-sort', 'ascending');
 
     fireEvent.keyDown(nameHeader, { key: 'Enter' });
-    expect(nameHeader).toHaveAttribute('aria-sort', 'desc');
+    expect(nameHeader).toHaveAttribute('aria-sort', 'descending');
   });
 });
