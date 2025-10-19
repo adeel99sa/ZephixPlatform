@@ -1,8 +1,9 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
+nixpacksConfigPath = "nixpacks.toml"
 
 [deploy]
+startCommand = "npm run preview"
 restartPolicyType = "always"
 
 [env]
