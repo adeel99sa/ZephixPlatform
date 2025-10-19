@@ -5,11 +5,10 @@ import { SettingsPage } from '../SettingsPage';
 
 // Mock the API client
 vi.mock('../../../lib/api/client', () => ({
-  apiClient: {
-    get: vi.fn(),
-    patch: vi.fn(),
-  },
+  default: (await import('../../../test/mocks/apiClient.mock')).default
 }));
+
+import apiClient from '../../../lib/api/client';
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -66,7 +65,6 @@ describe('SettingsPage', () => {
   });
 
   it('renders page header and tabs', () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -90,7 +88,6 @@ describe('SettingsPage', () => {
   });
 
   it('shows loading state initially', () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     renderWithQueryClient(<SettingsPage />);
@@ -99,7 +96,6 @@ describe('SettingsPage', () => {
   });
 
   it('displays organization settings form', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -127,7 +123,6 @@ describe('SettingsPage', () => {
   });
 
   it('displays account settings form when account tab is selected', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -162,7 +157,6 @@ describe('SettingsPage', () => {
   });
 
   it('displays security settings form when security tab is selected', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -192,7 +186,6 @@ describe('SettingsPage', () => {
   });
 
   it('handles form submission for organization settings', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -217,7 +210,7 @@ describe('SettingsPage', () => {
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith('/api/settings/organization', {
+      expect(apiClient.patch).toHaveBeenCalledWith('/settings/organization', {
         name: 'Test Organization',
         domain: 'test.com',
         timezone: 'UTC',
@@ -229,7 +222,6 @@ describe('SettingsPage', () => {
   });
 
   it('shows error banner when API fails', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockRejectedValueOnce(new Error('API Error'));
 
     renderWithQueryClient(<SettingsPage />);
@@ -241,7 +233,6 @@ describe('SettingsPage', () => {
   });
 
   it('validates required fields', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -266,7 +257,6 @@ describe('SettingsPage', () => {
   });
 
   it('supports keyboard navigation between tabs', async () => {
-    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
