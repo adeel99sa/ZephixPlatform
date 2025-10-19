@@ -5,10 +5,11 @@ import { ApiResponse, StandardError, ApiClientConfig } from './types';
 class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
+  private tokenGetter?: () => string | null;
 
   constructor() {
     this.config = {
-      baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+      baseURL: '/api', // Use relative path to go through Vite proxy
       timeout: 10000,
       retries: 3,
       retryDelay: 1000,
@@ -20,6 +21,10 @@ class ApiClient {
 
     this.instance = axios.create(this.config);
     this.setupInterceptors();
+  }
+
+  setTokenGetter(tokenGetter: () => string | null) {
+    this.tokenGetter = tokenGetter;
   }
 
   private setupInterceptors(): void {
@@ -92,7 +97,10 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    // This will be connected to the auth store later
+    // Use token getter if available, otherwise fallback to localStorage
+    if (this.tokenGetter) {
+      return this.tokenGetter();
+    }
     return localStorage.getItem('auth_token');
   }
 
