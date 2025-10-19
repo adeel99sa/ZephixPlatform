@@ -26,7 +26,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --reporter=dot --coverage.reporter=text-summary --exclude 'src/components/landing/**'",
     "test:foundation": "vitest run 'src/components/ui/**/*.test.*' 'src/lib/api/**/*.test.*' 'src/pages/projects/**/*.test.*' 'src/pages/dashboard/**/*.test.*' 'src/pages/settings/**/*.test.*' 'src/pages/templates/**/*.test.*'",
     "test:legacy": "vitest run --ignore 'src/components/ui/**/*.test.*' --ignore 'src/lib/api/**/*.test.*' --ignore 'src/pages/projects/**/*.test.*' --ignore 'src/pages/dashboard/**/*.test.*'",
     "size:ci": "size-limit || (echo 'Size limit failed'; exit 1)",
