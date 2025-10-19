@@ -1,9 +1,0 @@
-[build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
-
-[deploy]
-restartPolicyType = "always"
-
-[env]
-NODE_ENV = "production"
