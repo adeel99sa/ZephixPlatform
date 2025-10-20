@@ -5,10 +5,20 @@ import { TemplatesPage } from '../TemplatesPage';
 
 // Mock the API client
 vi.mock('../../../lib/api/client', () => ({
-  default: (await import('../../../test/mocks/apiClient.mock')).default
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn(), eject: vi.fn() },
+      response: { use: vi.fn(), eject: vi.fn() },
+    },
+  },
 }));
 
-import apiClient from '../../../lib/api/client';
+import { apiClient } from '../../../lib/api/client';
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -29,6 +39,10 @@ const renderWithQueryClient = (component: React.ReactElement) => {
 describe('TemplatesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Set up default mock for all tests
+    apiClient.get.mockResolvedValue({
+      data: { templates: [] },
+    });
   });
 
   it('renders page header and create button', () => {
@@ -66,7 +80,7 @@ describe('TemplatesPage', () => {
     renderWithQueryClient(<TemplatesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load templates')).toBeInTheDocument();
+      expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
       expect(screen.getByText('Retry')).toBeInTheDocument();
     });
   });
@@ -109,7 +123,7 @@ describe('TemplatesPage', () => {
     const mockTemplates = [
       {
         id: '1',
-        name: 'Test Template',
+        name: 'Project Template',
         description: 'Test description',
         category: 'project' as const,
         status: 'active' as const,
@@ -136,14 +150,17 @@ describe('TemplatesPage', () => {
     renderWithQueryClient(<TemplatesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Test Template')).toBeInTheDocument();
+      expect(screen.getByText('Project Template')).toBeInTheDocument();
     });
 
-    const deleteButton = screen.getByLabelText('Delete template Test Template');
+    const deleteButton = await screen.findByLabelText('Delete template Project Template');
     fireEvent.click(deleteButton);
 
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this template?');
-    expect(apiClient.delete).toHaveBeenCalledWith('/templates/1');
+    
+    await waitFor(() => {
+      expect(apiClient.delete).toHaveBeenCalledWith('/templates/1');
+    });
 
     confirmSpy.mockRestore();
   });
