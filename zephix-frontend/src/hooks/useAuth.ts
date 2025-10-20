@@ -2,14 +2,22 @@
 import { useAuthStore } from '../stores/authStore';
 
 export const useAuth = () => {
-  const store = useAuthStore();
+  // Select only the specific state we need to prevent infinite re-renders
+  const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
+  const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
+  const clearError = useAuthStore((state) => state.clearError);
   
-  const permissions = store.user ? {
+  const permissions = user ? {
     canViewProjects: true, // Always true for authenticated users
-    canManageResources: store.user.role === 'admin',
-    canViewAnalytics: store.user.role === 'admin',
-    canManageUsers: store.user.role === 'admin',
-    isAdmin: store.user.role === 'admin'
+    canManageResources: user.role === 'admin',
+    canViewAnalytics: user.role === 'admin',
+    canManageUsers: user.role === 'admin',
+    isAdmin: user.role === 'admin'
   } : {
     canViewProjects: false,
     canManageResources: false,
@@ -19,15 +27,14 @@ export const useAuth = () => {
   };
   
   return {
-    user: store.user,
-    token: store.accessToken,
-    isAuthenticated: store.isAuthenticated,
-    isLoading: store.isLoading,
-    error: store.error,
+    user,
+    token: accessToken,
+    isAuthenticated,
+    isLoading,
+    error,
     permissions,
-    login: store.login,
-    signup: store.signup,
-    logout: store.logout,
-    clearError: store.clearError
+    login,
+    logout,
+    clearError
   };
 };
