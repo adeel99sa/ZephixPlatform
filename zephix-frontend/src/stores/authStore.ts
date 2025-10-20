@@ -26,11 +26,12 @@ export interface AuthState {
   // Actions
   setTokens: (accessToken: string, refreshToken: string) => void;
   setUser: (user: User) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   refreshAuthToken: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  checkAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -45,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
       error: null,
 
       // Actions
-      setTokens: (accessToken: string, refreshToken: string) => {
+      setTokens: (accessToken: string, refreshToken: string): void => {
         set({
           accessToken,
           refreshToken,
@@ -54,15 +55,14 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      setUser: (user: User) => {
+      setUser: (user: User): void => {
         set({ user, error: null });
       },
 
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string): Promise<boolean> => {
         set({ isLoading: true, error: null });
         
         try {
-          // This will be connected to the API client later
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
@@ -78,23 +78,26 @@ export const useAuthStore = create<AuthState>()(
           const data = await response.json();
           
           set({
-            user: data.user,
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
+            user: data.data.user,
+            accessToken: data.data.accessToken,
+            refreshToken: data.data.refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
           });
+          
+          return true; // Return success
         } catch (error) {
           set({
             isLoading: false,
             error: error instanceof Error ? error.message : 'Login failed',
             isAuthenticated: false,
           });
+          return false; // Return failure
         }
       },
 
-      logout: () => {
+      logout: (): void => {
         set({
           user: null,
           accessToken: null,
@@ -104,7 +107,7 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      refreshAuthToken: async () => {
+      refreshAuthToken: async (): Promise<void> => {
         const { refreshToken } = get();
         
         if (!refreshToken) {
@@ -138,12 +141,41 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      clearError: () => {
+      clearError: (): void => {
         set({ error: null });
       },
 
-      setLoading: (loading: boolean) => {
+      setLoading: (loading: boolean): void => {
         set({ isLoading: loading });
+      },
+
+      checkAuth: (): void => {
+        const { accessToken, refreshToken } = get();
+        
+        if (accessToken && refreshToken) {
+          // Check if token is expired
+          try {
+            const payload = JSON.parse(atob(accessToken.split('.')[1]));
+            const now = Date.now() / 1000;
+            
+            if (payload.exp > now) {
+              // Token is still valid
+              set({ isAuthenticated: true });
+            } else {
+              // Token expired, try to refresh
+              get().refreshAuthToken().catch(() => {
+                // If refresh fails, logout
+                get().logout();
+              });
+            }
+          } catch {
+            // Invalid token, logout
+            get().logout();
+          }
+        } else {
+          // No tokens, not authenticated
+          set({ isAuthenticated: false });
+        }
       },
     }),
     {
