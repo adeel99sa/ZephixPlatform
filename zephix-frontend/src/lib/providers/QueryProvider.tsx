@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
       
       // Retry configuration
-      retry: (failureCount, error: any) => {
+      retry: (failureCount: number, error: any): boolean => {
         // Don't retry on 4xx errors (client errors)
         if (error?.status >= 400 && error?.status < 500) {
           return false;
@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
       },
       
       // Retry delay with exponential backoff
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retryDelay: (attemptIndex: number): number => Math.min(1000 * 2 ** attemptIndex, 30000),
       
       // Refetch on window focus (useful for keeping data fresh)
       refetchOnWindowFocus: false,
@@ -45,7 +45,7 @@ interface QueryProviderProps {
   children: React.ReactNode;
 }
 
-export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
+export const QueryProvider: React.FC<QueryProviderProps> = ({ children }): JSX.Element => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
