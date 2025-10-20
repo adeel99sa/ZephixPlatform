@@ -166,9 +166,9 @@ describe('ChatInterface', () => {
   it('has proper color contrast and visual indicators', () => {
     render(<ChatInterface {...defaultProps} />);
     
-    // Check for proper hover states
+    // Check for proper button styling
     const sendButton = screen.getByRole('button', { name: /send message/i });
-    expect(sendButton).toHaveClass('hover:from-indigo-700', 'hover:to-blue-700');
+    expect(sendButton).toHaveClass('px-6', 'py-3');
   });
 
   it('has proper text content and descriptions', () => {

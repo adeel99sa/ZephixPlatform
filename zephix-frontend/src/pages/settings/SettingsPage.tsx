@@ -90,7 +90,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['organization-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<OrganizationSettings>('/api/settings/organization');
+      const response = await apiClient.get<OrganizationSettings>('/settings/organization');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -105,7 +105,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['user-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<UserSettings>('/api/settings/user');
+      const response = await apiClient.get<UserSettings>('/settings/user');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -120,7 +120,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['security-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<SecuritySettings>('/api/settings/security');
+      const response = await apiClient.get<SecuritySettings>('/settings/security');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -129,7 +129,7 @@ export const SettingsPage: React.FC = () => {
   // Update organization settings mutation
   const updateOrgMutation = useMutation({
     mutationFn: async (settings: Partial<OrganizationSettings>) => {
-      const response = await apiClient.patch('/api/settings/organization', settings);
+      const response = await apiClient.patch('/settings/organization', settings);
       return response.data;
     },
     onSuccess: () => {
@@ -152,7 +152,7 @@ export const SettingsPage: React.FC = () => {
   // Update user settings mutation
   const updateUserMutation = useMutation({
     mutationFn: async (settings: Partial<UserSettings>) => {
-      const response = await apiClient.patch('/api/settings/user', settings);
+      const response = await apiClient.patch('/settings/user', settings);
       return response.data;
     },
     onSuccess: () => {
@@ -175,7 +175,7 @@ export const SettingsPage: React.FC = () => {
   // Update security settings mutation
   const updateSecurityMutation = useMutation({
     mutationFn: async (settings: Partial<SecuritySettings>) => {
-      const response = await apiClient.patch('/api/settings/security', settings);
+      const response = await apiClient.patch('/settings/security', settings);
       return response.data;
     },
     onSuccess: () => {

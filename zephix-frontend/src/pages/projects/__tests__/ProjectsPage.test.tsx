@@ -6,10 +6,20 @@ import ProjectsPage from '../ProjectsPage';
 
 // Mock the API client
 vi.mock('../../../lib/api/client', () => ({
-  default: (await import('../../../test/mocks/apiClient.mock')).default
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn(), eject: vi.fn() },
+      response: { use: vi.fn(), eject: vi.fn() },
+    },
+  },
 }));
 
-import apiClient from '../../../lib/api/client';
+import { apiClient } from '../../../lib/api/client';
 
 // Mock the CreateProjectPanel component
 vi.mock('../../../components/projects/CreateProjectPanel', () => ({

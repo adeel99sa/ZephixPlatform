@@ -23,7 +23,7 @@ class ApiClient {
     this.setupInterceptors();
   }
 
-  setTokenGetter(tokenGetter: () => string | null) {
+  setTokenGetter(tokenGetter: () => string | null): void {
     this.tokenGetter = tokenGetter;
   }
 
