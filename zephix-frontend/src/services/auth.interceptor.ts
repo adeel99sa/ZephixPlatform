@@ -6,8 +6,12 @@ class AuthInterceptor {
   private failedQueue: any[] = [];
 
   constructor() {
+    const API_BASE = import.meta.env.PROD
+      ? (import.meta.env.VITE_API_BASE ?? 'https://zephix-backend-production.up.railway.app/api')
+      : '/api';
+
     this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://zephix-backend-production.up.railway.app/api' : '/api'),
+      baseURL: API_BASE,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',

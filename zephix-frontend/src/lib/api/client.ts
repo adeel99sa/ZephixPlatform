@@ -8,8 +8,12 @@ class ApiClient {
   private tokenGetter?: () => string | null;
 
   constructor() {
+    const API_BASE = import.meta.env.PROD
+      ? (import.meta.env.VITE_API_BASE ?? 'https://zephix-backend-production.up.railway.app/api')
+      : '/api';
+
     this.config = {
-      baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://zephix-backend-production.up.railway.app/api' : '/api'),
+      baseURL: API_BASE,
       timeout: 10000,
       retries: 3,
       retryDelay: 1000,
