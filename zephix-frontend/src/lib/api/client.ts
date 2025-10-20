@@ -9,7 +9,7 @@ class ApiClient {
 
   constructor() {
     this.config = {
-      baseURL: '/api', // Use relative path to go through Vite proxy
+      baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://zephix-backend-production.up.railway.app/api' : '/api'),
       timeout: 10000,
       retries: 3,
       retryDelay: 1000,
