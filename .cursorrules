@@ -1,0 +1,163 @@
+---
+
+# ✅ FINAL `.cursorrules` (Zephix Enterprise v3)
+
+````yaml
+---
+
+# ZEPHIX ENTERPRISE RULES — V3 (DO NOT DEVIATE)
+
+## HARD STOPS (ALWAYS FAIL FAST)
+- If auth returns 401 → stop.
+- If organizationId is null/undefined anywhere → stop.
+- If total allocation % > active threshold → stop.
+- If `npm ci` fails due to lockfile mismatch → stop; align package.json to lockfile (never the reverse) and re-run.
+- If frontend deploy plan shows Dockerfile when we didn't explicitly request it → stop; revert to Nixpacks auto-detect and fix allowlist.
+
+## MONOREPO & DEPLOYMENT GUARDRAILS (FRONTEND)
+- **Builder**: Use **Nixpacks auto-detect** for `zephix-frontend`.
+  - Never introduce `zephix-frontend/Dockerfile`, `.dockerignore`, `railway.toml`, or `nixpacks.toml` unless the task explicitly says "switch to Docker builder".
+- **Railway**:
+  - Assume service Root Directory = `zephix-frontend`.
+  - Preview script **must** be: `"preview": "vite preview --host 0.0.0.0 --port $PORT"`.
+- **.railwayignore** (must allow these paths):
+  - `zephix-frontend/package.json`, `package-lock.json`
+  - `zephix-frontend/vite.config.*`
+  - `zephix-frontend/tsconfig*.json`
+  - `zephix-frontend/index.html`
+  - `zephix-frontend/src/**`
+  - `zephix-frontend/dist/**`
+- If deploy log shows: `undefined variable 'npm'` in Nix, remove any custom nix configs and re-run.
+
+## CI PIPELINE GUARDRAILS
+- Lint frontend with **`npm run lint:new`** only (new/changed files). Do not run legacy lint in blocking jobs.
+- Use `npm ci` in CI; if it fails, update **package.json to match package-lock.json** (not vice versa).
+- Storybook, a11y, and E2E are allowed to be **non-blocking** unless task explicitly says otherwise.
+- Don't modify GitHub workflows unless GH token has `workflow` scope; if not, open a PR instead of direct push.
+
+## EVIDENCE-FIRST PROTOCOL (PASTE OUTPUTS)
+**Before you claim anything is "fixed", show this:**
+1) Build
+```bash
+cd zephix-frontend && npm ci && npm run build && tail -n +1 dist/.vite/manifest.json | head -n 40
+````
+
+2. Lint (new code)
+
+```bash
+npm run lint:new
+```
+
+3. Unit tests
+
+```bash
+npm run test:coverage -- --reporter=dot
+```
+
+4. Deploy plan (from Railway logs)
+
+* Show the lines with `setup`, `install`, `build`, `start` confirming Nixpacks + `npm ci`, `npm run build`, `npm run preview`.
+
+## FRONTEND–BACKEND CONTRACT RULES
+
+* Backend outputs **snake_case** from DB entities.
+* Frontend expects **camelCase**. Provide DTO transform or mapper:
+
+```ts
+class AllocationResponseDto {
+  @Expose({ name: 'allocationPercentage' })
+  @Transform(({ obj }) => obj.allocation_percentage)
+  allocationPercentage: number;
+}
+```
+
+* Before wiring UI, prove the contract:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  http://localhost:3000/api/resources/allocations | jq > actual.json
+diff -u expected.json actual.json || true
+```
+
+## DATABASE VERIFICATION (NEVER ASSUME)
+
+* When discussing schema, always show **actual DB** vs **entity**:
+
+```bash
+psql $DATABASE_URL -c "\d resource_allocations" | sed -n '1,80p'
+grep -n "@Column\|@CreateDate\|@UpdateDate" zephix-backend/src/**/*.entity.ts
+```
+
+* Provide a comparison table:
+  | Column | Database Has | Entity Expects | Status |
+  |----|---|----|-----|
+
+## ZEPHIX DOMAIN RULES (ALLOCATIONS)
+
+* Store allocations as **percentage**, not hours.
+* `autoAdjust: true` keeps % stable when timelines shift.
+* Validate total % across **all** projects, using threshold precedence:
+
+  1. Individual override
+  2. Group/Department
+  3. Organization default
+* Over-limit paths:
+
+  * ≤ warning → warn
+  * > max → require approval trail
+  * > hard-cap → block
+
+## RISK & EVIDENCE
+
+* Each risk must include **evidence** (who, current %, project breakdown, conflict dates) and **suggested actions** with quantified impact.
+
+## STATE CONSISTENCY (FRONTEND)
+
+* After a mutation:
+
+  * Update local component state
+  * Update store (Zustand)
+  * Invalidate React Query cache
+  * Verify all three match via console logs if needed.
+
+## SECURITY & SUPPLY CHAIN
+
+* Never print secrets to logs.
+* Integrate gitleaks and license allowlist in CI; fails on violations.
+* Keep Node 20.x for CI/build unless explicitly instructed otherwise.
+
+## FAILURE REPORT TEMPLATE (MANDATORY WHEN BROKEN)
+
+```markdown
+### Failure Report
+**Attempted:** <what>
+**Expected:** <what>
+**Actual:** <what happened>
+**Error:** <exact error>
+**Debug Steps:** <bulleted>
+**Root Cause:** <1 sentence>
+**Solution:** <applied fix>
+**Verification:** <build/lint/test/deploy logs>
+```
+
+````
+
+---
+
+## How to apply (do this now)
+1) Create/replace the file at the **repo root**:
+```bash
+printf '%s\n' "<paste the YAML above>" > .cursorrules
+git add .cursorrules
+git commit -m "chore(rules): Zephix Enterprise v3 – evidence-first, deploy & CI guardrails"
+git push origin sprint-1-2-foundation
+````
+
+This upgrade makes Cursor:
+
+* refuse "hand-wavy" fixes without logs,
+* stop reintroducing Dockerfile/Nix configs unless explicitly asked,
+* stop tripping CI on legacy lint,
+* verify API contracts and DB schema with proof,
+* enforce Zephix's allocation/threshold logic,
+* and keep Railway/Nixpacks deploys on the rails.
