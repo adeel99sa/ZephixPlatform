@@ -8,18 +8,9 @@ import ProjectsPage from '../ProjectsPage';
 vi.mock('../../../lib/api/client', () => ({
   apiClient: {
     get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    patch: vi.fn(),
     delete: vi.fn(),
-    interceptors: {
-      request: { use: vi.fn(), eject: vi.fn() },
-      response: { use: vi.fn(), eject: vi.fn() },
-    },
   },
 }));
-
-import { apiClient } from '../../../lib/api/client';
 
 // Mock the CreateProjectPanel component
 vi.mock('../../../components/projects/CreateProjectPanel', () => ({
@@ -52,7 +43,8 @@ describe('ProjectsPage', () => {
   });
 
   it('renders loading state', async () => {
-    apiClient.get.mockImplementation(() => new Promise(() => {})); // Never resolves
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockImplementation(() => new Promise(() => {})); // Never resolves
 
     renderWithProviders(<ProjectsPage />);
 
@@ -61,16 +53,17 @@ describe('ProjectsPage', () => {
   });
 
   it('renders empty state when no projects', async () => {
-    apiClient.get.mockResolvedValue({
-      data: { items: [], total: 0, page: 1, pageSize: 20 },
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { projects: [] },
+      success: true,
     });
 
     renderWithProviders(<ProjectsPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/No (data|projects) (available|found)/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText('No projects found')).toBeInTheDocument();
+      expect(screen.getByText('Create your first project to get started with project management.')).toBeInTheDocument();
     });
   });
 
@@ -78,31 +71,26 @@ describe('ProjectsPage', () => {
     const mockProjects = [
       {
         id: '1',
-        key: 'PROJ-001',
         name: 'Test Project',
         description: 'Test Description',
         status: 'active',
-        ownerName: 'John Doe',
-        startDate: '2023-01-01',
-        endDate: '2023-12-31',
-        progressPct: 50,
-        budgetUsed: 5000,
-        budgetTotal: 10000,
         createdAt: '2023-01-01',
         updatedAt: '2023-01-01',
       },
     ];
 
-    apiClient.get.mockResolvedValue({
-      data: { items: mockProjects, total: 1, page: 1, pageSize: 20 },
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { projects: mockProjects },
+      success: true,
     });
 
     renderWithProviders(<ProjectsPage />);
 
     await waitFor(() => {
       expect(screen.getByText('Test Project')).toBeInTheDocument();
-      expect(screen.getByText('PROJ-001')).toBeInTheDocument();
-      expect(screen.getByText('John Doe')).toBeInTheDocument();
+      expect(screen.getByText('Test Description')).toBeInTheDocument();
+      expect(screen.getByText('active')).toBeInTheDocument();
     });
   });
 

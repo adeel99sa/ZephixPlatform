@@ -1,3 +1,5 @@
+import { getApiBase } from './api';
+
 class AdminApiService {
   private async request(url: string, options: RequestInit = {}) {
     const authStorage = localStorage.getItem('auth-storage');
@@ -6,8 +8,8 @@ class AdminApiService {
     const { state } = JSON.parse(authStorage);
     if (!state?.token) throw new Error('No token found');
     
-    // Use environment variable or relative path
-    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+    // Check if API has /api prefix
+    const baseUrl = getApiBase(); // This should return http://localhost:3000/api
     
     const response = await fetch(`${baseUrl}/${url}`, {
       ...options,

@@ -55,15 +55,15 @@ export const useUIStore = create<UIState>()(
       activeModal: null,
 
       // Actions
-      setSidebarOpen: (open: boolean): void => {
+      setSidebarOpen: (open: boolean) => {
         set({ sidebarOpen: open });
       },
 
-      toggleSidebar: (): void => {
+      toggleSidebar: () => {
         set((state) => ({ sidebarOpen: !state.sidebarOpen }));
       },
 
-      setTheme: (theme: 'light' | 'dark' | 'system'): void => {
+      setTheme: (theme: 'light' | 'dark' | 'system') => {
         set({ theme });
         
         // Apply theme to document
@@ -83,7 +83,7 @@ export const useUIStore = create<UIState>()(
         }
       },
 
-      addToast: (toast: Omit<Toast, 'id'>): void => {
+      addToast: (toast: Omit<Toast, 'id'>) => {
         const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const newToast: Toast = {
           id,
@@ -103,21 +103,21 @@ export const useUIStore = create<UIState>()(
         }
       },
 
-      removeToast: (id: string): void => {
+      removeToast: (id: string) => {
         set((state) => ({
           toastQueue: state.toastQueue.filter((toast) => toast.id !== id),
         }));
       },
 
-      clearToasts: (): void => {
+      clearToasts: () => {
         set({ toastQueue: [] });
       },
 
-      setGlobalLoading: (loading: boolean): void => {
+      setGlobalLoading: (loading: boolean) => {
         set({ globalLoading: loading });
       },
 
-      setActiveModal: (modalId: string | null): void => {
+      setActiveModal: (modalId: string | null) => {
         set({ activeModal: modalId });
       },
     }),
