@@ -1,0 +1,7 @@
+# zephix-frontend/.dockerignore
+node_modules
+dist
+.git
+.gitignore
+.vscode
+*.log
