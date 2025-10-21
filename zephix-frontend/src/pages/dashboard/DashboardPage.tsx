@@ -8,7 +8,7 @@ import { PageHeader } from '../../components/ui/layout/PageHeader';
 // import { Card, CardBody } from '../../components/ui/card/Card';
 // import { Skeleton } from '../../components/ui/feedback/Skeleton';
 
-const DashboardPage = (): JSX.Element => {
+const DashboardPage = () => {
   const { user } = useAuth();
   
   // Determine user role (admin shows portfolio, others show personal)

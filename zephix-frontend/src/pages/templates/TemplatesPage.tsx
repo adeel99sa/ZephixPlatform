@@ -45,7 +45,7 @@ export const TemplatesPage: React.FC = () => {
   } = useQuery({
     queryKey: ['templates'],
     queryFn: async () => {
-      const response = await apiClient.get<{ templates: Template[] }>('/templates');
+      const response = await apiClient.get<{ templates: Template[] }>('/api/templates');
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -54,7 +54,7 @@ export const TemplatesPage: React.FC = () => {
   // Delete template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiClient.delete(`/templates/${id}`);
+      await apiClient.delete(`/api/templates/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });

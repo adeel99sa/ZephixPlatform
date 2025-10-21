@@ -5,15 +5,10 @@ import { ApiResponse, StandardError, ApiClientConfig } from './types';
 class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
-  private tokenGetter?: () => string | null;
 
   constructor() {
-    const API_BASE = import.meta.env.PROD
-      ? (import.meta.env.VITE_API_BASE ?? 'https://zephix-backend-production.up.railway.app/api')
-      : '/api';
-
     this.config = {
-      baseURL: API_BASE,
+      baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
       timeout: 10000,
       retries: 3,
       retryDelay: 1000,
@@ -25,10 +20,6 @@ class ApiClient {
 
     this.instance = axios.create(this.config);
     this.setupInterceptors();
-  }
-
-  setTokenGetter(tokenGetter: () => string | null): void {
-    this.tokenGetter = tokenGetter;
   }
 
   private setupInterceptors(): void {
@@ -101,10 +92,7 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    // Use token getter if available, otherwise fallback to localStorage
-    if (this.tokenGetter) {
-      return this.tokenGetter();
-    }
+    // This will be connected to the auth store later
     return localStorage.getItem('auth_token');
   }
 

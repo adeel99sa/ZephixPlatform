@@ -7,18 +7,9 @@ import { TemplatesPage } from '../TemplatesPage';
 vi.mock('../../../lib/api/client', () => ({
   apiClient: {
     get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    patch: vi.fn(),
     delete: vi.fn(),
-    interceptors: {
-      request: { use: vi.fn(), eject: vi.fn() },
-      response: { use: vi.fn(), eject: vi.fn() },
-    },
   },
 }));
-
-import { apiClient } from '../../../lib/api/client';
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -39,10 +30,6 @@ const renderWithQueryClient = (component: React.ReactElement) => {
 describe('TemplatesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Set up default mock for all tests
-    apiClient.get.mockResolvedValue({
-      data: { templates: [] },
-    });
   });
 
   it('renders page header and create button', () => {
@@ -61,26 +48,27 @@ describe('TemplatesPage', () => {
   });
 
   it('shows empty state when no templates', async () => {
-    apiClient.get.mockResolvedValueOnce({
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: [] },
     });
 
     renderWithQueryClient(<TemplatesPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/No (data|templates) (available|found)/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText('No templates found')).toBeInTheDocument();
+      expect(screen.getByText('Create your first template to get started with project management.')).toBeInTheDocument();
     });
   });
 
   it('shows error banner when API fails', async () => {
-    apiClient.get.mockRejectedValueOnce(new Error('API Error'));
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockRejectedValueOnce(new Error('API Error'));
 
     renderWithQueryClient(<TemplatesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
+      expect(screen.getByText('Failed to load templates')).toBeInTheDocument();
       expect(screen.getByText('Retry')).toBeInTheDocument();
     });
   });
@@ -105,7 +93,8 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    apiClient.get.mockResolvedValueOnce({
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });
 
@@ -123,7 +112,7 @@ describe('TemplatesPage', () => {
     const mockTemplates = [
       {
         id: '1',
-        name: 'Project Template',
+        name: 'Test Template',
         description: 'Test description',
         category: 'project' as const,
         status: 'active' as const,
@@ -139,10 +128,11 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    apiClient.get.mockResolvedValueOnce({
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });
-    apiClient.delete.mockResolvedValueOnce({});
+    vi.mocked(apiClient.delete).mockResolvedValueOnce({});
 
     // Mock window.confirm
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -150,17 +140,14 @@ describe('TemplatesPage', () => {
     renderWithQueryClient(<TemplatesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Project Template')).toBeInTheDocument();
+      expect(screen.getByText('Test Template')).toBeInTheDocument();
     });
 
-    const deleteButton = await screen.findByLabelText('Delete template Project Template');
+    const deleteButton = screen.getByLabelText('Delete template Test Template');
     fireEvent.click(deleteButton);
 
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this template?');
-    
-    await waitFor(() => {
-      expect(apiClient.delete).toHaveBeenCalledWith('/templates/1');
-    });
+    expect(apiClient.delete).toHaveBeenCalledWith('/templates/1');
 
     confirmSpy.mockRestore();
   });
@@ -185,7 +172,8 @@ describe('TemplatesPage', () => {
       },
     ];
 
-    apiClient.get.mockResolvedValueOnce({
+    const { apiClient } = await import('../../../lib/api/client');
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
       data: { templates: mockTemplates },
     });
 

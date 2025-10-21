@@ -57,12 +57,8 @@ interface ApiError {
 }
 
 // Create axios instance with enterprise configuration
-const API_BASE = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_BASE ?? 'https://zephix-backend-production.up.railway.app/api')
-  : '/api';
-
 const api: AxiosInstance = axios.create({
-  baseURL: API_BASE,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
   timeout: 30000, // 30 seconds
   withCredentials: true, // Enable cookies for refresh tokens
   headers: {

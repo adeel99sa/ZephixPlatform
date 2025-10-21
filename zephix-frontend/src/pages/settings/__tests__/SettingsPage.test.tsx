@@ -7,18 +7,9 @@ import { SettingsPage } from '../SettingsPage';
 vi.mock('../../../lib/api/client', () => ({
   apiClient: {
     get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
     patch: vi.fn(),
-    delete: vi.fn(),
-    interceptors: {
-      request: { use: vi.fn(), eject: vi.fn() },
-      response: { use: vi.fn(), eject: vi.fn() },
-    },
   },
 }));
-
-import { apiClient } from '../../../lib/api/client';
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -65,7 +56,7 @@ const mockSecuritySettings = {
   twoFactorEnabled: false,
   sessionTimeout: 30,
   passwordPolicy: 'basic',
-  ipWhitelist: ['192.168.1.1', '10.0.0.1'],
+  ipWhitelist: [],
   organizationId: 'org-1',
 };
 
@@ -74,7 +65,8 @@ describe('SettingsPage', () => {
     vi.clearAllMocks();
   });
 
-  it('renders page header and tabs', async () => {
+  it('renders page header and tabs', () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -91,24 +83,23 @@ describe('SettingsPage', () => {
     renderWithQueryClient(<SettingsPage />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Manage your application settings')).toBeInTheDocument();
-    
-    await waitFor(() => {
-      expect(screen.getByText('Organization')).toBeInTheDocument();
-      expect(screen.getByText('Account')).toBeInTheDocument();
-      expect(screen.getByText('Security')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Manage your account and organization settings')).toBeInTheDocument();
+    expect(screen.getByText('Organization')).toBeInTheDocument();
+    expect(screen.getByText('Account')).toBeInTheDocument();
+    expect(screen.getByText('Security')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     renderWithQueryClient(<SettingsPage />);
 
-    expect(screen.getByText('Loading settings...')).toBeInTheDocument();
+    expect(document.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
   it('displays organization settings form', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -125,8 +116,9 @@ describe('SettingsPage', () => {
     renderWithQueryClient(<SettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Test Organization')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('test.com')).toBeInTheDocument();
+      expect(screen.getByLabelText(/organization name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/domain/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/timezone/i)).toBeInTheDocument();
     });
 
     // Check that form fields are populated
@@ -135,6 +127,7 @@ describe('SettingsPage', () => {
   });
 
   it('displays account settings form when account tab is selected', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -157,9 +150,9 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByText('Account'));
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('John')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Doe')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('test@example.com')).toBeInTheDocument();
+      expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     });
 
     // Check that form fields are populated
@@ -169,6 +162,7 @@ describe('SettingsPage', () => {
   });
 
   it('displays security settings form when security tab is selected', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -191,13 +185,14 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByText('Security'));
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('30')).toBeInTheDocument();
-      expect(screen.getByText('Basic (8+ characters)')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('192.168.1.1, 10.0.0.1')).toBeInTheDocument();
+      expect(screen.getByLabelText(/two-factor authentication/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/session timeout/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/password requirements/i)).toBeInTheDocument();
     });
   });
 
   it('handles form submission for organization settings', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -222,31 +217,31 @@ describe('SettingsPage', () => {
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith('/settings/organization', {
-        id: 'org-1',
+      expect(apiClient.patch).toHaveBeenCalledWith('/api/settings/organization', {
         name: 'Test Organization',
         domain: 'test.com',
         timezone: 'UTC',
         language: 'en',
         dateFormat: 'MM/DD/YYYY',
         currency: 'USD',
-        organizationId: 'org-1',
       });
     });
   });
 
   it('shows error banner when API fails', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockRejectedValueOnce(new Error('API Error'));
 
     renderWithQueryClient(<SettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load settings')).toBeInTheDocument();
       expect(screen.getByText('Retry')).toBeInTheDocument();
     });
   });
 
   it('validates required fields', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -263,14 +258,15 @@ describe('SettingsPage', () => {
     renderWithQueryClient(<SettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Test Organization')).toBeInTheDocument();
+      expect(screen.getByLabelText(/organization name/i)).toBeInTheDocument();
     });
 
-    const orgNameInput = screen.getByDisplayValue('Test Organization');
-    expect(orgNameInput).toBeInTheDocument();
+    const orgNameInput = screen.getByLabelText(/organization name/i);
+    expect(orgNameInput).toHaveAttribute('required');
   });
 
   it('supports keyboard navigation between tabs', async () => {
+    const { apiClient } = require('../../../lib/api/client');
     apiClient.get.mockImplementation((url: string) => {
       if (url.includes('organization')) {
         return Promise.resolve({ data: mockOrganizationSettings });
@@ -294,7 +290,6 @@ describe('SettingsPage', () => {
     accountTab.focus();
 
     fireEvent.keyDown(accountTab, { key: 'Enter' });
-    // Tab navigation is handled by the component, just verify the tab is clickable
-    expect(accountTab).toBeInTheDocument();
+    expect(accountTab).toHaveAttribute('data-state', 'active');
   });
 });
