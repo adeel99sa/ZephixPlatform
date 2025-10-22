@@ -143,6 +143,12 @@ pnpm lint:fix        # autofix lint
 
 ---
 
+## ✅ Enterprise Features (Implemented)
+
+1. **Release automation** - GitHub Actions workflow for tagged releases
+2. **Runtime health endpoint** - `/health` shows build info and status
+3. **Telemetry sampling** - 1% of requests logged with timing data
+
 ## Next 3 incremental upgrades (high value, low risk)
 
 1. **Disallow direct `axios` imports** via ESLint rule (except in `lib/api/client.ts`).
