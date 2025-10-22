@@ -1,0 +1,306 @@
+{
+  "monitors": [
+    {
+      "name": "Zephix Frontend Health Check",
+      "type": "service check",
+      "query": "\"http.can_connect\".over(\"instance:zephix-frontend-health\").by(\"*\").last(2).count_by_status()",
+      "message": "Zephix frontend health endpoint is failing. Check the /health endpoint and verify the application is running properly.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "critical": 1,
+          "warning": 1,
+          "ok": 1
+        },
+        "timeout_h": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 2,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": true,
+        "notify_no_data": true,
+        "escalation_message": "Critical: Frontend health check still failing after 2 minutes",
+        "locked": false,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix High 5xx Error Rate",
+      "type": "log alert",
+      "query": "source:zephix-frontend status:5xx",
+      "message": "High 5xx error rate detected in Zephix frontend. Check the error logs and investigate the root cause.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "critical": 10,
+          "warning": 5
+        },
+        "timeframe": "last_5m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 10,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "Critical: 5xx error rate still high after 5 minutes",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix Login Success Rate Low",
+      "type": "log alert",
+      "query": "source:zephix-frontend \"auth_login\" outcome:success",
+      "message": "Login success rate below 95% for Zephix frontend. Check authentication service and user reports.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "critical": 95
+        },
+        "timeframe": "last_10m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 10,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "Critical: Login success rate still below 95%",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix Response Time High",
+      "type": "log alert",
+      "query": "source:zephix-frontend \"[TELEMETRY]\" response_duration:>4500",
+      "message": "P95 response time above 4.5s for Zephix frontend. Check performance metrics and investigate slow endpoints.\n\n@slack-zephix-alerts",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "warning": 5,
+          "critical": 10
+        },
+        "timeframe": "last_15m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 15,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix Token Refresh Failures",
+      "type": "log alert",
+      "query": "source:zephix-frontend \"auth_refresh\" outcome:failure",
+      "message": "Token refresh failure rate above 1% for Zephix frontend. Check refresh endpoint and token validity.\n\n@slack-zephix-alerts",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "warning": 1,
+          "critical": 2
+        },
+        "timeframe": "last_5m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 5,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix 4xx Client Error Rate",
+      "type": "log alert",
+      "query": "source:zephix-frontend status:4xx",
+      "message": "High 4xx client error rate detected in Zephix frontend. Check for client-side issues or API changes.\n\n@slack-zephix-alerts",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "warning": 5,
+          "critical": 10
+        },
+        "timeframe": "last_10m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 10,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix SLO Availability Breach",
+      "type": "log alert",
+      "query": "source:zephix-frontend status:2xx",
+      "message": "SLO availability below 99.5% for Zephix frontend. Create ticket for investigation.\n\n@slack-zephix-alerts",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "warning": 99.5
+        },
+        "timeframe": "last_4h",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 240,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix Error Rate Spike",
+      "type": "log alert",
+      "query": "source:zephix-frontend status:5xx",
+      "message": "5xx error rate spike detected in Zephix frontend. Error rate increased significantly in the last 15 minutes.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"],
+      "options": {
+        "thresholds": {
+          "critical": 3
+        },
+        "timeframe": "last_5m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 5,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "Critical: Error rate spike still detected",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert"],
+        "enable_logs_sample": true
+      }
+    }
+  ],
+  "downtimes": [
+    {
+      "name": "Zephix Maintenance Window",
+      "message": "Scheduled maintenance for Zephix platform",
+      "start": "2024-01-01T02:00:00Z",
+      "end": "2024-01-01T04:00:00Z",
+      "timezone": "UTC",
+      "scope": ["service:zephix-frontend", "service:zephix-backend"],
+      "recurrence": {
+        "type": "weeks",
+        "period": 1,
+        "week_days": ["Sun"]
+      }
+    }
+  ],
+  "synthetics": [
+    {
+      "name": "Zephix Frontend Health Check",
+      "type": "api",
+      "subtype": "http",
+      "config": {
+        "request": {
+          "method": "GET",
+          "url": "https://yourdomain.com/health",
+          "timeout": 30
+        },
+        "assertions": [
+          {
+            "type": "statusCode",
+            "operator": "is",
+            "target": 200
+          },
+          {
+            "type": "responseTime",
+            "operator": "lessThan",
+            "target": 2000
+          }
+        ]
+      },
+      "locations": ["aws:us-east-1", "aws:us-west-2", "aws:eu-west-1"],
+      "options": {
+        "tick_every": 300,
+        "min_failure_duration": 0,
+        "min_location_failed": 1,
+        "retry": {
+          "count": 2,
+          "interval": 300
+        }
+      },
+      "message": "Zephix frontend health check failed. Check the /health endpoint.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"]
+    },
+    {
+      "name": "Zephix Login Flow",
+      "type": "browser",
+      "config": {
+        "request": {
+          "method": "GET",
+          "url": "https://yourdomain.com/login"
+        },
+        "assertions": [
+          {
+            "type": "statusCode",
+            "operator": "is",
+            "target": 200
+          }
+        ]
+      },
+      "locations": ["aws:us-east-1", "aws:us-west-2"],
+      "options": {
+        "tick_every": 900,
+        "min_failure_duration": 0,
+        "min_location_failed": 1,
+        "retry": {
+          "count": 2,
+          "interval": 300
+        }
+      },
+      "message": "Zephix login page is not accessible. Check frontend deployment.\n\n@slack-zephix-alerts @pagerduty-zephix-oncall",
+      "tags": ["service:zephix-frontend", "env:production"]
+    }
+  ]
+}
