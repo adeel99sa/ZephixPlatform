@@ -1,0 +1,245 @@
+{
+  "pipeline": {
+    "name": "zephix-frontend-logs",
+    "description": "Parse Zephix frontend application logs with correlation IDs and build metadata",
+    "filters": [
+      {
+        "name": "zephix_frontend_filter",
+        "query": "source:zephix-frontend",
+        "is_enabled": true
+      }
+    ],
+    "processors": [
+      {
+        "name": "parse_json",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "zephix_frontend %{DATA:timestamp} %{DATA:level} %{DATA:logger} %{GREEDYDATA:message}"
+        },
+        "is_enabled": true
+      },
+      {
+        "name": "extract_correlation_id",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "correlation_id=(?<correlation_id>[a-zA-Z0-9_-]+)"
+        },
+        "is_enabled": true
+      },
+      {
+        "name": "extract_request_id",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "request_id=(?<request_id>[a-zA-Z0-9_-]+)"
+        },
+        "is_enabled": true
+      },
+      {
+        "name": "extract_build_info",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "build_tag=(?<build_tag>[a-zA-Z0-9._-]+) git_hash=(?<git_hash>[a-zA-Z0-9]+)"
+        },
+        "is_enabled": true
+      },
+      {
+        "name": "parse_api_errors",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "\\[API Error\\] status=(?<http_status>\\d+) url=(?<api_url>[^\\s]+) message=(?<error_message>[^\\n]+)"
+        },
+        "is_enabled": true
+      },
+      {
+        "name": "parse_telemetry",
+        "type": "grok_parser",
+        "grok": {
+          "support_rules": "",
+          "match_rules": "\\[TELEMETRY\\] (?<metric_name>[^:]+): url=(?<telemetry_url>[^\\s]+) method=(?<http_method>[^\\s]+) status=(?<telemetry_status>\\d+) duration=(?<response_duration>\\d+)"
+        },
+        "is_enabled": true
+      }
+    ],
+    "is_enabled": true
+  },
+  "monitors": [
+    {
+      "name": "Zephix Frontend Error Rate",
+      "type": "log alert",
+      "query": "source:zephix-frontend status:error",
+      "message": "High error rate detected in Zephix frontend. Check correlation IDs for debugging.",
+      "options": {
+        "thresholds": {
+          "critical": 10,
+          "warning": 5
+        },
+        "timeframe": "last_5m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 10,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix Frontend Health Check",
+      "type": "log alert",
+      "query": "source:zephix-frontend \"health check failed\"",
+      "message": "Zephix frontend health check failed. Immediate investigation required.",
+      "options": {
+        "thresholds": {
+          "critical": 1
+        },
+        "timeframe": "last_1m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 2,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": true,
+        "notify_no_data": true,
+        "escalation_message": "Critical: Frontend health check failing",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert"],
+        "enable_logs_sample": true
+      }
+    },
+    {
+      "name": "Zephix API Performance",
+      "type": "log alert",
+      "query": "source:zephix-frontend \"[TELEMETRY]\" response_duration:>2000",
+      "message": "Slow API responses detected in Zephix frontend. Check backend performance.",
+      "options": {
+        "thresholds": {
+          "critical": 5,
+          "warning": 2
+        },
+        "timeframe": "last_5m",
+        "evaluation_delay": 0,
+        "new_host_delay": 300,
+        "renotify_interval": 0,
+        "no_data_timeframe": 10,
+        "include_tags": true,
+        "require_full_window": true,
+        "notify_audit": false,
+        "notify_no_data": false,
+        "escalation_message": "",
+        "locked": false,
+        "timeout_h": 0,
+        "renotify_occurrences": 0,
+        "renotify_statuses": ["alert", "warn"],
+        "enable_logs_sample": true
+      }
+    }
+  ],
+  "dashboards": [
+    {
+      "name": "Zephix Frontend Overview",
+      "widgets": [
+        {
+          "definition": {
+            "title": "Error Rate by Build Tag",
+            "type": "timeseries",
+            "requests": [
+              {
+                "q": "sum:zephix.frontend.errors{*} by {build_tag}.as_rate()",
+                "display_type": "line"
+              }
+            ],
+            "yaxis": {
+              "label": "Errors/sec",
+              "scale": "linear"
+            }
+          },
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "width": 47,
+            "height": 15
+          }
+        },
+        {
+          "definition": {
+            "title": "Response Time by API Endpoint",
+            "type": "timeseries",
+            "requests": [
+              {
+                "q": "avg:zephix.frontend.response_time{*} by {api_endpoint}",
+                "display_type": "line"
+              }
+            ],
+            "yaxis": {
+              "label": "Response Time (ms)",
+              "scale": "linear"
+            }
+          },
+          "layout": {
+            "x": 47,
+            "y": 0,
+            "width": 47,
+            "height": 15
+          }
+        },
+        {
+          "definition": {
+            "title": "Request Volume",
+            "type": "timeseries",
+            "requests": [
+              {
+                "q": "sum:zephix.frontend.requests{*}.as_rate()",
+                "display_type": "line"
+              }
+            ],
+            "yaxis": {
+              "label": "Requests/sec",
+              "scale": "linear"
+            }
+          },
+          "layout": {
+            "x": 0,
+            "y": 15,
+            "width": 47,
+            "height": 15
+          }
+        },
+        {
+          "definition": {
+            "title": "Build Information",
+            "type": "query_value",
+            "requests": [
+              {
+                "q": "last:zephix.frontend.build_tag{*}",
+                "aggregator": "last"
+              }
+            ],
+            "autoscale": true,
+            "precision": 0
+          },
+          "layout": {
+            "x": 47,
+            "y": 15,
+            "width": 47,
+            "height": 15
+          }
+        }
+      ]
+    }
+  ]
+}
