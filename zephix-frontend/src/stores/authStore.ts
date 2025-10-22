@@ -21,6 +21,7 @@ export interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isHydrated: boolean;
   error: string | null;
 
   // Actions
@@ -31,6 +32,7 @@ export interface AuthState {
   refreshAuthToken: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  setHydrated: (hydrated: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -42,6 +44,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      isHydrated: false,
       error: null,
 
       // Actions
@@ -63,7 +66,7 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           // This will be connected to the API client later
-          const response = await fetch('/api/auth/login', {
+          const response = await fetch('/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -77,20 +80,29 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await response.json();
           
+          // Handle the API response structure
+          const userData = data.data?.user || data.user;
+          const accessToken = data.data?.accessToken || data.accessToken;
+          const refreshToken = data.data?.refreshToken || data.refreshToken;
+          
           set({
-            user: data.user,
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
+            user: userData,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
             isAuthenticated: true,
             isLoading: false,
             error: null,
           });
+          
+          return true; // Return success
         } catch (error) {
           set({
             isLoading: false,
             error: error instanceof Error ? error.message : 'Login failed',
             isAuthenticated: false,
           });
+          
+          return false; // Return failure
         }
       },
 
@@ -112,7 +124,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/api/auth/refresh', {
+          const response = await fetch('/auth/refresh', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -145,6 +157,10 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
       },
+
+      setHydrated: (hydrated: boolean) => {
+        set({ isHydrated: hydrated });
+      },
     }),
     {
       name: 'zephix-auth-storage',
@@ -154,6 +170,9 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
     }
   )
 );

@@ -9,10 +9,10 @@ import { LoadingScreen } from '../common/LoadingScreen';
  * Redirects authenticated users away from auth pages to dashboard
  */
 export const PublicRoute: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, isHydrated } = useAuthStore();
 
-  // Show loading screen while checking authentication status
-  if (isLoading) {
+  // Show loading screen while checking authentication status or before hydration
+  if (isLoading || !isHydrated) {
     return <LoadingScreen />;
   }
 
@@ -22,7 +22,7 @@ export const PublicRoute: React.FC = () => {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && isAuthPage) {
-    const from = location.state?.from?.pathname || '/dashboard';
+    const from = location.state?.from?.pathname || '/hub';
     return <Navigate to={from} replace />;
   }
 

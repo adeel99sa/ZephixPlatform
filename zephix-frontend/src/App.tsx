@@ -12,18 +12,34 @@ import LandingPage from './pages/LandingPage';
 import { Skeleton } from './components/ui/feedback/Skeleton';
 
 // Lazy load main dashboard pages
-const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage'));
-const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage'));
-const ResourcesPage = lazy(() => import('./features/resources/pages/ResourcesPage'));
-const RisksPage = lazy(() => import('./features/risks/pages/RisksPage'));
-const KpiCatalogPage = lazy(() => import('./features/admin/kpis/pages/KpiCatalogPage'));
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
-const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const AIMappingPage = lazy(() => import('./pages/ai/AIMappingPage').then(m => ({ default: m.AIMappingPage })));
-const AISuggestionsPage = lazy(() => import('./pages/ai/AISuggestionsPage').then(m => ({ default: m.AISuggestionsPage })));
-const WorkflowsPage = lazy(() => import('./pages/workflows/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
-const TemplateHubPage = lazy(() => import('./pages/templates/TemplateHubPage').then(m => ({ default: m.TemplateHubPage })));
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(m => ({ default: m.default ?? m.DashboardPage })));
+const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage').then(m => ({ default: m.default ?? m.ProjectsPage })));
+const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage').then(m => ({ default: m.default ?? m.ProjectDetailPage })));
+const ResourcesPage = lazy(() => import('./features/resources/pages/ResourcesPage').then(m => ({ default: m.default ?? m.ResourcesPage })));
+const RisksPage = lazy(() => import('./features/risks/pages/RisksPage').then(m => ({ default: m.default ?? m.RisksPage })));
+const KpiCatalogPage = lazy(() => import('./features/admin/kpis/pages/KpiCatalogPage').then(m => ({ default: m.default ?? m.KpiCatalogPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.default ?? m.AnalyticsPage })));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then(m => ({ default: m.default ?? m.SettingsPage })));
+const AIMappingPage = lazy(() => import('./pages/ai/AIMappingPage').then(m => ({ default: m.default ?? m.AIMappingPage })));
+const AISuggestionsPage = lazy(() => import('./pages/ai/AISuggestionsPage').then(m => ({ default: m.default ?? m.AISuggestionsPage })));
+const WorkflowsPage = lazy(() => import('./pages/workflows/WorkflowsPage').then(m => ({ default: m.default ?? m.WorkflowsPage })));
+const TemplateHubPage = lazy(() => import('./pages/templates/TemplateHubPage').then(m => ({ default: m.default ?? m.TemplateHubPage })));
+const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage').then(m => ({ default: m.default ?? m.DiagnosticsPage })));
+const HubPage = lazy(() => import('./pages/hub/HubPage').then(m => ({ default: m.default ?? m.HubPage })));
+
+// Lazy load admin pages
+import AdminLayout from './pages/admin/AdminLayout';
+const AdminOrganizationPage = lazy(() => import('./pages/admin/OrganizationPage'));
+const AdminUsersPage         = lazy(() => import('./pages/admin/UsersPage'));
+const AdminRolesPage         = lazy(() => import('./pages/admin/RolesPage'));
+const AdminSecurityPage      = lazy(() => import('./pages/admin/SecurityPage'));
+const AdminWorkspacesPage    = lazy(() => import('./pages/admin/WorkspacesPage'));
+const AdminApiKeysPage       = lazy(() => import('./pages/admin/ApiKeysPage'));
+const AdminAuditLogsPage     = lazy(() => import('./pages/admin/AuditLogsPage'));
+const AdminBillingPage       = lazy(() => import('./pages/admin/BillingPage'));
+const AdminIntegrationsPage  = lazy(() => import('./pages/admin/IntegrationsPage'));
+const AdminKpisPage          = lazy(() => import('./pages/admin/KpisPage'));
+const AdminTemplatesPage     = lazy(() => import('./pages/admin/TemplatesPage'));
 
 // Loading fallback component
 const PageSkeleton = () => (
@@ -45,7 +61,7 @@ function App() {
         <Router>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Navigate to="/hub" replace />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -61,7 +77,9 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/projects" element={
+            <Route path="/projects" element={<Navigate to="/hub?view=projects" replace />} />
+            
+            <Route path="/projects/list" element={
               <ProtectedRoute>
                 <DashboardLayout>
                   <Suspense fallback={<PageSkeleton />}>
@@ -171,6 +189,46 @@ function App() {
                 </DashboardLayout>
               </ProtectedRoute>
             } />
+            
+            <Route path="/diagnostics" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Suspense fallback={<PageSkeleton />}>
+                    <DiagnosticsPage />
+                  </Suspense>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/hub" element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <Suspense fallback={<PageSkeleton />}>
+                    <HubPage />
+                  </Suspense>
+                </DashboardLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<AdminOrganizationPage />} />
+              <Route path="organization" element={<AdminOrganizationPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="roles" element={<AdminRolesPage />} />
+              <Route path="security" element={<AdminSecurityPage />} />
+              <Route path="workspaces" element={<AdminWorkspacesPage />} />
+              <Route path="api-keys" element={<AdminApiKeysPage />} />
+              <Route path="audit-logs" element={<AdminAuditLogsPage />} />
+              <Route path="billing" element={<AdminBillingPage />} />
+              <Route path="integrations" element={<AdminIntegrationsPage />} />
+              <Route path="kpis" element={<AdminKpisPage />} />
+              <Route path="templates" element={<AdminTemplatesPage />} />
+            </Route>
             
             {/* Catch all - redirect to landing page */}
             <Route path="*" element={<Navigate to="/" replace />} />

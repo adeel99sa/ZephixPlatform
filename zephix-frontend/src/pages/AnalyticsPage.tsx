@@ -419,3 +419,5 @@ export const AnalyticsPage: React.FC = () => {
     </div>
   );
 };
+
+export default AnalyticsPage;

@@ -15,7 +15,7 @@ export function useResourcesList(params: { search?: string; dept?: string; page:
   return useQuery({
     queryKey: ['resources', params],
     queryFn: async () => {
-      const res = await fetch(`/api/resources?${qs.toString()}`);
+      const res = await fetch(`/resources?${qs.toString()}`);
       if (!res.ok) throw new Error('Failed to load resources');
       return (await res.json()).data as ResourceList;
     },
@@ -27,7 +27,7 @@ export function useResourceAllocations(resourceId: string, weeks = 8) {
   return useQuery({
     queryKey: ['resource-allocs', resourceId, weeks],
     queryFn: async () => {
-      const res = await fetch(`/api/resources/${resourceId}/allocations?weeks=${weeks}`);
+      const res = await fetch(`/resources/${resourceId}/allocations?weeks=${weeks}`);
       if (!res.ok) throw new Error('Failed to load allocations');
       return (await res.json()).data as Array<{ week: string; pct: number }>;
     },

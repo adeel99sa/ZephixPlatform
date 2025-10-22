@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
+import { getErrorText } from '@/lib/api/errors';
 import { Card, CardBody, CardHeader } from '@/components/ui/card/Card';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import { ErrorBanner } from '@/components/ui/feedback/ErrorBanner';
@@ -42,7 +43,7 @@ export function PortfolioDashboard() {
     return (
       <div className="p-6">
         <ErrorBanner
-          description={error.message || 'Failed to load portfolio data'}
+          description={getErrorText(error)}
           onRetry={() => refetch()}
           retryLabel="Retry"
         />

@@ -34,10 +34,10 @@ export const LoginPage: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const returnUrl = location.state?.from?.pathname || '/dashboard';
+      const returnUrl = location.state?.from?.pathname || '/hub';
       navigate(returnUrl, { replace: true });
     }
-  }, [isAuthenticated, navigate, location.state]);
+  }, [isAuthenticated, navigate, location.state?.from?.pathname]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
         
         // Redirect after success message
         setTimeout(() => {
-          const returnUrl = location.state?.from?.pathname || '/dashboard';
+          const returnUrl = location.state?.from?.pathname || '/hub';
           navigate(returnUrl);
         }, 1500);
       }

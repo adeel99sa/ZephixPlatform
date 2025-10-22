@@ -20,6 +20,9 @@ export interface UIState {
   // Theme state
   theme: 'light' | 'dark' | 'system';
   
+  // Workspace state
+  workspaceId: string;
+  
   // Toast notifications
   toastQueue: Toast[];
   
@@ -34,6 +37,8 @@ export interface UIState {
   toggleSidebar: () => void;
   
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  
+  setWorkspaceId: (id: string) => void;
   
   addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
@@ -50,6 +55,7 @@ export const useUIStore = create<UIState>()(
       // Initial state
       sidebarOpen: true,
       theme: 'system',
+      workspaceId: 'ws-1',
       toastQueue: [],
       globalLoading: false,
       activeModal: null,
@@ -81,6 +87,10 @@ export const useUIStore = create<UIState>()(
             root.classList.remove('dark');
           }
         }
+      },
+
+      setWorkspaceId: (id: string) => {
+        set({ workspaceId: id });
       },
 
       addToast: (toast: Omit<Toast, 'id'>) => {
@@ -126,6 +136,7 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
+        workspaceId: state.workspaceId,
       }),
     }
   )
