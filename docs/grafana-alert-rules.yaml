@@ -1,0 +1,117 @@
+groups:
+  - name: zephix-frontend
+    rules:
+      # S1/S2 Critical Alerts
+      - alert: FrontendHealthDown
+        expr: up{job="zephix-frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: zephix-frontend
+        annotations:
+          summary: "Zephix frontend health check failing"
+          description: "Frontend health endpoint has been down for more than 2 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/frontend-health"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="zephix-frontend",status=~"5.."}[5m]) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+          service: zephix-frontend
+        annotations:
+          summary: "High 5xx error rate detected"
+          description: "5xx error rate is {{ $value | humanizePercentage }} for more than 5 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/error-rate"
+
+      - alert: LoginSuccessRateLow
+        expr: rate(auth_login_total{outcome="success"}[5m]) / rate(auth_login_total[5m]) < 0.95
+        for: 10m
+        labels:
+          severity: critical
+          service: zephix-frontend
+        annotations:
+          summary: "Login success rate below 95%"
+          description: "Login success rate is {{ $value | humanizePercentage }} for more than 10 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/auth-issues"
+
+      # S3 Warning Alerts
+      - alert: ResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="zephix-frontend"}[5m])) > 4.5
+        for: 15m
+        labels:
+          severity: warning
+          service: zephix-frontend
+        annotations:
+          summary: "P95 response time above 4.5s"
+          description: "P95 response time is {{ $value }}s for more than 15 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/performance"
+
+      - alert: ClientErrorRateHigh
+        expr: rate(http_requests_total{job="zephix-frontend",status=~"4.."}[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: zephix-frontend
+        annotations:
+          summary: "High 4xx error rate detected"
+          description: "4xx error rate is {{ $value | humanizePercentage }} for more than 10 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/client-errors"
+
+      - alert: TokenRefreshFailures
+        expr: rate(auth_refresh_total{outcome="failure"}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: zephix-frontend
+        annotations:
+          summary: "Token refresh failure rate above 1%"
+          description: "Token refresh failure rate is {{ $value | humanizePercentage }} for more than 5 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/token-refresh"
+
+      # S4 Info Alerts
+      - alert: SLOAvailabilityBreach
+        expr: (rate(http_requests_total{job="zephix-frontend",status=~"2.."}[4h]) / rate(http_requests_total{job="zephix-frontend"}[4h])) < 0.995
+        for: 0m
+        labels:
+          severity: info
+          service: zephix-frontend
+        annotations:
+          summary: "SLO availability below 99.5%"
+          description: "4-hour availability is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.zephix.com/runbooks/slo-breach"
+
+      - alert: RateOfChangeSpike
+        expr: (rate(http_requests_total{job="zephix-frontend",status=~"5.."}[5m]) / rate(http_requests_total{job="zephix-frontend",status=~"5.."}[5m] offset 15m)) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service: zephix-frontend
+        annotations:
+          summary: "5xx error rate spike detected"
+          description: "5xx error rate increased by {{ $value | humanize }}x in the last 15 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/error-spike"
+
+  - name: zephix-backend
+    rules:
+      - alert: BackendHealthDown
+        expr: up{job="zephix-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: zephix-backend
+        annotations:
+          summary: "Zephix backend health check failing"
+          description: "Backend health endpoint has been down for more than 2 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/backend-health"
+
+      - alert: DatabaseConnectionIssues
+        expr: rate(database_connections_failed_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: zephix-backend
+        annotations:
+          summary: "Database connection failures detected"
+          description: "Database connection failure rate is {{ $value }} failures/sec for more than 5 minutes"
+          runbook_url: "https://docs.zephix.com/runbooks/database-issues"
