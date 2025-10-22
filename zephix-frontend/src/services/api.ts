@@ -1,5 +1,12 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
+// Get API base URL
+export const getApiBase = (): string => {
+  return import.meta.env.PROD
+    ? (import.meta.env.VITE_API_BASE_URL ?? 'https://zephix-backend-production.up.railway.app/api')
+    : '/api';
+};
+
 /**
  * Enterprise API Client
  * 

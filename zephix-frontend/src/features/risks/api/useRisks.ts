@@ -13,7 +13,7 @@ export function useRisksList(q: { projectId?: string; severity?: string; status?
   return useQuery({
     queryKey: ['risks', q],
     queryFn: async () => {
-      const res = await fetch(`/api/risks?${qs.toString()}`);
+      const res = await fetch(`/risks?${qs.toString()}`);
       if (!res.ok) throw new Error('Failed to load risks');
       return (await res.json()).data as { items: Risk[]; total: number };
     }
@@ -23,7 +23,7 @@ export function useRisksList(q: { projectId?: string; severity?: string; status?
 export function useBulkAssign() {
   return useMutation({
     mutationFn: async (payload: { ids: string[]; owner: string }) => {
-      const res = await fetch(`/api/risks/bulk-assign`, { method: 'PATCH', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) });
+      const res = await fetch(`/risks/bulk-assign`, { method: 'PATCH', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error('Bulk assign failed');
       return (await res.json()).data;
     }

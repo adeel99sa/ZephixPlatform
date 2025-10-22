@@ -2,13 +2,31 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } f
 
 import { ApiResponse, StandardError, ApiClientConfig } from './types';
 
+// Helper: normalize to exactly one "/api" prefix (same-origin)
+const isAbsoluteHttp = (u?: string) => !!u && /^https?:\/\//i.test(u);
+
+const normalizeApiPath = (u?: string) => {
+  if (!u) return u;
+  if (isAbsoluteHttp(u)) return u;                  // leave full URLs alone
+  let url = u.trim();
+
+  // collapse accidental double prefixes
+  if (url.startsWith('/api/api/')) url = url.replace(/^\/api\/api\//, '/api/');
+  if (url.startsWith('api/api/'))  url = '/' + url.replace(/^api\/api\//, 'api/');
+
+  // ensure exactly one /api/ prefix
+  if (url.startsWith('/api/')) return url;          // good
+  if (url.startsWith('api/'))  return '/' + url;    // add leading slash
+  if (url.startsWith('/'))     return '/api' + url; // /x -> /api/x
+  return '/api/' + url;                              // x -> /api/x
+};
+
 class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
 
   constructor() {
     this.config = {
-      baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
       timeout: 10000,
       retries: 3,
       retryDelay: 1000,
@@ -18,7 +36,10 @@ class ApiClient {
       },
     };
 
-    this.instance = axios.create(this.config);
+    // Build the axios instance WITHOUT a baseURL so our interceptor is source of truth
+    this.instance = axios.create({
+      withCredentials: true,
+    });
     this.setupInterceptors();
   }
 
@@ -26,6 +47,9 @@ class ApiClient {
     // Request interceptor
     this.instance.interceptors.request.use(
       (config) => {
+        // Normalize URL to exactly one /api prefix
+        config.url = normalizeApiPath(config.url);
+
         // Add JWT token from auth store
         const token = this.getAuthToken();
         if (token) {
@@ -40,6 +64,10 @@ class ApiClient {
         if (orgId) {
           config.headers['x-organization-id'] = orgId;
         }
+
+        // Add workspace context (future-proofing)
+        const workspaceId = this.getWorkspaceId();
+        config.headers['x-workspace-id'] = workspaceId || 'default';
 
         return config;
       },
@@ -99,6 +127,20 @@ class ApiClient {
   private getOrganizationId(): string | null {
     // This will be connected to the organization context later
     return localStorage.getItem('organization_id');
+  }
+
+  private getWorkspaceId(): string | null {
+    // Get workspace ID from UI store
+    try {
+      const uiStorage = localStorage.getItem('zephix-ui-storage');
+      if (uiStorage) {
+        const { state } = JSON.parse(uiStorage);
+        return state?.workspaceId || null;
+      }
+    } catch (error) {
+      console.warn('Failed to get workspace ID from storage:', error);
+    }
+    return null;
   }
 
   private generateRequestId(): string {

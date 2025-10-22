@@ -9,12 +9,12 @@ export default function KpiCatalogPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch('/api/admin/kpis');
+    const res = await fetch('/admin/kpis');
     setItems((await res.json()).data);
     setLoading(false);
   }
   async function create() {
-    const res = await fetch('/api/admin/kpis', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, calcType }) });
+    const res = await fetch('/admin/kpis', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name, calcType }) });
     if (res.ok) load();
   }
 

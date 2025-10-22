@@ -12,6 +12,7 @@ import { FormGroup } from '../../components/ui/form/FormGroup';
 import { Tabs, TabItem } from '../../components/ui/overlay/Tabs';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
 import { apiClient } from '../../lib/api/client';
+import { getErrorText } from '../../lib/api/errors';
 import { useUIStore } from '../../stores/uiStore';
 
 interface OrganizationSettings {
@@ -81,6 +82,13 @@ export const SettingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { addToast } = useUIStore();
 
+  // Feature flags for settings sections
+  const features = { 
+    hasOrgProfile: true, 
+    hasUserSettings: true, 
+    hasSecurity: false // Disable until backend endpoint is ready
+  };
+
   // Fetch organization settings
   const {
     data: organizationData,
@@ -90,7 +98,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['organization-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<OrganizationSettings>('/api/settings/organization');
+      const response = await apiClient.get<OrganizationSettings>('/admin/profile');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -105,7 +113,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['user-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<UserSettings>('/api/settings/user');
+      const response = await apiClient.get<UserSettings>('/users/me');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -120,7 +128,7 @@ export const SettingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['security-settings'],
     queryFn: async () => {
-      const response = await apiClient.get<SecuritySettings>('/api/settings/security');
+      const response = await apiClient.get<SecuritySettings>('/admin/security');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -129,7 +137,7 @@ export const SettingsPage: React.FC = () => {
   // Update organization settings mutation
   const updateOrgMutation = useMutation({
     mutationFn: async (settings: Partial<OrganizationSettings>) => {
-      const response = await apiClient.patch('/api/settings/organization', settings);
+      const response = await apiClient.patch('/admin/profile', settings);
       return response.data;
     },
     onSuccess: () => {
@@ -152,7 +160,7 @@ export const SettingsPage: React.FC = () => {
   // Update user settings mutation
   const updateUserMutation = useMutation({
     mutationFn: async (settings: Partial<UserSettings>) => {
-      const response = await apiClient.patch('/api/settings/user', settings);
+      const response = await apiClient.patch('/users/me', settings);
       return response.data;
     },
     onSuccess: () => {
@@ -175,7 +183,7 @@ export const SettingsPage: React.FC = () => {
   // Update security settings mutation
   const updateSecurityMutation = useMutation({
     mutationFn: async (settings: Partial<SecuritySettings>) => {
-      const response = await apiClient.patch('/api/settings/security', settings);
+      const response = await apiClient.patch('/admin/security', settings);
       return response.data;
     },
     onSuccess: () => {
@@ -212,7 +220,7 @@ export const SettingsPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <PageHeader title="Settings" description="Manage your application settings" />
         <ErrorBanner
-          description={error.message || 'Failed to load settings'}
+          description={getErrorText(error)}
           onRetry={() => { refetchOrg(); refetchUser(); refetchSecurity(); }}
           retryLabel="Retry"
         />
@@ -231,7 +239,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   const tabItems: TabItem[] = [
-    {
+    ...(features.hasOrgProfile ? [{
       id: 'organization',
       label: 'Organization',
       content: (
@@ -301,8 +309,8 @@ export const SettingsPage: React.FC = () => {
           </Button>
         </form>
       ),
-    },
-    {
+    }] : []),
+    ...(features.hasUserSettings ? [{
       id: 'account',
       label: 'Account',
       content: (
@@ -391,8 +399,8 @@ export const SettingsPage: React.FC = () => {
           </Button>
         </form>
       ),
-    },
-    {
+    }] : []),
+    ...(features.hasSecurity ? [{
       id: 'security',
       label: 'Security',
       content: (
@@ -444,7 +452,7 @@ export const SettingsPage: React.FC = () => {
           </Button>
         </form>
       ),
-    },
+    }] : []),
   ];
 
   return (
@@ -457,3 +465,5 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 };
+
+export default SettingsPage;

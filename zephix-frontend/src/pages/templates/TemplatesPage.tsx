@@ -45,7 +45,7 @@ export const TemplatesPage: React.FC = () => {
   } = useQuery({
     queryKey: ['templates'],
     queryFn: async () => {
-      const response = await apiClient.get<{ templates: Template[] }>('/api/templates');
+      const response = await apiClient.get<{ templates: Template[] }>('/templates');
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
