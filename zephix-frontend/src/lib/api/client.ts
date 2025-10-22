@@ -80,8 +80,11 @@ class ApiClient {
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-        // Handle 401 - try to refresh token
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Handle 401 - try to refresh token (but not on auth routes)
+        const isAuthRoute = (url: string) => 
+          url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout');
+        
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute(originalRequest.url ?? '')) {
           originalRequest._retry = true;
           
           try {

@@ -1,17 +1,14 @@
 name: ci
-on:
-pull_request:
-push:
+on: [push, pull_request]
 jobs:
-guardrails:
-runs-on: ubuntu-latest
-defaults:
-run:
-working-directory: zephix-frontend
-steps:
-- uses: actions/checkout@v4
-- uses: actions/setup-node@v4
-with:
-node-version: '20'
-- run: npm ci
-- run: bash scripts/ci-guardrails.sh
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - run: cd zephix-frontend && npm ci
+      - run: cd zephix-frontend && npm run build
+      - run: cd zephix-frontend && npm run test:guardrails
+      - uses: microsoft/playwright-github-action@v1
+      - run: cd zephix-frontend && npm run test:smoke
