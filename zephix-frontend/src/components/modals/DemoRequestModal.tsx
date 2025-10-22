@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, AlertCircle } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 interface DemoRequestModalProps {
   isOpen: boolean;
@@ -39,22 +40,9 @@ export const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onCl
 
     try {
       // Call the backend API
-      const response = await fetch('/api/demo-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to submit demo request' }));
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('Demo request submitted:', result);
+      await apiClient.post('/demo-requests', formData);
       
+      console.log('Demo request submitted successfully');
       setIsSubmitted(true);
       setTimeout(() => {
         onClose();

@@ -224,11 +224,7 @@ export class SecurityMiddleware {
     if (import.meta.env.PROD) {
       try {
         // TODO: Implement monitoring service integration
-        // await fetch('/api/security/events', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(event),
-        // });
+        // await apiClient.post('/security/events', event);
       } catch (error) {
         console.error('Failed to send security event to monitoring service:', error);
       }

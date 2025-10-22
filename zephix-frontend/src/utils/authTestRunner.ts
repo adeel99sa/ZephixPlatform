@@ -6,6 +6,7 @@
 import { authApi } from '../services/api';
 import { securityTester } from './securityTest';
 import { securityMiddleware } from '../middleware/security.middleware';
+import { apiClient } from '../lib/api/client';
 
 export interface AuthTestResult {
   testName: string;
@@ -90,8 +91,8 @@ export class AuthTestRunner {
       console.log('🔌 Testing backend connectivity...');
       
       // Test health endpoint
-      const response = await fetch(`${this.baseUrl}/health`);
-      const isHealthy = response.ok;
+      const response = await apiClient.get('/health');
+      const isHealthy = response.status < 400;
       
       const duration = Date.now() - startTime;
       
@@ -99,7 +100,7 @@ export class AuthTestRunner {
         testName: 'Backend Connectivity - Health Check',
         passed: isHealthy,
         details: `Health endpoint responded with status ${response.status}`,
-        response: { status: response.status, ok: response.ok },
+        response: { status: response.status, ok: isHealthy },
         timestamp: new Date().toISOString(),
         duration,
       });
@@ -141,12 +142,11 @@ export class AuthTestRunner {
       
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: 'OPTIONS',
+          const response = await apiClient.get(endpoint, {
             headers: { 'Origin': window.location.origin }
           });
           
-          const isValid = response.ok || response.status === 405; // 405 Method Not Allowed is acceptable
+          const isValid = response.status < 400 || response.status === 405; // 405 Method Not Allowed is acceptable
           endpointResults.push({ endpoint, isValid, status: response.status });
           
           if (!isValid) {
