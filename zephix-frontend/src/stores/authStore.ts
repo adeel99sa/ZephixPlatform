@@ -27,12 +27,15 @@ export interface AuthState {
   // Actions
   setTokens: (accessToken: string, refreshToken: string) => void;
   setUser: (user: User) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   refreshAuthToken: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   setHydrated: (hydrated: boolean) => void;
+  getCurrentUser: () => Promise<User | null>;
+  checkAuth: () => Promise<boolean>;
+  signup: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -65,25 +68,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          // This will be connected to the API client later
-          const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Login failed');
-          }
-
-          const data = await response.json();
+          // Use the API client for proper path normalization
+          const { apiClient } = await import('@/lib/api/client');
+          const response = await apiClient.post('/auth/login', { email, password });
           
           // Handle the API response structure
-          const userData = data.data?.user || data.user;
-          const accessToken = data.data?.accessToken || data.accessToken;
-          const refreshToken = data.data?.refreshToken || data.refreshToken;
+          const userData = response.data?.user || response.user;
+          const accessToken = response.data?.accessToken || response.accessToken;
+          const refreshToken = response.data?.refreshToken || response.refreshToken;
           
           set({
             user: userData,
@@ -124,23 +116,13 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('/auth/refresh', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ refreshToken }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Token refresh failed');
-          }
-
-          const data = await response.json();
+          // Use the API client for proper path normalization
+          const { apiClient } = await import('@/lib/api/client');
+          const response = await apiClient.post('/auth/refresh', { refreshToken });
           
           set({
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
+            accessToken: response.data?.accessToken || response.accessToken,
+            refreshToken: response.data?.refreshToken || response.refreshToken,
             isAuthenticated: true,
           });
         } catch (error) {
@@ -160,6 +142,49 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: (hydrated: boolean) => {
         set({ isHydrated: hydrated });
+      },
+
+      getCurrentUser: async () => {
+        const { user } = get();
+        return user;
+      },
+
+      checkAuth: async () => {
+        const { accessToken, user } = get();
+        return !!(accessToken && user);
+      },
+
+      signup: async (email: string, password: string, firstName: string, lastName: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          // Use the API client for proper path normalization
+          const { apiClient } = await import('@/lib/api/client');
+          const response = await apiClient.post('/auth/signup', { email, password, firstName, lastName });
+          
+          const userData = response.data?.user || response.user;
+          const accessToken = response.data?.accessToken || response.accessToken;
+          const refreshToken = response.data?.refreshToken || response.refreshToken;
+          
+          set({
+            user: userData,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+          });
+          
+          return true;
+        } catch (error) {
+          set({
+            isLoading: false,
+            error: error instanceof Error ? error.message : 'Signup failed',
+            isAuthenticated: false,
+          });
+          
+          return false;
+        }
       },
     }),
     {

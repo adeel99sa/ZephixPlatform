@@ -120,8 +120,17 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    // This will be connected to the auth store later
-    return localStorage.getItem('auth_token');
+    // Get token from auth store
+    try {
+      const authStorage = localStorage.getItem('zephix-auth-storage');
+      if (authStorage) {
+        const { state } = JSON.parse(authStorage);
+        return state?.accessToken || null;
+      }
+    } catch (error) {
+      console.warn('Failed to get auth token from storage:', error);
+    }
+    return null;
   }
 
   private getOrganizationId(): string | null {
@@ -148,22 +157,42 @@ class ApiClient {
   }
 
   private async refreshToken(): Promise<void> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
+    // Get refresh token from auth store
+    try {
+      const authStorage = localStorage.getItem('zephix-auth-storage');
+      if (!authStorage) {
+        throw new Error('No auth storage found');
+      }
+      
+      const { state } = JSON.parse(authStorage);
+      const refreshToken = state?.refreshToken;
+      
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await axios.post('/api/auth/refresh', {
+        refreshToken,
+      });
+
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
+      
+      // Update auth store with new tokens
+      const updatedState = {
+        ...state,
+        accessToken,
+        refreshToken: newRefreshToken || refreshToken,
+      };
+      localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
+    } catch (error) {
+      console.warn('Failed to refresh token:', error);
+      throw error;
     }
-
-    const response = await axios.post('/api/auth/refresh', {
-      refreshToken,
-    });
-
-    const { accessToken } = response.data;
-    localStorage.setItem('auth_token', accessToken);
   }
 
   private handleAuthFailure(): void {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
+    // Clear auth store
+    localStorage.removeItem('zephix-auth-storage');
     // Redirect to login page
     window.location.href = '/login';
   }
