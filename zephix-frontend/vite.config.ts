@@ -35,5 +35,11 @@ export default defineConfig({
       'getzephix.com',
       'www.getzephix.com'
     ]
-  }
+  },
+  define: {
+    // Inject build-time environment variables
+    'import.meta.env.VITE_GIT_HASH': JSON.stringify(process.env.VITE_GIT_HASH || 'unknown'),
+    'import.meta.env.VITE_BUILD_TAG': JSON.stringify(process.env.VITE_BUILD_TAG || 'dev'),
+    'import.meta.env.VITE_BUILD_TIME': JSON.stringify(process.env.VITE_BUILD_TIME || new Date().toISOString()),
+  },
 })

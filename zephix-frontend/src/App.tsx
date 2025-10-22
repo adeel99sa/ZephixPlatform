@@ -9,6 +9,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AuthProvider } from './components/auth/AuthProvider';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
+import HealthPage from './pages/HealthPage';
 import { Skeleton } from './components/ui/feedback/Skeleton';
 
 // Lazy load main dashboard pages
@@ -66,6 +67,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/health" element={<HealthPage />} />
             
             {/* Protected Dashboard Routes */}
             <Route path="/dashboard" element={

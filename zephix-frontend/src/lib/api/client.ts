@@ -58,6 +58,12 @@ class ApiClient {
 
         // Add request ID for tracking
         config.headers['x-request-id'] = this.generateRequestId();
+        
+        // Add correlation ID for observability
+        config.headers['x-correlation-id'] = this.generateCorrelationId();
+        
+        // Add timing metadata for telemetry
+        config.metadata = { startTime: Date.now() };
 
         // Add organization header (stub for now)
         const orgId = this.getOrganizationId();
@@ -76,7 +82,22 @@ class ApiClient {
 
     // Response interceptor
     this.instance.interceptors.response.use(
-      (response: AxiosResponse) => response,
+      (response: AxiosResponse) => {
+        // Telemetry sampling (1% of requests)
+        if (Math.random() < 0.01) {
+          const endTime = Date.now();
+          const startTime = response.config.metadata?.startTime || endTime;
+          this.sendTelemetryMetric('http_timing', {
+            url: response.config.url,
+            method: response.config.method,
+            status: response.status,
+            duration: endTime - startTime,
+            correlationId: response.config.headers?.['x-correlation-id'],
+            requestId: response.config.headers?.['x-request-id'],
+          });
+        }
+        return response;
+      },
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
@@ -157,6 +178,27 @@ class ApiClient {
 
   private generateRequestId(): string {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateCorrelationId(): string {
+    return `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private sendTelemetryMetric(metricName: string, data: Record<string, any>): void {
+    // In production, send to your monitoring service
+    if (import.meta.env.PROD) {
+      // TODO: Replace with your actual telemetry service
+      // Example: send to DataDog, New Relic, or custom endpoint
+      console.log(`[TELEMETRY] ${metricName}:`, {
+        ...data,
+        timestamp: new Date().toISOString(),
+        buildTag: import.meta.env.VITE_BUILD_TAG,
+        gitHash: import.meta.env.VITE_GIT_HASH,
+      });
+      
+      // Example implementation:
+      // apiClient.post('/telemetry', { metric: metricName, data }).catch(() => {}); // Silent fail
+    }
   }
 
   private async refreshToken(): Promise<void> {

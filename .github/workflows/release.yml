@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for git hash
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: |
+          cd zephix-frontend
+          pnpm i --frozen-lockfile
+
+      - name: Build with version info
+        run: |
+          cd zephix-frontend
+          # Set build-time environment variables
+          export VITE_GIT_HASH=$(git rev-parse --short HEAD)
+          export VITE_BUILD_TAG=${GITHUB_REF_NAME:-dev}
+          export VITE_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          pnpm build
+
+      - name: Create release artifact
+        run: |
+          cd zephix-frontend
+          tar czf ../zephix-frontend-${{ github.ref_name }}.tgz dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zephix-frontend-${{ github.ref_name }}.tgz
+          generate_release_notes: true
+          body: |
+            ## Zephix Frontend Release ${{ github.ref_name }}
+            
+            **Build Info:**
+            - Git Hash: `${{ github.sha }}`
+            - Build Time: `${{ github.run_started_at }}`
+            - Tag: `${{ github.ref_name }}`
+            
+            **Installation:**
+            1. Extract the tarball: `tar xzf zephix-frontend-${{ github.ref_name }}.tgz`
+            2. Deploy the `dist/` folder to your hosting/CDN
+            3. Configure SPA fallback to `/index.html`
+            
+            **Verification:**
+            - Run post-deploy checks from `docs/GO-LIVE-CHECKLIST.md`
+            - Verify health endpoint at `/api/health/frontend`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
