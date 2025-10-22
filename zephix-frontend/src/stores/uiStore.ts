@@ -141,3 +141,8 @@ export const useUIStore = create<UIState>()(
     }
   )
 );
+
+// 🔧 Compat selectors (shim names some components expect):
+export const selectIsSidebarOpen = (s: UIState) => s.sidebarOpen;
+export const selectOpenSidebar   = (s: UIState) => s.setSidebarOpen;
+export const selectCloseSidebar  = (s: UIState) => s.setSidebarOpen;
