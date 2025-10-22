@@ -29,6 +29,7 @@ const HubPage = lazy(() => import('./pages/hub/HubPage').then(m => ({ default: m
 
 // Lazy load admin pages
 import AdminLayout from './pages/admin/AdminLayout';
+import { adminFlags } from './config/features';
 const AdminOrganizationPage = lazy(() => import('./pages/admin/OrganizationPage'));
 const AdminUsersPage         = lazy(() => import('./pages/admin/UsersPage'));
 const AdminRolesPage         = lazy(() => import('./pages/admin/RolesPage'));
@@ -220,14 +221,14 @@ function App() {
               <Route path="organization" element={<AdminOrganizationPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="roles" element={<AdminRolesPage />} />
-              <Route path="security" element={<AdminSecurityPage />} />
-              <Route path="workspaces" element={<AdminWorkspacesPage />} />
-              <Route path="api-keys" element={<AdminApiKeysPage />} />
-              <Route path="audit-logs" element={<AdminAuditLogsPage />} />
-              <Route path="billing" element={<AdminBillingPage />} />
-              <Route path="integrations" element={<AdminIntegrationsPage />} />
-              <Route path="kpis" element={<AdminKpisPage />} />
-              <Route path="templates" element={<AdminTemplatesPage />} />
+              {adminFlags.security && <Route path="security" element={<AdminSecurityPage />} />}
+              {adminFlags.workspaces && <Route path="workspaces" element={<AdminWorkspacesPage />} />}
+              {adminFlags.apiKeys && <Route path="api-keys" element={<AdminApiKeysPage />} />}
+              {adminFlags.auditLogs && <Route path="audit-logs" element={<AdminAuditLogsPage />} />}
+              {adminFlags.billing && <Route path="billing" element={<AdminBillingPage />} />}
+              {adminFlags.integrations && <Route path="integrations" element={<AdminIntegrationsPage />} />}
+              {adminFlags.kpis && <Route path="kpis" element={<AdminKpisPage />} />}
+              {adminFlags.templates && <Route path="templates" element={<AdminTemplatesPage />} />}
             </Route>
             
             {/* Catch all - redirect to landing page */}

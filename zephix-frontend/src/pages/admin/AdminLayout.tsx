@@ -1,19 +1,22 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { Suspense } from 'react';
+import { adminFlags } from '@/config/features';
 
-const links = [
-  { to: '/admin/organization', label: 'Organization' },
-  { to: '/admin/users', label: 'Users' },
-  { to: '/admin/roles', label: 'Roles & Permissions' },
-  { to: '/admin/security', label: 'Security Policies' },
-  { to: '/admin/workspaces', label: 'Workspaces' },
-  { to: '/admin/api-keys', label: 'API Keys' },
-  { to: '/admin/audit-logs', label: 'Audit Logs' },
-  { to: '/admin/billing', label: 'Billing & Plans' },
-  { to: '/admin/integrations', label: 'Integrations' },
-  { to: '/admin/kpis', label: 'KPI Catalog' },
-  { to: '/admin/templates', label: 'Templates Library' },
+const allLinks = [
+  { to: '/admin/organization', label: 'Organization', flag: true },
+  { to: '/admin/users', label: 'Users', flag: true },
+  { to: '/admin/roles', label: 'Roles & Permissions', flag: true },
+  { to: '/admin/security', label: 'Security Policies', flag: adminFlags.security },
+  { to: '/admin/workspaces', label: 'Workspaces', flag: adminFlags.workspaces },
+  { to: '/admin/api-keys', label: 'API Keys', flag: adminFlags.apiKeys },
+  { to: '/admin/audit-logs', label: 'Audit Logs', flag: adminFlags.auditLogs },
+  { to: '/admin/billing', label: 'Billing & Plans', flag: adminFlags.billing },
+  { to: '/admin/integrations', label: 'Integrations', flag: adminFlags.integrations },
+  { to: '/admin/kpis', label: 'KPI Catalog', flag: adminFlags.kpis },
+  { to: '/admin/templates', label: 'Templates Library', flag: adminFlags.templates },
 ];
+
+const links = allLinks.filter(link => link.flag);
 
 export default function AdminLayout() {
   return (

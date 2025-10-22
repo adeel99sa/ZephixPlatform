@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { getErrorText } from '@/lib/api/errors';
 
 type AdminUser = { id: string; email: string; firstName?: string; lastName?: string; role: string; isActive: boolean };
 
@@ -10,7 +11,7 @@ export default function UsersPage() {
   });
 
   if (isLoading) return <div>Loading users…</div>;
-  if (error) return <div className="text-red-600">{fmt(error)}</div>;
+  if (error) return <div className="text-red-600">{getErrorText(error)}</div>;
   const items = data?.items ?? [];
 
   return (
@@ -42,4 +43,3 @@ export default function UsersPage() {
     </div>
   );
 }
-function fmt(e: unknown){return e instanceof Error?e.message:typeof e==='string'?e:JSON.stringify(e)}
