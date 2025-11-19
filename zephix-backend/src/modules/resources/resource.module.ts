@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
@@ -18,6 +18,7 @@ import { ResponseService } from '../../shared/services/response.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
+import { WorkspacesModule } from '../workspaces/workspaces.module';
 
 @Module({
   imports: [
@@ -31,8 +32,7 @@ import { Workspace } from '../workspaces/entities/workspace.entity';
       Project,
       Workspace,
     ]),
-    // Removed WorkspacesModule to avoid circular dependency
-    // Workspace entity is available via TypeOrmModule.forFeature above
+    forwardRef(() => WorkspacesModule), // Required for WorkspaceAccessService injection
   ],
   providers: [
     ResourceAllocationService,
