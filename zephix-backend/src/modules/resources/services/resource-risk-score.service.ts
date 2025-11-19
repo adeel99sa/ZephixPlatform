@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
 import { Resource } from '../entities/resource.entity';
@@ -42,6 +42,7 @@ export class ResourceRiskScoreService {
     private projectRepository: Repository<Project>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
+    @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
