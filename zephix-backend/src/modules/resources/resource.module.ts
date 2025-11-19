@@ -18,7 +18,6 @@ import { ResponseService } from '../../shared/services/response.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
-import { WorkspacesModule } from '../workspaces/workspaces.module';
 
 @Module({
   imports: [
@@ -32,7 +31,8 @@ import { WorkspacesModule } from '../workspaces/workspaces.module';
       Project,
       Workspace,
     ]),
-    WorkspacesModule, // Provides WorkspaceAccessService for membership filtering
+    // Removed WorkspacesModule to avoid circular dependency
+    // Workspace entity is available via TypeOrmModule.forFeature above
   ],
   providers: [
     ResourceAllocationService,
