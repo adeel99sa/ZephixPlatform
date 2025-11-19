@@ -1,5 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { RefreshToken } from '../../auth/entities/refresh-token.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+// import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 import { Task } from '../../projects/entities/task.entity';
 
 @Entity('users')
@@ -7,17 +14,18 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ name: 'email', unique: true })
   email: string;
 
-  @Column()
+  @Column({ name: 'password' })
   password: string;
 
-  @Column({ name: 'first_name' })
-  firstName: string;
+  // 👇 Explicitly map snake_case DB columns to camelCase properties
+  @Column({ name: 'first_name', nullable: true })
+  firstName: string | null;
 
-  @Column({ name: 'last_name' })
-  lastName: string;
+  @Column({ name: 'last_name', nullable: true })
+  lastName: string | null;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
@@ -64,18 +72,26 @@ export class User {
   @Column({ name: 'password_reset_token', nullable: true })
   passwordResetToken: string;
 
-  @Column({ name: 'last_password_change', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    name: 'last_password_change',
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   lastPasswordChange: Date;
 
-  @Column({ name: 'email_verification_expires', nullable: true, type: 'timestamp' })
+  @Column({
+    name: 'email_verification_expires',
+    nullable: true,
+    type: 'timestamp',
+  })
   emailVerificationExpires: Date;
 
   @Column({ name: 'password_reset_expires', nullable: true, type: 'timestamp' })
   passwordResetExpires: Date;
 
-  @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
-  refreshTokens: RefreshToken[];
+  // @OneToMany(() => RefreshToken, refreshToken => refreshToken.user)
+  // refreshTokens: RefreshToken[];
 
-  @OneToMany(() => Task, task => task.assignee)
+  @OneToMany(() => Task, (task) => task.assignee)
   assignedTasks: Task[];
 }

@@ -1,11 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, DataSource, Like } from 'typeorm';
+import { Repository, Between, DataSource, Like, In } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { Task } from '../tasks/entities/task.entity';
+import { Project } from '../projects/entities/project.entity';
+import { WorkspaceAccessService } from '../workspaces/services/workspace-access.service';
 
 @Injectable()
 export class ResourcesService {
@@ -16,10 +24,25 @@ export class ResourcesService {
     private resourceAllocationRepository: Repository<ResourceAllocation>,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
+    @InjectRepository(Project)
+    private projectRepository: Repository<Project>,
     private dataSource: DataSource,
+    @Inject(forwardRef(() => WorkspaceAccessService))
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
-  async findAll(organizationId?: string): Promise<any> {
+  async findAll(
+    organizationId?: string,
+    userId?: string,
+    userRole?: string,
+    filters?: {
+      skills?: string[];
+      roles?: string[];
+      workspaceId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    },
+  ): Promise<any> {
     try {
       // If no organizationId, return empty array (don't crash)
       if (!organizationId) {
@@ -33,16 +56,110 @@ export class ResourcesService {
         return { data: [] };
       }
 
-      // Simple query with error handling
-      const resources = await this.resourceRepository.find({
-        where: { organizationId },
-        order: { createdAt: 'DESC' }
-      }).catch(err => {
+      // Get accessible workspace IDs (respects feature flag)
+      const accessibleWorkspaceIds =
+        await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        );
+
+      // If workspace membership is enforced and user has no accessible workspaces
+      if (
+        accessibleWorkspaceIds !== null &&
+        accessibleWorkspaceIds.length === 0
+      ) {
+        return { data: [] };
+      }
+
+      // Build query builder for flexible filtering
+      const queryBuilder = this.resourceRepository
+        .createQueryBuilder('resource')
+        .where('resource.organizationId = :organizationId', { organizationId })
+        .andWhere('resource.isActive = :isActive', { isActive: true });
+
+      // Filter by skills (JSONB array contains all requested skills)
+      if (filters?.skills && filters.skills.length > 0) {
+        // For each skill, ensure it's in the skills JSONB array
+        filters.skills.forEach((skill, index) => {
+          queryBuilder.andWhere(`resource.skills @> :skill${index}::jsonb`, {
+            [`skill${index}`]: JSON.stringify([skill]),
+          });
+        });
+      }
+
+      // Filter by roles
+      if (filters?.roles && filters.roles.length > 0) {
+        queryBuilder.andWhere('resource.role IN (:...roles)', {
+          roles: filters.roles,
+        });
+      }
+
+      // Filter by workspaceId - resources that have allocations in that workspace
+      if (filters?.workspaceId) {
+        // Get projects in the workspace
+        const workspaceProjects = await this.projectRepository.find({
+          where: {
+            organizationId,
+            workspaceId: filters.workspaceId,
+          },
+          select: ['id'],
+        });
+
+        if (workspaceProjects.length === 0) {
+          // No projects in workspace, return empty
+          return { data: [] };
+        }
+
+        const projectIds = workspaceProjects.map((p) => p.id);
+
+        // Filter resources that have allocations in these projects
+        queryBuilder.andWhere(
+          `EXISTS (
+            SELECT 1 FROM resource_allocations ra
+            WHERE ra.resource_id = resource.id
+            AND ra.project_id IN (:...projectIds)
+            AND ra.organization_id = :organizationId
+          )`,
+          { projectIds },
+        );
+      }
+
+      // Filter by date range - resources that have allocations in the date range
+      if (filters?.dateFrom && filters?.dateTo) {
+        const startDate = new Date(filters.dateFrom);
+        const endDate = new Date(filters.dateTo);
+
+        queryBuilder.andWhere(
+          `EXISTS (
+            SELECT 1 FROM resource_allocations ra
+            WHERE ra.resource_id = resource.id
+            AND ra.organization_id = :organizationId
+            AND ra.start_date <= :endDate
+            AND ra.end_date >= :startDate
+          )`,
+          { startDate, endDate },
+        );
+      }
+
+      // Apply workspace membership filtering if needed
+      if (accessibleWorkspaceIds !== null && filters?.workspaceId) {
+        // If filtering by workspace, ensure it's accessible
+        if (!accessibleWorkspaceIds.includes(filters.workspaceId)) {
+          return { data: [] };
+        }
+      }
+
+      queryBuilder.orderBy('resource.createdAt', 'DESC');
+
+      const resources = await queryBuilder.getMany().catch((err) => {
         console.error('❌ Resources query error:', err.message);
         return [];
       });
 
-      console.log(`✅ Resources: Found ${resources.length} resources for org ${organizationId}`);
+      console.log(
+        `✅ Resources: Found ${resources.length} resources for org ${organizationId}`,
+      );
       return { data: resources || [] };
     } catch (error) {
       console.error('❌ Resources findAll error:', error);
@@ -65,20 +182,20 @@ export class ResourcesService {
     resourceId: string,
     startDate: string,
     endDate: string,
-    organizationId: string
+    organizationId: string,
   ): Promise<any> {
     try {
       const allocations = await this.resourceAllocationRepository.find({
         where: {
           resourceId,
           organizationId,
-          startDate: Between(new Date(startDate), new Date(endDate))
-        }
+          startDate: Between(new Date(startDate), new Date(endDate)),
+        },
       });
 
       const totalAllocation = allocations.reduce(
         (sum, allocation) => sum + (allocation.allocationPercentage || 0),
-        0
+        0,
       );
 
       return {
@@ -86,7 +203,7 @@ export class ResourcesService {
         allocationPercentage: totalAllocation,
         allocations: allocations,
         isOverallocated: totalAllocation > 100,
-        isCritical: totalAllocation > 120
+        isCritical: totalAllocation > 120,
       };
     } catch (error) {
       console.error('❌ Get resource allocation error:', error);
@@ -95,36 +212,95 @@ export class ResourcesService {
         allocationPercentage: 0,
         allocations: [],
         isOverallocated: false,
-        isCritical: false
+        isCritical: false,
       };
     }
   }
 
-  async getConflicts(organizationId: string) {
+  async getConflicts(
+    organizationId: string,
+    userId?: string,
+    userRole?: string,
+  ) {
     try {
+      // Get accessible workspace IDs (respects feature flag)
+      const accessibleWorkspaceIds =
+        await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        );
+
+      // If workspace membership is enforced and user has no accessible workspaces
+      if (
+        accessibleWorkspaceIds !== null &&
+        accessibleWorkspaceIds.length === 0
+      ) {
+        return { data: [] };
+      }
+
       // Get all resources with their allocations
-      const resources = await this.resourceRepository.find({
-        where: { organizationId, isActive: true },
-        relations: ['allocations']
-      });
+      const queryBuilder = this.resourceRepository
+        .createQueryBuilder('resource')
+        .leftJoinAndSelect('resource.allocations', 'allocation')
+        .where('resource.organizationId = :orgId', { orgId: organizationId })
+        .andWhere('resource.isActive = :isActive', { isActive: true });
+
+      // If workspace membership is enforced, filter allocations by accessible workspaces
+      if (accessibleWorkspaceIds !== null) {
+        // Get project IDs in accessible workspaces
+        const accessibleProjects = await this.projectRepository.find({
+          where: {
+            organizationId,
+            workspaceId: In(accessibleWorkspaceIds),
+          },
+          select: ['id'],
+        });
+
+        const accessibleProjectIds = accessibleProjects.map((p) => p.id);
+
+        if (accessibleProjectIds.length === 0) {
+          // No projects in accessible workspaces
+          return { data: [] };
+        }
+
+        // Filter allocations to only those in accessible projects
+        queryBuilder.andWhere(
+          '(allocation.projectId IS NULL OR allocation.projectId IN (:...projectIds))',
+          { projectIds: accessibleProjectIds },
+        );
+      }
+
+      const resources = await queryBuilder.getMany();
 
       const conflicts = [];
 
       for (const resource of resources) {
-        const totalAllocation = resource.allocations?.reduce((sum, a) => sum + a.allocationPercentage, 0) || 0;
-        
+        // Allocations are already filtered by the query builder if workspace membership is enforced
+        const relevantAllocations = resource.allocations || [];
+
+        const totalAllocation = relevantAllocations.reduce(
+          (sum, a) => sum + (a.allocationPercentage || 0),
+          0,
+        );
+
         if (totalAllocation > 100) {
           conflicts.push({
             id: `conflict-${resource.id}`,
             resourceId: resource.id,
             resourceName: resource.name,
             totalAllocation,
-            severity: totalAllocation > 150 ? 'critical' : totalAllocation > 120 ? 'high' : 'medium',
+            severity:
+              totalAllocation > 150
+                ? 'critical'
+                : totalAllocation > 120
+                  ? 'high'
+                  : 'medium',
             description: `Resource ${resource.name} is overallocated by ${totalAllocation - 100}%`,
-            affectedProjects: resource.allocations?.map(a => ({
+            affectedProjects: relevantAllocations.map((a) => ({
               projectId: a.projectId,
-              allocation: a.allocationPercentage
-            })) || []
+              allocation: a.allocationPercentage,
+            })),
           });
         }
       }
@@ -136,23 +312,31 @@ export class ResourcesService {
     }
   }
 
-  async detectConflicts(resourceId: string, startDate: Date, endDate: Date, allocationPercentage: number) {
+  async detectConflicts(
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+    allocationPercentage: number,
+  ) {
     try {
       const existingAllocations = await this.resourceAllocationRepository.find({
         where: {
           resourceId,
           startDate: Between(startDate, endDate),
-        }
+        },
       });
 
-      const totalAllocation = existingAllocations.reduce((sum, a) => sum + a.allocationPercentage, 0);
-      const hasConflict = (totalAllocation + allocationPercentage) > 100;
+      const totalAllocation = existingAllocations.reduce(
+        (sum, a) => sum + a.allocationPercentage,
+        0,
+      );
+      const hasConflict = totalAllocation + allocationPercentage > 100;
 
       return {
         hasConflicts: hasConflict,
         conflicts: hasConflict ? existingAllocations : [],
         totalAllocation: totalAllocation + allocationPercentage,
-        availableCapacity: 100 - totalAllocation
+        availableCapacity: 100 - totalAllocation,
       };
     } catch (error) {
       console.error('Error detecting conflicts:', error);
@@ -167,11 +351,13 @@ export class ResourcesService {
         allocationData.resourceId,
         new Date(allocationData.startDate),
         new Date(allocationData.endDate),
-        allocationData.allocationPercentage
+        allocationData.allocationPercentage,
       );
 
       if (conflictCheck.hasConflicts) {
-        throw new BadRequestException('Resource allocation would create conflicts');
+        throw new BadRequestException(
+          'Resource allocation would create conflicts',
+        );
       }
 
       // Create the allocation
@@ -182,15 +368,16 @@ export class ResourcesService {
         startDate: new Date(allocationData.startDate),
         endDate: new Date(allocationData.endDate),
         allocationPercentage: allocationData.allocationPercentage,
-        organizationId: allocationData.organizationId
+        organizationId: allocationData.organizationId,
       });
 
-      const savedAllocation = await this.resourceAllocationRepository.save(allocation);
+      const savedAllocation =
+        await this.resourceAllocationRepository.save(allocation);
 
       return {
         success: true,
         id: savedAllocation.id,
-        allocation: savedAllocation
+        allocation: savedAllocation,
       };
     } catch (error) {
       console.error('Error creating allocation:', error);
@@ -203,13 +390,18 @@ export class ResourcesService {
 
   private async getAllocationsForResource(resourceId: string) {
     return this.resourceAllocationRepository.find({
-      where: { resourceId }
+      where: { resourceId },
     });
   }
 
   async createAllocationWithAudit(
     dto: CreateAllocationDto,
-    auditData: { userId: string; organizationId: string; ipAddress?: string; userAgent?: string }
+    auditData: {
+      userId: string;
+      organizationId: string;
+      ipAddress?: string;
+      userAgent?: string;
+    },
   ): Promise<any> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -247,14 +439,17 @@ export class ResourcesService {
     }
   }
 
-  async calculateUserCapacity(userEmail: string, organizationId: string): Promise<number> {
+  async calculateUserCapacity(
+    userEmail: string,
+    organizationId: string,
+  ): Promise<number> {
     try {
       // Get all tasks assigned to this user
       const tasks = await this.taskRepository.find({
         where: {
           assignedResources: Like(`%${userEmail}%`),
-          organizationId
-        }
+          organizationId,
+        },
       });
 
       if (tasks.length === 0) {
@@ -275,6 +470,346 @@ export class ResourcesService {
     } catch (error) {
       console.error('Failed to calculate user capacity:', error);
       return 0;
+    }
+  }
+
+  async getCapacitySummary(
+    organizationId: string,
+    dateFrom: string,
+    dateTo: string,
+    workspaceId?: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<any[]> {
+    try {
+      const startDate = new Date(dateFrom);
+      const endDate = new Date(dateTo);
+
+      // Get accessible workspace IDs (respects feature flag)
+      const accessibleWorkspaceIds =
+        await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        );
+
+      // Build query for allocations in date range
+      const allocationQuery = this.resourceAllocationRepository
+        .createQueryBuilder('allocation')
+        .where('allocation.organizationId = :organizationId', {
+          organizationId,
+        })
+        .andWhere('allocation.startDate <= :endDate', { endDate })
+        .andWhere('allocation.endDate >= :startDate', { startDate });
+
+      // Filter by workspace if provided
+      if (workspaceId) {
+        // Verify workspace is accessible
+        if (
+          accessibleWorkspaceIds !== null &&
+          !accessibleWorkspaceIds.includes(workspaceId)
+        ) {
+          return [];
+        }
+
+        // Get projects in workspace
+        const workspaceProjects = await this.projectRepository.find({
+          where: {
+            organizationId,
+            workspaceId,
+          },
+          select: ['id'],
+        });
+
+        if (workspaceProjects.length === 0) {
+          return [];
+        }
+
+        const projectIds = workspaceProjects.map((p) => p.id);
+        allocationQuery.andWhere('allocation.projectId IN (:...projectIds)', {
+          projectIds,
+        });
+      } else if (accessibleWorkspaceIds !== null) {
+        // Filter by accessible workspaces
+        const accessibleProjects = await this.projectRepository.find({
+          where: {
+            organizationId,
+            workspaceId: In(accessibleWorkspaceIds),
+          },
+          select: ['id'],
+        });
+
+        if (accessibleProjects.length === 0) {
+          return [];
+        }
+
+        const projectIds = accessibleProjects.map((p) => p.id);
+        allocationQuery.andWhere('allocation.projectId IN (:...projectIds)', {
+          projectIds,
+        });
+      }
+
+      const allocations = await allocationQuery.getMany();
+
+      // Get all resources in organization
+      const resources = await this.resourceRepository.find({
+        where: { organizationId, isActive: true },
+      });
+
+      // Calculate days in range
+      const daysDiff =
+        Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        ) + 1;
+      const weeksInRange = daysDiff / 7;
+
+      // Aggregate by resource
+      const summaryMap = new Map<string, any>();
+
+      // Initialize all resources
+      resources.forEach((resource) => {
+        const totalCapacityHours = resource.capacityHoursPerWeek * weeksInRange;
+        summaryMap.set(resource.id, {
+          id: resource.id,
+          displayName: resource.name || resource.email,
+          totalCapacityHours,
+          totalAllocatedHours: 0,
+          utilizationPercentage: 0,
+        });
+      });
+
+      // Aggregate allocations
+      allocations.forEach((allocation) => {
+        const resourceId = allocation.resourceId || allocation.userId;
+        if (!resourceId || !summaryMap.has(resourceId)) {
+          return;
+        }
+
+        const summary = summaryMap.get(resourceId);
+        const resource = resources.find((r) => r.id === resourceId);
+        if (!resource) return;
+
+        // Calculate hours allocated for this allocation
+        const allocationDays = Math.min(
+          Math.ceil(
+            (new Date(allocation.endDate).getTime() -
+              new Date(allocation.startDate).getTime()) /
+              (1000 * 60 * 60 * 24),
+          ) + 1,
+          daysDiff,
+        );
+        const allocationWeeks = allocationDays / 7;
+        const hoursPerWeek =
+          (resource.capacityHoursPerWeek *
+            (allocation.allocationPercentage || 0)) /
+          100;
+        const allocatedHours = hoursPerWeek * allocationWeeks;
+
+        summary.totalAllocatedHours += allocatedHours;
+      });
+
+      // Calculate utilization percentages
+      summaryMap.forEach((summary) => {
+        if (summary.totalCapacityHours > 0) {
+          summary.utilizationPercentage = Math.round(
+            (summary.totalAllocatedHours / summary.totalCapacityHours) * 100,
+          );
+        }
+      });
+
+      return Array.from(summaryMap.values());
+    } catch (error) {
+      console.error('Error getting capacity summary:', error);
+      throw new BadRequestException('Failed to get capacity summary');
+    }
+  }
+
+  async getCapacityBreakdown(
+    resourceId: string,
+    organizationId: string,
+    dateFrom: string,
+    dateTo: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<any[]> {
+    try {
+      // Verify resource belongs to organization
+      const resource = await this.resourceRepository.findOne({
+        where: { id: resourceId, organizationId },
+      });
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      const startDate = new Date(dateFrom);
+      const endDate = new Date(dateTo);
+
+      // Get accessible workspace IDs
+      const accessibleWorkspaceIds =
+        await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        );
+
+      // Build allocation query
+      const allocationQuery = this.resourceAllocationRepository
+        .createQueryBuilder('allocation')
+        .leftJoinAndSelect('allocation.resource', 'resource')
+        .leftJoinAndSelect('allocation.task', 'task')
+        .where('allocation.resourceId = :resourceId', { resourceId })
+        .andWhere('allocation.organizationId = :organizationId', {
+          organizationId,
+        })
+        .andWhere('allocation.startDate <= :endDate', { endDate })
+        .andWhere('allocation.endDate >= :startDate', { startDate });
+
+      // Filter by accessible workspaces if membership is enforced
+      if (accessibleWorkspaceIds !== null) {
+        const accessibleProjects = await this.projectRepository.find({
+          where: {
+            organizationId,
+            workspaceId: In(accessibleWorkspaceIds),
+          },
+          select: ['id'],
+        });
+
+        if (accessibleProjects.length === 0) {
+          return [];
+        }
+
+        const projectIds = accessibleProjects.map((p) => p.id);
+        allocationQuery.andWhere('allocation.projectId IN (:...projectIds)', {
+          projectIds,
+        });
+      }
+
+      const allocations = await allocationQuery.getMany();
+
+      if (allocations.length === 0) {
+        return [];
+      }
+
+      // Get project details
+      const projectIds = [
+        ...new Set(allocations.map((a) => a.projectId).filter(Boolean)),
+      ];
+      const projects = await this.projectRepository.find({
+        where: { id: In(projectIds) },
+        select: ['id', 'name', 'workspaceId'],
+      });
+
+      const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+      // Calculate days in range
+      const daysDiff =
+        Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        ) + 1;
+      const weeksInRange = daysDiff / 7;
+
+      // Aggregate by project
+      const breakdownMap = new Map<string, any>();
+
+      allocations.forEach((allocation) => {
+        if (!allocation.projectId) return;
+
+        const project = projectMap.get(allocation.projectId);
+        if (!project) return;
+
+        if (!breakdownMap.has(allocation.projectId)) {
+          breakdownMap.set(allocation.projectId, {
+            projectId: allocation.projectId,
+            projectName: project.name,
+            workspaceId: project.workspaceId,
+            totalAllocatedHours: 0,
+            percentageOfResourceTime: 0,
+          });
+        }
+
+        const breakdown = breakdownMap.get(allocation.projectId);
+
+        // Calculate hours for this allocation
+        const allocationDays = Math.min(
+          Math.ceil(
+            (new Date(allocation.endDate).getTime() -
+              new Date(allocation.startDate).getTime()) /
+              (1000 * 60 * 60 * 24),
+          ) + 1,
+          daysDiff,
+        );
+        const allocationWeeks = allocationDays / 7;
+        const hoursPerWeek =
+          (resource.capacityHoursPerWeek *
+            (allocation.allocationPercentage || 0)) /
+          100;
+        const allocatedHours = hoursPerWeek * allocationWeeks;
+
+        breakdown.totalAllocatedHours += allocatedHours;
+      });
+
+      // Calculate percentage of resource time
+      const totalCapacityHours = resource.capacityHoursPerWeek * weeksInRange;
+      breakdownMap.forEach((breakdown) => {
+        if (totalCapacityHours > 0) {
+          breakdown.percentageOfResourceTime = Math.round(
+            (breakdown.totalAllocatedHours / totalCapacityHours) * 100,
+          );
+        }
+      });
+
+      return Array.from(breakdownMap.values());
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error getting capacity breakdown:', error);
+      throw new BadRequestException('Failed to get capacity breakdown');
+    }
+  }
+
+  async getSkillsFacet(
+    organizationId: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<any[]> {
+    try {
+      // Get accessible workspace IDs
+      const accessibleWorkspaceIds =
+        await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        );
+
+      // Get all active resources in organization
+      const resources = await this.resourceRepository.find({
+        where: { organizationId, isActive: true },
+        select: ['id', 'skills'],
+      });
+
+      // Aggregate skills
+      const skillMap = new Map<string, number>();
+
+      resources.forEach((resource) => {
+        if (resource.skills && Array.isArray(resource.skills)) {
+          resource.skills.forEach((skill: string) => {
+            if (skill && skill.trim()) {
+              const skillName = skill.trim();
+              skillMap.set(skillName, (skillMap.get(skillName) || 0) + 1);
+            }
+          });
+        }
+      });
+
+      // Convert to array format
+      return Array.from(skillMap.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+    } catch (error) {
+      console.error('Error getting skills facet:', error);
+      throw new BadRequestException('Failed to get skills facet');
     }
   }
 }

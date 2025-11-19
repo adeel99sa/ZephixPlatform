@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateWaitlistDto {
@@ -17,9 +23,9 @@ export class CreateWaitlistDto {
   @IsString()
   company?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: 'Resource conflicts are invisible until too late',
-    required: false 
+    required: false,
   })
   @IsOptional()
   @IsString()

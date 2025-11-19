@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { register, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
+import {
+  register,
+  Counter,
+  Histogram,
+  Gauge,
+  collectDefaultMetrics,
+} from 'prom-client';
 
 @Injectable()
 export class MetricsService {
@@ -34,8 +40,10 @@ export class MetricsService {
   public readonly searchQueryDuration: Histogram;
 
   constructor() {
-    this.logger.log('Initializing MetricsService with duplicate registration prevention');
-    
+    this.logger.log(
+      'Initializing MetricsService with duplicate registration prevention',
+    );
+
     // Check if default metrics are already collected
     if (!register.getSingleMetric('process_cpu_seconds_total')) {
       this.logger.debug('Collecting default metrics');
@@ -45,7 +53,9 @@ export class MetricsService {
     }
 
     // HTTP Request Metrics
-    const existingHttpRequestsTotal = register.getSingleMetric('http_requests_total');
+    const existingHttpRequestsTotal = register.getSingleMetric(
+      'http_requests_total',
+    );
     if (existingHttpRequestsTotal) {
       this.logger.debug('Reusing existing http_requests_total metric');
       this.httpRequestsTotal = existingHttpRequestsTotal as Counter;
@@ -58,9 +68,13 @@ export class MetricsService {
       });
     }
 
-    const existingHttpRequestDuration = register.getSingleMetric('http_request_duration_seconds');
+    const existingHttpRequestDuration = register.getSingleMetric(
+      'http_request_duration_seconds',
+    );
     if (existingHttpRequestDuration) {
-      this.logger.debug('Reusing existing http_request_duration_seconds metric');
+      this.logger.debug(
+        'Reusing existing http_request_duration_seconds metric',
+      );
       this.httpRequestDuration = existingHttpRequestDuration as Histogram;
     } else {
       this.logger.debug('Creating new http_request_duration_seconds metric');
@@ -68,11 +82,15 @@ export class MetricsService {
         name: 'http_request_duration_seconds',
         help: 'Duration of HTTP requests in seconds',
         labelNames: ['method', 'route', 'status_code'],
-        buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+        buckets: [
+          0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10,
+        ],
       });
     }
 
-    const existingHttpRequestSizeBytes = register.getSingleMetric('http_request_size_bytes');
+    const existingHttpRequestSizeBytes = register.getSingleMetric(
+      'http_request_size_bytes',
+    );
     if (existingHttpRequestSizeBytes) {
       this.logger.debug('Reusing existing http_request_size_bytes metric');
       this.httpRequestSizeBytes = existingHttpRequestSizeBytes as Histogram;
@@ -86,7 +104,9 @@ export class MetricsService {
       });
     }
 
-    const existingHttpResponseSizeBytes = register.getSingleMetric('http_response_size_bytes');
+    const existingHttpResponseSizeBytes = register.getSingleMetric(
+      'http_response_size_bytes',
+    );
     if (existingHttpResponseSizeBytes) {
       this.logger.debug('Reusing existing http_response_size_bytes metric');
       this.httpResponseSizeBytes = existingHttpResponseSizeBytes as Histogram;
@@ -101,7 +121,8 @@ export class MetricsService {
     }
 
     // System Metrics
-    const existingActiveConnections = register.getSingleMetric('active_connections');
+    const existingActiveConnections =
+      register.getSingleMetric('active_connections');
     if (existingActiveConnections) {
       this.logger.debug('Reusing existing active_connections metric');
       this.activeConnections = existingActiveConnections as Gauge;
@@ -114,7 +135,8 @@ export class MetricsService {
       });
     }
 
-    const existingMemoryUsageBytes = register.getSingleMetric('memory_usage_bytes');
+    const existingMemoryUsageBytes =
+      register.getSingleMetric('memory_usage_bytes');
     if (existingMemoryUsageBytes) {
       this.logger.debug('Reusing existing memory_usage_bytes metric');
       this.memoryUsageBytes = existingMemoryUsageBytes as Gauge;
@@ -142,7 +164,9 @@ export class MetricsService {
     }
 
     // BRD-specific Metrics
-    const existingBrdOperationsTotal = register.getSingleMetric('brd_operations_total');
+    const existingBrdOperationsTotal = register.getSingleMetric(
+      'brd_operations_total',
+    );
     if (existingBrdOperationsTotal) {
       this.logger.debug('Reusing existing brd_operations_total metric');
       this.brdOperationsTotal = existingBrdOperationsTotal as Counter;
@@ -155,7 +179,9 @@ export class MetricsService {
       });
     }
 
-    const existingBrdStatusTransitions = register.getSingleMetric('brd_status_transitions_total');
+    const existingBrdStatusTransitions = register.getSingleMetric(
+      'brd_status_transitions_total',
+    );
     if (existingBrdStatusTransitions) {
       this.logger.debug('Reusing existing brd_status_transitions_total metric');
       this.brdStatusTransitions = existingBrdStatusTransitions as Counter;
@@ -169,7 +195,9 @@ export class MetricsService {
     }
 
     // Database Metrics
-    const existingDatabaseQueriesTotal = register.getSingleMetric('database_queries_total');
+    const existingDatabaseQueriesTotal = register.getSingleMetric(
+      'database_queries_total',
+    );
     if (existingDatabaseQueriesTotal) {
       this.logger.debug('Reusing existing database_queries_total metric');
       this.databaseQueriesTotal = existingDatabaseQueriesTotal as Counter;
@@ -182,9 +210,13 @@ export class MetricsService {
       });
     }
 
-    const existingDatabaseQueryDuration = register.getSingleMetric('database_query_duration_seconds');
+    const existingDatabaseQueryDuration = register.getSingleMetric(
+      'database_query_duration_seconds',
+    );
     if (existingDatabaseQueryDuration) {
-      this.logger.debug('Reusing existing database_query_duration_seconds metric');
+      this.logger.debug(
+        'Reusing existing database_query_duration_seconds metric',
+      );
       this.databaseQueryDuration = existingDatabaseQueryDuration as Histogram;
     } else {
       this.logger.debug('Creating new database_query_duration_seconds metric');
@@ -197,7 +229,9 @@ export class MetricsService {
     }
 
     // Authentication Metrics
-    const existingAuthAttemptsTotal = register.getSingleMetric('auth_attempts_total');
+    const existingAuthAttemptsTotal = register.getSingleMetric(
+      'auth_attempts_total',
+    );
     if (existingAuthAttemptsTotal) {
       this.logger.debug('Reusing existing auth_attempts_total metric');
       this.authAttemptsTotal = existingAuthAttemptsTotal as Counter;
@@ -211,7 +245,9 @@ export class MetricsService {
     }
 
     // Search Metrics
-    const existingSearchQueriesTotal = register.getSingleMetric('search_queries_total');
+    const existingSearchQueriesTotal = register.getSingleMetric(
+      'search_queries_total',
+    );
     if (existingSearchQueriesTotal) {
       this.logger.debug('Reusing existing search_queries_total metric');
       this.searchQueriesTotal = existingSearchQueriesTotal as Counter;
@@ -224,9 +260,13 @@ export class MetricsService {
       });
     }
 
-    const existingSearchQueryDuration = register.getSingleMetric('search_query_duration_seconds');
+    const existingSearchQueryDuration = register.getSingleMetric(
+      'search_query_duration_seconds',
+    );
     if (existingSearchQueryDuration) {
-      this.logger.debug('Reusing existing search_query_duration_seconds metric');
+      this.logger.debug(
+        'Reusing existing search_query_duration_seconds metric',
+      );
       this.searchQueryDuration = existingSearchQueryDuration as Histogram;
     } else {
       this.logger.debug('Creating new search_query_duration_seconds metric');
@@ -238,7 +278,9 @@ export class MetricsService {
       });
     }
 
-    this.logger.log('MetricsService initialized successfully with duplicate registration prevention');
+    this.logger.log(
+      'MetricsService initialized successfully with duplicate registration prevention',
+    );
   }
 
   /**
@@ -272,7 +314,11 @@ export class MetricsService {
   /**
    * Record HTTP request size metrics
    */
-  recordHttpRequestSize(method: string, route: string, sizeBytes: number): void {
+  recordHttpRequestSize(
+    method: string,
+    route: string,
+    sizeBytes: number,
+  ): void {
     try {
       this.httpRequestSizeBytes.observe({ method, route }, sizeBytes);
     } catch (error) {
@@ -283,11 +329,16 @@ export class MetricsService {
   /**
    * Record HTTP response size metrics
    */
-  recordHttpResponseSize(method: string, route: string, statusCode: number, sizeBytes: number): void {
+  recordHttpResponseSize(
+    method: string,
+    route: string,
+    statusCode: number,
+    sizeBytes: number,
+  ): void {
     try {
       this.httpResponseSizeBytes.observe(
         { method, route, status_code: statusCode.toString() },
-        sizeBytes
+        sizeBytes,
       );
     } catch (error) {
       this.logger.error('Failed to record HTTP response size metrics', error);
@@ -365,7 +416,10 @@ export class MetricsService {
         organizationId: organizationId,
       });
     } catch (error) {
-      this.logger.error('Failed to record BRD status transition metrics', error);
+      this.logger.error(
+        'Failed to record BRD status transition metrics',
+        error,
+      );
     }
   }
 
@@ -404,7 +458,10 @@ export class MetricsService {
         organizationId: organizationId || 'unknown',
       });
     } catch (error) {
-      this.logger.error('Failed to record authentication attempt metrics', error);
+      this.logger.error(
+        'Failed to record authentication attempt metrics',
+        error,
+      );
     }
   }
 
@@ -514,7 +571,7 @@ export class MetricsService {
    */
   async getWorkflowMetrics(
     organizationId: string,
-    dateRange?: { start: Date; end: Date }
+    dateRange?: { start: Date; end: Date },
   ): Promise<any> {
     try {
       // This is a placeholder implementation
@@ -525,7 +582,7 @@ export class MetricsService {
         failedExecutions: 0,
         averageDuration: 0,
         organizationId,
-        dateRange
+        dateRange,
       };
     } catch (error) {
       this.logger.error('Failed to get workflow metrics', error);
@@ -535,7 +592,7 @@ export class MetricsService {
         failedExecutions: 0,
         averageDuration: 0,
         organizationId,
-        dateRange
+        dateRange,
       };
     }
   }
@@ -571,7 +628,7 @@ export class MetricsService {
       organizationId: string;
       metrics: any;
       timestamp: Date;
-    }
+    },
   ): Promise<void> {
     try {
       // This is a placeholder implementation
@@ -598,7 +655,10 @@ export class MetricsService {
     try {
       // This is a placeholder implementation
       // In a real system, this would record cache metrics
-      this.logger.log(`Cache metrics recorded: hits=${data.hits}, misses=${data.misses}, hitRate=${data.hitRate}`, data);
+      this.logger.log(
+        `Cache metrics recorded: hits=${data.hits}, misses=${data.misses}, hitRate=${data.hitRate}`,
+        data,
+      );
     } catch (error) {
       this.logger.error('Failed to record cache metrics', error);
     }

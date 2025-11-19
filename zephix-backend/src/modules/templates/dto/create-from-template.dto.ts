@@ -14,5 +14,3 @@ export class CreateProjectFromTemplateDto {
   @IsOptional()
   customizations?: Record<string, any>;
 }
-
-

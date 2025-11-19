@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -25,7 +35,11 @@ export class TasksController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto, @Req() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() updateTaskDto: UpdateTaskDto,
+    @Req() req: any,
+  ) {
     return this.tasksService.update(id, updateTaskDto, req.user.organizationId);
   }
 
@@ -36,11 +50,15 @@ export class TasksController {
 
   @Patch(':id/progress')
   updateProgress(
-    @Param('id') id: string, 
-    @Body('progress') progress: number, 
-    @Req() req: any
+    @Param('id') id: string,
+    @Body('progress') progress: number,
+    @Req() req: any,
   ) {
-    return this.tasksService.updateProgress(id, progress, req.user.organizationId);
+    return this.tasksService.updateProgress(
+      id,
+      progress,
+      req.user.organizationId,
+    );
   }
 
   @Get('my-tasks')
@@ -53,18 +71,26 @@ export class TasksController {
   addDependency(
     @Param('id') taskId: string,
     @Body() dto: { predecessorId: string },
-    @Req() req: any
+    @Req() req: any,
   ) {
-    return this.tasksService.addDependency(taskId, dto.predecessorId, req.user.organizationId);
+    return this.tasksService.addDependency(
+      taskId,
+      dto.predecessorId,
+      req.user.organizationId,
+    );
   }
 
   @Delete(':id/dependencies/:depId')
   removeDependency(
     @Param('id') taskId: string,
     @Param('depId') dependencyId: string,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    return this.tasksService.removeDependency(taskId, dependencyId, req.user.organizationId);
+    return this.tasksService.removeDependency(
+      taskId,
+      dependencyId,
+      req.user.organizationId,
+    );
   }
 
   @Get(':id/dependencies')

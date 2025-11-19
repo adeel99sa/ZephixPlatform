@@ -1,12 +1,19 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Building2, Users, Shield, CreditCard, FileText, 
+  Building2, Users, Shield, CreditCard, FileText,
   Brain, Link, Database, Scale, Bell, BarChart3,
   HeadphonesIcon, ChevronDown, Settings, LayoutDashboard, ArrowLeft
 } from 'lucide-react';
 
 const adminNavigation = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    path: '/admin',
+    badge: null
+  },
   {
     id: 'organization',
     label: 'Organization',
@@ -14,25 +21,33 @@ const adminNavigation = [
     children: [
       { path: '/admin/org', label: 'Overview' },
       { path: '/admin/users', label: 'Users & Teams' },
+      { path: '/admin/teams', label: 'Teams' },
+      { path: '/admin/invite', label: 'Invite Users' },
       { path: '/admin/roles', label: 'Roles & Permissions' },
-      { path: '/admin/security', label: 'Security & SSO' },
+      { path: '/admin/usage', label: 'Usage & Limits' },
       { path: '/admin/billing', label: 'Billing & Plans' },
-      { path: '/admin/usage', label: 'Usage & Limits' }
+      { path: '/admin/security', label: 'Security & SSO' }
     ]
   },
   {
     id: 'templates',
-    label: 'Templates & Standards',
+    label: 'Templates',
     icon: FileText,
     children: [
-      { path: '/admin/templates/lifecycle', label: 'Lifecycle Templates' },
-      { path: '/admin/templates/documents', label: 'Document Templates' },
-      { path: '/admin/templates/work', label: 'Work & Task Templates' },
-      { path: '/admin/templates/risk-library', label: 'Risk Library' },
-      { path: '/admin/templates/formulas', label: 'Formula Library' },
-      { path: '/admin/templates/raci', label: 'RACI Profiles' },
-      { path: '/admin/templates/custom-fields', label: 'Custom Fields' },
-      { path: '/admin/templates/blueprints', label: 'Project Blueprints' }
+      { path: '/admin/templates', label: 'Project Templates' },
+      { path: '/admin/templates/builder', label: 'Template Builder' },
+      { path: '/admin/templates/custom-fields', label: 'Custom Fields' }
+    ]
+  },
+  {
+    id: 'workspaces',
+    label: 'Workspaces & Projects',
+    icon: LayoutDashboard,
+    children: [
+      { path: '/admin/workspaces', label: 'All Workspaces' },
+      { path: '/admin/projects', label: 'All Projects' },
+      { path: '/admin/archive', label: 'Archive' },
+      { path: '/admin/trash', label: 'Trash' }
     ]
   },
   {
@@ -138,14 +153,41 @@ export function AdminLayout() {
   const renderNavigationItem = (item: any) => {
     const isExpanded = expandedSections.has(item.id);
     const hasChildren = item.children && item.children.length > 0;
+    const hasPath = item.path && !hasChildren;
 
+    // If it's a direct link (Dashboard), use NavLink
+    if (hasPath) {
+      return (
+        <NavLink
+          key={item.id}
+          to={item.path}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors mb-2 ${
+              isActive
+                ? 'bg-blue-50 text-blue-600 font-medium'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          <item.icon className="h-4 w-4" />
+          <span>{item.label}</span>
+          {item.badge && (
+            <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+              {item.badge}
+            </span>
+          )}
+        </NavLink>
+      );
+    }
+
+    // If it has children, render as expandable section
     return (
       <div key={item.id} className="mb-2">
         <button
-          onClick={() => hasChildren ? toggleSection(item.id) : navigate(item.path)}
+          onClick={() => toggleSection(item.id)}
           className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
-            hasChildren 
-              ? 'text-gray-700 hover:bg-gray-100' 
+            isExpanded
+              ? 'bg-gray-50 text-gray-900'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
@@ -153,14 +195,12 @@ export function AdminLayout() {
             <item.icon className="h-4 w-4" />
             <span>{item.label}</span>
           </div>
-          {hasChildren && (
-            <ChevronDown 
-              className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
-            />
-          )}
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          />
         </button>
-        
-        {hasChildren && isExpanded && (
+
+        {isExpanded && (
           <div className="ml-6 mt-1 space-y-1">
             {item.children.map((child: any) => (
               <NavLink
@@ -168,8 +208,8 @@ export function AdminLayout() {
                 to={child.path}
                 className={({ isActive }) =>
                   `block px-3 py-2 text-sm rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-600' 
+                    isActive
+                      ? 'bg-blue-50 text-blue-600 font-medium'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`
                 }
@@ -186,21 +226,22 @@ export function AdminLayout() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+      <aside className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+        <div className="p-6 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between mb-2">
             <h1 className="text-xl font-semibold text-gray-900">Admin Console</h1>
             <button
-              onClick={() => navigate('/')}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+              onClick={() => navigate('/home')}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+              title="Back to main app"
             >
-              <Settings className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
           </div>
-          <p className="mt-1 text-sm text-gray-500">Manage your organization</p>
+          <p className="text-sm text-gray-500">Manage your organization</p>
         </div>
-        
-        <nav className="p-4 space-y-1">
+
+        <nav className="p-4 flex-1 overflow-y-auto">
           {adminNavigation.map(renderNavigationItem)}
         </nav>
       </aside>

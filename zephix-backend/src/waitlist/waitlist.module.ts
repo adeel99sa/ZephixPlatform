@@ -8,11 +8,7 @@ import { EmailModule } from '../email/email.module';
 import { SharedModule } from '../shared/shared.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Waitlist]),
-    EmailModule,
-    SharedModule
-  ],
+  imports: [TypeOrmModule.forFeature([Waitlist]), EmailModule, SharedModule],
   controllers: [WaitlistController],
   providers: [WaitlistService],
   exports: [WaitlistService],

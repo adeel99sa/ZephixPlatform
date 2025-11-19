@@ -1,55 +1,64 @@
-// File: src/pages/dashboard/DashboardPage.tsx
-import React from 'react';
+import { useAuth } from "@/state/AuthContext";
 
-import { useAuth } from '../../hooks/useAuth';
-import { PortfolioDashboard } from '../../components/dashboard/PortfolioDashboard';
-import { MyTasksDashboard } from '../../components/dashboard/MyTasksDashboard';
-import { PageHeader } from '../../components/ui/layout/PageHeader';
-// import { Card, CardBody } from '../../components/ui/card/Card';
-// import { Skeleton } from '../../components/ui/feedback/Skeleton';
-
-const DashboardPage = () => {
+export default function DashboardPage() {
   const { user } = useAuth();
-  
-  // Determine user role (admin shows portfolio, others show personal)
-  const isAdmin = user?.role === 'admin';
-  const isManager = user?.role === 'manager' || user?.role === 'project_manager';
-  
-  if (isAdmin) {
-    return (
-      <div>
-        <PageHeader
-          title="Portfolio Overview"
-          description="Monitor project performance and portfolio health"
-        />
-        <PortfolioDashboard />
-      </div>
-    );
-  }
-  
-  if (isManager) {
-    return (
-      <div>
-        <PageHeader
-          title="Manager Dashboard"
-          description="Track your projects and team performance"
-        />
-        <MyTasksDashboard />
-      </div>
-    );
-  }
-  
-  // Regular users see their tasks
+  const role = (user?.role ?? "viewer") as "admin" | "member" | "viewer";
+
   return (
-    <div>
-      <PageHeader
-        title="My Dashboard"
-        description="Track your tasks and project assignments"
-      />
-      <MyTasksDashboard />
+    <div className="p-4 space-y-4">
+      {/* KPIs */}
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Kpi id="dash-kpi-1" title={role === "admin" ? "Active Members" : role === "member" ? "Assigned to Me" : "Active Projects"} value="—" />
+        <Kpi id="dash-kpi-2" title={role === "admin" ? "Active Projects" : "Due this week"} value="—" />
+        <Kpi id="dash-kpi-3" title={role === "admin" ? "At-Risk" : "Mentions"} value="—" />
+        <Kpi id="dash-kpi-4" title="Utilization" value="—" />
+      </section>
+
+      {/* Lists + Activity */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <Card id="dash-list-primary" title={role === "admin" ? "Pending Invites" : role === "member" ? "My Tasks" : "Watched Projects"} />
+        <Card id="dash-activity" title="Recent Activity" />
+        <Card id="dash-snapshot" title="Projects / Workspaces Snapshot" />
+      </section>
+
+      {/* Quick actions */}
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {role === "admin" && (
+          <>
+            <Action id="dash-action-invite" label="Invite Members" />
+            <Action id="dash-action-new-project" label="New Project" />
+            <Action id="dash-action-new-workspace" label="New Workspace" />
+            <Action id="dash-action-admin" label="Go to Administration" href="/settings" />
+          </>
+        )}
+      </section>
     </div>
   );
-};
+}
 
-export { DashboardPage };
-export default DashboardPage;
+function Kpi({ id, title, value }: { id: string; title: string; value: string }) {
+  return (
+    <div data-testid={id} className="border rounded p-3">
+      <div className="text-xs text-gray-500">{title}</div>
+      <div className="text-xl font-semibold mt-1">{value}</div>
+    </div>
+  );
+}
+
+function Card({ id, title }: { id: string; title: string }) {
+  return (
+    <div data-testid={id} className="border rounded p-3 min-h-[140px]">
+      <div className="font-medium mb-2">{title}</div>
+      <div data-testid="empty-state" className="text-sm text-gray-500">Nothing here yet.</div>
+    </div>
+  );
+}
+
+function Action({ id, label, href }: { id: string; label: string; href?: string }) {
+  const El: any = href ? "a" : "button";
+  return (
+    <El data-testid={id} href={href} className="border rounded px-3 py-2 text-sm hover:bg-gray-50 text-left">
+      {label}
+    </El>
+  );
+}

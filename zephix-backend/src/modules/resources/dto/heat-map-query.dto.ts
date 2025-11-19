@@ -3,7 +3,7 @@ import { IsOptional, IsDateString, IsUUID, IsEnum } from 'class-validator';
 export enum HeatMapView {
   WEEK = 'week',
   MONTH = 'month',
-  QUARTER = 'quarter'
+  QUARTER = 'quarter',
 }
 
 export class HeatMapQueryDto {

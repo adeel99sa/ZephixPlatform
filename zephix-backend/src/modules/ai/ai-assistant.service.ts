@@ -43,7 +43,10 @@ export class AIAssistantService {
     });
   }
 
-  async processQuery(query: AIQuery, organizationId: string): Promise<AIResponse> {
+  async processQuery(
+    query: AIQuery,
+    organizationId: string,
+  ): Promise<AIResponse> {
     switch (query.type) {
       case 'resource_assignment':
         return await this.handleResourceAssignment(query, organizationId);
@@ -56,7 +59,10 @@ export class AIAssistantService {
     }
   }
 
-  private async handleResourceAssignment(query: AIQuery, organizationId: string): Promise<AIResponse> {
+  private async handleResourceAssignment(
+    query: AIQuery,
+    organizationId: string,
+  ): Promise<AIResponse> {
     // Example: "Who can take this 40-hour React task?"
     const { taskId, requiredSkills, estimatedHours } = query.context;
 
@@ -68,9 +74,15 @@ export class AIAssistantService {
     // Get their current allocations
     const resourceAnalysis = [];
     for (const resource of resources) {
-      const allocations = await this.getAllocationsForResource(resource.id, organizationId);
-      const availability = this.calculateAvailability(allocations, resource.capacityHoursPerWeek);
-      
+      const allocations = await this.getAllocationsForResource(
+        resource.id,
+        organizationId,
+      );
+      const availability = this.calculateAvailability(
+        allocations,
+        resource.capacityHoursPerWeek,
+      );
+
       resourceAnalysis.push({
         resource,
         availability,
@@ -90,9 +102,13 @@ export class AIAssistantService {
       Task requires: ${estimatedHours} hours, Skills: ${requiredSkills.join(', ')}
       
       Available resources:
-      ${resourceAnalysis.slice(0, 5).map(r => 
-        `- ${r.resource.name}: ${r.availability}% available, ${r.skillMatch}% skill match`
-      ).join('\n')}
+      ${resourceAnalysis
+        .slice(0, 5)
+        .map(
+          (r) =>
+            `- ${r.resource.name}: ${r.availability}% available, ${r.skillMatch}% skill match`,
+        )
+        .join('\n')}
       
       Provide 3 specific recommendations for resource assignment.
     `;
@@ -100,30 +116,37 @@ export class AIAssistantService {
     const message = await this.anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 1000,
-      messages: [{
-        role: 'user',
-        content: prompt,
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
     });
 
-    const suggestions: Suggestion[] = resourceAnalysis.slice(0, 3).map(r => ({
+    const suggestions: Suggestion[] = resourceAnalysis.slice(0, 3).map((r) => ({
       action: `Assign to ${r.resource.name}`,
       impact: `${r.availability}% available capacity, ${r.skillMatch}% skill match`,
-      reasoning: r.skillMatch > 80 
-        ? 'Strong skill match and available capacity'
-        : 'Available capacity, may need support for skills',
+      reasoning:
+        r.skillMatch > 80
+          ? 'Strong skill match and available capacity'
+          : 'Available capacity, may need support for skills',
     }));
 
     return {
-      answer: typeof message.content[0] === 'string' 
-        ? message.content[0] 
-        : (message.content[0] as any).text || 'AI response generated',
+      answer:
+        typeof message.content[0] === 'string'
+          ? message.content[0]
+          : (message.content[0] as any).text || 'AI response generated',
       suggestions,
       confidence: resourceAnalysis[0].skillMatch > 80 ? 90 : 70,
     };
   }
 
-  private async handleTimelineImpact(query: AIQuery, organizationId: string): Promise<AIResponse> {
+  private async handleTimelineImpact(
+    query: AIQuery,
+    organizationId: string,
+  ): Promise<AIResponse> {
     // Example: "What happens if we delay Project X by 1 week?"
     const { projectId, delayDays } = query.context;
 
@@ -132,11 +155,18 @@ export class AIAssistantService {
       relations: ['tasks'],
     });
 
-    const dependentProjects = await this.findDependentProjects(projectId, organizationId);
-    
+    const dependentProjects = await this.findDependentProjects(
+      projectId,
+      organizationId,
+    );
+
     const impact = {
       tasksAffected: project.tasks.length,
-      resourcesFreed: await this.calculateResourcesFreed(projectId, delayDays, organizationId),
+      resourcesFreed: await this.calculateResourcesFreed(
+        projectId,
+        delayDays,
+        organizationId,
+      ),
       dependentProjects: dependentProjects.length,
       costImpact: delayDays * 1000, // Simplified calculation
     };
@@ -166,7 +196,10 @@ export class AIAssistantService {
     };
   }
 
-  private async handleConflictResolution(query: AIQuery, organizationId: string): Promise<AIResponse> {
+  private async handleConflictResolution(
+    query: AIQuery,
+    organizationId: string,
+  ): Promise<AIResponse> {
     // Example: "How do we fix John's overallocation?"
     const { resourceId, conflictDetails } = query.context;
 
@@ -196,7 +229,10 @@ export class AIAssistantService {
   }
 
   // Helper methods
-  private async getAllocationsForResource(resourceId: string, organizationId: string): Promise<any[]> {
+  private async getAllocationsForResource(
+    resourceId: string,
+    organizationId: string,
+  ): Promise<any[]> {
     // Implementation to get allocations
     return [];
   }
@@ -206,17 +242,27 @@ export class AIAssistantService {
     return 100;
   }
 
-  private calculateSkillMatch(resourceSkills: string[], requiredSkills: string[]): number {
+  private calculateSkillMatch(
+    resourceSkills: string[],
+    requiredSkills: string[],
+  ): number {
     // Calculate skill match percentage
     return 80;
   }
 
-  private async findDependentProjects(projectId: string, organizationId: string): Promise<Project[]> {
+  private async findDependentProjects(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Project[]> {
     // Find projects that depend on this one
     return [];
   }
 
-  private async calculateResourcesFreed(projectId: string, delayDays: number, organizationId: string): Promise<number> {
+  private async calculateResourcesFreed(
+    projectId: string,
+    delayDays: number,
+    organizationId: string,
+  ): Promise<number> {
     // Calculate how many resources would be freed
     return 3;
   }

@@ -1,5 +1,14 @@
 // src/organizations/entities/security-settings.entity.ts
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Organization } from './organization.entity';
 
 interface PasswordPolicy {
@@ -26,15 +35,15 @@ export class SecuritySettings {
   @Column({ name: 'sessionTimeout', default: 480 }) // minutes
   sessionTimeout: number;
 
-  @Column({ 
+  @Column({
     name: 'passwordPolicy',
-    type: 'jsonb', 
-    default: { 
-      minLength: 8, 
-      requireNumbers: true, 
-      requireSymbols: true, 
-      requireUppercase: true 
-    } 
+    type: 'jsonb',
+    default: {
+      minLength: 8,
+      requireNumbers: true,
+      requireSymbols: true,
+      requireUppercase: true,
+    },
   })
   passwordPolicy: PasswordPolicy;
 

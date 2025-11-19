@@ -1,9 +1,9 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CoreTables1756400000001 implements MigrationInterface {
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Templates table - CREATE (doesn't exist)
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Templates table - CREATE (doesn't exist)
+    await queryRunner.query(`
             CREATE TABLE templates (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 name VARCHAR(100) NOT NULL,
@@ -20,22 +20,22 @@ export class CoreTables1756400000001 implements MigrationInterface {
             CREATE INDEX idx_templates_org ON templates(organization_id) WHERE organization_id IS NOT NULL;
         `);
 
-        // Projects table - ADD MISSING COLUMNS only
-        await queryRunner.query(`
+    // Projects table - ADD MISSING COLUMNS only
+    await queryRunner.query(`
             ALTER TABLE projects 
             ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES templates(id),
             ADD COLUMN IF NOT EXISTS current_phase VARCHAR(100),
             ADD COLUMN IF NOT EXISTS created_by UUID;
         `);
 
-        // Add missing indexes to projects table
-        await queryRunner.query(`
+    // Add missing indexes to projects table
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id);
             CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
         `);
 
-        // Work items table - CREATE (doesn't exist)
-        await queryRunner.query(`
+    // Work items table - CREATE (doesn't exist)
+    await queryRunner.query(`
             CREATE TABLE work_items (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -59,20 +59,20 @@ export class CoreTables1756400000001 implements MigrationInterface {
             CREATE INDEX idx_work_items_status ON work_items(status);
         `);
 
-        // Resource allocations table - ADD MISSING COLUMNS only (table exists)
-        await queryRunner.query(`
+    // Resource allocations table - ADD MISSING COLUMNS only (table exists)
+    await queryRunner.query(`
             ALTER TABLE resource_allocations 
             ADD COLUMN IF NOT EXISTS work_item_id UUID REFERENCES work_items(id) ON DELETE SET NULL;
         `);
 
-        // Add missing indexes to resource_allocations table (using actual column names)
-        await queryRunner.query(`
+    // Add missing indexes to resource_allocations table (using actual column names)
+    await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_allocations_resource_dates ON resource_allocations("resourceId", "startDate", "endDate");
             CREATE INDEX IF NOT EXISTS idx_allocations_project ON resource_allocations("projectId");
         `);
 
-        // User daily capacity table - CREATE (doesn't exist)
-        await queryRunner.query(`
+    // User daily capacity table - CREATE (doesn't exist)
+    await queryRunner.query(`
             CREATE TABLE user_daily_capacity (
                 organization_id UUID NOT NULL,
                 user_id UUID NOT NULL,
@@ -83,8 +83,8 @@ export class CoreTables1756400000001 implements MigrationInterface {
             CREATE INDEX idx_daily_capacity_org_date ON user_daily_capacity(organization_id, capacity_date);
         `);
 
-        // Risk signals table - CREATE (doesn't exist)
-        await queryRunner.query(`
+    // Risk signals table - CREATE (doesn't exist)
+    await queryRunner.query(`
             CREATE TABLE risk_signals (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 organization_id UUID NOT NULL,
@@ -103,18 +103,26 @@ export class CoreTables1756400000001 implements MigrationInterface {
             CREATE INDEX idx_risk_signals_project ON risk_signals(project_id);
             CREATE INDEX idx_risk_signals_status ON risk_signals(status);
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
-        await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
-        await queryRunner.query(`DROP TABLE IF EXISTS work_items CASCADE`);
-        await queryRunner.query(`DROP TABLE IF EXISTS templates CASCADE`);
-        
-        // Remove added columns from existing tables
-        await queryRunner.query(`ALTER TABLE projects DROP COLUMN IF EXISTS template_id`);
-        await queryRunner.query(`ALTER TABLE projects DROP COLUMN IF EXISTS current_phase`);
-        await queryRunner.query(`ALTER TABLE projects DROP COLUMN IF EXISTS created_by`);
-        await queryRunner.query(`ALTER TABLE resource_allocations DROP COLUMN IF EXISTS work_item_id`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE IF EXISTS risk_signals CASCADE`);
+    await queryRunner.query(`DROP TABLE IF EXISTS user_daily_capacity CASCADE`);
+    await queryRunner.query(`DROP TABLE IF EXISTS work_items CASCADE`);
+    await queryRunner.query(`DROP TABLE IF EXISTS templates CASCADE`);
+
+    // Remove added columns from existing tables
+    await queryRunner.query(
+      `ALTER TABLE projects DROP COLUMN IF EXISTS template_id`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE projects DROP COLUMN IF EXISTS current_phase`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE projects DROP COLUMN IF EXISTS created_by`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE resource_allocations DROP COLUMN IF EXISTS work_item_id`,
+    );
+  }
 }

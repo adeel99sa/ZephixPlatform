@@ -1,246 +1,132 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
-import { DashboardLayout } from './components/layouts/DashboardLayout';
-import { LoginPage } from './pages/auth/LoginPage';
-import { SignupPage } from './pages/auth/SignupPage';
-import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
-import { CommandPalette } from './components/CommandPalette';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AuthProvider } from './components/auth/AuthProvider';
-import ErrorBoundary from './components/common/ErrorBoundary';
-import LandingPage from './pages/LandingPage';
-import HealthPage from './pages/HealthPage';
-import { Skeleton } from './components/ui/feedback/Skeleton';
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "@/routes/ProtectedRoute";
+import AdminRoute from "@/routes/AdminRoute";
+import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { AuthProvider } from "@/state/AuthContext";
+import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 
-// Lazy load main dashboard pages
-const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage').then(m => ({ default: m.default ?? m.DashboardPage })));
-const ProjectsPage = lazy(() => import('./pages/projects/ProjectsPage').then(m => ({ default: m.default ?? m.ProjectsPage })));
-const ProjectDetailPage = lazy(() => import('./pages/projects/ProjectDetailPage').then(m => ({ default: m.default ?? m.ProjectDetailPage })));
-const ResourcesPage = lazy(() => import('./features/resources/pages/ResourcesPage').then(m => ({ default: m.default ?? m.ResourcesPage })));
-const RisksPage = lazy(() => import('./features/risks/pages/RisksPage').then(m => ({ default: m.default ?? m.RisksPage })));
-const KpiCatalogPage = lazy(() => import('./features/admin/kpis/pages/KpiCatalogPage').then(m => ({ default: m.default ?? m.KpiCatalogPage })));
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.default ?? m.AnalyticsPage })));
-const SettingsPage = lazy(() => import('./pages/settings/SettingsPage').then(m => ({ default: m.default ?? m.SettingsPage })));
-const AIMappingPage = lazy(() => import('./pages/ai/AIMappingPage').then(m => ({ default: m.default ?? m.AIMappingPage })));
-const AISuggestionsPage = lazy(() => import('./pages/ai/AISuggestionsPage').then(m => ({ default: m.default ?? m.AISuggestionsPage })));
-const WorkflowsPage = lazy(() => import('./pages/workflows/WorkflowsPage').then(m => ({ default: m.default ?? m.WorkflowsPage })));
-const TemplateHubPage = lazy(() => import('./pages/templates/TemplateHubPage').then(m => ({ default: m.default ?? m.TemplateHubPage })));
-const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage').then(m => ({ default: m.default ?? m.DiagnosticsPage })));
-const HubPage = lazy(() => import('./pages/hub/HubPage').then(m => ({ default: m.default ?? m.HubPage })));
+// Auth pages
+import { LoginPage } from "@/pages/auth/LoginPage";
+import { SignupPage } from "@/pages/auth/SignupPage";
+import { InvitePage } from "@/pages/auth/InvitePage";
 
-// Lazy load admin pages
-import AdminLayout from './pages/admin/AdminLayout';
-import { adminFlags } from './config/features';
-const AdminOrganizationPage = lazy(() => import('./pages/admin/OrganizationPage'));
-const AdminUsersPage         = lazy(() => import('./pages/admin/UsersPage'));
-const AdminRolesPage         = lazy(() => import('./pages/admin/RolesPage'));
-const AdminSecurityPage      = lazy(() => import('./pages/admin/SecurityPage'));
-const AdminWorkspacesPage    = lazy(() => import('./pages/admin/WorkspacesPage'));
-const AdminApiKeysPage       = lazy(() => import('./pages/admin/ApiKeysPage'));
-const AdminAuditLogsPage     = lazy(() => import('./pages/admin/AuditLogsPage'));
-const AdminBillingPage       = lazy(() => import('./pages/admin/BillingPage'));
-const AdminIntegrationsPage  = lazy(() => import('./pages/admin/IntegrationsPage'));
-const AdminKpisPage          = lazy(() => import('./pages/admin/KpisPage'));
-const AdminTemplatesPage     = lazy(() => import('./pages/admin/TemplatesPage'));
+// System pages
+import { NotFound } from "@/pages/system/NotFound";
+import { Forbidden } from "@/pages/system/Forbidden";
 
-// Loading fallback component
-const PageSkeleton = () => (
-  <div className="p-6 space-y-4">
-    <Skeleton className="h-8 w-64" />
-    <Skeleton className="h-4 w-96" />
-    <div className="space-y-2">
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-1/2" />
-    </div>
-  </div>
-);
+// Views
+import { HomeView } from "@/views/HomeView";
+import { DashboardsIndex } from "@/views/dashboards/Index";
+import { DashboardBuilder } from "@/views/dashboards/Builder";
+import DashboardView from "@/views/dashboards/View";
+import DashboardPage from "@/pages/dashboard/DashboardPage";
+import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
+import WorkspaceView from "@/views/workspaces/WorkspaceView";
+import { TemplateCenter } from "@/views/templates/TemplateCenter";
+import SettingsPage from "@/pages/settings/SettingsPage";
+import ResourcesPage from "@/pages/ResourcesPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
+import OnboardingPage from "@/pages/onboarding/OnboardingPage";
+import BillingPage from "@/pages/billing/BillingPage";
+import LandingPage from "@/pages/LandingPage";
 
-function App() {
+// Admin pages
+import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
+import AdminOrganizationPage from "@/pages/admin/AdminOrganizationPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminTeamsPage from "@/pages/admin/AdminTeamsPage";
+import AdminRolesPage from "@/pages/admin/AdminRolesPage";
+import AdminInvitePage from "@/pages/admin/AdminInvitePage";
+import AdminTemplatesPage from "@/pages/admin/AdminTemplatesPage";
+import AdminWorkspacesPage from "@/pages/admin/AdminWorkspacesPage";
+import AdminProjectsPage from "@/pages/admin/AdminProjectsPage";
+import AdminArchivePage from "@/pages/admin/AdminArchivePage";
+import AdminTrashPage from "@/pages/admin/AdminTrashPage";
+import AdminBillingPage from "@/pages/admin/AdminBillingPage";
+import AdminUsagePage from "@/pages/admin/AdminUsagePage";
+import AdminSecurityPage from "@/pages/admin/AdminSecurityPage";
+import AdminTemplateBuilderPage from "@/pages/admin/AdminTemplateBuilderPage";
+import AdminCustomFieldsPage from "@/pages/admin/AdminCustomFieldsPage";
+
+export default function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Navigate to="/hub" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/health" element={<HealthPage />} />
-            
-            {/* Protected Dashboard Routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <DashboardPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/projects" element={<Navigate to="/hub?view=projects" replace />} />
-            
-            <Route path="/projects/list" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <ProjectsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* CRITICAL FIX: Use :id not :projectId */}
-            <Route path="/projects/:id" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <ProjectDetailPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/resources" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <ResourcesPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/risks" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <RisksPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/kpis" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <KpiCatalogPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/analytics" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <AnalyticsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <SettingsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/ai/mapping" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <AIMappingPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/ai/suggestions" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <AISuggestionsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/workflows" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <WorkflowsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/templates" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <TemplateHubPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/diagnostics" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <DiagnosticsPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/hub" element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <Suspense fallback={<PageSkeleton />}>
-                    <HubPage />
-                  </Suspense>
-                </DashboardLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <AdminLayout />
-              </ProtectedRoute>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/invite" element={<InvitePage />} />
+
+          {/* Protected routes with shell */}
+          <Route element={<ProtectedRoute />}>
+            {/* Onboarding route (no layout) */}
+            <Route path="/onboarding" element={<OnboardingPage />} />
+
+            {/* Main app routes with DashboardLayout */}
+            <Route element={
+              <ErrorBoundary>
+                <DashboardLayout />
+              </ErrorBoundary>
             }>
-              <Route index element={<AdminOrganizationPage />} />
-              <Route path="organization" element={<AdminOrganizationPage />} />
-              <Route path="users" element={<AdminUsersPage />} />
-              <Route path="roles" element={<AdminRolesPage />} />
-              {adminFlags.security && <Route path="security" element={<AdminSecurityPage />} />}
-              {adminFlags.workspaces && <Route path="workspaces" element={<AdminWorkspacesPage />} />}
-              {adminFlags.apiKeys && <Route path="api-keys" element={<AdminApiKeysPage />} />}
-              {adminFlags.auditLogs && <Route path="audit-logs" element={<AdminAuditLogsPage />} />}
-              {adminFlags.billing && <Route path="billing" element={<AdminBillingPage />} />}
-              {adminFlags.integrations && <Route path="integrations" element={<AdminIntegrationsPage />} />}
-              {adminFlags.kpis && <Route path="kpis" element={<AdminKpisPage />} />}
-              {adminFlags.templates && <Route path="templates" element={<AdminTemplatesPage />} />}
+              <Route path="/home" element={<HomeView />} />
+              <Route path="/dashboards" element={<DashboardsIndex />} />
+              <Route path="/dashboards/:id" element={<DashboardView />} />
+              <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
+              <Route path="/projects" element={<div>Projects Page</div>} />
+              <Route path="/projects/:id" element={<div>Project Detail</div>} />
+              <Route path="/workspaces" element={<WorkspacesPage />} />
+              <Route path="/workspaces/:id" element={<WorkspaceView />} />
+              <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
+              <Route path="/templates" element={<TemplateCenter />} />
+              <Route path="/resources" element={<ResourcesPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/billing" element={<BillingPage />} />
+              <Route path="/403" element={<Forbidden />} />
+              <Route path="/404" element={<NotFound />} />
             </Route>
-            
-            {/* Catch all - redirect to landing page */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <CommandPalette />
-        </Router>
-      </AuthProvider>
-    </ErrorBoundary>
+
+            {/* Admin routes with AdminLayout (separate from main app) */}
+            <Route element={<AdminRoute />}>
+              <Route element={
+                <ErrorBoundary>
+                  <AdminLayout />
+                </ErrorBoundary>
+              }>
+                <Route path="/admin" element={<AdminDashboardPage />} />
+
+                {/* Organization Section */}
+                <Route path="/admin/org" element={<AdminOrganizationPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/teams" element={<AdminTeamsPage />} />
+                <Route path="/admin/roles" element={<AdminRolesPage />} />
+                <Route path="/admin/invite" element={<AdminInvitePage />} />
+                <Route path="/admin/usage" element={<AdminUsagePage />} />
+                <Route path="/admin/billing" element={<AdminBillingPage />} />
+                <Route path="/admin/security" element={<AdminSecurityPage />} />
+
+                {/* Templates Section */}
+                <Route path="/admin/templates" element={<AdminTemplatesPage />} />
+                <Route path="/admin/templates/builder" element={<AdminTemplateBuilderPage />} />
+                <Route path="/admin/templates/custom-fields" element={<AdminCustomFieldsPage />} />
+
+                {/* Workspaces & Projects Section */}
+                <Route path="/admin/workspaces" element={<AdminWorkspacesPage />} />
+                <Route path="/admin/projects" element={<AdminProjectsPage />} />
+                <Route path="/admin/archive" element={<AdminArchivePage />} />
+                <Route path="/admin/trash" element={<AdminTrashPage />} />
+              </Route>
+            </Route>
+          </Route>
+
+          {/* Default redirects */}
+          <Route path="/dashboard" element={<Navigate to="/dashboards" replace />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
-
-export default App;

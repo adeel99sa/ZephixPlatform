@@ -13,8 +13,3 @@ export class UsersController {
     return this.usersService.findByOrganization(user.organizationId);
   }
 }
-
-
-
-
-

@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
 // Fallback for development when Redis is not available
-const CACHE_STORE = process.env.REDIS_URL 
+const CACHE_STORE = process.env.REDIS_URL
   ? null // Will use Redis in production
   : new Map(); // Only for local development
 
 @Injectable()
 export class CacheService {
-  private cache = CACHE_STORE || new Map<string, { value: any; expires: number }>();
+  private cache =
+    CACHE_STORE || new Map<string, { value: any; expires: number }>();
 
   async get<T>(key: string): Promise<T | null> {
     try {
@@ -44,7 +45,7 @@ export class CacheService {
       }
 
       // Fallback to in-memory for development
-      const expires = Date.now() + (ttl * 1000);
+      const expires = Date.now() + ttl * 1000;
       this.cache.set(key, { value, expires });
     } catch (error) {
       console.error(`Cache SET error for ${key}:`, error);
@@ -88,10 +89,10 @@ export class CacheService {
     if (process.env.REDIS_URL) {
       return { size: 0, keys: [] }; // Redis stats would be implemented
     }
-    
+
     return {
       size: this.cache.size,
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     };
   }
 }

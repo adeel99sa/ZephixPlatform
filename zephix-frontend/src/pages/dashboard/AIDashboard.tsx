@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useUser } from '../../hooks/useUser';
 import { useProjectStore } from '../../stores/projectStore';
 import { aiService, type AIResponse } from '../../services/aiService';
-import { DashboardHeader, ChatInterface, DashboardSidebar } from '../../components/dashboard';
+import { DashboardSidebar } from '../../components/dashboard';
 import { Skeleton, SkeletonList, SkeletonCard } from '../../components/ui/Skeleton';
 
 interface Message {
@@ -171,7 +171,15 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
       <div className="flex h-[calc(100vh-80px)]">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
-          <DashboardHeader onCreateProject={handleCreateProject} />
+          <div className="h-12 border-b bg-white flex items-center justify-between px-4">
+            <h1 className="text-lg font-semibold">AI Dashboard</h1>
+            <button
+              onClick={handleCreateProject}
+              className="px-3 py-1.5 rounded-lg border font-medium hover:bg-gray-50"
+            >
+              + New Project
+            </button>
+          </div>
           
           <ChatInterface
             messages={messages.map(msg => ({

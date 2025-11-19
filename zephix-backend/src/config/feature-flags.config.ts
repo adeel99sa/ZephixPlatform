@@ -5,7 +5,7 @@ export interface FeatureFlags {
   auth: boolean;
   organizations: boolean;
   projects: boolean;
-  
+
   // Optional features (controlled by environment)
   aiModule: boolean;
   governanceModule: boolean;
@@ -13,19 +13,24 @@ export interface FeatureFlags {
   telemetry: boolean;
   adminPanel: boolean;
   workflows: boolean;
+  workspaceMembershipV1: boolean;
 }
 
-export default registerAs('features', (): FeatureFlags => ({
-  // Core features - always true
-  auth: true,
-  organizations: true,
-  projects: true,
-  
-  // Optional features - read from environment
-  aiModule: process.env.ENABLE_AI_MODULE === 'true',
-  governanceModule: process.env.ENABLE_GOVERNANCE === 'true',
-  documentProcessing: process.env.ENABLE_DOCUMENTS === 'true',
-  telemetry: process.env.ENABLE_TELEMETRY === 'true',
-  adminPanel: process.env.ENABLE_ADMIN === 'true',
-  workflows: process.env.ENABLE_WORKFLOWS === 'true',
-}));
+export default registerAs(
+  'features',
+  (): FeatureFlags => ({
+    // Core features - always true
+    auth: true,
+    organizations: true,
+    projects: true,
+
+    // Optional features - read from environment
+    aiModule: process.env.ENABLE_AI_MODULE === 'true',
+    governanceModule: process.env.ENABLE_GOVERNANCE === 'true',
+    documentProcessing: process.env.ENABLE_DOCUMENTS === 'true',
+    telemetry: process.env.ENABLE_TELEMETRY === 'true',
+    adminPanel: process.env.ENABLE_ADMIN === 'true',
+    workflows: process.env.ENABLE_WORKFLOWS === 'true',
+    workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
+  }),
+);

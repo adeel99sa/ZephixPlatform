@@ -31,12 +31,22 @@ export class VirusScanService {
   private readonly fileSignatures: Map<string, FileSignature>;
 
   constructor(private readonly configService: ConfigService) {
-    this.enableVirusScanning = this.configService.get<boolean>('SECURITY_VIRUS_SCAN_ENABLED', true);
-    this.clamavPath = this.configService.get<string>('CLAMAV_PATH', '/usr/bin/clamscan');
-    this.maxFileSize = this.configService.get<number>('SECURITY_MAX_FILE_SIZE', 100 * 1024 * 1024); // 100MB
-    this.allowedFileTypes = this.configService.get<string[]>('SECURITY_ALLOWED_FILE_TYPES', [
-      '.pdf', '.docx', '.doc', '.txt', '.xlsx', '.xls', '.pptx', '.ppt'
-    ]);
+    this.enableVirusScanning = this.configService.get<boolean>(
+      'SECURITY_VIRUS_SCAN_ENABLED',
+      true,
+    );
+    this.clamavPath = this.configService.get<string>(
+      'CLAMAV_PATH',
+      '/usr/bin/clamscan',
+    );
+    this.maxFileSize = this.configService.get<number>(
+      'SECURITY_MAX_FILE_SIZE',
+      100 * 1024 * 1024,
+    ); // 100MB
+    this.allowedFileTypes = this.configService.get<string[]>(
+      'SECURITY_ALLOWED_FILE_TYPES',
+      ['.pdf', '.docx', '.doc', '.txt', '.xlsx', '.xls', '.pptx', '.ppt'],
+    );
 
     this.fileSignatures = this.initializeFileSignatures();
   }
@@ -49,13 +59,17 @@ export class VirusScanService {
     const fileSize = file.length;
     const fileHash = this.calculateFileHash(file);
 
-    this.logger.log(`Starting virus scan for file: ${filename} (${fileSize} bytes)`);
+    this.logger.log(
+      `Starting virus scan for file: ${filename} (${fileSize} bytes)`,
+    );
 
     // Basic file size validation
     if (fileSize > this.maxFileSize) {
       return {
         isClean: false,
-        threats: [`File size ${fileSize} bytes exceeds maximum allowed size ${this.maxFileSize} bytes`],
+        threats: [
+          `File size ${fileSize} bytes exceeds maximum allowed size ${this.maxFileSize} bytes`,
+        ],
         scanMethod: 'none',
         scanTime: Date.now() - startTime,
         fileSize,
@@ -79,7 +93,7 @@ export class VirusScanService {
     }
 
     // Try ClamAV first (most reliable)
-    if (this.enableVirusScanning && await this.isClamAVAvailable()) {
+    if (this.enableVirusScanning && (await this.isClamAVAvailable())) {
       try {
         const clamavResult = await this.scanWithClamAV(file, filename);
         return {
@@ -89,7 +103,9 @@ export class VirusScanService {
           fileHash,
         };
       } catch (error) {
-        this.logger.warn(`ClamAV scan failed, falling back to signature analysis: ${error.message}`);
+        this.logger.warn(
+          `ClamAV scan failed, falling back to signature analysis: ${error.message}`,
+        );
       }
     }
 
@@ -106,19 +122,22 @@ export class VirusScanService {
   /**
    * Scan file using ClamAV antivirus
    */
-  private async scanWithClamAV(file: Buffer, filename: string): Promise<Omit<VirusScanResult, 'scanTime' | 'fileSize' | 'fileHash'>> {
+  private async scanWithClamAV(
+    file: Buffer,
+    filename: string,
+  ): Promise<Omit<VirusScanResult, 'scanTime' | 'fileSize' | 'fileHash'>> {
     return new Promise((resolve, reject) => {
       // Write file to temporary location for ClamAV
       const tempDir = this.configService.get<string>('TEMP_DIR', '/tmp');
       const tempFile = path.join(tempDir, `scan_${Date.now()}_${filename}`);
-      
+
       fs.writeFileSync(tempFile, file);
 
       const clamscan = spawn(this.clamavPath, [
         '--no-summary',
         '--infected',
         '--suppress-ok-results',
-        tempFile
+        tempFile,
       ]);
 
       let stdout = '';
@@ -137,7 +156,9 @@ export class VirusScanService {
         try {
           fs.unlinkSync(tempFile);
         } catch (error) {
-          this.logger.warn(`Failed to clean up temporary file ${tempFile}: ${error.message}`);
+          this.logger.warn(
+            `Failed to clean up temporary file ${tempFile}: ${error.message}`,
+          );
         }
 
         if (code === 0) {
@@ -149,10 +170,11 @@ export class VirusScanService {
           });
         } else if (code === 1) {
           // Threats found
-          const threats = stdout.split('\n')
-            .filter(line => line.trim())
-            .map(line => line.replace(tempFile + ': ', ''));
-          
+          const threats = stdout
+            .split('\n')
+            .filter((line) => line.trim())
+            .map((line) => line.replace(tempFile + ': ', ''));
+
           resolve({
             isClean: false,
             threats,
@@ -173,17 +195,22 @@ export class VirusScanService {
   /**
    * Scan file using file signature analysis
    */
-  private async scanWithFileSignatures(file: Buffer, filename: string): Promise<Omit<VirusScanResult, 'scanTime' | 'fileSize' | 'fileHash'>> {
+  private async scanWithFileSignatures(
+    file: Buffer,
+    filename: string,
+  ): Promise<Omit<VirusScanResult, 'scanTime' | 'fileSize' | 'fileHash'>> {
     const fileExtension = path.extname(filename).toLowerCase();
     const magicBytes = file.slice(0, 16).toString('hex').toUpperCase();
-    
+
     // Check if file signature matches expected type
     const expectedSignature = this.fileSignatures.get(fileExtension);
     if (expectedSignature) {
       if (!magicBytes.startsWith(expectedSignature.magic)) {
         return {
           isClean: false,
-          threats: [`File signature mismatch: expected ${expectedSignature.magic}, got ${magicBytes.substring(0, expectedSignature.magic.length)}`],
+          threats: [
+            `File signature mismatch: expected ${expectedSignature.magic}, got ${magicBytes.substring(0, expectedSignature.magic.length)}`,
+          ],
           scanMethod: 'signature',
         };
       }
@@ -227,14 +254,17 @@ export class VirusScanService {
     const urlPattern = /https?:\/\/[^\s<>"]+/gi;
     const urls = content.match(urlPattern);
     if (urls) {
-      const suspiciousUrls = urls.filter(url => 
-        url.includes('malware') || 
-        url.includes('virus') || 
-        url.includes('hack') ||
-        url.includes('exploit')
+      const suspiciousUrls = urls.filter(
+        (url) =>
+          url.includes('malware') ||
+          url.includes('virus') ||
+          url.includes('hack') ||
+          url.includes('exploit'),
       );
       if (suspiciousUrls.length > 0) {
-        threats.push(`File contains suspicious URLs: ${suspiciousUrls.join(', ')}`);
+        threats.push(
+          `File contains suspicious URLs: ${suspiciousUrls.join(', ')}`,
+        );
       }
     }
 
@@ -247,7 +277,7 @@ export class VirusScanService {
   private async isClamAVAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
       const clamscan = spawn(this.clamavPath, ['--version']);
-      
+
       clamscan.on('close', (code) => {
         resolve(code === 0);
       });
@@ -271,7 +301,7 @@ export class VirusScanService {
    */
   private initializeFileSignatures(): Map<string, FileSignature> {
     const signatures = new Map<string, FileSignature>();
-    
+
     // PDF files
     signatures.set('.pdf', {
       magic: '25504446',
@@ -284,7 +314,8 @@ export class VirusScanService {
     signatures.set('.docx', {
       magic: '504B0304',
       extension: '.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       description: 'Microsoft Word Document',
     });
 
@@ -308,7 +339,8 @@ export class VirusScanService {
     signatures.set('.xlsx', {
       magic: '504B0304',
       extension: '.xlsx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       description: 'Microsoft Excel Spreadsheet',
     });
 
@@ -316,7 +348,8 @@ export class VirusScanService {
     signatures.set('.pptx', {
       magic: '504B0304',
       extension: '.pptx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       description: 'Microsoft PowerPoint Presentation',
     });
 
@@ -340,5 +373,3 @@ export class VirusScanService {
     };
   }
 }
-
-

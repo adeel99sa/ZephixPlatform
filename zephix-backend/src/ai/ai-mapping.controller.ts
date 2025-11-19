@@ -31,22 +31,25 @@ import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AIMappingService } from './services/ai-mapping.service';
-import { AIMappingRequestDto, AIMappingResponseDto, AIMappingStatusDto } from './dto/ai-mapping.dto';
+import {
+  AIMappingRequestDto,
+  AIMappingResponseDto,
+  AIMappingStatusDto,
+} from './dto/ai-mapping.dto';
 
 @ApiTags('AI Document Mapping')
 @Controller('ai/mapping')
 @UseGuards(JwtAuthGuard, OrganizationGuard, RateLimiterGuard)
 @ApiBearerAuth()
 export class AIMappingController {
-  constructor(
-    private readonly aiMappingService: AIMappingService,
-  ) {}
+  constructor(private readonly aiMappingService: AIMappingService) {}
 
   @Post('analyze')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Analyze Business Requirements Document with AI',
-    description: 'Upload and analyze BRD documents to extract project structure, requirements, and insights'
+    description:
+      'Upload and analyze BRD documents to extract project structure, requirements, and insights',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -125,7 +128,7 @@ export class AIMappingController {
         ],
       }),
     )
-    file: Express.Multer.File,
+    file: any, // Express.Multer.File
     @Body() mappingRequest: AIMappingRequestDto,
     @Request() req: any,
   ): Promise<AIMappingResponseDto> {
@@ -144,14 +147,16 @@ export class AIMappingController {
         userId,
       );
     } catch (error) {
-      throw new BadRequestException(`Document analysis failed: ${error.message}`);
+      throw new BadRequestException(
+        `Document analysis failed: ${error.message}`,
+      );
     }
   }
 
   @Get(':id')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get AI mapping analysis result',
-    description: 'Retrieve the completed AI analysis for a document'
+    description: 'Retrieve the completed AI analysis for a document',
   })
   @ApiParam({ name: 'id', description: 'Analysis ID' })
   @ApiResponse({
@@ -168,7 +173,7 @@ export class AIMappingController {
     @Request() req: any,
   ): Promise<AIMappingResponseDto> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }
@@ -177,9 +182,9 @@ export class AIMappingController {
   }
 
   @Get(':id/status')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get AI mapping analysis status',
-    description: 'Check the current status and progress of document analysis'
+    description: 'Check the current status and progress of document analysis',
   })
   @ApiParam({ name: 'id', description: 'Analysis ID' })
   @ApiResponse({
@@ -192,7 +197,7 @@ export class AIMappingController {
     @Request() req: any,
   ): Promise<AIMappingStatusDto> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }
@@ -201,11 +206,15 @@ export class AIMappingController {
   }
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'List AI mapping analyses',
-    description: 'Get list of all AI mapping analyses for the organization'
+    description: 'Get list of all AI mapping analyses for the organization',
   })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'processing', 'completed', 'failed'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'processing', 'completed', 'failed'],
+  })
   @ApiQuery({ name: 'documentType', required: false })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
@@ -222,7 +231,7 @@ export class AIMappingController {
     @Query('offset') offset = 0,
   ): Promise<AIMappingResponseDto[]> {
     const organizationId = req.headers['x-org-id'];
-    
+
     if (!organizationId) {
       throw new BadRequestException('Organization context required');
     }

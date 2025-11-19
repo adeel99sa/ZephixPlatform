@@ -5,10 +5,13 @@ import { join } from 'path';
 dotenv.config();
 
 // Use production DATABASE_URL
-const productionUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+const productionUrl =
+  process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!productionUrl) {
-  throw new Error('PRODUCTION_DATABASE_URL is required for migration generation');
+  throw new Error(
+    'PRODUCTION_DATABASE_URL is required for migration generation',
+  );
 }
 
 export const AppDataSource = new DataSource({
@@ -18,5 +21,7 @@ export const AppDataSource = new DataSource({
   migrations: [join(__dirname, '../migrations/*{.ts,.js}')],
   synchronize: false,
   logging: true,
-  ssl: productionUrl.includes('railway') ? { rejectUnauthorized: false } : false,
+  ssl: productionUrl.includes('railway')
+    ? { rejectUnauthorized: false }
+    : false,
 });

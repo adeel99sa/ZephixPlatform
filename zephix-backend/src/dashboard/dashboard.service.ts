@@ -12,7 +12,10 @@ export class DashboardService {
     @Optional() private readonly riskManagementService: RiskManagementService,
   ) {}
 
-  async getDashboardData(userId: string, organizationId: string): Promise<DashboardResponseDto> {
+  async getDashboardData(
+    userId: string,
+    organizationId: string,
+  ): Promise<DashboardResponseDto> {
     const response: DashboardResponseDto = {
       myProjects: [],
       risksNeedingAttention: [],
@@ -21,26 +24,29 @@ export class DashboardService {
         totalProjects: 0,
         activeProjects: 0,
         risksIdentified: 0,
-        upcomingDeadlines: 0
-      }
+        upcomingDeadlines: 0,
+      },
     };
 
     // Get projects - graceful failure
     try {
       if (this.projectsService) {
-        const projectsResult = await this.projectsService.findAllProjects(organizationId);
-        
-        response.myProjects = projectsResult.projects.map(p => ({
+        const projectsResult =
+          await this.projectsService.findAllProjects(organizationId);
+
+        response.myProjects = projectsResult.projects.map((p) => ({
           id: p.id,
           name: p.name,
           status: p.status,
           progress: 0, // Project entity doesn't have progress field
           dueDate: p.endDate,
-          role: 'member' // simplified for now
+          role: 'member', // simplified for now
         }));
-        
+
         response.statistics.totalProjects = projectsResult.total;
-        response.statistics.activeProjects = projectsResult.projects.filter(p => p.status === 'active').length;
+        response.statistics.activeProjects = projectsResult.projects.filter(
+          (p) => p.status === 'active',
+        ).length;
       }
     } catch (error) {
       this.logger.error('Failed to fetch projects for dashboard', error);
@@ -61,8 +67,10 @@ export class DashboardService {
     return response;
   }
 
-  private async getRisksNeedingAttention(organizationId: string): Promise<any[]> {
+  private async getRisksNeedingAttention(
+    organizationId: string,
+  ): Promise<any[]> {
     // Simple query - high/very-high risks from last 30 days
-    return [];  // Implement based on existing risk entity structure
+    return []; // Implement based on existing risk entity structure
   }
 }

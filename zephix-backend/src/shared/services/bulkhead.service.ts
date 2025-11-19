@@ -45,13 +45,10 @@ class BulkheadImpl implements Bulkhead {
 
   private async executeOperation<T>(operation: () => Promise<T>): Promise<T> {
     this.currentExecutions++;
-    
+
     try {
-      const result = await Promise.race([
-        operation(),
-        this.createTimeout(),
-      ]);
-      
+      const result = await Promise.race([operation(), this.createTimeout()]);
+
       return result;
     } finally {
       this.currentExecutions--;
@@ -68,11 +65,14 @@ class BulkheadImpl implements Bulkhead {
   }
 
   private processQueue(): void {
-    if (this.queue.length === 0 || this.currentExecutions >= this.options.maxConcurrent) {
+    if (
+      this.queue.length === 0 ||
+      this.currentExecutions >= this.options.maxConcurrent
+    ) {
       return;
     }
 
-    const { operation, resolve, reject } = this.queue.shift()!;
+    const { operation, resolve, reject } = this.queue.shift();
     this.executeOperation(operation).then(resolve).catch(reject);
   }
 }

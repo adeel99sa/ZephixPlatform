@@ -80,7 +80,7 @@ export class TelemetryService implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         'OpenTelemetry initialization failed. Continuing without telemetry.',
-        error.stack || error.message
+        error.stack || error.message,
       );
     }
   }

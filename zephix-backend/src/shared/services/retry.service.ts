@@ -13,7 +13,7 @@ export class RetryService {
 
   async executeWithRetry<T>(
     operation: () => Promise<T>,
-    options: RetryOptions
+    options: RetryOptions,
   ): Promise<T> {
     let lastError: Error;
     const baseDelay = options.baseDelay || 1000;
@@ -25,10 +25,13 @@ export class RetryService {
         lastError = error as Error;
 
         if (attempt === options.maxAttempts) {
-          this.logger.error(`Operation failed after ${options.maxAttempts} attempts`, {
-            error: error.message,
-            attempts: attempt,
-          });
+          this.logger.error(
+            `Operation failed after ${options.maxAttempts} attempts`,
+            {
+              error: error.message,
+              attempts: attempt,
+            },
+          );
           throw error;
         }
 
@@ -40,7 +43,11 @@ export class RetryService {
           throw error;
         }
 
-        const delay = this.calculateDelay(attempt, baseDelay, options.backoffStrategy);
+        const delay = this.calculateDelay(
+          attempt,
+          baseDelay,
+          options.backoffStrategy,
+        );
         this.logger.warn(`Operation failed, retrying in ${delay}ms`, {
           error: error.message,
           attempt,
@@ -51,13 +58,13 @@ export class RetryService {
       }
     }
 
-    throw lastError!;
+    throw lastError;
   }
 
   private calculateDelay(
     attempt: number,
     baseDelay: number,
-    strategy: 'exponential' | 'linear' | 'constant'
+    strategy: 'exponential' | 'linear' | 'constant',
   ): number {
     switch (strategy) {
       case 'exponential':
@@ -72,6 +79,6 @@ export class RetryService {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

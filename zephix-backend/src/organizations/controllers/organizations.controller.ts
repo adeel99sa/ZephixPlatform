@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -36,7 +37,7 @@ import { CurrentOrg } from '../decorators/current-org.decorator';
 export class OrganizationsController {
   constructor(
     private readonly organizationsService: OrganizationsService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
   ) {}
 
   @Post()
@@ -166,9 +167,94 @@ export class OrganizationsController {
     await this.auditService.logAction('admin.users.list', {
       userId: req.user.id,
       action: 'admin.users.list',
-      timestamp: new Date()
+      timestamp: new Date(),
     });
-    
+
     return this.organizationsService.findAllUsers();
+  }
+
+  @Get('users')
+  @ApiOperation({
+    summary: 'Get organization users for workspace member selection',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization users retrieved successfully',
+  })
+  async getOrgUsers(
+    @Request() req,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('search') search?: string,
+  ) {
+    // Allow admin or workspace owner to list org users
+    return this.organizationsService.getOrganizationUsers(
+      req.user.organizationId,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+        search,
+      },
+    );
+  }
+
+  // Onboarding endpoints
+  @Get('onboarding/status')
+  @ApiOperation({ summary: 'Get onboarding status for current organization' })
+  @ApiResponse({
+    status: 200,
+    description: 'Onboarding status retrieved successfully',
+  })
+  async getOnboardingStatus(@Request() req) {
+    return this.organizationsService.getOnboardingStatus(
+      req.user.organizationId,
+    );
+  }
+
+  @Get('onboarding/progress')
+  @ApiOperation({ summary: 'Get onboarding progress' })
+  @ApiResponse({
+    status: 200,
+    description: 'Onboarding progress retrieved successfully',
+  })
+  async getOnboardingProgress(@Request() req) {
+    return this.organizationsService.getOnboardingProgress(
+      req.user.organizationId,
+    );
+  }
+
+  @Post('onboarding/complete-step')
+  @ApiOperation({ summary: 'Mark an onboarding step as complete' })
+  @ApiResponse({
+    status: 200,
+    description: 'Step marked as complete',
+  })
+  async completeStep(@Body() body: { step: string }, @Request() req) {
+    return this.organizationsService.completeOnboardingStep(
+      req.user.organizationId,
+      body.step,
+    );
+  }
+
+  @Post('onboarding/complete')
+  @ApiOperation({ summary: 'Mark onboarding as complete' })
+  @ApiResponse({
+    status: 200,
+    description: 'Onboarding completed successfully',
+  })
+  async completeOnboarding(@Request() req) {
+    return this.organizationsService.completeOnboarding(
+      req.user.organizationId,
+    );
+  }
+
+  @Post('onboarding/skip')
+  @ApiOperation({ summary: 'Skip onboarding' })
+  @ApiResponse({
+    status: 200,
+    description: 'Onboarding skipped successfully',
+  })
+  async skipOnboarding(@Request() req) {
+    return this.organizationsService.skipOnboarding(req.user.organizationId);
   }
 }

@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,7 +13,12 @@ import { LLMProviderService } from '../llm-provider.service';
 import { VectorDatabaseService } from '../vector-database.service';
 import { EmbeddingService } from '../embedding.service';
 import { VirusScanService } from '../../shared/services/virus-scan.service';
-import { AIMappingRequestDto, AIMappingResponseDto, AIMappingStatusDto, AnalysisDepth } from '../dto/ai-mapping.dto';
+import {
+  AIMappingRequestDto,
+  AIMappingResponseDto,
+  AIMappingStatusDto,
+  AnalysisDepth,
+} from '../dto/ai-mapping.dto';
 
 export interface DocumentAnalysisResult {
   projectObjectives: string[];
@@ -91,14 +101,23 @@ export class AIMappingService {
     private readonly embeddingService: EmbeddingService,
     private readonly virusScanService: VirusScanService,
   ) {
-    this.maxFileSize = this.configService.get<number>('AI_MAX_FILE_SIZE', 25 * 1024 * 1024); // 25MB
-    this.allowedFileTypes = this.configService.get<string[]>('AI_ALLOWED_FILE_TYPES', ['.pdf', '.docx', '.doc', '.txt']);
+    this.maxFileSize = this.configService.get<number>(
+      'AI_MAX_FILE_SIZE',
+      25 * 1024 * 1024,
+    ); // 25MB
+    this.allowedFileTypes = this.configService.get<string[]>(
+      'AI_ALLOWED_FILE_TYPES',
+      ['.pdf', '.docx', '.doc', '.txt'],
+    );
     this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
-    this.virusScanningEnabled = this.configService.get<boolean>('AI_VIRUS_SCANNING_ENABLED', true);
+    this.virusScanningEnabled = this.configService.get<boolean>(
+      'AI_VIRUS_SCANNING_ENABLED',
+      true,
+    );
   }
 
   async analyzeDocument(
-    file: Express.Multer.File,
+    file: any,
     request: AIMappingRequestDto,
     organizationId: string,
     userId: string,
@@ -109,23 +128,36 @@ export class AIMappingService {
       // Step 1: File Security Validation
       const securityValidation = await this.validateFileSecurity(file);
       if (!securityValidation.isSecure) {
-        throw new BadRequestException(`File security validation failed: ${securityValidation.reason}`);
+        throw new BadRequestException(
+          `File security validation failed: ${securityValidation.reason}`,
+        );
       }
 
       // Step 2: File Type and Size Validation
       if (!this.isValidFileType(file.originalname)) {
-        throw new BadRequestException(`File type not allowed: ${file.originalname}`);
+        throw new BadRequestException(
+          `File type not allowed: ${file.originalname}`,
+        );
       }
 
       if (file.size > this.maxFileSize) {
-        throw new BadRequestException(`File size exceeds limit: ${file.size} bytes > ${this.maxFileSize} bytes`);
+        throw new BadRequestException(
+          `File size exceeds limit: ${file.size} bytes > ${this.maxFileSize} bytes`,
+        );
       }
 
       // Step 3: Virus Scanning
-      const virusScanResult = await this.virusScanService.scanFile(file.buffer, file.originalname);
+      const virusScanResult = await this.virusScanService.scanFile(
+        file.buffer,
+        file.originalname,
+      );
       if (!virusScanResult.isClean) {
-        this.logger.warn(`Virus scan failed for file ${file.originalname}: ${virusScanResult.threats.join(', ')}`);
-        throw new BadRequestException(`File security scan failed: ${virusScanResult.threats.join(', ')}`);
+        this.logger.warn(
+          `Virus scan failed for file ${file.originalname}: ${virusScanResult.threats.join(', ')}`,
+        );
+        throw new BadRequestException(
+          `File security scan failed: ${virusScanResult.threats.join(', ')}`,
+        );
       }
 
       this.logger.log(`File ${file.originalname} passed all security checks`);
@@ -134,11 +166,15 @@ export class AIMappingService {
       const documentContent = await this.documentParserService.parseDocument(
         file.buffer,
         file.originalname,
-        `analysis_${Date.now()}`
+        `analysis_${Date.now()}`,
       );
 
       // Step 5: AI Analysis
-      const analysisResult = await this.performLLMAnalysis(documentContent.document?.chunks?.map(c => c.content).join('\n') || '', request);
+      const analysisResult = await this.performLLMAnalysis(
+        documentContent.document?.chunks?.map((c) => c.content).join('\n') ||
+          '',
+        request,
+      );
 
       return {
         id: `analysis_${Date.now()}`,
@@ -159,24 +195,40 @@ export class AIMappingService {
     }
   }
 
-  async getAnalysisResult(analysisId: string, organizationId: string): Promise<AIMappingResponseDto> {
+  async getAnalysisResult(
+    analysisId: string,
+    organizationId: string,
+  ): Promise<AIMappingResponseDto> {
     try {
       // TODO: Implement database retrieval
       // For now, throw not implemented
-      throw new BadRequestException('Analysis result retrieval not yet implemented - database integration required');
+      throw new BadRequestException(
+        'Analysis result retrieval not yet implemented - database integration required',
+      );
     } catch (error) {
-      this.logger.error(`Failed to retrieve analysis result: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to retrieve analysis result: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  async getAnalysisStatus(analysisId: string, organizationId: string): Promise<AIMappingStatusDto> {
+  async getAnalysisStatus(
+    analysisId: string,
+    organizationId: string,
+  ): Promise<AIMappingStatusDto> {
     try {
       // TODO: Implement database status retrieval
       // For now, throw not implemented
-      throw new BadRequestException('Status retrieval not yet implemented - database integration required');
+      throw new BadRequestException(
+        'Status retrieval not yet implemented - database integration required',
+      );
     } catch (error) {
-      this.logger.error(`Failed to retrieve analysis status: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to retrieve analysis status: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -194,7 +246,10 @@ export class AIMappingService {
       this.logger.log(`Listing analyses for organization: ${organizationId}`);
       return [];
     } catch (error) {
-      this.logger.error(`Failed to list analyses: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to list analyses: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Failed to list analyses');
     }
   }
@@ -202,17 +257,32 @@ export class AIMappingService {
   /**
    * Validate file security using multiple layers
    */
-  private async validateFileSecurity(file: Express.Multer.File): Promise<{ isSecure: boolean; reason?: string }> {
+  private async validateFileSecurity(
+    file: any,
+  ): Promise<{ isSecure: boolean; reason?: string }> {
     try {
       // Check file extension against allowed types
       const fileExtension = file.originalname.toLowerCase().split('.').pop();
-      if (!fileExtension || !this.allowedFileTypes.includes(`.${fileExtension}`)) {
-        return { isSecure: false, reason: `File extension .${fileExtension} not allowed` };
+      if (
+        !fileExtension ||
+        !this.allowedFileTypes.includes(`.${fileExtension}`)
+      ) {
+        return {
+          isSecure: false,
+          reason: `File extension .${fileExtension} not allowed`,
+        };
       }
 
       // Check for double extension attacks
-      if (file.originalname.includes('..') || file.originalname.includes('\\') || file.originalname.includes('/')) {
-        return { isSecure: false, reason: 'Invalid file path characters detected' };
+      if (
+        file.originalname.includes('..') ||
+        file.originalname.includes('\\') ||
+        file.originalname.includes('/')
+      ) {
+        return {
+          isSecure: false,
+          reason: 'Invalid file path characters detected',
+        };
       }
 
       // Check file size limits
@@ -221,20 +291,28 @@ export class AIMappingService {
       }
 
       if (file.size > this.maxFileSize) {
-        return { isSecure: false, reason: `File size ${file.size} exceeds maximum allowed ${this.maxFileSize}` };
+        return {
+          isSecure: false,
+          reason: `File size ${file.size} exceeds maximum allowed ${this.maxFileSize}`,
+        };
       }
 
       // Check MIME type consistency
       const expectedMimeType = this.getExpectedMimeType(fileExtension);
       if (expectedMimeType && file.mimetype !== expectedMimeType) {
-        this.logger.warn(`MIME type mismatch for ${file.originalname}: expected ${expectedMimeType}, got ${file.mimetype}`);
+        this.logger.warn(
+          `MIME type mismatch for ${file.originalname}: expected ${expectedMimeType}, got ${file.mimetype}`,
+        );
         // Don't reject immediately, but log for monitoring
       }
 
       return { isSecure: true };
     } catch (error) {
       this.logger.error(`File security validation error: ${error.message}`);
-      return { isSecure: false, reason: `Security validation error: ${error.message}` };
+      return {
+        isSecure: false,
+        reason: `Security validation error: ${error.message}`,
+      };
     }
   }
 
@@ -243,14 +321,14 @@ export class AIMappingService {
    */
   private getExpectedMimeType(extension: string): string | null {
     const mimeTypes: Record<string, string> = {
-      'pdf': 'application/pdf',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'doc': 'application/msword',
-      'txt': 'text/plain',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'xls': 'application/vnd.ms-excel',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'ppt': 'application/vnd.ms-powerpoint',
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      txt: 'text/plain',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt: 'application/vnd.ms-powerpoint',
     };
 
     return mimeTypes[extension] || null;
@@ -261,12 +339,14 @@ export class AIMappingService {
    */
   private isValidFileType(filename: string): boolean {
     const fileExtension = filename.toLowerCase().split('.').pop();
-    return fileExtension ? this.allowedFileTypes.includes(`.${fileExtension}`) : false;
+    return fileExtension
+      ? this.allowedFileTypes.includes(`.${fileExtension}`)
+      : false;
   }
 
   private async processDocumentAsync(
     analysisId: string,
-    file: Express.Multer.File,
+    file: any,
     request: AIMappingRequestDto,
     organizationId: string,
     userId: string,
@@ -275,7 +355,11 @@ export class AIMappingService {
       this.logger.log(`Processing document asynchronously: ${analysisId}`);
 
       // Step 1: Parse document content
-      const parse = await this.documentParserService.parseDocument(file.buffer, file.originalname, analysisId);
+      const parse = await this.documentParserService.parseDocument(
+        file.buffer,
+        file.originalname,
+        analysisId,
+      );
       if (!parse.success || !parse.document) {
         throw new Error(parse.error || 'Failed to parse document');
       }
@@ -283,34 +367,62 @@ export class AIMappingService {
       this.logger.log(`Document parsed successfully: ${analysisId}`);
 
       // Step 2: Generate embeddings for semantic search
-      const embeddings = await this.embeddingService.generateChunkEmbeddings(documentContent.chunks);
+      const embeddings = await this.embeddingService.generateChunkEmbeddings(
+        documentContent.chunks,
+      );
       this.logger.log(`Embeddings generated: ${analysisId}`);
 
       // Step 3: Store in vector database for future reference
-      await this.vectorDatabaseService.storeDocumentChunks(analysisId, documentContent.chunks, embeddings);
+      await this.vectorDatabaseService.storeDocumentChunks(
+        analysisId,
+        documentContent.chunks,
+        embeddings,
+      );
       this.logger.log(`Document stored in vector database: ${analysisId}`);
 
       // Step 4: Use LLM for analysis
-      const fullText = documentContent.chunks.map(c => c.content).join('\n');
+      const fullText = documentContent.chunks.map((c) => c.content).join('\n');
       const analysisResult = await this.performLLMAnalysis(fullText, request);
       this.logger.log(`LLM analysis completed: ${analysisId}`);
 
       // Step 5: Store results in database
-      await this.storeAnalysisResults(analysisId, analysisResult, organizationId, userId);
+      await this.storeAnalysisResults(
+        analysisId,
+        analysisResult,
+        organizationId,
+        userId,
+      );
       this.logger.log(`Analysis results stored: ${analysisId}`);
 
       // Step 6: Update status to completed
-      await this.updateAnalysisStatus(analysisId, 'completed', 100, 'Analysis completed successfully');
+      await this.updateAnalysisStatus(
+        analysisId,
+        'completed',
+        100,
+        'Analysis completed successfully',
+      );
       this.logger.log(`Analysis completed successfully: ${analysisId}`);
-
     } catch (error) {
-      this.logger.error(`AI analysis failed for ${analysisId}: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `AI analysis failed for ${analysisId}: ${error.message}`,
+        error.stack,
+      );
+
       // Update status to failed
-      await this.updateAnalysisStatus(analysisId, 'failed', 0, `Analysis failed: ${error.message}`);
-      
+      await this.updateAnalysisStatus(
+        analysisId,
+        'failed',
+        0,
+        `Analysis failed: ${error.message}`,
+      );
+
       // TODO: Implement proper error notification system
-      this.notifyAnalysisFailure(analysisId, error.message, organizationId, userId);
+      this.notifyAnalysisFailure(
+        analysisId,
+        error.message,
+        organizationId,
+        userId,
+      );
     }
   }
 
@@ -325,7 +437,7 @@ export class AIMappingService {
 
       // Create analysis prompt based on document type and depth
       const prompt = this.createAnalysisPrompt(documentContent, request);
-      
+
       // Use LLM service for analysis
       const llmResponse = await this.llmProviderService.sendRequest({
         prompt,
@@ -336,7 +448,7 @@ export class AIMappingService {
 
       // Parse and validate LLM response
       const analysisResult = this.parseLLMResponse(llmResponse.content);
-      
+
       return analysisResult;
     } catch (error) {
       this.logger.error(`LLM analysis failed: ${error.message}`, error.stack);
@@ -344,18 +456,24 @@ export class AIMappingService {
     }
   }
 
-  private createAnalysisPrompt(documentContent: string, request: AIMappingRequestDto): string {
+  private createAnalysisPrompt(
+    documentContent: string,
+    request: AIMappingRequestDto,
+  ): string {
     const depthInstructions = {
-      [AnalysisDepth.BASIC]: 'Provide a high-level summary focusing on key objectives and timeline.',
-      [AnalysisDepth.DETAILED]: 'Provide comprehensive analysis including stakeholders, resources, and risks.',
-      [AnalysisDepth.COMPREHENSIVE]: 'Provide exhaustive analysis with detailed breakdowns, dependencies, and success metrics.',
+      [AnalysisDepth.BASIC]:
+        'Provide a high-level summary focusing on key objectives and timeline.',
+      [AnalysisDepth.DETAILED]:
+        'Provide comprehensive analysis including stakeholders, resources, and risks.',
+      [AnalysisDepth.COMPREHENSIVE]:
+        'Provide exhaustive analysis with detailed breakdowns, dependencies, and success metrics.',
     };
 
     return `
       Analyze the following ${request.documentType.toUpperCase()} document and extract structured information.
-      
+
       ${depthInstructions[request.analysisDepth || AnalysisDepth.DETAILED]}
-      
+
       Focus on extracting:
       - Project objectives and scope
       - Key stakeholders and their roles
@@ -364,10 +482,10 @@ export class AIMappingService {
       - Risk factors and mitigation strategies
       - Dependencies and constraints
       - Success criteria and KPIs
-      
+
       Document Content:
       ${documentContent.substring(0, 8000)}${documentContent.length > 8000 ? '...' : ''}
-      
+
       Return the analysis in the following JSON format:
       {
         "projectObjectives": ["objective1", "objective2"],
@@ -459,10 +577,10 @@ export class AIMappingService {
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      
+
       // Validate required fields
       this.validateAnalysisResult(parsed);
-      
+
       return parsed;
     } catch (error) {
       this.logger.error(`Failed to parse LLM response: ${error.message}`);
@@ -471,8 +589,18 @@ export class AIMappingService {
   }
 
   private validateAnalysisResult(result: any): void {
-    const requiredFields = ['projectObjectives', 'scope', 'stakeholders', 'timeline', 'resources', 'risks', 'dependencies', 'successCriteria', 'kpis'];
-    
+    const requiredFields = [
+      'projectObjectives',
+      'scope',
+      'stakeholders',
+      'timeline',
+      'resources',
+      'risks',
+      'dependencies',
+      'successCriteria',
+      'kpis',
+    ];
+
     for (const field of requiredFields) {
       if (!result[field]) {
         throw new Error(`Missing required field: ${field}`);
@@ -497,7 +625,9 @@ export class AIMappingService {
     message: string,
   ): Promise<void> {
     // TODO: Implement database status update
-    this.logger.log(`Updating status for ${analysisId}: ${status} - ${progress}% - ${message}`);
+    this.logger.log(
+      `Updating status for ${analysisId}: ${status} - ${progress}% - ${message}`,
+    );
   }
 
   private async notifyAnalysisFailure(
@@ -507,6 +637,8 @@ export class AIMappingService {
     userId: string,
   ): Promise<void> {
     // TODO: Implement notification system
-    this.logger.error(`Analysis failure notification for ${analysisId}: ${errorMessage}`);
+    this.logger.error(
+      `Analysis failure notification for ${analysisId}: ${errorMessage}`,
+    );
   }
 }

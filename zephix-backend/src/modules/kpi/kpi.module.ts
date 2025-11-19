@@ -13,4 +13,3 @@ import { Resource } from '../resources/entities/resource.entity';
   exports: [KPIService],
 })
 export class KPIModule {}
-

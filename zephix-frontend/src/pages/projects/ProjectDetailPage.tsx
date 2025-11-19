@@ -83,7 +83,7 @@ const ProjectDetailPage = () => {
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error}</p>
-          <button 
+          <button
             onClick={() => navigate('/projects')}
             className="mt-2 text-red-600 hover:text-red-800"
           >
@@ -116,11 +116,11 @@ const ProjectDetailPage = () => {
           >
             ← Back to Projects
           </button>
-          
+
           {/* Project Details with Edit Capability */}
           <div className="bg-white rounded-lg shadow p-6">
             {isEditing ? (
-              <ProjectEditForm 
+              <ProjectEditForm
                 project={project}
                 onSave={(updated) => {
                   setProject(updated);
@@ -129,7 +129,7 @@ const ProjectDetailPage = () => {
                 onCancel={() => setIsEditing(false)}
               />
             ) : (
-              <ProjectDisplay 
+              <ProjectDisplay
                 project={project}
                 onEdit={() => setIsEditing(true)}
               />

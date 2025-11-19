@@ -48,7 +48,9 @@ export class CreateAuditAndIndexes1757227595841 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS audit_logs`);
     await queryRunner.query(`DROP INDEX IF EXISTS idx_resources_org`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_allocations_resource_date`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_allocations_resource_date`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS idx_allocations_org`);
   }
 }

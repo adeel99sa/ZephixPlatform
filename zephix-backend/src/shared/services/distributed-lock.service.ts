@@ -13,12 +13,15 @@ export interface DistributedLock {
 @Injectable()
 export class DistributedLockService {
   private readonly logger = new Logger(DistributedLockService.name);
-  private readonly locks = new Map<string, { expiresAt: number; holder: string }>();
+  private readonly locks = new Map<
+    string,
+    { expiresAt: number; holder: string }
+  >();
 
   async acquireLock(
     key: string,
     ttl: number,
-    holder: string = 'default'
+    holder: string = 'default',
   ): Promise<DistributedLock | null> {
     const now = Date.now();
     const expiresAt = now + ttl;
@@ -26,7 +29,9 @@ export class DistributedLockService {
     // Check if lock exists and is still valid
     const existingLock = this.locks.get(key);
     if (existingLock && existingLock.expiresAt > now) {
-      this.logger.debug(`Lock ${key} is already held by ${existingLock.holder}`);
+      this.logger.debug(
+        `Lock ${key} is already held by ${existingLock.holder}`,
+      );
       return null;
     }
 
@@ -49,10 +54,10 @@ export class DistributedLockService {
   async executeWithLock<T>(
     key: string,
     ttl: number,
-    operation: () => Promise<T>
+    operation: () => Promise<T>,
   ): Promise<T> {
     const lock = await this.acquireLock(key, ttl);
-    
+
     if (!lock) {
       throw new Error(`Failed to acquire lock: ${key}`);
     }
@@ -66,18 +71,20 @@ export class DistributedLockService {
 
   private async releaseLock(key: string, holder: string): Promise<void> {
     const lock = this.locks.get(key);
-    
+
     if (lock && lock.holder === holder) {
       this.locks.delete(key);
       this.logger.debug(`Lock ${key} released by ${holder}`);
     } else {
-      this.logger.warn(`Attempted to release lock ${key} by ${holder}, but lock is held by ${lock?.holder || 'unknown'}`);
+      this.logger.warn(
+        `Attempted to release lock ${key} by ${holder}, but lock is held by ${lock?.holder || 'unknown'}`,
+      );
     }
   }
 
   private cleanupExpiredLock(key: string): void {
     const lock = this.locks.get(key);
-    
+
     if (lock && lock.expiresAt <= Date.now()) {
       this.locks.delete(key);
       this.logger.debug(`Expired lock ${key} cleaned up`);
@@ -91,8 +98,8 @@ export class DistributedLockService {
       .filter(([_, lock]) => lock.expiresAt <= now)
       .map(([key, _]) => key);
 
-    expiredKeys.forEach(key => this.locks.delete(key));
-    
+    expiredKeys.forEach((key) => this.locks.delete(key));
+
     if (expiredKeys.length > 0) {
       this.logger.log(`Cleaned up ${expiredKeys.length} expired locks`);
     }

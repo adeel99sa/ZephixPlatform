@@ -1,5 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsOptional, IsArray, IsNumber, IsBoolean, IsDate, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsBoolean,
+  IsDate,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum SuggestionCategory {
@@ -34,9 +46,9 @@ export class AISuggestionDto {
   @IsUUID()
   id: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SuggestionCategory,
-    description: 'Category of the suggestion'
+    description: 'Category of the suggestion',
   })
   @IsEnum(SuggestionCategory)
   category: SuggestionCategory;
@@ -49,9 +61,9 @@ export class AISuggestionDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SuggestionPriority,
-    description: 'Priority level of the suggestion'
+    description: 'Priority level of the suggestion',
   })
   @IsEnum(SuggestionPriority)
   priority: SuggestionPriority;
@@ -107,9 +119,9 @@ export class AISuggestionDto {
   @IsString({ each: true })
   relatedProjects: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SuggestionStatus,
-    description: 'Current status of the suggestion'
+    description: 'Current status of the suggestion',
   })
   @IsEnum(SuggestionStatus)
   status: SuggestionStatus;
@@ -138,17 +150,19 @@ export class GenerateSuggestionsRequestDto {
   @IsUUID()
   projectId: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: SuggestionCategory,
     description: 'Specific category to focus on',
-    isArray: true
+    isArray: true,
   })
   @IsOptional()
   @IsArray()
   @IsEnum(SuggestionCategory, { each: true })
   categories?: SuggestionCategory[];
 
-  @ApiPropertyOptional({ description: 'Maximum number of suggestions to generate' })
+  @ApiPropertyOptional({
+    description: 'Maximum number of suggestions to generate',
+  })
   @IsOptional()
   @IsNumber()
   maxSuggestions?: number;
@@ -167,9 +181,9 @@ export class GenerateSuggestionsRequestDto {
 }
 
 export class UpdateSuggestionStatusDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: SuggestionStatus,
-    description: 'New status for the suggestion'
+    description: 'New status for the suggestion',
   })
   @IsEnum(SuggestionStatus)
   status: SuggestionStatus;
@@ -186,7 +200,10 @@ export class UpdateSuggestionStatusDto {
 }
 
 export class SuggestionsResponseDto {
-  @ApiProperty({ description: 'Array of AI suggestions', type: [AISuggestionDto] })
+  @ApiProperty({
+    description: 'Array of AI suggestions',
+    type: [AISuggestionDto],
+  })
   @IsArray()
   @Type(() => AISuggestionDto)
   suggestions: AISuggestionDto[];

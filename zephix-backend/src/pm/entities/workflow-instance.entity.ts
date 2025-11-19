@@ -187,7 +187,7 @@ export class WorkflowInstance {
       .filter((entry) => entry.exitedAt)
       .sort(
         (a, b) =>
-          new Date(b.exitedAt!).getTime() - new Date(a.exitedAt!).getTime(),
+          new Date(b.exitedAt).getTime() - new Date(a.exitedAt).getTime(),
       )[0];
 
     if (!firstEntry || !lastEntry?.exitedAt) return null;

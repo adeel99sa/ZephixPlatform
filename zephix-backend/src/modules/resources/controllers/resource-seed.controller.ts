@@ -1,5 +1,10 @@
 import { Controller, Post, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,16 +25,16 @@ export class ResourceSeedController {
   @ApiResponse({ status: 201, description: 'Resources seeded successfully' })
   async seedResources(@Req() req: any) {
     const organizationId = req.user.organizationId;
-    
+
     if (!organizationId) {
       // Create a temporary organization for the user
       // This is a quick fix for testing
       const tempOrgId = 'temp-org-' + Date.now();
-      
+
       // Update user with temporary organization
       // Note: This would normally be done through a proper user service
       console.log('Creating temporary organization for user');
-      
+
       // Create sample resources with temporary org
       const sampleResources = [
         {
@@ -40,7 +45,7 @@ export class ResourceSeedController {
           capacityHoursPerWeek: 40,
           costPerHour: 150,
           organizationId: tempOrgId,
-          isActive: true
+          isActive: true,
         },
         {
           name: 'Sarah Johnson',
@@ -50,7 +55,7 @@ export class ResourceSeedController {
           capacityHoursPerWeek: 40,
           costPerHour: 120,
           organizationId: tempOrgId,
-          isActive: true
+          isActive: true,
         },
         {
           name: 'Mike Chen',
@@ -60,8 +65,8 @@ export class ResourceSeedController {
           capacityHoursPerWeek: 40,
           costPerHour: 130,
           organizationId: tempOrgId,
-          isActive: true
-        }
+          isActive: true,
+        },
       ];
 
       const createdResources = [];
@@ -75,7 +80,7 @@ export class ResourceSeedController {
         success: true,
         message: 'Resources seeded with temporary organization',
         organizationId: tempOrgId,
-        resources: createdResources
+        resources: createdResources,
       };
     }
 
@@ -89,7 +94,7 @@ export class ResourceSeedController {
         capacityHoursPerWeek: 40,
         costPerHour: 150,
         organizationId,
-        isActive: true
+        isActive: true,
       },
       {
         name: 'Sarah Johnson',
@@ -99,8 +104,8 @@ export class ResourceSeedController {
         capacityHoursPerWeek: 40,
         costPerHour: 120,
         organizationId,
-        isActive: true
-      }
+        isActive: true,
+      },
     ];
 
     const createdResources = [];
@@ -114,7 +119,7 @@ export class ResourceSeedController {
       success: true,
       message: 'Resources seeded successfully',
       organizationId,
-      resources: createdResources
+      resources: createdResources,
     };
   }
 }

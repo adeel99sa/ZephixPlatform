@@ -1,22 +1,51 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import { ResourceAllocation } from '../entities/resource-allocation.entity';
 import { HeatMapQueryDto } from '../dto/heat-map-query.dto';
+import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { Project } from '../../projects/entities/project.entity';
 
 @Injectable()
 export class ResourceHeatMapService {
   constructor(
     @InjectRepository(ResourceAllocation)
     private resourceAllocationRepository: Repository<ResourceAllocation>,
+    @InjectRepository(Project)
+    private projectRepository: Repository<Project>,
+    @Inject(forwardRef(() => WorkspaceAccessService))
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
-  async getHeatMapData(query: HeatMapQueryDto) {
+  async getHeatMapData(
+    query: HeatMapQueryDto,
+    userId?: string,
+    userRole?: string,
+  ) {
     const { startDate, endDate, organizationId, projectId } = query;
-    
+
     // Default to next 3 months if no date range
     const start = startDate ? new Date(startDate) : new Date();
-    const end = endDate ? new Date(endDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    const end = endDate
+      ? new Date(endDate)
+      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+    // Get accessible workspace IDs (respects feature flag)
+    const accessibleWorkspaceIds = organizationId
+      ? await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          userId,
+          userRole,
+        )
+      : null;
+
+    // If workspace membership is enforced and user has no accessible workspaces
+    if (
+      accessibleWorkspaceIds !== null &&
+      accessibleWorkspaceIds.length === 0
+    ) {
+      return this.processAllocations([], start, end);
+    }
 
     // Build query
     const queryBuilder = this.resourceAllocationRepository
@@ -25,11 +54,38 @@ export class ResourceHeatMapService {
       .andWhere('allocation.endDate >= :start', { start });
 
     if (organizationId) {
-      queryBuilder.andWhere('allocation.organization_id = :orgId', { orgId: organizationId });
+      queryBuilder.andWhere('allocation.organization_id = :orgId', {
+        orgId: organizationId,
+      });
     }
 
     if (projectId) {
-      queryBuilder.andWhere('allocation.projectId = :projId', { projId: projectId });
+      queryBuilder.andWhere('allocation.projectId = :projId', {
+        projId: projectId,
+      });
+    }
+
+    // Filter by accessible workspaces if membership is enforced
+    if (accessibleWorkspaceIds !== null && organizationId) {
+      // Get project IDs in accessible workspaces
+      const accessibleProjects = await this.projectRepository.find({
+        where: {
+          organizationId,
+          workspaceId: In(accessibleWorkspaceIds),
+        },
+        select: ['id'],
+      });
+
+      const accessibleProjectIds = accessibleProjects.map((p) => p.id);
+
+      if (accessibleProjectIds.length === 0) {
+        // No projects in accessible workspaces
+        return this.processAllocations([], start, end);
+      }
+
+      queryBuilder.andWhere('allocation.projectId IN (:...projectIds)', {
+        projectIds: accessibleProjectIds,
+      });
     }
 
     const allocations = await queryBuilder.getMany();
@@ -38,40 +94,53 @@ export class ResourceHeatMapService {
     return this.processAllocations(allocations, start, end);
   }
 
-  private processAllocations(allocations: ResourceAllocation[], startDate: Date, endDate: Date) {
+  private processAllocations(
+    allocations: ResourceAllocation[],
+    startDate: Date,
+    endDate: Date,
+  ) {
     const heatMapData: any = {};
-    
+
     // Group by resource and week
-    allocations.forEach(allocation => {
+    allocations.forEach((allocation) => {
       const resourceId = allocation.resourceId || allocation.userId;
-      
+
       if (!heatMapData[resourceId]) {
         heatMapData[resourceId] = {
           resourceId,
-          weeks: {}
+          weeks: {},
         };
       }
 
       // Calculate weekly allocations
       const weeks = this.getWeeksBetween(
-        new Date(Math.max(new Date(allocation.startDate).getTime(), startDate.getTime())),
-        new Date(Math.min(new Date(allocation.endDate).getTime(), endDate.getTime()))
+        new Date(
+          Math.max(
+            new Date(allocation.startDate).getTime(),
+            startDate.getTime(),
+          ),
+        ),
+        new Date(
+          Math.min(new Date(allocation.endDate).getTime(), endDate.getTime()),
+        ),
       );
 
-      weeks.forEach(weekStart => {
+      weeks.forEach((weekStart) => {
         const weekKey = weekStart.toISOString().split('T')[0];
-        
+
         if (!heatMapData[resourceId].weeks[weekKey]) {
           heatMapData[resourceId].weeks[weekKey] = {
             totalAllocation: 0,
-            projects: []
+            projects: [],
           };
         }
 
-        heatMapData[resourceId].weeks[weekKey].totalAllocation = Number(heatMapData[resourceId].weeks[weekKey].totalAllocation) + Number(allocation.allocationPercentage);
+        heatMapData[resourceId].weeks[weekKey].totalAllocation =
+          Number(heatMapData[resourceId].weeks[weekKey].totalAllocation) +
+          Number(allocation.allocationPercentage);
         heatMapData[resourceId].weeks[weekKey].projects.push({
           projectId: allocation.projectId,
-          allocation: allocation.allocationPercentage
+          allocation: allocation.allocationPercentage,
         });
       });
     });
@@ -79,26 +148,28 @@ export class ResourceHeatMapService {
     // Convert to array and add status indicators
     return Object.values(heatMapData).map((resource: any) => ({
       ...resource,
-      weeks: Object.entries(resource.weeks).map(([weekStart, weekData]: [string, any]) => ({
-        weekStart,
-        ...weekData,
-        status: this.getAllocationStatus(weekData.totalAllocation)
-      }))
+      weeks: Object.entries(resource.weeks).map(
+        ([weekStart, weekData]: [string, any]) => ({
+          weekStart,
+          ...weekData,
+          status: this.getAllocationStatus(weekData.totalAllocation),
+        }),
+      ),
     }));
   }
 
   private getWeeksBetween(startDate: Date, endDate: Date): Date[] {
     const weeks: Date[] = [];
     const current = new Date(startDate);
-    
+
     // Adjust to start of week (Monday)
     current.setDate(current.getDate() - current.getDay() + 1);
-    
+
     while (current <= endDate) {
       weeks.push(new Date(current));
       current.setDate(current.getDate() + 7);
     }
-    
+
     return weeks;
   }
 

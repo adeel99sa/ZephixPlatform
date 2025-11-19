@@ -1,5 +1,13 @@
 // File: zephix-backend/src/waitlist/waitlist.controller.ts
-import { Controller, Get, Post, Body, UseGuards, Res, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WaitlistService } from './waitlist.service';
@@ -40,7 +48,7 @@ export class WaitlistController {
   @ApiOperation({ summary: 'Export waitlist as CSV (Admin only)' })
   async export(@Res() res: Response) {
     const data = await this.waitlistService.export();
-    
+
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=waitlist.csv');
     res.status(HttpStatus.OK).send(data.csv);

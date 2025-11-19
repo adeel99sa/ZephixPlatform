@@ -1,18 +1,18 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class FixAuthMvp1757826448476 implements MigrationInterface {
-    name = 'FixAuthMvp1757826448476'
+  name = 'FixAuthMvp1757826448476';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Set all existing users to email verified for MVP
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Set all existing users to email verified for MVP
+    await queryRunner.query(`
             UPDATE users 
             SET "isEmailVerified" = true 
             WHERE "isEmailVerified" = false
         `);
 
-        // Ensure organizationId is not null for all users
-        await queryRunner.query(`
+    // Ensure organizationId is not null for all users
+    await queryRunner.query(`
             UPDATE users 
             SET "organizationId" = (
                 SELECT id FROM organizations 
@@ -22,8 +22,8 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
             WHERE "organizationId" IS NULL
         `);
 
-        // Create default organization if none exists
-        await queryRunner.query(`
+    // Create default organization if none exists
+    await queryRunner.query(`
             INSERT INTO organizations (id, name, slug, settings, status, "createdAt", "updatedAt")
             SELECT 
                 gen_random_uuid(),
@@ -36,8 +36,8 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
             WHERE NOT EXISTS (SELECT 1 FROM organizations LIMIT 1)
         `);
 
-        // Assign users without organization to default organization
-        await queryRunner.query(`
+    // Assign users without organization to default organization
+    await queryRunner.query(`
             UPDATE users 
             SET "organizationId" = (
                 SELECT id FROM organizations 
@@ -47,8 +47,8 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
             WHERE "organizationId" IS NULL
         `);
 
-        // Create user_organizations entries for users without them
-        await queryRunner.query(`
+    // Create user_organizations entries for users without them
+    await queryRunner.query(`
             INSERT INTO user_organizations (id, "userId", "organizationId", role, "isActive", permissions, "joinedAt", "createdAt", "updatedAt")
             SELECT 
                 gen_random_uuid(),
@@ -66,14 +66,14 @@ export class FixAuthMvp1757826448476 implements MigrationInterface {
                 WHERE uo."userId" = u.id
             )
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Revert email verification status
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Revert email verification status
+    await queryRunner.query(`
             UPDATE users 
             SET "isEmailVerified" = false 
             WHERE "isEmailVerified" = true
         `);
-    }
+  }
 }

@@ -1,7 +1,12 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';  // Fix path
-import { AdminGuard } from '../../guards/admin.guard';  // Fix path
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard'; // Fix path
+import { AdminGuard } from '../../guards/admin.guard'; // Fix path
 
 // DTOs (to be created)
 interface PaginationDto {
@@ -26,7 +31,6 @@ interface CreateRoleDto {
 @Controller('admin/organization')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class OrganizationAdminController {
-  
   @Get('overview')
   @ApiOperation({ summary: 'Get organization overview' })
   @ApiResponse({
@@ -41,7 +45,7 @@ export class OrganizationAdminController {
         industry: 'Technology',
         size: 'Enterprise',
         createdAt: new Date('2024-01-01'),
-        status: 'active'
+        status: 'active',
       },
       plan: {
         name: 'Enterprise Pro',
@@ -49,26 +53,26 @@ export class OrganizationAdminController {
         limits: {
           users: 1000,
           projects: 500,
-          storage: '1TB'
+          storage: '1TB',
         },
-        nextBilling: new Date('2024-12-01')
+        nextBilling: new Date('2024-12-01'),
       },
       usage: {
         users: {
           total: 45,
           active: 38,
-          inactive: 7
+          inactive: 7,
         },
         projects: {
           total: 23,
           active: 18,
-          completed: 5
+          completed: 5,
         },
         storage: {
           used: '45GB',
-          available: '955GB'
-        }
-      }
+          available: '955GB',
+        },
+      },
     };
   }
 
@@ -81,7 +85,7 @@ export class OrganizationAdminController {
   async getUsers(@Query() pagination: PaginationDto) {
     // Mock data - replace with actual service call
     const { page = 1, limit = 20 } = pagination;
-    
+
     return {
       users: [
         {
@@ -92,7 +96,7 @@ export class OrganizationAdminController {
           role: 'owner',
           status: 'active',
           lastActive: new Date(),
-          joinedAt: new Date('2024-01-01')
+          joinedAt: new Date('2024-01-01'),
         },
         {
           id: '2',
@@ -102,15 +106,15 @@ export class OrganizationAdminController {
           role: 'pm',
           status: 'active',
           lastActive: new Date(),
-          joinedAt: new Date('2024-01-15')
-        }
+          joinedAt: new Date('2024-01-15'),
+        },
       ],
       pagination: {
         page,
         limit,
         total: 45,
-        totalPages: 3
-      }
+        totalPages: 3,
+      },
     };
   }
 
@@ -122,20 +126,20 @@ export class OrganizationAdminController {
   })
   async inviteUsers(@Body() inviteDto: InviteUsersDto) {
     const { emails, role, message } = inviteDto;
-    
+
     // Mock invitation logic - replace with actual service call
-    const invitations = emails.map(email => ({
+    const invitations = emails.map((email) => ({
       email,
       role,
       status: 'pending',
       invitedAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     }));
 
     return {
       message: `Invited ${emails.length} users`,
       invitations,
-      success: true
+      success: true,
     };
   }
 
@@ -153,7 +157,7 @@ export class OrganizationAdminController {
           description: 'Full system access',
           permissions: ['*'],
           userCount: 1,
-          isCustom: false
+          isCustom: false,
         },
         {
           name: 'admin',
@@ -162,34 +166,26 @@ export class OrganizationAdminController {
             'users.manage',
             'projects.manage',
             'templates.manage',
-            'reports.view'
+            'reports.view',
           ],
           userCount: 3,
-          isCustom: false
+          isCustom: false,
         },
         {
           name: 'pm',
           description: 'Project management access',
-          permissions: [
-            'projects.manage',
-            'templates.view',
-            'reports.view'
-          ],
+          permissions: ['projects.manage', 'templates.view', 'reports.view'],
           userCount: 15,
-          isCustom: false
+          isCustom: false,
         },
         {
           name: 'viewer',
           description: 'Read-only access',
-          permissions: [
-            'projects.view',
-            'templates.view',
-            'reports.view'
-          ],
+          permissions: ['projects.view', 'templates.view', 'reports.view'],
           userCount: 26,
-          isCustom: false
-        }
-      ]
+          isCustom: false,
+        },
+      ],
     };
   }
 
@@ -201,7 +197,7 @@ export class OrganizationAdminController {
   })
   async createCustomRole(@Body() roleDto: CreateRoleDto) {
     const { name, description, permissions } = roleDto;
-    
+
     // Mock role creation - replace with actual service call
     const newRole = {
       id: `role_${Date.now()}`,
@@ -210,13 +206,13 @@ export class OrganizationAdminController {
       permissions,
       isCustom: true,
       createdAt: new Date(),
-      userCount: 0
+      userCount: 0,
     };
 
     return {
       message: 'Custom role created successfully',
       role: newRole,
-      success: true
+      success: true,
     };
   }
 }

@@ -80,16 +80,16 @@
 
 @layer components {
   /* Dark hero and footer helpers */
-  .hero-bg { 
-    background: var(--hero); 
-    color: #FFFFFF; 
+  .hero-bg {
+    background: var(--hero);
+    color: #FFFFFF;
     position: relative;
     overflow: hidden;
   }
-  
-  .footer-bg { 
-    background: var(--footer); 
-    color: #CBD5E1; 
+
+  .footer-bg {
+    background: var(--footer);
+    color: #CBD5E1;
   }
 
   /* Line clamp utility */
@@ -100,26 +100,34 @@
     overflow: hidden;
   }
 
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-md font-medium transition-all duration-200 border border-gray-300 bg-white text-gray-700;
+  }
+
+  .btn:hover {
+    @apply bg-gray-50;
+  }
+
   .btn-primary {
     @apply inline-flex items-center justify-center px-4 py-3 rounded-xl font-medium transition-all duration-200;
     background: var(--primary-600);
     color: #FFFFFF;
     box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1), 0 2px 4px -1px rgba(37, 99, 235, 0.06);
   }
-  
-  .btn-primary:hover { 
-    background: var(--primary-hover); 
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
     transform: translateY(-1px);
     box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -2px rgba(37, 99, 235, 0.05);
   }
-  
-  .btn-primary:active { 
-    background: var(--primary-pressed); 
+
+  .btn-primary:active {
+    background: var(--primary-pressed);
     transform: translateY(0);
   }
-  
-  .btn-primary:focus-visible { 
-    box-shadow: 0 0 0 2px var(--ring-brand); 
+
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 2px var(--ring-brand);
   }
 
   .btn-secondary {
@@ -128,10 +136,10 @@
     border-color: var(--primary-600);
     background: transparent;
   }
-  
-  .btn-secondary:hover { 
-    color: var(--primary-hover); 
-    border-color: var(--primary-hover); 
+
+  .btn-secondary:hover {
+    color: var(--primary-hover);
+    border-color: var(--primary-hover);
     transform: translateY(-1px);
   }
 
@@ -145,6 +153,14 @@
   .card:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transform: translateY(-2px);
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900;
+  }
+
+  .input:focus {
+    @apply outline-none ring-2 ring-blue-500 border-blue-500;
   }
 
   .badge-success { background: #ECFDF5; color: #065F46; }
@@ -183,14 +199,14 @@
 @layer utilities {
   /* Enhanced AI Teaser Section animations */
   @keyframes pulse-glow {
-    0%, 100% { 
-      transform: scale(1); 
-      opacity: 0.8; 
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.8;
       box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
     }
-    50% { 
-      transform: scale(1.05); 
-      opacity: 1; 
+    50% {
+      transform: scale(1.05);
+      opacity: 1;
       box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0.2);
     }
   }
@@ -236,7 +252,7 @@
   .container-responsive {
     @apply px-4;
   }
-  
+
   .btn-primary,
   .btn-secondary {
     @apply w-full justify-center;

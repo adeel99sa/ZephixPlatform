@@ -1,10 +1,19 @@
 // src/organizations/entities/organization-settings.entity.ts
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Organization } from './organization.entity';
 
 interface BusinessHours {
   start: string; // "09:00"
-  end: string;   // "17:00"
+  end: string; // "17:00"
   days: number[]; // [1,2,3,4,5] - Monday to Friday
 }
 
@@ -45,10 +54,10 @@ export class OrganizationSettings {
   @Column({ type: 'jsonb', default: {} })
   branding: BrandingConfig;
 
-  @Column({ 
+  @Column({
     name: 'businessHours',
-    type: 'jsonb', 
-    default: { start: "09:00", end: "17:00", days: [1,2,3,4,5] } 
+    type: 'jsonb',
+    default: { start: '09:00', end: '17:00', days: [1, 2, 3, 4, 5] },
   })
   businessHours: BusinessHours;
 

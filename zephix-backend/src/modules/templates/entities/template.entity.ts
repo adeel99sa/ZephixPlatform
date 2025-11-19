@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  Index,
+} from 'typeorm';
 
 @Entity('templates')
 @Index('idx_templates_org', ['organizationId'])
@@ -9,9 +17,9 @@ export class Template {
   @Column({ length: 100 })
   name: string;
 
-  @Column({ 
+  @Column({
     length: 50,
-    type: 'varchar'
+    type: 'varchar',
   })
   methodology: 'waterfall' | 'scrum';
 
@@ -38,5 +46,4 @@ export class Template {
 
   @UpdateDateColumn({ name: 'updatedAt' })
   updatedAt: Date;
-
 }

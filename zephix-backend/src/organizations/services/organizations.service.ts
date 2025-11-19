@@ -300,7 +300,7 @@ export class OrganizationsService {
       order: { joinedAt: 'ASC' },
     });
 
-    return userOrganizations.map(uo => ({
+    return userOrganizations.map((uo) => ({
       id: uo.user.id,
       email: uo.user.email,
       firstName: uo.user.firstName,
@@ -308,8 +308,54 @@ export class OrganizationsService {
       role: uo.role,
       organization: uo.organization.name,
       joinedAt: uo.joinedAt,
-      lastActive: uo.lastAccessAt || uo.joinedAt
+      lastActive: uo.lastAccessAt || uo.joinedAt,
     }));
+  }
+
+  async getOrganizationUsers(
+    organizationId: string,
+    options?: { limit?: number; offset?: number; search?: string },
+  ): Promise<{ users: any[]; total: number }> {
+    const limit = options?.limit || 100;
+    const offset = options?.offset || 0;
+    const search = options?.search?.toLowerCase();
+
+    // Build query
+    const queryBuilder = this.userOrganizationRepository
+      .createQueryBuilder('uo')
+      .leftJoinAndSelect('uo.user', 'user')
+      .where('uo.organizationId = :organizationId', { organizationId })
+      .andWhere('uo.isActive = :isActive', { isActive: true });
+
+    // Add search filter if provided
+    if (search) {
+      queryBuilder.andWhere(
+        '(LOWER(user.email) LIKE :search OR LOWER(user.firstName) LIKE :search OR LOWER(user.lastName) LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply pagination
+    const userOrganizations = await queryBuilder
+      .orderBy('uo.joinedAt', 'ASC')
+      .skip(offset)
+      .take(limit)
+      .getMany();
+
+    const users = userOrganizations.map((uo) => ({
+      id: uo.user.id,
+      email: uo.user.email,
+      firstName: uo.user.firstName,
+      lastName: uo.user.lastName,
+      role: uo.role,
+      joinedAt: uo.joinedAt,
+      lastActive: uo.lastAccessAt || uo.joinedAt,
+    }));
+
+    return { users, total };
   }
 
   private generateSlug(name: string): string {
@@ -320,5 +366,84 @@ export class OrganizationsService {
       .replace(/-+/g, '-') // Replace multiple hyphens with single
       .trim()
       .substring(0, 100); // Limit length
+  }
+
+  // Onboarding methods
+  async getOnboardingStatus(organizationId: string) {
+    const organization = await this.findOne(organizationId);
+    const settings = (organization.settings as any) || {};
+    const onboardingSettings = settings.onboarding || {};
+
+    return {
+      completed: onboardingSettings.completed === true,
+      currentStep: onboardingSettings.currentStep || 'welcome',
+      completedSteps: onboardingSettings.completedSteps || [],
+    };
+  }
+
+  async getOnboardingProgress(organizationId: string) {
+    const status = await this.getOnboardingStatus(organizationId);
+    const totalSteps = 6; // welcome, organization, team, workspace, project, complete
+    const completedCount = status.completedSteps.length;
+
+    return {
+      ...status,
+      progress: Math.round((completedCount / totalSteps) * 100),
+      totalSteps,
+      completedCount,
+    };
+  }
+
+  async completeOnboardingStep(organizationId: string, step: string) {
+    const organization = await this.findOne(organizationId);
+    const settings = (organization.settings as any) || {};
+    const onboardingSettings = settings.onboarding || {};
+
+    const completedSteps = onboardingSettings.completedSteps || [];
+    if (!completedSteps.includes(step)) {
+      completedSteps.push(step);
+    }
+
+    organization.settings = {
+      ...settings,
+      onboarding: {
+        ...onboardingSettings,
+        completedSteps,
+        currentStep: step,
+      },
+    };
+
+    await this.organizationRepository.save(organization);
+
+    return {
+      success: true,
+      step,
+      completedSteps,
+    };
+  }
+
+  async completeOnboarding(organizationId: string) {
+    const organization = await this.findOne(organizationId);
+    const settings = (organization.settings as any) || {};
+
+    organization.settings = {
+      ...settings,
+      onboarding: {
+        ...settings.onboarding,
+        completed: true,
+        completedAt: new Date().toISOString(),
+      },
+    };
+
+    await this.organizationRepository.save(organization);
+
+    return {
+      success: true,
+      message: 'Onboarding completed successfully',
+    };
+  }
+
+  async skipOnboarding(organizationId: string) {
+    return this.completeOnboarding(organizationId);
   }
 }

@@ -14,16 +14,16 @@ export class TemplateService {
     return this.templateRepository.find({
       where: [
         { isSystem: true, isActive: true },
-        { organizationId, isActive: true }
-      ]
+        { organizationId, isActive: true },
+      ],
     });
   }
 
   async activateTemplate(templateId: string, organizationId: string) {
     const template = await this.templateRepository.findOne({
-      where: { id: templateId, isSystem: true }
+      where: { id: templateId, isSystem: true },
     });
-    
+
     if (!template) {
       throw new Error('Template not found');
     }
@@ -33,7 +33,7 @@ export class TemplateService {
       ...template,
       id: undefined,
       isSystem: false,
-      organizationId
+      organizationId,
     });
 
     return this.templateRepository.save(orgTemplate);

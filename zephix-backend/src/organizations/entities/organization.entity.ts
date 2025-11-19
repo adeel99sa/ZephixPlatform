@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { User } from '../../modules/users/entities/user.entity';
 import { Project } from '../../modules/projects/entities/project.entity';
 import { UserOrganization } from './user-organization.entity';
@@ -29,7 +36,7 @@ export class Organization {
   @Column({ nullable: true })
   description: string;
 
-  @Column({ nullable: true, name: 'trial_ends_at' })  trialEndsAt: Date;
+  @Column({ nullable: true, name: 'trial_ends_at' }) trialEndsAt: Date;
 
   @Column({ type: 'jsonb', default: {} })
   settings: object;
@@ -41,13 +48,13 @@ export class Organization {
   updatedAt: Date;
 
   // Relations
-  @OneToMany(() => UserOrganization, userOrg => userOrg.organization)
+  @OneToMany(() => UserOrganization, (userOrg) => userOrg.organization)
   userOrganizations: UserOrganization[];
 
-  @OneToMany(() => User, user => user.organizationId)
+  @OneToMany(() => User, (user) => user.organizationId)
   users: User[];
 
-  @OneToMany(() => Project, project => project.organization)
+  @OneToMany(() => Project, (project) => project.organization)
   projects: Project[];
 
   // Methods

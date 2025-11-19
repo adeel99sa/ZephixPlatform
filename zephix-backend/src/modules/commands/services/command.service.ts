@@ -17,11 +17,16 @@ interface CommandResult {
 export class CommandService {
   constructor(
     @InjectRepository(Project) private projectRepository: Repository<Project>,
-    @InjectRepository(Resource) private resourceRepository: Repository<Resource>,
+    @InjectRepository(Resource)
+    private resourceRepository: Repository<Resource>,
     @InjectRepository(Task) private taskRepository: Repository<Task>,
   ) {}
 
-  async executeCommand(query: string, userId: string, organizationId: string): Promise<CommandResult[]> {
+  async executeCommand(
+    query: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<CommandResult[]> {
     const results: CommandResult[] = [];
     const lowerQuery = query.toLowerCase();
 
@@ -29,29 +34,33 @@ export class CommandService {
     if (lowerQuery.includes('project')) {
       const projects = await this.projectRepository.find({
         where: { organizationId },
-        take: 5
+        take: 5,
       });
-      
-      projects.forEach(project => {
+
+      projects.forEach((project) => {
         results.push({
           type: 'navigation',
           title: `Go to ${project.name}`,
           description: 'Open project details',
-          data: { route: `/projects/${project.id}` }
+          data: { route: `/projects/${project.id}` },
         });
       });
     }
 
     // Resource queries
-    if (lowerQuery.includes('overallocated') || lowerQuery.includes('conflict')) {
-      const overallocated = await this.findOverallocatedResources(organizationId);
-      
-      overallocated.forEach(resource => {
+    if (
+      lowerQuery.includes('overallocated') ||
+      lowerQuery.includes('conflict')
+    ) {
+      const overallocated =
+        await this.findOverallocatedResources(organizationId);
+
+      overallocated.forEach((resource) => {
         results.push({
           type: 'query',
           title: `${resource.name} at ${resource.allocation}% capacity`,
           description: 'Resource overallocated',
-          data: resource
+          data: resource,
         });
       });
     }
@@ -62,7 +71,7 @@ export class CommandService {
         type: 'action',
         title: 'Create New Task',
         description: 'Open task creation form',
-        data: { action: 'createTask' }
+        data: { action: 'createTask' },
       });
     }
 
@@ -72,7 +81,7 @@ export class CommandService {
         type: 'action',
         title: 'Add KPI Widget',
         description: 'Add a new KPI to dashboard',
-        data: { action: 'addKpi' }
+        data: { action: 'addKpi' },
       });
     }
 
@@ -85,7 +94,7 @@ export class CommandService {
       .createQueryBuilder('r')
       .leftJoin('resource_allocations', 'ra', 'ra.resource_id = r.id')
       .where('r.organization_id = :orgId', { orgId: organizationId })
-      .andWhere('ra.start_date <= CURRENT_DATE + INTERVAL \'7 days\'')
+      .andWhere("ra.start_date <= CURRENT_DATE + INTERVAL '7 days'")
       .andWhere('ra.end_date >= CURRENT_DATE')
       .select('r.id', 'id')
       .addSelect('r.name', 'name')

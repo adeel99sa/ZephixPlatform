@@ -8,7 +8,13 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { RiskManagementService } from './risk-management.service';
 import type { RiskIdentificationInput } from './risk-management.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
@@ -24,10 +30,16 @@ export class RiskManagementController {
 
   @Post('analyze')
   @ApiOperation({ summary: 'Perform risk analysis for a project' })
-  @ApiResponse({ status: 200, description: 'Risk analysis completed successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Risk analysis completed successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
   async performRiskAnalysis(
     @Body() input: RiskIdentificationInput,
     @Request() req,
@@ -41,14 +53,20 @@ export class RiskManagementController {
   @Get('register/:projectId')
   @ApiOperation({ summary: 'Get risk register for a specific project' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
-  @ApiResponse({ status: 200, description: 'Risk register retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Risk register retrieved successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Project not found' })
   async getRiskRegister(@Param('projectId') projectId: string, @Request() req) {
     return await this.riskManagementService.getRiskRegister(
-      projectId, 
-      req.user.organizationId
+      projectId,
+      req.user.organizationId,
     );
   }
 
@@ -58,7 +76,10 @@ export class RiskManagementController {
   @ApiResponse({ status: 200, description: 'Risk status updated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Risk not found' })
   async updateRiskStatus(
     @Param('riskId') riskId: string,
@@ -76,10 +97,16 @@ export class RiskManagementController {
   @Post('risk/:riskId/monitoring')
   @ApiOperation({ summary: 'Create risk monitoring plan' })
   @ApiParam({ name: 'riskId', description: 'Risk ID' })
-  @ApiResponse({ status: 201, description: 'Risk monitoring plan created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Risk monitoring plan created successfully',
+  })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Risk not found' })
   async createRiskMonitoring(
     @Param('riskId') riskId: string,

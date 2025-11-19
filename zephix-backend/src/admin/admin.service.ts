@@ -23,12 +23,13 @@ export class AdminService {
    */
   async getStatistics() {
     try {
-      const [userCount, activeUsers, templateCount, projectCount] = await Promise.all([
-        this.userRepository.count(),
-        this.userRepository.count({ where: { isActive: true } }),
-        this.workflowRepository.count(),
-        this.projectRepository.count(),
-      ]);
+      const [userCount, activeUsers, templateCount, projectCount] =
+        await Promise.all([
+          this.userRepository.count(),
+          this.userRepository.count({ where: { isActive: true } }),
+          this.workflowRepository.count(),
+          this.projectRepository.count(),
+        ]);
 
       return {
         userCount,
@@ -38,7 +39,10 @@ export class AdminService {
         totalItems: userCount + templateCount + projectCount,
       };
     } catch (error) {
-      this.logger.error(`Failed to fetch admin statistics: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to fetch admin statistics: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -47,7 +51,7 @@ export class AdminService {
     try {
       // Basic health check
       const dbConnection = await this.userRepository.query('SELECT 1');
-      
+
       return {
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -59,7 +63,10 @@ export class AdminService {
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to check system health: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to check system health: ${error.message}`,
+        error.stack,
+      );
       return {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),

@@ -6,17 +6,26 @@ export class CreateAuditLogDto {
   @IsString()
   action: string;
 
-  @ApiProperty({ description: 'Type of entity being acted upon', required: false })
+  @ApiProperty({
+    description: 'Type of entity being acted upon',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   entityType?: string;
 
-  @ApiProperty({ description: 'ID of entity being acted upon', required: false })
+  @ApiProperty({
+    description: 'ID of entity being acted upon',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   entityId?: string;
 
-  @ApiProperty({ description: 'Previous values before change', required: false })
+  @ApiProperty({
+    description: 'Previous values before change',
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   oldValues?: any;

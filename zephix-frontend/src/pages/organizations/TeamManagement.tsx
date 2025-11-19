@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { 
-  UserPlus, 
-  Users, 
-  Mail, 
-  Shield, 
-  MoreHorizontal, 
-  Check, 
-  X, 
+import { useAuth } from '@/state/AuthContext';
+import { apiClient } from '@/lib/api/client';
+import {
+  UserPlus,
+  Users,
+  Mail,
+  Shield,
+  MoreHorizontal,
+  Check,
+  X,
   Crown,
   Settings as SettingsIcon,
   Eye,
@@ -17,21 +19,30 @@ import {
 
 interface TeamMember {
   id: string;
-  name: string;
-  email: string;
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
   role: 'owner' | 'admin' | 'pm' | 'viewer';
   status: 'active' | 'pending' | 'inactive';
-  joinedAt: Date;
-  lastActive?: Date;
+  joinedAt: string;
+  lastActive?: string;
 }
 
 interface PendingInvitation {
   id: string;
   email: string;
-  role: 'owner' | 'admin' | 'pm' | 'viewer';
-  invitedBy: string;
-  invitedAt: Date;
-  expiresAt: Date;
+  role: 'admin' | 'pm' | 'viewer';
+  invitedBy: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  invitedAt: string;
+  expiresAt: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
 }
 
 const ROLE_COLORS = {
@@ -57,6 +68,9 @@ const ROLE_DESCRIPTIONS = {
 
 export const TeamManagement: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const organizationId = user?.organizationId;
+
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'pm' | 'viewer'>('pm');
@@ -65,62 +79,52 @@ export const TeamManagement: React.FC = () => {
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
 
   useEffect(() => {
-    loadTeamData();
-  }, []);
+    if (organizationId) {
+      loadTeamData();
+    }
+  }, [organizationId]);
 
   const loadTeamData = async () => {
+    if (!organizationId) {
+      toast.error('Organization context required');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Mock data - replace with actual API calls
-      setTeamMembers([
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'john@company.com',
-          role: 'owner',
-          status: 'active',
-          joinedAt: new Date('2024-01-15'),
-          lastActive: new Date()
-        },
-        {
-          id: '2',
-          name: 'Sarah Smith',
-          email: 'sarah@company.com',
-          role: 'admin',
-          status: 'active',
-          joinedAt: new Date('2024-02-01'),
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-        },
-        {
-          id: '3',
-          name: 'Mike Johnson',
-          email: 'mike@company.com',
-          role: 'pm',
-          status: 'active',
-          joinedAt: new Date('2024-02-15'),
-          lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000) // 1 day ago
-        }
-      ]);
+      // Load team members
+      const membersResponse = await apiClient.get(`/organizations/${organizationId}/team/members`);
+      const members = Array.isArray(membersResponse.data) ? membersResponse.data : [];
+      setTeamMembers(members.map((m: any) => ({
+        ...m,
+        name: `${m.user?.firstName || ''} ${m.user?.lastName || ''}`.trim() || m.user?.email || 'Unknown',
+        email: m.user?.email || '',
+        joinedAt: m.joinedAt || new Date().toISOString(),
+      })));
 
-      setPendingInvitations([
-        {
-          id: '1',
-          email: 'alice@company.com',
-          role: 'pm',
-          invitedBy: 'John Doe',
-          invitedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // 5 days from now
-        }
-      ]);
-    } catch (error) {
+      // Load pending invitations
+      const invitationsResponse = await apiClient.get(`/organizations/${organizationId}/team/invitations`);
+      const invitations = Array.isArray(invitationsResponse.data) ? invitationsResponse.data : [];
+      setPendingInvitations(invitations.map((inv: any) => ({
+        ...inv,
+        invitedBy: inv.invitedBy?.firstName
+          ? `${inv.invitedBy.firstName} ${inv.invitedBy.lastName || ''}`.trim()
+          : inv.invitedBy?.email || 'Unknown',
+      })));
+    } catch (error: any) {
       console.error('Failed to load team data:', error);
-      toast.error('Failed to load team data');
+      toast.error(error?.response?.data?.message || 'Failed to load team data');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInviteMember = async () => {
+    if (!organizationId) {
+      toast.error('Organization context required');
+      return;
+    }
+
     if (!inviteEmail.trim()) {
       toast.error('Please enter an email address');
       return;
@@ -133,61 +137,67 @@ export const TeamManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Mock API call - replace with actual invitation logic
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newInvitation: PendingInvitation = {
-        id: Date.now().toString(),
+      const response = await apiClient.post(`/organizations/${organizationId}/team/invite`, {
         email: inviteEmail,
         role: inviteRole,
-        invitedBy: 'Current User',
-        invitedAt: new Date(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-      };
+      });
 
-      setPendingInvitations(prev => [...prev, newInvitation]);
-      setInviteEmail('');
-      setShowInviteModal(false);
-      toast.success(`Invitation sent to ${inviteEmail}`);
-    } catch (error) {
+      if (response.data?.success) {
+        toast.success(`Invitation sent to ${inviteEmail}`);
+        setInviteEmail('');
+        setShowInviteModal(false);
+        loadTeamData(); // Reload to show new invitation
+      }
+    } catch (error: any) {
       console.error('Failed to send invitation:', error);
-      toast.error('Failed to send invitation');
+      toast.error(error?.response?.data?.message || 'Failed to send invitation');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendInvitation = async (invitationId: string) => {
+    if (!organizationId) return;
+
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast.success('Invitation resent successfully');
-    } catch (error) {
+      const response = await apiClient.post(
+        `/organizations/${organizationId}/team/invitations/${invitationId}/resend`
+      );
+      if (response.data?.success) {
+        toast.success('Invitation resent successfully');
+      }
+    } catch (error: any) {
       console.error('Failed to resend invitation:', error);
-      toast.error('Failed to resend invitation');
+      toast.error(error?.response?.data?.message || 'Failed to resend invitation');
     }
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
+    if (!organizationId) return;
+
     try {
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
-      toast.success('Invitation cancelled');
-    } catch (error) {
+      const response = await apiClient.delete(
+        `/organizations/${organizationId}/team/invitations/${invitationId}`
+      );
+      if (response.data?.success) {
+        toast.success('Invitation cancelled');
+        setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
+      }
+    } catch (error: any) {
       console.error('Failed to cancel invitation:', error);
-      toast.error('Failed to cancel invitation');
+      toast.error(error?.response?.data?.message || 'Failed to cancel invitation');
     }
   };
 
-  const formatLastActive = (lastActive?: Date) => {
+  const formatLastActive = (lastActive?: string) => {
     if (!lastActive) return 'Never';
-    
+
     const now = new Date();
-    const diff = now.getTime() - lastActive.getTime();
+    const activeDate = new Date(lastActive);
+    const diff = now.getTime() - activeDate.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
     if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
     return 'Just now';
@@ -202,6 +212,16 @@ export const TeamManagement: React.FC = () => {
       </span>
     );
   };
+
+  if (!organizationId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500">Organization context required</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -233,99 +253,35 @@ export const TeamManagement: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
-          {/* Team Members */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Team Members ({teamMembers.length})</h2>
-            </div>
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Member
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Active
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Joined
-                    </th>
-                    <th className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {teamMembers.map((member) => (
-                    <tr key={member.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                          <div className="text-sm text-gray-500">{member.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getRoleBadge(member.role)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          member.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {member.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatLastActive(member.lastActive)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {member.joinedAt.toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-gray-400 hover:text-gray-500">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {isLoading && teamMembers.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-500">Loading team data...</div>
           </div>
-
-          {/* Pending Invitations */}
-          {pendingInvitations.length > 0 && (
+        ) : (
+          <div className="space-y-8">
+            {/* Team Members */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Pending Invitations ({pendingInvitations.length})</h2>
+                <h2 className="text-lg font-medium text-gray-900">Team Members ({teamMembers.length})</h2>
               </div>
               <div className="overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
+                        Member
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Role
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Invited By
+                        Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Invited
+                        Last Active
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Expires
+                        Joined
                       </th>
                       <th className="relative px-6 py-3">
                         <span className="sr-only">Actions</span>
@@ -333,41 +289,36 @@ export const TeamManagement: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {pendingInvitations.map((invitation) => (
-                      <tr key={invitation.id} className="hover:bg-gray-50">
+                    {teamMembers.map((member) => (
+                      <tr key={member.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Mail className="w-4 h-4 text-gray-400 mr-2" />
-                            <div className="text-sm font-medium text-gray-900">{invitation.email}</div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                            <div className="text-sm text-gray-500">{member.email}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getRoleBadge(invitation.role)}
+                          {getRoleBadge(member.role)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            member.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {member.status}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invitation.invitedBy}
+                          {formatLastActive(member.lastActive)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invitation.invitedAt.toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {invitation.expiresAt.toLocaleDateString()}
+                          {new Date(member.joinedAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleResendInvitation(invitation.id)}
-                              className="text-indigo-600 hover:text-indigo-900 text-xs"
-                            >
-                              Resend
-                            </button>
-                            <button
-                              onClick={() => handleCancelInvitation(invitation.id)}
-                              className="text-red-600 hover:text-red-900 text-xs"
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                          <button className="text-gray-400 hover:text-gray-500">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -375,8 +326,83 @@ export const TeamManagement: React.FC = () => {
                 </table>
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Pending Invitations */}
+            {pendingInvitations.length > 0 && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-medium text-gray-900">Pending Invitations ({pendingInvitations.length})</h2>
+                </div>
+                <div className="overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Invited By
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Invited
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Expires
+                        </th>
+                        <th className="relative px-6 py-3">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {pendingInvitations.map((invitation) => (
+                        <tr key={invitation.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Mail className="w-4 h-4 text-gray-400 mr-2" />
+                              <div className="text-sm font-medium text-gray-900">{invitation.email}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {getRoleBadge(invitation.role)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {typeof invitation.invitedBy === 'string' ? invitation.invitedBy : invitation.invitedBy?.email || 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(invitation.invitedAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(invitation.expiresAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleResendInvitation(invitation.id)}
+                                className="text-indigo-600 hover:text-indigo-900 text-xs"
+                              >
+                                Resend
+                              </button>
+                              <button
+                                onClick={() => handleCancelInvitation(invitation.id)}
+                                className="text-red-600 hover:text-red-900 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Invite Modal */}

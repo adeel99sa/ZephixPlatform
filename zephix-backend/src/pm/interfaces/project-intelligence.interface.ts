@@ -126,7 +126,7 @@ export interface SmartTask {
   taskId: string;
   name: string;
   description: string;
-  phase: ProjectPhase;
+  phase: string; // phaseId
   priority: 'low' | 'medium' | 'high' | 'critical';
   complexity: number;
   estimatedDuration: TimeEstimate;

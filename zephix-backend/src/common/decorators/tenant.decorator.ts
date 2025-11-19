@@ -13,10 +13,15 @@ export const GetTenant = createParamDecorator(
     const request = ctx.switchToHttp().getRequest();
     const user = request.user;
 
-    console.log('🔍 GetTenant decorator - user object:', JSON.stringify(user, null, 2));
+    console.log(
+      '🔍 GetTenant decorator - user object:',
+      JSON.stringify(user, null, 2),
+    );
 
     if (!user?.organizationId || !user?.id) {
-      console.error('❌ Tenant context not found - missing organizationId or id');
+      console.error(
+        '❌ Tenant context not found - missing organizationId or id',
+      );
       throw new Error('Tenant context not found');
     }
 
@@ -26,7 +31,10 @@ export const GetTenant = createParamDecorator(
       userRole: user.role,
     };
 
-    console.log('✅ Tenant context extracted:', JSON.stringify(tenantContext, null, 2));
+    console.log(
+      '✅ Tenant context extracted:',
+      JSON.stringify(tenantContext, null, 2),
+    );
 
     return tenantContext;
   },
@@ -36,7 +44,7 @@ export const GetTenant = createParamDecorator(
 export abstract class TenantAwareRepository<T> {
   constructor(
     protected repository: any, // TypeORM repository
-    protected entityName: string
+    protected entityName: string,
   ) {}
 
   // Override find methods to automatically include organization filter
@@ -60,7 +68,11 @@ export abstract class TenantAwareRepository<T> {
     });
   }
 
-  async findById(id: string, organizationId: string, relations: string[] = []): Promise<T | null> {
+  async findById(
+    id: string,
+    organizationId: string,
+    relations: string[] = [],
+  ): Promise<T | null> {
     return this.repository.findOne({
       where: { id, organizationId },
       relations,
@@ -76,9 +88,9 @@ export abstract class TenantAwareRepository<T> {
   }
 
   async update(
-    id: string, 
-    organizationId: string, 
-    data: Partial<T>
+    id: string,
+    organizationId: string,
+    data: Partial<T>,
   ): Promise<T | null> {
     // First verify the record exists and belongs to org
     const existing = await this.findById(id, organizationId);
@@ -89,7 +101,7 @@ export abstract class TenantAwareRepository<T> {
     // Update with org filter in WHERE clause
     await this.repository.update(
       { id, organizationId }, // WHERE clause includes org
-      { ...data, organizationId } // Ensure org doesn't change
+      { ...data, organizationId }, // Ensure org doesn't change
     );
 
     return this.findById(id, organizationId);

@@ -5,7 +5,7 @@ export interface InvitationEmailData {
   recipientEmail: string;
   inviterName: string;
   organizationName: string;
-  invitationToken: string;  // This is what's passed
+  invitationToken: string; // This is what's passed
   // invitationLink: string;  // REMOVE - not passed
   role: string;
   message?: string;
@@ -45,11 +45,13 @@ export class EmailService {
       subject: options.subject,
       hasHtml: !!options.html,
       htmlLength: options.html?.length || 0,
-      first100Chars: options.html?.substring(0, 100)
+      first100Chars: options.html?.substring(0, 100),
     });
 
     // Ensure we have content
-    const htmlContent = options.html || `
+    const htmlContent =
+      options.html ||
+      `
       <html>
         <body>
           <h2>${options.subject}</h2>
@@ -61,7 +63,8 @@ export class EmailService {
 
     const msg = {
       to: options.to,
-      from: options.from || process.env.SENDGRID_FROM_EMAIL || 'noreply@zephix.dev',
+      from:
+        options.from || process.env.SENDGRID_FROM_EMAIL || 'noreply@zephix.dev',
       subject: options.subject,
       html: htmlContent,
       text: options.text || options.subject,
@@ -79,7 +82,7 @@ export class EmailService {
   async sendInvitationEmail(data: InvitationEmailData): Promise<void> {
     // BUILD the link from the token
     const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/invitations/${data.invitationToken}`;
-    
+
     const html = `
       <h2>You're invited to join ${data.organizationName}</h2>
       <p>${data.inviterName} has invited you to join as ${data.role}.</p>
@@ -91,11 +94,15 @@ export class EmailService {
     await this.sendEmail({
       to: data.recipientEmail,
       subject: `Invitation to join ${data.organizationName}`,
-      html
+      html,
     });
   }
 
-  async sendWaitlistWelcome(email: string, name: string, position: number): Promise<void> {
+  async sendWaitlistWelcome(
+    email: string,
+    name: string,
+    position: number,
+  ): Promise<void> {
     const html = `
       <h2>Welcome to Zephix, ${name}!</h2>
       <p>Thank you for joining our waitlist. You are currently in position ${position}.</p>
@@ -106,14 +113,14 @@ export class EmailService {
     await this.sendEmail({
       to: email,
       subject: 'Welcome to Zephix Waitlist!',
-      html
+      html,
     });
   }
 
   // Authentication-related email methods
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -161,13 +168,13 @@ export class EmailService {
       to: email,
       subject: 'Verify your Zephix account',
       html,
-      text: `Welcome to Zephix! Please verify your email by visiting: ${verificationUrl}`
+      text: `Welcome to Zephix! Please verify your email by visiting: ${verificationUrl}`,
     });
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -211,13 +218,17 @@ export class EmailService {
       to: email,
       subject: 'Password Reset Request - Zephix',
       html,
-      text: `Reset your password by visiting: ${resetUrl}. This link expires in 1 hour.`
+      text: `Reset your password by visiting: ${resetUrl}. This link expires in 1 hour.`,
     });
   }
 
-  async sendLoginAlertEmail(email: string, ipAddress: string, userAgent: string): Promise<void> {
+  async sendLoginAlertEmail(
+    email: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<void> {
     const timestamp = new Date().toLocaleString();
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -250,7 +261,7 @@ export class EmailService {
       to: email,
       subject: '⚠️ New Login to Your Zephix Account',
       html,
-      text: `New login detected from IP: ${ipAddress} at ${timestamp}`
+      text: `New login detected from IP: ${ipAddress} at ${timestamp}`,
     });
   }
 
@@ -265,7 +276,7 @@ export class EmailService {
     await this.sendEmail({
       to: email,
       subject: '🔒 Account Locked - Zephix',
-      html
+      html,
     });
   }
 }

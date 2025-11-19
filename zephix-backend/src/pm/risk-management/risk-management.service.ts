@@ -710,7 +710,10 @@ export class RiskManagementService {
     }
   }
 
-  async getRiskRegister(projectId: string, organizationId?: string): Promise<any> {
+  async getRiskRegister(
+    projectId: string,
+    organizationId?: string,
+  ): Promise<any> {
     // Add organization filtering for tenant isolation
     const queryBuilder = this.riskRepository
       .createQueryBuilder('risk')
@@ -720,7 +723,9 @@ export class RiskManagementService {
 
     // If organization ID is provided, filter by it for tenant isolation
     if (organizationId) {
-      queryBuilder.andWhere('risk.organizationId = :organizationId', { organizationId });
+      queryBuilder.andWhere('risk.organizationId = :organizationId', {
+        organizationId,
+      });
     }
 
     const risks = await queryBuilder

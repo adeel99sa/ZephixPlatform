@@ -8,4 +8,3 @@ export class AssignUserDto {
   @IsIn(['owner', 'manager', 'contributor', 'viewer'])
   role?: string;
 }
-

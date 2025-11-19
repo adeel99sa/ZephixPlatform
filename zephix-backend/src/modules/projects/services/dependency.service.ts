@@ -11,7 +11,11 @@ export class DependencyService {
     private dependencyRepository: Repository<TaskDependency>,
   ) {}
 
-  async create(taskId: string, dto: CreateDependencyDto, userId: string): Promise<TaskDependency> {
+  async create(
+    taskId: string,
+    dto: CreateDependencyDto,
+    userId: string,
+  ): Promise<TaskDependency> {
     // Create the dependency with proper field mapping
     const dependency = this.dependencyRepository.create({
       taskId,
@@ -28,7 +32,7 @@ export class DependencyService {
       dependsOnTaskId: dto.dependsOnTaskId,
       createdBy: userId || undefined,
     });
-    
+
     return this.dependencyRepository.save(dependency);
   }
 
@@ -44,16 +48,22 @@ export class DependencyService {
     await this.dependencyRepository.delete({ taskId });
   }
 
-  async updateStatus(id: string, status: string, userId: string): Promise<TaskDependency> {
-    const dependency = await this.dependencyRepository.findOne({ where: { id } });
+  async updateStatus(
+    id: string,
+    status: string,
+    userId: string,
+  ): Promise<TaskDependency> {
+    const dependency = await this.dependencyRepository.findOne({
+      where: { id },
+    });
     if (!dependency) throw new Error('Dependency not found');
-    
+
     dependency.status = status as any;
     if (status === 'completed') {
       dependency.completedAt = new Date();
       dependency.completedBy = userId;
     }
-    
+
     return this.dependencyRepository.save(dependency);
   }
 

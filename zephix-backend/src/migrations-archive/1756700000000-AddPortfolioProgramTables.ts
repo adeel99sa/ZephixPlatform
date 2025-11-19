@@ -1,6 +1,14 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey, TableColumn } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+  TableColumn,
+} from 'typeorm';
 
-export class AddPortfolioProgramTables1756700000000 implements MigrationInterface {
+export class AddPortfolioProgramTables1756700000000
+  implements MigrationInterface
+{
   name = 'AddPortfolioProgramTables1756700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -176,12 +184,12 @@ export class AddPortfolioProgramTables1756700000000 implements MigrationInterfac
     // Remove foreign keys
     const projectsTable = await queryRunner.getTable('projects');
     const programForeignKey = projectsTable?.foreignKeys.find(
-      fk => fk.columnNames.indexOf('program_id') !== -1,
+      (fk) => fk.columnNames.indexOf('program_id') !== -1,
     );
     if (programForeignKey) {
       await queryRunner.dropForeignKey('projects', programForeignKey);
     }
-    
+
     await queryRunner.dropColumn('projects', 'program_id');
     await queryRunner.dropTable('programs');
     await queryRunner.dropTable('portfolios');

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from './entities/task.entity';
@@ -19,29 +23,41 @@ export class TasksService {
     private kpiService: KPIService,
   ) {}
 
-  async create(createTaskDto: CreateTaskDto, organizationId: string): Promise<Task> {
+  async create(
+    createTaskDto: CreateTaskDto,
+    organizationId: string,
+  ): Promise<Task> {
     // Generate task number if not provided
     const taskNumber = createTaskDto.taskNumber || `TASK-${Date.now()}`;
-    
+
     const task = this.taskRepository.create({
       ...createTaskDto,
       taskNumber,
       organizationId,
     });
-    
+
     const savedTask = await this.taskRepository.save(task);
-    
+
     // Calculate resource impact if task has required fields
     if (savedTask.estimatedHours && savedTask.assignedResources) {
       try {
-        const impactScore = await this.resourceCalculationService.calculateResourceImpact(savedTask.id);
-        await this.taskRepository.update(savedTask.id, { resourceImpactScore: impactScore });
+        const impactScore =
+          await this.resourceCalculationService.calculateResourceImpact(
+            savedTask.id,
+          );
+        await this.taskRepository.update(savedTask.id, {
+          resourceImpactScore: impactScore,
+        });
         savedTask.resourceImpactScore = impactScore;
       } catch (error) {
-        console.warn('Failed to calculate resource impact for task:', savedTask.id, error);
+        console.warn(
+          'Failed to calculate resource impact for task:',
+          savedTask.id,
+          error,
+        );
       }
     }
-    
+
     return savedTask;
   }
 
@@ -58,17 +74,21 @@ export class TasksService {
       where: { id, organizationId },
       relations: ['assignee', 'phase', 'project'],
     });
-    
+
     if (!task) {
       throw new NotFoundException(`Task ${id} not found`);
     }
-    
+
     return task;
   }
 
-  async update(id: string, updateTaskDto: UpdateTaskDto, organizationId: string): Promise<Task> {
+  async update(
+    id: string,
+    updateTaskDto: UpdateTaskDto,
+    organizationId: string,
+  ): Promise<Task> {
     const task = await this.findOne(id, organizationId);
-    
+
     // Update progress to 100 if status is done
     if (updateTaskDto.status === 'done') {
       updateTaskDto.progress = 100;
@@ -81,27 +101,43 @@ export class TasksService {
     if (updateTaskDto.status === 'done') {
       task.completedDate = new Date();
     }
-    
+
     const updatedTask = await this.taskRepository.save(task);
-    
+
     // Recalculate resource impact if relevant fields changed
-    if (updateTaskDto.estimatedHours || updateTaskDto.assignedResources || updateTaskDto.startDate || updateTaskDto.endDate) {
+    if (
+      updateTaskDto.estimatedHours ||
+      updateTaskDto.assignedResources ||
+      updateTaskDto.startDate ||
+      updateTaskDto.endDate
+    ) {
       try {
-        const impactScore = await this.resourceCalculationService.calculateResourceImpact(id);
-        await this.taskRepository.update(id, { resourceImpactScore: impactScore });
+        const impactScore =
+          await this.resourceCalculationService.calculateResourceImpact(id);
+        await this.taskRepository.update(id, {
+          resourceImpactScore: impactScore,
+        });
         updatedTask.resourceImpactScore = impactScore;
       } catch (error) {
-        console.warn('Failed to recalculate resource impact for task:', id, error);
+        console.warn(
+          'Failed to recalculate resource impact for task:',
+          id,
+          error,
+        );
       }
     }
-    
+
     // Trigger KPI recalculation for the project
     try {
       await this.kpiService.invalidateProjectCache(task.projectId);
     } catch (error) {
-      console.warn('Failed to invalidate KPI cache for project:', task.projectId, error);
+      console.warn(
+        'Failed to invalidate KPI cache for project:',
+        task.projectId,
+        error,
+      );
     }
-    
+
     return updatedTask;
   }
 
@@ -110,12 +146,15 @@ export class TasksService {
     await this.taskRepository.remove(task);
   }
 
-  async getTasksWithDependencies(projectId: string, organizationId: string): Promise<Task[]> {
+  async getTasksWithDependencies(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Task[]> {
     const tasks = await this.findAll(projectId, organizationId);
-    
+
     // Check for circular dependencies
-    const taskMap = new Map(tasks.map(t => [t.id, t]));
-    
+    const taskMap = new Map(tasks.map((t) => [t.id, t]));
+
     for (const task of tasks) {
       if (task.dependencies && task.dependencies.length > 0) {
         for (const depId of task.dependencies) {
@@ -125,15 +164,19 @@ export class TasksService {
         }
       }
     }
-    
+
     return tasks;
   }
 
-  async updateProgress(id: string, progress: number, organizationId: string): Promise<Task> {
+  async updateProgress(
+    id: string,
+    progress: number,
+    organizationId: string,
+  ): Promise<Task> {
     if (progress < 0 || progress > 100) {
       throw new BadRequestException('Progress must be between 0 and 100');
     }
-    
+
     return await this.update(id, { progress }, organizationId);
   }
 
@@ -142,19 +185,28 @@ export class TasksService {
       where: { organizationId },
       relations: ['project', 'assignee', 'phase'],
     });
-    
+
     // Filter tasks that include this user in assignedResources
-    return tasks.filter(task => 
-      task.assignedResources && 
-      task.assignedResources.toLowerCase().includes(email.toLowerCase())
+    return tasks.filter(
+      (task) =>
+        task.assignedResources &&
+        task.assignedResources.toLowerCase().includes(email.toLowerCase()),
     );
   }
 
-  async addDependency(successorId: string, predecessorId: string, organizationId: string) {
+  async addDependency(
+    successorId: string,
+    predecessorId: string,
+    organizationId: string,
+  ) {
     // Verify both tasks exist and belong to the organization
     const [successor, predecessor] = await Promise.all([
-      this.taskRepository.findOne({ where: { id: successorId, organizationId } }),
-      this.taskRepository.findOne({ where: { id: predecessorId, organizationId } })
+      this.taskRepository.findOne({
+        where: { id: successorId, organizationId },
+      }),
+      this.taskRepository.findOne({
+        where: { id: predecessorId, organizationId },
+      }),
     ]);
 
     if (!successor || !predecessor) {
@@ -170,7 +222,7 @@ export class TasksService {
     const dependency = await this.dependencyRepository.save({
       predecessorId,
       successorId,
-      type: 'finish-to-start'
+      type: 'finish-to-start',
     });
 
     // Adjust dates if needed
@@ -179,16 +231,22 @@ export class TasksService {
     return dependency;
   }
 
-  async removeDependency(taskId: string, dependencyId: string, organizationId: string) {
+  async removeDependency(
+    taskId: string,
+    dependencyId: string,
+    organizationId: string,
+  ) {
     // Verify the task exists and belongs to the organization
-    const task = await this.taskRepository.findOne({ where: { id: taskId, organizationId } });
+    const task = await this.taskRepository.findOne({
+      where: { id: taskId, organizationId },
+    });
     if (!task) {
       throw new NotFoundException('Task not found');
     }
 
     await this.dependencyRepository.delete({
       successorId: taskId,
-      predecessorId: dependencyId
+      predecessorId: dependencyId,
     });
 
     return { success: true };
@@ -196,62 +254,69 @@ export class TasksService {
 
   async getDependencies(taskId: string, organizationId: string) {
     // Verify the task exists and belongs to the organization
-    const task = await this.taskRepository.findOne({ where: { id: taskId, organizationId } });
+    const task = await this.taskRepository.findOne({
+      where: { id: taskId, organizationId },
+    });
     if (!task) {
       throw new NotFoundException('Task not found');
     }
 
     const dependencies = await this.dependencyRepository.find({
       where: { successorId: taskId },
-      relations: ['predecessor']
+      relations: ['predecessor'],
     });
 
-    return dependencies.map(dep => ({
+    return dependencies.map((dep) => ({
       id: dep.id,
       predecessorId: dep.predecessorId,
       predecessorName: dep.predecessor?.name,
-      type: dep.type
+      type: dep.type,
     }));
   }
 
-  private async wouldCreateCycle(fromId: string, toId: string): Promise<boolean> {
+  private async wouldCreateCycle(
+    fromId: string,
+    toId: string,
+  ): Promise<boolean> {
     // Simple cycle detection - check if toId can reach fromId
     const visited = new Set<string>();
     const queue = [toId];
-    
+
     while (queue.length > 0) {
-      const current = queue.shift()!;
+      const current = queue.shift();
       if (current === fromId) return true;
-      
+
       if (!visited.has(current)) {
         visited.add(current);
         const dependencies = await this.dependencyRepository.find({
-          where: { predecessorId: current }
+          where: { predecessorId: current },
         });
-        queue.push(...dependencies.map(d => d.successorId));
+        queue.push(...dependencies.map((d) => d.successorId));
       }
     }
-    
+
     return false;
   }
 
-  private async adjustDatesForDependency(dependency: TaskDependency): Promise<void> {
+  private async adjustDatesForDependency(
+    dependency: TaskDependency,
+  ): Promise<void> {
     const [predecessor, successor] = await Promise.all([
       this.taskRepository.findOne({ where: { id: dependency.predecessorId } }),
-      this.taskRepository.findOne({ where: { id: dependency.successorId } })
+      this.taskRepository.findOne({ where: { id: dependency.successorId } }),
     ]);
 
     if (predecessor?.endDate && successor?.startDate) {
       const predecessorEnd = new Date(predecessor.endDate);
       const successorStart = new Date(successor.startDate);
-      
+
       if (successorStart < predecessorEnd) {
         // Shift successor to start after predecessor ends
         const dayAfterPredecessor = new Date(predecessorEnd);
         dayAfterPredecessor.setDate(dayAfterPredecessor.getDate() + 1);
-        
+
         await this.taskRepository.update(successor.id, {
-          startDate: dayAfterPredecessor
+          startDate: dayAfterPredecessor,
         });
       }
     }

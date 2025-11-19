@@ -6,38 +6,28 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../state/AuthContext';
+import { usePostLoginRedirect } from '@/hooks/usePostLoginRedirect';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user, isAuthenticated, isLoading, error, clearError } = useAuth();
+  const { login, user, loading } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Handle messages from navigation state (e.g., from email verification)
-  useEffect(() => {
-    const state = location.state as any;
-    if (state?.message) {
-      setSuccessMessage(state.message);
-      if (state.email) {
-        setFormData(prev => ({ ...prev, email: state.email }));
-      }
-    }
-  }, [location.state]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      const returnUrl = location.state?.from?.pathname || '/hub';
+    if (user) {
+      const returnUrl = location.state?.from?.pathname || '/home';
       navigate(returnUrl, { replace: true });
     }
-  }, [isAuthenticated, navigate, location.state?.from?.pathname]);
+  }, [user, navigate, location.state?.from?.pathname]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -45,54 +35,68 @@ export const LoginPage: React.FC = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (error) {
-      clearError();
+      setError(null);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔴 Form submitted!', formData);  // ADD THIS LINE
-    
-    try {
-      console.log('🔵 Calling login with:', formData.email);  // ADD THIS LINE
-      const success = await login(formData.email, formData.password);
-      console.log('🟢 Login result:', success);  // ADD THIS LINE
+    setError(null);
+    setIsLoading(true);
 
-      if (success) {
-        setIsSubmitted(true);
-        
-        // Redirect after success message
-        setTimeout(() => {
-          const returnUrl = location.state?.from?.pathname || '/hub';
-          navigate(returnUrl);
-        }, 1500);
+    try {
+      await login(formData.email, formData.password);
+
+      // Check onboarding status after login
+      try {
+        const { onboardingApi } = await import('@/services/onboardingApi');
+        const status = await onboardingApi.getOnboardingStatus();
+
+        if (!status.completed) {
+          // Redirect to onboarding if not completed
+          navigate('/onboarding', { replace: true });
+        } else {
+          // Redirect to intended destination or home
+          const returnUrl = location.state?.from?.pathname || '/home';
+          navigate(returnUrl, { replace: true });
+        }
+      } catch (onboardingError) {
+        console.error('Failed to check onboarding:', onboardingError);
+        // Fallback to normal redirect
+        const returnUrl = location.state?.from?.pathname || '/home';
+        navigate(returnUrl, { replace: true });
       }
     } catch (err: any) {
-      // Error is already handled by the hook
-      console.error('🔴 Login error caught:', err);  // UPDATE THIS LINE
+      setError(err?.response?.data?.message ?? "Login failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8" data-testid="login-page">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+          <button
+            onClick={() => navigate(user ? "/home" : "/")}
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
+            data-testid="login-logo"
+          >
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-gray-900">ZEPHIX</span>
-          </Link>
+          </button>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900" data-testid="login-title">
           Enterprise Secure Sign In
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Or{' '}
-          <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
+          <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-500" data-testid="signup-link">
             create a new enterprise account
           </Link>
         </p>
@@ -100,39 +104,17 @@ export const LoginPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {isSubmitted ? (
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+          <form onSubmit={handleSubmit} className="space-y-6" data-testid="login-form">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3" data-testid="login-error">
+                <div className="flex">
+                  <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                  <div>
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Enterprise Authentication Successful!
-              </h3>
-              <p className="text-gray-600">
-                Redirecting to secure dashboard...
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {successMessage && (
-                <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                  <div className="flex">
-                    <CheckCircle2 className="h-5 w-5 text-green-400 mr-2" />
-                    <p className="text-sm text-green-800">{successMessage}</p>
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <div className="flex">
-                    <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                    <div>
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            )}
 
               {/* Enterprise Security Status */}
               <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-md p-4">
@@ -168,6 +150,7 @@ export const LoginPage: React.FC = () => {
                     required
                     value={formData.email}
                     onChange={handleInputChange}
+                    data-testid="login-email"
                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     placeholder="Enter your enterprise email"
                   />
@@ -187,12 +170,14 @@ export const LoginPage: React.FC = () => {
                     required
                     value={formData.password}
                     onChange={handleInputChange}
+                    data-testid="login-password"
                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-10"
                     placeholder="Enter your secure password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    data-testid="password-toggle"
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
                     {showPassword ? (
@@ -215,7 +200,7 @@ export const LoginPage: React.FC = () => {
                       🔒 Enterprise Security
                     </p>
                     <p className="text-xs text-blue-700">
-                      Your authentication is protected by enterprise-grade security measures. 
+                      Your authentication is protected by enterprise-grade security measures.
                       All login attempts are monitored and logged for security purposes.
                     </p>
                   </div>
@@ -226,6 +211,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading || !formData.email || !formData.password}
+                  data-testid="login-submit"
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoading ? (
@@ -246,7 +232,6 @@ export const LoginPage: React.FC = () => {
                 </p>
               </div>
             </form>
-          )}
         </div>
       </div>
     </div>

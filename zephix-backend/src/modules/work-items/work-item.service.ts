@@ -1,7 +1,42 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { WorkItem } from './entities/work-item.entity';
+import { Repository, IsNull } from 'typeorm';
+import {
+  WorkItem,
+  WorkItemStatus,
+  WorkItemType,
+} from './entities/work-item.entity';
+import { CreateWorkItemDto } from './dto/create-work-item.dto';
+import { UpdateWorkItemDto } from './dto/update-work-item.dto';
+
+interface ListOptions {
+  organizationId: string;
+  workspaceId?: string;
+  projectId?: string;
+  status?: string;
+  assigneeId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+interface CreateOptions extends CreateWorkItemDto {
+  organizationId: string;
+  createdBy: string;
+}
+
+interface UpdateOptions extends UpdateWorkItemDto {
+  updatedBy?: string;
+}
+
+interface KpiOptions {
+  organizationId: string;
+  workspaceId?: string;
+  projectId?: string;
+}
 
 @Injectable()
 export class WorkItemService {
@@ -10,64 +45,109 @@ export class WorkItemService {
     private workItemRepository: Repository<WorkItem>,
   ) {}
 
-  async createWorkItem(
-    projectId: string,
-    title: string,
-    type: 'task' | 'story' | 'bug' | 'epic',
-    phaseOrSprint: string
-  ) {
-    // Input validation
-    if (!projectId || !title || !type || !phaseOrSprint) {
-      throw new BadRequestException('All required fields must be provided');
+  async list(options: ListOptions) {
+    const where: any = {
+      organizationId: options.organizationId,
+      deletedAt: IsNull(),
+    };
+
+    if (options.workspaceId) {
+      where.workspaceId = options.workspaceId;
     }
 
-    if (title.trim().length === 0) {
-      throw new BadRequestException('Title cannot be empty');
+    if (options.projectId) {
+      where.projectId = options.projectId;
     }
 
-    const workItem = this.workItemRepository.create({
-      projectId,
-      title: title.trim(),
-      type,
-      phaseOrSprint,
-      status: 'todo',
-      priority: 'medium'
-    });
+    if (options.status) {
+      where.status = options.status;
+    }
 
-    return this.workItemRepository.save(workItem);
-  }
-
-  async getAllWorkItems() {
-    return this.workItemRepository.find({
-      order: { createdAt: 'DESC' }
-    });
-  }
-
-  async getProjectWorkItems(projectId: string) {
-    if (!projectId) {
-      throw new BadRequestException('Project ID is required');
+    if (options.assigneeId) {
+      where.assigneeId = options.assigneeId;
     }
 
     return this.workItemRepository.find({
-      where: { projectId },
-      order: { createdAt: 'DESC' }
+      where,
+      order: { createdAt: 'DESC' },
+      take: options.limit || 50,
+      skip: options.offset || 0,
     });
   }
 
-  async updateWorkItemStatus(
-    id: string,
-    status: 'todo' | 'in_progress' | 'done' | 'blocked'
-  ) {
-    if (!id || !status) {
-      throw new BadRequestException('Work item ID and status are required');
-    }
+  async getOne(id: string, organizationId: string) {
+    const item = await this.workItemRepository.findOne({
+      where: { id, organizationId, deletedAt: IsNull() },
+    });
 
-    const result = await this.workItemRepository.update(id, { status });
-    
-    if (result.affected === 0) {
+    if (!item) {
       throw new NotFoundException(`Work item with id ${id} not found`);
     }
-    
-    return this.workItemRepository.findOne({ where: { id } });
+
+    return item;
+  }
+
+  async create(options: CreateOptions) {
+    if (!options.title || !options.workspaceId || !options.projectId) {
+      throw new BadRequestException(
+        'title, workspaceId, and projectId are required',
+      );
+    }
+
+    const item = this.workItemRepository.create({
+      ...options,
+      deletedAt: null,
+    });
+
+    return this.workItemRepository.save(item);
+  }
+
+  async update(id: string, organizationId: string, options: UpdateOptions) {
+    const item = await this.getOne(id, organizationId);
+
+    Object.assign(item, options);
+
+    return this.workItemRepository.save(item);
+  }
+
+  async completedRatioByProject(options: KpiOptions) {
+    const whereBase = {
+      organizationId: options.organizationId,
+      projectId: options.projectId,
+      deletedAt: IsNull(),
+    };
+
+    const [completed, total] = await Promise.all([
+      this.workItemRepository.count({
+        where: { ...whereBase, status: WorkItemStatus.DONE },
+      }),
+      this.workItemRepository.count({ where: whereBase }),
+    ]);
+
+    const ratio = total > 0 ? completed / total : 0;
+
+    return { data: { completed, total, ratio } };
+  }
+
+  async completedRatioByWorkspace(options: KpiOptions) {
+    const whereBase: any = {
+      organizationId: options.organizationId,
+      deletedAt: IsNull(),
+    };
+
+    if (options.workspaceId) {
+      whereBase.workspaceId = options.workspaceId;
+    }
+
+    const [completed, total] = await Promise.all([
+      this.workItemRepository.count({
+        where: { ...whereBase, status: WorkItemStatus.DONE },
+      }),
+      this.workItemRepository.count({ where: whereBase }),
+    ]);
+
+    const ratio = total > 0 ? completed / total : 0;
+
+    return { data: { completed, total, ratio } };
   }
 }
