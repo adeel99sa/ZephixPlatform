@@ -1,7 +1,22 @@
-import { IsEnum, IsOptional, IsString, IsUUID, IsDateString, IsNumber, IsUrl } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsDateString,
+  IsNumber,
+  IsUrl,
+} from 'class-validator';
 
 export class CreateDependencyDto {
-  @IsEnum(['quick_text', 'internal_task', 'external', 'vendor', 'approval', 'milestone'])
+  @IsEnum([
+    'quick_text',
+    'internal_task',
+    'external',
+    'vendor',
+    'approval',
+    'milestone',
+  ])
   dependencyType: string;
 
   @IsUUID()
@@ -39,9 +54,3 @@ export class CreateDependencyDto {
   @IsOptional()
   vendorName?: string;
 }
-
-
-
-
-
-

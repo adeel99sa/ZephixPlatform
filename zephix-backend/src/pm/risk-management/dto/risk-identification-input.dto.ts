@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsBoolean, IsEnum, IsOptional, IsArray, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 
 export class RiskSourcesDto {
   @ApiProperty({ description: 'Include project data in analysis' })
@@ -35,17 +42,17 @@ export class RiskIdentificationInputDto {
   @ApiProperty({ description: 'Risk sources configuration' })
   riskSources: RiskSourcesDto;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Scan depth for risk analysis',
-    enum: ['basic', 'comprehensive', 'deep-analysis']
+    enum: ['basic', 'comprehensive', 'deep-analysis'],
   })
   @IsEnum(['basic', 'comprehensive', 'deep-analysis'])
   scanDepth: 'basic' | 'comprehensive' | 'deep-analysis';
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Focus areas for risk analysis',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()

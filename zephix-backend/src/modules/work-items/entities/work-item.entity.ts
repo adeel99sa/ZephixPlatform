@@ -1,68 +1,99 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, Check } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { Project } from '../../projects/entities/project.entity';
+import { User } from '../../users/entities/user.entity';
+
+export enum WorkItemType {
+  TASK = 'task',
+  BUG = 'bug',
+  STORY = 'story',
+  EPIC = 'epic',
+}
+
+export enum WorkItemStatus {
+  TODO = 'todo',
+  IN_PROGRESS = 'in_progress',
+  DONE = 'done',
+}
 
 @Entity('work_items')
-@Index('idx_work_items_project', ['projectId'])
-@Index('idx_work_items_assigned', ['assignedTo'])
-@Index('idx_work_items_status', ['status'])
-@Check(`type IN ('task', 'story', 'bug', 'epic')`)
-@Check(`status IN ('todo', 'in_progress', 'done', 'blocked')`)
-@Check(`priority IN ('low', 'medium', 'high', 'critical')`)
 export class WorkItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'projectId' })
+  @Column({ name: 'organization_id', type: 'uuid' })
+  organizationId: string;
+
+  @Column({ name: 'workspace_id', type: 'uuid' })
+  workspaceId: string;
+
+  @Column({ name: 'project_id', type: 'uuid' })
   projectId: string;
 
-  @Column({ 
-    length: 50,
-    type: 'varchar'
+  @Column({
+    type: 'varchar',
+    default: WorkItemType.TASK,
   })
-  type: 'task' | 'story' | 'bug' | 'epic';
+  type: WorkItemType;
 
-  @Column({ length: 255 })
+  @Column({
+    type: 'varchar',
+    default: WorkItemStatus.TODO,
+  })
+  status: WorkItemStatus;
+
+  @Column({ length: 200 })
   title: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description?: string;
 
-  @Column({ 
-    length: 20,
-    default: 'todo'
-  })
-  status: 'todo' | 'in_progress' | 'done' | 'blocked';
+  @Column({ name: 'assignee_id', type: 'uuid', nullable: true })
+  assigneeId?: string;
 
-  @Column({ name: 'phaseOrSprint', length: 100, nullable: true })
-  phaseOrSprint: string;
+  @Column({ type: 'int', nullable: true })
+  points?: number;
 
-  @Column({ name: 'assignedTo', nullable: true })
-  assignedTo: string;
+  @Column({ name: 'due_date', type: 'timestamp', nullable: true })
+  dueDate?: Date;
 
-  @Column({ name: 'plannedStart', type: 'date', nullable: true })
-  plannedStart: Date;
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy: string;
 
-  @Column({ name: 'plannedEnd', type: 'date', nullable: true })
-  plannedEnd: Date;
-
-  @Column({ name: 'actualStart', type: 'date', nullable: true })
-  actualStart: Date;
-
-  @Column({ name: 'actualEnd', type: 'date', nullable: true })
-  actualEnd: Date;
-
-  @Column({ name: 'effortPoints', nullable: true })
-  effortPoints: number;
-
-  @Column({ 
-    length: 10,
-    default: 'medium'
-  })
-  priority: 'low' | 'medium' | 'high' | 'critical';
-
-  @CreateDateColumn({ name: 'createdAt' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updatedAt' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deletedAt?: Date | null;
+
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
+  updatedBy?: string;
+
+  // Relations
+  @ManyToOne(() => Workspace)
+  @JoinColumn({ name: 'workspace_id' })
+  workspace?: Workspace;
+
+  @ManyToOne(() => Project)
+  @JoinColumn({ name: 'project_id' })
+  project?: Project;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'assignee_id' })
+  assignee?: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'created_by' })
+  createdByUser?: User;
 }

@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ApiResponse, PaginatedResponse } from '../interfaces/api-response.interface';
+import {
+  ApiResponse,
+  PaginatedResponse,
+} from '../interfaces/api-response.interface';
 
 @Injectable()
 export class ResponseService {
@@ -18,10 +21,10 @@ export class ResponseService {
     page: number,
     limit: number,
     total: number,
-    meta?: any
+    meta?: any,
   ): PaginatedResponse<T> {
     const totalPages = Math.ceil(total / limit);
-    
+
     return {
       data,
       meta: {
@@ -51,6 +54,3 @@ export class ResponseService {
     };
   }
 }
-
-
-

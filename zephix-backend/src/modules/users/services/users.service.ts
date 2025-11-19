@@ -14,12 +14,7 @@ export class UsersService {
     return this.userRepository.find({
       where: { organizationId, isActive: true },
       select: ['id', 'email', 'firstName', 'lastName'],
-      order: { firstName: 'ASC' }
+      order: { firstName: 'ASC' },
     });
   }
 }
-
-
-
-
-

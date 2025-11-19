@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { TemplateService } from './template.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -14,10 +22,7 @@ export class TemplateController {
   }
 
   @Post(':id/activate')
-  async activateTemplate(
-    @Param('id') templateId: string,
-    @Req() req: any
-  ) {
+  async activateTemplate(@Param('id') templateId: string, @Req() req: any) {
     const organizationId = req.user.organizationId || 'default';
     return this.templateService.activateTemplate(templateId, organizationId);
   }

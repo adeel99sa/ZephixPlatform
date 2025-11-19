@@ -11,8 +11,10 @@ export class DemoRequestService {
 
   async createDemoRequest(createDemoRequestDto: CreateDemoRequestDto) {
     try {
-      this.logger.log(`Creating demo request for company: ${createDemoRequestDto.companyName}`);
-      
+      this.logger.log(
+        `Creating demo request for company: ${createDemoRequestDto.companyName}`,
+      );
+
       // For now, just return a mock response
       // TODO: Implement actual database storage
       const result = {
@@ -20,13 +22,16 @@ export class DemoRequestService {
         ...createDemoRequestDto,
         status: 'submitted',
         createdAt: new Date(),
-        estimatedResponseTime: '24 hours'
+        estimatedResponseTime: '24 hours',
       };
 
       this.logger.log(`Demo request created with ID: ${result.id}`);
       return result;
     } catch (error) {
-      this.logger.error(`Failed to create demo request: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create demo request: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

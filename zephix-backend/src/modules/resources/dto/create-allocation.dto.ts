@@ -1,4 +1,11 @@
-import { IsUUID, IsInt, Min, Max, IsDateString, IsNotEmpty } from 'class-validator';
+import {
+  IsUUID,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateAllocationDto {

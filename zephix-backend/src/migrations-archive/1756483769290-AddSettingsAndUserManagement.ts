@@ -1,11 +1,13 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSettingsAndUserManagement1756500000001 implements MigrationInterface {
-    name = 'AddSettingsAndUserManagement1756500000001'
+export class AddSettingsAndUserManagement1756500000001
+  implements MigrationInterface
+{
+  name = 'AddSettingsAndUserManagement1756500000001';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // User Settings Table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // User Settings Table
+    await queryRunner.query(`
             CREATE TABLE "user_settings" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "userId" uuid NOT NULL,
@@ -24,8 +26,8 @@ export class AddSettingsAndUserManagement1756500000001 implements MigrationInter
             )
         `);
 
-        // Organization Settings Table
-        await queryRunner.query(`
+    // Organization Settings Table
+    await queryRunner.query(`
             CREATE TABLE "organization_settings" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "organizationId" uuid NOT NULL,
@@ -44,8 +46,8 @@ export class AddSettingsAndUserManagement1756500000001 implements MigrationInter
             )
         `);
 
-        // Security Settings Table
-        await queryRunner.query(`
+    // Security Settings Table
+    await queryRunner.query(`
             CREATE TABLE "security_settings" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "organizationId" uuid NOT NULL,
@@ -62,36 +64,42 @@ export class AddSettingsAndUserManagement1756500000001 implements MigrationInter
             )
         `);
 
-        // Add foreign key constraints
-        await queryRunner.query(`
+    // Add foreign key constraints
+    await queryRunner.query(`
             ALTER TABLE "user_settings" ADD CONSTRAINT "FK_user_settings_user" 
             FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "user_settings" ADD CONSTRAINT "FK_user_settings_organization" 
             FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "organization_settings" ADD CONSTRAINT "FK_organization_settings_organization" 
             FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "security_settings" ADD CONSTRAINT "FK_security_settings_organization" 
             FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION
         `);
 
-        // Create indexes for performance
-        await queryRunner.query(`CREATE INDEX "IDX_user_settings_user_org" ON "user_settings" ("userId", "organizationId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_organization_settings_org" ON "organization_settings" ("organizationId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_security_settings_org" ON "security_settings" ("organizationId")`);
-    }
+    // Create indexes for performance
+    await queryRunner.query(
+      `CREATE INDEX "IDX_user_settings_user_org" ON "user_settings" ("userId", "organizationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_organization_settings_org" ON "organization_settings" ("organizationId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_security_settings_org" ON "security_settings" ("organizationId")`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP TABLE "security_settings"`);
-        await queryRunner.query(`DROP TABLE "organization_settings"`);
-        await queryRunner.query(`DROP TABLE "user_settings"`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE "security_settings"`);
+    await queryRunner.query(`DROP TABLE "organization_settings"`);
+    await queryRunner.query(`DROP TABLE "user_settings"`);
+  }
 }

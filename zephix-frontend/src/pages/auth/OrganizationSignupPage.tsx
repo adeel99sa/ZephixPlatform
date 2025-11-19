@@ -61,19 +61,41 @@ export const OrganizationSignupPage: React.FC = () => {
 
   const onSubmit = async (data: OrganizationSignupForm) => {
     setIsLoading(true);
-    
+
     try {
-      // Mock API call - replace with real implementation
-      console.log('Organization signup data:', data);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const { apiClient } = await import('@/lib/api/client');
+      const response = await apiClient.post('/auth/organization/signup', {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        organizationName: data.organizationName,
+        organizationSlug: data.organizationSlug,
+        website: data.website || undefined,
+        industry: data.industry || undefined,
+        organizationSize: data.organizationSize || undefined,
+      });
+
+      // Store tokens
+      if (response.access_token) {
+        const { setTokens } = await import('@/lib/api');
+        setTokens(response.access_token, response.access_token); // Refresh token same for now
+      }
+
+      // Store user and organization info
+      if (response.user) {
+        const { useAuth } = await import('@/state/AuthContext');
+        // User will be set via auth context hydration
+      }
+
       toast.success(`Welcome to Zephix! Organization "${data.organizationName}" created successfully.`);
-      navigate('/dashboard');
-    } catch (error) {
+
+      // Redirect to onboarding (will check if needed)
+      navigate('/onboarding', { replace: true });
+    } catch (error: any) {
       console.error('Organization signup error:', error);
-      toast.error('Failed to create organization. Please try again.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create organization. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +129,7 @@ export const OrganizationSignupPage: React.FC = () => {
               <h3 className="text-lg font-medium text-white flex items-center">
                 Your Information
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstName" className="block text-sm font-medium text-gray-300 mb-1">

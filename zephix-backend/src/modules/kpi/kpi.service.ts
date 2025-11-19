@@ -40,37 +40,46 @@ export class KPIService {
 
   async calculateProjectKPIs(projectId: string): Promise<ProjectKPIs> {
     const tasks = await this.taskRepository.find({
-      where: { projectId }
+      where: { projectId },
     });
 
     const project = await this.projectRepository.findOne({
-      where: { id: projectId }
+      where: { id: projectId },
     });
 
     const now = new Date();
     const tasksTotal = tasks.length;
-    const tasksCompleted = tasks.filter(t => t.status === 'completed').length;
-    const tasksOverdue = tasks.filter(t => 
-      t.endDate && new Date(t.endDate) < now && t.status !== 'completed'
+    const tasksCompleted = tasks.filter((t) => t.status === 'completed').length;
+    const tasksOverdue = tasks.filter(
+      (t) => t.endDate && new Date(t.endDate) < now && t.status !== 'completed',
     ).length;
-    
-    const completionPercentage = tasksTotal > 0 
-      ? Math.round((tasksCompleted / tasksTotal) * 100)
-      : 0;
+
+    const completionPercentage =
+      tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
 
     // Calculate resource utilization
-    const resourceUtilization = await this.calculateProjectResourceUtilization(projectId);
-    
+    const resourceUtilization =
+      await this.calculateProjectResourceUtilization(projectId);
+
     // Calculate budget usage
-    const budgetUsed = project?.actualCost && project?.budget
-      ? Math.round((project.actualCost / project.budget) * 100)
-      : 0;
+    const budgetUsed =
+      project?.actualCost && project?.budget
+        ? Math.round((project.actualCost / project.budget) * 100)
+        : 0;
 
     // Calculate risk score
-    const riskScore = this.calculateRiskScore(tasksOverdue, resourceUtilization, budgetUsed);
-    
+    const riskScore = this.calculateRiskScore(
+      tasksOverdue,
+      resourceUtilization,
+      budgetUsed,
+    );
+
     // Determine health status
-    const healthStatus = this.determineHealthStatus(completionPercentage, tasksOverdue, riskScore);
+    const healthStatus = this.determineHealthStatus(
+      completionPercentage,
+      tasksOverdue,
+      riskScore,
+    );
 
     return {
       tasksTotal,
@@ -80,13 +89,13 @@ export class KPIService {
       resourceUtilization,
       budgetUsed,
       riskScore,
-      healthStatus
+      healthStatus,
     };
   }
 
   async calculatePortfolioKPIs(organizationId: string): Promise<PortfolioKPIs> {
     const projects = await this.projectRepository.find({
-      where: { organizationId }
+      where: { organizationId },
     });
 
     let projectsOnTrack = 0;
@@ -97,22 +106,26 @@ export class KPIService {
 
     for (const project of projects) {
       const kpis = await this.calculateProjectKPIs(project.id);
-      
+
       if (kpis.healthStatus === 'on-track') projectsOnTrack++;
       else if (kpis.healthStatus === 'at-risk') projectsAtRisk++;
       else projectsOffTrack++;
 
       totalResourceUtilization += kpis.resourceUtilization;
-      
+
       if (kpis.riskScore > 75) criticalRisks++;
     }
 
-    const overallResourceUtilization = projects.length > 0
-      ? Math.round(totalResourceUtilization / projects.length)
-      : 0;
+    const overallResourceUtilization =
+      projects.length > 0
+        ? Math.round(totalResourceUtilization / projects.length)
+        : 0;
 
     const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
-    const budgetConsumed = projects.reduce((sum, p) => sum + (p.actualCost || 0), 0);
+    const budgetConsumed = projects.reduce(
+      (sum, p) => sum + (p.actualCost || 0),
+      0,
+    );
 
     return {
       totalProjects: projects.length,
@@ -122,45 +135,52 @@ export class KPIService {
       overallResourceUtilization,
       totalBudget,
       budgetConsumed,
-      criticalRisks
+      criticalRisks,
     };
   }
 
-  private async calculateProjectResourceUtilization(projectId: string): Promise<number> {
+  private async calculateProjectResourceUtilization(
+    projectId: string,
+  ): Promise<number> {
     const tasks = await this.taskRepository.find({
-      where: { projectId }
+      where: { projectId },
     });
 
-    const totalResourceImpact = tasks.reduce((sum, task) => 
-      sum + (task.resourceImpactScore || 0), 0
+    const totalResourceImpact = tasks.reduce(
+      (sum, task) => sum + (task.resourceImpactScore || 0),
+      0,
     );
 
-    const avgUtilization = tasks.length > 0
-      ? Math.round(totalResourceImpact / tasks.length)
-      : 0;
+    const avgUtilization =
+      tasks.length > 0 ? Math.round(totalResourceImpact / tasks.length) : 0;
 
     return Math.min(avgUtilization, 150); // Cap at 150%
   }
 
-  private calculateRiskScore(tasksOverdue: number, resourceUtilization: number, budgetUsed: number): number {
+  private calculateRiskScore(
+    tasksOverdue: number,
+    resourceUtilization: number,
+    budgetUsed: number,
+  ): number {
     let score = 0;
-    
+
     // Overdue tasks contribute to risk
     if (tasksOverdue > 0) score += Math.min(tasksOverdue * 10, 30);
-    
+
     // Over-utilization contributes to risk
-    if (resourceUtilization > 100) score += Math.min((resourceUtilization - 100) * 2, 40);
-    
+    if (resourceUtilization > 100)
+      score += Math.min((resourceUtilization - 100) * 2, 40);
+
     // Budget overrun contributes to risk
-    if (budgetUsed > 100) score += Math.min((budgetUsed - 100), 30);
-    
+    if (budgetUsed > 100) score += Math.min(budgetUsed - 100, 30);
+
     return Math.min(score, 100);
   }
 
   private determineHealthStatus(
-    completion: number, 
-    overdue: number, 
-    risk: number
+    completion: number,
+    overdue: number,
+    risk: number,
   ): 'on-track' | 'at-risk' | 'off-track' {
     if (risk > 75 || overdue > 5) return 'off-track';
     if (risk > 50 || overdue > 2) return 'at-risk';
@@ -173,4 +193,3 @@ export class KPIService {
     console.log(`KPI cache invalidated for project: ${projectId}`);
   }
 }
-

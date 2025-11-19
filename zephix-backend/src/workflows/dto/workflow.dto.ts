@@ -1,18 +1,36 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsOptional, IsArray, IsBoolean, IsNumber, IsDate, IsUUID, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsDate,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { 
+import {
   WorkflowType,
   WorkflowStatus,
   StageType,
   StageStatus,
   ApprovalType,
   ApprovalStatus,
-  ApprovalLevel
+  ApprovalLevel,
 } from '../entities';
 
 // Re-export enums for use in controllers
-export { WorkflowType, WorkflowStatus, StageType, StageStatus, ApprovalType, ApprovalStatus, ApprovalLevel };
+export {
+  WorkflowType,
+  WorkflowStatus,
+  StageType,
+  StageStatus,
+  ApprovalType,
+  ApprovalStatus,
+  ApprovalLevel,
+};
 
 // Base DTOs
 export class WorkflowTemplateDto {
@@ -28,16 +46,16 @@ export class WorkflowTemplateDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: WorkflowType,
-    description: 'Type of workflow methodology'
+    description: 'Type of workflow methodology',
   })
   @IsEnum(WorkflowType)
   type: WorkflowType;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: WorkflowStatus,
-    description: 'Current status of the template'
+    description: 'Current status of the template',
   })
   @IsEnum(WorkflowStatus)
   status: WorkflowStatus;
@@ -81,16 +99,16 @@ export class WorkflowStageDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: StageType,
-    description: 'Type of stage'
+    description: 'Type of stage',
   })
   @IsEnum(StageType)
   type: StageType;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: StageStatus,
-    description: 'Current status of the stage'
+    description: 'Current status of the stage',
   })
   @IsEnum(StageStatus)
   status: StageStatus;
@@ -99,7 +117,9 @@ export class WorkflowStageDto {
   @IsNumber()
   order: number;
 
-  @ApiPropertyOptional({ description: 'Estimated duration in the specified unit' })
+  @ApiPropertyOptional({
+    description: 'Estimated duration in the specified unit',
+  })
   @IsOptional()
   @IsNumber()
   estimatedDuration?: number;
@@ -169,23 +189,23 @@ export class WorkflowApprovalDto {
   @IsUUID()
   id: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ApprovalType,
-    description: 'Type of approval'
+    description: 'Type of approval',
   })
   @IsEnum(ApprovalType)
   type: ApprovalType;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ApprovalStatus,
-    description: 'Current status of the approval'
+    description: 'Current status of the approval',
   })
   @IsEnum(ApprovalStatus)
   status: ApprovalStatus;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ApprovalLevel,
-    description: 'Level of approval required'
+    description: 'Level of approval required',
   })
   @IsEnum(ApprovalLevel)
   level: ApprovalLevel;
@@ -246,9 +266,9 @@ export class CreateWorkflowTemplateDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: WorkflowType,
-    description: 'Type of workflow methodology'
+    description: 'Type of workflow methodology',
   })
   @IsEnum(WorkflowType)
   type: WorkflowType;
@@ -280,9 +300,9 @@ export class CreateWorkflowStageDto {
   @IsString()
   description: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: StageType,
-    description: 'Type of stage'
+    description: 'Type of stage',
   })
   @IsEnum(StageType)
   type: StageType;
@@ -291,7 +311,9 @@ export class CreateWorkflowStageDto {
   @IsNumber()
   order: number;
 
-  @ApiPropertyOptional({ description: 'Estimated duration in the specified unit' })
+  @ApiPropertyOptional({
+    description: 'Estimated duration in the specified unit',
+  })
   @IsOptional()
   @IsNumber()
   estimatedDuration?: number;
@@ -349,16 +371,16 @@ export class CreateWorkflowStageDto {
 }
 
 export class CreateWorkflowApprovalDto {
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ApprovalType,
-    description: 'Type of approval'
+    description: 'Type of approval',
   })
   @IsEnum(ApprovalType)
   type: ApprovalType;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ApprovalLevel,
-    description: 'Level of approval required'
+    description: 'Level of approval required',
   })
   @IsEnum(ApprovalLevel)
   level: ApprovalLevel;
@@ -413,17 +435,17 @@ export class UpdateWorkflowTemplateDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: WorkflowType,
-    description: 'Type of workflow methodology'
+    description: 'Type of workflow methodology',
   })
   @IsOptional()
   @IsEnum(WorkflowType)
   type?: WorkflowType;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: WorkflowStatus,
-    description: 'Current status of the template'
+    description: 'Current status of the template',
   })
   @IsOptional()
   @IsEnum(WorkflowStatus)
@@ -452,13 +474,19 @@ export class CloneTemplateDto {
 
 // Response DTOs
 export class WorkflowTemplateWithRelationsDto extends WorkflowTemplateDto {
-  @ApiProperty({ description: 'Array of workflow stages', type: [WorkflowStageDto] })
+  @ApiProperty({
+    description: 'Array of workflow stages',
+    type: [WorkflowStageDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkflowStageDto)
   stages: WorkflowStageDto[];
 
-  @ApiProperty({ description: 'Array of workflow approvals', type: [WorkflowApprovalDto] })
+  @ApiProperty({
+    description: 'Array of workflow approvals',
+    type: [WorkflowApprovalDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkflowApprovalDto)
@@ -466,7 +494,10 @@ export class WorkflowTemplateWithRelationsDto extends WorkflowTemplateDto {
 }
 
 export class WorkflowTemplatesResponseDto {
-  @ApiProperty({ description: 'Array of workflow templates', type: [WorkflowTemplateDto] })
+  @ApiProperty({
+    description: 'Array of workflow templates',
+    type: [WorkflowTemplateDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkflowTemplateDto)

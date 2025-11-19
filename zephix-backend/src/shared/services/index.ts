@@ -8,4 +8,4 @@ export { QueueService } from './queue.service';
 export { AuditService } from './audit.service';
 export { FileValidationService } from './file-validation.service';
 export { VirusScanService } from './virus-scan.service';
-export { MetricsService } from "../../observability/metrics.service";
+export { MetricsService } from '../../observability/metrics.service';

@@ -1,47 +1,151 @@
 import { apiClient } from '@/lib/api/client';
 
+/**
+ * Comprehensive Admin API Service
+ * Connects to all admin backend endpoints
+ */
 class AdminApiService {
+  // ==================== Dashboard & Stats ====================
   async getStats() {
     const { data } = await apiClient.get('/admin/stats');
-    return data as {
-      userCount: number;
-      templateCount: number;
-      projectCount: number;
-      lastActivity: string;
-    };
+    return data;
+  }
+
+  async getSystemHealth() {
+    const { data } = await apiClient.get('/admin/health');
+    return data;
+  }
+
+  // ==================== Organization ====================
+  async getOrganizationOverview() {
+    const { data } = await apiClient.get('/admin/organization/overview');
+    return data;
   }
 
   async getUsers(params?: { page?: number; limit?: number; search?: string }) {
     const { data } = await apiClient.get('/admin/users', { params });
-    return data as {
-      data: Array<{
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-        role: string;
-        isActive: boolean;
-        createdAt: string;
-        lastLoginAt: string;
-        organizationId: string;
-        organization: string;
-      }>;
-      meta: {
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-      };
-    };
+    return data;
   }
 
-  async createAuditLog(action: string, details: any) {
-    const { data } = await apiClient.post('/admin/audit', { 
-      action, 
-      details, 
-      timestamp: new Date().toISOString() 
-    });
-    return data as { success: boolean };
+  async getOrganizationUsers(params?: { page?: number; limit?: number; search?: string }) {
+    const { data } = await apiClient.get('/admin/organization/users', { params });
+    return data;
+  }
+
+  async getAllUsersForAdmin() {
+    const { data } = await apiClient.get('/organizations/admin/users');
+    return data;
+  }
+
+  async updateUserRole(organizationId: string, userId: string, role: 'admin' | 'pm' | 'viewer') {
+    const { data } = await apiClient.patch(
+      `/organizations/${organizationId}/users/${userId}/role`,
+      { role }
+    );
+    return data;
+  }
+
+  async removeUser(organizationId: string, userId: string) {
+    const { data } = await apiClient.delete(
+      `/organizations/${organizationId}/users/${userId}`
+    );
+    return data;
+  }
+
+  async bulkUpdateUserRoles(organizationId: string, updates: Array<{ userId: string; role: 'admin' | 'pm' | 'viewer' }>) {
+    // Execute bulk updates
+    const results = await Promise.allSettled(
+      updates.map(update =>
+        this.updateUserRole(organizationId, update.userId, update.role)
+      )
+    );
+    return results;
+  }
+
+  async bulkRemoveUsers(organizationId: string, userIds: string[]) {
+    const results = await Promise.allSettled(
+      userIds.map(userId => this.removeUser(organizationId, userId))
+    );
+    return results;
+  }
+
+  async getRoles() {
+    const { data } = await apiClient.get('/admin/organization/roles');
+    return data;
+  }
+
+  async createRole(role: { name: string; description: string; permissions: string[] }) {
+    const { data } = await apiClient.post('/admin/organization/roles', role);
+    return data;
+  }
+
+  async inviteUsers(invite: { emails: string[]; role: string; message?: string }) {
+    const { data } = await apiClient.post('/admin/organization/users/invite', invite);
+    return data;
+  }
+
+  // ==================== Templates ====================
+  async getTemplates() {
+    const { data } = await apiClient.get('/api/templates');
+    return data;
+  }
+
+  async deleteTemplate(templateId: string) {
+    const { data } = await apiClient.delete(`/api/templates/${templateId}`);
+    return data;
+  }
+
+  async setDefaultTemplate(templateId: string) {
+    const { data } = await apiClient.post(`/api/templates/${templateId}/set-default`);
+    return data;
+  }
+
+  // ==================== Workspaces ====================
+  async getWorkspaces(params?: { search?: string; status?: string }) {
+    const { data } = await apiClient.get('/api/workspaces', { params });
+    return data;
+  }
+
+  async deleteWorkspace(workspaceId: string) {
+    const { data } = await apiClient.delete(`/api/workspaces/${workspaceId}`);
+    return data;
+  }
+
+  async archiveWorkspace(workspaceId: string) {
+    const { data } = await apiClient.patch(`/api/workspaces/${workspaceId}/archive`);
+    return data;
+  }
+
+  // ==================== Projects ====================
+  async getProjects(params?: { search?: string; status?: string; workspaceId?: string }) {
+    const { data } = await apiClient.get('/api/projects', { params });
+    return data;
+  }
+
+  async deleteProject(projectId: string) {
+    const { data } = await apiClient.delete(`/api/projects/${projectId}`);
+    return data;
+  }
+
+  async archiveProject(projectId: string) {
+    const { data } = await apiClient.patch(`/api/projects/${projectId}/archive`);
+    return data;
+  }
+
+  // ==================== Audit Logs ====================
+  async getAuditLogs(params?: { page?: number; limit?: number; action?: string; userId?: string }) {
+    const { data } = await apiClient.get('/admin/audit', { params });
+    return data;
+  }
+
+  async createAuditLog(log: {
+    action: string;
+    entityType: string;
+    entityId?: string;
+    details?: any;
+  }) {
+    const { data } = await apiClient.post('/admin/audit', log);
+    return data;
   }
 }
 

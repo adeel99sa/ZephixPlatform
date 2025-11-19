@@ -1,6 +1,15 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Project } from './project.entity';
-import { ProjectPhase } from './project-phase.entity';
+// import { ProjectPhase } from './project-phase.entity';
 import { TaskDependency } from './task-dependency.entity';
 import { User } from '../../users/entities/user.entity';
 
@@ -12,25 +21,25 @@ export class Task {
   @Column({ name: 'project_id' })
   projectId: string;
 
-  @ManyToOne(() => Project, project => project.tasks)
+  @ManyToOne(() => Project, (project) => project.tasks)
   @JoinColumn({ name: 'project_id' })
   project: Project;
 
   @Column({ name: 'phase_id', nullable: true })
   phaseId?: string;
 
-  @ManyToOne(() => ProjectPhase, phase => phase.tasks)
-  @JoinColumn({ name: 'phase_id' })
-  phase?: ProjectPhase;
+  // @ManyToOne(() => ProjectPhase, phase => phase.tasks)
+  // @JoinColumn({ name: 'phase_id' })
+  // phase?: ProjectPhase;
 
   @Column({ name: 'parent_task_id', nullable: true })
   parentTaskId?: string;
 
-  @ManyToOne(() => Task, task => task.subtasks)
+  @ManyToOne(() => Task, (task) => task.subtasks)
   @JoinColumn({ name: 'parent_task_id' })
   parentTask?: Task;
 
-  @OneToMany(() => Task, task => task.parentTask)
+  @OneToMany(() => Task, (task) => task.parentTask)
   subtasks: Task[];
 
   @Column({ name: 'task_number' })
@@ -92,7 +101,13 @@ export class Task {
   actualEndDate?: Date;
 
   @Column({ default: 'not_started' })
-  status: 'not_started' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'on_hold';
+  status:
+    | 'not_started'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled'
+    | 'blocked'
+    | 'on_hold';
 
   @Column({ name: 'progress_percentage', default: 0 })
   progressPercentage: number;
@@ -106,10 +121,10 @@ export class Task {
   @Column({ name: 'blocked_reason', type: 'text', nullable: true })
   blockedReason?: string;
 
-  @OneToMany(() => TaskDependency, dependency => dependency.task)
+  @OneToMany(() => TaskDependency, (dependency) => dependency.task)
   dependencies: TaskDependency[];
 
-  @OneToMany(() => TaskDependency, dependency => dependency.dependsOnTask)
+  @OneToMany(() => TaskDependency, (dependency) => dependency.dependsOnTask)
   dependentTasks: TaskDependency[];
 
   @Column({ name: 'created_by', nullable: true })

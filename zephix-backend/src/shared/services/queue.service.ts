@@ -4,7 +4,15 @@ import { Injectable, Logger } from '@nestjs/common';
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
 
-  async add<T>(queueName: string, payload: T, options?: { delay?: number; attempts?: number; backoff?: 'exponential' | 'fixed' }): Promise<void> {
+  async add<T>(
+    queueName: string,
+    payload: T,
+    options?: {
+      delay?: number;
+      attempts?: number;
+      backoff?: 'exponential' | 'fixed';
+    },
+  ): Promise<void> {
     this.logger.debug(`Queue add: ${queueName} ->`, payload as any);
     // Placeholder: integrate BullMQ/Cloud task queue here
     return;
@@ -16,5 +24,3 @@ export class QueueService {
     return;
   }
 }
-
-

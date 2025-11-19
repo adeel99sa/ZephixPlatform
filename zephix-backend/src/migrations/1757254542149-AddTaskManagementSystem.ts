@@ -1,6 +1,8 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTaskManagementSystem1757254542149 implements MigrationInterface {
+export class AddTaskManagementSystem1757254542149
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create tasks table
     await queryRunner.query(`
@@ -111,7 +113,7 @@ export class AddTaskManagementSystem1757254542149 implements MigrationInterface 
     await queryRunner.query(`DROP TABLE IF EXISTS task_comments`);
     await queryRunner.query(`DROP TABLE IF EXISTS task_dependencies`);
     await queryRunner.query(`DROP TABLE IF EXISTS tasks`);
-    
+
     await queryRunner.query(`
       ALTER TABLE project_phases
       DROP COLUMN IF EXISTS total_tasks,

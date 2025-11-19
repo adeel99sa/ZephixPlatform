@@ -25,7 +25,7 @@ export class TransformResponseInterceptor<T>
     next: CallHandler,
   ): Observable<ApiResponse<T>> {
     return next.handle().pipe(
-      map(data => {
+      map((data) => {
         // If response already has our structure, return as-is
         if (data && typeof data === 'object' && 'success' in data) {
           return data;
@@ -33,12 +33,14 @@ export class TransformResponseInterceptor<T>
 
         // If response has a 'data' property, extract it
         const responseData = data?.data !== undefined ? data.data : data;
-        
+
         // Build standardized response
         return {
           success: true,
           data: responseData,
-          total: data?.total || (Array.isArray(responseData) ? responseData.length : undefined),
+          total:
+            data?.total ||
+            (Array.isArray(responseData) ? responseData.length : undefined),
           page: data?.page || 1,
           timestamp: new Date().toISOString(),
         };

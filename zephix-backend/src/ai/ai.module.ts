@@ -16,19 +16,18 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 import { ObservabilityModule } from '../observability/observability.module';
 import { SharedModule } from '../shared/shared.module';
 
-
 @Module({
   imports: [
     ConfigModule,
-    SharedModule,         // Add this for VirusScanService
-    ObservabilityModule,  // Provides MetricsService for LLMProviderService
+    SharedModule, // Add this for VirusScanService
+    ObservabilityModule, // Provides MetricsService for LLMProviderService
     // Only import TypeORM when database is available
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [TypeOrmModule.forFeature([UserOrganization])]
       : []),
   ],
   controllers: [
-    DocumentUploadController, 
+    DocumentUploadController,
     ProjectGenerationController,
     AIMappingController,
     AISuggestionsController,

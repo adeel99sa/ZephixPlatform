@@ -18,4 +18,3 @@ export class KPIController {
     return this.kpiService.calculatePortfolioKPIs(organizationId);
   }
 }
-

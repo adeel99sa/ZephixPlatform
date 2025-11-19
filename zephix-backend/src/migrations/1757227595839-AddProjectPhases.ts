@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddProjectPhases1757227595839 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -62,7 +62,9 @@ export class AddProjectPhases1757227595839 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS phase_documents`);
     await queryRunner.query(`DROP TABLE IF EXISTS project_phases`);
-    await queryRunner.query(`DROP TABLE IF EXISTS organization_phase_templates`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS organization_phase_templates`,
+    );
     await queryRunner.query(`
       ALTER TABLE projects 
       DROP COLUMN IF EXISTS start_date,

@@ -8,21 +8,21 @@ export class AdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    
+
     if (!user) return false;
-    
+
     const isAdmin = user.role === 'admin' || user.role === 'owner';
-    
+
     if (!isAdmin) {
       // Log unauthorized attempt
       this.auditService.logAction('admin.unauthorized', {
         userId: user.id,
         action: 'admin.unauthorized',
         path: request.path,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
-    
+
     return isAdmin;
   }
 }

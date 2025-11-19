@@ -544,21 +544,7 @@ export class ZephixAIIntelligenceService {
         taskId: 'task_1',
         name: 'Project Planning',
         description: 'Create comprehensive project plan',
-        phase: {
-          phaseId: 'phase_1',
-          name: 'Planning Phase',
-          description: 'Initial project planning and setup',
-          duration: {
-            optimistic: 5,
-            mostLikely: 7,
-            pessimistic: 10,
-            confidence: 0.8,
-            factors: ['Team availability', 'Stakeholder availability'],
-          },
-          deliverables: ['Project plan', 'Risk assessment'],
-          milestones: ['Project kickoff', 'Plan approval'],
-          qualityGates: ['Stakeholder sign-off', 'Risk review'],
-        },
+        phase: 'phase_1', // Planning Phase
         priority: 'high',
         complexity: 5,
         estimatedDuration: {

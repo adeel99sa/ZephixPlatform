@@ -29,29 +29,29 @@ export class ResourceConflictService {
   async createAllocation(data: any): Promise<ResourceAllocation> {
     // Validate input data
     await this.validationService.validateAllocation(data);
-    
+
     // Check for conflicts
     const conflicts = await this.checkAllocationConflicts(
       data.resourceId,
       data.startDate,
       data.endDate,
-      data.allocationPercentage
+      data.allocationPercentage,
     );
-    
+
     if (conflicts.length > 0) {
       throw new ConflictException({
         message: 'Cannot create allocation due to resource conflicts',
         conflicts: conflicts,
       });
     }
-    
+
     // Create allocation with audit trail
     const allocationData = {
       ...data,
       createdAt: new Date(),
       createdBy: 'system', // Should be actual user ID from request
     };
-    
+
     // Log the creation
     console.log('Creating allocation:', {
       resourceId: data.resourceId,
@@ -59,12 +59,15 @@ export class ResourceConflictService {
       dateRange: `${data.startDate} to ${data.endDate}`,
       percentage: data.allocationPercentage,
     });
-    
+
     return this.allocationRepo.save(allocationData);
   }
 
   // Update allocation with conflict prevention
-  async updateAllocation(id: string, allocationData: any): Promise<ResourceAllocation> {
+  async updateAllocation(
+    id: string,
+    allocationData: any,
+  ): Promise<ResourceAllocation> {
     const existing = await this.allocationRepo.findOne({ where: { id } });
     if (!existing) {
       throw new Error('Allocation not found');
@@ -75,7 +78,7 @@ export class ResourceConflictService {
       allocationData.resourceId || existing.resourceId,
       allocationData.startDate || existing.startDate,
       allocationData.endDate || existing.endDate,
-      allocationData.allocationPercentage || existing.allocationPercentage
+      allocationData.allocationPercentage || existing.allocationPercentage,
     );
 
     if (conflicts.length > 0) {
@@ -89,28 +92,35 @@ export class ResourceConflictService {
   }
 
   // Check for conflicts before creating an allocation
-  async checkAllocationConflicts(resourceId: string, startDate: Date, endDate: Date, allocationPercentage: number): Promise<Array<{
-    date: string;
-    totalAllocation: number;
-    severity: string;
-  }>> {
+  async checkAllocationConflicts(
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+    allocationPercentage: number,
+  ): Promise<
+    Array<{
+      date: string;
+      totalAllocation: number;
+      severity: string;
+    }>
+  > {
     // Get existing allocations for this resource in the date range
     const existingAllocations = await this.allocationRepo.find({
       where: [
         {
           resourceId,
-          startDate: Between(new Date(startDate), new Date(endDate))
+          startDate: Between(new Date(startDate), new Date(endDate)),
         },
         {
           resourceId,
-          endDate: Between(new Date(startDate), new Date(endDate))
+          endDate: Between(new Date(startDate), new Date(endDate)),
         },
         {
           resourceId,
           startDate: MoreThan(new Date(startDate)),
-          endDate: MoreThan(new Date(endDate))
-        }
-      ]
+          endDate: MoreThan(new Date(endDate)),
+        },
+      ],
     });
 
     const conflicts: Array<{
@@ -125,15 +135,15 @@ export class ResourceConflictService {
 
     while (currentDate <= endDateObj) {
       const dateKey = currentDate.toISOString().split('T')[0];
-      
+
       // Calculate total allocation for this date
       let totalAllocation = Number(allocationPercentage);
-      
+
       // Add existing allocations for this date
       for (const existing of existingAllocations) {
         const existingStart = new Date(existing.startDate);
         const existingEnd = new Date(existing.endDate);
-        
+
         if (currentDate >= existingStart && currentDate <= existingEnd) {
           totalAllocation += Number(existing.allocationPercentage);
         }
@@ -143,7 +153,7 @@ export class ResourceConflictService {
         conflicts.push({
           date: dateKey,
           totalAllocation,
-          severity: this.calculateSeverity(totalAllocation)
+          severity: this.calculateSeverity(totalAllocation),
         });
       }
 
@@ -160,11 +170,11 @@ export class ResourceConflictService {
   async detectConflicts() {
     const next30Days = new Date();
     next30Days.setDate(next30Days.getDate() + 30);
-    
+
     const allocations = await this.allocationRepo.find({
       where: {
-        startDate: Between(new Date(), next30Days)
-      }
+        startDate: Between(new Date(), next30Days),
+      },
     });
 
     const conflictsByDateAndResource = new Map();
@@ -172,15 +182,15 @@ export class ResourceConflictService {
     // Group allocations by resource and date
     for (const allocation of allocations) {
       const currentDate = new Date(allocation.startDate);
-      
+
       while (currentDate <= allocation.endDate && currentDate <= next30Days) {
         const dateKey = currentDate.toISOString().split('T')[0];
         const key = `${allocation.resourceId}-${dateKey}`;
-        
+
         if (!conflictsByDateAndResource.has(key)) {
           conflictsByDateAndResource.set(key, []);
         }
-        
+
         conflictsByDateAndResource.get(key).push(allocation);
         currentDate.setDate(currentDate.getDate() + 1);
       }
@@ -190,20 +200,20 @@ export class ResourceConflictService {
     for (const [key, dayAllocations] of conflictsByDateAndResource) {
       const [resourceId, dateStr] = key.split('-');
       const totalAllocation = dayAllocations.reduce(
-        (sum, a) => sum + Number(a.allocationPercentage), 
-        0
+        (sum, a) => sum + Number(a.allocationPercentage),
+        0,
       );
 
       if (totalAllocation > 100) {
         const severity = this.calculateSeverity(totalAllocation);
-        
+
         // Check if conflict already exists
         const existingConflict = await this.conflictRepo.findOne({
           where: {
             resourceId,
             conflictDate: new Date(dateStr),
-            resolved: false
-          }
+            resolved: false,
+          },
         });
 
         if (!existingConflict) {
@@ -212,13 +222,13 @@ export class ResourceConflictService {
             conflictDate: new Date(dateStr),
             totalAllocation,
             severity,
-            affectedProjects: dayAllocations.map(a => ({
+            affectedProjects: dayAllocations.map((a) => ({
               projectId: a.projectId,
               projectName: 'Unknown', // Will be populated from separate query if needed
               taskId: a.taskId,
               taskName: 'Unknown', // Will be populated from separate query if needed
-              allocation: Number(a.allocationPercentage)
-            }))
+              allocation: Number(a.allocationPercentage),
+            })),
           });
 
           await this.conflictRepo.save(conflict);
@@ -227,7 +237,9 @@ export class ResourceConflictService {
     }
   }
 
-  private calculateSeverity(totalAllocation: number): 'low' | 'medium' | 'high' | 'critical' {
+  private calculateSeverity(
+    totalAllocation: number,
+  ): 'low' | 'medium' | 'high' | 'critical' {
     if (totalAllocation <= 110) return 'low';
     if (totalAllocation <= 125) return 'medium';
     if (totalAllocation <= 150) return 'high';
@@ -238,12 +250,12 @@ export class ResourceConflictService {
     return this.conflictRepo.find({
       where: {
         resolved: false,
-        conflictDate: MoreThan(new Date())
+        conflictDate: MoreThan(new Date()),
       },
       order: {
         severity: 'DESC',
-        conflictDate: 'ASC'
-      }
+        conflictDate: 'ASC',
+      },
     });
   }
 
@@ -251,11 +263,11 @@ export class ResourceConflictService {
     return this.conflictRepo.find({
       where: {
         resourceId,
-        resolved: false
+        resolved: false,
       },
       order: {
-        conflictDate: 'ASC'
-      }
+        conflictDate: 'ASC',
+      },
     });
   }
 
@@ -264,31 +276,37 @@ export class ResourceConflictService {
 
     // Get or create organization
     let org = await this.orgRepo.findOne({
-      where: { name: 'Test Company' }
+      where: { name: 'Test Company' },
     });
-    
+
     if (!org) {
       org = await this.orgRepo.save({
         name: 'Test Company',
-        domain: 'testcompany.com'
+        domain: 'testcompany.com',
       });
     }
 
     // Create test users (resources)
     const users: User[] = [];
-    const userNames = ['Sarah Johnson', 'Mike Chen', 'Emily Davis', 'John Smith', 'Lisa Wong'];
-    
+    const userNames = [
+      'Sarah Johnson',
+      'Mike Chen',
+      'Emily Davis',
+      'John Smith',
+      'Lisa Wong',
+    ];
+
     for (const name of userNames) {
       const email = name.toLowerCase().replace(' ', '.') + '@testcompany.com';
       let user = await this.userRepo.findOne({ where: { email } });
-      
+
       if (!user) {
         user = await this.userRepo.save({
           email,
           name,
           password: 'password123', // Will be hashed by entity
           organizationId: org.id,
-          role: 'user'
+          role: 'user',
         });
       }
       users.push(user);
@@ -301,14 +319,14 @@ export class ResourceConflictService {
       'API Migration Phase 2',
       'Mobile App Launch',
       'Infrastructure Upgrade',
-      'Data Analytics Platform'
+      'Data Analytics Platform',
     ];
 
     for (const name of projectNames) {
-      let project = await this.projectRepo.findOne({ 
-        where: { name, organizationId: org.id } 
+      let project = await this.projectRepo.findOne({
+        where: { name, organizationId: org.id },
       });
-      
+
       if (!project) {
         project = await this.projectRepo.save({
           name,
@@ -317,7 +335,7 @@ export class ResourceConflictService {
           status: 'planning' as any,
           startDate: new Date('2025-09-01'),
           endDate: new Date('2026-03-31'),
-          createdById: users[0].id
+          createdById: users[0].id,
         });
       }
       projects.push(project);
@@ -332,7 +350,7 @@ export class ResourceConflictService {
         startDate: new Date('2025-09-01'),
         endDate: new Date('2025-09-15'),
         allocationPercentage: 80,
-        hoursPerDay: 6.4
+        hoursPerDay: 6.4,
       },
       {
         resourceId: users[0].id,
@@ -340,9 +358,9 @@ export class ResourceConflictService {
         startDate: new Date('2025-09-10'),
         endDate: new Date('2025-09-20'),
         allocationPercentage: 60,
-        hoursPerDay: 4.8
+        hoursPerDay: 4.8,
       },
-      
+
       // Mike Chen - CRITICAL OVERALLOCATION (180% on some days)
       {
         resourceId: users[1].id,
@@ -350,7 +368,7 @@ export class ResourceConflictService {
         startDate: new Date('2025-09-05'),
         endDate: new Date('2025-09-25'),
         allocationPercentage: 100,
-        hoursPerDay: 8
+        hoursPerDay: 8,
       },
       {
         resourceId: users[1].id,
@@ -358,9 +376,9 @@ export class ResourceConflictService {
         startDate: new Date('2025-09-10'),
         endDate: new Date('2025-09-30'),
         allocationPercentage: 80,
-        hoursPerDay: 6.4
+        hoursPerDay: 6.4,
       },
-      
+
       // Emily Davis - Normal allocation (no conflict)
       {
         resourceId: users[2].id,
@@ -368,13 +386,13 @@ export class ResourceConflictService {
         startDate: new Date('2025-09-01'),
         endDate: new Date('2025-09-30'),
         allocationPercentage: 75,
-        hoursPerDay: 6
-      }
+        hoursPerDay: 6,
+      },
     ];
 
     // Clear existing allocations
     await this.allocationRepo.delete({});
-    
+
     // Insert new allocations
     for (const allocation of allocations) {
       await this.allocationRepo.save(allocation);
@@ -394,7 +412,7 @@ export class ResourceConflictService {
       users: users.length,
       projects: projects.length,
       allocations: allocations.length,
-      expectedConflicts: 2
+      expectedConflicts: 2,
     };
   }
-} 
+}

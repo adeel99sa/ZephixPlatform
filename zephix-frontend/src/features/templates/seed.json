@@ -1,0 +1,6 @@
+[
+  { "id": "workspace.plan.default", "kind": "workspace", "name": "Planning Workspace" },
+  { "id": "project.kanban.basic",   "kind": "project",   "name": "Kanban Project" },
+  { "id": "dashboard.delivery.health","kind":"dashboard","name":"Delivery Health" }
+]
+

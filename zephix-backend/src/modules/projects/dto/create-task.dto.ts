@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsUUID, IsNumber, IsDateString, IsEnum, IsBoolean, IsArray, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsNumber,
+  IsDateString,
+  IsEnum,
+  IsBoolean,
+  IsArray,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
@@ -34,7 +44,7 @@ export class CreateTaskDto {
 
   @IsString()
   @IsOptional()
-  @ValidateIf(o => o.assignmentType === 'vendor')
+  @ValidateIf((o) => o.assignmentType === 'vendor')
   vendorName?: string;
 
   @IsOptional()
@@ -66,8 +76,21 @@ export class CreateTaskDto {
 
 export class UpdateTaskDto extends CreateTaskDto {
   @IsOptional()
-  @IsEnum(['not_started', 'in_progress', 'completed', 'cancelled', 'blocked', 'on_hold'])
-  status?: 'not_started' | 'in_progress' | 'completed' | 'cancelled' | 'blocked' | 'on_hold';
+  @IsEnum([
+    'not_started',
+    'in_progress',
+    'completed',
+    'cancelled',
+    'blocked',
+    'on_hold',
+  ])
+  status?:
+    | 'not_started'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled'
+    | 'blocked'
+    | 'on_hold';
 
   @IsOptional()
   @IsNumber()

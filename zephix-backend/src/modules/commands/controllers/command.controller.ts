@@ -12,9 +12,7 @@ export class CommandController {
     return this.commandService.executeCommand(
       query,
       req.user.id,
-      req.user.organizationId
+      req.user.organizationId,
     );
   }
 }
-
-

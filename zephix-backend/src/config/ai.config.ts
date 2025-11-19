@@ -11,7 +11,12 @@ export class AIConfigService {
   }
 
   get allowedFileTypes(): string[] {
-    return this.configService.get<string[]>('AI_ALLOWED_FILE_TYPES', ['.pdf', '.docx', '.doc', '.txt']);
+    return this.configService.get<string[]>('AI_ALLOWED_FILE_TYPES', [
+      '.pdf',
+      '.docx',
+      '.doc',
+      '.txt',
+    ]);
   }
 
   get virusScanningEnabled(): boolean {
@@ -19,7 +24,10 @@ export class AIConfigService {
   }
 
   get fileStoragePath(): string {
-    return this.configService.get<string>('AI_FILE_STORAGE_PATH', './uploads/ai-analysis');
+    return this.configService.get<string>(
+      'AI_FILE_STORAGE_PATH',
+      './uploads/ai-analysis',
+    );
   }
 
   get fileRetentionDays(): number {
@@ -53,7 +61,10 @@ export class AIConfigService {
 
   // Vector database configuration
   get vectorDbUrl(): string {
-    return this.configService.get<string>('VECTOR_DB_URL', 'http://localhost:6333');
+    return this.configService.get<string>(
+      'VECTOR_DB_URL',
+      'http://localhost:6333',
+    );
   }
 
   get vectorDbApiKey(): string {
@@ -61,7 +72,10 @@ export class AIConfigService {
   }
 
   get vectorDbCollection(): string {
-    return this.configService.get<string>('VECTOR_DB_COLLECTION', 'zephix_documents');
+    return this.configService.get<string>(
+      'VECTOR_DB_COLLECTION',
+      'zephix_documents',
+    );
   }
 
   // Processing configuration
@@ -83,7 +97,10 @@ export class AIConfigService {
   }
 
   get maxFileSizePerOrganization(): number {
-    return this.configService.get<number>('AI_MAX_FILE_SIZE_PER_ORG', 100 * 1024 * 1024); // 100MB per org
+    return this.configService.get<number>(
+      'AI_MAX_FILE_SIZE_PER_ORG',
+      100 * 1024 * 1024,
+    ); // 100MB per org
   }
 
   get allowedOrganizations(): string[] {
@@ -92,11 +109,17 @@ export class AIConfigService {
 
   // Notification configuration
   get enableEmailNotifications(): boolean {
-    return this.configService.get<boolean>('AI_ENABLE_EMAIL_NOTIFICATIONS', false);
+    return this.configService.get<boolean>(
+      'AI_ENABLE_EMAIL_NOTIFICATIONS',
+      false,
+    );
   }
 
   get enableWebhookNotifications(): boolean {
-    return this.configService.get<boolean>('AI_ENABLE_WEBHOOK_NOTIFICATIONS', false);
+    return this.configService.get<boolean>(
+      'AI_ENABLE_WEBHOOK_NOTIFICATIONS',
+      false,
+    );
   }
 
   get webhookUrl(): string {

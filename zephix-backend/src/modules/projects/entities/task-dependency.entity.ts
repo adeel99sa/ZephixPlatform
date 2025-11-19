@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Task } from './task.entity';
 import { User } from '../../users/entities/user.entity';
 
@@ -10,12 +18,18 @@ export class TaskDependency {
   @Column({ name: 'task_id' })
   taskId: string;
 
-  @ManyToOne(() => Task, task => task.dependencies, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Task, (task) => task.dependencies, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'task_id' })
   task: Task;
 
   @Column({ name: 'dependency_type' })
-  dependencyType: 'quick_text' | 'internal_task' | 'external' | 'vendor' | 'approval' | 'milestone';
+  dependencyType:
+    | 'quick_text'
+    | 'internal_task'
+    | 'external'
+    | 'vendor'
+    | 'approval'
+    | 'milestone';
 
   @Column({ name: 'depends_on_task_id', nullable: true })
   dependsOnTaskId?: string;

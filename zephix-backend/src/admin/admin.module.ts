@@ -9,7 +9,12 @@ import { WorkflowInstance } from '../pm/entities/workflow-instance.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Project, WorkflowTemplate, WorkflowInstance]),
+    TypeOrmModule.forFeature([
+      User,
+      Project,
+      WorkflowTemplate,
+      WorkflowInstance,
+    ]),
   ],
   controllers: [AdminController],
   providers: [AdminService],

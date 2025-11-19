@@ -12,7 +12,7 @@ export class DashboardController {
   async getDashboard(@Req() req): Promise<DashboardResponseDto> {
     const userId = req.user.id;
     const organizationId = req.user.organizationId;
-    
+
     return this.dashboardService.getDashboardData(userId, organizationId);
   }
 }

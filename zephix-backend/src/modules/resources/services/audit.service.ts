@@ -27,7 +27,7 @@ export class AuditService {
       userId: params.userId,
       organizationId: params.organizationId,
       action: params.action,
-      entityType: params.entityType
+      entityType: params.entityType,
     });
 
     // Validate required fields
@@ -60,19 +60,24 @@ export class AuditService {
     }
   }
 
-  async getAuditLogs(organizationId: string, filters?: {
-    entityType?: string;
-    userId?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<AuditLog[]> {
+  async getAuditLogs(
+    organizationId: string,
+    filters?: {
+      entityType?: string;
+      userId?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ): Promise<AuditLog[]> {
     const query = this.auditRepository
       .createQueryBuilder('audit')
       .where('audit.organization_id = :organizationId', { organizationId })
       .orderBy('audit.created_at', 'DESC');
 
     if (filters?.entityType) {
-      query.andWhere('audit.entity_type = :entityType', { entityType: filters.entityType });
+      query.andWhere('audit.entity_type = :entityType', {
+        entityType: filters.entityType,
+      });
     }
 
     if (filters?.userId) {
@@ -80,11 +85,15 @@ export class AuditService {
     }
 
     if (filters?.startDate) {
-      query.andWhere('audit.created_at >= :startDate', { startDate: filters.startDate });
+      query.andWhere('audit.created_at >= :startDate', {
+        startDate: filters.startDate,
+      });
     }
 
     if (filters?.endDate) {
-      query.andWhere('audit.created_at <= :endDate', { endDate: filters.endDate });
+      query.andWhere('audit.created_at <= :endDate', {
+        endDate: filters.endDate,
+      });
     }
 
     return query.getMany();

@@ -1,6 +1,23 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsNumber, Min, Max, IsUUID, IsArray, ValidateNested, IsISO8601 } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+  IsUUID,
+  IsArray,
+  ValidateNested,
+  IsISO8601,
+  IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from '../entities/project.entity';
+import {
+  ProjectStatus,
+  ProjectPriority,
+  ProjectRiskLevel,
+} from '../entities/project.entity';
 
 class CreatePhaseDto {
   @IsString()
@@ -22,6 +39,13 @@ class CreatePhaseDto {
 export class CreateProjectDto {
   @IsString()
   name: string;
+
+  @IsUUID()
+  @IsNotEmpty({
+    message:
+      'workspaceId is required. Projects must be created within a workspace.',
+  })
+  workspaceId: string;
 
   @IsString()
   @IsOptional()

@@ -2,22 +2,22 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsEnum, IsArray, IsOptional, IsUUID } from 'class-validator';
 
 export class RiskMonitoringDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Monitoring frequency',
-    enum: ['daily', 'weekly', 'bi-weekly', 'monthly']
+    enum: ['daily', 'weekly', 'bi-weekly', 'monthly'],
   })
   @IsEnum(['daily', 'weekly', 'bi-weekly', 'monthly'])
   frequency: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Key Performance Indicators for monitoring',
-    type: [Object]
+    type: [Object],
   })
   @IsArray()
   kpis: any[];
 
-  @ApiProperty({ 
-    description: 'User ID assigned to monitor this risk'
+  @ApiProperty({
+    description: 'User ID assigned to monitor this risk',
   })
   @IsUUID()
   assignedTo: string;

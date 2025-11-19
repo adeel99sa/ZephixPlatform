@@ -151,6 +151,6 @@ export class WorkflowStage {
     if (!this.hasDependencies()) {
       return true;
     }
-    return this.dependencies.every(dep => completedStages.includes(dep));
+    return this.dependencies.every((dep) => completedStages.includes(dep));
   }
 }

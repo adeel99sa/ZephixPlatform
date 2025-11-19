@@ -42,7 +42,13 @@ export class Resource {
   @Column({ name: 'capacity_hours_per_week', type: 'integer', default: 40 })
   capacityHoursPerWeek: number;
 
-  @Column({ name: 'cost_per_hour', type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: 'cost_per_hour',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   costPerHour: number;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
@@ -70,13 +76,16 @@ export class Resource {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 
-  @OneToMany(() => ResourceAllocation, allocation => allocation.resource)
+  @OneToMany(() => ResourceAllocation, (allocation) => allocation.resource)
   allocations: ResourceAllocation[];
 
   // Computed properties
   get allocated(): number {
     if (!this.allocations) return 0;
-    return this.allocations.reduce((sum, allocation) => sum + allocation.allocationPercentage, 0);
+    return this.allocations.reduce(
+      (sum, allocation) => sum + allocation.allocationPercentage,
+      0,
+    );
   }
 
   get available(): number {

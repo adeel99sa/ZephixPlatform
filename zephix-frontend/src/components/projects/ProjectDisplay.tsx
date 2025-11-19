@@ -83,3 +83,9 @@ export function ProjectDisplay({ project, onEdit }: ProjectDisplayProps) {
 
 
 
+
+
+
+
+
+

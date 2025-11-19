@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { Task } from './task.entity';
 
 @Entity('simple_task_dependencies')
@@ -21,7 +28,11 @@ export class TaskDependency {
   successor: Task;
 
   @Column({ name: 'type', default: 'finish-to-start' })
-  type: 'finish-to-start' | 'start-to-start' | 'finish-to-finish' | 'start-to-finish';
+  type:
+    | 'finish-to-start'
+    | 'start-to-start'
+    | 'finish-to-finish'
+    | 'start-to-finish';
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

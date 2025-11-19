@@ -39,7 +39,7 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
-export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ 
+export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   currentPage,
   className = ''
 }) => {
@@ -60,7 +60,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   // Generate breadcrumbs based on current path
   const generateBreadcrumbs = () => {
     const pathSegments = location.pathname.split('/').filter(Boolean);
-    
+
     const breadcrumbMap: Record<string, string> = {
       'dashboard': 'Dashboard',
       'projects': 'Projects',
@@ -76,7 +76,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       'risks': 'Risk Management',
       'settings': 'Settings',
       'organizations': 'Organization',
-      
+
       'upload': 'Upload',
       'status': 'Status',
       'builder': 'Builder',
@@ -85,8 +85,8 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
     };
 
     if (pathSegments.length === 0) return ['Dashboard'];
-    
-    return pathSegments.map(segment => 
+
+    return pathSegments.map(segment =>
       breadcrumbMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)
     );
   };
@@ -94,14 +94,17 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   const breadcrumbs = generateBreadcrumbs();
 
   return (
-    <header className={cn(
-      "bg-slate-900 border-b border-slate-700 px-4 sm:px-6 py-4 sticky top-0 z-40",
-      className
-    )}>
+    <header
+      data-testid="global-header"
+      className={cn(
+        "bg-slate-900 border-b border-slate-700 px-4 sm:px-6 py-4 sticky top-0 z-40",
+        className
+      )}
+    >
       <div className="flex items-center justify-between">
         {/* Left: Logo + Breadcrumbs */}
         <div className="flex items-center space-x-4">
-          <Link to="/" className="flex items-center space-x-2 shrink-0">
+          <Link to="/" className="flex items-center space-x-2 shrink-0" data-testid="logo-link">
             <div className="relative">
               <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <SparklesIcon className="w-5 h-5 text-white" />
@@ -109,7 +112,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
             </div>
             <span className="text-white font-semibold text-lg hidden sm:block">Zephix AI</span>
           </Link>
-          
+
           {/* Breadcrumbs */}
           <nav className="hidden md:flex items-center space-x-2 text-sm text-slate-400">
             {breadcrumbs.map((crumb, index) => (
@@ -124,11 +127,12 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         </div>
 
         {/* Center: Quick Navigation (Desktop) */}
-        <nav className="hidden lg:flex items-center space-x-6">
+        <nav className="hidden lg:flex items-center space-x-6" data-testid="main-navigation">
           {navigation.map((item) => (
             <NavLink
               key={item.name}
               to={item.href}
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
               className={({ isActive }) =>
                 cn(
                   'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
@@ -148,17 +152,18 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
         <div className="flex items-center space-x-4">
           {/* Organization Switcher (Desktop) */}
           <div className="hidden sm:block">
-            <OrganizationSwitcher 
+            <OrganizationSwitcher
               className="max-w-[200px]"
               onOrganizationSettings={handleOrganizationSettings}
             />
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3" data-testid="user-menu">
             {/* Settings Button */}
             <button
               onClick={handleOrganizationSettings}
+              data-testid="settings-button"
               className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
               title="Settings"
             >
@@ -166,15 +171,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
             </button>
 
             {/* User Info + Logout */}
-            <div className="hidden sm:flex items-center space-x-3">
+            <div className="hidden sm:flex items-center space-x-3" data-testid="user-info">
               <div className="text-right">
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-white" data-testid="user-name">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-slate-400">{user?.email}</p>
+                <p className="text-xs text-slate-400" data-testid="user-email">{user?.email}</p>
               </div>
               <button
                 onClick={handleLogout}
+                data-testid="logout-button"
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
                 title="Logout"
               >
@@ -185,6 +191,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              data-testid="mobile-menu-button"
               className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
             >
               <Bars3Icon className="w-5 h-5" />
@@ -195,22 +202,23 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden mt-4 pt-4 border-t border-slate-700">
+        <div className="lg:hidden mt-4 pt-4 border-t border-slate-700" data-testid="mobile-menu">
           <div className="space-y-3">
             {/* Mobile Organization Switcher */}
             <div className="sm:hidden">
-              <OrganizationSwitcher 
+              <OrganizationSwitcher
                 onOrganizationSettings={handleOrganizationSettings}
               />
             </div>
 
             {/* Mobile Navigation */}
-            <nav className="space-y-2">
+            <nav className="space-y-2" data-testid="mobile-navigation">
               {navigation.map((item) => (
                 <NavLink
                   key={item.name}
                   to={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
+                  data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                   className={({ isActive }) =>
                     cn(
                       'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',

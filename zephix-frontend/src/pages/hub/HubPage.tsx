@@ -1,15 +1,29 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api/client';
 import ProjectsSection from './ProjectsSection';
 
 export default function HubPage() {
   const { workspaceId } = useUIStore();
   const [params] = useSearchParams();
-  
+
   // Router-safe view handling
   const view = (params.get('view') ?? 'overview') as 'overview' | 'projects';
   const safeView = view === 'projects' ? 'projects' : 'overview';
+
+  // Fetch real data
+  const { data: workspaces } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => api.get('/api/workspaces').then(r => r.data),
+  });
+
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.get('/api/projects').then(r => r.data),
+    enabled: !!workspaces?.length,
+  });
 
   return (
     <div className="space-y-6">
@@ -17,7 +31,8 @@ export default function HubPage() {
       <p className="text-sm text-gray-500">Workspace: {workspaceId}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card title="Active Projects" value="—" />
+        <Card title="Workspaces" value={workspaces?.length ?? '—'} />
+        <Card title="Active Projects" value={projects?.length ?? '—'} />
         <Card title="At-Risk" value="—" />
         <Card title="Utilization" value="—" />
       </div>

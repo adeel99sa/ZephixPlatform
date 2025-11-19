@@ -19,7 +19,7 @@ export default function ProfileMenu() {
           <Item onClick={() => go('/settings?tab=workspace')}>Workspace Settings</Item>
           <Item onClick={() => go('/settings?tab=keys')}>API Keys</Item>
           <div className="h-px bg-gray-100 my-1" />
-          <Item onClick={() => go('/admin/organization')}>Administration</Item>
+          <Item onClick={() => go('/admin')}>Administration</Item>
           <Item onClick={() => go('/hub')}>Switch Workspace…</Item>
           <Item onClick={logout} className="text-red-600">Sign Out</Item>
         </div>

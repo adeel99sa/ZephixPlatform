@@ -1,9 +1,14 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../users/entities/user.entity';  // Fixed path
+import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -20,11 +25,12 @@ export class AuthService {
   ) {}
 
   async signup(signupDto: SignupDto) {
-    const { email, password, firstName, lastName, organizationName } = signupDto;
+    const { email, password, firstName, lastName, organizationName } =
+      signupDto;
 
     // Check if user exists
     const existingUser = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (existingUser) {
@@ -37,7 +43,7 @@ export class AuthService {
     }
 
     // Use transaction for consistency
-    return this.dataSource.transaction(async manager => {
+    return this.dataSource.transaction(async (manager) => {
       // Create organization
       const organization = manager.create(Organization, {
         name: organizationName,
@@ -46,9 +52,9 @@ export class AuthService {
           resourceManagement: {
             maxAllocationPercentage: 150,
             warningThreshold: 80,
-            criticalThreshold: 100
-          }
-        }
+            criticalThreshold: 100,
+          },
+        },
       });
       const savedOrg = await manager.save(organization);
 
@@ -61,7 +67,7 @@ export class AuthService {
         lastName,
         organizationId: savedOrg.id,
         isEmailVerified: true, // Skip email verification for MVP
-        role: 'admin' // First user is admin
+        role: 'admin', // First user is admin
       });
       const savedUser = await manager.save(user);
 
@@ -74,7 +80,7 @@ export class AuthService {
         accessToken,
         refreshToken,
         organizationId: savedOrg.id,
-        expiresIn: 900  // 15 minutes in seconds
+        expiresIn: 900, // 15 minutes in seconds
       };
     });
   }
@@ -84,7 +90,7 @@ export class AuthService {
 
     // Find user with organization
     const user = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (!user) {
@@ -92,14 +98,19 @@ export class AuthService {
     }
 
     // Check password
+    console.log(`[DEBUG] Comparing password for ${email}`);
+    console.log(
+      `[DEBUG] Stored hash: ${user.password ? user.password.substring(0, 20) + '...' : 'null'}`,
+    );
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log(`[DEBUG] Password valid: ${isPasswordValid}`);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Update last login
     await this.userRepository.update(user.id, {
-      lastLoginAt: new Date()
+      lastLoginAt: new Date(),
     });
 
     // Generate JWT tokens
@@ -111,13 +122,13 @@ export class AuthService {
       accessToken,
       refreshToken,
       organizationId: user.organizationId,
-      expiresIn: 900  // 15 minutes in seconds
+      expiresIn: 900, // 15 minutes in seconds
     };
   }
 
   async validateUser(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id: userId, isActive: true }
+      where: { id: userId, isActive: true },
     });
 
     if (!user) {
@@ -132,12 +143,12 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role
+      role: user.role,
     };
 
-    return this.jwtService.sign(payload, { 
+    return this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn: '15m' 
+      expiresIn: '15m',
     });
   }
 
@@ -146,12 +157,12 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role
+      role: user.role,
     };
 
-    return this.jwtService.sign(payload, { 
+    return this.jwtService.sign(payload, {
       secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-      expiresIn: '7d' 
+      expiresIn: '7d',
     });
   }
 
@@ -165,9 +176,14 @@ export class AuthService {
       const user = await this.userRepository.findOne({
         where: { id: userId },
         select: [
-          'id', 'email', 'firstName', 'lastName', 
-          'organizationId', 'role', 'isActive'
-        ]
+          'id',
+          'email',
+          'firstName',
+          'lastName',
+          'organizationId',
+          'role',
+          'isActive',
+        ],
       });
       return user;
     } catch (error) {
@@ -181,11 +197,11 @@ export class AuthService {
     // In production, you'd validate against a stored refresh token
     try {
       // Decode the refresh token to get user ID
-      const decoded = this.jwtService.verify(refreshToken, { 
-        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret' 
+      const decoded = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
       });
       const user = await this.getUserById(decoded.sub);
-      
+
       if (!user) {
         throw new UnauthorizedException('Invalid refresh token');
       }
@@ -197,19 +213,19 @@ export class AuthService {
         role: user.role,
       };
 
-      const accessToken = this.jwtService.sign(payload, { 
+      const accessToken = this.jwtService.sign(payload, {
         secret: process.env.JWT_SECRET || 'fallback-secret-key',
-        expiresIn: '15m' 
+        expiresIn: '15m',
       });
-      const newRefreshToken = this.jwtService.sign(payload, { 
+      const newRefreshToken = this.jwtService.sign(payload, {
         secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-        expiresIn: '7d' 
+        expiresIn: '7d',
       });
 
       return {
         accessToken,
         refreshToken: newRefreshToken,
-        expiresIn: 900  // 15 minutes in seconds
+        expiresIn: 900, // 15 minutes in seconds
       };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
@@ -220,11 +236,10 @@ export class AuthService {
     // For MVP, logout is handled client-side by removing the token
     // In production, you might want to blacklist the token or track logout events
     console.log(`User ${userId} logged out`);
-    
+
     // Add audit log if you have audit service
     // await this.auditService.log('USER_LOGOUT', userId);
-    
+
     return;
   }
-
 }

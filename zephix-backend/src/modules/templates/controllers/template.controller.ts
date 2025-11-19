@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { TemplateService } from '../services/template.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateProjectFromTemplateDto } from '../dto/create-from-template.dto';
@@ -29,18 +38,27 @@ export class TemplateController {
   }
 
   @Post('create-project')
-  async createProjectFromTemplate(@Body() dto: CreateProjectFromTemplateDto, @Request() req) {
-    return this.templateService.createProjectFromTemplate(dto, req.user.id, req.user.organizationId);
+  async createProjectFromTemplate(
+    @Body() dto: CreateProjectFromTemplateDto,
+    @Request() req,
+  ) {
+    return this.templateService.createProjectFromTemplate(
+      dto,
+      req.user.id,
+      req.user.organizationId,
+    );
   }
 
   @Post('projects/:projectId/blocks/:blockId')
   async addBlockToProject(
     @Param('projectId') projectId: string,
     @Param('blockId') blockId: string,
-    @Body() configuration: any
+    @Body() configuration: any,
   ) {
-    return this.templateService.addBlockToProject(projectId, blockId, configuration);
+    return this.templateService.addBlockToProject(
+      projectId,
+      blockId,
+      configuration,
+    );
   }
 }
-
-

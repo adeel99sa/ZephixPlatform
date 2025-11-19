@@ -150,7 +150,7 @@ export class IntakeDesignerController {
 
         case 'clarification':
           return {
-            message: intent.clarificationQuestion!,
+            message: intent.clarificationQuestion,
             type: 'clarification',
             suggestions: intent.suggestions,
           };

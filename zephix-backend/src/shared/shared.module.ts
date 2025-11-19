@@ -20,20 +20,20 @@ import { AuditService } from './services/audit.service';
  */
 @Module({
   providers: [
-    LLMProviderService, 
-    ClaudeService, 
+    LLMProviderService,
+    ClaudeService,
     EmailService,
     MetricsService,
     VirusScanService,
-    AuditService
+    AuditService,
   ],
   exports: [
-    LLMProviderService, 
-    ClaudeService, 
+    LLMProviderService,
+    ClaudeService,
     EmailService,
     MetricsService,
     VirusScanService,
-    AuditService
+    AuditService,
   ],
 })
 export class SharedModule {}

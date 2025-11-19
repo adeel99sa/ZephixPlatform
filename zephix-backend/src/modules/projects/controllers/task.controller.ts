@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Query, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TaskService } from '../services/task.service';
 import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
@@ -16,7 +28,7 @@ export class TaskController {
   ) {
     console.log('Received DTO keys:', Object.keys(createTaskDto));
     console.log('Dependencies field:', createTaskDto.dependencies);
-    
+
     // Pass user ID to service
     const userId = req.user?.id || null;
     return this.taskService.create(projectId, createTaskDto, userId);
@@ -39,10 +51,7 @@ export class TaskController {
   }
 
   @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateTaskDto: UpdateTaskDto,
-  ) {
+  update(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
     return this.taskService.update(id, updateTaskDto, 'system');
   }
 
@@ -58,13 +67,9 @@ export class TaskController {
   }
 
   @Put(':id/progress')
-  updateProgress(
-    @Param('id') id: string,
-    @Body('progress') progress: number,
-  ) {
+  updateProgress(@Param('id') id: string, @Body('progress') progress: number) {
     return this.taskService.updateProgress(id, progress);
   }
-
 
   @Delete(':id')
   delete(@Param('id') id: string) {

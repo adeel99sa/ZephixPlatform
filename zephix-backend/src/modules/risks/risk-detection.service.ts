@@ -38,15 +38,24 @@ export class RiskDetectionService {
     }
   }
 
-  async scanProjectRisks(projectId: string, organizationId: string): Promise<Risk[]> {
+  async scanProjectRisks(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Risk[]> {
     const risks: Risk[] = [];
 
     // Rule 1: Resource Overallocation
-    const overallocationRisk = await this.checkResourceOverallocation(projectId, organizationId);
+    const overallocationRisk = await this.checkResourceOverallocation(
+      projectId,
+      organizationId,
+    );
     if (overallocationRisk) risks.push(overallocationRisk);
 
     // Rule 2: Timeline Slippage
-    const timelineRisk = await this.checkTimelineSlippage(projectId, organizationId);
+    const timelineRisk = await this.checkTimelineSlippage(
+      projectId,
+      organizationId,
+    );
     if (timelineRisk) risks.push(timelineRisk);
 
     // Rule 3: Cascade Risk
@@ -56,22 +65,29 @@ export class RiskDetectionService {
     return risks;
   }
 
-  private async checkResourceOverallocation(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async checkResourceOverallocation(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Risk | null> {
     const allocations = await this.allocationRepository
       .createQueryBuilder('allocation')
       .leftJoinAndSelect('allocation.task', 'task')
       .leftJoinAndSelect('allocation.resource', 'resource')
       .where('task.projectId = :projectId', { projectId })
-      .andWhere('allocation.organizationId = :organizationId', { organizationId })
+      .andWhere('allocation.organizationId = :organizationId', {
+        organizationId,
+      })
       .getMany();
 
-    const overallocated = allocations.filter(alloc => alloc.allocationPercentage > 100);
+    const overallocated = allocations.filter(
+      (alloc) => alloc.allocationPercentage > 100,
+    );
 
     if (overallocated.length > 0) {
       const evidence: RiskEvidence = {
         type: 'resource_overallocation',
         description: `${overallocated.length} resources are overallocated`,
-        data: overallocated.map(alloc => ({
+        data: overallocated.map((alloc) => ({
           resourceName: alloc.resource?.name,
           allocation: alloc.allocationPercentage,
           // taskName: alloc.task?.name,
@@ -82,7 +98,9 @@ export class RiskDetectionService {
         projectId,
         organizationId,
         type: 'resource_overallocation',
-        severity: overallocated.some(a => a.allocationPercentage > 120) ? 'high' : 'medium',
+        severity: overallocated.some((a) => a.allocationPercentage > 120)
+          ? 'high'
+          : 'medium',
         title: 'Resource Overallocation Detected',
         description: `Multiple team members are allocated beyond capacity`,
         evidence: JSON.stringify(evidence),
@@ -103,16 +121,21 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async checkTimelineSlippage(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async checkTimelineSlippage(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Risk | null> {
     const tasks = await this.taskRepository.find({
       where: { projectId, organizationId },
     });
 
-    const delayedTasks = tasks.filter(task => {
+    const delayedTasks = tasks.filter((task) => {
       if (!task.dueDate) return false;
       const now = new Date();
       const dueDate = new Date(task.dueDate);
-      const daysLate = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysLate = Math.floor(
+        (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
       return daysLate > 3 && task.status !== 'done';
     });
 
@@ -120,7 +143,7 @@ export class RiskDetectionService {
       const evidence: RiskEvidence = {
         type: 'timeline_slippage',
         description: `${delayedTasks.length} tasks are delayed`,
-        data: delayedTasks.map(task => ({
+        data: delayedTasks.map((task) => ({
           taskName: task.name,
           dueDate: task.dueDate,
           status: task.status,
@@ -153,7 +176,10 @@ export class RiskDetectionService {
     return null;
   }
 
-  private async checkCascadeRisk(projectId: string, organizationId: string): Promise<Risk | null> {
+  private async checkCascadeRisk(
+    projectId: string,
+    organizationId: string,
+  ): Promise<Risk | null> {
     const tasks = await this.taskRepository.find({
       where: { projectId, organizationId },
     });
@@ -162,10 +188,10 @@ export class RiskDetectionService {
     const blockedTasks = [];
     for (const task of tasks) {
       if (task.dependencies && task.dependencies.length > 0) {
-        const blockingTasks = tasks.filter(t => 
-          task.dependencies.includes(t.id) && t.status !== 'done'
+        const blockingTasks = tasks.filter(
+          (t) => task.dependencies.includes(t.id) && t.status !== 'done',
         );
-        
+
         if (blockingTasks.length > 0) {
           blockedTasks.push({
             task,
@@ -179,9 +205,9 @@ export class RiskDetectionService {
       const evidence: RiskEvidence = {
         type: 'cascade_risk',
         description: `${blockedTasks.length} tasks are blocked by dependencies`,
-        data: blockedTasks.map(item => ({
+        data: blockedTasks.map((item) => ({
           taskName: item.task.name,
-          blockedBy: item.blockedBy.map(t => t.name),
+          blockedBy: item.blockedBy.map((t) => t.name),
         })),
       };
 

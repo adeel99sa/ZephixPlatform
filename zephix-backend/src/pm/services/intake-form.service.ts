@@ -501,7 +501,7 @@ export class IntakeFormService {
 
       const validation = form.validateFieldValue(field.id, formData[field.id]);
       if (!validation.isValid) {
-        errors.push(validation.error!);
+        errors.push(validation.error);
       }
     }
 

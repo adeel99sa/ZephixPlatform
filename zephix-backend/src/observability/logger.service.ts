@@ -19,7 +19,8 @@ export class LoggerService {
         },
       },
       timestamp: pino.stdTimeFunctions.isoTime,
-      ...(environment === 'development' && process.env.NODE_ENV === 'development'
+      ...(environment === 'development' &&
+      process.env.NODE_ENV === 'development'
         ? {
             transport: {
               target: 'pino-pretty',

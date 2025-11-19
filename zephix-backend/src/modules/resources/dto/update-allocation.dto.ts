@@ -1,8 +1,18 @@
-import { IsOptional, IsNumber, IsString, IsDateString, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsDateString,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateAllocationDto {
-  @ApiProperty({ description: 'Allocation percentage (0-150)', required: false })
+  @ApiProperty({
+    description: 'Allocation percentage (0-150)',
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -30,6 +40,3 @@ export class UpdateAllocationDto {
   @IsString()
   taskId?: string;
 }
-
-
-

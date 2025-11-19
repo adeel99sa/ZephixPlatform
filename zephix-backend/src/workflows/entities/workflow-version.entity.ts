@@ -135,11 +135,18 @@ export class WorkflowVersion {
 
   // Helper methods
   isLatest(): boolean {
-    return this.workflowTemplate && this.versionNumber === this.workflowTemplate.version;
+    return (
+      this.workflowTemplate &&
+      this.versionNumber === this.workflowTemplate.version
+    );
   }
 
   canBePublished(): boolean {
-    return !this.isPublished && this.workflowTemplate && this.workflowTemplate.status === 'draft';
+    return (
+      !this.isPublished &&
+      this.workflowTemplate &&
+      this.workflowTemplate.status === 'draft'
+    );
   }
 
   getChangeSummary(): string {
@@ -147,9 +154,13 @@ export class WorkflowVersion {
       return 'No changes';
     }
 
-    const added = this.changeLog.filter(c => c.changeType === 'added').length;
-    const modified = this.changeLog.filter(c => c.changeType === 'modified').length;
-    const removed = this.changeLog.filter(c => c.changeType === 'removed').length;
+    const added = this.changeLog.filter((c) => c.changeType === 'added').length;
+    const modified = this.changeLog.filter(
+      (c) => c.changeType === 'modified',
+    ).length;
+    const removed = this.changeLog.filter(
+      (c) => c.changeType === 'removed',
+    ).length;
 
     const changes: string[] = [];
     if (added > 0) changes.push(`${added} added`);

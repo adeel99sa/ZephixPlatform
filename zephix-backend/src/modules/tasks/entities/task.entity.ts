@@ -1,6 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
-import { ProjectPhase } from '../../projects/entities/project-phase.entity';
+// import { ProjectPhase } from '../../projects/entities/project-phase.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('tasks')
@@ -15,12 +23,12 @@ export class Task {
   @JoinColumn({ name: 'project_id' })
   project: Project;
 
-  @Column({ name: 'phase_id', nullable: true })
-  phaseId: string;
+  // @Column({ name: 'phase_id', nullable: true })
+  // phaseId: string;
 
-  @ManyToOne(() => ProjectPhase)
-  @JoinColumn({ name: 'phase_id' })
-  phase: ProjectPhase;
+  // @ManyToOne(() => ProjectPhase)
+  // @JoinColumn({ name: 'phase_id' })
+  // phase: ProjectPhase;
 
   @Column({ name: 'organization_id', nullable: true })
   organizationId: string;
@@ -99,7 +107,12 @@ export class Task {
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy: string;
 
-  @Column({ name: 'assignment_type', type: 'varchar', length: 20, default: 'internal' })
+  @Column({
+    name: 'assignment_type',
+    type: 'varchar',
+    length: 20,
+    default: 'internal',
+  })
   assignmentType: string;
 
   @Column({ name: 'vendor_name', type: 'varchar', length: 255, nullable: true })

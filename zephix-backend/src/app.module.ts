@@ -36,6 +36,12 @@ import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
+import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
+import { DebugController } from './debug.controller';
+import { DemoModule } from './bootstrap/demo.module';
+import { BillingModule } from './billing/billing.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -61,57 +67,64 @@ if (!(global as any).crypto) {
       global: true,
     }),
 
-    ThrottlerModule.forRoot([{
-      ttl: 60000,  // 60 seconds in milliseconds
-      limit: 100,   // CHANGE FROM 10 TO 100 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 seconds in milliseconds
+        limit: 100, // CHANGE FROM 10 TO 100 requests per minute
+      },
+    ]),
 
     ...(process.env.SKIP_DATABASE !== 'true'
-      ? [
-          TypeOrmModule.forRoot(databaseConfig),
-        ]
+      ? [TypeOrmModule.forRoot(databaseConfig)]
       : []),
 
     SharedModule,
     AuthModule,
-    // OrganizationsModule,
-    ...(process.env.SKIP_DATABASE !== 'true' ? [
-      ProjectsModule,
-      UsersModule,
-      // ResourcesModule,
-      // DiagnosticModule,
-      HealthModule,
-      DashboardModule,
-      RiskManagementModule,
-      ResourceModule,
-      WorkItemModule,
-      TemplateModule,
-      ObservabilityModule,
-      WaitlistModule,
-      PortfoliosModule,
-      ProgramsModule,
-      TasksModule,
-      KPIModule,
-    ] : [
-      HealthModule, // Keep health module for basic health checks
-    ]),
+    OrganizationsModule,
+    BillingModule,
+    ...(process.env.SKIP_DATABASE !== 'true'
+      ? [
+          ProjectsModule,
+          UsersModule,
+          // ResourcesModule,
+          // DiagnosticModule,
+          HealthModule,
+          DashboardModule,
+          RiskManagementModule,
+          ResourceModule,
+          WorkItemModule,
+          TemplateModule,
+          ObservabilityModule,
+          WaitlistModule,
+          PortfoliosModule,
+          ProgramsModule,
+          TasksModule,
+          KPIModule,
+          WorkspacesModule,
+          CustomFieldsModule,
+        ]
+      : [
+          HealthModule, // Keep health module for basic health checks
+        ]),
+
+    DemoModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, DebugController],
   providers: [
     AppService,
-    {
-      provide: APP_PIPE,
-      useValue: new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    },
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    // {
+    //   provide: APP_PIPE,
+    //   useValue: new ValidationPipe({
+    //     whitelist: true,
+    //     forbidNonWhitelisted: true,
+    //     transform: true,
+    //     transformOptions: { enableImplicitConversion: true },
+    //   }),
+    // },
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: ThrottlerGuard,
+    // },
   ],
 })
 export class AppModule implements NestModule {
@@ -120,6 +133,6 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    // consumer.apply(TenantMiddleware).forRoutes('*'); // Temporarily disabled for debugging
   }
 }

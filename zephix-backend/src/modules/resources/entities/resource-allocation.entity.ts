@@ -1,4 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Resource } from './resource.entity';
 import { Task } from '../../tasks/entities/task.entity';
 
@@ -43,7 +52,7 @@ export class ResourceAllocation {
   updatedAt: Date;
 
   // Relations
-  @ManyToOne(() => Resource, resource => resource.allocations)
+  @ManyToOne(() => Resource, (resource) => resource.allocations)
   @JoinColumn({ name: 'resource_id' })
   resource: Resource;
 

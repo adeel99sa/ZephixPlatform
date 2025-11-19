@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('lego_blocks')
 export class LegoBlock {
@@ -38,6 +44,3 @@ export class LegoBlock {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-
-
-

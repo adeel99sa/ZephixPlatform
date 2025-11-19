@@ -27,86 +27,91 @@ if (
   console.log(`   DATABASE_SSL_MODE: ${process.env.DATABASE_SSL_MODE}`);
 }
 
-import { NestFactory } from '@nestjs/core'
-import { AppModule } from './app.module'
-import { ValidationPipe } from '@nestjs/common'
-import helmet from 'helmet'
-const cookieParser = require('cookie-parser')
-import { AllExceptionsFilter } from './filters/all-exceptions.filter'
-import * as crypto from 'crypto'
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
+const cookieParser = require('cookie-parser');
+import { AllExceptionsFilter } from './filters/all-exceptions.filter';
+import * as crypto from 'crypto';
 
 async function bootstrap() {
   console.log('🚀 Creating NestJS application...');
-  const app = await NestFactory.create(AppModule)
-
+  const app = await NestFactory.create(AppModule);
 
   console.log('🔧 Setting global prefix...');
-  app.setGlobalPrefix('api')
+  app.setGlobalPrefix('api');
 
   console.log('🛡️ Configuring security middleware...');
-  app.use(helmet({
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: 'same-origin' }
-  }))
+  app.use(
+    helmet({
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+    }),
+  );
 
   console.log('🍪 Configuring cookie parser...');
-  app.use(cookieParser())
+  app.use(cookieParser());
 
   console.log('🌐 Configuring CORS...');
   app.enableCors({
     origin: [
-      'https://getzephix.com',           // Production frontend
-      'https://www.getzephix.com',       // Production with www
-      'http://localhost:5173',           // Vite local development
-      'http://localhost:3001',           // Alternative frontend port
-      'http://localhost:3000',           // Alternative frontend port
+      'https://getzephix.com', // Production frontend
+      'https://www.getzephix.com', // Production with www
+      'http://localhost:5173', // Vite local development
+      'http://localhost:3001', // Alternative frontend port
+      'http://localhost:3000', // Alternative frontend port
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id'],
-  })
+  });
 
   console.log('🆔 Configuring request ID middleware...');
   app.use((req, res, next) => {
-    const rid = req.headers['x-request-id'] || crypto.randomUUID()
-    res.setHeader('X-Request-Id', String(rid))
+    const rid = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', String(rid));
     // @ts-ignore
-    req.id = rid
-    next()
-  })
+    req.id = rid;
+    next();
+  });
 
   console.log('✅ Configuring global validation pipe...');
-  app.useGlobalPipes(new ValidationPipe({ 
-    whitelist: true, 
-    forbidNonWhitelisted: false,
-    transform: true,
-    transformOptions: {
-      enableImplicitConversion: true
-    }
-  }))
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = process.env.PORT || 3000;
   console.log('🚀 Starting server on port:', port);
-  await app.listen(port, '0.0.0.0') // Bind to all interfaces for Railway
-  
+  await app.listen(port, '0.0.0.0'); // Bind to all interfaces for Railway
+
   console.log('✅ Application is running on:', `http://localhost:${port}`);
   console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
-  
+
   // Post-startup router verification
   const server = app.getHttpServer();
   if (server._router && server._router.stack) {
-    const routes = server._router.stack.filter(layer => layer.route);
-    console.log(`🎯 Router verification: ${routes.length} routes registered in Express stack`);
+    const routes = server._router.stack.filter((layer) => layer.route);
+    console.log(
+      `🎯 Router verification: ${routes.length} routes registered in Express stack`,
+    );
   } else {
     console.log('⚠️ Warning: Router stack not found after startup');
   }
 }
 
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
   console.error('❌ Application failed to start:', err);
   process.exit(1);
 });

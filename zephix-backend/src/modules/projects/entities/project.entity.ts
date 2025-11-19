@@ -10,9 +10,10 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Task } from './task.entity';
-import { ProjectPhase } from './project-phase.entity';
-import { ProjectAssignment } from './project-assignment.entity';
+// import { ProjectPhase } from './project-phase.entity';
+// import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -53,9 +54,9 @@ export class Project {
   })
   status: ProjectStatus;
 
-  @Column({ 
+  @Column({
     type: 'varchar',
-    default: ProjectPriority.MEDIUM
+    default: ProjectPriority.MEDIUM,
   })
   priority: ProjectPriority;
 
@@ -68,6 +69,9 @@ export class Project {
   @Column({ name: 'estimated_end_date', type: 'timestamp', nullable: true })
   estimatedEndDate: Date;
 
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string;
+
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
@@ -77,13 +81,19 @@ export class Project {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   budget: number;
 
-  @Column({ name: 'actual_cost', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'actual_cost',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   actualCost: number;
 
-  @Column({ 
+  @Column({
     name: 'risk_level',
     type: 'varchar',
-    default: ProjectRiskLevel.MEDIUM
+    default: ProjectRiskLevel.MEDIUM,
   })
   riskLevel: ProjectRiskLevel;
 
@@ -97,6 +107,10 @@ export class Project {
   updatedAt: Date;
 
   // Relations
+  @ManyToOne(() => Workspace, { nullable: true })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace?: Workspace;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
   createdByUser: User;
@@ -116,16 +130,16 @@ export class Project {
   methodology: string;
 
   // Missing relations that other entities expect
-  @OneToMany(() => Task, task => task.project)
+  @OneToMany(() => Task, (task) => task.project)
   tasks: Task[];
 
-  @OneToMany(() => ProjectPhase, phase => phase.project)
-  phases: ProjectPhase[];
+  // @OneToMany(() => ProjectPhase, phase => phase.project)
+  // phases: ProjectPhase[];
 
-  @OneToMany(() => ProjectAssignment, assignment => assignment.project)
-  assignments: ProjectAssignment[];
+  // @OneToMany(() => ProjectAssignment, assignment => assignment.project)
+  // assignments: ProjectAssignment[];
 
-  @ManyToOne(() => Organization, organization => organization.projects)
+  @ManyToOne(() => Organization, (organization) => organization.projects)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 }

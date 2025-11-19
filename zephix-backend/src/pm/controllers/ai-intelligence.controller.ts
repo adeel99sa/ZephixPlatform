@@ -6,7 +6,9 @@ import {
   Param,
   Query,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ZephixAIIntelligenceService } from '../services/zephix-ai-intelligence.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import * as Interfaces from '../interfaces/project-intelligence.interface';
@@ -55,6 +57,7 @@ export interface LearnFromOutcomesRequest {
 export class AIIntelligenceController {
   constructor(
     private readonly aiIntelligenceService: ZephixAIIntelligenceService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Post('analyze-project-context')
@@ -212,6 +215,11 @@ export class AIIntelligenceController {
     healthScore: any;
     recommendations: string[];
   }> {
+    // Guard: AI demo mode must be enabled
+    if (this.configService.get<string>('ZEPHIX_AI_DEMO_MODE') !== '1') {
+      throw new NotFoundException('AI demo mode is not enabled');
+    }
+
     // Mock data for demonstration
     const projectIntelligence: Interfaces.ProjectIntelligence = {
       projectType: 'software_development',

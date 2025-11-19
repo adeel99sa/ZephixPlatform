@@ -16,7 +16,7 @@ const items = [
 const bottom = [
   { to: '/notifications', label: 'Notifications', icon: 'i-lucide-bell' },
   { to: '/settings', label: 'Settings', icon: 'i-lucide-settings' },
-  { to: '/admin/organization', label: 'Administration', icon: 'i-lucide-shield' },
+  { to: '/admin', label: 'Administration', icon: 'i-lucide-shield' },
   { to: '/help', label: 'Help', icon: 'i-lucide-life-buoy' },
 ];
 

@@ -7,7 +7,9 @@ import * as argon2 from 'argon2';
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  url: process.env.DATABASE_URL || 'postgresql://malikadeel@localhost:5432/zephix_development',
+  url:
+    process.env.DATABASE_URL ||
+    'postgresql://malikadeel@localhost:5432/zephix_development',
   entities: [User, Project, ResourceAllocation, Organization],
   synchronize: false,
 });
@@ -18,31 +20,39 @@ async function seedResourceConflicts() {
 
   // Get or create organization
   let org = await AppDataSource.getRepository(Organization).findOne({
-    where: { name: 'Test Company' }
+    where: { name: 'Test Company' },
   });
-  
+
   if (!org) {
     org = await AppDataSource.getRepository(Organization).save({
       name: 'Test Company',
-      domain: 'testcompany.com'
+      domain: 'testcompany.com',
     });
   }
 
   // Create test users (resources)
   const users: User[] = [];
-  const userNames = ['Sarah Johnson', 'Mike Chen', 'Emily Davis', 'John Smith', 'Lisa Wong'];
-  
+  const userNames = [
+    'Sarah Johnson',
+    'Mike Chen',
+    'Emily Davis',
+    'John Smith',
+    'Lisa Wong',
+  ];
+
   for (const name of userNames) {
     const email = name.toLowerCase().replace(' ', '.') + '@testcompany.com';
-    let user = await AppDataSource.getRepository(User).findOne({ where: { email } });
-    
+    let user = await AppDataSource.getRepository(User).findOne({
+      where: { email },
+    });
+
     if (!user) {
       user = await AppDataSource.getRepository(User).save({
         email,
         name,
         password: await argon2.hash('password123'),
         organizationId: org.id,
-        role: 'user'
+        role: 'user',
       });
     }
     users.push(user);
@@ -55,14 +65,14 @@ async function seedResourceConflicts() {
     'API Migration Phase 2',
     'Mobile App Launch',
     'Infrastructure Upgrade',
-    'Data Analytics Platform'
+    'Data Analytics Platform',
   ];
 
   for (const name of projectNames) {
-    let project = await AppDataSource.getRepository(Project).findOne({ 
-      where: { name, organizationId: org.id } 
+    let project = await AppDataSource.getRepository(Project).findOne({
+      where: { name, organizationId: org.id },
     });
-    
+
     if (!project) {
       project = await AppDataSource.getRepository(Project).save({
         name,
@@ -71,7 +81,7 @@ async function seedResourceConflicts() {
         status: 'planning' as any,
         startDate: new Date('2025-09-01'),
         endDate: new Date('2026-03-31'),
-        createdById: users[0].id
+        createdById: users[0].id,
       });
     }
     projects.push(project);
@@ -88,7 +98,7 @@ async function seedResourceConflicts() {
       startDate: new Date('2025-09-01'),
       endDate: new Date('2025-09-15'),
       allocationPercentage: 80,
-      hoursPerDay: 6.4
+      hoursPerDay: 6.4,
     },
     {
       resourceId: users[0].id,
@@ -98,9 +108,9 @@ async function seedResourceConflicts() {
       startDate: new Date('2025-09-10'),
       endDate: new Date('2025-09-20'),
       allocationPercentage: 60,
-      hoursPerDay: 4.8
+      hoursPerDay: 4.8,
     },
-    
+
     // Mike Chen - CRITICAL OVERALLOCATION (180% on some days)
     {
       resourceId: users[1].id,
@@ -110,7 +120,7 @@ async function seedResourceConflicts() {
       startDate: new Date('2025-09-05'),
       endDate: new Date('2025-09-25'),
       allocationPercentage: 100,
-      hoursPerDay: 8
+      hoursPerDay: 8,
     },
     {
       resourceId: users[1].id,
@@ -120,9 +130,9 @@ async function seedResourceConflicts() {
       startDate: new Date('2025-09-10'),
       endDate: new Date('2025-09-30'),
       allocationPercentage: 80,
-      hoursPerDay: 6.4
+      hoursPerDay: 6.4,
     },
-    
+
     // Emily Davis - Normal allocation (no conflict)
     {
       resourceId: users[2].id,
@@ -132,13 +142,13 @@ async function seedResourceConflicts() {
       startDate: new Date('2025-09-01'),
       endDate: new Date('2025-09-30'),
       allocationPercentage: 75,
-      hoursPerDay: 6
-    }
+      hoursPerDay: 6,
+    },
   ];
 
   // Clear existing allocations
   await AppDataSource.getRepository(ResourceAllocation).delete({});
-  
+
   // Insert new allocations
   for (const allocation of allocations) {
     await AppDataSource.getRepository(ResourceAllocation).save(allocation);

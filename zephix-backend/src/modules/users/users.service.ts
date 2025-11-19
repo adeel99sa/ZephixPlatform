@@ -21,40 +21,40 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     this.checkDatabaseAvailability();
-    return this.userRepository!.findOne({ where: { id } });
+    return this.userRepository.findOne({ where: { id } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
     this.checkDatabaseAvailability();
-    return this.userRepository!.findOne({
+    return this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
   }
 
   async create(userData: Partial<User>): Promise<User> {
     this.checkDatabaseAvailability();
-    const user = this.userRepository!.create(userData);
-    return this.userRepository!.save(user);
+    const user = this.userRepository.create(userData);
+    return this.userRepository.save(user);
   }
 
   async update(id: string, userData: Partial<User>): Promise<User | null> {
     this.checkDatabaseAvailability();
-    await this.userRepository!.update(id, userData);
+    await this.userRepository.update(id, userData);
     return this.findById(id);
   }
 
   async delete(id: string): Promise<boolean> {
-  this.checkDatabaseAvailability();
-  const result = await this.userRepository!.delete(id);
-  return (result.affected ?? 0) > 0;
-}  // <- This closing brace was missing
+    this.checkDatabaseAvailability();
+    const result = await this.userRepository.delete(id);
+    return (result.affected ?? 0) > 0;
+  } // <- This closing brace was missing
 
-async findByOrganization(organizationId: string): Promise<User[]> {
-  this.checkDatabaseAvailability();
-  return this.userRepository!.find({
-    where: { organizationId, isActive: true },
-    select: ['id', 'email', 'firstName', 'lastName', 'role'],
-    order: { firstName: 'ASC' }
-  });
-}
+  async findByOrganization(organizationId: string): Promise<User[]> {
+    this.checkDatabaseAvailability();
+    return this.userRepository.find({
+      where: { organizationId, isActive: true },
+      select: ['id', 'email', 'firstName', 'lastName', 'role'],
+      order: { firstName: 'ASC' },
+    });
+  }
 }

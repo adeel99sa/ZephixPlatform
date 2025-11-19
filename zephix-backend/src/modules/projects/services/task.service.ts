@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../entities/task.entity';
-import { ProjectPhase } from '../entities/project-phase.entity';
+// import { ProjectPhase } from '../entities/project-phase.entity';
 import { User } from '../../users/entities/user.entity';
 import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
 import { DependencyService } from './dependency.service';
@@ -12,37 +16,49 @@ export class TaskService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
-    @InjectRepository(ProjectPhase)
-    private phaseRepository: Repository<ProjectPhase>,
+    // @InjectRepository(ProjectPhase)
+    // private phaseRepository: Repository<ProjectPhase>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private dependencyService: DependencyService,
   ) {}
 
-  async create(projectId: string, createTaskDto: CreateTaskDto, userId: string): Promise<Task> {
+  async create(
+    projectId: string,
+    createTaskDto: CreateTaskDto,
+    userId: string,
+  ): Promise<Task> {
     // Extract dependencies for separate handling
     const { dependencies, ...taskData } = createTaskDto;
-    
+
     // Create the task first
     const task = await this.taskRepository.save({
       ...taskData,
       projectId,
       taskNumber: await this.generateTaskNumber(projectId),
     });
-    
+
     // Create dependencies if provided
-    if (dependencies && Array.isArray(dependencies) && dependencies.length > 0) {
+    if (
+      dependencies &&
+      Array.isArray(dependencies) &&
+      dependencies.length > 0
+    ) {
       for (const depDescription of dependencies) {
         if (depDescription && depDescription.trim()) {
-          await this.dependencyService.create(task.id, {
-            dependencyType: 'quick_text',
-            description: depDescription.trim(),
-            relationshipType: 'blocks',
-          }, userId || 'system');
+          await this.dependencyService.create(
+            task.id,
+            {
+              dependencyType: 'quick_text',
+              description: depDescription.trim(),
+              relationshipType: 'blocks',
+            },
+            userId || 'system',
+          );
         }
       }
     }
-    
+
     // Return task with dependencies loaded
     return this.findOne(task.id);
   }
@@ -65,7 +81,7 @@ export class TaskService {
     return this.userRepository.find({
       where: { organizationId, isActive: true },
       select: ['id', 'email', 'firstName', 'lastName'],
-      order: { firstName: 'ASC' }
+      order: { firstName: 'ASC' },
     });
   }
 
@@ -80,7 +96,13 @@ export class TaskService {
   async findOne(id: string): Promise<Task> {
     const task = await this.taskRepository.findOne({
       where: { id },
-      relations: ['phase', 'subtasks', 'predecessors', 'successors', 'assignee'],
+      relations: [
+        'phase',
+        'subtasks',
+        'predecessors',
+        'successors',
+        'assignee',
+      ],
     });
 
     if (!task) {
@@ -90,13 +112,17 @@ export class TaskService {
     return task;
   }
 
-  async update(id: string, updateTaskDto: UpdateTaskDto, userId: string): Promise<Task> {
+  async update(
+    id: string,
+    updateTaskDto: UpdateTaskDto,
+    userId: string,
+  ): Promise<Task> {
     // Extract fields that shouldn't be updated directly
     const { dependencies, ...validUpdateFields } = updateTaskDto;
-    
+
     // Update only valid task fields
     await this.taskRepository.update(id, validUpdateFields);
-    
+
     // Return updated task
     return this.findOne(id);
   }
@@ -121,7 +147,10 @@ export class TaskService {
     await this.taskRepository.update(id, {
       progressPercentage,
       status,
-      actualStartDate: progressPercentage > 0 && !task.actualStartDate ? new Date() : task.actualStartDate,
+      actualStartDate:
+        progressPercentage > 0 && !task.actualStartDate
+          ? new Date()
+          : task.actualStartDate,
       actualEndDate: progressPercentage === 100 ? new Date() : undefined,
     });
 
@@ -132,28 +161,27 @@ export class TaskService {
     return this.findOne(id);
   }
 
-
   private async updatePhaseProgress(phaseId: string): Promise<void> {
-  const tasks = await this.taskRepository.find({
-    where: { phaseId },
-  });
+    const tasks = await this.taskRepository.find({
+      where: { phaseId },
+    });
 
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const progressPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+    const progressPercentage =
+      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Only update fields that exist in ProjectPhase entity
-  await this.phaseRepository.update(phaseId, {
-    progress: progressPercentage,
-    status: progressPercentage === 0 ? 'not_started' : 
-            progressPercentage === 100 ? 'completed' : 'in_progress'
-  });
-}
-
+    // Only update fields that exist in ProjectPhase entity
+    // await this.phaseRepository.update(phaseId, {
+    //   progress: progressPercentage,
+    //   status: progressPercentage === 0 ? 'not_started' :
+    //           progressPercentage === 100 ? 'completed' : 'in_progress'
+    // });
+  }
 
   async delete(id: string): Promise<void> {
     const task = await this.findOne(id);
-    
+
     if (task.phaseId) {
       await this.taskRepository.delete(id);
       await this.updatePhaseProgress(task.phaseId);

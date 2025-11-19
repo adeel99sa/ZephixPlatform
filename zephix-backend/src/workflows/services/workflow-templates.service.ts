@@ -1,16 +1,29 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { WorkflowTemplate, WorkflowStage, WorkflowApproval, WorkflowVersion, WorkflowType, WorkflowStatus } from '../entities';
-import { 
-  CreateWorkflowTemplateDto, 
-  UpdateWorkflowTemplateDto, 
+import {
+  WorkflowTemplate,
+  WorkflowStage,
+  WorkflowApproval,
+  WorkflowVersion,
+  WorkflowType,
+  WorkflowStatus,
+} from '../entities';
+import {
+  CreateWorkflowTemplateDto,
+  UpdateWorkflowTemplateDto,
   WorkflowTemplateDto,
   WorkflowTemplateWithRelationsDto,
   CloneTemplateDto,
   CreateWorkflowStageDto,
-  CreateWorkflowApprovalDto
+  CreateWorkflowApprovalDto,
 } from '../dto';
 
 @Injectable()
@@ -30,31 +43,37 @@ export class WorkflowTemplatesService {
     private readonly workflowVersionRepository: Repository<WorkflowVersion>,
     private readonly configService: ConfigService,
   ) {
-    this.maxTemplatesPerOrg = this.configService.get<number>('MAX_WORKFLOW_TEMPLATES_PER_ORG', 100);
-    this.maxStagesPerTemplate = this.configService.get<number>('MAX_STAGES_PER_WORKFLOW', 50);
+    this.maxTemplatesPerOrg = this.configService.get<number>(
+      'MAX_WORKFLOW_TEMPLATES_PER_ORG',
+      100,
+    );
+    this.maxStagesPerTemplate = this.configService.get<number>(
+      'MAX_STAGES_PER_WORKFLOW',
+      50,
+    );
   }
 
   async createWorkflowTemplate(
     dto: CreateWorkflowTemplateDto,
     organizationId: string,
-    userId: string
+    userId: string,
   ): Promise<WorkflowTemplate> {
     try {
       // Check organization template limit
       const existingCount = await this.workflowTemplateRepository.count({
-        where: { organizationId, deletedAt: IsNull() }
+        where: { organizationId, deletedAt: IsNull() },
       });
 
       if (existingCount >= this.maxTemplatesPerOrg) {
         throw new BadRequestException(
-          `Organization has reached the maximum limit of ${this.maxTemplatesPerOrg} workflow templates`
+          `Organization has reached the maximum limit of ${this.maxTemplatesPerOrg} workflow templates`,
         );
       }
 
       // Validate stage count
       if (dto.stages.length > this.maxStagesPerTemplate) {
         throw new BadRequestException(
-          `Template cannot have more than ${this.maxStagesPerTemplate} stages`
+          `Template cannot have more than ${this.maxStagesPerTemplate} stages`,
         );
       }
 
@@ -72,11 +91,16 @@ export class WorkflowTemplatesService {
         metadata: dto.metadata || {},
       });
 
-      const savedTemplate = await this.workflowTemplateRepository.save(template);
+      const savedTemplate =
+        await this.workflowTemplateRepository.save(template);
 
       // Create stages
-      const stages = await this.createStages(dto.stages, savedTemplate.id, userId);
-      
+      const stages = await this.createStages(
+        dto.stages,
+        savedTemplate.id,
+        userId,
+      );
+
       // Create approvals for each stage
       if (dto.approvals) {
         await this.createApprovalsForStages(dto.approvals, stages, userId);
@@ -85,11 +109,16 @@ export class WorkflowTemplatesService {
       // Create initial version
       await this.createTemplateVersion(savedTemplate, stages, userId);
 
-      this.logger.log(`Workflow template created successfully: ${savedTemplate.id}`);
+      this.logger.log(
+        `Workflow template created successfully: ${savedTemplate.id}`,
+      );
 
       return savedTemplate;
     } catch (error) {
-      this.logger.error(`Failed to create workflow template: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create workflow template: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -100,7 +129,7 @@ export class WorkflowTemplatesService {
       status?: WorkflowStatus;
       type?: WorkflowType;
       isDefault?: boolean;
-    } = {}
+    } = {},
   ): Promise<WorkflowTemplateDto[]> {
     try {
       const queryBuilder = this.workflowTemplateRepository
@@ -110,7 +139,9 @@ export class WorkflowTemplatesService {
         .andWhere('template.deletedAt IS NULL');
 
       if (filters.status) {
-        queryBuilder.andWhere('template.status = :status', { status: filters.status });
+        queryBuilder.andWhere('template.status = :status', {
+          status: filters.status,
+        });
       }
 
       if (filters.type) {
@@ -118,21 +149,31 @@ export class WorkflowTemplatesService {
       }
 
       if (filters.isDefault !== undefined) {
-        queryBuilder.andWhere('template.isDefault = :isDefault', { isDefault: filters.isDefault });
+        queryBuilder.andWhere('template.isDefault = :isDefault', {
+          isDefault: filters.isDefault,
+        });
       }
 
       const templates = await queryBuilder
         .orderBy('template.createdAt', 'DESC')
         .getMany();
 
-      return templates.map(template => this.mapToDto(template));
+      return templates.map((template) => this.mapToDto(template));
     } catch (error) {
-      this.logger.error(`Failed to find workflow templates: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to retrieve workflow templates');
+      this.logger.error(
+        `Failed to find workflow templates: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to retrieve workflow templates',
+      );
     }
   }
 
-  async findById(id: string, organizationId: string): Promise<WorkflowTemplateWithRelationsDto> {
+  async findById(
+    id: string,
+    organizationId: string,
+  ): Promise<WorkflowTemplateWithRelationsDto> {
     try {
       const template = await this.workflowTemplateRepository.findOne({
         where: { id, organizationId, deletedAt: IsNull() },
@@ -140,7 +181,9 @@ export class WorkflowTemplatesService {
       });
 
       if (!template) {
-        throw new NotFoundException(`Workflow template with ID ${id} not found`);
+        throw new NotFoundException(
+          `Workflow template with ID ${id} not found`,
+        );
       }
 
       return this.mapToDtoWithRelations(template);
@@ -154,14 +197,16 @@ export class WorkflowTemplatesService {
     id: string,
     dto: UpdateWorkflowTemplateDto,
     organizationId: string,
-    userId: string
+    userId: string,
   ): Promise<WorkflowTemplateDto> {
     try {
       const template = await this.findById(id, organizationId);
 
       // Check if template can be modified
       if (!this.canBeModified(template)) {
-        throw new BadRequestException('Template cannot be modified in its current state');
+        throw new BadRequestException(
+          'Template cannot be modified in its current state',
+        );
       }
 
       // Update template
@@ -175,7 +220,7 @@ export class WorkflowTemplatesService {
       if (this.hasSignificantChanges(dto)) {
         const templateWithRelations = await this.findById(id, organizationId);
         // Convert DTOs to entities for versioning
-        const stageEntities = templateWithRelations.stages.map(stageDto => ({
+        const stageEntities = templateWithRelations.stages.map((stageDto) => ({
           id: stageDto.id,
           workflowTemplateId: id,
           name: stageDto.name,
@@ -197,43 +242,59 @@ export class WorkflowTemplatesService {
           createdAt: stageDto.createdAt,
           updatedAt: stageDto.updatedAt,
         })) as unknown as WorkflowStage[];
-        
-        await this.createTemplateVersion(updatedTemplate, stageEntities, userId);
+
+        await this.createTemplateVersion(
+          updatedTemplate,
+          stageEntities,
+          userId,
+        );
       }
 
       this.logger.log(`Workflow template updated successfully: ${id}`);
 
       return this.mapToDto(updatedTemplate);
     } catch (error) {
-      this.logger.error(`Failed to update workflow template ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update workflow template ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  async deleteWorkflowTemplate(id: string, organizationId: string, userId: string): Promise<void> {
+  async deleteWorkflowTemplate(
+    id: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
     try {
       const template = await this.findById(id, organizationId);
 
       // Check if template can be deleted
       if (!this.canBeDeleted(template)) {
-        throw new BadRequestException('Template cannot be deleted in its current state');
+        throw new BadRequestException(
+          'Template cannot be deleted in its current state',
+        );
       }
 
       // Soft delete template and related entities
       await Promise.all([
-        this.workflowTemplateRepository.update(id, { 
-          deletedAt: new Date(), 
-          status: WorkflowStatus.ARCHIVED 
+        this.workflowTemplateRepository.update(id, {
+          deletedAt: new Date(),
+          status: WorkflowStatus.ARCHIVED,
         }),
         this.workflowStageRepository.update(
           { workflowTemplateId: id },
-          { deletedAt: new Date() }
+          { deletedAt: new Date() },
         ),
       ]);
 
       this.logger.log(`Workflow template deleted successfully: ${id}`);
     } catch (error) {
-      this.logger.error(`Failed to delete workflow template ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete workflow template ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -241,7 +302,7 @@ export class WorkflowTemplatesService {
   async cloneTemplate(
     id: string,
     organizationId: string,
-    dto: CloneTemplateDto
+    dto: CloneTemplateDto,
   ): Promise<WorkflowTemplateDto> {
     try {
       const template = await this.findById(id, organizationId);
@@ -257,32 +318,45 @@ export class WorkflowTemplatesService {
         usageCount: 0,
       });
 
-      const savedClonedTemplate = await this.workflowTemplateRepository.save(clonedTemplate);
+      const savedClonedTemplate =
+        await this.workflowTemplateRepository.save(clonedTemplate);
 
-      this.logger.log(`Workflow template cloned successfully: ${savedClonedTemplate.id}`);
+      this.logger.log(
+        `Workflow template cloned successfully: ${savedClonedTemplate.id}`,
+      );
 
       return this.mapToDto(savedClonedTemplate);
     } catch (error) {
-      this.logger.error(`Failed to clone workflow template ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to clone workflow template ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  async getDefaultTemplate(organizationId: string): Promise<WorkflowTemplateDto | null> {
+  async getDefaultTemplate(
+    organizationId: string,
+  ): Promise<WorkflowTemplateDto | null> {
     try {
       const defaultTemplate = await this.workflowTemplateRepository.findOne({
-        where: { 
-          organizationId, 
-          isDefault: true, 
-          deletedAt: IsNull() 
+        where: {
+          organizationId,
+          isDefault: true,
+          deletedAt: IsNull(),
         },
         relations: ['stages', 'stages.approvals'],
       });
 
       return defaultTemplate ? this.mapToDto(defaultTemplate) : null;
     } catch (error) {
-      this.logger.error(`Failed to get default template: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to retrieve default template');
+      this.logger.error(
+        `Failed to get default template: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to retrieve default template',
+      );
     }
   }
 
@@ -291,15 +365,18 @@ export class WorkflowTemplatesService {
       await this.workflowTemplateRepository.increment(
         { id, organizationId },
         'usageCount',
-        1
+        1,
       );
 
       await this.workflowTemplateRepository.update(
         { id, organizationId },
-        { lastUsedAt: new Date() }
+        { lastUsedAt: new Date() },
       );
     } catch (error) {
-      this.logger.error(`Failed to increment usage count for template ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to increment usage count for template ${id}: ${error.message}`,
+        error.stack,
+      );
       // Don't throw error for usage tracking failures
     }
   }
@@ -308,7 +385,7 @@ export class WorkflowTemplatesService {
   private async createStages(
     stageDtos: CreateWorkflowStageDto[],
     templateId: string,
-    userId: string
+    userId: string,
   ): Promise<WorkflowStage[]> {
     const stages: WorkflowStage[] = [];
 
@@ -318,18 +395,20 @@ export class WorkflowTemplatesService {
         ...stageDto,
         workflowTemplateId: templateId,
         // Convert roles from string[] to the expected structure
-        roles: stageDto.roles ? stageDto.roles.map(role => ({
-          role,
-          responsibilities: [],
-          required: true
-        })) : [],
+        roles: stageDto.roles
+          ? stageDto.roles.map((role) => ({
+              role,
+              responsibilities: [],
+              required: true,
+            }))
+          : [],
         // Convert raciMatrix to the expected structure
         raciMatrix: stageDto.raciMatrix || {
           responsible: [],
           accountable: [],
           consulted: [],
-          informed: []
-        }
+          informed: [],
+        },
       };
 
       const stage = this.workflowStageRepository.create(stageData);
@@ -343,13 +422,13 @@ export class WorkflowTemplatesService {
   private async createApprovalsForStages(
     approvalDtos: CreateWorkflowApprovalDto[],
     stages: WorkflowStage[],
-    userId: string
+    userId: string,
   ): Promise<void> {
     // For now, we'll create approvals for the first stage only
     // In a real implementation, you'd want to map approvals to specific stages
     if (stages.length > 0 && approvalDtos.length > 0) {
       const firstStage = stages[0];
-      
+
       for (const approvalDto of approvalDtos) {
         const approval = this.workflowApprovalRepository.create({
           ...approvalDto,
@@ -365,7 +444,7 @@ export class WorkflowTemplatesService {
   private async createTemplateVersion(
     template: WorkflowTemplate,
     stages: WorkflowStage[],
-    userId: string
+    userId: string,
   ): Promise<WorkflowVersion> {
     const version = this.workflowVersionRepository.create({
       workflowTemplateId: template.id,
@@ -378,7 +457,7 @@ export class WorkflowTemplatesService {
         description: template.description,
         type: template.type,
         metadata: template.metadata,
-        stages: stages.map(stage => this.sanitizeForVersioning(stage)),
+        stages: stages.map((stage) => this.sanitizeForVersioning(stage)),
         approvals: [], // We'll populate this from the stages if needed
       },
       isPublished: false,
@@ -393,13 +472,16 @@ export class WorkflowTemplatesService {
   }
 
   private canBeModified(template: WorkflowTemplateWithRelationsDto): boolean {
-    return template.status === WorkflowStatus.DRAFT || 
-           template.status === WorkflowStatus.ACTIVE;
+    return (
+      template.status === WorkflowStatus.DRAFT ||
+      template.status === WorkflowStatus.ACTIVE
+    );
   }
 
   private canBeDeleted(template: WorkflowTemplateWithRelationsDto): boolean {
-    return template.status === WorkflowStatus.DRAFT && 
-           template.usageCount === 0;
+    return (
+      template.status === WorkflowStatus.DRAFT && template.usageCount === 0
+    );
   }
 
   private hasSignificantChanges(dto: UpdateWorkflowTemplateDto): boolean {
@@ -422,53 +504,82 @@ export class WorkflowTemplatesService {
     };
   }
 
-  private mapToDtoWithRelations(template: WorkflowTemplate): WorkflowTemplateWithRelationsDto {
+  private mapToDtoWithRelations(
+    template: WorkflowTemplate,
+  ): WorkflowTemplateWithRelationsDto {
     return {
       ...this.mapToDto(template),
-      stages: template.stages?.map(stage => ({
-        id: stage.id,
-        name: stage.name,
-        description: stage.description,
-        type: stage.type,
-        status: stage.status,
-        order: stage.order,
-        estimatedDuration: stage.estimatedDuration,
-        durationUnit: stage.durationUnit,
-        entryCriteria: Array.isArray(stage.entryCriteria) ? stage.entryCriteria : [],
-        exitCriteria: Array.isArray(stage.exitCriteria) ? stage.exitCriteria : [],
-        deliverables: Array.isArray(stage.deliverables) ? stage.deliverables : [],
-        roles: Array.isArray(stage.roles) ? stage.roles.map((role: any) => role.role || role) : [],
-        raciMatrix: stage.raciMatrix ? {
-          responsible: Array.isArray(stage.raciMatrix.responsible) ? stage.raciMatrix.responsible.join(', ') : '',
-          accountable: Array.isArray(stage.raciMatrix.accountable) ? stage.raciMatrix.accountable.join(', ') : '',
-          consulted: Array.isArray(stage.raciMatrix.consulted) ? stage.raciMatrix.consulted.join(', ') : '',
-          informed: Array.isArray(stage.raciMatrix.informed) ? stage.raciMatrix.informed.join(', ') : '',
-        } as Record<string, string> : {},
-        requiresApproval: stage.requiresApproval,
-        isMilestone: stage.isMilestone,
-        dependencies: Array.isArray(stage.dependencies) ? stage.dependencies : [],
-        metadata: stage.metadata,
-        createdAt: stage.createdAt,
-        updatedAt: stage.updatedAt,
-      })) || [],
-      approvals: template.stages?.flatMap(stage => 
-        stage.approvals?.map(approval => ({
-          id: approval.id,
-          type: approval.type,
-          status: approval.status,
-          level: approval.level,
-          title: approval.title,
-          description: approval.description,
-          criteria: Array.isArray(approval.criteria) ? approval.criteria : [],
-          requiredDocuments: Array.isArray(approval.requiredDocuments) ? approval.requiredDocuments : [],
-          dueDate: approval.dueDate,
-          isRequired: approval.isRequired,
-          canBeSkipped: approval.canBeSkipped,
-          metadata: approval.metadata,
-          createdAt: approval.createdAt,
-          updatedAt: approval.updatedAt,
-        })) || []
-      ) || [],
+      stages:
+        template.stages?.map((stage) => ({
+          id: stage.id,
+          name: stage.name,
+          description: stage.description,
+          type: stage.type,
+          status: stage.status,
+          order: stage.order,
+          estimatedDuration: stage.estimatedDuration,
+          durationUnit: stage.durationUnit,
+          entryCriteria: Array.isArray(stage.entryCriteria)
+            ? stage.entryCriteria
+            : [],
+          exitCriteria: Array.isArray(stage.exitCriteria)
+            ? stage.exitCriteria
+            : [],
+          deliverables: Array.isArray(stage.deliverables)
+            ? stage.deliverables
+            : [],
+          roles: Array.isArray(stage.roles)
+            ? stage.roles.map((role: any) => role.role || role)
+            : [],
+          raciMatrix: stage.raciMatrix
+            ? ({
+                responsible: Array.isArray(stage.raciMatrix.responsible)
+                  ? stage.raciMatrix.responsible.join(', ')
+                  : '',
+                accountable: Array.isArray(stage.raciMatrix.accountable)
+                  ? stage.raciMatrix.accountable.join(', ')
+                  : '',
+                consulted: Array.isArray(stage.raciMatrix.consulted)
+                  ? stage.raciMatrix.consulted.join(', ')
+                  : '',
+                informed: Array.isArray(stage.raciMatrix.informed)
+                  ? stage.raciMatrix.informed.join(', ')
+                  : '',
+              } as Record<string, string>)
+            : {},
+          requiresApproval: stage.requiresApproval,
+          isMilestone: stage.isMilestone,
+          dependencies: Array.isArray(stage.dependencies)
+            ? stage.dependencies
+            : [],
+          metadata: stage.metadata,
+          createdAt: stage.createdAt,
+          updatedAt: stage.updatedAt,
+        })) || [],
+      approvals:
+        template.stages?.flatMap(
+          (stage) =>
+            stage.approvals?.map((approval) => ({
+              id: approval.id,
+              type: approval.type,
+              status: approval.status,
+              level: approval.level,
+              title: approval.title,
+              description: approval.description,
+              criteria: Array.isArray(approval.criteria)
+                ? approval.criteria
+                : [],
+              requiredDocuments: Array.isArray(approval.requiredDocuments)
+                ? approval.requiredDocuments
+                : [],
+              dueDate: approval.dueDate,
+              isRequired: approval.isRequired,
+              canBeSkipped: approval.canBeSkipped,
+              metadata: approval.metadata,
+              createdAt: approval.createdAt,
+              updatedAt: approval.updatedAt,
+            })) || [],
+        ) || [],
     };
   }
 }

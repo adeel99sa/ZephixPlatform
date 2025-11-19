@@ -10,6 +10,9 @@ import { DataTable, Column } from '../../components/ui/table/DataTable';
 import { ErrorBanner } from '../../components/ui/feedback/ErrorBanner';
 import { apiClient } from '../../lib/api/client';
 import { API_ENDPOINTS } from '../../lib/api/endpoints';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { useProjects } from '../../features/workspaces/api';
+import { getErrorText } from '../../lib/api/errors';
 
 interface Project {
   id: string;
@@ -26,21 +29,14 @@ const ProjectsPage: React.FC = () => {
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   // const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const ws = useWorkspaceStore();
+  const { data, isLoading, error } = useProjects(ws.current?.id);
 
-  // Fetch projects using React Query
-  const {
-    data: projectsData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => {
-      const response = await apiClient.get<{ projects: Project[] }>(API_ENDPOINTS.PROJECTS.LIST);
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  if (!ws.current) return <div className="text-sm text-slate-500">Select a workspace</div>;
+  if (isLoading) return <div>Loading projects…</div>;
+  if (error) return <div className="text-red-600">{getErrorText(error)}</div>;
+
+  const list = Array.isArray(data) ? data : [];
 
   // Delete project mutation
   const deleteProjectMutation = useMutation({
@@ -62,7 +58,7 @@ const ProjectsPage: React.FC = () => {
     setShowCreatePanel(true);
   };
 
-  const projects = projectsData?.projects || [];
+  const projects = list;
 
   // Define columns for the DataTable
   const columns: Column<Project>[] = [
@@ -132,41 +128,28 @@ const ProjectsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader
-        title="Projects"
-        description="Manage your projects and track their progress"
-        actions={
-          <Button onClick={handleCreateProject}>
-            Create Project
-          </Button>
-        }
-      />
-
-      {error && (
-        <ErrorBanner
-          description={error.message || 'Failed to load projects'}
-          onRetry={() => refetch()}
-          retryLabel="Retry"
-        />
-      )}
-
-      <div className="mt-6">
-        <DataTable
-          columns={columns}
-          data={projects}
-          caption="Projects list with sorting and filtering capabilities"
-          loading={isLoading}
-          emptyState={
-            <div className="text-center py-8">
-              <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects found</h3>
-              <p className="text-muted-foreground mb-4">Create your first project to get started with project management.</p>
-              <Button onClick={handleCreateProject}>
-                Create Project
-              </Button>
-            </div>
-          }
-        />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">Projects — {ws.current.name}</h1>
+          <button className="rounded-md border px-3 py-1 text-sm"
+            onClick={() => document.getElementById("ws-menu-btn")?.click()}>
+            New…
+          </button>
+        </div>
       </div>
+
+      {!list.length ? (
+        <div className="text-sm text-slate-500">No projects yet. Use "New…" to create one.</div>
+      ) : (
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {list.map(p => (
+            <li key={p.id} className="rounded-md border p-3">
+              <div className="font-medium">{p.name}</div>
+              <div className="text-xs text-slate-500">{p.folderCount ?? 0} folders</div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Create Project Panel */}
       <CreateProjectPanel

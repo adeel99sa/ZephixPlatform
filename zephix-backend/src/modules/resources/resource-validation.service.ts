@@ -27,23 +27,23 @@ export class ResourceValidationService {
     const end = new Date(data.endDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (isNaN(start.getTime())) {
       errors.push('Invalid start date');
     }
-    
+
     if (isNaN(end.getTime())) {
       errors.push('Invalid end date');
     }
-    
+
     if (start > end) {
       errors.push('Start date must be before or equal to end date');
     }
-    
+
     // Check if dates are reasonable (not more than 2 years in future)
     const twoYearsFromNow = new Date();
     twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
-    
+
     if (end > twoYearsFromNow) {
       errors.push('End date cannot be more than 2 years in the future');
     }
@@ -54,19 +54,22 @@ export class ResourceValidationService {
     }
 
     // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     if (!uuidRegex.test(data.resourceId)) {
       errors.push('Invalid resource ID format');
     }
-    
+
     if (!uuidRegex.test(data.projectId)) {
       errors.push('Invalid project ID format');
     }
 
     // Validate resource exists
     if (uuidRegex.test(data.resourceId)) {
-      const userExists = await this.userRepo.count({ where: { id: data.resourceId } });
+      const userExists = await this.userRepo.count({
+        where: { id: data.resourceId },
+      });
       if (userExists === 0) {
         errors.push('Resource (user) does not exist');
       }
@@ -74,7 +77,9 @@ export class ResourceValidationService {
 
     // Validate project exists
     if (uuidRegex.test(data.projectId)) {
-      const projectExists = await this.projectRepo.count({ where: { id: data.projectId } });
+      const projectExists = await this.projectRepo.count({
+        where: { id: data.projectId },
+      });
       if (projectExists === 0) {
         errors.push('Project does not exist');
       }
@@ -100,7 +105,7 @@ export class ResourceValidationService {
     resourceId: string,
     startDate: Date,
     endDate: Date,
-    excludeAllocationId?: string
+    excludeAllocationId?: string,
   ): Promise<void> {
     // This is for future implementation if needed
     // Check if there are gaps in project allocation

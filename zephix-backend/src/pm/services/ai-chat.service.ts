@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { PMKnowledgeChunk } from '../entities/pm-knowledge-chunk.entity';
 import { UserProject } from '../entities/user-project.entity';
 import { ProjectTask } from '../entities/project-task.entity';
@@ -77,9 +78,15 @@ export class AIChatService {
     @InjectRepository(ProjectStakeholder)
     private stakeholderRepository: Repository<ProjectStakeholder>,
     private aiIntelligenceService: ZephixAIIntelligenceService,
+    private configService: ConfigService,
   ) {}
 
   async processMessage(request: AIAnalysisRequest): Promise<ChatResponse> {
+    // Guard: AI demo mode must be enabled
+    if (this.configService.get<string>('ZEPHIX_AI_DEMO_MODE') !== '1') {
+      throw new NotFoundException('AI demo mode is not enabled');
+    }
+
     this.logger.log(`Processing AI chat message: ${request.message}`);
 
     try {

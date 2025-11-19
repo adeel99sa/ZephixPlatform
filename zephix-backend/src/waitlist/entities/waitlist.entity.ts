@@ -1,5 +1,12 @@
 // File: zephix-backend/src/waitlist/entities/waitlist.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 @Entity('waitlist')
 @Index(['email'], { unique: true })
