@@ -1,0 +1,43 @@
+name: IA Guards & Contracts
+on:
+  pull_request:
+    branches: [ "**" ]
+jobs:
+  ia-and-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install
+        run: |
+          cd zephix-frontend && npm ci
+          cd ../zephix-backend && npm ci
+          cd ../zephix-e2e && npm ci
+
+      - name: Lint (IA guards)
+        run: cd zephix-frontend && npm run lint:new
+
+      - name: Contract check (projects)
+        env:
+          BASE_URL: http://localhost:3000
+        run: |
+          cd zephix-backend
+          nohup npm run start:dev >/tmp/backend.log 2>&1 &
+          sleep 8
+          bash ../contracts/scripts/check-projects-post.sh  # your script that asserts 400 on missing workspaceId
+
+      - name: E2E—IA smoke
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          E2E_EMAIL: demo@zephix.ai
+          E2E_PASSWORD: demo123456
+        run: |
+          cd zephix-frontend
+          nohup npm run dev >/tmp/frontend.log 2>&1 &
+          sleep 5
+          cd ../zephix-e2e
+          npx playwright test tests/no-global-create.spec.ts tests/workspace-context-required.spec.ts tests/template-center.apply.spec.ts

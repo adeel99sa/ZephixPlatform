@@ -1,0 +1,72 @@
+#!/bin/bash
+# Phase 3C Final Smoke Test Script
+set -e
+
+echo "🔐 Zephix Dashboards Phase 3C - Final Smoke Test"
+echo "================================================"
+
+echo "🚀 Manual smoke test checklist:"
+echo ""
+echo "Please perform these steps manually in your browser:"
+echo ""
+
+echo "1️⃣ Create dashboard → builder opens → add Note → autosave → 'saved'"
+echo "   • Navigate to /dashboards"
+echo "   • Click 'Create Dashboard'"
+echo "   • Fill form and submit"
+echo "   • Verify builder opens"
+echo "   • Add a Note widget"
+echo "   • Verify autosave shows 'saved' status"
+echo ""
+
+echo "2️⃣ Force conflict: open same dashboard in two tabs, edit both → second sees 'conflict'"
+echo "   • Open dashboard in two browser tabs"
+echo "   • Edit widget in first tab"
+echo "   • Edit widget in second tab"
+echo "   • Verify second tab shows 'conflict' banner with reload button"
+echo ""
+
+echo "3️⃣ Duplicate → lands on new ID, switcher lists both"
+echo "   • In builder, click 'More' menu"
+echo "   • Click 'Duplicate' (if FF_DASHBOARD_DUPLICATE enabled)"
+echo "   • Verify navigation to new dashboard ID"
+echo "   • Verify dashboard switcher shows both dashboards"
+echo ""
+
+echo "4️⃣ Delete → goes to Trash → Restore → shows back in switcher"
+echo "   • In builder, click 'More' menu"
+echo "   • Click 'Delete' (if FF_DASHBOARD_DELETE enabled)"
+echo "   • Confirm deletion"
+echo "   • Navigate to /admin/trash"
+echo "   • Verify deleted dashboard appears"
+echo "   • Click 'Restore'"
+echo "   • Verify dashboard appears back in switcher"
+echo ""
+
+echo "5️⃣ Filters: set tr=7d → URL contains tr=7d → navigate away/back → URL persists"
+echo "   • Navigate to /dashboards/:id"
+echo "   • Set time range filter to '7d'"
+echo "   • Click 'Apply'"
+echo "   • Verify URL contains 'tr=7d'"
+echo "   • Navigate to /home"
+echo "   • Navigate back to dashboard"
+echo "   • Verify URL still contains 'tr=7d'"
+echo ""
+
+echo "6️⃣ Export → filename = '<dashboard name>.csv'"
+echo "   • In dashboard view, click 'Export'"
+echo "   • Verify download starts"
+echo "   • Verify filename contains dashboard name"
+echo ""
+
+echo "7️⃣ Share visibility → workspace/org/private → Save → telemetry emitted"
+echo "   • In dashboard view, click 'Share'"
+echo "   • Change visibility to 'org'"
+echo "   • Click 'Save'"
+echo "   • Verify dialog closes"
+echo "   • Check browser console for telemetry events"
+echo ""
+
+echo "✅ Manual smoke test completed!"
+echo ""
+echo "If all steps pass, Phase 3C is ready for production deployment."

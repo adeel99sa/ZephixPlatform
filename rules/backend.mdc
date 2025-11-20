@@ -1,0 +1,43 @@
+---
+title: Backend Standards (NestJS + TypeORM)
+---
+
+## Architecture
+- **Controllers** are thin: DTO validation + HTTP mapping.
+- **Services** hold business logic.
+- **Entities** use **explicit** snake_case mappings.
+
+**Controller**
+```ts
+@Post()
+create(@Body() dto: CreateWorkspaceDto, @Req() req) {
+  return this.workspaces.create(dto, req.user.orgId)
+}
+```
+
+**Service**
+
+```ts
+async create(dto: CreateWorkspaceDto, orgId: string) {
+  const ws = this.repo.create({ ...dto, orgId })
+  return this.repo.save(ws)
+}
+```
+
+## DTO Mapping (snake_case → camelCase)
+
+```ts
+class WorkspaceDto {
+  @Expose({ name: 'created_at' }) createdAt: Date
+  @Expose({ name: 'org_id' })     orgId: string
+}
+```
+
+## Logging & Observability
+
+* Include `requestId` on logs.
+* Use global exception filter + response envelope interceptor.
+
+## Migrations
+
+* One migration per schema change; no implicit sync in production.

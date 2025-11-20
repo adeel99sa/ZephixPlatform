@@ -5,6 +5,7 @@ import { EmailService } from './services/email.service';
 import { MetricsService } from '../observability/metrics.service';
 import { VirusScanService } from './services/virus-scan.service';
 import { AuditService } from './services/audit.service';
+import { ResponseService } from './services/response.service';
 
 /**
  * SharedModule
@@ -17,6 +18,7 @@ import { AuditService } from './services/audit.service';
  * - ClaudeService: AI service for LLM interactions
  * - LLMProviderService: LLM provider with data retention controls
  * - EmailService: Email sending service for notifications
+ * - ResponseService: Standardized API response formatting
  */
 @Module({
   providers: [
@@ -26,6 +28,7 @@ import { AuditService } from './services/audit.service';
     MetricsService,
     VirusScanService,
     AuditService,
+    ResponseService,
   ],
   exports: [
     LLMProviderService,
@@ -34,6 +37,7 @@ import { AuditService } from './services/audit.service';
     MetricsService,
     VirusScanService,
     AuditService,
+    ResponseService,
   ],
 })
 export class SharedModule {}

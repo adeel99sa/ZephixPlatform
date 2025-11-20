@@ -1,0 +1,160 @@
+---
+name: "Workspace-First Sidebar (Authoritative)"
+alwaysApply: true
+description: >
+  Enforce Zephix workspace-first IA: canonical left panel tree with a single
+  workspace management entry and no global creation or header user menu.
+  This rule provides exact structure, testids, guardrails, examples, and
+  verification steps. Do not deviate.
+---
+
+# ✅ Canonical Left Panel (Navigation) — Authoritative
+
+```
+▸ Home
+▸ Workspaces   [⋮]
+├─ (When none selected) — no children
+└─ ▼ {Active Workspace Name}
+├─ Overview
+├─ Projects
+├─ Dashboards
+├─ Documents
+├─ Forms
+├─ Members
+└─ Settings
+▸ Template Center
+▸ Resources
+▸ Analytics
+▸ Settings
+────────────────────────────
+(Account Block)
+• {user email} (role)
+• anchors Profile / Settings / Sign out
+```
+
+## TestIDs (must exist exactly)
+- `nav-home`
+- `nav-workspaces`
+- `nav-workspaces-kebab`
+- `nav-workspace-active`
+  - `nav-ws-overview`
+  - `nav-ws-projects`
+  - `nav-ws-dashboards`
+  - `nav-ws-documents`
+  - `nav-ws-forms`
+  - `nav-ws-members`
+  - `nav-ws-settings`
+- `nav-template-center`
+- `nav-resources`
+- `nav-analytics`
+- `nav-settings`
+- `account-block`
+
+## Non-negotiable rules (hard stops)
+- No **global creation** anywhere (no header "+ New", no root sidebar creation).
+- No **global "Dashboards" switcher** in header.
+- No **header user/avatar menu**. Account actions live **only** in the bottom **Account Block**.
+- Workspace management lives **only** in the **Workspaces** row **kebab (⋮)**:
+  - "Create workspace…"
+  - "Manage workspaces…" → `/workspaces`
+- Children under a workspace render **only when a workspace is active**.
+
+## DO / AVOID (with code)
+
+### ✅ DO (kebab is the only workspace management entry)
+```tsx
+// Sidebar.tsx (fragment)
+<li data-testid="nav-workspaces" className="...">
+  <span>Workspaces</span>
+  <button data-testid="nav-workspaces-kebab" onClick={openWsMenu}>⋮</button>
+</li>
+{activeWorkspace && (
+  <ul data-testid="nav-workspace-active">
+    <li data-testid="nav-ws-overview">Overview</li>
+    <li data-testid="nav-ws-projects">Projects</li>
+    <li data-testid="nav-ws-dashboards">Dashboards</li>
+    <li data-testid="nav-ws-documents">Documents</li>
+    <li data-testid="nav-ws-forms">Forms</li>
+    <li data-testid="nav-ws-members">Members</li>
+    <li data-testid="nav-ws-settings">Settings</li>
+  </ul>
+)}
+```
+
+### ❌ AVOID (banned UI patterns)
+
+```tsx
+// Header.tsx — BAD: do not add any of these
+<GlobalCreateMenu />            // ❌
+<Button>+ New</Button>          // ❌
+<DashboardsSwitcher />          // ❌
+<UserAvatarMenu />              // ❌ account menu belongs in Account Block only
+```
+
+### ✅ DO (account block at bottom of sidebar)
+
+```tsx
+// Sidebar.tsx (bottom section)
+<footer data-testid="account-block">
+  <div>{user.email}</div>
+  <div className="muted">{user.role}</div>
+  {/* Clicking opens Profile/Settings/Sign out menu anchored here */}
+</footer>
+```
+
+## Required selectors in tests
+
+* Absence checks:
+
+  * `getByRole('button', { name: /\+ new/i })` → **not found**
+  * `queryByTestId('header-user-menu')` → **null**
+  * `queryByText(/dashboards/i)` in header menus → **absent**
+* Presence checks:
+
+  * All testids listed above exist when relevant.
+
+## Implementation Steps (Cursor, follow exactly)
+
+1. **Header cleanup**
+
+   * Remove any `+ New`, `Dashboards` switchers, or user/avatar menus.
+   * If a user menu must exist, re-anchor it inside `account-block` in the sidebar.
+
+2. **Sidebar structure**
+
+   * Ensure exact order and testids as defined above.
+   * Render workspace children **only** when an active workspace exists.
+
+3. **Creation entry points**
+
+   * Projects/Documents/Forms creation happens inside their respective views
+     or via Template Center with workspace context. Never from header or root.
+
+4. **Template Center**
+
+   * `/templates` shows templates. Applying a template:
+
+     * If **active workspace** exists → apply in that workspace.
+     * Else → prompt to **select or create** a workspace, then apply.
+
+## Quick Verifications (paste in terminal)
+
+```bash
+# 1) Grep for banned header patterns (should return nothing)
+git grep -nE "GlobalCreateMenu|DashboardsSwitcher|\\+ New|UserAvatarMenu|header-user-menu" -- 'zephix-frontend/src/components/shell/*'
+
+# 2) Assert required testids exist (should list files/lines)
+git grep -nE "data-testid=\"(nav-|account-block)" zephix-frontend/src
+
+# 3) Run the IA E2E guard (must pass)
+cd zephix-e2e && npx playwright test tests/no-global-create.spec.ts
+```
+
+## Failure response (what Cursor must do)
+
+If any check fails, **stop** and:
+
+1. Remove banned elements from the header.
+2. Recreate missing testids in `Sidebar.tsx`.
+3. Re-anchor account actions in the sidebar's `account-block`.
+4. Re-run the Quick Verifications until green.

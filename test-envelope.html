@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Envelope Test</title>
+</head>
+<body>
+    <h1>Testing Envelope Format</h1>
+    <div id="results"></div>
+
+    <script>
+        async function testEnvelope() {
+            const results = document.getElementById('results');
+
+            try {
+                // Test login endpoint
+                const loginResponse = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@example.com',
+                        password: 'Admin123!'
+                    })
+                });
+
+                const loginData = await loginResponse.json();
+                results.innerHTML += '<h2>Login Response:</h2>';
+                results.innerHTML += '<pre>' + JSON.stringify(loginData, null, 2) + '</pre>';
+
+                if (loginData.data && loginData.data.accessToken) {
+                    // Test workspaces endpoint
+                    const workspacesResponse = await fetch('/api/workspaces', {
+                        headers: {
+                            'Authorization': `Bearer ${loginData.data.accessToken}`
+                        }
+                    });
+
+                    const workspacesData = await workspacesResponse.json();
+                    results.innerHTML += '<h2>Workspaces Response:</h2>';
+                    results.innerHTML += '<pre>' + JSON.stringify(workspacesData, null, 2) + '</pre>';
+                }
+
+            } catch (error) {
+                results.innerHTML += '<h2>Error:</h2>';
+                results.innerHTML += '<pre>' + error.message + '</pre>';
+            }
+        }
+
+        testEnvelope();
+    </script>
+</body>
+</html>

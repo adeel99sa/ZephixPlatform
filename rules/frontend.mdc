@@ -1,0 +1,60 @@
+---
+title: Frontend Standards (React + TS + Tailwind + Shadcn)
+---
+
+## Components
+- Prefer **functional components** with typed props.
+- Keep files ≤ 300 LOC; extract subcomponents.
+- Use **Shadcn UI** & Tailwind utilities only.
+
+**Good**
+```tsx
+interface Props { workspaceId: string }
+export function Dashboard({ workspaceId }: Props) {
+  const { data, isLoading, error } = useDashboard(workspaceId)
+  if (error) return <ErrorState />
+  if (isLoading) return <Skeleton data-testid="skeleton-dashboard" />
+  return <DashboardView data={data} />
+}
+```
+
+**Bad**
+
+```tsx
+class Dashboard extends React.Component { /* … */ }
+```
+
+## API Client Usage
+
+* Use the shared **`api`** client; **never import axios directly**.
+* Expect **unwrapped** responses (interceptor flattens `{ data }`).
+
+**Good**
+
+```ts
+const me = await api.get('/auth/me') // returns { id, email, role, ... }
+```
+
+## Error Handling
+
+* Surface user-friendly toasts; log with **requestId**.
+* Guard clauses > nested conditionals.
+
+## Testing
+
+* Use `data-testid` on interactive elements.
+* Avoid fragile selectors.
+
+## Performance
+
+* Memoize heavy children.
+* Lazy-load large routes/components.
+
+## STATE CONSISTENCY (FRONTEND)
+
+* After a mutation:
+
+  * Update local component state
+  * Update store (Zustand)
+  * Invalidate React Query cache
+  * Verify all three match via console logs if needed.

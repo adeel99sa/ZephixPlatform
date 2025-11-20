@@ -1,0 +1,14 @@
+[
+  {
+    "id": "w_example",
+    "name": "Example Workspace",
+    "slug": "example-workspace",
+    "organization_id": "org_x",
+    "soft_deleted_at": null,
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "updated_at": "2025-01-01T00:00:00.000Z",
+    "created_by": "user_123",
+    "deleted_by": null
+  }
+]
+

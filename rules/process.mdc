@@ -1,0 +1,35 @@
+---
+title: Zephix Agent Process
+---
+
+## Communication
+- Be direct—no filler.
+- For multi-step tasks, enumerate steps.
+- Before big edits, summarize your plan.
+
+## Self-Verification
+- After changes, run:
+  - Frontend: `npm ci && npm run build`
+  - Backend:  `npm ci && npm run build`
+- If build fails: **STOP**, report error with the Failure Report template.
+
+## When unsure
+- Ask for the missing log, file, or command output.
+
+## Quick Commands
+
+When requested, run these verification commands:
+
+- **@build-frontend**: Run `cd zephix-frontend && npm ci && npm run build` and paste output
+- **@build-backend**: Run `cd zephix-backend && npm ci && npm run build` and paste output
+- **@contract**: Run `TOKEN=$TOKEN bash scripts/diff-contracts.sh [endpoint]` and paste diff
+- **@e2e-real**: Run `cd zephix-e2e && npm run test:real` and paste failing test output
+- **@lint**: Run `npm run lint:new` in the affected directory and paste output
+
+## Evidence Protocol
+
+Before claiming "fixed" or "complete":
+1. Run relevant quick command
+2. Paste actual output
+3. Confirm no errors in logs
+4. If contract check fails, show diff

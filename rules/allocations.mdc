@@ -1,0 +1,32 @@
+---
+title: Zephix Allocation Domain Rules
+---
+
+# 📊 Allocation Canon
+- Store allocations as **percentage**, not hours.
+- `autoAdjust: true` keeps % stable when timelines shift.
+- Validate total % across **all** projects, using precedence:
+  1) Individual override
+  2) Group/Department
+  3) Organization default
+
+# ⛔ Over-limit paths
+- ≤ warning → **warn**
+- > max → **require approval trail**
+- > hard-cap → **block**
+
+# ✅ Output format
+- API returns normalized fields:
+```ts
+type AllocationView = {
+  userId: string
+  projectId: string
+  allocationPercentage: number
+  effectiveFrom: string // ISO
+  effectiveTo: string   // ISO | null
+  source: 'individual' | 'group' | 'org'
+}
+```
+
+# 📝 Risk & Evidence
+- Each risk must include **evidence** (who, current %, project breakdown, conflict dates) and **suggested actions** with quantified impact.

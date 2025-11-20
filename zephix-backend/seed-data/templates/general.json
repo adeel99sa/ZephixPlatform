@@ -1,0 +1,71 @@
+{
+  "name": "General Project",
+  "category": "OTHER",
+  "methodology": "agile",
+  "description": "Flexible template for general project management",
+  "taskTemplates": [
+    {
+      "name": "Project kickoff",
+      "description": "Initial meeting to align team and set expectations",
+      "estimatedHours": 4,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Define requirements",
+      "description": "Document project requirements and success criteria",
+      "estimatedHours": 16,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Create project plan",
+      "description": "Develop detailed project plan with timeline and milestones",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Execute project tasks",
+      "description": "Work through project tasks and deliverables",
+      "estimatedHours": 40,
+      "priority": "medium",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Review and quality check",
+      "description": "Review deliverables and ensure quality standards",
+      "estimatedHours": 8,
+      "priority": "medium",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Project closure",
+      "description": "Finalize project, document outcomes, and conduct retrospective",
+      "estimatedHours": 4,
+      "priority": "low",
+      "phaseOrder": 3
+    }
+  ],
+  "phases": [
+    {
+      "name": "Initiation",
+      "description": "Project setup, requirements, and planning",
+      "order": 1,
+      "estimatedDurationDays": 7
+    },
+    {
+      "name": "Execution",
+      "description": "Main project work and deliverables",
+      "order": 2,
+      "estimatedDurationDays": 30
+    },
+    {
+      "name": "Closure",
+      "description": "Review, quality check, and project closure",
+      "order": 3,
+      "estimatedDurationDays": 5
+    }
+  ]
+}
+
