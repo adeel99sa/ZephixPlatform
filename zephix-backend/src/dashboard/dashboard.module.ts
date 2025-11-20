@@ -2,12 +2,12 @@ import { Module, forwardRef } from '@nestjs/common';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { ProjectsModule } from '../modules/projects/projects.module';
-import { RiskManagementModule } from '../pm/risk-management/risk-management.module';
+import { RisksModule } from '../modules/risks/risks.module';
 
 @Module({
   imports: [
     forwardRef(() => ProjectsModule),
-    forwardRef(() => RiskManagementModule),
+    forwardRef(() => RisksModule),
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

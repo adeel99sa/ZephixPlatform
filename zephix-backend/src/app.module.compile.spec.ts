@@ -9,24 +9,24 @@ import { User } from "./modules/users/entities/user.entity"
 import { Project } from './modules/projects/entities/project.entity';
 import { TeamMember } from './modules/projects/entities/team-member.entity';
 import { Role } from './modules/projects/entities/role.entity';
-import { UserProject } from './pm/entities/user-project.entity';
+import { UserProject } from './modules/risks/entities/user-project.entity';
 import { Feedback } from './feedback/entities/feedback.entity';
-import { PMKnowledgeChunk } from './pm/entities/pm-knowledge-chunk.entity';
-import { ProjectTask } from './pm/entities/project-task.entity';
-import { ProjectRisk } from './pm/entities/project-risk.entity';
-import { ProjectStakeholder } from './pm/entities/project-stakeholder.entity';
-import { Portfolio } from './pm/entities/portfolio.entity';
-import { Program } from './pm/entities/program.entity';
-import { StatusReport } from './pm/status-reporting/entities/status-report.entity';
-import { ProjectMetrics } from './pm/entities/project-metrics.entity';
-import { PerformanceBaseline } from './pm/entities/performance-baseline.entity';
-import { AlertConfiguration } from './pm/entities/alert-configuration.entity';
-import { ManualUpdate } from './pm/entities/manual-update.entity';
-import { StakeholderCommunication } from './pm/entities/stakeholder-communication.entity';
-import { Risk } from './pm/entities/risk.entity';
-import { RiskAssessment } from './pm/entities/risk-assessment.entity';
-import { RiskResponse } from './pm/entities/risk-response.entity';
-import { RiskMonitoring } from './pm/entities/risk-monitoring.entity';
+import { PMKnowledgeChunk } from './modules/risks/entities/pm-knowledge-chunk.entity';
+import { ProjectTask } from './modules/risks/entities/project-task.entity';
+import { ProjectRisk } from './modules/risks/entities/project-risk.entity';
+import { ProjectStakeholder } from './modules/risks/entities/project-stakeholder.entity';
+import { Portfolio } from './modules/portfolios/entities/portfolio.entity';
+import { Program } from './modules/programs/entities/program.entity';
+// StatusReport entity no longer exists - removed with src/pm
+import { ProjectMetrics } from './modules/risks/entities/project-metrics.entity';
+import { PerformanceBaseline } from './modules/risks/entities/performance-baseline.entity';
+import { AlertConfiguration } from './modules/risks/entities/alert-configuration.entity';
+import { ManualUpdate } from './modules/risks/entities/manual-update.entity';
+import { StakeholderCommunication } from './modules/risks/entities/stakeholder-communication.entity';
+import { Risk } from './modules/risks/entities/risk.entity';
+import { RiskAssessment } from './modules/risks/entities/risk-assessment.entity';
+import { RiskResponse } from './modules/risks/entities/risk-response.entity';
+import { RiskMonitoring } from './modules/risks/entities/risk-monitoring.entity';
 
 describe('AppModule Compilation', () => {
   let app: TestingModule;
@@ -83,7 +83,7 @@ describe('AppModule Compilation', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ 
+        ConfigModule.forRoot({
           isGlobal: true,
           envFilePath: '.env.test',
         }),
@@ -110,7 +110,7 @@ describe('AppModule Compilation', () => {
     if (app) {
       await app.close();
     }
-    
+
     // Clean up any timers or async operations
     jest.clearAllTimers();
     jest.clearAllMocks();
