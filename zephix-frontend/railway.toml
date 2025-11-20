@@ -2,4 +2,4 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "PORT=${PORT:-8080} serve -s dist -l $PORT"
+startCommand = "npm run start"
