@@ -1,5 +1,9 @@
+// LEGACY — Not used anywhere. Safe to remove in future cleanup.
+// References old /pm/risk-management endpoints that no longer exist.
+// If needed, update to use /api/risks/* endpoints from src/modules/risks.
+
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   AlertTriangle, Shield, TrendingUp, TrendingDown, Eye, Plus,
   Target, Clock, DollarSign, Users, BarChart3, Activity,
   CheckCircle, XCircle, AlertCircle, Info, Zap, Calendar,
@@ -105,7 +109,7 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
       if (onRiskAnalyzed && data.analysisId) {
         onRiskAnalyzed(data.analysisId);
       }
-      
+
       // Refresh risk data
       loadRiskData();
     } catch (error) {
@@ -284,8 +288,8 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
         {selectedTab === 'overview' && <OverviewTab riskSummary={riskSummary} riskData={riskData} />}
         {selectedTab === 'matrix' && <RiskMatrixTab riskData={riskData} />}
         {selectedTab === 'register' && (
-          <RiskRegisterTab 
-            riskData={filteredRisks} 
+          <RiskRegisterTab
+            riskData={filteredRisks}
             onRiskSelect={setSelectedRisk}
             filterCategory={filterCategory}
             setFilterCategory={setFilterCategory}
@@ -299,8 +303,8 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
 
       {/* Risk Detail Modal */}
       {selectedRisk && (
-        <RiskDetailModal 
-          risk={selectedRisk} 
+        <RiskDetailModal
+          risk={selectedRisk}
           onClose={() => setSelectedRisk(null)}
         />
       )}
@@ -308,9 +312,9 @@ const RiskManagementDashboard: React.FC<RiskManagementDashboardProps> = ({
   );
 };
 
-const OverviewTab: React.FC<{ riskSummary: RiskSummary | null; riskData: RiskData[] }> = ({ 
-  riskSummary, 
-  riskData 
+const OverviewTab: React.FC<{ riskSummary: RiskSummary | null; riskData: RiskData[] }> = ({
+  riskSummary,
+  riskData
 }) => {
   const categories = riskSummary ? Object.entries(riskSummary.categoryBreakdown) : [];
   const topRisks = riskData
@@ -330,7 +334,7 @@ const OverviewTab: React.FC<{ riskSummary: RiskSummary | null; riskData: RiskDat
                   <span className="text-sm text-gray-600 capitalize">{level.replace('-', ' ')}</span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
-                      <div 
+                      <div
                         className={`h-2 rounded-full ${
                           level === 'veryHigh' ? 'bg-red-600' :
                           level === 'high' ? 'bg-red-500' :
@@ -357,7 +361,7 @@ const OverviewTab: React.FC<{ riskSummary: RiskSummary | null; riskData: RiskDat
                 <span className="text-sm text-gray-600 capitalize">{category}</span>
                 <div className="flex items-center">
                   <div className="w-24 bg-gray-200 rounded-full h-2 mr-3">
-                    <div 
+                    <div
                       className="bg-blue-600 h-2 rounded-full"
                       style={{ width: `${(count / (riskSummary?.totalRisks || 1)) * 100}%` }}
                     ></div>
@@ -414,7 +418,7 @@ const OverviewTab: React.FC<{ riskSummary: RiskSummary | null; riskData: RiskDat
 
 const RiskMatrixTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
   const matrix = Array(5).fill(null).map(() => Array(5).fill([]));
-  
+
   riskData.forEach(risk => {
     const probIndex = Math.min(Math.max(risk.probability.score - 1, 0), 4);
     const impactIndex = Math.min(Math.max(risk.impact.overall - 1, 0), 4);
@@ -434,7 +438,7 @@ const RiskMatrixTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Risk Probability vs Impact Matrix</h3>
-        
+
         <div className="overflow-x-auto">
           <div className="inline-block min-w-full">
             {/* Y-axis label */}
@@ -451,7 +455,7 @@ const RiskMatrixTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
                     </div>
                   ))}
                 </div>
-                
+
                 {matrix.map((row, probIndex) => (
                   <div key={probIndex} className="grid grid-cols-6 gap-1">
                     <div className="text-center text-xs font-medium text-gray-700 p-2 flex items-center justify-center">
@@ -473,7 +477,7 @@ const RiskMatrixTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
                 ))}
               </div>
             </div>
-            
+
             {/* X-axis label */}
             <div className="text-center text-sm font-medium text-gray-700 mt-2">
               Impact
@@ -537,7 +541,7 @@ const RiskRegisterTab: React.FC<{
             ))}
           </select>
         </div>
-        
+
         <select
           value={filterLevel}
           onChange={(e) => setFilterLevel(e.target.value)}
@@ -634,7 +638,7 @@ const RiskRegisterTab: React.FC<{
 };
 
 const MonitoringTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
-  const activeRisks = riskData.filter(risk => 
+  const activeRisks = riskData.filter(risk =>
     risk.riskLevel === 'high' || risk.riskLevel === 'very-high'
   );
 
@@ -721,7 +725,7 @@ const MonitoringTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
                           <p className="text-xs text-gray-600">Alert when risk score &gt; 15</p>
             <p className="text-xs text-green-600 mt-1">✓ Configured</p>
           </div>
-          
+
           <div className="p-4 border border-gray-100 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-900">New Risk Alerts</span>
@@ -730,7 +734,7 @@ const MonitoringTab: React.FC<{ riskData: RiskData[] }> = ({ riskData }) => {
             <p className="text-xs text-gray-600">Daily digest of new risks</p>
             <p className="text-xs text-green-600 mt-1">✓ Configured</p>
           </div>
-          
+
           <div className="p-4 border border-gray-100 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-900">Escalation Alerts</span>
@@ -829,7 +833,7 @@ const ForecastingTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               </div>
               <p className="text-sm text-blue-800">Recommend 15% schedule buffer (8 days)</p>
             </div>
-            
+
             <div className="p-4 bg-green-50 rounded-lg">
               <div className="flex items-center mb-2">
                 <DollarSign className="w-4 h-4 text-green-600 mr-2" />
@@ -837,7 +841,7 @@ const ForecastingTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               </div>
               <p className="text-sm text-green-800">Recommend 12% budget reserve ($60K)</p>
             </div>
-            
+
             <div className="p-4 bg-yellow-50 rounded-lg">
               <div className="flex items-center mb-2">
                 <Users className="w-4 h-4 text-yellow-600 mr-2" />
@@ -869,7 +873,7 @@ const ForecastingTab: React.FC<{ projectId: string }> = ({ projectId }) => {
               <span className="text-xs font-medium">40%</span>
             </div>
           </div>
-          
+
           <div className="border border-gray-100 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium text-gray-900">Resource Market Competition</h4>
@@ -906,13 +910,13 @@ const RiskDetailModal: React.FC<{ risk: RiskData; onClose: () => void }> = ({ ri
               <XCircle className="w-6 h-6" />
             </button>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <h3 className="font-medium text-gray-900 mb-2">Description</h3>
               <p className="text-gray-700">{risk.description}</p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="font-medium text-gray-900 mb-2">Risk Assessment</h3>
@@ -931,7 +935,7 @@ const RiskDetailModal: React.FC<{ risk: RiskData; onClose: () => void }> = ({ ri
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="font-medium text-gray-900 mb-2">Impact Breakdown</h3>
                 <div className="space-y-2 text-sm">
@@ -954,7 +958,7 @@ const RiskDetailModal: React.FC<{ risk: RiskData; onClose: () => void }> = ({ ri
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h3 className="font-medium text-gray-900 mb-2">Warning Signals</h3>
               <ul className="text-sm text-gray-700 space-y-1">
@@ -966,7 +970,7 @@ const RiskDetailModal: React.FC<{ risk: RiskData; onClose: () => void }> = ({ ri
                 ))}
               </ul>
             </div>
-            
+
             <div>
               <h3 className="font-medium text-gray-900 mb-2">Lead Indicators</h3>
               <ul className="text-sm text-gray-700 space-y-1">
@@ -979,7 +983,7 @@ const RiskDetailModal: React.FC<{ risk: RiskData; onClose: () => void }> = ({ ri
               </ul>
             </div>
           </div>
-          
+
           <div className="mt-6 flex justify-end">
             <button
               onClick={onClose}

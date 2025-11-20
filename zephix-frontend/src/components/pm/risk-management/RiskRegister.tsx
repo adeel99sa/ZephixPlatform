@@ -1,3 +1,7 @@
+// LEGACY — Not used anywhere. Safe to remove in future cleanup.
+// References old /pm/risk-management endpoints that no longer exist.
+// If needed, update to use /api/risks/* endpoints from src/modules/risks.
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../../services/api';
@@ -28,7 +32,7 @@ export const RiskRegister: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const data = await api.get(`/pm/risk-management/register/${projectId}`);
         setRisks(data.risks || data || []);
       } catch (err: any) {
