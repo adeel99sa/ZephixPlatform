@@ -1,0 +1,57 @@
+name: E2E
+
+on: [push, workflow_dispatch]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mode: [mock, real]
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 0
+      VITE_API_URL: /api
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      E2E_EMAIL:     ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD:  ${{ secrets.E2E_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Install deps (frontend)
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Install deps (backend)
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Install deps (e2e)
+        working-directory: zephix-e2e
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: zephix-e2e
+        run: npx playwright install --with-deps
+
+      - name: Mocked – start FE/BE and run tests
+        if: matrix.mode == 'mock'
+        run: |
+          npm --prefix zephix-backend run start:dev > backend.log 2>&1 &
+          npm --prefix zephix-frontend run dev > frontend.log 2>&1 &
+          sleep 10
+          npm --prefix zephix-e2e run test:mock
+
+      - name: Real – run real-auth smoke
+        if: matrix.mode == 'real'
+        run: |
+          npm --prefix zephix-e2e run test:real
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.mode }}
+          path: zephix-e2e/test-results/

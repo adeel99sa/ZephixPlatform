@@ -1,0 +1,12 @@
+[
+  {
+    "id": "p_example",
+    "name": "Customer Portal",
+    "workspace_id": "w_example",
+    "organization_id": "org_x",
+    "deleted_at": null,
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "updated_at": "2025-01-01T00:00:00.000Z"
+  }
+]
+

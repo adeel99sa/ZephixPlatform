@@ -1,0 +1,25 @@
+---
+title: Testing Standards (Jest + Playwright)
+---
+
+## Playwright
+- Prefer **real-auth** fixtures for smoke; mocks for fast lanes.
+- Use **`data-testid`**.
+- Keep tests deterministic; avoid timer sleeps when possible.
+
+**Example**
+```ts
+test('post-login shell renders', async ({ page, auth }) => {
+  await page.goto('/dashboards')
+  await expect(page.getByTestId('app-header')).toBeVisible()
+})
+```
+
+## Jest
+
+* Unit tests live next to source or in `__tests__`.
+* Coverage reports in CI are **non-blocking** unless specified.
+
+## CI
+
+* `npm ci` then `npm run lint:new` then `npm run test:coverage`.

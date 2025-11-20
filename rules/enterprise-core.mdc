@@ -1,0 +1,102 @@
+---
+alwaysApply: true
+title: Zephix Enterprise Core Rules v3
+---
+
+# 🚦 HARD STOPS (FAIL FAST)
+- If auth returns **401** → **STOP** and surface the error.
+- If **organizationId** is null/undefined anywhere → **STOP**.
+- If **total allocation % > active threshold** → **STOP**.
+- If `npm ci` fails due to lockfile mismatch → **STOP**; align **package.json to package-lock.json** (never the reverse) and re-run.
+- If frontend deploy plan shows a **Dockerfile** (and we didn't ask for Docker) → **STOP**; revert to **Nixpacks**.
+
+# 🧱 MONOREPO & DEPLOYMENT GUARDRAILS (FRONTEND)
+- Builder: **Nixpacks** auto-detect for `zephix-frontend` (no Dockerfile, no custom nix unless asked).
+- Railway: service Root Directory = `zephix-frontend`.
+- Preview script **must** be: `"preview": "vite preview --host 0.0.0.0 --port $PORT"`.
+- `.railwayignore` must allow:
+  - `zephix-frontend/package.json`, `package-lock.json`
+  - `zephix-frontend/vite.config.*`, `tsconfig*.json`, `index.html`
+  - `zephix-frontend/src/**`, `dist/**`
+- If logs show `undefined variable 'npm'` (nix) → remove custom nix configs and re-run.
+
+# 🧪 CI PIPELINE GUARDRAILS
+- Lint frontend with **`npm run lint:new`** only in blocking jobs (new/changed files).
+- Always **`npm ci`** in CI.
+- Storybook, a11y, E2E can be **non-blocking** unless task says otherwise.
+- Don't modify GH workflows without proper token scopes; open a PR instead.
+
+# 📸 EVIDENCE-FIRST PROTOCOL (paste outputs)
+**Before claiming "fixed", show:**
+1) Build
+```bash
+cd zephix-frontend && npm ci && npm run build \
+  && tail -n +1 dist/.vite/manifest.json | head -n 40
+```
+
+2. Lint (new code)
+
+```bash
+npm run lint:new
+```
+
+3. Unit tests
+
+```bash
+npm run test:coverage -- --reporter=dot
+```
+
+4. Deploy plan (Railway logs): show `setup`, `install`, `build`, `start` (Nixpacks + npm ci + build + preview)
+
+# 🔗 FRONTEND–BACKEND CONTRACT
+
+* DB emits **snake_case**; frontend expects **camelCase**.
+* Provide DTO transforms/mappers at the API boundary:
+
+```ts
+class AllocationResponseDto {
+  @Expose({ name: 'allocationPercentage' })
+  @Transform(({ obj }) => obj.allocation_percentage)
+  allocationPercentage: number;
+}
+```
+
+* Prove contracts **before** UI wiring:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  $API/resources/allocations | jq > actual.json
+diff -u expected.json actual.json || true
+```
+
+# 🗄️ DATABASE VERIFICATION (NEVER ASSUME)
+
+Show **actual DB** vs **entity**:
+
+```bash
+psql "$DATABASE_URL" -c "\d resource_allocations" | sed -n '1,80p'
+grep -n "@Column\\|@CreateDate\\|@UpdateDate" zephix-backend/src/**/*.entity.ts
+```
+
+Provide a table:
+| Column | Database Has | Entity Expects | Status |
+
+# 🔐 SECURITY & SUPPLY CHAIN
+
+* Never log secrets/tokens.
+* Enable **gitleaks** and license allowlist in CI; fail on violations.
+* Use Node **20.x** in CI/build unless told otherwise.
+
+# 🧯 FAILURE REPORT (MANDATORY)
+
+```
+### Failure Report
+**Attempted:** …
+**Expected:** …
+**Actual:** …
+**Error:** <exact error>
+**Debug Steps:** <bulleted>
+**Root Cause:** <1 sentence>
+**Solution:** <fix>
+**Verification:** <build/lint/test/deploy logs>
+```

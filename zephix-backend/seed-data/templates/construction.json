@@ -1,0 +1,97 @@
+{
+  "name": "Construction Project",
+  "category": "CONSTRUCTION",
+  "methodology": "waterfall",
+  "description": "Template for construction and infrastructure projects",
+  "taskTemplates": [
+    {
+      "name": "Site survey and assessment",
+      "description": "Conduct site inspection, soil testing, and environmental assessment",
+      "estimatedHours": 16,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Obtain permits and approvals",
+      "description": "Submit applications and secure necessary permits",
+      "estimatedHours": 24,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Finalize design and blueprints",
+      "description": "Complete architectural and engineering drawings",
+      "estimatedHours": 40,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Procure materials and equipment",
+      "description": "Order materials, rent equipment, and coordinate deliveries",
+      "estimatedHours": 16,
+      "priority": "medium",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Site preparation",
+      "description": "Clear site, excavate, and prepare foundation",
+      "estimatedHours": 32,
+      "priority": "high",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Foundation and structure",
+      "description": "Pour foundation and erect structural framework",
+      "estimatedHours": 80,
+      "priority": "high",
+      "phaseOrder": 3
+    },
+    {
+      "name": "MEP installation",
+      "description": "Install mechanical, electrical, and plumbing systems",
+      "estimatedHours": 64,
+      "priority": "high",
+      "phaseOrder": 4
+    },
+    {
+      "name": "Final inspection and handover",
+      "description": "Conduct inspections, obtain certificates, and hand over to client",
+      "estimatedHours": 16,
+      "priority": "high",
+      "phaseOrder": 5
+    }
+  ],
+  "phases": [
+    {
+      "name": "Pre-Construction",
+      "description": "Planning, permits, and design finalization",
+      "order": 1,
+      "estimatedDurationDays": 30
+    },
+    {
+      "name": "Procurement",
+      "description": "Material and equipment procurement",
+      "order": 2,
+      "estimatedDurationDays": 14
+    },
+    {
+      "name": "Site Work",
+      "description": "Site preparation and foundation",
+      "order": 3,
+      "estimatedDurationDays": 21
+    },
+    {
+      "name": "Construction",
+      "description": "Main construction and MEP installation",
+      "order": 4,
+      "estimatedDurationDays": 60
+    },
+    {
+      "name": "Completion",
+      "description": "Final inspections and handover",
+      "order": 5,
+      "estimatedDurationDays": 7
+    }
+  ]
+}
+

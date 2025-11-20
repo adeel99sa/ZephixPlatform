@@ -1,0 +1,91 @@
+{
+  "name": "Web App Development",
+  "category": "SOFTWARE",
+  "methodology": "agile",
+  "description": "Standard agile web application project template with common development phases",
+  "taskTemplates": [
+    {
+      "name": "Setup repository and CI/CD",
+      "description": "Initialize git repository, configure CI/CD pipeline, and set up development environment",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Design database schema",
+      "description": "Create ER diagrams, define tables, relationships, and indexes",
+      "estimatedHours": 16,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Implement authentication",
+      "description": "Set up user authentication, authorization, and session management",
+      "estimatedHours": 24,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Build core API endpoints",
+      "description": "Implement RESTful API endpoints for main business logic",
+      "estimatedHours": 40,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Create frontend components",
+      "description": "Build React components, pages, and routing",
+      "estimatedHours": 32,
+      "priority": "medium",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Write unit tests",
+      "description": "Create unit tests for critical business logic and components",
+      "estimatedHours": 16,
+      "priority": "medium",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Integration testing",
+      "description": "Test end-to-end workflows and API integrations",
+      "estimatedHours": 16,
+      "priority": "medium",
+      "phaseOrder": 4
+    },
+    {
+      "name": "Deploy to staging",
+      "description": "Deploy application to staging environment and perform smoke tests",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 4
+    }
+  ],
+  "phases": [
+    {
+      "name": "Planning & Setup",
+      "description": "Project initialization, requirements gathering, and environment setup",
+      "order": 1,
+      "estimatedDurationDays": 5
+    },
+    {
+      "name": "Development",
+      "description": "Core feature development and implementation",
+      "order": 2,
+      "estimatedDurationDays": 20
+    },
+    {
+      "name": "Testing",
+      "description": "Unit, integration, and user acceptance testing",
+      "order": 3,
+      "estimatedDurationDays": 10
+    },
+    {
+      "name": "Deployment",
+      "description": "Staging deployment, final testing, and production release",
+      "order": 4,
+      "estimatedDurationDays": 5
+    }
+  ]
+}
+

@@ -1,0 +1,84 @@
+{
+  "name": "Marketing Campaign",
+  "category": "MARKETING",
+  "methodology": "agile",
+  "description": "Template for planning and executing marketing campaigns",
+  "taskTemplates": [
+    {
+      "name": "Define campaign objectives",
+      "description": "Set clear goals, KPIs, and success metrics",
+      "estimatedHours": 4,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Research target audience",
+      "description": "Conduct market research and define buyer personas",
+      "estimatedHours": 16,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Create campaign strategy",
+      "description": "Develop messaging, channels, and content strategy",
+      "estimatedHours": 24,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Design creative assets",
+      "description": "Create graphics, videos, and other marketing materials",
+      "estimatedHours": 32,
+      "priority": "medium",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Set up tracking and analytics",
+      "description": "Configure analytics tools and conversion tracking",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Launch campaign",
+      "description": "Deploy across selected channels and begin monitoring",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Monitor and optimize",
+      "description": "Track performance, A/B test, and optimize campaigns",
+      "estimatedHours": 16,
+      "priority": "medium",
+      "phaseOrder": 4
+    }
+  ],
+  "phases": [
+    {
+      "name": "Planning",
+      "description": "Define objectives, research audience, and create strategy",
+      "order": 1,
+      "estimatedDurationDays": 7
+    },
+    {
+      "name": "Creative Development",
+      "description": "Design and produce marketing materials",
+      "order": 2,
+      "estimatedDurationDays": 10
+    },
+    {
+      "name": "Launch",
+      "description": "Deploy campaign and begin tracking",
+      "order": 3,
+      "estimatedDurationDays": 3
+    },
+    {
+      "name": "Optimization",
+      "description": "Monitor performance and optimize based on data",
+      "order": 4,
+      "estimatedDurationDays": 14
+    }
+  ]
+}
+

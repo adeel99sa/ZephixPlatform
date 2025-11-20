@@ -1,0 +1,50 @@
+name: Demo Smoke
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      E2E_BASE_URL: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Install backend deps
+        run: cd zephix-backend && npm ci
+
+      - name: Install frontend deps
+        run: cd zephix-frontend && npm ci
+
+      - name: Ensure demo users
+        run: cd zephix-backend && npm run ensure:demo
+
+      - name: Audit demo users
+        run: bash scripts/audit-demo.sh
+
+      - name: Start backend
+        run: cd zephix-backend && npm run start:dev &
+
+      - name: Wait for backend health
+        run: |
+          for i in {1..30}; do
+            curl -sf http://localhost:3000/api/health && break
+            sleep 2
+          done
+
+      - name: Start frontend
+        run: cd zephix-frontend && VITE_API_URL=/api npm run dev -- --host 0.0.0.0 --port 5173 &
+
+      - name: Install Playwright
+        run: cd zephix-e2e && npm ci && npx playwright install --with-deps
+
+      - name: Run demo login smoke
+        run: cd zephix-e2e && npx playwright test tests/demo-login.spec.ts
+

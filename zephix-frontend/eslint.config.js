@@ -32,13 +32,13 @@ export default tseslint.config([
       '@typescript-eslint/no-unused-vars': 'error',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
-      
+
       // React rules
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      
+
       // Accessibility rules
       'jsx-a11y/alt-text': 'error',
       'jsx-a11y/aria-props': 'error',
@@ -46,12 +46,46 @@ export default tseslint.config([
       'jsx-a11y/aria-unsupported-elements': 'error',
       'jsx-a11y/role-has-required-aria-props': 'error',
       'jsx-a11y/role-supports-aria-props': 'error',
-      
+
       // Import rules
       'import/order': ['error', {
         'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
         'newlines-between': 'always',
       }],
+
+      // Enforce single HTTP client - block direct axios imports
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: 'axios',
+            message: 'Use the centralized API client from @/lib/api instead of importing axios directly.',
+            importNames: ['default'],
+          },
+          {
+            name: '@/components/create/GlobalCreateMenu',
+            message: 'Global creation is forbidden. Use workspace-scoped creation.',
+          },
+          {
+            name: '@/components/dashboards/DashboardsSwitcher',
+            message: 'Global dashboards switching is forbidden. Use workspace-first navigation.',
+          },
+          {
+            name: '@/components/shell/UserAvatarMenu',
+            message: 'Header user menu is forbidden. Use the sidebar account block.',
+          },
+        ],
+        patterns: [
+          {
+            group: ['**/GlobalNew*', '**/GlobalCreate*', '**/DashboardsMenu*'],
+            message: 'Global creation/switching patterns are forbidden.',
+          },
+        ],
+      }],
     },
+  },
+  {
+    // Override for central API client only - allow axios usage
+    files: ['src/lib/api.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 ], storybook.configs["flat/recommended"]);

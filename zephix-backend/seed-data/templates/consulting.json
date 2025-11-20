@@ -1,0 +1,84 @@
+{
+  "name": "Consulting Engagement",
+  "category": "CONSULTING",
+  "methodology": "hybrid",
+  "description": "Template for consulting projects and client engagements",
+  "taskTemplates": [
+    {
+      "name": "Kickoff meeting",
+      "description": "Initial client meeting to understand requirements and expectations",
+      "estimatedHours": 4,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Discovery and analysis",
+      "description": "Gather information, analyze current state, and identify gaps",
+      "estimatedHours": 32,
+      "priority": "high",
+      "phaseOrder": 1
+    },
+    {
+      "name": "Develop recommendations",
+      "description": "Create strategic recommendations and action plan",
+      "estimatedHours": 24,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Present findings",
+      "description": "Deliver presentation to stakeholders and gather feedback",
+      "estimatedHours": 8,
+      "priority": "high",
+      "phaseOrder": 2
+    },
+    {
+      "name": "Implement solutions",
+      "description": "Execute recommended changes and improvements",
+      "estimatedHours": 48,
+      "priority": "medium",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Training and knowledge transfer",
+      "description": "Train client team and document processes",
+      "estimatedHours": 16,
+      "priority": "medium",
+      "phaseOrder": 3
+    },
+    {
+      "name": "Final review and handoff",
+      "description": "Review outcomes, document lessons learned, and complete engagement",
+      "estimatedHours": 8,
+      "priority": "medium",
+      "phaseOrder": 4
+    }
+  ],
+  "phases": [
+    {
+      "name": "Discovery",
+      "description": "Understand client needs and current state",
+      "order": 1,
+      "estimatedDurationDays": 10
+    },
+    {
+      "name": "Analysis & Planning",
+      "description": "Analyze findings and develop recommendations",
+      "order": 2,
+      "estimatedDurationDays": 7
+    },
+    {
+      "name": "Implementation",
+      "description": "Execute recommendations and provide training",
+      "order": 3,
+      "estimatedDurationDays": 21
+    },
+    {
+      "name": "Closure",
+      "description": "Review outcomes and complete engagement",
+      "order": 4,
+      "estimatedDurationDays": 3
+    }
+  ]
+}
+

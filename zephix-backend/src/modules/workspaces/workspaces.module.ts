@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ObservabilityModule } from '../../observability/observability.module';
+import { SharedModule } from '../../shared/shared.module';
 import { Workspace } from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { User } from '../users/entities/user.entity';
@@ -30,6 +31,7 @@ import { ResourceModule } from '../resources/resource.module';
     ]),
     ConfigModule,
     ObservabilityModule,
+    SharedModule, // Provides ResponseService
     ResourceModule, // Provides ResourceRiskScoreService
   ],
   providers: [

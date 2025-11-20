@@ -1,8 +1,8 @@
 # Release v0.5.0-alpha Status Report
 
-**Date**: 2025-01-19  
-**Release Branch**: `release/v0.5.0-alpha`  
-**Commit Hash**: `2507a7c`  
+**Date**: 2025-01-19
+**Release Branch**: `release/v0.5.0-alpha`
+**Commit Hash**: `2507a7c`
 **Tag**: `v0.5.0-alpha` (created and pushed)
 
 ## Git Status

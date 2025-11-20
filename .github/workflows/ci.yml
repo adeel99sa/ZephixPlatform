@@ -12,3 +12,26 @@ jobs:
       - run: cd zephix-frontend && npm run test:guardrails
       - uses: microsoft/playwright-github-action@v1
       - run: cd zephix-frontend && npm run test:smoke
+
+  check-rules-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-rules-size.sh
+
+  check-projects-scoping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-projects-route.sh
+
+  # Note: Contract checks require running backend
+  # Add to CI once backend is deployed or use local setup
+  # contract-smoke:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: bash scripts/check-contract.sh
+  #   env:
+  #     TOKEN: ${{ secrets.E2E_BEARER_TOKEN }}
+  #     API: ${{ vars.API_URL }}

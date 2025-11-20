@@ -1,0 +1,46 @@
+{
+  "name": "Projects API Contract",
+  "version": "1.0.0",
+  "description": "Contract for projects API endpoints",
+  "endpoints": {
+    "POST /api/projects": {
+      "description": "Create a new project",
+      "request": {
+        "body": {
+          "name": "string",
+          "workspaceId": "string (required)"
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Project created successfully",
+          "body": {
+            "id": "string",
+            "name": "string",
+            "workspaceId": "string",
+            "createdAt": "string"
+          }
+        },
+        "400": {
+          "description": "Validation error - workspaceId required",
+          "body": {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "message": "workspaceId is required"
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized",
+          "body": {
+            "error": {
+              "code": "UNAUTHENTICATED",
+              "message": "Unauthorized"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
