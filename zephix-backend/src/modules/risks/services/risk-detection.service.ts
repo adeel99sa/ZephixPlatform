@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Risk } from './entities/risk.entity';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
+import { Risk } from '../entities/risk.entity';
+import { Project } from '../../projects/entities/project.entity';
+import { Task } from '../../tasks/entities/task.entity';
+import { ResourceAllocation } from '../../resources/entities/resource-allocation.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 interface RiskEvidence {
@@ -97,15 +97,15 @@ export class RiskDetectionService {
       const risk = this.riskRepository.create({
         projectId,
         organizationId,
-        type: 'resource_overallocation',
-        severity: overallocated.some((a) => a.allocationPercentage > 120)
+        category: 'resource',
+        riskLevel: overallocated.some((a) => a.allocationPercentage > 120)
           ? 'high'
           : 'medium',
         title: 'Resource Overallocation Detected',
         description: `Multiple team members are allocated beyond capacity`,
         evidence: JSON.stringify(evidence),
-        status: 'open',
-        detectedAt: new Date(),
+        status: 'active',
+        // detectedAt: new Date(), // handled by createdAt
         mitigation: {
           suggestions: [
             'Reassign tasks to available resources',
@@ -113,6 +113,13 @@ export class RiskDetectionService {
             'Hire additional resources',
           ],
         },
+        // Required fields defaults
+        probability: 0,
+        impact: 0,
+        riskScore: 0,
+        impactBreakdown: { schedule: 0, budget: 0, scope: 0, quality: 0 },
+        triggers: { warningSignals: [], leadIndicators: [], thresholds: [] },
+        riskData: {},
       });
 
       return await this.riskRepository.save(risk);
@@ -154,13 +161,12 @@ export class RiskDetectionService {
       const risk = this.riskRepository.create({
         projectId,
         organizationId,
-        type: 'timeline_slippage',
-        severity: delayedTasks.length > 5 ? 'high' : 'medium',
+        category: 'schedule',
+        riskLevel: delayedTasks.length > 5 ? 'high' : 'medium',
         title: 'Project Timeline at Risk',
         description: `Critical tasks are behind schedule`,
         evidence: JSON.stringify(evidence),
-        status: 'open',
-        detectedAt: new Date(),
+        status: 'active',
         mitigation: {
           suggestions: [
             'Prioritize critical path tasks',
@@ -168,6 +174,13 @@ export class RiskDetectionService {
             'Adjust project timeline',
           ],
         },
+        // Required fields defaults
+        probability: 0,
+        impact: 0,
+        riskScore: 0,
+        impactBreakdown: { schedule: 0, budget: 0, scope: 0, quality: 0 },
+        triggers: { warningSignals: [], leadIndicators: [], thresholds: [] },
+        riskData: {},
       });
 
       return await this.riskRepository.save(risk);
@@ -214,13 +227,12 @@ export class RiskDetectionService {
       const risk = this.riskRepository.create({
         projectId,
         organizationId,
-        type: 'dependency_cascade',
-        severity: 'high',
+        category: 'schedule', // dependency_cascade fits schedule or technical
+        riskLevel: 'high',
         title: 'Dependency Chain Risk',
         description: `Multiple tasks blocked creating cascade effect`,
         evidence: JSON.stringify(evidence),
-        status: 'open',
-        detectedAt: new Date(),
+        status: 'active',
         mitigation: {
           suggestions: [
             'Prioritize blocking tasks',
@@ -228,6 +240,13 @@ export class RiskDetectionService {
             'Consider parallel execution where possible',
           ],
         },
+        // Required fields defaults
+        probability: 0,
+        impact: 0,
+        riskScore: 0,
+        impactBreakdown: { schedule: 0, budget: 0, scope: 0, quality: 0 },
+        triggers: { warningSignals: [], leadIndicators: [], thresholds: [] },
+        riskData: {},
       });
 
       return await this.riskRepository.save(risk);
