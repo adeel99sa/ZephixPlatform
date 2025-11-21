@@ -8,18 +8,18 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Runtime image
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
+
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy only what we need
+# Copy app artifacts from builder
 COPY --from=builder /app/dist ./dist
-COPY server.cjs ./server.cjs
-COPY package*.json ./
-
-# Install only production deps (Express)
-RUN npm install --omit=dev
+COPY --from=builder /app/server.cjs ./server.cjs
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
 
 ENV NODE_ENV=production
 EXPOSE 3000
