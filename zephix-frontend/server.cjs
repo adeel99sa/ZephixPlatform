@@ -10,7 +10,8 @@ const distPath = path.join(__dirname, 'dist')
 
 app.use(express.static(distPath))
 
-app.get('/*', (req, res) => {
+// Catch-all middleware for SPA routing (works in all Express versions)
+app.use((req, res) => {
   res.sendFile(path.join(distPath, 'index.html'))
 })
 
