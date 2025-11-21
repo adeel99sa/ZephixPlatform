@@ -1,20 +1,27 @@
-# zephix-frontend/Dockerfile
+FROM node:20-alpine AS builder
 
-FROM node:20-alpine AS build
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm ci
+
 COPY . .
-# Ensure prod API base is embedded at build-time (Railway env will inject VITE_API_BASE)
 RUN npm run build
 
+# Runtime image
 FROM node:20-alpine
+
 WORKDIR /app
-RUN npm i -g serve
-COPY --from=build /app/dist ./dist
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-ENV PORT=8080
-EXPOSE 8080
-# Use startup script to properly handle Railway's PORT environment variable
-CMD ["/app/start.sh"]
+
+# Copy only what we need
+COPY --from=builder /app/dist ./dist
+COPY server.cjs ./server.cjs
+COPY package*.json ./
+
+# Install only production deps (Express)
+RUN npm install --omit=dev
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["node", "server.cjs"]
