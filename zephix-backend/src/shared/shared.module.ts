@@ -5,6 +5,7 @@ import { EmailService } from './services/email.service';
 import { MetricsService } from '../observability/metrics.service';
 import { VirusScanService } from './services/virus-scan.service';
 import { AuditService } from './services/audit.service';
+import { ResponseService } from './services/response.service';
 
 /**
  * SharedModule
@@ -26,6 +27,7 @@ import { AuditService } from './services/audit.service';
     MetricsService,
     VirusScanService,
     AuditService,
+    ResponseService,
   ],
   exports: [
     LLMProviderService,
@@ -34,6 +36,7 @@ import { AuditService } from './services/audit.service';
     MetricsService,
     VirusScanService,
     AuditService,
+    ResponseService,
   ],
 })
 export class SharedModule {}
