@@ -24,4 +24,5 @@ COPY --from=builder /app/node_modules ./node_modules
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "server.cjs"]
+# Use ENTRYPOINT to force Railway to run this, no matter what
+ENTRYPOINT ["node", "server.cjs"]
