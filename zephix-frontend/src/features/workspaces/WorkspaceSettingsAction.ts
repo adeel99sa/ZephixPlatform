@@ -1,23 +1,8 @@
-import { track } from "@/lib/telemetry";
-import { openWorkspaceSettingsModal } from "./components/WorkspaceSettingsModal/controller";
-import { useWorkspaceStore } from "@/state/workspace.store";
-
-type CommandPalette = {
-  register: (id: string, label: string, run: () => void) => void;
-};
-
-/** Registers the ⌘K action. Call this once at app boot. */
-export function registerWorkspaceSettingsAction(commandPalette: CommandPalette) {
-  commandPalette.register(
-    "workspace.settings",
-    "Workspace Settings",
-    () => {
-      const id = useWorkspaceStore.getState().activeWorkspaceId;
-      if (!id) return; // no active workspace → ignore
-      track("workspace.settings.opened", { workspaceId: id });
-      openWorkspaceSettingsModal(id);
-    }
-  );
+// Phase 3: Workspace settings is now a full page, not a modal
+// The command is registered directly in CommandPalette.tsx
+// This file is kept for backward compatibility but is no longer used
+export function registerWorkspaceSettingsAction(_commandPalette: any) {
+  // No-op: Command is registered in CommandPalette.tsx
 }
 
 

@@ -9,7 +9,7 @@ export const getApiBase = (): string => {
 
 /**
  * Enterprise API Client
- * 
+ *
  * Features:
  * - Automatic token attachment from Zustand store
  * - Token refresh on 401
@@ -63,9 +63,19 @@ interface ApiError {
   details?: any;
 }
 
+// Get API base URL - use proxy in dev, full URL in prod
+const getApiBaseUrl = (): string => {
+  // In production, use VITE_API_URL if set, otherwise default to production URL
+  if (import.meta.env.PROD) {
+    return import.meta.env.VITE_API_URL || 'https://zephix-backend-production.up.railway.app/api';
+  }
+  // In development, use /api which is proxied by Vite
+  return '/api';
+};
+
 // Create axios instance with enterprise configuration
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30000, // 30 seconds
   withCredentials: true, // Enable cookies for refresh tokens
   headers: {
@@ -79,22 +89,22 @@ api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Get token from Zustand auth store
     const authStorage = localStorage.getItem('auth-storage');
-    
+
     if (authStorage) {
       try {
         const { state } = JSON.parse(authStorage) as { state: AuthState };
-        
+
         // Check if we have a valid token that hasn't expired
-        const hasValidToken = state?.accessToken && 
-                             state.accessToken !== 'null' && 
+        const hasValidToken = state?.accessToken &&
+                             state.accessToken !== 'null' &&
                              state.accessToken !== null &&
                              typeof state.accessToken === 'string' &&
                              state.accessToken.length > 0 &&
                              state?.expiresAt;
-        
+
         if (hasValidToken) {
           const now = Date.now();
-          
+
           if (now < state.expiresAt) {
             config.headers.Authorization = `Bearer ${state.accessToken}`;
           } else {
@@ -107,7 +117,7 @@ api.interceptors.request.use(
         localStorage.removeItem('auth-storage');
       }
     }
-    
+
     // Development logging
     if (import.meta.env.DEV) {
       console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
@@ -115,7 +125,7 @@ api.interceptors.request.use(
         console.log('Request payload:', config.data);
       }
     }
-    
+
     return config;
   },
   (error: AxiosError) => {
@@ -134,12 +144,12 @@ api.interceptors.response.use(
   },
   async (error: AxiosError<ApiError>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    
+
     if (import.meta.env.DEV) {
       console.error(`❌ API Error: ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}`);
       console.error('Error details:', error.response?.data || error.message);
     }
-    
+
     // Don't retry refresh endpoint itself
     if (originalRequest?.url?.includes('/auth/refresh')) {
       localStorage.removeItem('auth-storage');
@@ -148,7 +158,7 @@ api.interceptors.response.use(
       }
       return Promise.reject(error);
     }
-    
+
     // Handle 401 Unauthorized
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
@@ -160,13 +170,13 @@ api.interceptors.response.use(
           return api(originalRequest);
         }).catch(err => Promise.reject(err));
       }
-      
+
       originalRequest._retry = true;
       isRefreshing = true;
-      
+
       try {
         const refreshResponse = await api.post('/auth/refresh');
-        
+
         if (refreshResponse.data.accessToken) {
           const authStorage = localStorage.getItem('auth-storage');
           if (authStorage) {
@@ -175,7 +185,7 @@ api.interceptors.response.use(
             parsed.state.expiresAt = Date.now() + (refreshResponse.data.expiresIn * 1000);
             localStorage.setItem('auth-storage', JSON.stringify(parsed));
           }
-          
+
           processQueue(null, refreshResponse.data.accessToken);
           originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.accessToken}`;
           return api(originalRequest);
@@ -191,7 +201,7 @@ api.interceptors.response.use(
         isRefreshing = false;
       }
     }
-    
+
     // Handle 403 Forbidden (email not verified)
     if (error.response?.status === 403) {
       const message = error.response.data?.message;
@@ -200,17 +210,17 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
     }
-    
+
     // Handle 429 Too Many Requests
     if (error.response?.status === 429) {
       console.warn('Rate limit exceeded. Please wait before retrying.');
     }
-    
+
     // Handle network errors
     if (!error.response) {
       console.error('Network error - API server may be down');
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -219,13 +229,13 @@ api.interceptors.response.use(
 export const getErrorMessage = (error: any): string => {
   if (axios.isAxiosError(error)) {
     const apiError = error.response?.data as ApiError | undefined;
-    
+
     // Check if apiError exists and has a message property
     if (apiError && apiError.message) {
       // Handle nested message structure from backend
       // Backend sometimes returns { message: { message: "actual error", error: "type", statusCode: 400 } }
-      if (typeof apiError.message === 'object' && 
-          apiError.message !== null && 
+      if (typeof apiError.message === 'object' &&
+          apiError.message !== null &&
           'message' in apiError.message) {
         return (apiError.message as any).message;
       }
@@ -234,13 +244,13 @@ export const getErrorMessage = (error: any): string => {
         return apiError.message;
       }
     }
-    
+
     // Fallback messages based on status code
     if (error.response?.status === 404) return 'Resource not found';
     if (error.response?.status === 500) return 'Server error occurred';
     if (!error.response) return 'Network error - please check your connection';
   }
-  
+
   return error?.message || 'An unexpected error occurred';
 };
 

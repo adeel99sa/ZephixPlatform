@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { MoreHorizontal, ChevronRight, GripVertical, Star, Trash2 } from "lucide-react";
 
-// import { useAuth } from "@/state/AuthContext";
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
 import { useWorkspaceStore } from "@/state/workspace.store";
@@ -11,9 +10,11 @@ import { UserProfileDropdown } from "./UserProfileDropdown";
 import { openWorkspaceSettingsModal } from "@/features/workspaces/components/WorkspaceSettingsModal/controller";
 import { deleteWorkspace } from "@/features/workspaces/api";
 import { useUIStore } from "@/stores/uiStore";
+import { useAuth } from "@/state/AuthContext";
+import { isAdminRole } from "@/types/roles";
 
 export function Sidebar() {
-  // const { user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -116,7 +117,7 @@ export function Sidebar() {
         </NavLink>
       </div>
 
-      {/* User Profile Dropdown - Below platform brand */}
+      {/* User Profile Dropdown - Right under company name */}
       <div className="p-2 border-b">
         <UserProfileDropdown />
       </div>
@@ -233,13 +234,16 @@ export function Sidebar() {
               <div className="border-t border-gray-200 my-1"></div>
 
               <div className="py-1">
-                <button
-                  onClick={handleCreateWorkspace}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
-                  data-testid="menu-add-workspace"
-                >
-                  + Add new workspace
-                </button>
+                {/* Phase 4: Only show create workspace for org admin/owner */}
+                {isAdminRole(user?.role) && (
+                  <button
+                    onClick={handleCreateWorkspace}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                    data-testid="menu-add-workspace"
+                  >
+                    + Add new workspace
+                  </button>
+                )}
 
                 <button
                   onClick={handleManageWorkspace}
@@ -266,6 +270,66 @@ export function Sidebar() {
         <div className="px-1">
           <SidebarWorkspaces />
         </div>
+
+        {/* Phase 7: Nested workspace navigation - shows when workspace is active */}
+        {activeWorkspaceId && (
+          <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
+            <NavLink
+              data-testid="ws-nav-overview"
+              to={`/workspaces/${activeWorkspaceId}`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Overview
+            </NavLink>
+            <NavLink
+              data-testid="ws-nav-projects"
+              to={`/workspaces/${activeWorkspaceId}/projects`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Projects
+            </NavLink>
+            <NavLink
+              data-testid="ws-nav-boards"
+              to={`/workspaces/${activeWorkspaceId}/boards`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Boards
+            </NavLink>
+            <NavLink
+              data-testid="ws-nav-documents"
+              to={`/workspaces/${activeWorkspaceId}/documents`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Documents
+            </NavLink>
+            <NavLink
+              data-testid="ws-nav-forms"
+              to={`/workspaces/${activeWorkspaceId}/forms`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Forms
+            </NavLink>
+            <NavLink
+              data-testid="ws-nav-members"
+              to={`/workspaces/${activeWorkspaceId}/members`}
+              className={({ isActive }) =>
+                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+              }
+            >
+              Members
+            </NavLink>
+          </div>
+        )}
 
         <NavLink
           data-testid="nav-templates"

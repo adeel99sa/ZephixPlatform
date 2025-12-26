@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { adminApi } from '@/services/adminApi';
+import { useAuth } from '@/state/AuthContext';
 import {
   Users, FileText, FolderKanban, TrendingUp,
   Activity, AlertCircle, CheckCircle2, Clock, ArrowUp, ArrowDown,
-  RefreshCw, Calendar, Zap
+  RefreshCw, Calendar, Zap, CreditCard
 } from 'lucide-react';
 
 interface Stats {
@@ -30,6 +32,7 @@ interface ActivityItem {
 }
 
 export default function AdminDashboardPage() {
+  const { user, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -39,6 +42,16 @@ export default function AdminDashboardPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     loadDashboardData();
 
     // Auto-refresh every 30 seconds if enabled
@@ -52,21 +65,78 @@ export default function AdminDashboardPage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh]);
+  }, [authLoading, user, autoRefresh]);
 
   const loadDashboardData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const [statsData, healthData, auditData] = await Promise.all([
-        adminApi.getStats(),
-        adminApi.getSystemHealth(),
-        adminApi.getAuditLogs({ limit: 10 }).catch(() => ({ data: [] }))
-      ]);
-      setStats(statsData);
-      setHealth(healthData);
-      setActivities(auditData.data?.slice(0, 10) || []);
+      setError(null); // Clear any previous errors
+
+      // Critical endpoints - these failures should show error banner
+      // Check for non-2xx status codes or thrown errors
+      let statsData: Stats | null = null;
+      let healthData: SystemHealth | null = null;
+      let criticalError = false;
+
+      try {
+        const [statsResponse, healthResponse] = await Promise.all([
+          adminApi.getStats().catch((err) => {
+            criticalError = true;
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Stats endpoint failed:', err);
+            }
+            return null;
+          }),
+          adminApi.getSystemHealth().catch((err) => {
+            criticalError = true;
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Health endpoint failed:', err);
+            }
+            return null;
+          }),
+        ]);
+
+        // If either critical endpoint failed completely (null response), show error
+        if (statsResponse === null || healthResponse === null) {
+          criticalError = true;
+        } else {
+          statsData = statsResponse;
+          healthData = healthResponse;
+        }
+      } catch (err: any) {
+        // Network error or other exception
+        criticalError = true;
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Critical endpoint error:', err);
+        }
+      }
+
+      // Set data even if zeros (backend returns safe defaults)
+      setStats(statsData || { userCount: 0, activeUsers: 0, templateCount: 0, projectCount: 0, totalItems: 0 });
+      setHealth(healthData || { status: 'error', timestamp: new Date().toISOString(), database: 'error' });
       setLastRefresh(new Date());
+
+      // Show error banner only if critical endpoints failed with non-2xx or threw
+      if (criticalError && !silent) {
+        setError('Admin dashboard data is temporarily unavailable. Please try refreshing the page.');
+      }
+
+      // Optional endpoint - audit logs are non-critical
+      // Fetch separately and silently handle failures
+      try {
+        const auditData = await adminApi.getAuditLogs({ limit: 10 });
+        setActivities(auditData.data?.slice(0, 10) || []);
+      } catch (auditError: any) {
+        // Silently fail - audit logs are optional
+        // Just show empty state in the UI
+        setActivities([]);
+        // Log to console for debugging, but don't show to user
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Audit logs endpoint not available:', auditError);
+        }
+      }
     } catch (err: any) {
+      // Fallback error handler for unexpected errors
       if (!silent) {
         setError(err.message || 'Failed to load dashboard data');
       }
@@ -188,22 +258,27 @@ export default function AdminDashboardPage() {
       {/* System Health */}
       {health && (
         <div className={`rounded-lg border p-4 ${
-          health.status === 'healthy'
+          health.status === 'ok'
             ? 'bg-green-50 border-green-200'
-            : 'bg-red-50 border-red-200'
+            : 'bg-yellow-50 border-yellow-200'
         }`}>
           <div className="flex items-center gap-3">
-            {health.status === 'healthy' ? (
+            {health.status === 'ok' ? (
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             ) : (
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
             )}
             <div className="flex-1">
               <p className="font-semibold text-gray-900">
-                System Status: <span className="capitalize">{health.status}</span>
+                System Status: <span className="capitalize">{health.status === 'ok' ? 'Healthy' : 'Degraded'}</span>
               </p>
+              {health.status !== 'ok' && (
+                <p className="text-sm text-yellow-800 mt-1">
+                  Backend health check reports an error. {health.details?.message || 'Please check system logs.'}
+                </p>
+              )}
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                <span>Database: {health.database}</span>
+                <span>Database: <span className={health.database === 'ok' ? 'text-green-600' : 'text-yellow-600'}>{health.database}</span></span>
                 {health.services && (
                   <span>Services: {Object.values(health.services).filter(s => s === 'operational').length} / {Object.keys(health.services).length} operational</span>
                 )}
@@ -246,8 +321,8 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a
-              href="/admin/users"
+            <Link
+              to="/admin/users"
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <Users className="h-5 w-5 text-blue-600" />
@@ -255,9 +330,9 @@ export default function AdminDashboardPage() {
                 <p className="font-medium text-gray-900">Manage Users</p>
                 <p className="text-sm text-gray-500">Add, edit, or remove users</p>
               </div>
-            </a>
-            <a
-              href="/admin/templates"
+            </Link>
+            <Link
+              to="/admin/templates"
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <FileText className="h-5 w-5 text-blue-600" />
@@ -265,27 +340,27 @@ export default function AdminDashboardPage() {
                 <p className="font-medium text-gray-900">Templates</p>
                 <p className="text-sm text-gray-500">Manage project templates</p>
               </div>
-            </a>
-            <a
-              href="/admin/invite"
+            </Link>
+            <Link
+              to="/admin/billing"
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <Users className="h-5 w-5 text-blue-600" />
+              <CreditCard className="h-5 w-5 text-blue-600" />
               <div>
-                <p className="font-medium text-gray-900">Invite Users</p>
-                <p className="text-sm text-gray-500">Send invitations to new users</p>
+                <p className="font-medium text-gray-900">Billing & Plans</p>
+                <p className="text-sm text-gray-500">Manage subscription and billing</p>
               </div>
-            </a>
-            <a
-              href="/admin/roles"
+            </Link>
+            <Link
+              to="/admin/workspaces"
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <Activity className="h-5 w-5 text-blue-600" />
+              <FolderKanban className="h-5 w-5 text-blue-600" />
               <div>
-                <p className="font-medium text-gray-900">Roles & Permissions</p>
-                <p className="text-sm text-gray-500">Manage user roles</p>
+                <p className="font-medium text-gray-900">Workspaces</p>
+                <p className="text-sm text-gray-500">Manage all workspaces</p>
               </div>
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -299,7 +374,7 @@ export default function AdminDashboardPage() {
           </div>
           <div className="space-y-3">
             {activities.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
+              <p className="text-sm text-gray-500 text-center py-4">No recent activity yet</p>
             ) : (
               activities.map((activity) => {
                 const Icon = getActivityIcon(activity.type);

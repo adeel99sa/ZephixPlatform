@@ -85,7 +85,17 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
           workspaceId: effectiveWorkspaceId,
         });
         project = data;
-        telemetry.track('project.create.templateSelected', { projectId: project.id, templateId: selectedTemplateId });
+        const projectId = project.id || project.projectId;
+        telemetry.track('project.create.templateSelected', { projectId, templateId: selectedTemplateId });
+
+        // Emit event to invalidate KPI cache in dashboards
+        if (effectiveWorkspaceId) {
+          window.dispatchEvent(new CustomEvent('project:created', {
+            detail: { projectId, workspaceId: effectiveWorkspaceId }
+          }));
+        }
+
+        onCreated(projectId);
       } else {
         // Use regular project creation
         project = await createProject({
@@ -93,20 +103,40 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
           workspaceId: effectiveWorkspaceId,
         });
         telemetry.track('project.create.blank', { projectId: project.id });
+
+        // Emit event to invalidate KPI cache in dashboards
+        if (effectiveWorkspaceId) {
+          window.dispatchEvent(new CustomEvent('project:created', {
+            detail: { projectId: project.id, workspaceId: effectiveWorkspaceId }
+          }));
+        }
+
+        onCreated(project.id);
       }
 
-      // Emit event to invalidate KPI cache in dashboards
-      if (effectiveWorkspaceId) {
-        window.dispatchEvent(new CustomEvent('project:created', {
-          detail: { projectId: project.id, workspaceId: effectiveWorkspaceId }
-        }));
-      }
-
-      onCreated(project.id);
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       telemetry.track('ui.project.create.error', { message: (e as Error).message });
-      alert('Failed to create project: ' + ((e as Error).message || 'Unknown error'));
+
+      // Show user-friendly error messages based on error code
+      const errorCode = e?.response?.data?.code;
+      const errorMessage = e?.response?.data?.message || e?.message;
+
+      let userMessage = 'Failed to create project';
+
+      if (errorCode === 'MISSING_WORKSPACE_ID') {
+        userMessage = 'Please select a workspace to create the project in.';
+      } else if (errorCode === 'MISSING_PROJECT_NAME') {
+        userMessage = 'Please enter a project name.';
+      } else if (errorCode === 'MISSING_ORGANIZATION_ID') {
+        userMessage = 'Organization context is missing. Please refresh and try again.';
+      } else if (errorCode === 'TEMPLATE_INSTANTIATION_FAILED' || errorCode === 'TEMPLATE_APPLY_FAILED') {
+        userMessage = errorMessage || 'Failed to create project. Please try again or contact support.';
+      } else if (errorMessage) {
+        userMessage = errorMessage;
+      }
+
+      alert(userMessage);
     } finally {
       setBusy(false);
     }

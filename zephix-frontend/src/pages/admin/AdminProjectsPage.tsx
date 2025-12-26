@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { adminApi } from '@/services/adminApi';
 import { FolderKanban, Search, Filter, MoreVertical, Archive, Trash2, Eye, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/state/AuthContext';
 
 interface Project {
   id: string;
@@ -15,6 +16,7 @@ interface Project {
 }
 
 export default function AdminProjectsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,20 +25,32 @@ export default function AdminProjectsPage() {
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
 
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadProjects();
-  }, [searchTerm, statusFilter, workspaceFilter]);
+  }, [authLoading, user, searchTerm, statusFilter, workspaceFilter]);
 
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getProjects({
+      const response = await adminApi.getProjects({
         search: searchTerm || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         workspaceId: workspaceFilter !== 'all' ? workspaceFilter : undefined,
       });
+      // Handle both { data: { projects, ... } } and direct array responses
+      const data = response?.data?.projects || response?.projects || response;
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load projects:', error);
+      setProjects([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

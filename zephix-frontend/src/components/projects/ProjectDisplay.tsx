@@ -37,12 +37,12 @@ export function ProjectDisplay({ project, onEdit }: ProjectDisplayProps) {
           Edit Project
         </button>
       </div>
-      
+
       <p className="text-gray-600 mb-4">{project.description || 'No description'}</p>
-      
+
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <span className="font-semibold">Status:</span> 
+          <span className="font-semibold">Status:</span>
           <span className={`ml-2 px-2 py-1 rounded text-sm ${
             project.status === 'active' ? 'bg-green-100 text-green-800' :
             project.status === 'planning' ? 'bg-blue-100 text-blue-800' :
@@ -52,7 +52,7 @@ export function ProjectDisplay({ project, onEdit }: ProjectDisplayProps) {
           </span>
         </div>
         <div>
-          <span className="font-semibold">Priority:</span> 
+          <span className="font-semibold">Priority:</span>
           <span className={`ml-2 px-2 py-1 rounded text-sm ${
             project.priority === 'high' ? 'bg-red-100 text-red-800' :
             project.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -78,6 +78,7 @@ export function ProjectDisplay({ project, onEdit }: ProjectDisplayProps) {
     </div>
   );
 }
+
 
 
 

@@ -144,7 +144,7 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
                 <Skeleton variant="rectangular" size="md" width="100px" height="40px" />
               </div>
             </div>
-            
+
             {/* Chat Interface Skeleton */}
             <div className="flex-1 flex flex-col">
               <div className="flex-1 p-6">
@@ -156,7 +156,7 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
               </div>
             </div>
           </div>
-          
+
           {/* Sidebar Skeleton */}
           <div className="w-80 bg-gray-800 border-l border-gray-700 p-6">
             <SkeletonList items={5} />
@@ -180,7 +180,7 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
               + New Project
             </button>
           </div>
-          
+
           <ChatInterface
             messages={messages.map(msg => ({
               id: msg.id,
@@ -192,7 +192,7 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
             isLoading={isProcessing}
           />
         </div>
-        
+
         {/* Sidebar */}
         <DashboardSidebar
           onQuickAction={handleQuickAction}

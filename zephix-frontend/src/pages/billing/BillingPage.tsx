@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/state/AuthContext';
 
 export default function BillingPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
@@ -18,8 +18,17 @@ export default function BillingPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadBillingData();
-  }, []);
+  }, [authLoading, user]);
 
   const loadBillingData = async () => {
     try {
@@ -50,7 +59,14 @@ export default function BillingPage() {
       setShowUpgradeModal(false);
       setSelectedPlan(null);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to upgrade plan');
+      // Handle 403 (enterprise managed) and 501 (not implemented) gracefully
+      if (error?.response?.status === 403) {
+        toast.error(error?.response?.data?.message || 'Plan changes are not allowed for enterprise accounts. Please contact support.');
+      } else if (error?.response?.status === 501) {
+        toast.info('Plan change feature is not yet available. Please contact support.');
+      } else {
+        toast.error(error?.response?.data?.message || 'Failed to upgrade plan');
+      }
     }
   };
 
@@ -385,4 +401,5 @@ export default function BillingPage() {
     </div>
   );
 }
+
 

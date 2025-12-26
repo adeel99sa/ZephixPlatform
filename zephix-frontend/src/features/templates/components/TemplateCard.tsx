@@ -73,7 +73,7 @@ export function TemplateCard({
               <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                 {onEdit && (
                   <button
-                    onClick={() => { onEdit(); setShowMenu(false); }}
+                    onClick={(e) => { onEdit(e); setShowMenu(false); }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                     data-testid={`template-edit-${id}`}
                   >
@@ -83,7 +83,7 @@ export function TemplateCard({
                 )}
                 {onDuplicate && (
                   <button
-                    onClick={() => { onDuplicate(); setShowMenu(false); }}
+                    onClick={(e) => { onDuplicate(e); setShowMenu(false); }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                     data-testid={`template-duplicate-${id}`}
                   >
@@ -93,7 +93,7 @@ export function TemplateCard({
                 )}
                 {onSetDefault && (
                   <button
-                    onClick={() => { onSetDefault(); setShowMenu(false); }}
+                    onClick={(e) => { onSetDefault(e); setShowMenu(false); }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                     data-testid={`template-set-default-${id}`}
                   >
@@ -105,7 +105,7 @@ export function TemplateCard({
                   <>
                     <div className="border-t my-1"></div>
                     <button
-                      onClick={() => { onDelete(); setShowMenu(false); }}
+                      onClick={(e) => { onDelete(e); setShowMenu(false); }}
                       className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
                       data-testid={`template-delete-${id}`}
                     >
@@ -123,11 +123,14 @@ export function TemplateCard({
       <p className="text-gray-600 text-sm mb-4">{description}</p>
 
       <Button
-        onClick={onApply}
+        onClick={(e) => {
+          e?.stopPropagation();
+          onApply();
+        }}
         className="w-full"
         data-testid={`template-apply-${id}`}
       >
-        Use template
+        Use in workspace
       </Button>
     </div>
   );

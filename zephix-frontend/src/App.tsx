@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { AuthProvider } from "@/state/AuthContext";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
+import { RouteLogger } from "@/components/routing/RouteLogger";
 
 // Auth pages
 import { LoginPage } from "@/pages/auth/LoginPage";
@@ -30,6 +31,8 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
 import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
+import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
+import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
 
 // Admin pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
@@ -48,11 +51,13 @@ import AdminUsagePage from "@/pages/admin/AdminUsagePage";
 import AdminSecurityPage from "@/pages/admin/AdminSecurityPage";
 import AdminTemplateBuilderPage from "@/pages/admin/AdminTemplateBuilderPage";
 import AdminCustomFieldsPage from "@/pages/admin/AdminCustomFieldsPage";
+import AdminOverviewPage from "@/pages/admin/AdminOverviewPage";
 
 export default function App() {
   return (
     <AuthProvider>
       <Router>
+        <RouteLogger />
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
@@ -80,8 +85,10 @@ export default function App() {
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:id" element={<WorkspaceView />} />
               <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
+              <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
               <Route path="/templates" element={<TemplateCenter />} />
               <Route path="/resources" element={<ResourcesPage />} />
+              <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/billing" element={<BillingPage />} />
@@ -97,6 +104,7 @@ export default function App() {
                 </ErrorBoundary>
               }>
                 <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/overview" element={<AdminOverviewPage />} />
 
                 {/* Organization Section */}
                 <Route path="/admin/org" element={<AdminOrganizationPage />} />

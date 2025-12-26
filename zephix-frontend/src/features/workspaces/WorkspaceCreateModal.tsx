@@ -25,15 +25,24 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
 
   async function submit() {
     if (!name.trim()) return;
+    if (!user?.id) {
+      alert('User ID is required to create workspace.');
+      return;
+    }
     setBusy(true);
     try {
-      const ws = await createWorkspace({ name, slug: slug || undefined });
+      const ws = await createWorkspace({
+        name,
+        slug: slug || undefined,
+        ownerId: user.id, // Backend requires ownerId when workspace membership feature is enabled
+      });
       telemetry.track('ui.workspace.create.success', { workspaceId: ws.id });
       onCreated(ws.id);
       onClose();
     } catch (e) {
       telemetry.track('ui.workspace.create.error', { message: (e as Error).message });
-      alert('Failed to create workspace.');
+      const errorMessage = (e as any)?.response?.data?.message || (e as Error).message || 'Failed to create workspace.';
+      alert(errorMessage);
     } finally {
       setBusy(false);
     }

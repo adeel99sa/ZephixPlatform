@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { track } from '@/lib/telemetry';
 import { registerWorkspaceSettingsAction } from '@/features/workspaces/WorkspaceSettingsAction';
+import { useWorkspaceStore } from '@/state/workspace.store';
+import { useAuth } from '@/state/AuthContext';
+import { isAdminRole } from '@/types/roles';
 
 type Command = {
   id: string;
@@ -20,6 +23,9 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
+  const { activeWorkspaceId } = useWorkspaceStore();
+  const { user } = useAuth();
+  const isAdmin = user?.role ? isAdminRole(user.role) : false;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -54,38 +60,53 @@ export function CommandPalette() {
 
   // Commands (role-gated could be added via props/context)
   const [commands, setCommands] = useState<Command[]>([
-    { id: 'dashboards', label: 'Go to Dashboards', hint: '/dashboards', run: () => navigate('/dashboards') },
-    { id: 'create-dashboard', label: 'Create Dashboard', hint: 'modal', run: () => {
-        track('ui.dashboard.create.open', { source: 'cmdk' });
-        navigate('/dashboards'); // open page, modal opens via route state in Index
-        setTimeout(() => {
-          const btn = document.querySelector('[data-testid="create-dashboard-button"]') as HTMLButtonElement | null;
-          btn?.click();
-        }, 0);
-      }
-    },
-    { id: 'invite', label: 'Invite Members', hint: 'modal', run: () => {
-        const btn = document.querySelector('[data-testid="invite-members-menu-item"]') as HTMLButtonElement | null;
-        btn?.click();
-      }
-    },
-    { id: 'admin', label: 'Open Administration', hint: '/admin', run: () => navigate('/admin') },
     { id: 'home', label: 'Go to Home', hint: '/home', run: () => navigate('/home') },
   ]);
 
   // Register workspace settings action dynamically
   useEffect(() => {
-    const commandRegistry = {
-      register: (id: string, label: string, run: () => void) => {
-        setCommands(prev => {
-          const exists = prev.find(c => c.id === id);
-          if (exists) return prev;
-          return [...prev, { id, label, hint: 'modal', run }];
-        });
-      }
-    };
-    registerWorkspaceSettingsAction(commandRegistry);
-  }, []);
+    // Only register workspace settings if a workspace is active
+    // TODO: Phase 4 - Also check 'view_workspace' permission from API
+    // Currently relies on backend guard to reject unauthorized access
+    if (activeWorkspaceId) {
+      setCommands(prev => {
+        const exists = prev.find(c => c.id === 'workspace.settings');
+        if (exists) return prev;
+        return [...prev, {
+          id: 'workspace.settings',
+          label: 'Open workspace settings',
+          hint: `/workspaces/${activeWorkspaceId}/settings`,
+          run: () => {
+            navigate(`/workspaces/${activeWorkspaceId}/settings`);
+            close();
+          }
+        }];
+      });
+    } else {
+      // Remove if no active workspace
+      setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.settings'));
+    }
+  }, [activeWorkspaceId, navigate, close]);
+
+  // Add Admin commands if user is admin
+  useEffect(() => {
+    if (isAdmin) {
+      setCommands(prev => {
+        const adminCommands: Command[] = [
+          { id: 'admin-overview', label: 'Go to Admin overview', hint: '/admin/overview', run: () => navigate('/admin/overview') },
+          { id: 'admin-dashboard', label: 'Go to Admin dashboard', hint: '/admin', run: () => navigate('/admin') },
+          { id: 'admin-users', label: 'Manage users', hint: '/admin/users', run: () => navigate('/admin/users') },
+          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/admin/workspaces', run: () => navigate('/admin/workspaces') },
+        ];
+        // Remove existing admin commands and add new ones
+        const filtered = prev.filter(cmd => !cmd.id.startsWith('admin-'));
+        return [...filtered, ...adminCommands];
+      });
+    } else {
+      // Remove admin commands if user is not admin
+      setCommands(prev => prev.filter(cmd => !cmd.id.startsWith('admin-')));
+    }
+  }, [isAdmin, navigate]);
 
   const filtered = commands.filter(c => c.label.toLowerCase().includes(query.toLowerCase()));
 
@@ -107,7 +128,9 @@ export function CommandPalette() {
       listRef.current?.children[activeIndex - 1]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      onExecute(filtered[activeIndex]);
+      if (filtered[activeIndex]) {
+        onExecute(filtered[activeIndex]);
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       close();
@@ -161,7 +184,13 @@ export function CommandPalette() {
               className={`flex cursor-pointer items-center justify-between rounded-md px-3 py-2 ${
                 i === activeIndex ? 'bg-neutral-100 dark:bg-neutral-800' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
               }`}
-              data-testid={cmd.id === 'workspace.settings' ? 'action-workspace-settings' : `cmdk-item-${cmd.id}`}
+                  data-testid={
+                    cmd.id === 'workspace.settings' ? 'action-workspace-settings' :
+                    cmd.id === 'admin-overview' ? 'action-admin-overview' :
+                    cmd.id === 'admin-users' ? 'action-admin-users' :
+                    cmd.id === 'admin-workspaces' ? 'action-admin-workspaces' :
+                    `cmdk-item-${cmd.id}`
+                  }
             >
               <span>{cmd.label}</span>
               {cmd.hint && <span className="text-xs text-neutral-500">{cmd.hint}</span>}

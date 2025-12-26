@@ -4,6 +4,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Resource Availability Heatmap Colors */
+@layer utilities {
+  .bg-availability-none {
+    @apply bg-green-100 border-green-300;
+  }
+
+  .bg-availability-warning {
+    @apply bg-yellow-100 border-yellow-300;
+  }
+
+  .bg-availability-critical {
+    @apply bg-red-100 border-red-300;
+  }
+}
+
 @keyframes gradient-x {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }

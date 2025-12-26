@@ -1,9 +1,16 @@
+/**
+ * ROLE MAPPING SUMMARY:
+ * - Uses isAdminUser(user) to show/hide Administration menu (consistent with AdminRoute)
+ * - isAdminUser checks user.permissions.isAdmin from backend
+ * - Navigation uses React Router navigate() to /admin
+ */
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { ChevronDown } from "lucide-react";
 import { track } from "@/lib/telemetry";
+import { isAdminUser } from "@/types/roles";
 
 export function UserProfileDropdown() {
   const { user, logout } = useAuth();
@@ -69,16 +76,54 @@ export function UserProfileDropdown() {
         navigate("/admin/trash");
         break;
       case "archive":
-        navigate("/admin/archive");
+        // Archive not implemented in MVP - redirect to trash
+        navigate("/admin/trash");
         break;
       case "teams":
-        navigate("/admin/teams");
+        // Teams not implemented in MVP - redirect to users
+        navigate("/admin/users");
         break;
       case "invite":
-        navigate("/admin/invite");
+        // Invite moved to drawer on Users page
+        navigate("/admin/users");
         break;
       case "administration":
-        navigate("/admin");
+        const currentPathBefore = window.location.pathname;
+        console.log('[UserProfileDropdown] ⚠️ CLICKED ADMINISTRATION - Starting navigation', {
+          email: user?.email,
+          permissions: user?.permissions,
+          permissionsIsAdmin: user?.permissions?.isAdmin,
+          currentPath: currentPathBefore,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Double-check admin status
+        const isAdmin = isAdminUser(user);
+        console.log('[UserProfileDropdown] Pre-navigation check - isAdminUser:', isAdmin);
+
+        if (!isAdmin) {
+          console.error('[UserProfileDropdown] ❌ BLOCKED - User is not admin!', {
+            user,
+            permissions: user?.permissions,
+          });
+          return; // Don't navigate if not admin
+        }
+
+        // Use replace: false to allow back button, but log the navigation
+        console.log('[UserProfileDropdown] ✅ User is admin, calling navigate("/admin")');
+        navigate("/admin", { replace: false });
+
+        // Verify navigation happened after a short delay
+        setTimeout(() => {
+          const pathAfter = window.location.pathname;
+          console.log('[UserProfileDropdown] Post-navigation check (100ms later):', {
+            pathBefore: currentPathBefore,
+            pathAfter: pathAfter,
+            expectedPath: '/admin',
+            navigationWorked: pathAfter === '/admin' || pathAfter.startsWith('/admin/'),
+            stillOnHome: pathAfter === '/home',
+          });
+        }, 100);
         break;
       case "logout":
         handleLogout();
@@ -182,14 +227,27 @@ export function UserProfileDropdown() {
               Invite Members
             </button>
 
-            <button
-              onClick={() => handleMenuClick("administration")}
-              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
-              data-testid="menu-administration"
-            >
-              <span className="w-5">⚙️</span>
-              Administration
-            </button>
+            {/* Administration - only visible to admin/owner */}
+            {(() => {
+              const isAdmin = isAdminUser(user);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[UserProfileDropdown] isAdminUser check:', {
+                  isAdmin,
+                  userEmail: user?.email,
+                  permissions: user?.permissions,
+                });
+              }
+              return isAdmin;
+            })() && (
+              <button
+                onClick={() => handleMenuClick("administration")}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
+                data-testid="menu-administration"
+              >
+                <span className="w-5">⚙️</span>
+                Administration
+              </button>
+            )}
 
             <div className="border-t border-gray-200 my-1"></div>
 

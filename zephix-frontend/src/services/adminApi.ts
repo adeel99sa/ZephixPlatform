@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { unwrapData, unwrapArray } from '@/lib/api/unwrapData';
 
 /**
  * Comprehensive Admin API Service
@@ -7,13 +8,15 @@ import { apiClient } from '@/lib/api/client';
 class AdminApiService {
   // ==================== Dashboard & Stats ====================
   async getStats() {
-    const { data } = await apiClient.get('/admin/stats');
-    return data;
+    const response = await apiClient.get('/admin/stats');
+    // Backend returns { data: Stats }
+    return unwrapData(response) || {};
   }
 
   async getSystemHealth() {
-    const { data } = await apiClient.get('/admin/health');
-    return data;
+    const response = await apiClient.get('/admin/health');
+    // Backend returns { data: SystemHealth }
+    return unwrapData(response) || {};
   }
 
   // ==================== Organization ====================
@@ -27,8 +30,8 @@ class AdminApiService {
     return data;
   }
 
-  async getOrganizationUsers(params?: { page?: number; limit?: number; search?: string }) {
-    const { data } = await apiClient.get('/admin/organization/users', { params });
+  async getOrganizationUsers(params?: { page?: number; limit?: number; search?: string; role?: string; status?: string }) {
+    const { data } = await apiClient.get('/admin/users', { params });
     return data;
   }
 
@@ -37,10 +40,12 @@ class AdminApiService {
     return data;
   }
 
-  async updateUserRole(organizationId: string, userId: string, role: 'admin' | 'pm' | 'viewer') {
+  async updateUserRole(_organizationId: string, userId: string, role: 'admin' | 'pm' | 'viewer' | 'member') {
+    // Map 'pm' to 'member' for backend compatibility
+    const backendRole = role === 'pm' ? 'member' : role;
     const { data } = await apiClient.patch(
-      `/organizations/${organizationId}/users/${userId}/role`,
-      { role }
+      `/admin/users/${userId}/role`,
+      { role: backendRole }
     );
     return data;
   }
@@ -102,7 +107,13 @@ class AdminApiService {
 
   // ==================== Workspaces ====================
   async getWorkspaces(params?: { search?: string; status?: string }) {
-    const { data } = await apiClient.get('/api/workspaces', { params });
+    const response = await apiClient.get('/admin/workspaces', { params });
+    // Backend returns { data: Workspace[] }
+    return unwrapArray(response);
+  }
+
+  async updateWorkspace(workspaceId: string, updates: { ownerId?: string; visibility?: 'public' | 'private'; status?: 'active' | 'archived' }) {
+    const { data } = await apiClient.patch(`/admin/workspaces/${workspaceId}`, updates);
     return data;
   }
 
@@ -118,8 +129,10 @@ class AdminApiService {
 
   // ==================== Projects ====================
   async getProjects(params?: { search?: string; status?: string; workspaceId?: string }) {
-    const { data } = await apiClient.get('/api/projects', { params });
-    return data;
+    const response = await apiClient.get('/api/projects', { params });
+    // Backend returns { data: { projects, total, page, totalPages } }
+    const data = unwrapData<{ projects?: any[]; total: number; page: number; totalPages: number }>(response);
+    return data || { projects: [], total: 0, page: 1, totalPages: 0 };
   }
 
   async deleteProject(projectId: string) {

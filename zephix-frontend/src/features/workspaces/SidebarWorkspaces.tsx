@@ -8,9 +8,10 @@ import { telemetry } from '@/lib/telemetry';
 import { listWorkspaces } from './api';
 import type { Workspace } from './types';
 import { WorkspaceCreateModal } from './WorkspaceCreateModal';
+import { isAdminRole } from '@/types/roles';
 
 export function SidebarWorkspaces() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -19,11 +20,12 @@ export function SidebarWorkspaces() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const isAdmin = user?.role === 'admin';
+  // Phase 4: Only org owner or org admin can create workspaces
+  const canCreateWorkspace = isAdminRole(user?.role);
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    if (!dropdownOpen || !isAdmin) return;
+    if (!dropdownOpen || !canCreateWorkspace) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -38,18 +40,33 @@ export function SidebarWorkspaces() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownOpen, isAdmin]);
+  }, [dropdownOpen, canCreateWorkspace]);
 
   async function refresh() {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading || !user) {
+      return;
+    }
     try {
       const data = await listWorkspaces();
-      setWorkspaces(data);
+      setWorkspaces(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load workspaces:', error);
+      setWorkspaces([]); // Set empty array on error
     }
   }
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    // Guard: Wait for auth to be ready
+    if (authLoading) {
+      return;
+    }
+    if (!user) {
+      setWorkspaces([]);
+      return;
+    }
+    refresh();
+  }, [authLoading, user]);
 
   const handleWorkspaceSelect = (workspaceId: string) => {
     setActiveWorkspace(workspaceId);
@@ -67,14 +84,14 @@ export function SidebarWorkspaces() {
       <div className="relative">
         <button
           ref={buttonRef}
-          onClick={() => isAdmin && setDropdownOpen(!dropdownOpen)}
+          onClick={() => canCreateWorkspace && setDropdownOpen(!dropdownOpen)}
           className={`w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm ${
             currentWorkspace
               ? 'bg-gray-50 border-gray-300 hover:bg-gray-100'
               : 'bg-white border-gray-300 hover:bg-gray-50'
-          } ${!isAdmin ? 'cursor-default' : 'cursor-pointer'}`}
+          } ${!canCreateWorkspace ? 'cursor-default' : 'cursor-pointer'}`}
           data-testid="workspace-selector"
-          disabled={!isAdmin && availableWorkspaces.length === 0}
+          disabled={!canCreateWorkspace && availableWorkspaces.length === 0}
         >
           <span className="text-sm font-medium truncate flex-1 text-left">
             {currentWorkspace
@@ -83,15 +100,15 @@ export function SidebarWorkspaces() {
                 ? 'Select workspace...'
                 : 'No workspaces'}
           </span>
-          {isAdmin && availableWorkspaces.length > 0 && (
+          {canCreateWorkspace && availableWorkspaces.length > 0 && (
             <ChevronDown
               className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
             />
           )}
         </button>
 
-        {/* Dropdown menu - only visible for admins */}
-        {isAdmin && dropdownOpen && (
+        {/* Dropdown menu - only visible for org admins/owners */}
+        {canCreateWorkspace && dropdownOpen && (
           <div
             ref={dropdownRef}
             className="absolute left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-auto"
@@ -132,8 +149,8 @@ export function SidebarWorkspaces() {
         )}
       </div>
 
-      {/* Workspace Create Modal - Admin only */}
-      {isAdmin && (
+      {/* Workspace Create Modal - Org admin/owner only */}
+      {canCreateWorkspace && (
         <WorkspaceCreateModal
           open={open}
           onClose={() => setOpen(false)}
@@ -147,7 +164,7 @@ export function SidebarWorkspaces() {
       )}
 
       {/* Non-admin message */}
-      {!isAdmin && availableWorkspaces.length === 0 && (
+      {!canCreateWorkspace && availableWorkspaces.length === 0 && (
         <div className="mt-2 px-3 py-2 text-xs text-gray-500 text-center">
           Contact an admin to get assigned to a workspace
         </div>

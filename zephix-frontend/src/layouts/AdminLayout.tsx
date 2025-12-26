@@ -6,6 +6,35 @@ import {
   HeadphonesIcon, ChevronDown, Settings, LayoutDashboard, ArrowLeft
 } from 'lucide-react';
 
+/**
+ * ADMIN NAVIGATION ROUTE MAPPING
+ *
+ * This table maps all admin nav items to their routes in App.tsx
+ *
+ * | Label                    | pathInNav              | pathInRoutes            | Status      |
+ * |--------------------------|------------------------|-------------------------|-------------|
+ * | Dashboard                | /admin                 | /admin                  | ✅ Working  |
+ * | Users & Teams            | /admin/users           | /admin/users            | ✅ Working  |
+ * | Teams                    | /admin/teams           | /admin/teams            | ✅ Working  |
+ * | Usage & Limits           | /admin/usage           | /admin/usage            | ✅ Working  |
+ * | Billing & Plans          | /admin/billing         | /admin/billing          | ✅ Working  |
+ * | Project Templates        | /admin/templates       | /admin/templates        | ✅ Working  |
+ * | Template Builder         | /admin/templates/builder| /admin/templates/builder| ✅ Working  |
+ * | Custom Fields            | /admin/templates/custom-fields | /admin/templates/custom-fields | ✅ Working |
+ * | All Workspaces           | /admin/workspaces      | /admin/workspaces       | ✅ Working  |
+ * | All Projects             | /admin/projects        | /admin/projects         | ✅ Working  |
+ * | Trash                    | /admin/trash           | /admin/trash            | ✅ Working  |
+ *
+ * Hidden/Deprecated Routes (not in nav but still exist):
+ * - /admin/org → AdminOrganizationPage (stub, not in nav)
+ * - /admin/roles → AdminRolesPage (stub, not in nav)
+ * - /admin/invite → AdminInvitePage (replaced by drawer, not in nav)
+ * - /admin/security → AdminSecurityPage (stub, not in nav)
+ * - /admin/archive → AdminArchivePage (redirects to /admin/trash)
+ * - /admin/overview → AdminOverviewPage (alternative dashboard)
+ */
+
+// MVP Navigation - Only show implemented routes
 const adminNavigation = [
   {
     id: 'dashboard',
@@ -19,14 +48,10 @@ const adminNavigation = [
     label: 'Organization',
     icon: Building2,
     children: [
-      { path: '/admin/org', label: 'Overview' },
       { path: '/admin/users', label: 'Users & Teams' },
       { path: '/admin/teams', label: 'Teams' },
-      { path: '/admin/invite', label: 'Invite Users' },
-      { path: '/admin/roles', label: 'Roles & Permissions' },
       { path: '/admin/usage', label: 'Usage & Limits' },
-      { path: '/admin/billing', label: 'Billing & Plans' },
-      { path: '/admin/security', label: 'Security & SSO' }
+      { path: '/admin/billing', label: 'Billing & Plans' }
     ]
   },
   {
@@ -46,94 +71,9 @@ const adminNavigation = [
     children: [
       { path: '/admin/workspaces', label: 'All Workspaces' },
       { path: '/admin/projects', label: 'All Projects' },
-      { path: '/admin/archive', label: 'Archive' },
       { path: '/admin/trash', label: 'Trash' }
     ]
-  },
-  {
-    id: 'ai',
-    label: 'AI & Automation',
-    icon: Brain,
-    children: [
-      { path: '/admin/ai/providers', label: 'AI Providers' },
-      { path: '/admin/ai/prompts', label: 'Prompt Library' },
-      { path: '/admin/ai/risk-sentinel', label: 'Risk Sentinel Settings' },
-      { path: '/admin/ai/formula-assistant', label: 'Formula Assistant' },
-      { path: '/admin/ai/guardrails', label: 'Guardrails & Redaction' },
-      { path: '/admin/ai/automations', label: 'Automations' }
-    ]
-  },
-  {
-    id: 'integrations',
-    label: 'Integrations',
-    icon: Link,
-    children: [
-      { path: '/admin/integrations/email', label: 'Email / SMTP' },
-      { path: '/admin/integrations/chat', label: 'Chat (Slack/Teams)' },
-      { path: '/admin/integrations/dev-tools', label: 'Dev Tools' },
-      { path: '/admin/integrations/calendar', label: 'Calendar' },
-      { path: '/admin/integrations/storage', label: 'Storage' },
-      { path: '/admin/integrations/webhooks', label: 'Webhooks' },
-      { path: '/admin/integrations/api-keys', label: 'API Keys' }
-    ]
-  },
-  {
-    id: 'data',
-    label: 'Data & Operations',
-    icon: Database,
-    children: [
-      { path: '/admin/data/imports', label: 'Imports' },
-      { path: '/admin/data/exports', label: 'Exports' },
-      { path: '/admin/data/backups', label: 'Backups & Restore' },
-      { path: '/admin/data/retention', label: 'Data Retention' },
-      { path: '/admin/data/jobs', label: 'Background Jobs' },
-      { path: '/admin/data/search', label: 'Search & Indexing' },
-      { path: '/admin/data/feature-flags', label: 'Feature Flags' }
-    ]
-  },
-  {
-    id: 'governance',
-    label: 'Governance & Compliance',
-    icon: Scale,
-    children: [
-      { path: '/admin/governance/audit', label: 'Audit Logs' },
-      { path: '/admin/governance/approvals', label: 'Approvals & Policies' },
-      { path: '/admin/governance/access-reviews', label: 'Access Reviews' },
-      { path: '/admin/governance/privacy', label: 'Legal & Privacy' }
-    ]
-  },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: Bell,
-    children: [
-      { path: '/admin/notifications/templates', label: 'Email Templates' },
-      { path: '/admin/notifications/in-app', label: 'In-App Messages' },
-      { path: '/admin/notifications/rules', label: 'Notification Rules' }
-    ]
-  },
-  {
-    id: 'reports',
-    label: 'Reports & Analytics',
-    icon: BarChart3,
-    children: [
-      { path: '/admin/reports/portfolio', label: 'Portfolio KPIs' },
-      { path: '/admin/reports/risk-heatmap', label: 'Risk Heatmaps' },
-      { path: '/admin/reports/utilization', label: 'Utilization & Cost' }
-    ]
   }
-];
-
-// MVP sections to enable first
-const MVP_SECTIONS = [
-  'organization',
-  'templates',
-  'ai',
-  'integrations',
-  'data',
-  'governance',
-  'notifications',
-  'reports'
 ];
 
 export function AdminLayout() {
