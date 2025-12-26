@@ -6,6 +6,11 @@ export class AddWorkspaceIdToProjects1762000000000
   name = 'AddWorkspaceIdToProjects1762000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Skip if workspace_id column already exists (created by bootstrap migration)
+    const table = await queryRunner.getTable('projects');
+    if (table && table.findColumnByName('workspace_id')) {
+      return;
+    }
     // Add column (nullable for now to handle existing data)
     await queryRunner.query(`
       ALTER TABLE projects
