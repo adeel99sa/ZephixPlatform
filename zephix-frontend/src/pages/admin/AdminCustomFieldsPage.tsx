@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, Type, Hash, Calendar, CheckSquare, List, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api/client';
+import { AdminErrorState } from './_components/AdminErrorState';
 
 interface CustomField {
   id?: string;
@@ -27,9 +28,12 @@ export default function AdminCustomFieldsPage() {
     loadCustomFields();
   }, []);
 
+  const [error, setError] = useState<string | null>(null);
+
   const loadCustomFields = async () => {
     try {
       setLoading(true);
+      setError(null);
       const { data } = await apiClient.get('/admin/custom-fields');
       // Map backend response to frontend format
       const mappedFields = data.map((field: any) => ({
@@ -45,9 +49,12 @@ export default function AdminCustomFieldsPage() {
         scope: field.scope,
       }));
       setFields(mappedFields);
-    } catch (error) {
-      console.error('Failed to load custom fields:', error);
-      toast.error('Failed to load custom fields');
+    } catch (err: any) {
+      console.error('Failed to load custom fields:', err);
+      // Don't redirect - show inline error
+      const errorMsg = err?.response?.data?.message || 'Failed to load custom fields';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -174,8 +181,16 @@ export default function AdminCustomFieldsPage() {
         </button>
       </div>
 
+      {error && (
+        <AdminErrorState
+          error={error}
+          onRetry={loadCustomFields}
+          title="Failed to load custom fields"
+        />
+      )}
+
       {/* Custom Fields List */}
-      {fields.length > 0 ? (
+      {!error && fields.length > 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

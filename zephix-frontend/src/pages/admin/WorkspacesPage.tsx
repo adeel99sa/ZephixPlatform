@@ -1,12 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { useAuth } from '@/state/AuthContext';
 
 type Ws = { id: string; name: string; key: string; isDefault: boolean };
 
 export default function WorkspacesPage() {
+  const { user, loading: authLoading } = useAuth();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin','workspaces'],
-    queryFn: async () => (await apiClient.get('/admin/workspaces')).data as Ws[],
+    queryFn: async () => {
+      const response = await apiClient.get<{ data: Ws[] }>('/admin/workspaces');
+      // Backend returns { data: Ws[] }, extract data field
+      return response?.data?.data || response?.data || [];
+    },
+    enabled: !authLoading && !!user, // Only run query when auth is ready
   });
 
   if (isLoading) return <div>Loading workspaces…</div>;

@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { unwrapData, unwrapArray } from '@/lib/api/unwrapData';
 
 export interface Plan {
   id: string;
@@ -44,18 +45,21 @@ export interface Usage {
 
 class BillingApiService {
   async getPlans(): Promise<Plan[]> {
-    const { data } = await apiClient.get('/billing/plans');
-    return data;
+    const response = await apiClient.get('/billing/plans');
+    // Backend returns { data: Plan[] }
+    return unwrapArray<Plan>(response);
   }
 
   async getSubscription(): Promise<Subscription | null> {
-    const { data } = await apiClient.get('/billing/subscription');
-    return data;
+    const response = await apiClient.get('/billing/subscription');
+    // Backend returns { data: Subscription | null }
+    return unwrapData<Subscription>(response);
   }
 
   async getCurrentPlan(): Promise<Plan> {
-    const { data } = await apiClient.get('/billing/current-plan');
-    return data;
+    const response = await apiClient.get('/billing/current-plan');
+    // Backend returns { data: CurrentPlan }
+    return unwrapData<Plan>(response) || {} as Plan;
   }
 
   async subscribe(planType: 'starter' | 'professional' | 'enterprise', annual?: boolean): Promise<Subscription> {
@@ -80,10 +84,12 @@ class BillingApiService {
   }
 
   async getUsage(): Promise<Usage> {
-    const { data } = await apiClient.get('/billing/usage');
-    return data;
+    const response = await apiClient.get('/billing/usage');
+    // Backend returns { data: Usage }
+    return unwrapData<Usage>(response) || {} as Usage;
   }
 }
 
 export const billingApi = new BillingApiService();
+
 

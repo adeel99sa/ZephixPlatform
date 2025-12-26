@@ -7,10 +7,12 @@ import { applyTemplateWithWorkspace } from '@/features/templates/intent';
 import { useUIStore } from '@/stores/uiStore';
 import { templatesApi, ProjectTemplate } from '@/services/templates.api';
 import { TemplateCreateModal } from '@/components/templates/TemplateCreateModal';
+import { useAuth } from '@/state/AuthContext';
 
 const TEMPLATE_TABS = ['All', 'Workspaces', 'Projects', 'Dashboards', 'Documents', 'Forms'] as const;
 
 export function TemplateCenter() {
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('All');
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -20,10 +22,19 @@ export function TemplateCenter() {
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { addToast } = useUIStore();
 
-  // Fetch templates from backend
+  // Fetch templates from backend - guard: wait for auth ready
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadTemplates();
-  }, []);
+  }, [authLoading, user]);
 
   const loadTemplates = async () => {
     try {

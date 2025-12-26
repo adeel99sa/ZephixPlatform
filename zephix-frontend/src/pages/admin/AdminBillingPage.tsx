@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { billingApi, Plan, Subscription, Usage } from '@/services/billingApi';
 import { CreditCard, CheckCircle2, XCircle, Calendar, Users, FolderKanban, HardDrive, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/state/AuthContext';
 
 export default function AdminBillingPage() {
+  const { user, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
@@ -13,25 +15,60 @@ export default function AdminBillingPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadBillingData();
-  }, []);
+  }, [authLoading, user]);
 
   const loadBillingData = async () => {
     try {
       setLoading(true);
-      const [plansData, subscriptionData, currentPlanData, usageData] = await Promise.all([
-        billingApi.getPlans(),
-        billingApi.getSubscription(),
-        billingApi.getCurrentPlan(),
-        billingApi.getUsage(),
+
+      // Use Promise.allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled([
+        billingApi.getPlans().catch(() => []), // Return empty array on failure
+        billingApi.getSubscription().catch(() => null), // Return null on failure
+        billingApi.getCurrentPlan().catch(() => null), // Return null on failure
+        billingApi.getUsage().catch(() => ({
+          users: { allowed: null, used: 0 },
+          projects: { allowed: null, used: 0 },
+          workspaces: { allowed: null, used: 0 },
+          storage: { allowed: null, used: 0 },
+        })),
       ]);
-      setPlans(plansData);
-      setSubscription(subscriptionData);
-      setCurrentPlan(currentPlanData);
-      setUsage(usageData);
+
+      // Extract results with safe defaults
+      const [plansResult, subscriptionResult, currentPlanResult, usageResult] = results;
+
+      setPlans(plansResult.status === 'fulfilled' ? plansResult.value : []);
+      setSubscription(subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null);
+      setCurrentPlan(currentPlanResult.status === 'fulfilled' ? currentPlanResult.value : null);
+      setUsage(usageResult.status === 'fulfilled' ? usageResult.value : {
+        users: { allowed: null, used: 0 },
+        projects: { allowed: null, used: 0 },
+        workspaces: { allowed: null, used: 0 },
+        storage: { allowed: null, used: 0 },
+      });
+
+      // Only show error toast if ALL critical endpoints failed
+      const criticalFailures = [
+        plansResult.status === 'rejected',
+        currentPlanResult.status === 'rejected',
+      ].filter(Boolean).length;
+
+      if (criticalFailures === 2) {
+        toast.error('Failed to load billing information. Some features may be unavailable.');
+      }
     } catch (error) {
       console.error('Failed to load billing data:', error);
-      toast.error('Failed to load billing information');
+      // Don't show error toast here - individual failures are handled above
     } finally {
       setLoading(false);
     }
@@ -44,7 +81,14 @@ export default function AdminBillingPage() {
       await loadBillingData();
       setShowUpgradeModal(false);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to upgrade plan');
+      // Handle 403 (enterprise managed) and 501 (not implemented) gracefully
+      if (error?.response?.status === 403) {
+        toast.error(error?.response?.data?.message || 'Plan changes are not allowed for enterprise accounts. Please contact support.');
+      } else if (error?.response?.status === 501) {
+        toast.info('Plan change feature is not yet available. Please contact support.');
+      } else {
+        toast.error(error?.response?.data?.message || 'Failed to upgrade plan');
+      }
     }
   };
 
@@ -62,8 +106,14 @@ export default function AdminBillingPage() {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is hydrating or billing data is loading
+  if (authLoading || loading) {
     return <div className="text-gray-500">Loading billing information...</div>;
+  }
+
+  // If no user after auth is ready, show message
+  if (!user) {
+    return <div className="text-gray-500">Please log in to view billing information.</div>;
   }
 
   const getStatusColor = (status: string) => {
@@ -86,20 +136,23 @@ export default function AdminBillingPage() {
         </div>
       </div>
 
-      {/* Current Plan */}
-      {currentPlan && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Current Plan</h2>
+      {/* Current Plan - Show even if plans list is empty */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Current Plan</h2>
+            {currentPlan ? (
               <p className="text-2xl font-bold text-gray-900 mt-1">{currentPlan.name}</p>
-            </div>
-            {subscription && (
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(subscription.status)}`}>
-                {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-              </span>
+            ) : (
+              <p className="text-2xl font-bold text-gray-900 mt-1">Free</p>
             )}
           </div>
+          {subscription && (
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(subscription.status)}`}>
+              {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+            </span>
+          )}
+        </div>
 
           {subscription && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -115,21 +168,41 @@ export default function AdminBillingPage() {
                   <span>Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <CreditCard className="h-4 w-4" />
-                <span>${currentPlan.price.toFixed(2)}/{currentPlan.billingCycle === 'monthly' ? 'month' : 'year'}</span>
-              </div>
+              {currentPlan && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CreditCard className="h-4 w-4" />
+                  <span>${currentPlan.price.toFixed(2)}/{currentPlan.billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show message if plan is managed internally */}
+          {subscription?.metadata?.internalManaged && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Plan managed by Zephix team.</strong> Contact support to modify your plan.
+              </p>
             </div>
           )}
 
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Change Plan
-            </button>
-            {subscription && subscription.status === 'active' && (
+            {subscription?.metadata?.internalManaged ? (
+              <button
+                disabled
+                className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
+              >
+                Plan Change Disabled (Enterprise)
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowUpgradeModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Change Plan
+              </button>
+            )}
+            {subscription && subscription.status === 'active' && !subscription.metadata?.internalManaged && (
               <button
                 onClick={handleCancel}
                 className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -139,7 +212,6 @@ export default function AdminBillingPage() {
             )}
           </div>
         </div>
-      )}
 
       {/* Usage Limits */}
       {usage && (
@@ -204,8 +276,14 @@ export default function AdminBillingPage() {
       {/* Available Plans */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Plans</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => (
+        {plans.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No plans available at this time.</p>
+            <p className="text-sm mt-2">Please contact support for plan information.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {plans.map((plan) => (
             <div
               key={plan.id}
               className={`border rounded-lg p-6 ${
@@ -250,9 +328,11 @@ export default function AdminBillingPage() {
               )}
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 

@@ -17,12 +17,29 @@ export function setTokens(at: string, rt?: string) {
   if (rt) refreshToken = rt;
   localStorage.setItem("zephix.at", accessToken ?? "");
   if (rt) localStorage.setItem("zephix.rt", refreshToken ?? "");
+
+  // CRITICAL: Also sync to zephix-auth-storage for apiClient compatibility
+  // This ensures both API clients can find the tokens
+  try {
+    const existingStorage = localStorage.getItem('zephix-auth-storage');
+    const state = existingStorage ? JSON.parse(existingStorage).state : {};
+    const updatedState = {
+      ...state,
+      accessToken: at,
+      refreshToken: rt || state.refreshToken,
+    };
+    localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
+  } catch (error) {
+    // Ignore errors syncing to legacy storage
+  }
 }
 
 export function clearTokens() {
   accessToken = null; refreshToken = null;
   localStorage.removeItem("zephix.at");
   localStorage.removeItem("zephix.rt");
+  // Also clear legacy storage
+  localStorage.removeItem("zephix-auth-storage");
 }
 
 export function loadTokensFromStorage() {
@@ -39,6 +56,7 @@ api.interceptors.request.use((cfg) => {
 });
 
 let refreshing: Promise<string | null> | null = null;
+let queuedRequests: Array<{ resolve: (token: string | null) => void; reject: (err: any) => void }> = [];
 
 api.interceptors.response.use(
   (res) => {
@@ -50,50 +68,142 @@ api.interceptors.response.use(
   },
   async (err) => {
     const original = err.config;
-    
+
     // 401 → try refresh → retry once → hard logout on second failure
-    if (err.response?.status === 401 && !original._retry && refreshToken) {
-      original._retry = true;
-      
-      if (!refreshing) {
+    if (err.response?.status === 401 && !original._retry) {
+      // Load refresh token from storage (might have been updated)
+      loadTokensFromStorage();
+
+      console.log('[Auth] 401 error detected, checking refresh token:', {
+        hasRefreshToken: !!refreshToken,
+        refreshTokenLength: refreshToken?.length,
+        currentPath: window.location.pathname,
+        requestUrl: original.url,
+      });
+
+      if (!refreshToken) {
+        console.warn('[Auth] 401 error but no refresh token available - cannot refresh');
+        // No refresh token, can't refresh - this will fall through to second 401 handler
+      } else {
+        original._retry = true;
+
+        // If refresh is already in progress, queue this request
+        if (refreshing) {
+          console.log('[Auth] Refresh already in progress, queueing request:', original.url);
+          return new Promise((resolve, reject) => {
+            queuedRequests.push({ resolve, reject });
+            refreshing!.then((token) => {
+              if (token) {
+                if (!original.headers) original.headers = {};
+                original.headers.Authorization = `Bearer ${token}`;
+                resolve(api(original));
+              } else {
+                reject(err);
+              }
+            }).catch(reject);
+          });
+        }
+
+        // Start refresh process
         refreshing = (async () => {
           try {
-            const { data } = await axios.post("/api/auth/refresh", { refreshToken });
-            // Handle envelope format: { data: { accessToken, refreshToken } }
-            const tokens = data.data || data;
-            setTokens(tokens.accessToken, tokens.refreshToken);
-            return tokens.accessToken as string;
-          } catch (refreshErr) {
-            console.error('[Auth] Refresh failed, logging out', refreshErr);
+            console.log('[Auth] Attempting token refresh...', {
+              hasRefreshToken: !!refreshToken,
+              refreshTokenLength: refreshToken?.length,
+            });
+
+            const response = await axios.post("/api/auth/refresh", { refreshToken });
+
+            // Handle different response formats
+            let tokens;
+            if (response.data?.data) {
+              // Envelope format: { data: { accessToken, refreshToken } }
+              tokens = response.data.data;
+            } else if (response.data?.accessToken) {
+              // Direct format: { accessToken, refreshToken }
+              tokens = response.data;
+            } else {
+              // Fallback: assume response.data is the tokens
+              tokens = response.data;
+            }
+
+            if (!tokens?.accessToken) {
+              throw new Error('Refresh response missing accessToken');
+            }
+
+            setTokens(tokens.accessToken, tokens.refreshToken || refreshToken);
+            console.log('[Auth] ✅ Token refresh successful');
+
+            // Resolve all queued requests
+            const token = tokens.accessToken as string;
+            queuedRequests.forEach(({ resolve }) => resolve(token));
+            queuedRequests = [];
+
+            return token;
+          } catch (refreshErr: any) {
+            console.error('[Auth] ❌ Refresh failed:', refreshErr?.response?.status, refreshErr?.message);
             clearTokens();
-            // Redirect to login on refresh failure
-            window.location.href = "/login?reason=session_expired";
+
+            // Reject all queued requests
+            queuedRequests.forEach(({ reject }) => reject(refreshErr));
+            queuedRequests = [];
+
+            // Don't redirect if we're on an admin route - let AdminRoute handle it
+            const isAdminRoute = window.location.pathname.startsWith('/admin');
+            const isLoginPage = window.location.pathname.includes('/login');
+
+            if (!isLoginPage && !isAdminRoute) {
+              console.log('[Auth] Redirecting to login (not on admin route)');
+              window.location.href = "/login?reason=session_expired";
+            } else if (isAdminRoute) {
+              console.warn('[Auth] On admin route, not redirecting - AdminRoute will handle access denial');
+            }
             return null;
-          } finally { refreshing = null; }
+          } finally {
+            refreshing = null;
+          }
         })();
       }
-      
+
       const newAT = await refreshing;
       if (newAT) {
-        original.headers = { ...(original.headers||{}), Authorization: `Bearer ${newAT}` };
+        // Update the authorization header and retry the original request
+        if (!original.headers) original.headers = {};
+        original.headers.Authorization = `Bearer ${newAT}`;
+        console.log('[Auth] Token refreshed, retrying original request:', original.url);
         return api(original);
+      } else {
+        // Refresh failed, but don't redirect here - let the second 401 handler do it
+        console.warn('[Auth] Token refresh returned null, request will fail');
       }
     }
-    
+
     // Second 401 after refresh → hard logout
     if (err.response?.status === 401 && original._retry) {
       console.error('[Auth] Second 401 after refresh, forcing logout');
       clearTokens();
-      window.location.href = "/login?reason=session_expired";
+
+      // Don't redirect if we're on an admin route - let AdminRoute handle it
+      // This prevents redirect loops when trying to access admin pages
+      const isAdminRoute = window.location.pathname.startsWith('/admin');
+      const isLoginPage = window.location.pathname.includes('/login');
+
+      if (!isLoginPage && !isAdminRoute) {
+        console.log('[Auth] Redirecting to login (not on admin route)');
+        window.location.href = "/login?reason=session_expired";
+      } else if (isAdminRoute) {
+        console.warn('[Auth] On admin route, not redirecting - AdminRoute will handle access denial');
+        // Don't redirect - let AdminRoute show /403 or handle it
+      }
     }
-    
+
     // Log request ID for traceability
     console.warn('[api] error', {
       status: err.response?.status,
       path: err.config?.url,
       requestId: err.response?.headers?.['x-request-id'],
     });
-    
+
     throw err;
   }
 );

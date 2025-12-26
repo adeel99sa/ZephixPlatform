@@ -1,18 +1,26 @@
 import { api } from '@/lib/api';
+import { unwrapData, unwrapPaginated } from '@/lib/api/unwrapData';
 
 import type { Project } from './types';
 
 export async function listProjects(workspaceId?: string): Promise<Project[]> {
   const params = workspaceId ? `?workspaceId=${workspaceId}` : '';
-  return api.get(`/projects${params}`);
+  const response = await api.get<{ data: { projects: Project[]; total: number; page: number; totalPages: number } }>(`/projects${params}`);
+  // Backend returns { data: { projects, total, page, totalPages } }
+  const paginated = unwrapPaginated<Project>(response);
+  return paginated.items;
 }
 
 export async function createProject(input: { name: string; workspaceId?: string; templateId?: string }): Promise<Project> {
-  return api.post('/projects', input);
+  const response = await api.post<{ data: Project }>('/projects', input);
+  // Backend returns { data: Project }
+  return unwrapData<Project>(response) || {} as Project;
 }
 
-export async function getProject(id: string): Promise<Project> {
-  return api.get(`/projects/${id}`);
+export async function getProject(id: string): Promise<Project | null> {
+  const response = await api.get<{ data: Project | null }>(`/projects/${id}`);
+  // Backend returns { data: Project | null }
+  return unwrapData<Project>(response);
 }
 
 export async function renameProject(id: string, name: string): Promise<Project> {

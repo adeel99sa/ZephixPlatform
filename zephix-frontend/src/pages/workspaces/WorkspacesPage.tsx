@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useState } from "react";
+import { useAuth } from "@/state/AuthContext";
 
 type Workspace = {
   id: string;
@@ -12,6 +13,7 @@ type Workspace = {
 };
 
 export default function WorkspacesPage() {
+  const { user, loading: authLoading } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Workspace|null>(null);
@@ -19,9 +21,15 @@ export default function WorkspacesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["workspaces", { includeDeleted: false }],
     queryFn: async () => {
-      const response = await api.get("/workspaces");
-      return response.data.data || response.data; // Handle both wrapped and direct responses
+      // Guard: Don't fire requests until auth state is READY
+      if (authLoading || !user) {
+        return [];
+      }
+      const response = await api.get<{ data: Workspace[] }>("/workspaces");
+      // Backend returns { data: Workspace[] }, extract data field
+      return response?.data?.data || response?.data || [];
     },
+    enabled: !authLoading && !!user, // Only run query when auth is ready
   });
 
   const createOrUpdate = useMutation({

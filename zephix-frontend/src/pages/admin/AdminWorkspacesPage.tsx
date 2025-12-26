@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '@/services/adminApi';
 import { listOrgUsers, changeWorkspaceOwner } from '@/features/workspaces/workspace.api';
-import { FolderKanban, Search, Filter, MoreVertical, Archive, Trash2, Eye, Edit, Plus, User } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { FolderKanban, Search, MoreVertical, Archive, Trash2, Eye, Edit, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/state/AuthContext';
-import { isWorkspaceMembershipV1Enabled } from '@/lib/flags';
+import { track } from '@/lib/telemetry';
+import { useWorkspaceStore } from '@/state/workspace.store';
+import { openWorkspaceSettingsModal } from '@/features/workspaces/components/WorkspaceSettingsModal/controller';
 
 interface Workspace {
   id: string;
@@ -30,8 +31,8 @@ interface OrgUser {
 
 export default function AdminWorkspacesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const featureEnabled = isWorkspaceMembershipV1Enabled();
+  const { user, loading: authLoading } = useAuth();
+  const { setActiveWorkspace } = useWorkspaceStore();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,25 +40,38 @@ export default function AdminWorkspacesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(null);
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showChangeOwnerModal, setShowChangeOwnerModal] = useState(false);
-  const [newWorkspace, setNewWorkspace] = useState({ name: '', slug: '', description: '', ownerId: '' });
+  const [newOwnerId, setNewOwnerId] = useState('');
 
   useEffect(() => {
+    // Guard: Don't fire requests until auth state is READY
+    if (authLoading) {
+      return;
+    }
+    // Only load if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    track('admin.workspaces.viewed');
     loadWorkspaces();
     loadOrgUsers();
-  }, [searchTerm, statusFilter]);
+  }, [authLoading, user, searchTerm, statusFilter]);
 
   const loadWorkspaces = async () => {
     try {
       setLoading(true);
-      const data = await adminApi.getWorkspaces({
+      const response = await adminApi.getWorkspaces({
         search: searchTerm || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       });
+      // Handle both { data: ... } and direct array responses
+      const data = response?.data || response;
       setWorkspaces(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load workspaces:', error);
+      setWorkspaces([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -99,12 +113,25 @@ export default function AdminWorkspacesPage() {
     }
   };
 
+  const handleOpenWorkspace = (workspaceId: string) => {
+    setActiveWorkspace(workspaceId);
+    track('admin.workspaces.opened', { workspaceId });
+    navigate(`/workspaces/${workspaceId}`);
+  };
+
+  const handleEditWorkspace = (workspaceId: string) => {
+    track('admin.workspaces.edit_opened', { workspaceId, source: 'admin' });
+    openWorkspaceSettingsModal(workspaceId);
+  };
+
   const handleChangeOwner = async (workspaceId: string, newOwnerId: string) => {
     try {
-      await changeWorkspaceOwner(workspaceId, newOwnerId);
+      await adminApi.updateWorkspace(workspaceId, { ownerId: newOwnerId });
+      track('admin.workspaces.owner_changed', { workspaceId, newOwnerId });
       toast.success('Workspace owner changed successfully');
       setShowChangeOwnerModal(false);
       setSelectedWorkspace(null);
+      setNewOwnerId('');
       await loadWorkspaces();
     } catch (error: any) {
       console.error('Failed to change owner:', error);
@@ -112,29 +139,30 @@ export default function AdminWorkspacesPage() {
     }
   };
 
-  const handleArchive = async (workspaceId: string) => {
-    if (!confirm('Are you sure you want to archive this workspace?')) return;
+  const handleUpdateVisibility = async (workspaceId: string, visibility: 'public' | 'private') => {
     try {
-      await adminApi.archiveWorkspace(workspaceId);
+      await adminApi.updateWorkspace(workspaceId, { visibility });
+      track('admin.workspaces.visibility_changed', { workspaceId, visibility });
+      toast.success('Workspace visibility updated');
       await loadWorkspaces();
-      setShowActionsMenu(null);
-    } catch (error) {
-      console.error('Failed to archive workspace:', error);
-      alert('Failed to archive workspace');
+    } catch (error: any) {
+      console.error('Failed to update visibility:', error);
+      toast.error('Failed to update visibility');
     }
   };
 
-  const handleDelete = async (workspaceId: string) => {
-    if (!confirm('Are you sure you want to delete this workspace? This action cannot be undone.')) return;
+  const handleUpdateStatus = async (workspaceId: string, status: 'active' | 'archived') => {
     try {
-      await adminApi.deleteWorkspace(workspaceId);
+      await adminApi.updateWorkspace(workspaceId, { status });
+      track('admin.workspaces.status_changed', { workspaceId, status });
+      toast.success(`Workspace ${status === 'archived' ? 'archived' : 'restored'}`);
       await loadWorkspaces();
-      setShowActionsMenu(null);
-    } catch (error) {
-      console.error('Failed to delete workspace:', error);
-      alert('Failed to delete workspace');
+    } catch (error: any) {
+      console.error('Failed to update status:', error);
+      toast.error('Failed to update status');
     }
   };
+
 
   const filteredWorkspaces = workspaces.filter(ws => {
     const matchesSearch = !searchTerm ||
@@ -145,21 +173,10 @@ export default function AdminWorkspacesPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">All Workspaces</h1>
-          <p className="text-gray-500 mt-1">View and manage all workspaces in your organization</p>
-        </div>
-        {featureEnabled && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Create Workspace
-          </button>
-        )}
+    <div className="p-6 space-y-6" data-testid="admin-workspaces-root">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Workspaces</h1>
+        <p className="text-sm text-gray-500 mt-1">View and manage all workspaces in your organization</p>
       </div>
 
       {/* Filters */}
@@ -202,191 +219,74 @@ export default function AdminWorkspacesPage() {
           </Link>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {filteredWorkspaces.map((workspace) => (
-              <div key={workspace.id} className="p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-50 rounded-lg">
-                        <FolderKanban className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">{workspace.name}</h3>
-                          {workspace.ownerId && (
-                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-                              <User className="h-3 w-3 inline mr-1" />
-                              Owner
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500">{workspace.description || 'No description'}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                          <span>{workspace.projectCount || 0} projects</span>
-                          {workspace.status && (
-                            <span className={`px-2 py-0.5 rounded ${
-                              workspace.status === 'active'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
-                              {workspace.status}
-                            </span>
-                          )}
-                          {workspace.createdAt && (
-                            <span>Created {new Date(workspace.createdAt).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      </div>
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" data-testid="admin-workspaces-table">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visibility</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredWorkspaces.map((workspace) => (
+                <tr key={workspace.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-900">{workspace.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {workspace.owner?.name || workspace.owner?.email || 'No owner'}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/workspaces/${workspace.id}`}
-                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="View workspace"
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <select
+                      value={workspace.visibility || 'public'}
+                      onChange={(e) => handleUpdateVisibility(workspace.id, e.target.value as 'public' | 'private')}
+                      className="text-sm border rounded px-2 py-1"
                     >
-                      <Eye className="h-5 w-5" />
-                    </Link>
-                    <div className="relative">
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <select
+                      value={workspace.status || 'active'}
+                      onChange={(e) => handleUpdateStatus(workspace.id, e.target.value as 'active' | 'archived')}
+                      className="text-sm border rounded px-2 py-1"
+                    >
+                      <option value="active">Active</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => setShowActionsMenu(
-                          showActionsMenu === workspace.id ? null : workspace.id
-                        )}
-                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        onClick={() => handleOpenWorkspace(workspace.id)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Open workspace"
                       >
-                        <MoreVertical className="h-5 w-5" />
+                        Open
                       </button>
-                      {showActionsMenu === workspace.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                          {featureEnabled && (
-                            <button
-                              onClick={() => {
-                                setSelectedWorkspace(workspace);
-                                setShowChangeOwnerModal(true);
-                                setShowActionsMenu(null);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <User className="h-4 w-4" />
-                              Change Owner
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleArchive(workspace.id)}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Archive className="h-4 w-4" />
-                            Archive
-                          </button>
-                          <button
-                            onClick={() => handleDelete(workspace.id)}
-                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => handleEditWorkspace(workspace.id)}
+                        className="text-gray-600 hover:text-gray-900"
+                        title="Edit workspace"
+                      >
+                        Edit
+                      </button>
                     </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Create Workspace Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
-            <h2 className="text-xl font-semibold mb-4">Create Workspace</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Workspace Name *
-                </label>
-                <input
-                  type="text"
-                  value={newWorkspace.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setNewWorkspace({
-                      ...newWorkspace,
-                      name,
-                      slug: newWorkspace.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-                    });
-                  }}
-                  className="w-full border rounded px-3 py-2"
-                  placeholder="Engineering Workspace"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Slug
-                </label>
-                <input
-                  type="text"
-                  value={newWorkspace.slug}
-                  onChange={(e) => setNewWorkspace({ ...newWorkspace, slug: e.target.value })}
-                  className="w-full border rounded px-3 py-2"
-                  placeholder="engineering-workspace"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newWorkspace.description}
-                  onChange={(e) => setNewWorkspace({ ...newWorkspace, description: e.target.value })}
-                  rows={3}
-                  className="w-full border rounded px-3 py-2"
-                  placeholder="Workspace description..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Workspace Owner *
-                </label>
-                <select
-                  value={newWorkspace.ownerId}
-                  onChange={(e) => setNewWorkspace({ ...newWorkspace, ownerId: e.target.value })}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  <option value="">Select owner...</option>
-                  {orgUsers.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email} ({u.email})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Only existing organization users can be assigned as workspace owner
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setNewWorkspace({ name: '', slug: '', description: '', ownerId: '' });
-                }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateWorkspace}
-                disabled={!newWorkspace.name || !newWorkspace.ownerId}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Workspace
-              </button>
-            </div>
-          </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -401,8 +301,8 @@ export default function AdminWorkspacesPage() {
                   Select New Owner
                 </label>
                 <select
-                  value={newWorkspace.ownerId}
-                  onChange={(e) => setNewWorkspace({ ...newWorkspace, ownerId: e.target.value })}
+                  value={newOwnerId}
+                  onChange={(e) => setNewOwnerId(e.target.value)}
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">Choose a user...</option>
@@ -422,7 +322,7 @@ export default function AdminWorkspacesPage() {
                 onClick={() => {
                   setShowChangeOwnerModal(false);
                   setSelectedWorkspace(null);
-                  setNewWorkspace({ name: '', slug: '', description: '', ownerId: '' });
+                  setNewOwnerId('');
                 }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
               >
@@ -430,11 +330,11 @@ export default function AdminWorkspacesPage() {
               </button>
               <button
                 onClick={() => {
-                  if (newWorkspace.ownerId) {
-                    handleChangeOwner(selectedWorkspace.id, newWorkspace.ownerId);
+                  if (newOwnerId && selectedWorkspace) {
+                    handleChangeOwner(selectedWorkspace.id, newOwnerId);
                   }
                 }}
-                disabled={!newWorkspace.ownerId}
+                disabled={!newOwnerId}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Change Owner

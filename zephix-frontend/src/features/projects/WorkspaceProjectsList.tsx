@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { telemetry } from '@/lib/telemetry';
 
 import { listProjects, renameProject, deleteProject, restoreProject } from './api';
 import type { Project } from './types';
-import { ProjectCreateModal } from './ProjectCreateModal';
+// Phase 4: ProjectCreateModal removed - project creation is now in Template Center
 
 interface Props {
   workspaceId?: string;
 }
 
 export function WorkspaceProjectsList({ workspaceId }: Props) {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -60,12 +61,14 @@ export function WorkspaceProjectsList({ workspaceId }: Props) {
     <div data-testid="workspace-projects" className="mt-6">
       <div className="flex items-center justify-between px-3 mb-2">
         <span className="text-xs font-semibold tracking-wide uppercase text-gray-500">Projects</span>
-        <button
+        <Link
+          to="/templates"
+          className="rounded bg-blue-600 text-white text-xs px-2 py-1 hover:bg-blue-700"
+          title="Create project from template"
           data-testid="project-new"
-          className="rounded bg-blue-600 text-white text-xs px-2 py-1"
-          onClick={() => setOpen(true)}
-          title="New project"
-        >+ New</button>
+        >
+          + New
+        </Link>
       </div>
 
       {loading ? (
@@ -77,9 +80,13 @@ export function WorkspaceProjectsList({ workspaceId }: Props) {
         <ul className="space-y-1">
           {projects.map(project => (
             <li key={project.id} className="group flex items-center justify-between px-3 py-1">
-              <a className="truncate text-sm" href={`/projects/${project.id}`} data-testid={`proj-${project.id}`}>
+              <Link
+                className="truncate text-sm hover:text-blue-600"
+                to={`/projects/${project.id}/overview`}
+                data-testid={`proj-${project.id}`}
+              >
                 {project.name}{project.deletedAt ? ' (deleted)' : ''}
-              </a>
+              </Link>
               <div className="opacity-0 group-hover:opacity-100 transition flex gap-1">
                 {!project.deletedAt && (
                   <>
@@ -99,12 +106,8 @@ export function WorkspaceProjectsList({ workspaceId }: Props) {
         </ul>
       )}
 
-      <ProjectCreateModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onCreated={() => refresh()}
-        workspaceId={workspaceId}
-      />
+      {/* Phase 4: Project creation moved to Template Center */}
+      {/* ProjectCreateModal removed - use Template Center instead */}
     </div>
   );
 }

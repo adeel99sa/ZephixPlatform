@@ -13,6 +13,7 @@ import { API_ENDPOINTS } from '../../lib/api/endpoints';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { useProjects } from '../../features/workspaces/api';
 import { getErrorText } from '../../lib/api/errors';
+import { useAuth } from '../../state/AuthContext';
 
 interface Project {
   id: string;
@@ -26,11 +27,22 @@ interface Project {
 }
 
 const ProjectsPage: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   // const navigate = useNavigate();
   const queryClient = useQueryClient();
   const ws = useWorkspaceStore();
-  const { data, isLoading, error } = useProjects(ws.current?.id);
+  const { data, isLoading, error } = useProjects(ws.current?.id, {
+    enabled: !authLoading && !!user, // Only run query when auth is ready
+  });
+
+  // Guard: Don't render until auth state is READY
+  if (authLoading) {
+    return <div className="text-sm text-slate-500">Loading authentication...</div>;
+  }
+  if (!user) {
+    return <div className="text-sm text-slate-500">Please log in to view projects</div>;
+  }
 
   if (!ws.current) return <div className="text-sm text-slate-500">Select a workspace</div>;
   if (isLoading) return <div>Loading projects…</div>;
@@ -66,8 +78,8 @@ const ProjectsPage: React.FC = () => {
       id: 'name',
       header: 'Project Name',
       accessor: (project) => (
-        <Link 
-          to={`/projects/${project.id}`} 
+        <Link
+          to={`/projects/${project.id}`}
           className="text-primary hover:text-primary/80 font-medium"
         >
           {project.name}

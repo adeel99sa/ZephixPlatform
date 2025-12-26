@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Task } from '../../types/task.types';
 import { taskService } from '../../services/taskService';
-import { resourceService } from '../../services/resourceService';
 import ConflictResolver from '../resources/ConflictResolver';
 import { TrashIcon, PencilIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { useGovernedAllocationMutation } from '@/features/resources/hooks/useGovernedAllocationMutation';
+import { ResourceJustificationModal } from '@/features/resources/components/ResourceJustificationModal';
 
 interface TaskCardProps {
   task: Task;
@@ -12,11 +13,11 @@ interface TaskCardProps {
   onDelete: (taskId: string) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ 
-  task, 
-  viewMode = 'board', 
-  onUpdate, 
-  onDelete 
+const TaskCard: React.FC<TaskCardProps> = ({
+  task,
+  viewMode = 'board',
+  onUpdate,
+  onDelete
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [progress, setProgress] = useState(task.progress);
@@ -26,6 +27,22 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedResource, setSelectedResource] = useState('');
 
+  // Use governed allocation mutation for automatic justification handling
+  const {
+    createAllocation,
+    isJustificationModalOpen,
+    justificationModalProps,
+    handleJustificationSubmit,
+    handleJustificationCancel,
+  } = useGovernedAllocationMutation({
+    onSuccess: () => {
+      // Allocation created successfully
+    },
+    onError: (error) => {
+      console.error('Failed to create allocation:', error);
+    },
+  });
+
   useEffect(() => {
     if (showAssignModal) {
       loadResources();
@@ -34,6 +51,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const loadResources = async () => {
     try {
+      // Use resourceService for consistency
+      const { resourceService } = await import('../../services/resourceService');
       const data = await resourceService.getResources();
       setResources(data);
     } catch (error) {
@@ -73,10 +92,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleAssignResource = () => {
     if (!selectedResource) return;
-    
+
     const startDate = task.startDate || new Date().toISOString().split('T')[0];
     const endDate = task.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
+
     setPendingReassignment({
       taskId: task.id,
       resourceId: selectedResource,
@@ -92,20 +111,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
     try {
       if (solution.type === 'no-conflict' || solution.type === 'override') {
         // Proceed with assignment
-        const updated = await taskService.updateTask(task.id, { 
-          assignedTo: pendingReassignment.resourceId 
+        const updated = await taskService.updateTask(task.id, {
+          assignedTo: pendingReassignment.resourceId
         });
-        
-        // Create allocation record
-        await resourceService.createAllocation({
+
+        // Calculate allocation percentage from hours
+        const weeks = Math.ceil(
+          (new Date(pendingReassignment.endDate).getTime() -
+           new Date(pendingReassignment.startDate).getTime()) /
+          (7 * 24 * 60 * 60 * 1000)
+        );
+        const hoursPerWeek = pendingReassignment.hours / weeks;
+
+        // Create allocation record using governed mutation (handles justification automatically)
+        if (!task.projectId) {
+          console.warn('Task missing projectId, cannot create allocation');
+          return;
+        }
+
+        await createAllocation({
           taskId: pendingReassignment.taskId,
           resourceId: pendingReassignment.resourceId,
+          projectId: task.projectId,
           startDate: pendingReassignment.startDate,
           endDate: pendingReassignment.endDate,
-          hoursPerWeek: pendingReassignment.hours / 
-            Math.ceil((new Date(pendingReassignment.endDate).getTime() - new Date(pendingReassignment.startDate).getTime()) / (7 * 24 * 60 * 60 * 1000))
+          allocationPercentage: Math.min(100, (hoursPerWeek / 40) * 100), // Assume 40h/week capacity
+          hoursPerWeek,
         });
-        
+
         onUpdate(updated);
       } else if (solution.type === 'alternative') {
         // Handle alternative solution
@@ -114,6 +147,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       }
     } catch (error) {
       console.error('Failed to assign resource:', error);
+      // Error is handled by the governed mutation hook
     } finally {
       setShowConflictResolver(false);
       setPendingReassignment(null);
@@ -272,7 +306,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {task.priority}
           </span>
         </div>
-        
+
         {task.description && (
           <p className="text-sm text-gray-600 mb-2">{task.description}</p>
         )}
@@ -329,7 +363,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <option value="review">Review</option>
               <option value="done">Done</option>
             </select>
-            
+
             <div className="flex gap-1">
               <button
                 onClick={() => setIsEditing(true)}
@@ -398,6 +432,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
           }}
         />
       )}
+
+      {/* Justification Modal */}
+      <ResourceJustificationModal
+        {...justificationModalProps}
+        onSubmit={handleJustificationSubmit}
+        onCancel={handleJustificationCancel}
+      />
     </>
   );
 };

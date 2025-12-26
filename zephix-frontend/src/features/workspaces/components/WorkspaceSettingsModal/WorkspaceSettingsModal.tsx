@@ -211,10 +211,10 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                 {isAdmin && (
                   <Button
                     variant="ghost"
-                    onClick={() => navigate('/admin/invite')}
+                    onClick={() => navigate('/admin/users')}
                     data-testid="ws-invite-new-user"
                   >
-                    Invite New User to Organization
+                    Manage Users & Invite
                   </Button>
                 )}
                 {canManageMembers && (

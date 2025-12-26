@@ -25,8 +25,19 @@ type Permissions = {
   capabilities?: Record<string, Record<string, boolean>>;
 };
 
-export async function getWorkspace(id: string): Promise<Workspace> {
-  return api.get(`/workspaces/${id}`);
+export async function getWorkspace(id: string): Promise<Workspace | null> {
+  try {
+    const response = await api.get<{ data: Workspace | null }>(`/workspaces/${id}`);
+    // Backend returns { data: Workspace | null }
+    return response?.data?.data ?? response?.data ?? null;
+  } catch (error: any) {
+    // Re-throw 403 (access denied) so caller can handle it
+    if (error?.response?.status === 403) {
+      throw error;
+    }
+    // Return null for 404 or other errors
+    return null;
+  }
 }
 
 export async function updateWorkspace(id: string, body: Partial<Workspace>): Promise<Workspace> {
@@ -139,20 +150,32 @@ export async function updatePermissions(id: string, body: Permissions): Promise<
   }
 }
 
-export async function getKpiSummary(id: string): Promise<any> {
+export async function getKpiSummary(id: string): Promise<any | null> {
   try {
     return api.get(`/api/kpi/workspaces/${id}/summary`);
-  } catch (error) {
+  } catch (error: any) {
+    // Phase 6: Gracefully handle 404s for empty workspaces (endpoint may not exist yet)
+    if (error?.response?.status === 404) {
+      return null;
+    }
     console.error('Failed to fetch KPI summary:', error);
-    // Return empty summary if endpoint doesn't exist
-    return { openTasks: 0, completed7d: 0, overdue: 0, activeProjects: 0 };
+    // Return null for empty workspaces, let component handle empty state
+    return null;
   }
 }
 
 export async function listProjects(id: string): Promise<any[]> {
   try {
-    const projects = await api.get(`/projects?workspaceId=${id}`);
-    return Array.isArray(projects) ? projects : (projects.data || []);
+    const response = await api.get<{ data: { projects: any[]; total: number; page: number; totalPages: number } }>(`/projects?workspaceId=${id}`);
+    // Backend returns { data: { projects, total, page, totalPages } }, extract projects array
+    if (response?.data?.data?.projects) {
+      return response.data.data.projects;
+    }
+    // Fallback to old format
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to fetch workspace projects:', error);
     return [];
@@ -163,7 +186,11 @@ export async function listTasksDueThisWeek(id: string): Promise<any[]> {
   try {
     const tasks = await api.get(`/tasks?workspaceId=${id}&due=week`);
     return Array.isArray(tasks) ? tasks : (tasks.data || []);
-  } catch (error) {
+  } catch (error: any) {
+    // Phase 6: Gracefully handle 404s for empty workspaces (endpoint may not exist yet)
+    if (error?.response?.status === 404) {
+      return [];
+    }
     console.error('Failed to fetch tasks due this week:', error);
     return [];
   }
@@ -173,7 +200,11 @@ export async function listRecentUpdates(id: string): Promise<any[]> {
   try {
     const updates = await api.get(`/api/activity?workspaceId=${id}&limit=10`);
     return Array.isArray(updates) ? updates : (updates.data || []);
-  } catch (error) {
+  } catch (error: any) {
+    // Phase 6: Gracefully handle 404s for empty workspaces (endpoint may not exist yet)
+    if (error?.response?.status === 404) {
+      return [];
+    }
     console.error('Failed to fetch recent updates:', error);
     return [];
   }

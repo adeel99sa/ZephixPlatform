@@ -58,10 +58,10 @@ class ApiClient {
 
         // Add request ID for tracking
         config.headers['x-request-id'] = this.generateRequestId();
-        
+
         // Add correlation ID for observability
         config.headers['x-correlation-id'] = this.generateCorrelationId();
-        
+
         // Add timing metadata for telemetry
         config.metadata = { startTime: Date.now() };
 
@@ -102,12 +102,12 @@ class ApiClient {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
         // Handle 401 - try to refresh token (but not on auth routes)
-        const isAuthRoute = (url: string) => 
+        const isAuthRoute = (url: string) =>
           url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout');
-        
+
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute(originalRequest.url ?? '')) {
           originalRequest._retry = true;
-          
+
           try {
             await this.refreshToken();
             // Retry original request with new token
@@ -144,7 +144,17 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    // Get token from auth store
+    // CRITICAL FIX: Check BOTH token storage locations
+    // AuthContext uses zephix.at/zephix.rt, but this client was looking in zephix-auth-storage
+    // This mismatch causes 401 errors when adminApi is called
+
+    // First, try the AuthContext storage (zephix.at)
+    const tokenFromAuthContext = localStorage.getItem('zephix.at');
+    if (tokenFromAuthContext) {
+      return tokenFromAuthContext;
+    }
+
+    // Fallback to zephix-auth-storage (legacy)
     try {
       const authStorage = localStorage.getItem('zephix-auth-storage');
       if (authStorage) {
@@ -195,56 +205,88 @@ class ApiClient {
         buildTag: import.meta.env.VITE_BUILD_TAG,
         gitHash: import.meta.env.VITE_GIT_HASH,
       });
-      
+
       // Example implementation:
       // apiClient.post('/telemetry', { metric: metricName, data }).catch(() => {}); // Silent fail
     }
   }
 
   private async refreshToken(): Promise<void> {
-    // Get refresh token from auth store
+    // CRITICAL FIX: Get refresh token from the SAME storage as AuthContext
+    // AuthContext uses zephix.rt, so we must use that too
+
+    // First, try the AuthContext storage (zephix.rt)
+    let refreshToken = localStorage.getItem('zephix.rt');
+
+    // Fallback to zephix-auth-storage (legacy)
+    if (!refreshToken) {
+      try {
+        const authStorage = localStorage.getItem('zephix-auth-storage');
+        if (authStorage) {
+          const { state } = JSON.parse(authStorage);
+          refreshToken = state?.refreshToken;
+        }
+      } catch (error) {
+        console.warn('Failed to get refresh token from storage:', error);
+      }
+    }
+
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await axios.post('/api/auth/refresh', {
+      refreshToken,
+    });
+
+    const { accessToken, refreshToken: newRefreshToken } = response.data;
+
+    // CRITICAL: Update BOTH storage locations to keep them in sync
+    // Update AuthContext storage (zephix.at / zephix.rt)
+    localStorage.setItem('zephix.at', accessToken);
+    if (newRefreshToken) {
+      localStorage.setItem('zephix.rt', newRefreshToken);
+    }
+
+    // Also update zephix-auth-storage if it exists (for backward compatibility)
     try {
       const authStorage = localStorage.getItem('zephix-auth-storage');
-      if (!authStorage) {
-        throw new Error('No auth storage found');
+      if (authStorage) {
+        const parsed = JSON.parse(authStorage);
+        const updatedState = {
+          ...parsed.state,
+          accessToken,
+          refreshToken: newRefreshToken || refreshToken,
+        };
+        localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
       }
-      
-      const { state } = JSON.parse(authStorage);
-      const refreshToken = state?.refreshToken;
-      
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await axios.post('/api/auth/refresh', {
-        refreshToken,
-      });
-
-      const { accessToken, refreshToken: newRefreshToken } = response.data;
-      
-      // Update auth store with new tokens
-      const updatedState = {
-        ...state,
-        accessToken,
-        refreshToken: newRefreshToken || refreshToken,
-      };
-      localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
     } catch (error) {
-      console.warn('Failed to refresh token:', error);
-      throw error;
+      // Ignore errors updating legacy storage
     }
   }
 
   private handleAuthFailure(): void {
-    // Clear auth store
+    // CRITICAL FIX: Clear BOTH token storage locations
+    // Clear AuthContext storage
+    localStorage.removeItem('zephix.at');
+    localStorage.removeItem('zephix.rt');
+    // Clear legacy storage
     localStorage.removeItem('zephix-auth-storage');
-    // Redirect to login page
-    window.location.href = '/login';
+
+    // Don't redirect if we're on an admin route - let AdminRoute handle it
+    const isAdminRoute = window.location.pathname.startsWith('/admin');
+    if (!isAdminRoute) {
+      // Redirect to login page
+      window.location.href = '/login';
+    }
   }
 
   private handlePermissionDenied(): void {
-    // Show permission denied message or redirect
-    console.warn('Insufficient permissions');
+    // Don't redirect - let the component handle 403 errors
+    // This allows admin pages to show inline error messages
+    // instead of redirecting away from the admin console
+    console.warn('Insufficient permissions (403)');
+    // The error will be caught by the component's error handler
   }
 
   private normalizeError(error: AxiosError): StandardError {

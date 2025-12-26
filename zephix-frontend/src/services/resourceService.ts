@@ -29,14 +29,21 @@ export const resourceService = {
     return response.data;
   },
 
+  /**
+   * @deprecated Use useGovernedAllocationMutation hook instead for automatic justification handling
+   */
   async createAllocation(allocation: {
     taskId: string;
     resourceId: string;
     startDate: string;
     endDate: string;
     hoursPerWeek: number;
+    allocationPercentage?: number;
+    type?: 'HARD' | 'SOFT' | 'GHOST';
+    bookingSource?: 'MANUAL' | 'JIRA' | 'GITHUB' | 'AI';
+    justification?: string;
   }): Promise<ResourceAllocation> {
     const response = await apiClient.post('/resources/allocations', allocation);
-    return response.data;
+    return response.data?.data || response.data;
   }
 };

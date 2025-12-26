@@ -1,5 +1,13 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import type {
+  ResourceTimelinePoint,
+  TimelineApiResponse,
+  HeatmapApiResponse,
+  HeatmapResponse,
+  HeatmapResourceRow,
+  HeatmapCell,
+} from '@/types/resourceTimeline';
 
 export type Resource = {
   id: string;
@@ -265,5 +273,125 @@ export function useWorkspaceResourceRiskSummary(
       }
       return failureCount < 2;
     },
+  });
+}
+
+/**
+ * Fetch resource timeline data
+ */
+export async function fetchResourceTimeline(
+  resourceId: string,
+  fromDate: string,
+  toDate: string,
+): Promise<ResourceTimelinePoint[]> {
+  const response = await apiClient.get<TimelineApiResponse>(
+    `/resources/${resourceId}/timeline`,
+    {
+      params: { fromDate, toDate },
+    },
+  );
+  // Handle response format: { data: [...] } from ResponseService.success()
+  return (response?.data?.data || response?.data || []) as ResourceTimelinePoint[];
+}
+
+/**
+ * Fetch resource heatmap data
+ */
+export async function fetchResourceHeatmap(
+  workspaceId: string | undefined,
+  fromDate: string,
+  toDate: string,
+): Promise<HeatmapResponse> {
+  const params: any = { fromDate, toDate };
+  if (workspaceId) params.workspaceId = workspaceId;
+
+  const response = await apiClient.get<HeatmapApiResponse>(
+    '/resources/heatmap/timeline',
+    {
+      params,
+    },
+  );
+
+  // Handle response format: { data: { data: [...] } } or { data: [...] }
+  // Backend uses ResponseService.success() which wraps in { data: [...] }
+  const apiData = (response?.data?.data || response?.data || []) as Array<{
+    date: string;
+    resources: Array<{
+      resourceId: string;
+      resourceName: string;
+      hardLoad: number;
+      softLoad: number;
+      classification: 'NONE' | 'WARNING' | 'CRITICAL';
+    }>;
+  }>;
+
+  // Extract unique resources and dates
+  const resourceMap = new Map<string, HeatmapResourceRow>();
+  const dateSet = new Set<string>();
+  const cells: HeatmapCell[] = [];
+
+  for (const day of apiData) {
+    if (!day.date || !day.resources) continue;
+
+    dateSet.add(day.date);
+
+    for (const resource of day.resources) {
+      // Add resource to map if not seen
+      if (!resourceMap.has(resource.resourceId)) {
+        resourceMap.set(resource.resourceId, {
+          resourceId: resource.resourceId,
+          displayName: resource.resourceName || `Resource ${resource.resourceId.slice(0, 8)}`,
+          role: undefined, // Backend doesn't provide role in heatmap response
+        });
+      }
+
+      // Add cell
+      cells.push({
+        resourceId: resource.resourceId,
+        date: day.date,
+        capacityPercent: 100, // Default, backend may not provide this
+        hardLoadPercent: resource.hardLoad || 0,
+        softLoadPercent: resource.softLoad || 0,
+        classification: resource.classification || 'NONE',
+      });
+    }
+  }
+
+  return {
+    resources: Array.from(resourceMap.values()),
+    dates: Array.from(dateSet).sort(),
+    cells,
+  };
+}
+
+/**
+ * React Query hook for resource timeline
+ */
+export function useResourceTimeline(
+  resourceId: string | null,
+  fromDate: string,
+  toDate: string,
+) {
+  return useQuery({
+    queryKey: ['resource-timeline', resourceId, fromDate, toDate],
+    queryFn: () => fetchResourceTimeline(resourceId!, fromDate, toDate),
+    enabled: !!resourceId && !!fromDate && !!toDate,
+    staleTime: 30_000, // 30 seconds
+  });
+}
+
+/**
+ * React Query hook for resource heatmap
+ */
+export function useResourceHeatmap(
+  workspaceId: string | undefined,
+  fromDate: string,
+  toDate: string,
+) {
+  return useQuery({
+    queryKey: ['resource-heatmap', workspaceId, fromDate, toDate],
+    queryFn: () => fetchResourceHeatmap(workspaceId, fromDate, toDate),
+    enabled: !!fromDate && !!toDate,
+    staleTime: 30_000, // 30 seconds
   });
 }
