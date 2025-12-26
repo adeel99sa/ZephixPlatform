@@ -6,10 +6,10 @@ export class AddMemberDto {
   @IsNotEmpty()
   userId: string;
 
-  @IsEnum(['member', 'viewer'], {
+  @IsEnum(['workspace_owner', 'workspace_member', 'workspace_viewer'], {
     message:
-      'Role must be "member" or "viewer". Use change-owner endpoint to assign owner role.',
+      'Role must be "workspace_owner", "workspace_member", or "workspace_viewer".',
   })
   @IsNotEmpty()
-  role: 'member' | 'viewer';
+  role: WorkspaceRole;
 }

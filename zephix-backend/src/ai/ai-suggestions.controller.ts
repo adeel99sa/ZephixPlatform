@@ -31,6 +31,8 @@ import {
   UpdateSuggestionStatusDto,
   SuggestionsResponseDto,
 } from './dto/ai-suggestions.dto';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContext } from '../common/http/get-auth-context';
 
 @ApiTags('AI Suggestions')
 @Controller('ai/suggestions')
@@ -92,8 +94,11 @@ export class AISuggestionsController {
     @Query('offset') offset = 0,
   ): Promise<SuggestionsResponseDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');
@@ -130,11 +135,14 @@ export class AISuggestionsController {
   })
   async generateSuggestions(
     @Body() request: GenerateSuggestionsRequestDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<{ message: string; jobId: string }> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');
@@ -167,11 +175,14 @@ export class AISuggestionsController {
   async updateSuggestionStatus(
     @Param('id') id: string,
     @Body() updateDto: UpdateSuggestionStatusDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<AISuggestionDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');

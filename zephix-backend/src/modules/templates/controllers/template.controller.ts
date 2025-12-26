@@ -11,6 +11,8 @@ import {
 import { TemplateService } from '../services/template.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateProjectFromTemplateDto } from '../dto/create-from-template.dto';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('templates')
 @UseGuards(JwtAuthGuard)
@@ -18,8 +20,9 @@ export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
 
   @Get()
-  async getAllTemplates(@Request() req) {
-    return this.templateService.getAllTemplates(req.user.organizationId);
+  async getAllTemplates(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.templateService.getAllTemplates(organizationId);
   }
 
   @Get(':id')
@@ -28,24 +31,30 @@ export class TemplateController {
   }
 
   @Get('blocks/all')
-  async getAllBlocks(@Request() req) {
-    return this.templateService.getAllBlocks(req.user.organizationId);
+  async getAllBlocks(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.templateService.getAllBlocks(organizationId);
   }
 
   @Get('blocks/type/:type')
-  async getBlocksByType(@Param('type') type: string, @Request() req) {
-    return this.templateService.getBlocksByType(type, req.user.organizationId);
+  async getBlocksByType(
+    @Param('type') type: string,
+    @Request() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
+    return this.templateService.getBlocksByType(type, organizationId);
   }
 
   @Post('create-project')
   async createProjectFromTemplate(
     @Body() dto: CreateProjectFromTemplateDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
+    const { userId, organizationId } = getAuthContext(req);
     return this.templateService.createProjectFromTemplate(
       dto,
-      req.user.id,
-      req.user.organizationId,
+      userId,
+      organizationId,
     );
   }
 

@@ -4,7 +4,7 @@ import {
   MiddlewareConsumer,
   NestModule,
 } from '@nestjs/common';
-import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
@@ -37,11 +37,16 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { RisksModule } from './modules/risks/risks.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { DebugController } from './debug.controller';
 import { DemoModule } from './bootstrap/demo.module';
 import { BillingModule } from './billing/billing.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { AdminModule } from './admin/admin.module';
+import { TenancyModule } from './modules/tenancy/tenancy.module';
+import { TenantContextInterceptor } from './modules/tenancy/tenant-context.interceptor';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -79,9 +84,11 @@ if (!(global as any).crypto) {
       : []),
 
     SharedModule,
+    TenancyModule, // Must be imported early for global tenant context
     AuthModule,
     OrganizationsModule,
     BillingModule,
+    AdminModule,
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [
           ProjectsModule,
@@ -101,7 +108,9 @@ if (!(global as any).crypto) {
           TasksModule,
           KPIModule,
           WorkspacesModule,
+          RisksModule,
           CustomFieldsModule,
+          IntegrationsModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks
@@ -112,6 +121,12 @@ if (!(global as any).crypto) {
   controllers: [AppController, DebugController],
   providers: [
     AppService,
+    // Register TenantContextInterceptor globally
+    // It runs after auth guards to access req.user.organizationId
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantContextInterceptor,
+    },
     // {
     //   provide: APP_PIPE,
     //   useValue: new ValidationPipe({

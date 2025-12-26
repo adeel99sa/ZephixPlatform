@@ -14,6 +14,7 @@ import { Task } from './task.entity';
 // import { ProjectAssignment } from './project-assignment.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { WorkspaceScoped } from '../../tenancy/workspace-scoped.decorator';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -37,6 +38,7 @@ export enum ProjectRiskLevel {
   CRITICAL = 'critical',
 }
 
+@WorkspaceScoped()
 @Entity('projects')
 export class Project {
   @PrimaryGeneratedColumn('uuid')
@@ -142,4 +144,28 @@ export class Project {
   @ManyToOne(() => Organization, (organization) => organization.projects)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  // Template Center v1 fields
+  @Column({ name: 'template_id', type: 'uuid', nullable: true })
+  templateId?: string;
+
+  @Column({ name: 'template_version', type: 'integer', nullable: true })
+  templateVersion?: number;
+
+  @Column({ name: 'template_locked', type: 'boolean', default: false })
+  templateLocked: boolean;
+
+  @Column({ name: 'template_snapshot', type: 'jsonb', nullable: true })
+  templateSnapshot?: {
+    templateId: string;
+    templateVersion: number;
+    locked: boolean;
+    blocks: Array<{
+      blockId: string;
+      enabled: boolean;
+      displayOrder: number;
+      config: any;
+      locked: boolean;
+    }>;
+  };
 }

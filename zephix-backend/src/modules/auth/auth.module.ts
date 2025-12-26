@@ -9,11 +9,12 @@ import { OrganizationSignupController } from './controllers/organization-signup.
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization]),
+    TypeOrmModule.forFeature([User, Organization, UserOrganization]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

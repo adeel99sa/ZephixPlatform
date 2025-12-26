@@ -13,6 +13,8 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
@@ -20,63 +22,66 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  create(@Body() createTaskDto: CreateTaskDto, @Req() req: any) {
-    return this.tasksService.create(createTaskDto, req.user.organizationId);
+  create(@Body() createTaskDto: CreateTaskDto, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.create(createTaskDto, organizationId);
   }
 
   @Get('project/:projectId')
-  findAll(@Param('projectId') projectId: string, @Req() req: any) {
-    return this.tasksService.findAll(projectId, req.user.organizationId);
+  findAll(@Param('projectId') projectId: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.findAll(projectId, organizationId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req: any) {
-    return this.tasksService.findOne(id, req.user.organizationId);
+  findOne(@Param('id') id: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.findOne(id, organizationId);
   }
 
   @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() updateTaskDto: UpdateTaskDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    return this.tasksService.update(id, updateTaskDto, req.user.organizationId);
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.update(id, updateTaskDto, organizationId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: any) {
-    return this.tasksService.delete(id, req.user.organizationId);
+  remove(@Param('id') id: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.delete(id, organizationId);
   }
 
   @Patch(':id/progress')
   updateProgress(
     @Param('id') id: string,
     @Body('progress') progress: number,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    return this.tasksService.updateProgress(
-      id,
-      progress,
-      req.user.organizationId,
-    );
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.updateProgress(id, progress, organizationId);
   }
 
   @Get('my-tasks')
-  getMyTasks(@Req() req: any) {
-    const userEmail = req.user?.email;
-    return this.tasksService.findByAssignee(userEmail, req.user.organizationId);
+  getMyTasks(@Req() req: AuthRequest) {
+    const { email, organizationId } = getAuthContext(req);
+    return this.tasksService.findByAssignee(email, organizationId);
   }
 
   @Post(':id/dependencies')
   addDependency(
     @Param('id') taskId: string,
     @Body() dto: { predecessorId: string },
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
+    const { organizationId } = getAuthContext(req);
     return this.tasksService.addDependency(
       taskId,
       dto.predecessorId,
-      req.user.organizationId,
+      organizationId,
     );
   }
 
@@ -84,17 +89,19 @@ export class TasksController {
   removeDependency(
     @Param('id') taskId: string,
     @Param('depId') dependencyId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
+    const { organizationId } = getAuthContext(req);
     return this.tasksService.removeDependency(
       taskId,
       dependencyId,
-      req.user.organizationId,
+      organizationId,
     );
   }
 
   @Get(':id/dependencies')
-  getDependencies(@Param('id') taskId: string, @Req() req: any) {
-    return this.tasksService.getDependencies(taskId, req.user.organizationId);
+  getDependencies(@Param('id') taskId: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.tasksService.getDependencies(taskId, organizationId);
   }
 }

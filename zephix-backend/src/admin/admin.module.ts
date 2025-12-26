@@ -6,6 +6,12 @@ import { User } from '../modules/users/entities/user.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { WorkflowTemplate } from '../pm/entities/workflow-template.entity';
 import { WorkflowInstance } from '../pm/entities/workflow-instance.entity';
+import { Organization } from '../organizations/entities/organization.entity';
+import { Workspace } from '../modules/workspaces/entities/workspace.entity';
+import { UserOrganization } from '../organizations/entities/user-organization.entity';
+import { OrganizationsModule } from '../organizations/organizations.module';
+import { WorkspacesModule } from '../modules/workspaces/workspaces.module';
+import { TeamsModule } from '../modules/teams/teams.module';
 
 @Module({
   imports: [
@@ -14,7 +20,13 @@ import { WorkflowInstance } from '../pm/entities/workflow-instance.entity';
       Project,
       WorkflowTemplate,
       WorkflowInstance,
+      Organization,
+      Workspace,
+      UserOrganization,
     ]),
+    OrganizationsModule,
+    WorkspacesModule,
+    TeamsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

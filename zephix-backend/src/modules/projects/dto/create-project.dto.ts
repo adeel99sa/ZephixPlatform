@@ -98,4 +98,8 @@ export class CreateProjectDto {
   @ValidateNested({ each: true })
   @Type(() => CreatePhaseDto)
   phases?: CreatePhaseDto[];
+
+  @IsUUID()
+  @IsOptional()
+  templateId?: string;
 }

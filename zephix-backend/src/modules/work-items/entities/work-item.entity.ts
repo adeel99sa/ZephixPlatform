@@ -10,6 +10,7 @@ import {
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { User } from '../../users/entities/user.entity';
+import { WorkspaceScoped } from '../../tenancy/workspace-scoped.decorator';
 
 export enum WorkItemType {
   TASK = 'task',
@@ -24,6 +25,7 @@ export enum WorkItemStatus {
   DONE = 'done',
 }
 
+@WorkspaceScoped()
 @Entity('work_items')
 export class WorkItem {
   @PrimaryGeneratedColumn('uuid')

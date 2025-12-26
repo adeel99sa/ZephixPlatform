@@ -18,6 +18,8 @@ import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { ProjectInitiationService } from './project-initiation.service';
 import { DocumentAnalysisDto } from './dto/document-analysis.dto';
 import { ProjectCharterDto } from './dto/project-charter.dto';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('pm/project-initiation')
 @UseGuards(JwtAuthGuard)
@@ -33,10 +35,11 @@ export class ProjectInitiationController {
   async analyzeDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: DocumentAnalysisDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
-      this.logger.log(`Document analysis request from user: ${req.user.id}`);
+      const { userId } = getAuthContext(req);
+      this.logger.log(`Document analysis request from user: ${userId}`);
 
       if (!file) {
         throw new BadRequestException('Document file is required');
@@ -64,7 +67,7 @@ export class ProjectInitiationController {
         file,
         body.type,
         body.organizationContext,
-        req.user.id,
+        userId,
       );
 
       return {
@@ -82,14 +85,18 @@ export class ProjectInitiationController {
   }
 
   @Get(':projectId')
-  async getProject(@Param('projectId') projectId: string, @Request() req: any) {
+  async getProject(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthRequest,
+  ) {
     try {
-      this.logger.log(`Getting project: ${projectId} for user: ${req.user.id}`);
+      const { userId } = getAuthContext(req);
+      this.logger.log(`Getting project: ${projectId} for user: ${userId}`);
 
       const project = await this.projectInitiationService.getProject(projectId);
 
       // Verify user has access to this project
-      if (project.userId !== req.user.id) {
+      if (project.userId !== userId) {
         throw new BadRequestException('Access denied');
       }
 
@@ -107,7 +114,7 @@ export class ProjectInitiationController {
   async updateCharter(
     @Param('projectId') projectId: string,
     @Body() updates: ProjectCharterDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
       this.logger.log(`Updating charter for project: ${projectId}`);
@@ -134,15 +141,16 @@ export class ProjectInitiationController {
   @Get(':projectId/dashboard/metrics')
   async getDashboardMetrics(
     @Param('projectId') projectId: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
+      const { userId } = getAuthContext(req);
       this.logger.log(`Getting dashboard metrics for project: ${projectId}`);
 
       const project = await this.projectInitiationService.getProject(projectId);
 
       // Verify user has access to this project
-      if (project.userId !== req.user.id) {
+      if (project.userId !== userId) {
         throw new BadRequestException('Access denied');
       }
 
@@ -166,7 +174,7 @@ export class ProjectInitiationController {
   async exportProject(
     @Param('projectId') projectId: string,
     @Body() exportOptions: { format: string; sections: string[] },
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
       this.logger.log(
@@ -195,15 +203,16 @@ export class ProjectInitiationController {
   @Get(':projectId/stakeholders')
   async getStakeholders(
     @Param('projectId') projectId: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
+      const { userId } = getAuthContext(req);
       this.logger.log(`Getting stakeholders for project: ${projectId}`);
 
       const project = await this.projectInitiationService.getProject(projectId);
 
       // Verify user has access to this project
-      if (project.userId !== req.user.id) {
+      if (project.userId !== userId) {
         throw new BadRequestException('Access denied');
       }
 
@@ -226,14 +235,18 @@ export class ProjectInitiationController {
   }
 
   @Get(':projectId/risks')
-  async getRisks(@Param('projectId') projectId: string, @Request() req: any) {
+  async getRisks(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthRequest,
+  ) {
     try {
+      const { userId } = getAuthContext(req);
       this.logger.log(`Getting risks for project: ${projectId}`);
 
       const project = await this.projectInitiationService.getProject(projectId);
 
       // Verify user has access to this project
-      if (project.userId !== req.user.id) {
+      if (project.userId !== userId) {
         throw new BadRequestException('Access denied');
       }
 
@@ -251,14 +264,18 @@ export class ProjectInitiationController {
   }
 
   @Get(':projectId/wbs')
-  async getWBS(@Param('projectId') projectId: string, @Request() req: any) {
+  async getWBS(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthRequest,
+  ) {
     try {
+      const { userId } = getAuthContext(req);
       this.logger.log(`Getting WBS for project: ${projectId}`);
 
       const project = await this.projectInitiationService.getProject(projectId);
 
       // Verify user has access to this project
-      if (project.userId !== req.user.id) {
+      if (project.userId !== userId) {
         throw new BadRequestException('Access denied');
       }
 

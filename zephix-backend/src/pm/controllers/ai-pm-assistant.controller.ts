@@ -17,6 +17,8 @@ import {
   CommunicationPlan,
 } from '../services/ai-pm-assistant.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 export class PMQuestionDto {
   question: string;
@@ -81,9 +83,9 @@ export class AIPMAssistantController {
   @Post('ask')
   async askPMQuestion(
     @Body() dto: PMQuestionDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<PMResponse> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
     const context = dto.context ? { ...dto.context, userId } : { userId };
 
     return this.aiPMAssistantService.askPMQuestion(dto.question, context);
@@ -92,9 +94,9 @@ export class AIPMAssistantController {
   @Post('analyze-project')
   async analyzeProject(
     @Body() dto: ProjectAnalysisDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<ProjectHealthReport> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Verify project belongs to user
     // This would be implemented with proper authorization
@@ -105,9 +107,9 @@ export class AIPMAssistantController {
   @Post('generate-plan')
   async generateProjectPlan(
     @Body() dto: GeneratePlanDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<any> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Generate comprehensive project plan based on input
     const plan = await this.generateComprehensivePlan(dto, userId);
@@ -122,9 +124,9 @@ export class AIPMAssistantController {
   @Post('optimize-portfolio')
   async optimizePortfolio(
     @Body() dto: PortfolioDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<PortfolioRecommendations> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Verify portfolio belongs to user
     // This would be implemented with proper authorization
@@ -135,9 +137,9 @@ export class AIPMAssistantController {
   @Post('risk-analysis')
   async analyzeRisks(
     @Body() dto: RiskAnalysisDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<RiskPredictions> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     return this.aiPMAssistantService.predictProjectRisks(dto.projectData);
   }
@@ -145,9 +147,9 @@ export class AIPMAssistantController {
   @Post('stakeholder-plan')
   async createStakeholderPlan(
     @Body() dto: StakeholderDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<CommunicationPlan> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Verify project belongs to user
     // This would be implemented with proper authorization
@@ -158,9 +160,9 @@ export class AIPMAssistantController {
   @Post('progress-report')
   async generateProgressReport(
     @Body() dto: ProgressReportDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<any> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Generate automated progress report
     const report = await this.generateAutomatedReport(dto, userId);
@@ -175,9 +177,9 @@ export class AIPMAssistantController {
   @Post('next-actions')
   async getNextActions(
     @Body() dto: NextActionsDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<any> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Get smart recommendations for next actions
     const actions = await this.getSmartRecommendations(dto, userId);
@@ -193,9 +195,9 @@ export class AIPMAssistantController {
   @Get('knowledge/:domain')
   async getPMKnowledge(
     @Param('domain') domain: string,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<any> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Get relevant PM knowledge for the domain
     const knowledge = await this.getDomainKnowledge(domain);
@@ -228,9 +230,9 @@ export class AIPMAssistantController {
   @Get('templates/:type')
   async getPMTemplates(
     @Param('type') type: string,
-    @Request() req,
+    @Request() req: AuthRequest,
   ): Promise<any> {
-    const userId = req.user.id;
+    const { userId } = getAuthContext(req);
 
     // Get PM templates based on type
     const templates = await this.getTemplatesByType(type);

@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { StatusReportingService } from '../services/status-reporting.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 // Removed team-related guards and decorators - using simplified project assignments
 // import { ProjectPermissionGuard } from '../../modules/projects/guards/project-permission.guard';
 // import { RequirePermissions } from '../../modules/projects/decorators/project-permissions.decorator';
@@ -169,9 +171,10 @@ export class StatusReportingController {
   @UseGuards(JwtAuthGuard)
   async generateReport(
     @Body() generateReportDto: GenerateReportDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
     try {
+      const { userId } = getAuthContext(req);
       const report = await this.statusReportingService.generateStatusReport(
         {
           projectId: generateReportDto.projectId,
@@ -189,7 +192,7 @@ export class StatusReportingController {
             includeManualUpdates: true,
           },
         },
-        req.user.id,
+        userId,
       );
       return {
         success: true,

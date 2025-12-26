@@ -49,7 +49,7 @@ import { Project } from '../modules/projects/entities/project.entity';
 // Removed team-related entities - using simplified project assignments
 // import { TeamMember } from '../modules/projects/entities/team-member.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
-import { JiraIntegration } from './integrations/jira.integration';
+// JiraIntegration removed - Phase 2 uses JiraClientService in IntegrationsModule
 import { GitHubIntegration } from './integrations/github.integration';
 import { TeamsIntegration } from './integrations/teams.integration';
 import { FinancialIntegration } from './integrations/financial.integration';
@@ -105,7 +105,7 @@ import { AIModule } from '../ai/ai.module';
     AIChatService,
     ZephixIntelligentDocumentProcessor,
     AIFormGeneratorService,
-    JiraIntegration,
+    // JiraIntegration removed - Phase 2 uses JiraClientService in IntegrationsModule
     GitHubIntegration,
     TeamsIntegration,
     FinancialIntegration,

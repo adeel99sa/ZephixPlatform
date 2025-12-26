@@ -2,30 +2,37 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { CustomField } from '../entities/custom-field.entity';
 import { CreateCustomFieldDto } from '../dto/create-custom-field.dto';
 import { UpdateCustomFieldDto } from '../dto/update-custom-field.dto';
+import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 
 @Injectable()
 export class CustomFieldsService {
   constructor(
-    @InjectRepository(CustomField)
-    private readonly repo: Repository<CustomField>,
+    @Inject(getTenantAwareRepositoryToken(CustomField))
+    private readonly repo: TenantAwareRepository<CustomField>,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async findAll(organizationId: string): Promise<CustomField[]> {
+    // organizationId parameter kept for backward compatibility
+    // TenantAwareRepository automatically scopes by organizationId
     return this.repo.find({
-      where: { organizationId },
+      where: {},
       order: { createdAt: 'DESC' },
     });
   }
 
   async findOne(id: string, organizationId: string): Promise<CustomField> {
+    // organizationId parameter kept for backward compatibility
+    // TenantAwareRepository automatically scopes by organizationId
     const field = await this.repo.findOne({
-      where: { id, organizationId },
+      where: { id },
     });
 
     if (!field) {
@@ -40,9 +47,13 @@ export class CustomFieldsService {
     organizationId: string,
     userId: string,
   ): Promise<CustomField> {
+    // organizationId parameter kept for backward compatibility
+    const orgId = this.tenantContextService.assertOrganizationId();
+
     // Check for duplicate name within organization
+    // TenantAwareRepository automatically scopes by organizationId
     const existing = await this.repo.findOne({
-      where: { name: dto.name, organizationId },
+      where: { name: dto.name },
     });
 
     if (existing) {
@@ -53,7 +64,7 @@ export class CustomFieldsService {
 
     const field = this.repo.create({
       ...dto,
-      organizationId,
+      organizationId: orgId,
       createdBy: userId,
       isRequired: dto.isRequired ?? false,
       scope: dto.scope ?? 'all',
@@ -71,9 +82,10 @@ export class CustomFieldsService {
     const field = await this.findOne(id, organizationId);
 
     // If name is being updated, check for duplicates
+    // TenantAwareRepository automatically scopes by organizationId
     if (dto.name && dto.name !== field.name) {
       const existing = await this.repo.findOne({
-        where: { name: dto.name, organizationId },
+        where: { name: dto.name },
       });
 
       if (existing) {

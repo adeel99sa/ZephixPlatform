@@ -12,5 +12,6 @@
         "types": ["node", "jest"]
       }
     }
-  }
+  },
+  "setupFilesAfterEnv": ["<rootDir>/setup-e2e.ts"]
 }

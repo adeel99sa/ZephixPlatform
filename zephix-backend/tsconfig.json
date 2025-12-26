@@ -18,7 +18,8 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "lib": ["ES2021", "DOM"],
-    "types": ["node"]
+    "types": ["node"],
+    "resolveJsonModule": true
   },
   "exclude": ["node_modules", "dist", "scripts", "test", "**/*spec.ts", "backup/**/*", "temp-disabled/**/*", "src/test/**/*"]
 }

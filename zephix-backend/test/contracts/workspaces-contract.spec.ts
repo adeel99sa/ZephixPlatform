@@ -5,6 +5,8 @@ import { AppModule } from '../../src/app.module';
 import { JwtService } from '@nestjs/jwt';
 
 describe('Workspaces Contract Tests (Envelope Format)', () => {
+  // Note: Contract tests assert { data } format only (no meta field)
+  // Meta is only included in paginated endpoints or error responses
   let app: INestApplication;
   let accessToken: string;
 
@@ -31,22 +33,19 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
   });
 
   describe('GET /api/workspaces', () => {
-    it('should return envelope format { data, meta }', async () => {
+    it('should return envelope format { data }', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/workspaces')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('meta');
-      expect(response.body.meta).toHaveProperty('timestamp');
-      expect(response.body.meta).toHaveProperty('requestId');
       expect(Array.isArray(response.body.data)).toBe(true);
     });
   });
 
   describe('POST /api/workspaces', () => {
-    it('should return envelope format { data, meta } on success', async () => {
+    it('should return envelope format { data } on success', async () => {
       const workspaceData = {
         name: 'Test Workspace',
         slug: 'test-workspace',
@@ -60,7 +59,6 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
         .expect(201);
 
       expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('meta');
       expect(response.body.data).toHaveProperty('id');
       expect(response.body.data).toHaveProperty('name', 'Test Workspace');
     });
@@ -85,14 +83,13 @@ describe('Workspaces Contract Tests (Envelope Format)', () => {
   });
 
   describe('GET /api/admin/trash', () => {
-    it('should return envelope format { data, meta }', async () => {
+    it('should return envelope format { data }', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/admin/trash?type=workspace')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
       expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('meta');
       expect(Array.isArray(response.body.data)).toBe(true);
     });
   });

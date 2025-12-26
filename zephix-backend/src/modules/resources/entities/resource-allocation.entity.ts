@@ -10,6 +10,8 @@ import {
 } from 'typeorm';
 import { Resource } from './resource.entity';
 import { Task } from '../../tasks/entities/task.entity';
+import { AllocationType } from '../enums/allocation-type.enum';
+import { BookingSource } from '../enums/booking-source.enum';
 
 @Entity('resource_allocations')
 @Index('idx_ra_dates', ['startDate', 'endDate'])
@@ -44,6 +46,27 @@ export class ResourceAllocation {
 
   @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
   hoursPerWeek: number;
+
+  @Column({
+    type: 'enum',
+    enum: AllocationType,
+    name: 'type',
+    nullable: false,
+    default: AllocationType.HARD, // Database default for migration backfill
+  })
+  type: AllocationType;
+
+  @Column({
+    type: 'enum',
+    enum: BookingSource,
+    name: 'booking_source',
+    nullable: false,
+    default: BookingSource.MANUAL,
+  })
+  bookingSource: BookingSource;
+
+  @Column({ type: 'text', nullable: true, name: 'justification' })
+  justification: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp without time zone' })
   createdAt: Date;

@@ -1,3 +1,11 @@
+/**
+ * ROLE MAPPING SUMMARY:
+ * - Database layer: UserOrganization.role = 'owner' | 'admin' | 'pm' | 'viewer'
+ * - Database layer: User.role = legacy string (e.g., 'admin', 'pm', 'viewer')
+ * - API responses: role = 'ADMIN' | 'MEMBER' | 'VIEWER' (normalized PlatformRole)
+ * - API responses: platformRole = same as role (explicit enum field)
+ * - API responses: permissions.isAdmin = true only for ADMIN platformRole
+ */
 import {
   Injectable,
   UnauthorizedException,
@@ -10,8 +18,13 @@ import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
+import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+} from '../../shared/enums/platform-roles.enum';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +33,8 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    @InjectRepository(UserOrganization)
+    private userOrgRepository: Repository<UserOrganization>,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -72,11 +87,24 @@ export class AuthService {
       const savedUser = await manager.save(user);
 
       // Generate JWT tokens
-      const accessToken = this.generateToken(savedUser);
-      const refreshToken = this.generateRefreshToken(savedUser);
+      const accessToken = await this.generateToken(savedUser);
+      const refreshToken = await this.generateRefreshToken(savedUser);
+
+      // Create UserOrganization record for the first user (admin)
+      const userOrg = manager.create(UserOrganization, {
+        userId: savedUser.id,
+        organizationId: savedOrg.id,
+        role: 'admin', // First user is admin
+        isActive: true,
+      });
+      await manager.save(userOrg);
+
+      // Build complete user response with permissions
+      // Pass the org role explicitly
+      const userResponse = this.buildUserResponse(savedUser, 'admin');
 
       return {
-        user: this.sanitizeUser(savedUser),
+        user: userResponse,
         accessToken,
         refreshToken,
         organizationId: savedOrg.id,
@@ -114,11 +142,30 @@ export class AuthService {
     });
 
     // Generate JWT tokens
-    const accessToken = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
+    const accessToken = await this.generateToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
+
+    // Get UserOrganization role if available
+    let orgRole: string | null = null;
+    if (user.organizationId) {
+      const userOrg = await this.userOrgRepository.findOne({
+        where: {
+          userId: user.id,
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+      });
+      if (userOrg) {
+        orgRole = userOrg.role;
+      }
+    }
+
+    // Build complete user response with permissions
+    // Pass the org role explicitly
+    const userResponse = this.buildUserResponse(user, orgRole);
 
     return {
-      user: this.sanitizeUser(user),
+      user: userResponse,
       accessToken,
       refreshToken,
       organizationId: user.organizationId,
@@ -138,12 +185,30 @@ export class AuthService {
     return user;
   }
 
-  private generateToken(user: User): string {
+  private async generateToken(user: User): Promise<string> {
+    // Get platform role from UserOrganization if available, otherwise normalize user.role
+    let platformRole: PlatformRole = normalizePlatformRole(user.role);
+
+    if (user.organizationId) {
+      const userOrg = await this.userOrgRepository.findOne({
+        where: {
+          userId: user.id,
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+      });
+      if (userOrg) {
+        // Map UserOrganization role to PlatformRole
+        platformRole = normalizePlatformRole(userOrg.role);
+      }
+    }
+
     const payload = {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role,
+      role: user.role, // Keep for backward compatibility
+      platformRole: platformRole, // Normalized platform role
     };
 
     return this.jwtService.sign(payload, {
@@ -152,12 +217,29 @@ export class AuthService {
     });
   }
 
-  private generateRefreshToken(user: User): string {
+  private async generateRefreshToken(user: User): Promise<string> {
+    // Get platform role from UserOrganization if available, otherwise normalize user.role
+    let platformRole: PlatformRole = normalizePlatformRole(user.role);
+
+    if (user.organizationId) {
+      const userOrg = await this.userOrgRepository.findOne({
+        where: {
+          userId: user.id,
+          organizationId: user.organizationId,
+          isActive: true,
+        },
+      });
+      if (userOrg) {
+        platformRole = normalizePlatformRole(userOrg.role);
+      }
+    }
+
     const payload = {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
-      role: user.role,
+      role: user.role, // Keep for backward compatibility
+      platformRole: platformRole, // Normalized platform role
     };
 
     return this.jwtService.sign(payload, {
@@ -166,24 +248,96 @@ export class AuthService {
     });
   }
 
-  private sanitizeUser(user: User) {
+  sanitizeUser(user: User) {
     const { password, ...sanitized } = user;
     return sanitized;
+  }
+
+  /**
+   * Build complete user object with permissions for API responses
+   * Used by both login and /auth/me to ensure consistent structure
+   *
+   * @param user - User entity from database
+   * @param orgRoleFromUserOrg - Optional role from UserOrganization ('owner' | 'admin' | 'pm' | 'viewer')
+   *                             If provided, this takes precedence over user.role
+   */
+  public buildUserResponse(
+    user: User,
+    orgRoleFromUserOrg?: string | null,
+  ): any {
+    // Resolve platform role:
+    // 1. If orgRoleFromUserOrg provided, use it (from UserOrganization)
+    // 2. Otherwise fall back to user.role
+    let platformRole: PlatformRole;
+
+    if (orgRoleFromUserOrg) {
+      // Map UserOrganization role to PlatformRole
+      if (orgRoleFromUserOrg === 'admin' || orgRoleFromUserOrg === 'owner') {
+        platformRole = PlatformRole.ADMIN;
+      } else if (
+        orgRoleFromUserOrg === 'pm' ||
+        orgRoleFromUserOrg === 'member'
+      ) {
+        platformRole = PlatformRole.MEMBER;
+      } else if (orgRoleFromUserOrg === 'viewer') {
+        platformRole = PlatformRole.VIEWER;
+      } else {
+        // Fallback to normalization
+        platformRole = normalizePlatformRole(orgRoleFromUserOrg);
+      }
+    } else {
+      // Fallback to user.role with normalization
+      platformRole = normalizePlatformRole(user.role);
+    }
+
+    // Determine admin status explicitly from org role
+    // This is the single source of truth for permissions.isAdmin
+    // Contract: Admin status comes from UserOrganization.role only
+    const isOrgAdmin =
+      orgRoleFromUserOrg === 'admin' || orgRoleFromUserOrg === 'owner';
+    // For now, no platform super admin - can be added later if needed
+    const isPlatformSuperAdmin = false;
+
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[buildUserResponse] admin check:', {
+        email: user.email,
+        orgRoleFromUserOrg,
+        isOrgAdmin,
+        isPlatformSuperAdmin,
+        finalIsAdmin: isOrgAdmin || isPlatformSuperAdmin,
+      });
+    }
+
+    // Build permissions object - isAdmin is the contract frontend depends on
+    const permissions = {
+      isAdmin: isOrgAdmin || isPlatformSuperAdmin,
+      canManageUsers: isOrgAdmin || isPlatformSuperAdmin,
+      canViewProjects: true, // All authenticated users can view projects
+      canManageResources:
+        platformRole === PlatformRole.ADMIN ||
+        platformRole === PlatformRole.MEMBER,
+      canViewAnalytics: true, // All authenticated users can view analytics
+    };
+
+    // Sanitize user (remove password)
+    const sanitized = this.sanitizeUser(user);
+
+    // Return consistent structure
+    return {
+      ...sanitized,
+      role: platformRole, // Normalized platform role (enum string: 'ADMIN', 'MEMBER', 'VIEWER')
+      platformRole, // Explicit platformRole field (same value)
+      permissions,
+      organizationId: user.organizationId,
+    };
   }
 
   async getUserById(userId: string): Promise<User | null> {
     try {
       const user = await this.userRepository.findOne({
         where: { id: userId },
-        select: [
-          'id',
-          'email',
-          'firstName',
-          'lastName',
-          'organizationId',
-          'role',
-          'isActive',
-        ],
+        // Don't use select - return all fields except password (sanitized later)
       });
       return user;
     } catch (error) {
@@ -206,11 +360,27 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
+      // Get platform role from UserOrganization if available
+      let platformRole: PlatformRole = normalizePlatformRole(user.role);
+      if (user.organizationId) {
+        const userOrg = await this.userOrgRepository.findOne({
+          where: {
+            userId: user.id,
+            organizationId: user.organizationId,
+            isActive: true,
+          },
+        });
+        if (userOrg) {
+          platformRole = normalizePlatformRole(userOrg.role);
+        }
+      }
+
       const payload = {
         sub: user.id,
         email: user.email,
         organizationId: user.organizationId,
-        role: user.role,
+        role: user.role, // Keep for backward compatibility
+        platformRole: platformRole, // Normalized platform role
       };
 
       const accessToken = this.jwtService.sign(payload, {

@@ -5,8 +5,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, DataSource, Like, In } from 'typeorm';
+import { Between, DataSource, Like, In, Not } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { AuditLog } from './entities/audit-log.entity';
@@ -14,21 +13,32 @@ import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { Task } from '../tasks/entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { WorkspaceAccessService } from '../workspaces/services/workspace-access.service';
+import { Organization } from '../../organizations/entities/organization.entity';
+import { AllocationType } from './enums/allocation-type.enum';
+import { getResourceSettings } from '../../organizations/utils/resource-settings.util';
+import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../tenancy/tenant-context.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class ResourcesService {
   constructor(
-    @InjectRepository(Resource)
-    private resourceRepository: Repository<Resource>,
-    @InjectRepository(ResourceAllocation)
-    private resourceAllocationRepository: Repository<ResourceAllocation>,
+    @Inject(getTenantAwareRepositoryToken(Resource))
+    private resourceRepository: TenantAwareRepository<Resource>,
+    @Inject(getTenantAwareRepositoryToken(ResourceAllocation))
+    private resourceAllocationRepository: TenantAwareRepository<ResourceAllocation>,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
-    @InjectRepository(Project)
-    private projectRepository: Repository<Project>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepository: TenantAwareRepository<Project>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
     private dataSource: DataSource,
     @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async findAll(
@@ -44,22 +54,13 @@ export class ResourcesService {
     },
   ): Promise<any> {
     try {
-      // If no organizationId, return empty array (don't crash)
-      if (!organizationId) {
-        console.log('⚠️ Resources: No organizationId provided');
-        return { data: [] };
-      }
-
-      // Check if repository is available
-      if (!this.resourceRepository) {
-        console.error('❌ Resources: Repository not initialized');
-        return { data: [] };
-      }
+      // organizationId now comes from tenant context
+      const orgId = this.tenantContextService.assertOrganizationId();
 
       // Get accessible workspace IDs (respects feature flag)
       const accessibleWorkspaceIds =
         await this.workspaceAccessService.getAccessibleWorkspaceIds(
-          organizationId,
+          orgId,
           userId,
           userRole,
         );
@@ -72,10 +73,9 @@ export class ResourcesService {
         return { data: [] };
       }
 
-      // Build query builder for flexible filtering
+      // Use tenant-aware query builder - organizationId filter is automatic
       const queryBuilder = this.resourceRepository
-        .createQueryBuilder('resource')
-        .where('resource.organizationId = :organizationId', { organizationId })
+        .qb('resource')
         .andWhere('resource.isActive = :isActive', { isActive: true });
 
       // Filter by skills (JSONB array contains all requested skills)
@@ -98,9 +98,9 @@ export class ResourcesService {
       // Filter by workspaceId - resources that have allocations in that workspace
       if (filters?.workspaceId) {
         // Get projects in the workspace
+        // TenantAwareRepository automatically scopes by organizationId
         const workspaceProjects = await this.projectRepository.find({
           where: {
-            organizationId,
             workspaceId: filters.workspaceId,
           },
           select: ['id'],
@@ -114,12 +114,12 @@ export class ResourcesService {
         const projectIds = workspaceProjects.map((p) => p.id);
 
         // Filter resources that have allocations in these projects
+        // organizationId filter is automatic in subquery via TenantAwareRepository
         queryBuilder.andWhere(
           `EXISTS (
             SELECT 1 FROM resource_allocations ra
             WHERE ra.resource_id = resource.id
             AND ra.project_id IN (:...projectIds)
-            AND ra.organization_id = :organizationId
           )`,
           { projectIds },
         );
@@ -130,11 +130,11 @@ export class ResourcesService {
         const startDate = new Date(filters.dateFrom);
         const endDate = new Date(filters.dateTo);
 
+        // organizationId filter is automatic in subquery
         queryBuilder.andWhere(
           `EXISTS (
             SELECT 1 FROM resource_allocations ra
             WHERE ra.resource_id = resource.id
-            AND ra.organization_id = :organizationId
             AND ra.start_date <= :endDate
             AND ra.end_date >= :startDate
           )`,
@@ -158,7 +158,7 @@ export class ResourcesService {
       });
 
       console.log(
-        `✅ Resources: Found ${resources.length} resources for org ${organizationId}`,
+        `✅ Resources: Found ${resources.length} resources for org ${orgId}`,
       );
       return { data: resources || [] };
     } catch (error) {
@@ -240,18 +240,18 @@ export class ResourcesService {
       }
 
       // Get all resources with their allocations
+      // Use tenant-aware query builder - organizationId filter is automatic
       const queryBuilder = this.resourceRepository
-        .createQueryBuilder('resource')
+        .qb('resource')
         .leftJoinAndSelect('resource.allocations', 'allocation')
-        .where('resource.organizationId = :orgId', { orgId: organizationId })
         .andWhere('resource.isActive = :isActive', { isActive: true });
 
       // If workspace membership is enforced, filter allocations by accessible workspaces
       if (accessibleWorkspaceIds !== null) {
         // Get project IDs in accessible workspaces
+        // TenantAwareRepository automatically scopes by organizationId
         const accessibleProjects = await this.projectRepository.find({
           where: {
-            organizationId,
             workspaceId: In(accessibleWorkspaceIds),
           },
           select: ['id'],
@@ -317,26 +317,70 @@ export class ResourcesService {
     startDate: Date,
     endDate: Date,
     allocationPercentage: number,
+    organizationId?: string,
   ) {
     try {
-      const existingAllocations = await this.resourceAllocationRepository.find({
-        where: {
-          resourceId,
-          startDate: Between(startDate, endDate),
-        },
-      });
+      // Find existing allocations that overlap with the date range
+      // Exclude GHOST allocations from conflict calculations
+      // Date overlap: (allocation.startDate <= newEndDate AND allocation.endDate >= newStartDate)
+      const existingAllocations = await this.resourceAllocationRepository
+        .createQueryBuilder('allocation')
+        .where('allocation.resourceId = :resourceId', { resourceId })
+        .andWhere('allocation.type != :ghostType', {
+          ghostType: AllocationType.GHOST,
+        })
+        .andWhere(
+          'allocation.startDate <= :endDate AND allocation.endDate >= :startDate',
+          { startDate, endDate },
+        )
+        .getMany();
 
-      const totalAllocation = existingAllocations.reduce(
-        (sum, a) => sum + a.allocationPercentage,
-        0,
-      );
+      // Compute totalHardLoad: sum of HARD allocations
+      const totalHardLoad = existingAllocations
+        .filter((a) => a.type === AllocationType.HARD)
+        .reduce((sum, a) => sum + (a.allocationPercentage || 0), 0);
+
+      // Compute totalSoftLoad: sum of SOFT allocations
+      const totalSoftLoad = existingAllocations
+        .filter((a) => a.type === AllocationType.SOFT)
+        .reduce((sum, a) => sum + (a.allocationPercentage || 0), 0);
+
+      // Load organization settings if organizationId is provided
+      let settings = null;
+      let classification: 'NONE' | 'WARNING' | 'CRITICAL' = 'NONE';
+
+      if (organizationId) {
+        const organization = await this.organizationRepository.findOne({
+          where: { id: organizationId },
+        });
+
+        if (organization) {
+          settings = getResourceSettings(organization);
+
+          // Critical risk: only when totalHardLoad exceeds criticalThreshold
+          if (totalHardLoad > settings.criticalThreshold) {
+            classification = 'CRITICAL';
+          }
+          // Warning risk: when totalHardLoad + totalSoftLoad exceeds warningThreshold
+          else if (totalHardLoad + totalSoftLoad > settings.warningThreshold) {
+            classification = 'WARNING';
+          }
+        }
+      }
+
+      // Legacy compatibility: hasConflicts if total exceeds 100
+      const totalAllocation = totalHardLoad + totalSoftLoad;
       const hasConflict = totalAllocation + allocationPercentage > 100;
 
       return {
-        hasConflicts: hasConflict,
+        hasConflicts: hasConflict || classification !== 'NONE',
         conflicts: hasConflict ? existingAllocations : [],
         totalAllocation: totalAllocation + allocationPercentage,
         availableCapacity: 100 - totalAllocation,
+        // Extended fields for Resource Intelligence
+        hardLoad: totalHardLoad,
+        softLoad: totalSoftLoad,
+        classification,
       };
     } catch (error) {
       console.error('Error detecting conflicts:', error);
@@ -494,11 +538,9 @@ export class ResourcesService {
         );
 
       // Build query for allocations in date range
+      // Use tenant-aware query builder - organizationId filter is automatic
       const allocationQuery = this.resourceAllocationRepository
-        .createQueryBuilder('allocation')
-        .where('allocation.organizationId = :organizationId', {
-          organizationId,
-        })
+        .qb('allocation')
         .andWhere('allocation.startDate <= :endDate', { endDate })
         .andWhere('allocation.endDate >= :startDate', { startDate });
 
@@ -513,9 +555,9 @@ export class ResourcesService {
         }
 
         // Get projects in workspace
+        // TenantAwareRepository automatically scopes by organizationId
         const workspaceProjects = await this.projectRepository.find({
           where: {
-            organizationId,
             workspaceId,
           },
           select: ['id'],
@@ -552,8 +594,9 @@ export class ResourcesService {
       const allocations = await allocationQuery.getMany();
 
       // Get all resources in organization
+      // TenantAwareRepository automatically scopes by organizationId
       const resources = await this.resourceRepository.find({
-        where: { organizationId, isActive: true },
+        where: { isActive: true },
       });
 
       // Calculate days in range
@@ -634,8 +677,9 @@ export class ResourcesService {
   ): Promise<any[]> {
     try {
       // Verify resource belongs to organization
+      // TenantAwareRepository automatically scopes by organizationId
       const resource = await this.resourceRepository.findOne({
-        where: { id: resourceId, organizationId },
+        where: { id: resourceId },
       });
 
       if (!resource) {
@@ -784,8 +828,9 @@ export class ResourcesService {
         );
 
       // Get all active resources in organization
+      // TenantAwareRepository automatically scopes by organizationId
       const resources = await this.resourceRepository.find({
-        where: { organizationId, isActive: true },
+        where: { isActive: true },
         select: ['id', 'skills'],
       });
 

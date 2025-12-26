@@ -6,7 +6,7 @@ A secure, scalable NestJS backend service for the Zephix project management plat
 
 - 🔐 **JWT Authentication** with role-based access control (RBAC)
 - 🛡️ **Security Headers** via Helmet with configurable CSP
-- 🌐 **CORS Configuration** with environment-specific origin validation  
+- 🌐 **CORS Configuration** with environment-specific origin validation
 - ⚡ **Rate Limiting** with per-route overrides (global + auth-specific)
 - 🏥 **Health Checks** and system metrics endpoints
 - 🗄️ **PostgreSQL** with TypeORM and automatic migrations
@@ -50,7 +50,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,https://app.getzephix.com,https://get
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_WINDOW_MS=60000              # 1 minute
 RATE_LIMIT_MAX=60                       # 60 requests per minute per IP
-AUTH_RATE_LIMIT_WINDOW_MS=900000        # 15 minutes  
+AUTH_RATE_LIMIT_WINDOW_MS=900000        # 15 minutes
 AUTH_RATE_LIMIT_MAX=5                   # 5 auth attempts per 15 minutes
 
 # Security Headers
@@ -78,7 +78,17 @@ METRICS_ENABLED=true                        # Prometheus metrics
 METRICS_PATH=/api/metrics                   # Metrics endpoint path
 ```
 
-### External Integrations (Optional)
+### Development Only - Seeding
+
+```bash
+# Template seeding
+TEMPLATE_SEED=true  # Set to true in dev to enable template seeding (never in prod)
+
+# Demo data seeding (workspace + project)
+DEMO_BOOTSTRAP=true  # Set to true in dev to enable demo data seeding (never in prod)
+```
+
+# External Integrations (Optional)
 
 ```bash
 # Jira Integration
@@ -86,7 +96,7 @@ JIRA_BASE_URL=https://company.atlassian.net
 JIRA_USERNAME=user@company.com
 JIRA_API_TOKEN=your-jira-token
 
-# GitHub Integration  
+# GitHub Integration
 GITHUB_TOKEN=your-github-token
 GITHUB_BASE_URL=https://api.github.com
 
@@ -99,7 +109,7 @@ FINANCIAL_BASE_URL=https://api.financial-service.com
 
 # Export Services
 PDF_SERVICE_URL=https://pdf-export.com
-PPTX_SERVICE_URL=https://pptx-export.com  
+PPTX_SERVICE_URL=https://pptx-export.com
 EXCEL_SERVICE_URL=https://excel-export.com
 
 # Alert Services
@@ -120,7 +130,7 @@ DB_LOGGING=true
 
 **Production:**
 ```bash
-NODE_ENV=production  
+NODE_ENV=production
 CORS_ALLOWED_ORIGINS=https://app.getzephix.com,https://getzephix.com
 RATE_LIMIT_ENABLED=true
 HELMET_ENABLED=true
@@ -149,6 +159,48 @@ cp .env.example .env
 # Run database migrations (if needed)
 npm run db:migrate
 ```
+
+## Seeding (Development Only)
+
+### Template Seeding
+
+To seed templates for testing, add `TEMPLATE_SEED=true` to your `.env` file:
+
+```bash
+# In your .env file
+TEMPLATE_SEED=true
+```
+
+Then run:
+
+```bash
+# Seed a minimal "Starter Template"
+npm run seed:starter-template
+```
+
+**Important:** This flag prevents accidental seeding in production. The script will exit if `TEMPLATE_SEED` is not set to `"true"`.
+
+### Demo Data Seeding
+
+To seed demo workspace and project for testing, add `DEMO_BOOTSTRAP=true` to your `.env` file:
+
+```bash
+# In your .env file
+DEMO_BOOTSTRAP=true
+```
+
+Then run:
+
+```bash
+# Seed demo workspace and project (if none exist)
+npm run seed:demo
+```
+
+This creates:
+- 1 workspace: "Demo Workspace"
+- 1 project: "Demo Project" (in the demo workspace)
+
+**Important:** This flag prevents accidental seeding in production. The script will exit if `DEMO_BOOTSTRAP` is not set to `"true"` or if running in production mode.
 
 ## Development
 
@@ -218,25 +270,99 @@ Expected headers:
 
 ## Testing
 
+### Contract Tests (API Response Contracts)
+
+Contract tests validate that all hardened endpoints return standardized `{ data: ... }` responses and never throw 500 errors on empty data.
+
 ```bash
-# Unit tests
+# Run all contract tests (recommended)
+cd zephix-backend
+npm test -- admin.controller.spec.ts
+npm test -- billing.controller.spec.ts
+npm test -- templates.controller.spec.ts
+npm test -- workspaces.controller.spec.ts
+npm test -- projects.controller.spec.ts
+
+# Run all contract tests together
+npm test -- --testPathPattern="(admin|billing|templates|workspaces|projects).controller.spec"
+```
+
+**What contract tests verify:**
+- ✅ All read endpoints return 200 with `{ data: ... }` format
+- ✅ Empty tables return safe defaults (empty arrays, null, zeroed stats)
+- ✅ Mutations return 400 with explicit error codes for validation failures
+- ✅ No 500 errors thrown for "not found" or "empty data" scenarios
+
+### Smoke Tests (End-to-End API Validation)
+
+Smoke tests verify that endpoints are accessible and return correct response schemas.
+
+```bash
+# Get access token first (login to app, copy from browser DevTools → Local Storage → "zephix.at")
+export ACCESS_TOKEN=<your-token>
+
+# Run smoke tests
+npm run smoke:admin-endpoints
+npm run smoke:templates
+npm run smoke:workspaces
+npm run smoke:projects
+
+# With optional IDs for detail endpoints
+WORKSPACE_ID=<id> npm run smoke:workspaces
+PROJECT_ID=<id> npm run smoke:projects
+```
+
+### Unit Tests
+
+```bash
+# Run all unit tests
 npm run test
 
-# E2E tests  
-npm run test:e2e
+# Run specific test file
+npm test -- <filename>
 
 # Test coverage
 npm run test:cov
+```
+
+### E2E Tests
+
+```bash
+# E2E tests
+npm run test:e2e
 
 # Smoke tests (verify bootstrap and health)
 npm run test:e2e -- test/app.e2e-spec.ts
 ```
 
+### Frontend E2E Tests (Playwright)
+
+```bash
+cd zephix-frontend
+
+# Run admin smoke test (minimum flow)
+npm run test:smoke
+
+# Run all Playwright tests
+npx playwright test
+
+# Run specific test file
+npx playwright test tests/admin-smoke.spec.ts
+```
+
+**Admin Smoke Test Flow:**
+1. Login as admin@zephix.ai
+2. Visit /admin and verify it loads
+3. Click Billing, assert Current Plan renders
+4. Visit /templates, instantiate, assert projectId returned then project page loads
+5. Visit /workspaces, assert list loads or empty state renders
+6. Visit /projects, assert list loads or empty state renders
+
 ## Security Features
 
 ### Rate Limiting
 - **Global**: 60 requests/minute per IP
-- **Auth endpoints**: 5 attempts/15 minutes per IP  
+- **Auth endpoints**: 5 attempts/15 minutes per IP
 - **Health/Status**: No limits
 
 ### CORS
@@ -278,7 +404,7 @@ Test endpoints:
 # Health check
 curl -i http://localhost:3000/api/health
 
-# Status endpoint  
+# Status endpoint
 curl -i http://localhost:3000/api/_status
 
 # CORS preflight

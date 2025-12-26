@@ -31,6 +31,8 @@ import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { AIMappingService } from './services/ai-mapping.service';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContext } from '../common/http/get-auth-context';
 import {
   AIMappingRequestDto,
   AIMappingResponseDto,
@@ -130,11 +132,14 @@ export class AIMappingController {
     )
     file: any, // Express.Multer.File
     @Body() mappingRequest: AIMappingRequestDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<AIMappingResponseDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');

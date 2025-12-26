@@ -41,6 +41,10 @@ export class Risk {
   @Column({ type: 'jsonb', nullable: true })
   mitigation: any;
 
+  // Phase 5: Source of risk (e.g., 'template_preset', 'detected', 'manual')
+  @Column({ nullable: true })
+  source?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

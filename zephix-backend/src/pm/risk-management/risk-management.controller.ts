@@ -20,6 +20,8 @@ import type { RiskIdentificationInput } from './risk-management.service';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @ApiTags('Risk Management')
 @ApiBearerAuth()
@@ -42,12 +44,10 @@ export class RiskManagementController {
   })
   async performRiskAnalysis(
     @Body() input: RiskIdentificationInput,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
-    return await this.riskManagementService.performRiskAnalysis(
-      input,
-      req.user.id,
-    );
+    const { userId } = getAuthContext(req);
+    return await this.riskManagementService.performRiskAnalysis(input, userId);
   }
 
   @Get('register/:projectId')
@@ -63,10 +63,14 @@ export class RiskManagementController {
     description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  async getRiskRegister(@Param('projectId') projectId: string, @Request() req) {
+  async getRiskRegister(
+    @Param('projectId') projectId: string,
+    @Request() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
     return await this.riskManagementService.getRiskRegister(
       projectId,
-      req.user.organizationId,
+      organizationId,
     );
   }
 
@@ -84,13 +88,14 @@ export class RiskManagementController {
   async updateRiskStatus(
     @Param('riskId') riskId: string,
     @Body() body: { status: string; notes: string },
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
+    const { userId } = getAuthContext(req);
     return await this.riskManagementService.updateRiskStatus(
       riskId,
       body.status,
       body.notes,
-      req.user.id,
+      userId,
     );
   }
 
@@ -111,12 +116,13 @@ export class RiskManagementController {
   async createRiskMonitoring(
     @Param('riskId') riskId: string,
     @Body() monitoringPlan: any,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
+    const { userId } = getAuthContext(req);
     return await this.riskManagementService.createRiskMonitoring(
       riskId,
       monitoringPlan,
-      req.user.id,
+      userId,
     );
   }
 }

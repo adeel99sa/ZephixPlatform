@@ -5,8 +5,11 @@ import {
   IsDateString,
   Min,
   Max,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AllocationType } from '../enums/allocation-type.enum';
+import { BookingSource } from '../enums/booking-source.enum';
 
 export class UpdateAllocationDto {
   @ApiProperty({
@@ -39,4 +42,31 @@ export class UpdateAllocationDto {
   @IsOptional()
   @IsString()
   taskId?: string;
+
+  @ApiProperty({
+    enum: AllocationType,
+    description:
+      'Allocation type (HARD=Committed, SOFT=Tentative, GHOST=Scenario)',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(AllocationType)
+  type?: AllocationType;
+
+  @ApiProperty({
+    enum: BookingSource,
+    description: 'Booking source (MANUAL, JIRA, GITHUB, AI)',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(BookingSource)
+  bookingSource?: BookingSource;
+
+  @ApiProperty({
+    description: 'Justification for allocation',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  justification?: string;
 }

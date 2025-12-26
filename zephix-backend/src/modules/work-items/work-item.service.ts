@@ -2,9 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { IsNull } from 'typeorm';
 import {
   WorkItem,
   WorkItemStatus,
@@ -12,6 +12,9 @@ import {
 } from './entities/work-item.entity';
 import { CreateWorkItemDto } from './dto/create-work-item.dto';
 import { UpdateWorkItemDto } from './dto/update-work-item.dto';
+import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 
 interface ListOptions {
   organizationId: string;
@@ -41,16 +44,21 @@ interface KpiOptions {
 @Injectable()
 export class WorkItemService {
   constructor(
-    @InjectRepository(WorkItem)
-    private workItemRepository: Repository<WorkItem>,
+    @Inject(getTenantAwareRepositoryToken(WorkItem))
+    private workItemRepository: TenantAwareRepository<WorkItem>,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async list(options: ListOptions) {
+    // organizationId now comes from tenant context, not options
+    const organizationId = this.tenantContextService.assertOrganizationId();
+
     const where: any = {
-      organizationId: options.organizationId,
       deletedAt: IsNull(),
     };
 
+    // workspaceId filter is automatic for WorkspaceScoped entities when in context
+    // But we can still filter by explicit workspaceId if provided
     if (options.workspaceId) {
       where.workspaceId = options.workspaceId;
     }
@@ -67,6 +75,7 @@ export class WorkItemService {
       where.assigneeId = options.assigneeId;
     }
 
+    // TenantAwareRepository automatically adds organizationId filter
     return this.workItemRepository.find({
       where,
       order: { createdAt: 'DESC' },
@@ -75,9 +84,14 @@ export class WorkItemService {
     });
   }
 
-  async getOne(id: string, organizationId: string) {
+  async getOne(id: string, organizationId?: string) {
+    // organizationId now comes from tenant context if not provided
+    const orgId =
+      organizationId || this.tenantContextService.assertOrganizationId();
+
+    // TenantAwareRepository automatically adds organizationId filter
     const item = await this.workItemRepository.findOne({
-      where: { id, organizationId, deletedAt: IsNull() },
+      where: { id, deletedAt: IsNull() },
     });
 
     if (!item) {
@@ -103,7 +117,8 @@ export class WorkItemService {
   }
 
   async update(id: string, organizationId: string, options: UpdateOptions) {
-    const item = await this.getOne(id, organizationId);
+    // organizationId parameter kept for backward compatibility but not used in query
+    const item = await this.getOne(id);
 
     Object.assign(item, options);
 
@@ -111,12 +126,15 @@ export class WorkItemService {
   }
 
   async completedRatioByProject(options: KpiOptions) {
-    const whereBase = {
-      organizationId: options.organizationId,
+    // organizationId now comes from tenant context
+    const organizationId = this.tenantContextService.assertOrganizationId();
+
+    const whereBase: any = {
       projectId: options.projectId,
       deletedAt: IsNull(),
     };
 
+    // TenantAwareRepository automatically adds organizationId filter
     const [completed, total] = await Promise.all([
       this.workItemRepository.count({
         where: { ...whereBase, status: WorkItemStatus.DONE },
@@ -130,8 +148,10 @@ export class WorkItemService {
   }
 
   async completedRatioByWorkspace(options: KpiOptions) {
+    // organizationId now comes from tenant context
+    const organizationId = this.tenantContextService.assertOrganizationId();
+
     const whereBase: any = {
-      organizationId: options.organizationId,
       deletedAt: IsNull(),
     };
 
@@ -139,6 +159,7 @@ export class WorkItemService {
       whereBase.workspaceId = options.workspaceId;
     }
 
+    // TenantAwareRepository automatically adds organizationId filter
     const [completed, total] = await Promise.all([
       this.workItemRepository.count({
         where: { ...whereBase, status: WorkItemStatus.DONE },

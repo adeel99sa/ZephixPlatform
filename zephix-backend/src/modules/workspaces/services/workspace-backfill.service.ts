@@ -291,7 +291,7 @@ export class WorkspaceBackfillService {
           const newMember = queryRunner.manager.create(WorkspaceMember, {
             workspaceId: workspace.id,
             userId: desiredOwnerId,
-            role: 'owner' as WorkspaceRole,
+            role: 'workspace_owner' as WorkspaceRole,
           });
           await queryRunner.manager.save(newMember);
           memberCreated = true;
@@ -300,10 +300,10 @@ export class WorkspaceBackfillService {
           memberCreated = true;
           updated = true;
         }
-      } else if (existingMember.role !== 'owner') {
-        // Update existing member to owner role
+      } else if (existingMember.role !== 'workspace_owner') {
+        // Update existing member to workspace_owner role
         if (!dryRun) {
-          existingMember.role = 'owner' as WorkspaceRole;
+          existingMember.role = 'workspace_owner' as WorkspaceRole;
           await queryRunner.manager.save(existingMember);
           memberUpdated = true;
           updated = true;

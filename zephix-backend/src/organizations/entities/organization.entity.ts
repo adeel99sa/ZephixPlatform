@@ -38,8 +38,23 @@ export class Organization {
 
   @Column({ nullable: true, name: 'trial_ends_at' }) trialEndsAt: Date;
 
+  /**
+   * Organization settings (JSONB)
+   * Can include resourceManagementSettings with thresholds:
+   * - warningThreshold (default: 80)
+   * - criticalThreshold (default: 100)
+   * - hardCap (default: 150)
+   * - requireJustificationAbove (default: 100)
+   */
   @Column({ type: 'jsonb', default: {} })
   settings: object;
+
+  /**
+   * If true, this organization's plan is managed internally by Zephix team
+   * and self-serve plan changes should be blocked
+   */
+  @Column({ default: false, name: 'internal_managed' })
+  internalManaged: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

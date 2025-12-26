@@ -4,6 +4,8 @@ import {
   IsString,
   Length,
   Matches,
+  IsObject,
+  IsIn,
 } from 'class-validator';
 
 export class UpdateWorkspaceDto {
@@ -21,4 +23,22 @@ export class UpdateWorkspaceDto {
   @IsBoolean()
   @IsOptional()
   isPrivate?: boolean;
+
+  // Phase 3: Additional fields
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  ownerId?: string;
+
+  @IsString()
+  @IsIn(['waterfall', 'agile', 'scrum', 'kanban', 'hybrid'])
+  @IsOptional()
+  defaultMethodology?: string;
+
+  @IsObject()
+  @IsOptional()
+  permissionsConfig?: Record<string, string[]>;
 }

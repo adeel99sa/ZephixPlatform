@@ -98,6 +98,51 @@ export class ProjectTemplate {
   @Column({ name: 'is_active', default: true })
   isActive: boolean; // For soft archiving
 
+  // Phase 4: Default workspace visibility (optional)
+  @Column({ name: 'default_workspace_visibility', length: 20, nullable: true })
+  defaultWorkspaceVisibility?: 'public' | 'private';
+
+  // Phase 4: Simplified structure for Phase 4 (phases and tasks)
+  // This replaces the complex phases/taskTemplates structure for now
+  @Column({ name: 'structure', type: 'jsonb', nullable: true })
+  structure?: {
+    phases: Array<{
+      name: string;
+      description?: string;
+      order: number;
+      tasks: Array<{
+        name: string;
+        description?: string;
+        estimatedHours?: number;
+      }>;
+    }>;
+  };
+
+  // Phase 5: Risk presets
+  @Column({ name: 'risk_presets', type: 'jsonb', default: [] })
+  riskPresets: Array<{
+    id: string; // Template local id
+    title: string;
+    description?: string;
+    category?: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    probability?: number; // 0-100 or discrete value
+    ownerRoleHint?: string; // Optional role hint for risk owner
+    tags?: string[];
+  }>;
+
+  // Phase 5: KPI presets
+  @Column({ name: 'kpi_presets', type: 'jsonb', default: [] })
+  kpiPresets: Array<{
+    id: string; // Template local id
+    name: string;
+    description?: string;
+    metricType: string;
+    unit: string;
+    targetValue?: number | string;
+    direction: 'higher_is_better' | 'lower_is_better';
+  }>;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
