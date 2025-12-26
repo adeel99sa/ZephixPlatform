@@ -2,6 +2,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateWorkspacesTable1761436371432 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Skip if workspaces table already exists (created by bootstrap migration)
+    const tableExists = await queryRunner.hasTable('workspaces');
+    if (tableExists) {
+      return;
+    }
     await queryRunner.query(`
             CREATE TABLE "workspaces" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),

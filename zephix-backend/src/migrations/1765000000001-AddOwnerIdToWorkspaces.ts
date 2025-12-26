@@ -2,6 +2,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddOwnerIdToWorkspaces1765000000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Skip if owner_id column already exists (created by bootstrap migration)
+    const table = await queryRunner.getTable('workspaces');
+    if (table && table.findColumnByName('owner_id')) {
+      return;
+    }
     // Add nullable owner_id column
     await queryRunner.query(`
       ALTER TABLE "workspaces"
