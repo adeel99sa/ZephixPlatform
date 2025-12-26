@@ -5,9 +5,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BRDModule } from '../src/brd/brd.module';
 import { BRD, BRDStatus } from '../src/brd/entities/brd.entity';
-import { AuthModule } from '../src/auth/auth.module';
+import { AuthModule } from '../src/modules/auth/auth.module';
 import { JwtService } from '@nestjs/jwt';
-import * as seedData from '../src/brd/schema/brd.seed.json';
+// import * as seedData from '../src/brd/schema/brd.seed.json';
+const seedData = require('../src/brd/schema/brd.seed.json');
 
 describe('BRD (e2e)', () => {
   let app: INestApplication;

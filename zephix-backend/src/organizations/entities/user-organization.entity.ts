@@ -1,3 +1,9 @@
+/**
+ * ROLE MAPPING SUMMARY:
+ * - Database enum: role = 'owner' | 'admin' | 'pm' | 'viewer'
+ * - Maps to PlatformRole: 'owner'/'admin' → ADMIN, 'pm' → MEMBER, 'viewer' → VIEWER
+ * - This is the primary source of truth for organization-level roles
+ */
 import {
   Entity,
   PrimaryGeneratedColumn,

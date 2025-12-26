@@ -6,9 +6,15 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
 
-export const RequireOrgRole = (role: 'admin' | 'project_manager' | 'viewer') =>
-  SetMetadata('requiredOrgRole', role);
+// For backward compatibility, accept legacy role names but map to PlatformRole
+export const RequireOrgRole = (
+  role: PlatformRole | 'admin' | 'project_manager' | 'viewer',
+) => SetMetadata('requiredOrgRole', role);
 
 @Injectable()
 export class RequireOrgRoleGuard implements CanActivate {
@@ -22,7 +28,7 @@ export class RequireOrgRoleGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    const requiredRole = this.reflector.get<string>(
+    const requiredRole = this.reflector.get<string | PlatformRole>(
       'requiredOrgRole',
       context.getHandler(),
     );
@@ -31,23 +37,32 @@ export class RequireOrgRoleGuard implements CanActivate {
       return true; // No role requirement
     }
 
-    // Map user role to org role
-    const userRole = user.role || 'viewer';
-    const orgRole = userRole === 'owner' ? 'admin' : userRole;
+    // Normalize user's role from JWT to PlatformRole
+    const userPlatformRole = normalizePlatformRole(user.role);
 
-    // Role hierarchy: admin > project_manager > viewer
-    const roleHierarchy = {
-      admin: 3,
-      project_manager: 2,
-      viewer: 1,
+    // Normalize required role (handle both new enum and legacy strings)
+    const normalizedRequiredRole = normalizePlatformRole(requiredRole);
+
+    // Development logging for role debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `Guard role check, user role: ${user.role} -> ${userPlatformRole}, required: ${requiredRole} -> ${normalizedRequiredRole}`,
+      );
+    }
+
+    // Role hierarchy: ADMIN > MEMBER > VIEWER
+    const roleHierarchy: Record<PlatformRole, number> = {
+      [PlatformRole.ADMIN]: 3,
+      [PlatformRole.MEMBER]: 2,
+      [PlatformRole.VIEWER]: 1,
     };
 
-    const userLevel = roleHierarchy[orgRole] || 0;
-    const requiredLevel = roleHierarchy[requiredRole] || 0;
+    const userLevel = roleHierarchy[userPlatformRole] || 0;
+    const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
 
     if (userLevel < requiredLevel) {
       throw new ForbiddenException(
-        `Required role: ${requiredRole}, current role: ${orgRole}`,
+        `Required platform role: ${normalizedRequiredRole}, current role: ${userPlatformRole}. Only organization admins can perform this action.`,
       );
     }
 

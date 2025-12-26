@@ -9,6 +9,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Resource } from '../entities/resource.entity';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('resources')
 @ApiTags('resources')
@@ -23,8 +25,8 @@ export class ResourceSeedController {
   @Post('seed')
   @ApiOperation({ summary: 'Seed sample resources for testing' })
   @ApiResponse({ status: 201, description: 'Resources seeded successfully' })
-  async seedResources(@Req() req: any) {
-    const organizationId = req.user.organizationId;
+  async seedResources(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
 
     if (!organizationId) {
       // Create a temporary organization for the user

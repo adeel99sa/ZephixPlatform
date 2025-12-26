@@ -2,38 +2,44 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Task } from './entities/task.entity';
 import { TaskDependency } from './entities/task-dependency.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ResourceCalculationService } from '../resources/services/resource-calculation.service';
 import { KPIService } from '../kpi/kpi.service';
+import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 
 @Injectable()
 export class TasksService {
   constructor(
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
-    @InjectRepository(TaskDependency)
-    private dependencyRepository: Repository<TaskDependency>,
+    @Inject(getTenantAwareRepositoryToken(Task))
+    private taskRepository: TenantAwareRepository<Task>,
+    @Inject(getTenantAwareRepositoryToken(TaskDependency))
+    private dependencyRepository: TenantAwareRepository<TaskDependency>,
     private resourceCalculationService: ResourceCalculationService,
     private kpiService: KPIService,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async create(
     createTaskDto: CreateTaskDto,
     organizationId: string,
   ): Promise<Task> {
+    // organizationId parameter kept for backward compatibility
+    const orgId = this.tenantContextService.assertOrganizationId();
+
     // Generate task number if not provided
     const taskNumber = createTaskDto.taskNumber || `TASK-${Date.now()}`;
 
     const task = this.taskRepository.create({
       ...createTaskDto,
       taskNumber,
-      organizationId,
+      organizationId: orgId,
     });
 
     const savedTask = await this.taskRepository.save(task);
@@ -62,16 +68,20 @@ export class TasksService {
   }
 
   async findAll(projectId: string, organizationId: string): Promise<Task[]> {
+    // organizationId parameter kept for backward compatibility
+    // TenantAwareRepository automatically scopes by organizationId
     return await this.taskRepository.find({
-      where: { projectId, organizationId },
+      where: { projectId },
       order: { createdAt: 'DESC' },
       relations: ['assignee', 'phase'],
     });
   }
 
   async findOne(id: string, organizationId: string): Promise<Task> {
+    // organizationId parameter kept for backward compatibility
+    // TenantAwareRepository automatically scopes by organizationId
     const task = await this.taskRepository.findOne({
-      where: { id, organizationId },
+      where: { id },
       relations: ['assignee', 'phase', 'project'],
     });
 
@@ -181,8 +191,10 @@ export class TasksService {
   }
 
   async findByAssignee(email: string, organizationId: string): Promise<Task[]> {
+    // organizationId parameter kept for backward compatibility
+    // TenantAwareRepository automatically scopes by organizationId
     const tasks = await this.taskRepository.find({
-      where: { organizationId },
+      where: {},
       relations: ['project', 'assignee', 'phase'],
     });
 
@@ -200,12 +212,13 @@ export class TasksService {
     organizationId: string,
   ) {
     // Verify both tasks exist and belong to the organization
+    // TenantAwareRepository automatically scopes by organizationId
     const [successor, predecessor] = await Promise.all([
       this.taskRepository.findOne({
-        where: { id: successorId, organizationId },
+        where: { id: successorId },
       }),
       this.taskRepository.findOne({
-        where: { id: predecessorId, organizationId },
+        where: { id: predecessorId },
       }),
     ]);
 
@@ -237,13 +250,15 @@ export class TasksService {
     organizationId: string,
   ) {
     // Verify the task exists and belongs to the organization
+    // TenantAwareRepository automatically scopes by organizationId
     const task = await this.taskRepository.findOne({
-      where: { id: taskId, organizationId },
+      where: { id: taskId },
     });
     if (!task) {
       throw new NotFoundException('Task not found');
     }
 
+    // TenantAwareRepository automatically scopes TaskDependency queries
     await this.dependencyRepository.delete({
       successorId: taskId,
       predecessorId: dependencyId,
@@ -254,13 +269,15 @@ export class TasksService {
 
   async getDependencies(taskId: string, organizationId: string) {
     // Verify the task exists and belongs to the organization
+    // TenantAwareRepository automatically scopes by organizationId
     const task = await this.taskRepository.findOne({
-      where: { id: taskId, organizationId },
+      where: { id: taskId },
     });
     if (!task) {
       throw new NotFoundException('Task not found');
     }
 
+    // TenantAwareRepository automatically scopes TaskDependency queries
     const dependencies = await this.dependencyRepository.find({
       where: { successorId: taskId },
       relations: ['predecessor'],
@@ -301,6 +318,7 @@ export class TasksService {
   private async adjustDatesForDependency(
     dependency: TaskDependency,
   ): Promise<void> {
+    // TenantAwareRepository automatically scopes by organizationId
     const [predecessor, successor] = await Promise.all([
       this.taskRepository.findOne({ where: { id: dependency.predecessorId } }),
       this.taskRepository.findOne({ where: { id: dependency.successorId } }),

@@ -19,9 +19,8 @@ export class HeatMapQueryDto {
   @IsUUID()
   projectId?: string;
 
-  @IsOptional()
-  @IsUUID()
-  organizationId?: string;
+  // organizationId removed - now comes from tenant context (req.user.organizationId)
+  // Keeping for backward compatibility but will be ignored
 
   @IsOptional()
   @IsEnum(HeatMapView)

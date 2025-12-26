@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, Inject } from '@nestjs/common';
 import { Risk } from './entities/risk.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { ResourceAllocation } from '../resources/entities/resource-allocation.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../tenancy/tenant-context.service';
+import { DataSource } from 'typeorm';
+import { Organization } from '../../organizations/entities/organization.entity';
 
 interface RiskEvidence {
   type: string;
@@ -16,26 +19,52 @@ interface RiskEvidence {
 @Injectable()
 export class RiskDetectionService {
   constructor(
-    @InjectRepository(Risk)
-    private riskRepository: Repository<Risk>,
-    @InjectRepository(Project)
-    private projectRepository: Repository<Project>,
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>,
-    @InjectRepository(ResourceAllocation)
-    private allocationRepository: Repository<ResourceAllocation>,
+    @Inject(getTenantAwareRepositoryToken(Risk))
+    private riskRepository: TenantAwareRepository<Risk>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepository: TenantAwareRepository<Project>,
+    @Inject(getTenantAwareRepositoryToken(Task))
+    private taskRepository: TenantAwareRepository<Task>,
+    @Inject(getTenantAwareRepositoryToken(ResourceAllocation))
+    private allocationRepository: TenantAwareRepository<ResourceAllocation>,
+    private readonly tenantContextService: TenantContextService,
+    private readonly dataSource: DataSource,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async runDailyRiskScan() {
     console.log('🔍 Running daily risk scan...');
-    const projects = await this.projectRepository.find({
+
+    // Get all organizations using DataSource (infra-level access is allowed)
+    const orgRepo = this.dataSource.getRepository(Organization);
+    const organizations = await orgRepo.find({
       where: { status: 'active' as any },
+      select: ['id'],
     });
 
-    for (const project of projects) {
-      await this.scanProjectRisks(project.id, project.organizationId);
+    // Process each organization with tenant context using job helper
+    for (const org of organizations) {
+      await this.tenantContextService.runJobWithTenant(
+        { organizationId: org.id },
+        async () => {
+          // Get active projects for this organization
+          // TenantAwareRepository automatically scopes by organizationId
+          const projects = await this.projectRepository.find({
+            where: { status: 'active' as any },
+          });
+
+          console.log(
+            `  Processing ${projects.length} projects for org ${org.id}`,
+          );
+
+          for (const project of projects) {
+            await this.scanProjectRisks(project.id, org.id);
+          }
+        },
+      );
     }
+
+    console.log('✅ Daily risk scan completed');
   }
 
   async scanProjectRisks(
@@ -69,14 +98,13 @@ export class RiskDetectionService {
     projectId: string,
     organizationId: string,
   ): Promise<Risk | null> {
+    // organizationId parameter kept for backward compatibility
+    // Use tenant-aware query builder - organizationId filter is automatic
     const allocations = await this.allocationRepository
-      .createQueryBuilder('allocation')
+      .qb('allocation')
       .leftJoinAndSelect('allocation.task', 'task')
       .leftJoinAndSelect('allocation.resource', 'resource')
-      .where('task.projectId = :projectId', { projectId })
-      .andWhere('allocation.organizationId = :organizationId', {
-        organizationId,
-      })
+      .andWhere('task.projectId = :projectId', { projectId })
       .getMany();
 
     const overallocated = allocations.filter(
@@ -125,8 +153,10 @@ export class RiskDetectionService {
     projectId: string,
     organizationId: string,
   ): Promise<Risk | null> {
+    // organizationId parameter kept for backward compatibility
+    // Note: Task entity may need TenantAwareRepository if it has organizationId
     const tasks = await this.taskRepository.find({
-      where: { projectId, organizationId },
+      where: { projectId },
     });
 
     const delayedTasks = tasks.filter((task) => {
@@ -180,8 +210,10 @@ export class RiskDetectionService {
     projectId: string,
     organizationId: string,
   ): Promise<Risk | null> {
+    // organizationId parameter kept for backward compatibility
+    // Note: Task entity may need TenantAwareRepository if it has organizationId
     const tasks = await this.taskRepository.find({
-      where: { projectId, organizationId },
+      where: { projectId },
     });
 
     // Check for dependency chains

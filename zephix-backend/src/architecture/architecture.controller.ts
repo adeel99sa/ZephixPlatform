@@ -19,6 +19,8 @@ import {
 import { Response } from 'express';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { ArchitectureDerivationService } from './architecture-derivation.service';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContextOptional } from '../common/http/get-auth-context-optional';
 import {
   DeriveArchitectureDto,
   ArchitectureReviewDto,
@@ -67,10 +69,11 @@ export class ArchitectureController {
     @Res() res: Response,
   ) {
     const requestId = req.requestId || 'unknown';
+    const ctx = getAuthContextOptional(req as AuthRequest);
     const logger = this.loggerService.createRequestLogger(requestId, {
       operation: 'derive-architecture',
       brdId: deriveDto.id,
-      userId: req.user?.id,
+      userId: ctx?.userId,
     });
 
     return this.telemetryService.traceFunction(
@@ -84,7 +87,7 @@ export class ArchitectureController {
           this.telemetryService.addSpanAttributes({
             'brd.id': deriveDto.id,
             'brd.requirements_count': deriveDto.functional_requirements.length,
-            'user.id': req.user?.id,
+            'user.id': ctx?.userId,
           });
 
           const startTime = Date.now();
@@ -113,9 +116,11 @@ export class ArchitectureController {
             'architecture_derivation',
             'architecture-controller',
           );
-          this.telemetryService.recordException(error);
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
+          this.telemetryService.recordException(errorObj);
 
-          logger.error('Architecture derivation failed', error);
+          logger.error({ error: errorObj }, 'Architecture derivation failed');
 
           res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
             statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -153,10 +158,11 @@ export class ArchitectureController {
     @Request() req,
   ) {
     const requestId = req.requestId || 'unknown';
+    const ctx = getAuthContextOptional(req as AuthRequest);
     const logger = this.loggerService.createRequestLogger(requestId, {
       operation: 'get-architecture-bundle',
       derivationId,
-      userId: req.user?.id,
+      userId: ctx?.userId,
     });
 
     return this.telemetryService.traceFunction(
@@ -201,9 +207,14 @@ export class ArchitectureController {
             'architecture_bundle_retrieval',
             'architecture-controller',
           );
-          this.telemetryService.recordException(error);
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
+          this.telemetryService.recordException(errorObj);
 
-          logger.error('Failed to retrieve architecture bundle', error);
+          logger.error(
+            { error: errorObj },
+            'Failed to retrieve architecture bundle',
+          );
 
           throw error;
         }
@@ -234,11 +245,12 @@ export class ArchitectureController {
     @Request() req,
   ) {
     const requestId = req.requestId || 'unknown';
+    const ctx = getAuthContextOptional(req as AuthRequest);
     const logger = this.loggerService.createRequestLogger(requestId, {
       operation: 'review-architecture',
       derivationId,
       decision: reviewDto.decision,
-      userId: req.user?.id,
+      userId: ctx?.userId,
     });
 
     return this.telemetryService.traceFunction(
@@ -267,7 +279,7 @@ export class ArchitectureController {
                 : reviewDto.decision === 'request_changes'
                   ? 'changes_requested'
                   : 'rejected',
-            reviewed_by: req.user?.id,
+            reviewed_by: ctx?.userId,
             reviewed_at: new Date().toISOString(),
             comments: reviewDto.comments,
             requested_changes: reviewDto.requested_changes,
@@ -291,9 +303,11 @@ export class ArchitectureController {
             'architecture_review',
             'architecture-controller',
           );
-          this.telemetryService.recordException(error);
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
+          this.telemetryService.recordException(errorObj);
 
-          logger.error('Architecture review failed', error);
+          logger.error({ error: errorObj }, 'Architecture review failed');
 
           throw error;
         }
@@ -330,10 +344,11 @@ export class ArchitectureController {
     @Request() req,
   ) {
     const requestId = req.requestId || 'unknown';
+    const ctx = getAuthContextOptional(req as AuthRequest);
     const logger = this.loggerService.createRequestLogger(requestId, {
       operation: 'publish-architecture',
       derivationId,
-      userId: req.user?.id,
+      userId: ctx?.userId,
     });
 
     return this.telemetryService.traceFunction(
@@ -352,7 +367,7 @@ export class ArchitectureController {
           const publishResult = {
             id: derivationId,
             status: 'published',
-            published_by: req.user?.id,
+            published_by: ctx?.userId,
             published_at: new Date().toISOString(),
             artifacts: {
               summary_url: `/api/architecture/${derivationId}/bundle`,
@@ -373,9 +388,11 @@ export class ArchitectureController {
             'architecture_publish',
             'architecture-controller',
           );
-          this.telemetryService.recordException(error);
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
+          this.telemetryService.recordException(errorObj);
 
-          logger.error('Architecture publishing failed', error);
+          logger.error({ error: errorObj }, 'Architecture publishing failed');
 
           throw error;
         }

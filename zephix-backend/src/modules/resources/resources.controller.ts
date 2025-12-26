@@ -22,15 +22,17 @@ import { ResourceHeatMapService } from './services/resource-heat-map.service';
 import { HeatMapQueryDto } from './dto/heat-map-query.dto';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { DetectConflictsDto } from './dto/detect-conflicts.dto';
-import { AuthenticatedRequest } from './dto/authenticated-request.dto';
 import { ResourcesService } from './resources.service';
 import { AuditService } from './services/audit.service';
 import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationService } from './resource-allocation.service';
 import { ResourceRiskScoreService } from './services/resource-risk-score.service';
+import { ResourceTimelineService } from './services/resource-timeline.service';
 import { ResponseService } from '../../shared/services/response.service';
 import { NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('resources')
 @ApiTags('resources')
@@ -44,6 +46,7 @@ export class ResourcesController {
     private readonly cacheService: CacheService,
     private readonly allocationService: ResourceAllocationService,
     private readonly riskScoreService: ResourceRiskScoreService,
+    private readonly timelineService: ResourceTimelineService,
     private readonly responseService: ResponseService,
   ) {}
 
@@ -53,30 +56,30 @@ export class ResourcesController {
     status: 200,
     description: 'Heat map data retrieved successfully',
   })
-  async getResourceHeatMap(@Query() query: HeatMapQueryDto, @Req() req: any) {
-    const userId = req.user?.id || req.user?.sub;
-    const userRole = req.user?.role;
-    const organizationId = req.user?.organizationId;
+  async getResourceHeatMap(
+    @Query() query: HeatMapQueryDto,
+    @Req() req: AuthRequest,
+  ) {
+    const { userId, platformRole } = getAuthContext(req);
+    const userRole = platformRole;
 
-    // Ensure organizationId is set in query if not provided
-    if (!query.organizationId && organizationId) {
-      query.organizationId = organizationId;
-    }
+    // organizationId now comes from tenant context (set by interceptor)
+    // No need to pass it explicitly
 
     return this.heatMapService.getHeatMapData(query, userId, userRole);
   }
 
   @Get()
-  async getAllResources(@Query() query: any, @Req() req: any) {
+  async getAllResources(@Query() query: any, @Req() req: AuthRequest) {
     try {
       console.log('📍 Resources endpoint called');
 
       // Get user context
-      const userId = req.user?.id || req.user?.sub;
-      const organizationId = req.user?.organizationId;
-      const userRole = req.user?.role;
+      const { userId, organizationId, email, platformRole } =
+        getAuthContext(req);
+      const userRole = platformRole;
 
-      console.log('📍 User:', req.user?.email, 'Org:', organizationId);
+      console.log('📍 User:', email, 'Org:', organizationId);
 
       // Parse filter query parameters
       const filters: any = {};
@@ -142,10 +145,12 @@ export class ResourcesController {
   @Post()
   @ApiOperation({ summary: 'Create a new resource' })
   @ApiResponse({ status: 201, description: 'Resource created successfully' })
-  async createResource(@Body() createResourceDto: any, @Req() req: any) {
+  async createResource(
+    @Body() createResourceDto: any,
+    @Req() req: AuthRequest,
+  ) {
     try {
-      const userId = req.user?.id || req.user?.sub;
-      const organizationId = req.user?.organizationId;
+      const { userId, organizationId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization ID is required');
@@ -193,12 +198,11 @@ export class ResourcesController {
   async getCapacityBreakdown(
     @Param('id') resourceId: string,
     @Query() query: any,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     try {
-      const organizationId = req.user?.organizationId;
-      const userId = req.user?.id || req.user?.sub;
-      const userRole = req.user?.role;
+      const { organizationId, userId, platformRole } = getAuthContext(req);
+      const userRole = platformRole;
 
       if (!organizationId) {
         throw new BadRequestException('Organization ID is required');
@@ -234,10 +238,10 @@ export class ResourcesController {
     @Param('id') id: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     try {
-      const organizationId = req.user?.organizationId;
+      const { organizationId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization ID is required');
@@ -260,10 +264,9 @@ export class ResourcesController {
   @Get('conflicts')
   @ApiOperation({ summary: 'Get resource conflicts' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
-  async getConflicts(@Req() req: AuthenticatedRequest) {
-    const organizationId = req.user.organizationId;
-    const userId = req.user.id;
-    const userRole = req.user.role;
+  async getConflicts(@Req() req: AuthRequest) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const userRole = platformRole;
     if (!organizationId) {
       return { data: [] };
     }
@@ -291,17 +294,17 @@ export class ResourcesController {
   @ApiResponse({ status: 201, description: 'Allocation created successfully' })
   async createAllocation(
     @Body() dto: CreateAllocationDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
   ) {
     const requestId = uuidv4();
-    const organizationId = req.user?.organizationId;
+    const { userId, organizationId } = getAuthContext(req);
 
     try {
       // 1. Create allocation
       const result = await this.resourcesService.createAllocationWithAudit(
         dto,
         {
-          userId: req.user.id,
+          userId,
           organizationId,
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
@@ -314,7 +317,7 @@ export class ResourcesController {
 
       // 3. Log successful creation
       await this.auditService.logAction({
-        userId: req.user.id,
+        userId,
         organizationId,
         entityType: 'resource_allocation',
         entityId: result.id,
@@ -329,11 +332,14 @@ export class ResourcesController {
     } catch (error) {
       // 4. Log failure
       await this.auditService.logAction({
-        userId: req.user.id,
+        userId,
         organizationId,
         entityType: 'resource_allocation',
         action: 'create_failed',
-        newValue: { error: error.message, data: dto },
+        newValue: {
+          error: error instanceof Error ? error.message : String(error),
+          data: dto,
+        },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
         requestId,
@@ -344,10 +350,9 @@ export class ResourcesController {
 
   @Get('task-heat-map')
   @UseGuards(JwtAuthGuard)
-  async getTaskHeatMap(@Req() req) {
-    return await this.allocationService.getTaskBasedHeatMap(
-      req.user.organizationId,
-    );
+  async getTaskHeatMap(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return await this.allocationService.getTaskBasedHeatMap(organizationId);
   }
 
   @Get('my-capacity')
@@ -356,9 +361,8 @@ export class ResourcesController {
     status: 200,
     description: 'User capacity retrieved successfully',
   })
-  async getMyCapacity(@Req() req: any) {
-    const userEmail = req.user?.email;
-    const organizationId = req.user?.organizationId;
+  async getMyCapacity(@Req() req: AuthRequest) {
+    const { email: userEmail, organizationId } = getAuthContext(req);
 
     if (!userEmail || !organizationId) {
       throw new BadRequestException(
@@ -380,11 +384,10 @@ export class ResourcesController {
     status: 200,
     description: 'Capacity summary retrieved successfully',
   })
-  async getCapacitySummary(@Query() query: any, @Req() req: any) {
+  async getCapacitySummary(@Query() query: any, @Req() req: AuthRequest) {
     try {
-      const organizationId = req.user?.organizationId;
-      const userId = req.user?.id || req.user?.sub;
-      const userRole = req.user?.role;
+      const { organizationId, userId, platformRole } = getAuthContext(req);
+      const userRole = platformRole;
 
       if (!organizationId) {
         throw new BadRequestException('Organization ID is required');
@@ -416,11 +419,10 @@ export class ResourcesController {
     status: 200,
     description: 'Skills facet retrieved successfully',
   })
-  async getSkillsFacet(@Req() req: any) {
+  async getSkillsFacet(@Req() req: AuthRequest) {
     try {
-      const organizationId = req.user?.organizationId;
-      const userId = req.user?.id || req.user?.sub;
-      const userRole = req.user?.role;
+      const { organizationId, userId, platformRole } = getAuthContext(req);
+      const userRole = platformRole;
 
       if (!organizationId) {
         throw new BadRequestException('Organization ID is required');
@@ -455,7 +457,7 @@ export class ResourcesController {
   async getResourceRiskScore(
     @Param('id') resourceId: string,
     @Query() query: any,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     // Check feature flag
     const featureFlagEnabled =
@@ -464,9 +466,8 @@ export class ResourcesController {
       throw new NotFoundException('Endpoint not available');
     }
 
-    const organizationId = req.user?.organizationId;
-    const userId = req.user?.id || req.user?.sub;
-    const userRole = req.user?.role;
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const userRole = platformRole;
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -489,11 +490,112 @@ export class ResourcesController {
 
       return this.responseService.success(result);
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       console.error('❌ Get resource risk score error:', error);
       throw new BadRequestException('Failed to get resource risk score');
     }
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({ summary: 'Get resource timeline (daily load data)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Timeline data retrieved successfully',
+  })
+  async getResourceTimeline(
+    @Param('id') resourceId: string,
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    if (!fromDate || !toDate) {
+      throw new BadRequestException(
+        'fromDate and toDate query parameters are required',
+      );
+    }
+
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+    }
+
+    if (from > to) {
+      throw new BadRequestException('fromDate must be before toDate');
+    }
+
+    const timeline = await this.timelineService.getTimeline(
+      resourceId,
+      organizationId,
+      from,
+      to,
+    );
+
+    return this.responseService.success(
+      timeline.map((day) => ({
+        date: day.date.toISOString().split('T')[0],
+        capacityPercent: day.capacityPercent,
+        hardLoadPercent: day.hardLoadPercent,
+        softLoadPercent: day.softLoadPercent,
+        classification: day.classification,
+      })),
+    );
+  }
+
+  @Get('heatmap/timeline')
+  @ApiOperation({ summary: 'Get heatmap data from timeline read model' })
+  @ApiResponse({
+    status: 200,
+    description: 'Heatmap data retrieved successfully',
+  })
+  async getHeatmapFromTimeline(
+    @Query('workspaceId') workspaceId: string | undefined,
+    @Query('fromDate') fromDate: string,
+    @Query('toDate') toDate: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    if (!fromDate || !toDate) {
+      throw new BadRequestException(
+        'fromDate and toDate query parameters are required',
+      );
+    }
+
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+
+    if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
+    }
+
+    if (from > to) {
+      throw new BadRequestException('fromDate must be before toDate');
+    }
+
+    const heatmap = await this.timelineService.getHeatmap(
+      organizationId,
+      workspaceId,
+      from,
+      to,
+    );
+
+    return this.responseService.success(heatmap);
   }
 }

@@ -14,6 +14,8 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TaskService } from '../services/task.service';
 import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('projects/:projectId/tasks')
 @UseGuards(JwtAuthGuard)
@@ -24,13 +26,13 @@ export class TaskController {
   create(
     @Param('projectId') projectId: string,
     @Body() createTaskDto: CreateTaskDto,
-    @Request() req: any, // Get user from request
+    @Request() req: AuthRequest,
   ) {
     console.log('Received DTO keys:', Object.keys(createTaskDto));
     console.log('Dependencies field:', createTaskDto.dependencies);
 
     // Pass user ID to service
-    const userId = req.user?.id || null;
+    const { userId } = getAuthContext(req);
     return this.taskService.create(projectId, createTaskDto, userId);
   }
 
@@ -57,12 +59,12 @@ export class TaskController {
 
   @Patch(':taskId')
   updateTask(
-    @Param('projectId') projectId: string,
+    @Param('projectId') _projectId: string,
     @Param('taskId') taskId: string,
     @Body() updateTaskDto: UpdateTaskDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ) {
-    const userId = req.user?.id || null;
+    const { userId } = getAuthContext(req);
     return this.taskService.update(taskId, updateTaskDto, userId);
   }
 

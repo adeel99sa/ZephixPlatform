@@ -15,7 +15,14 @@ import { Organization } from '../../../organizations/entities/organization.entit
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
-export type WorkspaceRole = 'owner' | 'member' | 'viewer';
+// Workspace roles - Phase 1: Updated to use workspace_ prefix for clarity
+// workspace_owner: Full control over workspace, can manage members
+// workspace_member: Can create projects and content, cannot manage members
+// workspace_viewer: Read-only access to workspace content
+export type WorkspaceRole =
+  | 'workspace_owner'
+  | 'workspace_member'
+  | 'workspace_viewer';
 
 @Entity('workspaces')
 export class Workspace {
@@ -52,4 +59,19 @@ export class Workspace {
   @Column('uuid', { name: 'deleted_by', nullable: true }) deletedBy?:
     | string
     | null;
+
+  // Phase 3: Workspace permissions configuration
+  // Stores a JSON matrix defining which roles can perform which actions
+  // Example: { "view_workspace": ["owner", "admin", "member", "viewer"], ... }
+  @Column({ type: 'jsonb', name: 'permissions_config', nullable: true })
+  permissionsConfig?: Record<string, string[]> | null;
+
+  // Phase 3: Default methodology for this workspace
+  @Column({
+    type: 'varchar',
+    length: 50,
+    name: 'default_methodology',
+    nullable: true,
+  })
+  defaultMethodology?: string | null;
 }

@@ -18,6 +18,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContext } from '../common/http/get-auth-context';
 
 export class GenerateProjectRequest {
   documentId: string;
@@ -62,10 +64,10 @@ export class ProjectGenerationController {
   async generateProjectFromBRD(
     @Param('documentId') documentId: string,
     @Body() request: GenerateProjectRequest,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<ProjectGenerationResponse> {
     // Validate that the document exists and is processed
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
 
     // For now, return a placeholder response
     // In the next phase, this will:

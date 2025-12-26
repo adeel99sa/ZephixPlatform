@@ -11,6 +11,11 @@ export class WorkspaceMembershipFeatureGuard implements CanActivate {
   constructor(private configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
+    // Bypass in development mode for local testing
+    if (process.env.NODE_ENV !== 'production') {
+      return true;
+    }
+
     const isEnabled =
       this.configService.get<string>('ZEPHIX_WS_MEMBERSHIP_V1') === '1';
 

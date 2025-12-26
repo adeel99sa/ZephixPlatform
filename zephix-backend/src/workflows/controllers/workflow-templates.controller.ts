@@ -28,6 +28,8 @@ import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { WorkflowTemplatesService } from '../services/workflow-templates.service';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 import {
   WorkflowTemplateDto,
   CreateWorkflowTemplateDto,
@@ -75,11 +77,14 @@ export class WorkflowTemplatesController {
   })
   async createWorkflowTemplate(
     @Body() createDto: CreateWorkflowTemplateDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<WorkflowTemplateDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');
@@ -207,11 +212,14 @@ export class WorkflowTemplatesController {
   async updateWorkflowTemplate(
     @Param('id') id: string,
     @Body() updateDto: UpdateWorkflowTemplateDto,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<WorkflowTemplateDto> {
     try {
-      const organizationId = req.headers['x-org-id'];
-      const userId = req.user.id;
+      const orgIdHeader = req.headers['x-org-id'];
+      const organizationId = Array.isArray(orgIdHeader)
+        ? orgIdHeader[0]
+        : orgIdHeader;
+      const { userId } = getAuthContext(req);
 
       if (!organizationId) {
         throw new BadRequestException('Organization context required');
@@ -239,10 +247,13 @@ export class WorkflowTemplatesController {
   @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async deleteWorkflowTemplate(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<{ message: string }> {
-    const organizationId = req.headers['x-org-id'];
-    const userId = req.user?.id || 'system';
+    const orgIdHeader = req.headers['x-org-id'];
+    const organizationId = Array.isArray(orgIdHeader)
+      ? orgIdHeader[0]
+      : orgIdHeader;
+    const { userId } = getAuthContext(req);
     await this.workflowTemplatesService.deleteWorkflowTemplate(
       id,
       organizationId,
@@ -282,10 +293,13 @@ export class WorkflowTemplatesController {
   @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async activateWorkflowTemplate(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<WorkflowTemplateDto> {
-    const organizationId = req.headers['x-org-id'];
-    const userId = req.user?.id || 'system';
+    const orgIdHeader = req.headers['x-org-id'];
+    const organizationId = Array.isArray(orgIdHeader)
+      ? orgIdHeader[0]
+      : orgIdHeader;
+    const { userId } = getAuthContext(req);
     return await this.workflowTemplatesService.updateWorkflowTemplate(
       id,
       { status: WorkflowStatus.ACTIVE },
@@ -304,10 +318,13 @@ export class WorkflowTemplatesController {
   @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async archiveWorkflowTemplate(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<WorkflowTemplateDto> {
-    const organizationId = req.headers['x-org-id'];
-    const userId = req.user?.id || 'system';
+    const orgIdHeader = req.headers['x-org-id'];
+    const organizationId = Array.isArray(orgIdHeader)
+      ? orgIdHeader[0]
+      : orgIdHeader;
+    const { userId } = getAuthContext(req);
     return await this.workflowTemplatesService.updateWorkflowTemplate(
       id,
       { status: WorkflowStatus.ARCHIVED },
@@ -326,10 +343,13 @@ export class WorkflowTemplatesController {
   @ApiResponse({ status: 404, description: 'Workflow template not found' })
   async setDefaultWorkflowTemplate(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthRequest,
   ): Promise<WorkflowTemplateDto> {
-    const organizationId = req.headers['x-org-id'];
-    const userId = req.user?.id || 'system';
+    const orgIdHeader = req.headers['x-org-id'];
+    const organizationId = Array.isArray(orgIdHeader)
+      ? orgIdHeader[0]
+      : orgIdHeader;
+    const { userId } = getAuthContext(req);
     return await this.workflowTemplatesService.updateWorkflowTemplate(
       id,
       { isDefault: true },

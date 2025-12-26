@@ -12,6 +12,11 @@ import {
   RequireWorkspaceRoleOptions,
 } from '../decorators/require-workspace-role.decorator';
 import { WorkspaceRole } from '../entities/workspace.entity';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 
 @Injectable()
 export class RequireWorkspaceRoleGuard implements CanActivate {
@@ -70,8 +75,11 @@ export class RequireWorkspaceRoleGuard implements CanActivate {
       return true;
     }
 
-    // Check if user is org admin
-    const isAdmin = userRole === 'admin' || userRole === 'owner';
+    // Check if user is platform admin
+    // Use normalizePlatformRole and isAdminRole helper, with fallback to permissions.isAdmin
+    const normalizedRole = normalizePlatformRole(userRole);
+    const isAdmin =
+      isAdminRole(normalizedRole) || (user.permissions?.isAdmin ?? false);
 
     // If admin override is enabled and user is admin, allow
     if (allowAdminOverride && isAdmin) {

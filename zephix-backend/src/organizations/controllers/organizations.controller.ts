@@ -24,11 +24,13 @@ import {
   InviteUserDto,
 } from '../dto';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../../modules/auth/guards/admin.guard';
+import { AdminGuard } from '../../shared/guards/admin.guard';
 import { OrganizationGuard } from '../guards/organization.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { CurrentOrg } from '../decorators/current-org.decorator';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
@@ -48,9 +50,10 @@ export class OrganizationsController {
   })
   async create(
     @Body() createOrganizationDto: CreateOrganizationDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
-    return this.organizationsService.create(createOrganizationDto, req.user.id);
+    const { userId } = getAuthContext(req);
+    return this.organizationsService.create(createOrganizationDto, userId);
   }
 
   @Get()
@@ -59,8 +62,9 @@ export class OrganizationsController {
     status: 200,
     description: 'User organizations retrieved successfully',
   })
-  async findAll(@Request() req) {
-    return this.organizationsService.findByUser(req.user.id);
+  async findAll(@Request() req: AuthRequest) {
+    const { userId } = getAuthContext(req);
+    return this.organizationsService.findByUser(userId);
   }
 
   @Get(':id')
@@ -85,13 +89,10 @@ export class OrganizationsController {
   async update(
     @Param('id') id: string,
     @Body() updateOrganizationDto: UpdateOrganizationDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
-    return this.organizationsService.update(
-      id,
-      updateOrganizationDto,
-      req.user.id,
-    );
+    const { userId } = getAuthContext(req);
+    return this.organizationsService.update(id, updateOrganizationDto, userId);
   }
 
   @Post(':id/invite')
@@ -102,9 +103,10 @@ export class OrganizationsController {
   async inviteUser(
     @Param('id') id: string,
     @Body() inviteUserDto: InviteUserDto,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
-    return this.organizationsService.inviteUser(id, inviteUserDto, req.user.id);
+    const { userId } = getAuthContext(req);
+    return this.organizationsService.inviteUser(id, inviteUserDto, userId);
   }
 
   @Delete(':organizationId/users/:userId')
@@ -115,12 +117,13 @@ export class OrganizationsController {
   async removeUser(
     @Param('organizationId') organizationId: string,
     @Param('userId') userId: string,
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
+    const { userId: actorUserId } = getAuthContext(req);
     await this.organizationsService.removeUser(
       organizationId,
       userId,
-      req.user.id,
+      actorUserId,
     );
     return { message: 'User removed successfully' };
   }
@@ -134,13 +137,14 @@ export class OrganizationsController {
     @Param('organizationId') organizationId: string,
     @Param('userId') userId: string,
     @Body() body: { role: 'admin' | 'pm' | 'viewer' },
-    @Request() req,
+    @Request() req: AuthRequest,
   ) {
+    const { userId: actorUserId } = getAuthContext(req);
     await this.organizationsService.updateUserRole(
       organizationId,
       userId,
       body.role,
-      req.user.id,
+      actorUserId,
     );
     return { message: 'User role updated successfully' };
   }
@@ -151,8 +155,12 @@ export class OrganizationsController {
     status: 200,
     description: 'Organization switched successfully',
   })
-  async switchOrganization(@Param('id') id: string, @Request() req) {
-    return this.organizationsService.switchOrganization(req.user.id, id);
+  async switchOrganization(
+    @Param('id') id: string,
+    @Request() req: AuthRequest,
+  ) {
+    const { userId } = getAuthContext(req);
+    return this.organizationsService.switchOrganization(userId, id);
   }
 
   @Get('admin/users')
@@ -162,10 +170,11 @@ export class OrganizationsController {
     status: 200,
     description: 'Users retrieved successfully for admin',
   })
-  async getAdminUsers(@Request() req) {
+  async getAdminUsers(@Request() req: AuthRequest) {
     // Log admin action
+    const { userId } = getAuthContext(req);
     await this.auditService.logAction('admin.users.list', {
-      userId: req.user.id,
+      userId,
       action: 'admin.users.list',
       timestamp: new Date(),
     });
@@ -182,20 +191,18 @@ export class OrganizationsController {
     description: 'Organization users retrieved successfully',
   })
   async getOrgUsers(
-    @Request() req,
+    @Request() req: AuthRequest,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('search') search?: string,
   ) {
     // Allow admin or workspace owner to list org users
-    return this.organizationsService.getOrganizationUsers(
-      req.user.organizationId,
-      {
-        limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
-        search,
-      },
-    );
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.getOrganizationUsers(organizationId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+      search,
+    });
   }
 
   // Onboarding endpoints
@@ -205,10 +212,9 @@ export class OrganizationsController {
     status: 200,
     description: 'Onboarding status retrieved successfully',
   })
-  async getOnboardingStatus(@Request() req) {
-    return this.organizationsService.getOnboardingStatus(
-      req.user.organizationId,
-    );
+  async getOnboardingStatus(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingStatus(organizationId);
   }
 
   @Get('onboarding/progress')
@@ -217,10 +223,9 @@ export class OrganizationsController {
     status: 200,
     description: 'Onboarding progress retrieved successfully',
   })
-  async getOnboardingProgress(@Request() req) {
-    return this.organizationsService.getOnboardingProgress(
-      req.user.organizationId,
-    );
+  async getOnboardingProgress(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingProgress(organizationId);
   }
 
   @Post('onboarding/complete-step')
@@ -229,9 +234,13 @@ export class OrganizationsController {
     status: 200,
     description: 'Step marked as complete',
   })
-  async completeStep(@Body() body: { step: string }, @Request() req) {
+  async completeStep(
+    @Body() body: { step: string },
+    @Request() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
     return this.organizationsService.completeOnboardingStep(
-      req.user.organizationId,
+      organizationId,
       body.step,
     );
   }
@@ -242,10 +251,9 @@ export class OrganizationsController {
     status: 200,
     description: 'Onboarding completed successfully',
   })
-  async completeOnboarding(@Request() req) {
-    return this.organizationsService.completeOnboarding(
-      req.user.organizationId,
-    );
+  async completeOnboarding(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.completeOnboarding(organizationId);
   }
 
   @Post('onboarding/skip')
@@ -254,7 +262,8 @@ export class OrganizationsController {
     status: 200,
     description: 'Onboarding skipped successfully',
   })
-  async skipOnboarding(@Request() req) {
-    return this.organizationsService.skipOnboarding(req.user.organizationId);
+  async skipOnboarding(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.skipOnboarding(organizationId);
   }
 }

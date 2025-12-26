@@ -1,6 +1,8 @@
 import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { KPIService } from './kpi.service';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('kpi')
 @UseGuards(JwtAuthGuard)
@@ -13,8 +15,8 @@ export class KPIController {
   }
 
   @Get('portfolio')
-  async getPortfolioKPIs(@Req() req: any) {
-    const organizationId = req.user?.organizationId;
+  async getPortfolioKPIs(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
     return this.kpiService.calculatePortfolioKPIs(organizationId);
   }
 }

@@ -5,7 +5,7 @@ import { Project } from '../../projects/entities/project.entity';
 import { Resource } from '../../resources/entities/resource.entity';
 import { Task } from '../../tasks/entities/task.entity';
 
-interface CommandResult {
+export interface CommandResult {
   type: 'navigation' | 'action' | 'query';
   title: string;
   description?: string;

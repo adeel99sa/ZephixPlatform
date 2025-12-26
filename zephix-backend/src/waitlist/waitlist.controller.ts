@@ -13,7 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WaitlistService } from './waitlist.service';
 import { CreateWaitlistDto } from './dto/create-waitlist.dto';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../modules/auth/guards/admin.guard';
+import { AdminGuard } from '../shared/guards/admin.guard';
 
 @ApiTags('waitlist')
 @Controller('waitlist')

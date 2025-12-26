@@ -28,6 +28,8 @@ import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../organizations/guards/organization.guard';
 import { DocumentParserService } from './document-parser.service';
 import { VectorDatabaseService } from './vector-database.service';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContext } from '../common/http/get-auth-context';
 import { EmbeddingService } from './embedding.service';
 
 export class UploadDocumentResponse {
@@ -126,8 +128,7 @@ export class DocumentUploadController {
 
     // Generate unique document ID
     const documentId = uuidv4();
-    const organizationId = req.user.organizationId;
-    const userId = req.user.userId;
+    const { organizationId, userId } = getAuthContext(req as AuthRequest);
 
     try {
       const startTime = Date.now();

@@ -19,6 +19,11 @@ import { Project } from '../projects/entities/project.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspacesModule } from '../workspaces/workspaces.module';
+import { Organization } from '../../organizations/entities/organization.entity';
+import { ResourceDailyLoad } from './entities/resource-daily-load.entity';
+import { ResourceTimelineService } from './services/resource-timeline.service';
+import { TenancyModule } from '../tenancy/tenancy.module';
+import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-repository.provider';
 
 @Module({
   imports: [
@@ -28,18 +33,27 @@ import { WorkspacesModule } from '../workspaces/workspaces.module';
       UserDailyCapacity,
       ResourceConflict,
       AuditLog,
+      ResourceDailyLoad,
       Task,
       Project,
       Workspace,
+      Organization,
     ]),
+    TenancyModule, // Required for TenantAwareRepository
     forwardRef(() => WorkspacesModule), // Required for WorkspaceAccessService injection
   ],
   providers: [
+    // Provide TenantAwareRepository for tenant-scoped entities
+    createTenantAwareRepositoryProvider(ResourceAllocation),
+    createTenantAwareRepositoryProvider(Project),
+    createTenantAwareRepositoryProvider(Resource),
+    createTenantAwareRepositoryProvider(UserDailyCapacity),
     ResourceAllocationService,
     ResourcesService,
     ResourceHeatMapService,
     ResourceCalculationService,
     ResourceRiskScoreService,
+    ResourceTimelineService,
     AuditService,
     CacheService,
     ResponseService,
@@ -51,6 +65,7 @@ import { WorkspacesModule } from '../workspaces/workspaces.module';
     ResourceHeatMapService,
     ResourceCalculationService,
     ResourceRiskScoreService,
+    ResourceTimelineService,
     AuditService,
     CacheService,
   ],

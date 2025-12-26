@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
 import { Resource } from '../entities/resource.entity';
@@ -223,7 +229,9 @@ export class ResourceRiskScoreService {
         organizationId: params.organizationId,
       })
       .andWhere('allocation.startDate <= :dateTo', { dateTo: params.dateTo })
-      .andWhere('allocation.endDate >= :dateFrom', { dateFrom: params.dateFrom })
+      .andWhere('allocation.endDate >= :dateFrom', {
+        dateFrom: params.dateFrom,
+      })
       .getMany();
 
     // Filter allocations that overlap with date range
@@ -253,8 +261,10 @@ export class ResourceRiskScoreService {
     });
 
     // Calculate daily allocation percentages
-    const dailyAllocations: Map<string, { allocation: number; projects: Set<string> }> =
-      new Map();
+    const dailyAllocations: Map<
+      string,
+      { allocation: number; projects: Set<string> }
+    > = new Map();
 
     // Initialize all days in range
     const currentDate = new Date(params.dateFrom);
@@ -271,8 +281,12 @@ export class ResourceRiskScoreService {
     overlappingAllocations.forEach((alloc) => {
       const allocStart = new Date(alloc.startDate);
       const allocEnd = new Date(alloc.endDate);
-      const current = new Date(Math.max(allocStart.getTime(), params.dateFrom.getTime()));
-      const end = new Date(Math.min(allocEnd.getTime(), params.dateTo.getTime()));
+      const current = new Date(
+        Math.max(allocStart.getTime(), params.dateFrom.getTime()),
+      );
+      const end = new Date(
+        Math.min(allocEnd.getTime(), params.dateTo.getTime()),
+      );
 
       while (current <= end) {
         const dateKey = current.toISOString().split('T')[0];
@@ -297,7 +311,7 @@ export class ResourceRiskScoreService {
     dailyAllocations.forEach((dayData, dateKey) => {
       // Prefer UserDailyCapacity if exists, otherwise use calculated
       const allocation = capacityMap.has(dateKey)
-        ? capacityMap.get(dateKey)!
+        ? capacityMap.get(dateKey)
         : dayData.allocation;
 
       dailyAllocationValues.push(allocation);
@@ -319,9 +333,7 @@ export class ResourceRiskScoreService {
           dailyAllocationValues.length
         : 0;
     const maxAllocation =
-      dailyAllocationValues.length > 0
-        ? Math.max(...dailyAllocationValues)
-        : 0;
+      dailyAllocationValues.length > 0 ? Math.max(...dailyAllocationValues) : 0;
 
     // Get existing conflicts
     const existingConflicts = await this.conflictRepository.find({
@@ -333,7 +345,8 @@ export class ResourceRiskScoreService {
     });
 
     const existingConflictsCount = existingConflicts.length;
-    let maxConflictSeverity: 'low' | 'medium' | 'high' | 'critical' | null = null;
+    let maxConflictSeverity: 'low' | 'medium' | 'high' | 'critical' | null =
+      null;
 
     if (existingConflicts.length > 0) {
       const severities = existingConflicts.map((c) => c.severity);
@@ -459,15 +472,15 @@ export class ResourceRiskScoreService {
       })
       .andWhere('allocation.projectId IN (:...projectIds)', { projectIds })
       .andWhere('allocation.startDate <= :dateTo', { dateTo: params.dateTo })
-      .andWhere('allocation.endDate >= :dateFrom', { dateFrom: params.dateFrom })
+      .andWhere('allocation.endDate >= :dateFrom', {
+        dateFrom: params.dateFrom,
+      })
       .getMany();
 
     // Get unique resource IDs
     const resourceIds = [
       ...new Set(
-        allocations
-          .map((a) => a.resourceId)
-          .filter((id): id is string => !!id),
+        allocations.map((a) => a.resourceId).filter((id): id is string => !!id),
       ),
     ];
 
@@ -525,13 +538,18 @@ export class ResourceRiskScoreService {
 
     // Calculate summary stats
     const totalResources = validScores.length;
-    const highRiskCount = validScores.filter((s) => s.severity === 'HIGH').length;
-    const mediumRiskCount = validScores.filter((s) => s.severity === 'MEDIUM').length;
+    const highRiskCount = validScores.filter(
+      (s) => s.severity === 'HIGH',
+    ).length;
+    const mediumRiskCount = validScores.filter(
+      (s) => s.severity === 'MEDIUM',
+    ).length;
     const lowRiskCount = validScores.filter((s) => s.severity === 'LOW').length;
     const averageRiskScore =
       totalResources > 0
         ? Math.round(
-            (validScores.reduce((sum, s) => sum + s.riskScore, 0) / totalResources) *
+            (validScores.reduce((sum, s) => sum + s.riskScore, 0) /
+              totalResources) *
               10,
           ) / 10
         : 0;
@@ -560,4 +578,3 @@ export class ResourceRiskScoreService {
     };
   }
 }
-

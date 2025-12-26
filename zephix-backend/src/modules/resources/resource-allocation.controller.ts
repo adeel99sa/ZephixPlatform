@@ -20,7 +20,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ResourceAllocationService } from './resource-allocation.service';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { UpdateAllocationDto } from './dto/update-allocation.dto';
-import { AuthenticatedRequest } from './dto/authenticated-request.dto';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('resource-allocations')
 @ApiTags('resource-allocations')
@@ -37,12 +38,13 @@ export class ResourceAllocationController {
   })
   async create(
     @Body() createAllocationDto: CreateAllocationDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
   ) {
+    const { organizationId, userId } = getAuthContext(req);
     return this.allocationService.create(
       createAllocationDto,
-      req.user.organizationId,
-      req.user.id,
+      organizationId,
+      userId,
     );
   }
 
@@ -53,12 +55,13 @@ export class ResourceAllocationController {
     description: 'Resource allocations retrieved successfully',
   })
   async findAll(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
     @Query('resourceId') resourceId?: string,
     @Query('projectId') projectId?: string,
   ) {
+    const { organizationId } = getAuthContext(req);
     return this.allocationService.findAll(
-      req.user.organizationId,
+      organizationId,
       resourceId,
       projectId,
     );
@@ -70,8 +73,9 @@ export class ResourceAllocationController {
     status: 200,
     description: 'Resource allocation retrieved successfully',
   })
-  async findOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.allocationService.findOne(id, req.user.organizationId);
+  async findOne(@Param('id') id: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.allocationService.findOne(id, organizationId);
   }
 
   @Patch(':id')
@@ -83,12 +87,13 @@ export class ResourceAllocationController {
   async update(
     @Param('id') id: string,
     @Body() updateAllocationDto: UpdateAllocationDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
   ) {
+    const { organizationId } = getAuthContext(req);
     return this.allocationService.update(
       id,
       updateAllocationDto,
-      req.user.organizationId,
+      organizationId,
     );
   }
 
@@ -98,8 +103,9 @@ export class ResourceAllocationController {
     status: 200,
     description: 'Resource allocation deleted successfully',
   })
-  async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.allocationService.remove(id, req.user.organizationId);
+  async remove(@Param('id') id: string, @Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    return this.allocationService.remove(id, organizationId);
   }
 
   @Get('resource/:resourceId')
@@ -110,12 +116,10 @@ export class ResourceAllocationController {
   })
   async findByResource(
     @Param('resourceId') resourceId: string,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
   ) {
-    return this.allocationService.findByResource(
-      resourceId,
-      req.user.organizationId,
-    );
+    const { organizationId } = getAuthContext(req);
+    return this.allocationService.findByResource(resourceId, organizationId);
   }
 
   @Get('project/:projectId')
@@ -126,11 +130,9 @@ export class ResourceAllocationController {
   })
   async findByProject(
     @Param('projectId') projectId: string,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthRequest,
   ) {
-    return this.allocationService.findByProject(
-      projectId,
-      req.user.organizationId,
-    );
+    const { organizationId } = getAuthContext(req);
+    return this.allocationService.findByProject(projectId, organizationId);
   }
 }

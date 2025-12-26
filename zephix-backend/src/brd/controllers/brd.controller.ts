@@ -24,6 +24,8 @@ import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
 import { BRDService } from '../services/brd.service';
+import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 import { BRDAnalysisService } from '../services/brd-analysis.service';
 import {
   CreateBRDDto,
@@ -196,9 +198,9 @@ export class BRDController {
   async search(
     @Query('q') query: string,
     @Query('limit') limit: number = 10,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto[]> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brds = await this.brdService.search(organizationId, query, limit);
 
     return brds.map((brd) => this.mapToResponseDto(brd));
@@ -214,8 +216,8 @@ export class BRDController {
     status: HttpStatus.OK,
     description: 'Statistics retrieved successfully',
   })
-  async getStatistics(@Req() req: any) {
-    const organizationId = req.user.organizationId;
+  async getStatistics(@Req() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
     return this.brdService.getStatistics(organizationId);
   }
 
@@ -236,9 +238,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async findById(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.findById(id, organizationId);
 
     return this.mapToResponseDto(brd);
@@ -267,9 +269,9 @@ export class BRDController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateBRDDto: UpdateBRDDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDUpdateResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.update(id, organizationId, updateBRDDto);
 
     return {
@@ -299,9 +301,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async delete(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<void> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     await this.brdService.delete(id, organizationId);
   }
 
@@ -323,9 +325,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async submitForReview(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.submitForReview(id, organizationId);
 
     return this.mapToResponseDto(brd);
@@ -344,9 +346,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async approve(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.approve(id, organizationId);
 
     return this.mapToResponseDto(brd);
@@ -366,9 +368,9 @@ export class BRDController {
   async publish(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() publishDto: PublishBRDDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.publish(id, organizationId);
 
     return this.mapToResponseDto(brd);
@@ -392,9 +394,9 @@ export class BRDController {
   async duplicate(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { title?: string },
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDCreateResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brd = await this.brdService.duplicate(id, organizationId, body.title);
 
     return {
@@ -417,9 +419,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async getValidationSummary(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     return this.brdService.getValidationSummary(id, organizationId);
   }
 
@@ -440,9 +442,9 @@ export class BRDController {
   })
   async findByProject(
     @Param('projectId', ParseUUIDPipe) projectId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDResponseDto[]> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const brds = await this.brdService.findByProject(projectId, organizationId);
 
     return brds.map((brd) => this.mapToResponseDto(brd));
@@ -467,10 +469,9 @@ export class BRDController {
   async analyzeBRD(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() analyzeDto: AnalyzeBRDDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDAnalysisResponseDto> {
-    const organizationId = req.user.organizationId;
-    const userId = req.user.id;
+    const { organizationId, userId } = getAuthContext(req);
 
     const analysis = await this.brdAnalysisService.analyzeBRD(
       id,
@@ -504,10 +505,9 @@ export class BRDController {
   async generateProjectPlan(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
     @Body() generateDto: GenerateProjectPlanDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<GeneratedProjectPlanResponseDto> {
-    const organizationId = req.user.organizationId;
-    const userId = req.user.id;
+    const { organizationId, userId } = getAuthContext(req);
 
     // Get the analysis first
     const analysis = await this.brdAnalysisService.getAnalysisById(
@@ -550,9 +550,9 @@ export class BRDController {
   })
   async getAnalysisById(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDAnalysisResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const analysis = await this.brdAnalysisService.getAnalysisById(
       analysisId,
       organizationId,
@@ -579,9 +579,9 @@ export class BRDController {
   })
   async getProjectPlansByAnalysis(
     @Param('analysisId', ParseUUIDPipe) analysisId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<GeneratedProjectPlanListResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const plans = await this.brdAnalysisService.listGeneratedPlansByAnalysis(
       analysisId,
       organizationId,
@@ -609,9 +609,9 @@ export class BRDController {
   @ApiParam({ name: 'id', type: String, description: 'BRD unique identifier' })
   async getAnalysesByBRD(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<BRDAnalysisListResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const analyses = await this.brdAnalysisService.listAnalysesByBRD(
       id,
       organizationId,
@@ -648,9 +648,9 @@ export class BRDController {
   })
   async getProjectPlanById(
     @Param('planId', ParseUUIDPipe) planId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ): Promise<GeneratedProjectPlanResponseDto> {
-    const organizationId = req.user.organizationId;
+    const { organizationId } = getAuthContext(req);
     const plan = await this.brdAnalysisService.getGeneratedPlanById(
       planId,
       organizationId,

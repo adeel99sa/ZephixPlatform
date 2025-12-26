@@ -83,6 +83,75 @@ export class KPIDefinitionDto {
   unit?: string;
 }
 
+// Phase 5: Risk preset DTO
+export class RiskPresetDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string; // Template local id
+
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsEnum(['low', 'medium', 'high', 'critical'])
+  @IsNotEmpty()
+  severity: 'low' | 'medium' | 'high' | 'critical';
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  probability?: number; // 0-100
+
+  @IsString()
+  @IsOptional()
+  ownerRoleHint?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+}
+
+// Phase 5: KPI preset DTO
+export class KpiPresetDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string; // Template local id
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  metricType: string;
+
+  @IsString()
+  @IsNotEmpty()
+  unit: string;
+
+  @IsNumber()
+  @IsOptional()
+  targetValue?: number;
+
+  @IsEnum(['higher_is_better', 'lower_is_better'])
+  @IsNotEmpty()
+  direction: 'higher_is_better' | 'lower_is_better';
+}
+
 export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
@@ -129,4 +198,17 @@ export class CreateTemplateDto {
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
+
+  // Phase 5: Risk and KPI presets
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RiskPresetDto)
+  @IsOptional()
+  riskPresets?: RiskPresetDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => KpiPresetDto)
+  @IsOptional()
+  kpiPresets?: KpiPresetDto[];
 }

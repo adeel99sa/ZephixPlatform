@@ -1,6 +1,8 @@
 // src/observability/logger.config.ts - Enterprise Logger Configuration
 import { Request, Response } from 'express';
 import { ReqId } from 'pino-http';
+import { AuthRequest } from '../common/http/auth-request';
+import { getAuthContextOptional } from '../common/http/get-auth-context-optional';
 
 // Enterprise Request Interface
 export interface RequestWithId extends Request {
@@ -51,7 +53,7 @@ export const loggerConfig = {
     customProps: (req: RequestWithId) => ({
       requestId: req.id,
       organizationId: req.organization?.id,
-      userId: req.user?.id,
+      userId: getAuthContextOptional(req as AuthRequest)?.userId,
     }),
     customLogLevel: (req: RequestWithId, res: Response, err?: Error) => {
       if (res.statusCode >= 400 && res.statusCode < 500) return 'warn';

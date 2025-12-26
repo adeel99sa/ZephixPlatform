@@ -1,20 +1,23 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In } from 'typeorm';
 import { ResourceAllocation } from '../entities/resource-allocation.entity';
 import { HeatMapQueryDto } from '../dto/heat-map-query.dto';
 import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
 import { Project } from '../../projects/entities/project.entity';
+import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { In } from 'typeorm';
 
 @Injectable()
 export class ResourceHeatMapService {
   constructor(
-    @InjectRepository(ResourceAllocation)
-    private resourceAllocationRepository: Repository<ResourceAllocation>,
-    @InjectRepository(Project)
-    private projectRepository: Repository<Project>,
+    @Inject(getTenantAwareRepositoryToken(ResourceAllocation))
+    private resourceAllocationRepository: TenantAwareRepository<ResourceAllocation>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepository: TenantAwareRepository<Project>,
     @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async getHeatMapData(
@@ -22,7 +25,10 @@ export class ResourceHeatMapService {
     userId?: string,
     userRole?: string,
   ) {
-    const { startDate, endDate, organizationId, projectId } = query;
+    const { startDate, endDate, projectId } = query;
+
+    // Get organizationId from tenant context (not from query - rule 1)
+    const organizationId = this.tenantContextService.assertOrganizationId();
 
     // Default to next 3 months if no date range
     const start = startDate ? new Date(startDate) : new Date();
@@ -31,33 +37,23 @@ export class ResourceHeatMapService {
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     // Get accessible workspace IDs (respects feature flag)
-    const accessibleWorkspaceIds = organizationId
-      ? await this.workspaceAccessService.getAccessibleWorkspaceIds(
-          organizationId,
-          userId,
-          userRole,
-        )
-      : null;
+    const accessibleWorkspaceIds =
+      await this.workspaceAccessService.getAccessibleWorkspaceIds(
+        organizationId,
+        userId,
+        userRole,
+      );
 
     // If workspace membership is enforced and user has no accessible workspaces
-    if (
-      accessibleWorkspaceIds !== null &&
-      accessibleWorkspaceIds.length === 0
-    ) {
+    if (accessibleWorkspaceIds.length === 0) {
       return this.processAllocations([], start, end);
     }
 
-    // Build query
+    // Build query using TenantAwareRepository query builder (automatically scoped by org)
     const queryBuilder = this.resourceAllocationRepository
-      .createQueryBuilder('allocation')
+      .qb('allocation')
       .where('allocation.startDate <= :end', { end })
       .andWhere('allocation.endDate >= :start', { start });
-
-    if (organizationId) {
-      queryBuilder.andWhere('allocation.organization_id = :orgId', {
-        orgId: organizationId,
-      });
-    }
 
     if (projectId) {
       queryBuilder.andWhere('allocation.projectId = :projId', {
@@ -66,13 +62,12 @@ export class ResourceHeatMapService {
     }
 
     // Filter by accessible workspaces if membership is enforced
-    if (accessibleWorkspaceIds !== null && organizationId) {
-      // Get project IDs in accessible workspaces
+    if (accessibleWorkspaceIds.length > 0) {
+      // Get project IDs in accessible workspaces (automatically scoped by org via TenantAwareRepository)
       const accessibleProjects = await this.projectRepository.find({
         where: {
-          organizationId,
           workspaceId: In(accessibleWorkspaceIds),
-        },
+        } as any,
         select: ['id'],
       });
 
