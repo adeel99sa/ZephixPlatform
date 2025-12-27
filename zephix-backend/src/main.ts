@@ -39,6 +39,39 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
 
 async function bootstrap() {
+  // Validate required environment variables at startup
+  const requiredEnvVars = {
+    INTEGRATION_ENCRYPTION_KEY: {
+      value: process.env.INTEGRATION_ENCRYPTION_KEY,
+      minLength: 32,
+      description: 'Encryption key for integration secrets (AES-256 requires 32+ chars)',
+    },
+  };
+
+  const missing: string[] = [];
+  const invalid: string[] = [];
+
+  for (const [key, config] of Object.entries(requiredEnvVars)) {
+    if (!config.value) {
+      missing.push(key);
+    } else if (config.minLength && config.value.length < config.minLength) {
+      invalid.push(`${key} (must be at least ${config.minLength} characters)`);
+    }
+  }
+
+  if (missing.length > 0 || invalid.length > 0) {
+    console.error('❌ Missing or invalid required environment variables:');
+    missing.forEach((key) => {
+      console.error(`   - ${key}: Missing`);
+      console.error(`     ${requiredEnvVars[key].description}`);
+    });
+    invalid.forEach((key) => {
+      console.error(`   - ${key}: Invalid`);
+    });
+    console.error('\n💡 Set these variables in Railway → Variables tab');
+    process.exit(1);
+  }
+
   console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule);
 
