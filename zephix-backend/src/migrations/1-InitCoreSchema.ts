@@ -16,8 +16,8 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
  *
  * Uses IF NOT EXISTS guards to be safe if tables already exist.
  */
-export class InitCoreSchema0000000000000 implements MigrationInterface {
-  name = 'InitCoreSchema0000000000000';
+export class InitCoreSchema1 implements MigrationInterface {
+  name = 'InitCoreSchema1';
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create UUID extension for UUID generation
     // PostgreSQL 13+ has gen_random_uuid() built-in, but we try to enable extensions for older versions
