@@ -96,7 +96,7 @@
    SELECT COUNT(*) FROM project_templates
    WHERE organization_id IS NOT NULL AND template_id IS NULL;
    -- Should return 0
-   
+
    -- Default templates per org <= 1
    SELECT organization_id, COUNT(*) AS default_count
    FROM templates
