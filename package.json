@@ -1,4 +1,14 @@
 {
+  "name": "zephix-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zephix Platform - Monorepo",
+  "scripts": {
+    "verify": "npm run verify:backend && npm run verify:frontend",
+    "verify:backend": "cd zephix-backend && npm run test:contracts && npm run lint",
+    "verify:frontend": "cd zephix-frontend && npm run test:e2e:admin && npm run lint",
+    "guard:deploy": "node scripts/guard-no-dockerfiles.js"
+  },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
