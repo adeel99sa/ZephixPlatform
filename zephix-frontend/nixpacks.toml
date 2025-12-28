@@ -1,5 +1,11 @@
+# Nixpacks configuration for zephix-frontend
+# Node version: Use Node 22.12.0 via Railway variable NIXPACKS_NODE_VERSION=22.12.0
+# Vite requires Node 20.19+ or 22.12+ (Railway default 20.18.1 is too old)
+
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+# Node version controlled via Railway variable: NIXPACKS_NODE_VERSION=22.12.0
+# If variable not set, Nixpacks will use Node 20.x (may be too old for Vite)
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = ["npm ci"]
