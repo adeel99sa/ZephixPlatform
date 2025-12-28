@@ -44,7 +44,8 @@ async function bootstrap() {
     INTEGRATION_ENCRYPTION_KEY: {
       value: process.env.INTEGRATION_ENCRYPTION_KEY,
       minLength: 32,
-      description: 'Encryption key for integration secrets (AES-256 requires 32+ chars)',
+      description:
+        'Encryption key for integration secrets (AES-256 requires 32+ chars)',
     },
   };
 
