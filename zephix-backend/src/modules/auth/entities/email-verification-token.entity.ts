@@ -62,4 +62,3 @@ export class EmailVerificationToken {
     return !this.isUsed() && !this.isExpired();
   }
 }
-

@@ -20,7 +20,8 @@ export class ResendVerificationDto {
 export class ResendVerificationResponseDto {
   @ApiProperty({
     description: 'Neutral success message (never reveals if email exists)',
-    example: 'If an account with this email exists, you will receive a verification email.',
+    example:
+      'If an account with this email exists, you will receive a verification email.',
   })
   message: string;
 }

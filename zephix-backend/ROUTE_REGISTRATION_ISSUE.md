@@ -55,7 +55,7 @@ Look for any errors before route registration:
 # Test organization-signup controller
 curl -X POST https://zephix-backend-production.up.railway.app/api/auth/organization/signup
 
-# Test invites controller  
+# Test invites controller
 curl -X GET https://zephix-backend-production.up.railway.app/api/orgs/:orgId/invites
 ```
 

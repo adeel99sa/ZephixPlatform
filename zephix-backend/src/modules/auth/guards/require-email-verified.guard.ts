@@ -56,4 +56,3 @@ export class RequireEmailVerifiedGuard implements CanActivate {
     return true;
   }
 }
-

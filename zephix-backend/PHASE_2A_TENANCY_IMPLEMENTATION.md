@@ -249,3 +249,5 @@ this.repo.qb('alias') // orgId auto-added
 - **Concurrency safe:** AsyncLocalStorage ensures no context bleed between parallel requests
 - **Hard to bypass:** ESLint rules + repository wrapper make bypassing difficult
 - **Backward compatible:** Existing code continues to work, migration is incremental
+
+

@@ -1,0 +1,16 @@
+
+> zephix-backend@1.0.0 db:fingerprint
+> ts-node -r tsconfig-paths/register scripts/db-fingerprint.ts
+
+(node:39260) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  database_url_host: 'ballast.proxy.rlwy.net:38318',
+  db: 'railway',
+  server_ip: '10.250.11.71',
+  server_port: 5432,
+  server_version: '16.10 (Debian 16.10-1.pgdg13+1)',
+  migrations_rows: 46,
+  node_env: 'production',
+  database_url: 'postgresql://postgres:****@ballast.proxy.rlwy.net:38318/railway'
+}

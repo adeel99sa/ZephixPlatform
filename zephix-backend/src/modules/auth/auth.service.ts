@@ -330,6 +330,7 @@ export class AuthService {
       platformRole, // Explicit platformRole field (same value)
       permissions,
       organizationId: user.organizationId,
+      emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
     };
   }
 
@@ -342,6 +343,18 @@ export class AuthService {
       return user;
     } catch (error) {
       console.error('Error fetching user by ID:', error);
+      return null;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email: email.toLowerCase() },
+      });
+      return user;
+    } catch (error) {
+      console.error('Error fetching user by email:', error);
       return null;
     }
   }

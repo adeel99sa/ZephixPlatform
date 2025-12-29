@@ -3,18 +3,42 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
+import {
+  OrgInvitesController,
+  InvitesController,
+} from './controllers/org-invites.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
-import { User } from '../users/entities/user.entity'; // Fixed path
+import { AuthRegistrationService } from './services/auth-registration.service';
+import { EmailVerificationService } from './services/email-verification.service';
+import { OrgInvitesService } from './services/org-invites.service';
+import { OutboxProcessorService } from './services/outbox-processor.service';
+import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
+import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { OrgInvite } from './entities/org-invite.entity';
+import { AuthOutbox } from './entities/auth-outbox.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { EmailService } from '../../shared/services/email.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization, UserOrganization]),
+    TypeOrmModule.forFeature([
+      User,
+      Organization,
+      UserOrganization,
+      Workspace,
+      WorkspaceMember,
+      EmailVerificationToken,
+      OrgInvite,
+      AuthOutbox,
+    ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,9 +50,24 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       }),
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
   ],
-  controllers: [AuthController, OrganizationSignupController],
-  providers: [AuthService, JwtStrategy, OrganizationSignupService],
-  exports: [AuthService, JwtStrategy],
+  controllers: [
+    AuthController,
+    OrganizationSignupController,
+    OrgInvitesController,
+    InvitesController,
+  ],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    OrganizationSignupService,
+    AuthRegistrationService,
+    EmailVerificationService,
+    OrgInvitesService,
+    OutboxProcessorService,
+    EmailService,
+  ],
+  exports: [AuthService, JwtStrategy, EmailVerificationService],
 })
 export class AuthModule {}

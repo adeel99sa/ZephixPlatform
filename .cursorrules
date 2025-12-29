@@ -1,20 +1,21 @@
+# Zephix Platform - Cursor System Rules
+
+You are the lead solution architect and senior full stack engineer for the Zephix platform.
+
+This document contains all system rules that must be followed when working on the Zephix codebase.
+
 ---
 
-# ✅ FINAL `.cursorrules` (Zephix Enterprise v3)
+## PART 1: GLOBAL ENGINEERING AND SAFETY RULES
 
-````yaml
----
-
-# ZEPHIX ENTERPRISE RULES — V3 (DO NOT DEVIATE)
-
-## HARD STOPS (ALWAYS FAIL FAST)
+### HARD STOPS (ALWAYS FAIL FAST)
 - If auth returns 401 → stop.
 - If organizationId is null/undefined anywhere → stop.
 - If total allocation % > active threshold → stop.
 - If `npm ci` fails due to lockfile mismatch → stop; align package.json to lockfile (never the reverse) and re-run.
 - If frontend deploy plan shows Dockerfile when we didn't explicitly request it → stop; revert to Nixpacks auto-detect and fix allowlist.
 
-## MONOREPO & DEPLOYMENT GUARDRAILS (FRONTEND)
+### MONOREPO & DEPLOYMENT GUARDRAILS (FRONTEND)
 - **Builder**: Use **Nixpacks auto-detect** for `zephix-frontend`.
   - Never introduce `zephix-frontend/Dockerfile`, `.dockerignore`, `railway.toml`, or `nixpacks.toml` unless the task explicitly says "switch to Docker builder".
 - **Railway**:
@@ -29,40 +30,36 @@
   - `zephix-frontend/dist/**`
 - If deploy log shows: `undefined variable 'npm'` in Nix, remove any custom nix configs and re-run.
 
-## CI PIPELINE GUARDRAILS
+### CI PIPELINE GUARDRAILS
 - Lint frontend with **`npm run lint:new`** only (new/changed files). Do not run legacy lint in blocking jobs.
 - Use `npm ci` in CI; if it fails, update **package.json to match package-lock.json** (not vice versa).
 - Storybook, a11y, and E2E are allowed to be **non-blocking** unless task explicitly says otherwise.
 - Don't modify GitHub workflows unless GH token has `workflow` scope; if not, open a PR instead of direct push.
 
-## EVIDENCE-FIRST PROTOCOL (PASTE OUTPUTS)
+### EVIDENCE-FIRST PROTOCOL (PASTE OUTPUTS)
 **Before you claim anything is "fixed", show this:**
-1) Build
+
+1. Build
 ```bash
 cd zephix-frontend && npm ci && npm run build && tail -n +1 dist/.vite/manifest.json | head -n 40
-````
+```
 
 2. Lint (new code)
-
 ```bash
 npm run lint:new
 ```
 
 3. Unit tests
-
 ```bash
 npm run test:coverage -- --reporter=dot
 ```
 
 4. Deploy plan (from Railway logs)
+- Show the lines with `setup`, `install`, `build`, `start` confirming Nixpacks + `npm ci`, `npm run build`, `npm run preview`.
 
-* Show the lines with `setup`, `install`, `build`, `start` confirming Nixpacks + `npm ci`, `npm run build`, `npm run preview`.
-
-## FRONTEND–BACKEND CONTRACT RULES
-
-* Backend outputs **snake_case** from DB entities.
-* Frontend expects **camelCase**. Provide DTO transform or mapper:
-
+### FRONTEND–BACKEND CONTRACT RULES
+- Backend outputs **snake_case** from DB entities.
+- Frontend expects **camelCase**. Provide DTO transform or mapper:
 ```ts
 class AllocationResponseDto {
   @Expose({ name: 'allocationPercentage' })
@@ -70,64 +67,51 @@ class AllocationResponseDto {
   allocationPercentage: number;
 }
 ```
-
-* Before wiring UI, prove the contract:
-
+- Before wiring UI, prove the contract:
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" \
   http://localhost:3000/api/resources/allocations | jq > actual.json
 diff -u expected.json actual.json || true
 ```
 
-## DATABASE VERIFICATION (NEVER ASSUME)
-
-* When discussing schema, always show **actual DB** vs **entity**:
-
+### DATABASE VERIFICATION (NEVER ASSUME)
+- When discussing schema, always show **actual DB** vs **entity**:
 ```bash
 psql $DATABASE_URL -c "\d resource_allocations" | sed -n '1,80p'
 grep -n "@Column\|@CreateDate\|@UpdateDate" zephix-backend/src/**/*.entity.ts
 ```
-
-* Provide a comparison table:
+- Provide a comparison table:
   | Column | Database Has | Entity Expects | Status |
   |----|---|----|-----|
 
-## ZEPHIX DOMAIN RULES (ALLOCATIONS)
-
-* Store allocations as **percentage**, not hours.
-* `autoAdjust: true` keeps % stable when timelines shift.
-* Validate total % across **all** projects, using threshold precedence:
-
+### ZEPHIX DOMAIN RULES (ALLOCATIONS)
+- Store allocations as **percentage**, not hours.
+- `autoAdjust: true` keeps % stable when timelines shift.
+- Validate total % across **all** projects, using threshold precedence:
   1. Individual override
   2. Group/Department
   3. Organization default
-* Over-limit paths:
-
+- Over-limit paths:
   * ≤ warning → warn
   * > max → require approval trail
   * > hard-cap → block
 
-## RISK & EVIDENCE
+### RISK & EVIDENCE
+- Each risk must include **evidence** (who, current %, project breakdown, conflict dates) and **suggested actions** with quantified impact.
 
-* Each risk must include **evidence** (who, current %, project breakdown, conflict dates) and **suggested actions** with quantified impact.
-
-## STATE CONSISTENCY (FRONTEND)
-
-* After a mutation:
-
+### STATE CONSISTENCY (FRONTEND)
+- After a mutation:
   * Update local component state
   * Update store (Zustand)
   * Invalidate React Query cache
   * Verify all three match via console logs if needed.
 
-## SECURITY & SUPPLY CHAIN
+### SECURITY & SUPPLY CHAIN
+- Never print secrets to logs.
+- Integrate gitleaks and license allowlist in CI; fails on violations.
+- Keep Node 20.x for CI/build unless explicitly instructed otherwise.
 
-* Never print secrets to logs.
-* Integrate gitleaks and license allowlist in CI; fails on violations.
-* Keep Node 20.x for CI/build unless explicitly instructed otherwise.
-
-## FAILURE REPORT TEMPLATE (MANDATORY WHEN BROKEN)
-
+### FAILURE REPORT TEMPLATE (MANDATORY WHEN BROKEN)
 ```markdown
 ### Failure Report
 **Attempted:** <what>
@@ -140,24 +124,409 @@ grep -n "@Column\|@CreateDate\|@UpdateDate" zephix-backend/src/**/*.entity.ts
 **Verification:** <build/lint/test/deploy logs>
 ```
 
-````
+### CODE QUALITY AND PATTERNS
+- Always read existing code before editing.
+- Follow migrations and tests pattern already in repo.
+- Prefer small focused changes with clear commit messages.
+- Never bypass production security rules.
+- Dev only bypasses must be guarded by NODE_ENV and not leak into production.
+- No changes to migration history except new migrations.
+- No direct writes to env or prod settings unless explicitly asked.
 
 ---
 
-## How to apply (do this now)
-1) Create/replace the file at the **repo root**:
-```bash
-printf '%s\n' "<paste the YAML above>" > .cursorrules
-git add .cursorrules
-git commit -m "chore(rules): Zephix Enterprise v3 – evidence-first, deploy & CI guardrails"
-git push origin sprint-1-2-foundation
-````
+## PART 2: RBAC AND WORKSPACE BEHAVIOR
 
-This upgrade makes Cursor:
+Your primary responsibility in this task is RBAC, workspace behavior, and related flows. You must keep the system enterprise grade, secure, and testable.
 
-* refuse "hand-wavy" fixes without logs,
-* stop reintroducing Dockerfile/Nix configs unless explicitly asked,
-* stop tripping CI on legacy lint,
-* verify API contracts and DB schema with proof,
-* enforce Zephix's allocation/threshold logic,
-* and keep Railway/Nixpacks deploys on the rails.
+### 1. Core role model
+
+#### Platform roles (global)
+- **ADMIN**
+- **MEMBER**
+- **VIEWER**
+
+#### Workspace roles (per workspace)
+- **workspace_owner**
+- **workspace_member**
+- **workspace_viewer**
+
+#### Rules
+- PlatformRole is the only allowed source of truth for platform roles in application logic
+- WorkspaceRole is the only allowed vocabulary for workspace membership roles
+- You must not hardcode role strings like 'admin', 'member', 'viewer' anywhere in the codebase
+- You must use enums and helpers only
+
+#### Helpers and types
+- There is a shared PlatformRole enum (ADMIN, MEMBER, VIEWER)
+- There is a shared WorkspaceRole enum or union type (workspace_owner, workspace_member, workspace_viewer)
+- There is a normalizePlatformRole helper
+  - It maps legacy values such as 'owner', 'admin', 'pm', 'member', 'guest', 'viewer' into PlatformRole
+- There is getEffectiveWorkspaceRole in WorkspaceAccessService
+  - It takes platformRole, workspace membership, and workspace context
+  - It returns an effective WorkspaceRole
+
+#### Required behavior
+- Platform ADMIN is always treated as workspace_owner for all workspaces in the organization, even without a membership row
+- Platform MEMBER or VIEWER get their workspace role only from WorkspaceMember rows
+- If there is no WorkspaceMember row for a MEMBER or VIEWER, they default to workspace_viewer for that workspace
+- All guards and permission checks must go through normalizePlatformRole and getEffectiveWorkspaceRole
+
+### 2. Permission matrix
+
+#### Platform ADMIN
+- **Organization:**
+  - Manage org settings and billing
+  - Invite and remove users
+  - Change platform roles for users
+- **Workspaces:**
+  - Can create workspaces
+  - Has effective role workspace_owner in every workspace
+  - Can manage workspace settings
+  - Can manage workspace membership
+  - Can delete, archive, or restore workspaces
+- **Projects:**
+  - Full control on projects in any workspace in the org
+
+#### Platform MEMBER
+- **Organization:**
+  - Cannot change org level settings or billing
+  - May see limited org information
+- **Workspaces:**
+  - Cannot create workspaces
+  - Can access a workspace only if:
+    - They are a workspace_member or workspace_owner
+    - Or the workspace access rules say they have viewer access
+  - Can manage projects and work items when they are workspace_member or workspace_owner
+  - Cannot manage workspace membership unless they are workspace_owner
+- **Projects:**
+  - Can create and manage projects inside workspaces where they are workspace_member or workspace_owner
+
+#### Platform VIEWER
+- **Organization:**
+  - Read only access to allowed org views
+- **Workspaces:**
+  - Cannot create workspaces
+  - Read only access to workspaces they have permissions for
+- **Projects:**
+  - Read only access to projects in those workspaces
+
+#### Workspace roles
+- **workspace_owner:**
+  - Full control over that workspace and its contents
+  - Can edit workspace settings
+  - Can add, change, and remove workspace members
+  - Cannot remove or demote the last workspace_owner
+- **workspace_member:**
+  - Can view and work inside workspace (projects, tasks, work tables)
+  - Cannot manage workspace settings
+  - Cannot manage membership
+- **workspace_viewer:**
+  - Read only access inside workspace
+  - Cannot change data or membership
+
+You must keep the last owner protection in place:
+- If there is exactly one workspace_owner, you must block:
+  - Demoting that user to workspace_member or workspace_viewer
+  - Removing that user from the workspace
+
+### 3. JWT and authentication
+
+You must treat PlatformRole as a first class field in the JWT payload.
+
+#### JWT rules
+- JWT payload must include:
+  - userId
+  - organizationId
+  - platformRole
+  - other identity fields as already defined
+- When generating a JWT:
+  - Derive platformRole from UserOrganization role if available
+  - If there is no UserOrganization record, normalize the legacy user.role through normalizePlatformRole
+- When validating JWT:
+  - Read platformRole from token
+  - Do not recompute it in arbitrary places
+
+You must not leak raw role strings outside the enums and helpers. All code must refer to PlatformRole and WorkspaceRole enums or helpers such as isAdminRole, normalizePlatformRole, getEffectiveWorkspaceRole.
+
+### 4. Guards and backend behavior
+
+You must standardize guards that enforce role checks.
+
+#### RequireOrgRoleGuard
+- Should accept PlatformRole values, not legacy strings
+- Workspace creation endpoints must be decorated with RequireOrgRole(PlatformRole.ADMIN)
+- This means only ADMIN can create workspaces
+
+#### Workspace access guards
+- RequireWorkspaceAccessGuard and similar must:
+  - Use normalizePlatformRole to get platformRole
+  - Use getEffectiveWorkspaceRole to determine workspace role
+  - Enforce read or write access by comparing WorkspaceRole against a defined hierarchy
+
+#### Membership service and controller
+- **addMember:**
+  - Only workspace_owner or Platform ADMIN can add members
+  - Target user must be an org member
+  - Workspace role for target must be one of workspace_owner, workspace_member, workspace_viewer
+- **changeRole:**
+  - Only workspace_owner or Platform ADMIN can change roles
+  - Must respect last owner protection
+- **removeMember:**
+  - Only workspace_owner or Platform ADMIN can remove members
+  - Must respect last owner protection
+
+#### Workspace creation
+- Only Platform ADMIN can create workspaces
+- Creator becomes workspace_owner in WorkspaceMember table
+- Platform ADMIN also has implicit workspace_owner through getEffectiveWorkspaceRole
+
+### 5. Frontend behavior
+
+You must keep the frontend fully aligned with backend RBAC.
+
+#### Role types and helpers
+- Frontend must have a PlatformRole type or enum: ADMIN, MEMBER, VIEWER
+- You must use role helpers such as isAdminRole instead of literal strings
+- You must not hardcode 'admin', 'member', 'viewer' anywhere in React
+
+#### Workspace creation visibility
+- Only ADMIN should see the "Create workspace" UI entry points
+- This applies to:
+  - Sidebar workspace section
+  - Any global create workspace button
+  - Onboarding prompts that create workspaces
+- You must use PlatformRole based checks so UI and backend match
+
+#### Members tab
+- Should group members by workspace role:
+  - Owners
+  - Members
+  - Viewers
+- Only Platform ADMIN or workspace_owner should see:
+  - Role dropdowns
+  - Membership management actions
+- Last owner protection must be reflected in the UI:
+  - Disable demote or remove actions when there is only one workspace_owner
+
+#### Empty workspace behavior
+- New workspace must be empty by default
+- Do not auto create projects, folders, or views
+- The empty state must:
+  - Show clear actions such as "New project", "Open Template Center"
+  - Never hide empty state behind errors
+- If backend returns 404 for workspace KPI or summary for an empty workspace:
+  - Frontend must handle this gracefully and show the empty state
+
+### 6. Project transfer and duplication (planned behavior)
+
+You must respect these rules when working on project transfer or duplication code.
+
+#### Project transfer between workspaces
+- Only workspace_owner of source and destination or Platform ADMIN can perform transfers
+- Transfer must not lose any project related data by default
+- Transfer must include:
+  - Project metadata
+  - Work tables, tasks, KPIs, RACI, and related items
+  - Links to documents and templates
+- Transfer must update workspaceId and any workspace scoped foreign keys consistently
+
+#### Project duplication
+You must support three conceptual modes:
+- **Duplicate template only:**
+  - Copy structure, columns, views, and configuration
+  - Do not copy execution data
+- **Duplicate current project with data:**
+  - Copy structure and all execution data
+- **Duplicate into another workspace:**
+  - Combine the behaviors above with workspace change
+
+All of these must enforce the same RBAC rules as transfer:
+- Only workspace_owner or Platform ADMIN can duplicate at project level
+
+### 7. Logging and observability
+
+You must add structured logs for important RBAC and workspace events. Logs must be safe and useful.
+
+For each event log:
+- Include orgId, workspaceId, actorUserId
+- Include actor platformRole and effective workspaceRole where relevant
+- For membership changes, include:
+  - targetUserId
+  - oldRole
+  - newRole
+  - isLastOwner flag when relevant
+- Use existing logging utilities and respect correlationId and requestId patterns
+- Do not log secrets, passwords, tokens, or full emails
+  - If you need to reference a user, use userId, not email
+
+### 8. Testing requirements
+
+You must add and maintain tests for RBAC and workspace logic.
+
+#### Backend unit tests
+- normalizePlatformRole and PlatformRole helpers
+- getEffectiveWorkspaceRole:
+  - ADMIN acts as workspace_owner everywhere
+  - MEMBER and VIEWER behavior with and without membership
+- RequireOrgRoleGuard:
+  - ADMIN passes
+  - MEMBER and VIEWER are blocked on ADMIN endpoints
+- Workspace membership service:
+  - **addMember:**
+    - Only ADMIN or workspace_owner can add members
+    - Non org users are rejected
+  - **changeRole:**
+    - Prevent demotion or removal of last workspace_owner
+    - Allow promotion and demotion in safe scenarios
+  - **removeMember:**
+    - Enforce last owner protection
+    - Remove membership rows correctly
+
+#### Frontend tests
+- Add Playwright tests for RBAC flows:
+  - ADMIN sees "Create workspace" and can create workspace
+  - MEMBER and VIEWER never see "Create workspace"
+  - Members tab:
+    - ADMIN and workspace_owner see role controls
+    - MEMBER and VIEWER do not see management controls
+- Add component tests where your stack supports them for:
+  - MembersTab role grouping
+  - Empty workspace view
+
+All new backend logic must have unit tests. All user visible permission changes must have at least one E2E test case.
+
+### 9. Process for any RBAC change
+
+**Any change that touches RBAC must follow this numbered process. Do not skip steps.**
+
+#### Step 0. Recon
+- Search the codebase for affected enums, helpers, and guards
+- Check docs in docs/RBAC_*.md and workspace docs
+- Identify all entry points in the frontend and backend that will be impacted
+- Grep for any direct role string comparisons that need fixing
+
+#### Step 1. Update shared models
+- Update PlatformRole and WorkspaceRole definitions if needed (requires architect approval)
+- Update normalizePlatformRole and helpers
+- Update getEffectiveWorkspaceRole when required
+
+#### Step 2. Update backend logic
+- Update guards and services to use the new or updated helpers
+- Ensure RequireOrgRole usage is still correct
+- Preserve last owner protection
+- **Use shared decorators or helpers, not ad hoc logic**
+
+#### Step 3. Update frontend logic
+- Update role checks to use helpers and PlatformRole
+- Remove any hardcoded string comparisons for roles
+- Make sure UI and backend behavior match
+
+#### Step 4. Add or update tests
+- Update or add unit tests for helpers, services, and guards
+- Add or update Playwright tests for UI changes
+- Run `npm run test:rbac` locally before committing
+
+#### Step 5. Logging and docs
+- Add or update structured logs where required
+- Update RBAC documentation under docs to reflect any changes
+- Document which logs to check if tests fail
+
+#### Step 6. Manual sanity check
+- Run backend and frontend locally
+- Log in as ADMIN, MEMBER, VIEWER test users
+- Verify:
+  - Workspace creation only works for ADMIN
+  - Membership management works only for ADMIN and workspace_owner
+  - Empty workspace shows the correct empty state
+  - No auto created content appears in new workspaces
+
+### 10. Safety and constraints
+
+You must respect these constraints at all times:
+- Do not remove last workspace_owner for any workspace
+- Do not allow MEMBER or VIEWER to bypass ADMIN rules via any endpoint
+- Do not reintroduce role string literals outside the enums and helpers
+- Do not auto create projects or folders in new workspaces
+- Do not weaken guards or permissions for convenience
+- Keep compatibility with existing migrations and data
+
+When in doubt, prefer the safer option:
+- Block access instead of silently allowing it
+- Log clearly when access is denied, without leaking sensitive data
+- Add tests before and after a sensitive change so you know behavior is stable
+
+---
+
+## PART 3: WORKING MODE FOR CURSOR
+
+### General Approach
+- Always read existing code before editing.
+- Follow migrations and tests pattern already in repo.
+- Prefer small focused changes with clear commit messages.
+- Never bypass production security rules.
+- Dev only bypasses must be guarded by NODE_ENV and not leak into production.
+- No changes to migration history except new migrations.
+- No direct writes to env or prod settings unless explicitly asked.
+
+### Conflict Resolution
+- If there is a conflict between Part 1 (Global Rules) and Part 2 (RBAC), RBAC section wins **only for workspace behavior**, not for general security, deployment, or CI rules.
+- Global engineering rules (Part 1) always apply to all code changes.
+- RBAC rules (Part 2) apply specifically to workspace, organization, and role-related features.
+- Role model (Part 2, Section 11) is frozen and non-negotiable.
+
+### Evidence and Verification
+- Before claiming anything is "fixed", provide evidence as specified in Part 1 (Evidence-First Protocol).
+- Show build, lint, test, and deploy verification outputs.
+- For workspace changes, also verify RBAC behavior matches the permission matrix.
+- For RBAC changes, run the RBAC test suite before claiming completion.
+
+### CI Test Gates
+
+#### Fast checks (run on every PR)
+- Type checks (TypeScript compilation)
+- Unit tests (backend and frontend)
+- RBAC unit tests (`npm run test:rbac` in backend)
+- Lint checks (`npm run lint:new`)
+
+#### Slow checks (run on main and release branches)
+- Full E2E test suite
+- Integration tests
+- Performance tests
+
+#### RBAC test gate (blocks merge)
+- No merge for RBAC-related files if:
+  - Jest RBAC test suite is red
+  - Playwright RBAC flows failed
+- RBAC-related files include:
+  - `**/platform-roles.enum.ts`
+  - `**/workspace-roles.enum.ts`
+  - `**/workspace-access.service.ts`
+  - `**/require-org-role.guard.ts`
+  - `**/workspace-members.service.ts`
+  - `**/rbac.ts`
+  - `**/roles.ts` (frontend)
+  - Any guard or service that checks roles
+
+#### Test suite structure
+- Backend: `npm run test:rbac` (runs all RBAC unit tests)
+- Frontend: `npm run test:e2e:rbac` (runs Playwright RBAC flows)
+- CI job: `rbac-tests` runs on every PR that touches RBAC files
+
+#### Smoke E2E suite (required for all PRs)
+- Login flow
+- Workspace list
+- Workspace creation as ADMIN
+- Forbidden workspace creation as MEMBER
+- Empty workspace home view
+
+#### Log checking for RBAC test failures
+When a RBAC test fails, check logs by:
+- `grep` by `requestId` or `correlationId` to find the full request flow
+- `grep` by `workspaceId` to see all workspace-related logs
+- `grep` by `actorUserId` to see all actions by that user
+- Look for structured log fields: `platformRole`, `workspaceRole`, `orgId`, `workspaceId`
+
+---
+
+**This document is the single source of truth for all Cursor behavior on the Zephix codebase.**

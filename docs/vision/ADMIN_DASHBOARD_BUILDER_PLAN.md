@@ -1,0 +1,991 @@
+# Admin Dashboard Builder - Complete Plan
+
+## Vision
+Allow organization admins to create custom dashboards tailored to their specific needs, connecting to any data source (projects, programs, portfolios, resources, KPIs) through an intuitive wizard-driven interface.
+
+---
+
+## 1. Architecture Overview
+
+### 1.1 Core Components
+
+```
+Dashboard Builder System
+├── Dashboard Wizard (Step-by-step creation)
+├── Widget Library (Reusable components)
+├── Data Source Connectors (Projects, Programs, Portfolios, Resources, KPIs)
+├── Dashboard Engine (Rendering & Real-time updates)
+├── Dashboard Store (Persistence & Sharing)
+└── Template Gallery (Pre-built dashboard templates)
+```
+
+### 1.2 Data Flow
+
+```
+Admin → Wizard → Select Data Sources → Configure Widgets → Layout → Save
+                ↓
+         Connect to: Projects/Programs/Portfolios/Resources/KPIs
+                ↓
+         Real-time Dashboard → Customizable & Shareable
+```
+
+---
+
+## 2. Dashboard Wizard - Step-by-Step Flow
+
+### Step 1: Dashboard Basics
+**Purpose:** Define the foundation of the dashboard
+
+**Questions:**
+- What is this dashboard for? (e.g., "Executive Overview", "Project Health", "Resource Allocation")
+- Dashboard name
+- Description
+- Who should have access? (Admin only, All managers, Specific roles)
+- Default view? (Personal, Team, Organization-wide)
+
+**Output:** Dashboard metadata and access settings
+
+---
+
+### Step 2: Select Data Sources
+**Purpose:** Choose what data the dashboard will display
+
+**Options:**
+- **Projects**
+  - All projects in organization
+  - Projects in specific workspace(s)
+  - Projects by status (Active, Completed, On Hold)
+  - Projects by method (Agile, Waterfall, Hybrid)
+  - Projects by owner/manager
+  - Projects with specific tags/labels
+  - Projects in date range
+
+- **Programs**
+  - All programs
+  - Programs by status
+  - Programs by portfolio
+  - Programs with specific criteria
+
+- **Portfolios**
+  - All portfolios
+  - Portfolios by status
+  - Portfolios by owner
+
+- **Resources**
+  - All resources
+  - Resources by department/team
+  - Resources by role
+  - Resources by allocation status
+  - Resources by skills
+
+- **KPIs & Metrics**
+  - Organization KPIs
+  - Project KPIs
+  - Resource KPIs
+  - Custom calculated metrics
+
+- **Work Items/Tasks**
+  - Tasks by project
+  - Tasks by assignee
+  - Tasks by status
+  - Tasks by priority
+  - Overdue tasks
+
+- **Risks**
+  - All risks
+  - Risks by project/program
+  - Risks by severity
+  - Risks by status
+
+**UI:** Multi-select with filters, search, and preview
+
+**Output:** Selected data sources with filters applied
+
+---
+
+### Step 3: Choose Widget Types
+**Purpose:** Select visualization components for the dashboard
+
+**Widget Categories:**
+
+#### A. Overview Widgets
+- **Summary Card**
+  - Single metric with label
+  - Icon/emoji
+  - Trend indicator (↑↓)
+  - Comparison to previous period
+
+- **Stat Grid**
+  - Multiple metrics in grid
+  - Color-coded by status
+
+- **KPI Scorecard**
+  - Key performance indicators
+  - Target vs Actual
+  - Progress bars
+
+#### B. Project/Program Widgets
+- **Project List**
+  - Table view with columns
+  - Sortable, filterable
+  - Status indicators
+
+- **Project Timeline**
+  - Gantt-style view
+  - Milestones
+  - Dependencies
+
+- **Project Health Matrix**
+  - 2x2 grid (Schedule vs Budget)
+  - Color-coded status
+
+- **Program Overview**
+  - Program cards
+  - Progress indicators
+  - Resource allocation
+
+#### C. Resource Widgets
+- **Resource Allocation Chart**
+  - Heat map
+  - Capacity vs Utilization
+  - Over-allocation warnings
+
+- **Resource List**
+  - Table with skills, allocation %
+  - Filter by department/role
+
+- **Team Workload**
+  - Bar/line chart
+  - Capacity trends
+
+#### D. Analytics Widgets
+- **Line Chart**
+  - Trends over time
+  - Multiple series
+
+- **Bar Chart**
+  - Comparisons
+  - Grouped/stacked
+
+- **Pie/Donut Chart**
+  - Distribution
+  - Percentages
+
+- **Area Chart**
+  - Cumulative metrics
+
+- **Table**
+  - Detailed data
+  - Exportable
+
+#### E. Risk & Alert Widgets
+- **Risk Matrix**
+  - Probability vs Impact
+  - Color-coded
+
+- **Alert Feed**
+  - Recent alerts
+  - Filterable by type
+
+- **Risk Summary**
+  - Counts by severity
+  - Trend indicators
+
+#### F. Custom Widgets
+- **Custom Query**
+  - SQL-like builder
+  - Custom calculations
+
+- **Embedded Content**
+  - External URLs
+  - Iframes
+
+- **Text/HTML**
+  - Rich text
+  - Markdown
+
+**UI:** Widget gallery with previews, drag-to-add
+
+**Output:** Selected widget types with initial configuration
+
+---
+
+### Step 4: Configure Widgets
+**Purpose:** Set up each widget's data binding and display options
+
+**For Each Widget:**
+
+1. **Data Binding**
+   - Which data source?
+   - Which fields/metrics?
+   - Aggregation (Sum, Avg, Count, Min, Max)
+   - Grouping (by project, by month, by status, etc.)
+   - Filters (additional filters beyond data source)
+
+2. **Display Options**
+   - Title
+   - Size (Small, Medium, Large, Full width)
+   - Color scheme
+   - Chart type (if applicable)
+   - Show/hide elements (legends, labels, tooltips)
+
+3. **Refresh Settings**
+   - Auto-refresh interval
+   - Real-time updates (if applicable)
+
+4. **Interactions**
+   - Click action (drill down, open detail, navigate)
+   - Hover tooltips
+
+**UI:** Side panel for each widget configuration
+
+**Output:** Fully configured widgets
+
+---
+
+### Step 5: Layout & Arrange
+**Purpose:** Position widgets on the dashboard canvas
+
+**Features:**
+- Drag-and-drop grid layout
+- Responsive grid system (12 columns)
+- Widget resizing
+- Snap to grid
+- Preview mode
+- Mobile/tablet/desktop layouts (optional)
+
+**Layout Options:**
+- Fixed grid (all widgets same size)
+- Flexible grid (widgets can span multiple columns)
+- Freeform (absolute positioning - advanced)
+
+**Output:** Dashboard layout configuration
+
+---
+
+### Step 6: Review & Save
+**Purpose:** Final review and persistence
+
+**Review:**
+- Preview of complete dashboard
+- Test data loading
+- Verify all connections
+- Check permissions
+
+**Save Options:**
+- Save as draft
+- Save and publish
+- Save as template (for reuse)
+- Set as default dashboard
+
+**Output:** Saved dashboard ready for use
+
+---
+
+## 3. Data Source Connectors
+
+### 3.1 Project Connector
+
+**Available Fields:**
+- Project ID, Name, Description
+- Status, Progress, Health
+- Start Date, End Date, Duration
+- Owner, Manager, Team
+- Budget, Cost, Revenue
+- Method (Agile/Waterfall)
+- Workspace, Tags, Labels
+- Task count, Completed tasks
+- Risk count, Risk level
+- KPI values
+
+**Filters:**
+- By workspace
+- By status
+- By date range
+- By owner/manager
+- By method
+- By tags
+- By health status
+
+**Aggregations:**
+- Count projects
+- Sum budget/cost
+- Average progress
+- Group by status/workspace/owner
+
+---
+
+### 3.2 Program Connector
+
+**Available Fields:**
+- Program ID, Name, Description
+- Status, Progress
+- Start Date, End Date
+- Owner, Portfolio
+- Project count
+- Total budget
+- Resource allocation
+
+**Filters:**
+- By portfolio
+- By status
+- By owner
+- By date range
+
+**Aggregations:**
+- Count programs
+- Sum budgets
+- Average progress
+- Group by portfolio/status
+
+---
+
+### 3.3 Portfolio Connector
+
+**Available Fields:**
+- Portfolio ID, Name
+- Status
+- Program count
+- Total investment
+- ROI
+- Strategic alignment
+
+**Filters:**
+- By status
+- By owner
+- By strategic goal
+
+---
+
+### 3.4 Resource Connector
+
+**Available Fields:**
+- User ID, Name, Email
+- Role, Department, Team
+- Skills, Certifications
+- Current allocation %
+- Capacity (hours/week)
+- Utilization %
+- Active projects count
+- Overdue tasks count
+- Risk score
+
+**Filters:**
+- By department/team
+- By role
+- By allocation status (over/under)
+- By skills
+- By workspace
+
+**Aggregations:**
+- Count resources
+- Average allocation
+- Sum capacity
+- Group by department/role
+
+---
+
+### 3.5 KPI Connector
+
+**Available Fields:**
+- KPI ID, Name, Description
+- Current value
+- Target value
+- Unit (%, $, hours, etc.)
+- Trend (↑↓→)
+- Last updated
+- Scope (Organization, Project, Resource)
+
+**Filters:**
+- By scope
+- By category
+- By project/program
+- By date range
+
+---
+
+### 3.6 Task/Work Item Connector
+
+**Available Fields:**
+- Task ID, Name, Description
+- Status, Priority
+- Assignee, Project
+- Due date, Completed date
+- Estimated hours, Actual hours
+- Dependencies
+
+**Filters:**
+- By project
+- By assignee
+- By status
+- By priority
+- By due date (overdue, upcoming)
+- By workspace
+
+**Aggregations:**
+- Count tasks
+- Sum hours
+- Average completion time
+- Group by status/priority/assignee
+
+---
+
+### 3.7 Risk Connector
+
+**Available Fields:**
+- Risk ID, Name, Description
+- Severity, Probability, Impact
+- Status, Category
+- Project/Program
+- Owner, Mitigation plan
+- Created date, Updated date
+
+**Filters:**
+- By project/program
+- By severity
+- By status
+- By category
+- By owner
+
+**Aggregations:**
+- Count risks
+- Group by severity/status
+- Average risk score
+
+---
+
+## 4. Widget Library - Detailed Specifications
+
+### 4.1 Summary Card Widget
+
+**Configuration:**
+- Data source: Any
+- Metric: Single value (count, sum, avg, etc.)
+- Label: Custom text
+- Icon: Choose from library
+- Trend: Compare to previous period
+- Format: Number, Currency, Percentage, Duration
+- Color: Based on value thresholds
+
+**Example:**
+```
+Label: "Active Projects"
+Value: 24
+Trend: ↑ 12% from last month
+Icon: 📊
+Color: Green (if > 20)
+```
+
+---
+
+### 4.2 Project List Widget
+
+**Configuration:**
+- Data source: Projects
+- Columns: Select which fields to show
+- Sort: Default sort column and direction
+- Filters: Additional filters
+- Pagination: Items per page
+- Actions: Click to navigate to project
+
+**Columns Available:**
+- Name, Status, Progress, Health
+- Owner, Manager, Team
+- Start/End dates, Duration
+- Budget, Cost
+- Task count, Risk count
+
+---
+
+### 4.3 Resource Allocation Chart
+
+**Configuration:**
+- Data source: Resources
+- Visualization: Heat map, Bar chart, Table
+- Group by: Department, Team, Role
+- Show: Allocation %, Capacity, Utilization
+- Color coding: By allocation level
+- Thresholds: Warning (80%), Critical (100%)
+
+---
+
+### 4.4 Timeline Widget
+
+**Configuration:**
+- Data source: Projects/Tasks
+- View: Gantt, Calendar, Timeline
+- Group by: Project, Program, Portfolio
+- Show: Milestones, Dependencies
+- Date range: Auto or custom
+- Zoom: Days, Weeks, Months
+
+---
+
+### 4.5 Chart Widgets (Line, Bar, Pie, Area)
+
+**Configuration:**
+- Data source: Any
+- X-axis: Time, Category, etc.
+- Y-axis: Metric(s)
+- Series: Multiple data series
+- Aggregation: Sum, Avg, Count, etc.
+- Grouping: By field
+- Chart options: Stacked, Grouped, Smooth lines, etc.
+
+---
+
+### 4.6 Risk Matrix Widget
+
+**Configuration:**
+- Data source: Risks
+- X-axis: Probability (Low, Medium, High)
+- Y-axis: Impact (Low, Medium, High)
+- Color coding: By severity
+- Show: Risk count, Risk details on hover
+- Filter: By project/program
+
+---
+
+### 4.7 KPI Scorecard Widget
+
+**Configuration:**
+- Data source: KPIs
+- Layout: Grid of KPI cards
+- Show: Current value, Target, Progress bar
+- Color: Based on performance vs target
+- Trend: Arrow indicator
+- Click: Drill down to details
+
+---
+
+## 5. Dashboard Engine
+
+### 5.1 Rendering System
+
+**Components:**
+- Dashboard container (responsive grid)
+- Widget renderer (loads appropriate component)
+- Data fetcher (queries backend based on widget config)
+- Real-time updater (WebSocket/polling for live data)
+
+**Performance:**
+- Lazy load widgets
+- Cache data queries
+- Debounce updates
+- Virtual scrolling for large lists
+
+---
+
+### 5.2 Data Query System
+
+**Query Builder:**
+- Translates widget config to backend queries
+- Optimizes queries (combine similar requests)
+- Handles pagination
+- Manages caching
+
+**Backend Endpoints Needed:**
+- `/api/dashboards/data` - Generic data endpoint
+- Accepts: data source type, filters, aggregations, grouping
+- Returns: Formatted data for widgets
+
+---
+
+### 5.3 Real-time Updates
+
+**Options:**
+- WebSocket connection for live updates
+- Polling (configurable interval per widget)
+- Manual refresh button
+- Auto-refresh on tab focus
+
+---
+
+## 6. Dashboard Store & Persistence
+
+### 6.1 Database Schema
+
+**Tables:**
+
+```sql
+dashboards
+- id (UUID)
+- organization_id (UUID)
+- name (string)
+- description (text)
+- created_by (UUID)
+- created_at (timestamp)
+- updated_at (timestamp)
+- is_default (boolean)
+- is_template (boolean)
+- access_level (enum: private, team, organization)
+
+dashboard_widgets
+- id (UUID)
+- dashboard_id (UUID)
+- widget_type (string)
+- position_x (int)
+- position_y (int)
+- width (int)
+- height (int)
+- config (JSONB) -- widget-specific configuration
+- order (int)
+
+dashboard_data_sources
+- id (UUID)
+- dashboard_id (UUID)
+- source_type (enum: projects, programs, portfolios, resources, kpis, tasks, risks)
+- filters (JSONB)
+- created_at (timestamp)
+```
+
+---
+
+### 6.2 Sharing & Permissions
+
+**Access Levels:**
+- Private: Only creator
+- Team: Specific teams/roles
+- Organization: All admins/managers
+
+**Permissions:**
+- View: Can see dashboard
+- Edit: Can modify dashboard
+- Delete: Can remove dashboard
+- Share: Can change access settings
+
+---
+
+## 7. Template Gallery
+
+### 7.1 Pre-built Templates
+
+**Executive Dashboard:**
+- High-level KPIs
+- Portfolio overview
+- Risk summary
+- Resource allocation
+
+**Project Manager Dashboard:**
+- My projects list
+- Project health matrix
+- Team workload
+- Upcoming milestones
+
+**Resource Manager Dashboard:**
+- Resource allocation heat map
+- Capacity vs utilization
+- Over-allocation alerts
+- Skills matrix
+
+**Program Dashboard:**
+- Program status
+- Project timeline
+- Budget tracking
+- Risk matrix
+
+**Custom Templates:**
+- Admins can save their dashboards as templates
+- Share templates within organization
+- Template marketplace (future)
+
+---
+
+## 8. User Experience Flow
+
+### 8.1 Creating a Dashboard
+
+1. Admin clicks "Create Dashboard" (from admin area or command palette)
+2. Wizard opens: Step 1 - Basics
+3. Admin fills in name, description, access
+4. Next → Step 2 - Select Data Sources
+5. Admin selects "Projects" → filters to "Active projects in Engineering workspace"
+6. Admin selects "Resources" → filters to "All resources"
+7. Next → Step 3 - Choose Widgets
+8. Admin selects: Summary Card, Project List, Resource Allocation Chart
+9. Next → Step 4 - Configure Widgets
+10. Configure Summary Card: "Active Projects Count" from Projects data source
+11. Configure Project List: Show Name, Status, Progress, Owner columns
+12. Configure Resource Chart: Heat map grouped by Department
+13. Next → Step 5 - Layout
+14. Drag widgets to desired positions, resize
+15. Next → Step 6 - Review
+16. Preview dashboard, test data loading
+17. Click "Save and Publish"
+
+---
+
+### 8.2 Editing a Dashboard
+
+1. Admin opens existing dashboard
+2. Click "Edit" button
+3. Enter edit mode (widgets become draggable, configurable)
+4. Add/remove widgets
+5. Reconfigure existing widgets
+6. Rearrange layout
+7. Save changes
+
+---
+
+### 8.3 Viewing a Dashboard
+
+1. Admin navigates to "Dashboards" in admin area
+2. Sees list of available dashboards
+3. Clicks on dashboard name
+4. Dashboard loads with all widgets
+5. Data refreshes automatically (if configured)
+6. Can interact with widgets (drill down, filter, etc.)
+
+---
+
+## 9. Technical Implementation Plan
+
+### Phase 1: Foundation (Weeks 1-2)
+- Dashboard data model (tables, entities)
+- Basic dashboard CRUD API
+- Dashboard list/view pages
+- Simple widget renderer
+
+### Phase 2: Wizard - Steps 1-3 (Weeks 3-4)
+- Wizard UI framework
+- Step 1: Basics form
+- Step 2: Data source selector with filters
+- Step 3: Widget gallery
+
+### Phase 3: Widget Configuration (Weeks 5-6)
+- Step 4: Widget config UI
+- Data binding interface
+- Display options
+- Preview system
+
+### Phase 4: Layout System (Weeks 7-8)
+- Step 5: Drag-and-drop layout
+- Grid system
+- Widget positioning
+- Responsive layout
+
+### Phase 5: Data Connectors (Weeks 9-12)
+- Project connector
+- Resource connector
+- KPI connector
+- Task connector
+- Risk connector
+- Generic query builder
+
+### Phase 6: Widget Library (Weeks 13-16)
+- Summary Card widget
+- List widgets
+- Chart widgets (using charting library)
+- Timeline widget
+- Risk matrix widget
+- Custom query widget
+
+### Phase 7: Dashboard Engine (Weeks 17-18)
+- Widget renderer
+- Data fetching system
+- Real-time updates
+- Performance optimization
+
+### Phase 8: Templates & Polish (Weeks 19-20)
+- Template system
+- Pre-built templates
+- Sharing & permissions
+- UI polish
+- Documentation
+
+---
+
+## 10. Backend API Requirements
+
+### 10.1 Dashboard Management
+
+```
+POST   /api/dashboards                    - Create dashboard
+GET    /api/dashboards                    - List dashboards
+GET    /api/dashboards/:id                - Get dashboard
+PATCH  /api/dashboards/:id                - Update dashboard
+DELETE /api/dashboards/:id                - Delete dashboard
+POST   /api/dashboards/:id/duplicate     - Duplicate dashboard
+POST   /api/dashboards/:id/share          - Share dashboard
+```
+
+### 10.2 Widget Management
+
+```
+POST   /api/dashboards/:id/widgets        - Add widget
+PATCH  /api/dashboards/:id/widgets/:wid   - Update widget
+DELETE /api/dashboards/:id/widgets/:wid   - Remove widget
+POST   /api/dashboards/:id/widgets/reorder - Reorder widgets
+```
+
+### 10.3 Data Queries
+
+```
+POST   /api/dashboards/data                - Query data for widgets
+Body: {
+  sourceType: "projects" | "resources" | "kpis" | ...
+  filters: {...}
+  aggregations: {...}
+  grouping: {...}
+  pagination: {...}
+}
+```
+
+### 10.4 Templates
+
+```
+GET    /api/dashboard-templates           - List templates
+GET    /api/dashboard-templates/:id       - Get template
+POST   /api/dashboard-templates           - Create template (from dashboard)
+POST   /api/dashboard-templates/:id/apply - Apply template (create dashboard)
+```
+
+---
+
+## 11. Frontend Architecture
+
+### 11.1 Component Structure
+
+```
+src/
+├── features/
+│   └── dashboards/
+│       ├── builder/
+│       │   ├── DashboardWizard.tsx          - Main wizard container
+│       │   ├── steps/
+│       │   │   ├── Step1Basics.tsx
+│       │   │   ├── Step2DataSources.tsx
+│       │   │   ├── Step3Widgets.tsx
+│       │   │   ├── Step4Configure.tsx
+│       │   │   ├── Step5Layout.tsx
+│       │   │   └── Step6Review.tsx
+│       │   ├── DataSourceSelector.tsx
+│       │   ├── WidgetGallery.tsx
+│       │   └── WidgetConfigPanel.tsx
+│       ├── widgets/
+│       │   ├── SummaryCard.tsx
+│       │   ├── ProjectList.tsx
+│       │   ├── ResourceChart.tsx
+│       │   ├── Timeline.tsx
+│       │   ├── Chart.tsx
+│       │   └── RiskMatrix.tsx
+│       ├── viewer/
+│       │   ├── DashboardView.tsx
+│       │   ├── DashboardGrid.tsx
+│       │   └── WidgetRenderer.tsx
+│       └── api/
+│           ├── dashboards.api.ts
+│           └── dashboardData.api.ts
+```
+
+### 11.2 State Management
+
+**Zustand Store:**
+```typescript
+interface DashboardBuilderStore {
+  currentStep: number;
+  dashboard: DashboardDraft;
+  selectedDataSources: DataSource[];
+  selectedWidgets: Widget[];
+  layout: Layout;
+  // Actions
+  setStep(step: number): void;
+  updateDashboard(data: Partial<Dashboard>): void;
+  addDataSource(source: DataSource): void;
+  addWidget(widget: Widget): void;
+  updateLayout(layout: Layout): void;
+  save(): Promise<void>;
+}
+```
+
+---
+
+## 12. Key Design Decisions
+
+### 12.1 Wizard vs. Freeform Builder
+**Decision:** Wizard for creation, freeform editor for modification
+**Rationale:** Wizard guides admins through complex setup; freeform allows flexibility
+
+### 12.2 Widget Library vs. Custom Code
+**Decision:** Pre-built widget library with configuration options
+**Rationale:** Easier for non-technical admins; can add custom widgets later
+
+### 12.3 Real-time vs. On-demand
+**Decision:** Configurable per widget (real-time, polling, manual)
+**Rationale:** Balance between freshness and performance
+
+### 12.4 Template System
+**Decision:** Save dashboards as templates, share within org
+**Rationale:** Reusability and best practices sharing
+
+---
+
+## 13. Success Metrics
+
+- **Adoption:** % of admins who create at least one dashboard
+- **Usage:** Average dashboards per admin
+- **Engagement:** Dashboard views per week
+- **Satisfaction:** User feedback on ease of use
+- **Performance:** Dashboard load time < 2 seconds
+- **Reliability:** Data accuracy and freshness
+
+---
+
+## 14. Future Enhancements
+
+- **AI-Powered Suggestions:** Suggest widgets based on data sources
+- **Collaborative Editing:** Multiple admins edit simultaneously
+- **Export/Import:** Export dashboard configs, import from other orgs
+- **Mobile App:** View dashboards on mobile
+- **Scheduled Reports:** Email dashboard snapshots
+- **Custom Widgets:** Allow admins to create custom widgets (advanced)
+- **Public Dashboards:** Share dashboards externally (with permissions)
+- **Dashboard Analytics:** Track which dashboards are most viewed
+
+---
+
+## 15. Questions to Resolve
+
+1. **Widget Limits:** Maximum widgets per dashboard?
+2. **Data Refresh:** Default refresh interval?
+3. **Permissions:** Can non-admins view dashboards? Create dashboards?
+4. **Templates:** Who can create templates? Only admins or all users?
+5. **Custom Calculations:** Support for custom formulas in widgets?
+6. **Drill-down:** How deep can drill-downs go?
+7. **Mobile:** Responsive layout or separate mobile view?
+8. **Performance:** Maximum data points per widget?
+9. **Caching:** How long to cache dashboard data?
+10. **Versioning:** Track dashboard version history?
+
+---
+
+## Summary
+
+This plan provides a complete, wizard-driven dashboard builder that allows admins to:
+- Create custom dashboards through guided steps
+- Connect to any data source (projects, programs, portfolios, resources, KPIs)
+- Choose from a rich widget library
+- Configure and customize every aspect
+- Arrange widgets in flexible layouts
+- Save and share dashboards
+- Use templates for quick setup
+
+The system is designed to be powerful yet accessible, allowing admins to build exactly what they need without technical expertise.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

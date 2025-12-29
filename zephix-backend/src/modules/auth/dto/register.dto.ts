@@ -23,7 +23,8 @@ export class RegisterDto {
   email: string;
 
   @ApiProperty({
-    description: 'User password (min 8 chars, must contain uppercase, lowercase, number, and special char)',
+    description:
+      'User password (min 8 chars, must contain uppercase, lowercase, number, and special char)',
     example: 'SecurePass123!@#',
   })
   @IsString()
@@ -57,7 +58,8 @@ export class RegisterDto {
 export class RegisterResponseDto {
   @ApiProperty({
     description: 'Neutral success message (never reveals if email exists)',
-    example: 'If an account with this email exists, you will receive a verification email.',
+    example:
+      'If an account with this email exists, you will receive a verification email.',
   })
   message: string;
 }

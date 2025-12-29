@@ -102,7 +102,9 @@ export class OrgInvitesService {
       });
 
       if (existingMembership) {
-        throw new BadRequestException('User is already a member of this organization');
+        throw new BadRequestException(
+          'User is already a member of this organization',
+        );
       }
     }
 
@@ -140,9 +142,7 @@ export class OrgInvitesService {
     });
     await this.authOutboxRepository.save(outboxEvent);
 
-    this.logger.log(
-      `Invite created: ${normalizedEmail} -> ${orgId} (${role})`,
-    );
+    this.logger.log(`Invite created: ${normalizedEmail} -> ${orgId} (${role})`);
 
     return { message: 'Invitation sent successfully' };
   }
@@ -244,4 +244,3 @@ export class OrgInvitesService {
     });
   }
 }
-
