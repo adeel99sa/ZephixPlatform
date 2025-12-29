@@ -8,7 +8,8 @@ import { Project } from '../projects/entities/project.entity';
 import { Task } from '../projects/entities/task.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { TemplateService } from './services/template.service';
-import { TemplateController } from './controllers/template.controller';
+// TemplateController removed - route collision with TemplatesController
+// import { TemplateController } from './controllers/template.controller';
 import { TemplatesService } from './services/templates.service';
 import { TemplatesInstantiateService } from './services/templates-instantiate.service';
 import { TemplateBlocksService } from './services/template-blocks.service';
@@ -48,7 +49,8 @@ import {
     WorkspacesModule, // Phase 4: Import for WorkspacePermissionService
   ],
   controllers: [
-    TemplateController, // Legacy - deprecated
+    // TemplateController removed - route collision with TemplatesController
+    // Both were mapping to /api/templates, keeping only TemplatesController
     TemplatesController,
     AdminTemplatesController, // Legacy - deprecated
     TemplateActionsController,
