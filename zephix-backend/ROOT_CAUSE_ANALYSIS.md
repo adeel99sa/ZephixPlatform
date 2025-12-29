@@ -34,7 +34,7 @@ src/modules/auth/auth.controller.ts:132:41 - error TS2551: Property 'getUserByEm
 
 **Error:**
 ```
-Nest can't resolve dependencies of the AuthController (AuthService, ?, EmailVerificationService, UserOrganizationRepository, UserRepository). 
+Nest can't resolve dependencies of the AuthController (AuthService, ?, EmailVerificationService, UserOrganizationRepository, UserRepository).
 Please make sure that the argument AuthRegistrationService at index [1] is available in the AuthModule context.
 ```
 

@@ -73,4 +73,3 @@ export class AuthOutbox {
     return this.status === 'completed';
   }
 }
-

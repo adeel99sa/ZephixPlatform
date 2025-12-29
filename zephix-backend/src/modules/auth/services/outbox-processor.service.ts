@@ -38,7 +38,8 @@ export class OutboxProcessorService {
 
       // Claim rows using SKIP LOCKED (safe for multiple replicas)
       // This query uses FOR UPDATE SKIP LOCKED to claim rows exclusively
-      const queryRunner = this.outboxRepository.manager.connection.createQueryRunner();
+      const queryRunner =
+        this.outboxRepository.manager.connection.createQueryRunner();
 
       try {
         await queryRunner.connect();
@@ -157,7 +158,10 @@ export class OutboxProcessorService {
       const attempts = event.attempts + 1;
       const nextAttemptAt =
         attempts < MAX_ATTEMPTS
-          ? new Date(Date.now() + RETRY_DELAYS[attempts - 1] || RETRY_DELAYS[RETRY_DELAYS.length - 1])
+          ? new Date(
+              Date.now() + RETRY_DELAYS[attempts - 1] ||
+                RETRY_DELAYS[RETRY_DELAYS.length - 1],
+            )
           : null;
 
       await this.outboxRepository.update(event.id, {
@@ -190,14 +194,8 @@ export class OutboxProcessorService {
    * Handle invite created event
    */
   private async handleInviteCreated(event: AuthOutbox): Promise<void> {
-    const {
-      email,
-      token,
-      orgName,
-      role,
-      message,
-      expiresAt,
-    } = event.payloadJson;
+    const { email, token, orgName, role, message, expiresAt } =
+      event.payloadJson;
 
     // Build invitation link
     const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invites/accept?token=${token}`;
@@ -254,4 +252,3 @@ export class OutboxProcessorService {
     });
   }
 }
-

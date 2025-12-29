@@ -23,7 +23,10 @@ import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, RegisterResponseDto } from './dto/register.dto';
-import { ResendVerificationDto, ResendVerificationResponseDto } from './dto/resend-verification.dto';
+import {
+  ResendVerificationDto,
+  ResendVerificationResponseDto,
+} from './dto/resend-verification.dto';
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
@@ -92,8 +95,8 @@ export class AuthController {
       // SignupDto format (backward compatibility)
       email = dto.email;
       password = dto.password;
-      fullName = `${(dto as SignupDto).firstName} ${(dto as SignupDto).lastName}`.trim();
-      orgName = (dto as SignupDto).organizationName;
+      fullName = `${dto.firstName} ${dto.lastName}`.trim();
+      orgName = dto.organizationName;
     }
 
     return this.authRegistrationService.registerSelfServe({

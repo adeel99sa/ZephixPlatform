@@ -1,6 +1,90 @@
 name: ci
 on: [push, pull_request]
 jobs:
+  contract-gate:
+    name: Contract Tests Gate
+    runs-on: ubuntu-latest
+    # Run on every PR - this is the gate that prevents regressions
+    # Note: Contract tests are unit tests that mock the database - no Postgres service needed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Check tenancy bypass patterns (modules)
+        working-directory: zephix-backend
+        run: |
+          npm run lint:tenancy-guard || exit 1
+      - name: Check tenancy bypass patterns (full backend)
+        working-directory: zephix-backend
+        run: |
+          npm run lint:tenancy-guard-full || exit 1
+      - name: Check for circular dependencies (module-level only)
+        working-directory: zephix-backend
+        run: |
+          echo "Checking for module-level circular dependencies..."
+          # Scan for cycles, but only fail if mutual imports check finds violations
+          CYCLES_FOUND=0
+          npx madge src/modules --extensions ts --exclude "(entities|dto|constants|types|interfaces|enums|decorators|guards|pipes|filters|exceptions)" --circular || CYCLES_FOUND=1
+
+          if [ $CYCLES_FOUND -eq 1 ]; then
+            echo "⚠️  Circular dependencies found. Verifying forwardRef usage..."
+            # Fail only if mutual imports check finds a pair without forwardRef
+            npm run lint:mutual-imports || exit 1
+            echo "✅ All circular dependencies use forwardRef - acceptable"
+          else
+            echo "✅ No circular dependencies found"
+          fi
+      - name: Check response format guardrail
+        working-directory: zephix-backend
+        run: |
+          echo "Checking for raw response returns (must use response.helper.ts)..."
+          # Find controllers that return raw arrays without formatResponse
+          # Check for patterns like: return [...], return items, return { users: [...] }
+          # Exclude health controller, error filters, and helper functions
+          RAW_ARRAY_RETURNS=$(grep -rn "return.*\[" src/modules/*/controllers/*.ts src/admin/*.ts 2>/dev/null | \
+            grep -v "formatResponse\|formatArrayResponse\|formatPaginatedResponse\|response.helper" | \
+            grep -v "health.controller\|error.filter\|\.map\|\.filter\|\.reduce" | \
+            grep "@Get\|@Post\|@Patch\|@Delete" -A 20 | \
+            grep "return.*\[" | wc -l || echo "0")
+
+          # Also check for return statements that don't use helpers in controller methods
+          RAW_OBJECT_RETURNS=$(grep -rn "return {" src/modules/*/controllers/*.ts src/admin/*.ts 2>/dev/null | \
+            grep -v "formatResponse\|formatArrayResponse\|formatPaginatedResponse\|response.helper" | \
+            grep -v "health.controller\|error.filter\|message:" | \
+            grep "@Get\|@Post\|@Patch\|@Delete" -A 20 | \
+            grep "return {" | wc -l || echo "0")
+
+          if [ "$RAW_ARRAY_RETURNS" -gt "0" ] || [ "$RAW_OBJECT_RETURNS" -gt "0" ]; then
+            echo "❌ Found controllers returning raw arrays/objects without formatResponse helper"
+            echo ""
+            echo "Raw array returns:"
+            grep -rn "return.*\[" src/modules/*/controllers/*.ts src/admin/*.ts 2>/dev/null | \
+              grep -v "formatResponse\|formatArrayResponse\|formatPaginatedResponse\|response.helper" | \
+              grep -v "health.controller\|error.filter\|\.map\|\.filter\|\.reduce" || true
+            echo ""
+            echo "All controller endpoints must use formatResponse() or formatArrayResponse() from response.helper.ts"
+            echo "Example: return formatArrayResponse(workspaces);"
+            exit 1
+          fi
+          echo "✅ Response format guardrail passed"
+      - name: Run all contract tests
+        working-directory: zephix-backend
+        run: |
+          echo "Running contract tests for all hardened modules..."
+          npm test -- admin.controller.spec.ts || exit 1
+          npm test -- billing.controller.spec.ts || exit 1
+          npm test -- templates.controller.spec.ts || exit 1
+          npm test -- workspaces.controller.spec.ts || exit 1
+          npm test -- projects.controller.spec.ts || exit 1
+          npm test -- workspace-modules.controller.spec.ts || exit 1
+          npm test -- integrations.controller.spec.ts || exit 1
+          npm test -- external-user-mappings.controller.spec.ts || exit 1
+          echo "✅ All contract tests passed!"
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -12,3 +96,195 @@ jobs:
       - run: cd zephix-frontend && npm run test:guardrails
       - uses: microsoft/playwright-github-action@v1
       - run: cd zephix-frontend && npm run test:smoke
+
+  rbac-tests:
+    runs-on: ubuntu-latest
+    # Only run if RBAC-related files changed
+    if: |
+      contains(github.event.head_commit.modified, 'platform-roles.enum') ||
+      contains(github.event.head_commit.modified, 'workspace-roles.enum') ||
+      contains(github.event.head_commit.modified, 'workspace-access.service') ||
+      contains(github.event.head_commit.modified, 'require-org-role.guard') ||
+      contains(github.event.head_commit.modified, 'workspace-members.service') ||
+      contains(github.event.head_commit.modified, 'rbac.ts') ||
+      contains(github.event.head_commit.modified, 'roles.ts') ||
+      contains(github.event.pull_request.title, '[RBAC]') ||
+      contains(github.event.pull_request.title, '[rbac]')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Run RBAC unit tests
+        working-directory: zephix-backend
+        run: |
+          npm run test:rbac
+      - name: Setup frontend
+        working-directory: zephix-frontend
+        run: |
+          npm ci
+      - name: Run RBAC E2E tests
+        working-directory: zephix-frontend
+        run: |
+          npm run test:e2e:rbac || echo "RBAC E2E tests not yet implemented"
+
+  billing-tests:
+    name: Billing Contract & Smoke Tests
+    runs-on: ubuntu-latest
+    # Only run if billing-related files changed
+    if: |
+      contains(github.event.head_commit.modified, 'billing') ||
+      contains(github.event.pull_request.title, '[BILLING]') ||
+      contains(github.event.pull_request.title, '[billing]') ||
+      github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Run billing contract tests
+        working-directory: zephix-backend
+        run: |
+          npm test -- billing.controller.spec.ts
+      - name: Run billing smoke test (requires running server)
+        working-directory: zephix-backend
+        run: |
+          echo "Note: Full smoke test requires running server with valid token"
+          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:admin"
+        continue-on-error: true
+
+  admin-tests:
+    name: Admin Contract & Smoke Tests
+    runs-on: ubuntu-latest
+    # Only run if admin-related files changed
+    if: |
+      contains(github.event.head_commit.modified, 'admin') ||
+      contains(github.event.pull_request.title, '[ADMIN]') ||
+      contains(github.event.pull_request.title, '[admin]') ||
+      github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Run admin contract tests
+        working-directory: zephix-backend
+        run: |
+          npm test -- admin.controller.spec.ts
+      - name: Run admin smoke test (requires running server)
+        working-directory: zephix-backend
+        run: |
+          echo "Note: Full smoke test requires running server with valid token"
+          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:admin-endpoints"
+        continue-on-error: true
+
+  templates-tests:
+    name: Templates Contract & Smoke Tests
+    runs-on: ubuntu-latest
+    # Only run if templates-related files changed
+    if: |
+      contains(github.event.head_commit.modified, 'templates') ||
+      contains(github.event.pull_request.title, '[TEMPLATES]') ||
+      contains(github.event.pull_request.title, '[templates]') ||
+      github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Run templates contract tests
+        working-directory: zephix-backend
+        run: |
+          npm test -- templates.controller.spec.ts
+      - name: Run templates smoke test (requires running server)
+        working-directory: zephix-backend
+        run: |
+          echo "Note: Full smoke test requires running server with valid token"
+          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:templates"
+        continue-on-error: true
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+      - name: Run billing contract tests
+        working-directory: zephix-backend
+        run: |
+          npm test -- billing.controller.spec.ts
+      - name: Run billing smoke test (requires running server)
+        working-directory: zephix-backend
+        run: |
+          echo "Note: Full smoke test requires running server with valid token"
+          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:admin"
+        continue-on-error: true

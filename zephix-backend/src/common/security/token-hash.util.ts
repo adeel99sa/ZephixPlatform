@@ -37,9 +37,7 @@ export class TokenHashUtil {
     }
 
     if (this.TOKEN_HASH_SECRET.length < 32) {
-      throw new Error(
-        'TOKEN_HASH_SECRET must be at least 32 characters long',
-      );
+      throw new Error('TOKEN_HASH_SECRET must be at least 32 characters long');
     }
 
     const hmac = crypto.createHmac('sha256', this.TOKEN_HASH_SECRET);
@@ -74,4 +72,3 @@ export class TokenHashUtil {
     return result === 0;
   }
 }
-

@@ -71,4 +71,3 @@ export class OrgInvite {
     return !this.isAccepted() && !this.isExpired();
   }
 }
-

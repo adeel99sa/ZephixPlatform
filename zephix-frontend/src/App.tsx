@@ -11,6 +11,8 @@ import { RouteLogger } from "@/components/routing/RouteLogger";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
+import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
+import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
 
 // System pages
 import { NotFound } from "@/pages/system/NotFound";
@@ -63,6 +65,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/invites/accept" element={<InviteAcceptPage />} />
           <Route path="/invite" element={<InvitePage />} />
 
           {/* Protected routes with shell */}

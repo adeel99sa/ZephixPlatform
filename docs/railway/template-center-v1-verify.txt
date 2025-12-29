@@ -1,0 +1,72 @@
+
+> zephix-backend@1.0.0 db:verify-template-center-v1
+> ts-node -r tsconfig-paths/register scripts/verify-template-center-v1.ts
+
+
+=== JSON Output ===
+{
+  "pass": true,
+  "errors": [],
+  "checks": {
+    "coreTables": {
+      "pass": true,
+      "missing": []
+    },
+    "templateTables": {
+      "pass": true,
+      "missing": []
+    },
+    "templateColumns": {
+      "pass": true,
+      "missing": []
+    },
+    "legoBlockColumns": {
+      "pass": true,
+      "missing": []
+    },
+    "projectColumns": {
+      "pass": true,
+      "missing": []
+    },
+    "dataIntegrity": {
+      "pass": true,
+      "templateCount": 0,
+      "legoBlockCount": 0,
+      "templateBlockCount": 0,
+      "projectTemplatesWithOrg": 0,
+      "projectTemplatesWithTemplateId": 0,
+      "projectTemplatesMissingTemplateId": 0,
+      "orgsWithMultipleDefaults": 0,
+      "nonSystemTemplatesWithNullOrg": 0
+    }
+  }
+}
+
+=== Human Readable Summary ===
+Overall Status: ✅ PASS
+
+Core Tables:
+  ✅ All present
+
+Template Center Tables:
+  ✅ All present
+
+Template Columns:
+  ✅ All present
+
+Lego Block Columns:
+  ✅ All present
+
+Project Columns:
+  ✅ All present
+
+Data Integrity:
+  ✅ All checks passed
+  Templates: 0
+  Lego Blocks: 0
+  Template Blocks: 0
+  Project Templates with Org: 0
+  Project Templates with Template ID: 0
+  Project Templates Missing Template ID: 0
+  Orgs with Multiple Defaults: 0
+  Non-System Templates with Null Org: 0

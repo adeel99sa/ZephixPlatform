@@ -16,7 +16,9 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 export class CreateAuthTables1770000000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create email_verification_tokens table
-    const emailVerificationTokensExists = await queryRunner.hasTable('email_verification_tokens');
+    const emailVerificationTokensExists = await queryRunner.hasTable(
+      'email_verification_tokens',
+    );
     if (!emailVerificationTokensExists) {
       await queryRunner.createTable(
         new Table({
@@ -321,7 +323,8 @@ export class CreateAuthTables1770000000001 implements MigrationInterface {
 
     // 4. Ensure users table has email_verified_at column
     const usersTable = await queryRunner.getTable('users');
-    const hasEmailVerifiedAt = usersTable?.findColumnByName('email_verified_at');
+    const hasEmailVerifiedAt =
+      usersTable?.findColumnByName('email_verified_at');
     if (!hasEmailVerifiedAt) {
       await queryRunner.query(`
         ALTER TABLE "users"
@@ -333,15 +336,27 @@ export class CreateAuthTables1770000000001 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop indexes first
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_AUTH_OUTBOX_TYPE"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_AUTH_OUTBOX_NEXT_ATTEMPT"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_AUTH_OUTBOX_NEXT_ATTEMPT"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_AUTH_OUTBOX_STATUS"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ORG_INVITES_EMAIL_LOWER"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ORG_INVITES_EMAIL_LOWER"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ORG_INVITES_EMAIL"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ORG_INVITES_ORG_ID"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ORG_INVITES_TOKEN_HASH"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_EXPIRES_AT"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_USER_ID"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_TOKEN_HASH"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_ORG_INVITES_TOKEN_HASH"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_EXPIRES_AT"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_USER_ID"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_EMAIL_VERIFICATION_TOKEN_HASH"`,
+    );
 
     // Drop tables
     await queryRunner.dropTable('auth_outbox', true);
@@ -351,4 +366,3 @@ export class CreateAuthTables1770000000001 implements MigrationInterface {
     // Note: We don't drop email_verified_at column to preserve data
   }
 }
-

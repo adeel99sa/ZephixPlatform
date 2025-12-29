@@ -23,6 +23,8 @@
       "test:e2e:auth": "jest --config ./test/jest-e2e.json --testPathPattern=\"auth-signup|invites\"",
       "test:rbac": "jest --testPathPattern=\"(platform-roles|workspace-access|require-org-role|workspace-members)\" --passWithNoTests",
       "test:contracts": "jest --testPathPattern=\"(admin|billing|templates|workspaces).*controller\\.spec\" --testPathIgnorePatterns=\"workflow\" --passWithNoTests",
+      "test:smoke": "jest --testPathPattern=\"smoke-boot\" --testPathIgnorePatterns=\"node_modules|dist\" --passWithNoTests",
+      "guard:deploy": "bash scripts/guard-deploy.sh",
       "lint:tenancy-guard": "bash ../scripts/check-tenancy-bypass.sh",
       "lint:tenancy-guard-full": "bash ../scripts/check-tenancy-bypass-full.sh",
       "lint:mutual-imports": "bash ../scripts/check-mutual-imports.sh",

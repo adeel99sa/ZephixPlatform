@@ -74,4 +74,3 @@ export class AcceptInviteResponseDto {
   })
   message: string;
 }
-

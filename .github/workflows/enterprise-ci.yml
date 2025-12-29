@@ -69,6 +69,7 @@ jobs:
       postgres:
         image: postgres:15
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: zephix_test
         options: >-
@@ -107,24 +108,56 @@ jobs:
         run: npm run test:cov
         env:
           NODE_ENV: test
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: zephix_test
           JWT_SECRET: test-secret-key
+
+      - name: Setup test database
+        working-directory: zephix-backend
+        env:
+          NODE_ENV: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          TEST_DB_USER: zephix_test_user
+          TEST_DB_PASSWORD: zephix_test_password
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          CI: true
+        run: |
+          bash scripts/setup-test-db.sh
+
+      - name: Run migrations
+        working-directory: zephix-backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          JWT_SECRET: test-secret-key
+        run: npm run migration:run
 
       - name: Run e2e tests
         working-directory: zephix-backend
-        run: npm run test:e2e
         env:
           NODE_ENV: test
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: zephix_test
+          DATABASE_URL: ${{ env.DATABASE_URL }}
           JWT_SECRET: test-secret-key
+        run: jest --config ./test/jest-e2e.json
+
+      - name: Cleanup test database
+        if: always()
+        working-directory: zephix-backend
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          TEST_DB_NAME: ${{ env.TEST_DB_NAME }}
+        run: |
+          if [ -n "$TEST_DB_NAME" ]; then
+            echo "🧹 Cleaning up test database: ${TEST_DB_NAME}"
+            PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS ${TEST_DB_NAME};" || true
+            echo "✅ Database cleanup complete"
+          else
+            echo "⚠️  TEST_DB_NAME not set, skipping cleanup"
+          fi
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -188,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -238,7 +271,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-deploy
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -268,7 +301,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [security-scan, build-and-deploy]
     if: always()
-    
+
     steps:
       - name: Generate compliance report
         run: |
@@ -277,7 +310,7 @@ jobs:
           echo "" >> compliance-report.md
           echo "### Vulnerabilities Found: ${{ needs.security-scan.result }}" >> compliance-report.md
           echo "### Build Status: ${{ needs.build-and-deploy.result }}" >> compliance-report.md
-          
+
       - name: Upload compliance report
         uses: actions/upload-artifact@v4
         with:

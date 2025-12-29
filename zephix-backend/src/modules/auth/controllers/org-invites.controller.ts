@@ -49,7 +49,10 @@ export class OrgInvitesController {
     type: CreateInviteResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid input' })
-  @ApiResponse({ status: 403, description: 'Forbidden - insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Organization not found' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async createInvite(
@@ -58,7 +61,9 @@ export class OrgInvitesController {
     @Request() req: AuthRequest,
   ): Promise<CreateInviteResponseDto> {
     const { userId, platformRole } = getAuthContext(req);
-    const normalizedPlatformRole = normalizePlatformRole(platformRole || 'viewer');
+    const normalizedPlatformRole = normalizePlatformRole(
+      platformRole || 'viewer',
+    );
 
     return this.orgInvitesService.createInvite(
       {
@@ -114,4 +119,3 @@ export class InvitesController {
     };
   }
 }
-
