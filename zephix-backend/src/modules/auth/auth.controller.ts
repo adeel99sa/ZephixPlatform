@@ -27,6 +27,7 @@ import { ResendVerificationDto, ResendVerificationResponseDto } from './dto/rese
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { User } from '../users/entities/user.entity';
 import { normalizePlatformRole } from '../../shared/enums/platform-roles.enum';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
@@ -42,6 +43,8 @@ export class AuthController {
     private readonly emailVerificationService: EmailVerificationService,
     @InjectRepository(UserOrganization)
     private userOrgRepository: Repository<UserOrganization>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   /**
@@ -129,7 +132,9 @@ export class AuthController {
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     // Find user by email (but don't reveal if not found)
-    const user = await this.authService.getUserByEmail(dto.email);
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email.toLowerCase() },
+    });
     if (user && !user.isEmailVerified) {
       // Create new token and outbox event (service handles outbox creation)
       await this.emailVerificationService.createToken(
