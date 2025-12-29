@@ -59,7 +59,7 @@ fi
 echo ""
 echo "5️⃣  Testing Register Endpoint..."
 TIMESTAMP=$(date +%s)
-REGISTER_FULL_RESPONSE=$(curl -s -w "\n%{http_code}" \
+REGISTER_FULL_RESPONSE=$(curl -s -w "\nHTTPCODE:%{http_code}" \
   -X POST "$BACKEND_URL/api/auth/register" \
   -H "Content-Type: application/json" \
   -d "{
@@ -68,8 +68,8 @@ REGISTER_FULL_RESPONSE=$(curl -s -w "\n%{http_code}" \
     \"fullName\": \"Validation Test\",
     \"orgName\": \"Validation Org $TIMESTAMP\"
   }")
-REGISTER_RESPONSE=$(echo "$REGISTER_FULL_RESPONSE" | tail -n 1)
-REGISTER_BODY=$(echo "$REGISTER_FULL_RESPONSE" | head -n -1)
+REGISTER_RESPONSE=$(echo "$REGISTER_FULL_RESPONSE" | grep -o "HTTPCODE:[0-9]*" | cut -d: -f2)
+REGISTER_BODY=$(echo "$REGISTER_FULL_RESPONSE" | sed 's/HTTPCODE:[0-9]*$//')
 
 if [ "$REGISTER_RESPONSE" = "200" ]; then
   echo "   ✅ Register endpoint: PASSED (200 with neutral response)"
@@ -77,10 +77,10 @@ elif [ "$REGISTER_RESPONSE" = "404" ]; then
   echo "   ⚠️  Register endpoint: NOT DEPLOYED (404)"
   echo "   💡 This endpoint exists in code but may not be deployed to production yet"
   echo "   💡 Deploy latest code to Railway to enable /api/auth/register"
-  echo "   💡 Response: $REGISTER_BODY"
+  echo "   💡 Response: $(echo "$REGISTER_BODY" | head -c 100)"
 else
   echo "   ⚠️  Register endpoint: $REGISTER_RESPONSE (may be validation error or rate limit)"
-  echo "   💡 Response: $REGISTER_BODY"
+  echo "   💡 Response: $(echo "$REGISTER_BODY" | head -c 100)"
 fi
 
 echo ""
