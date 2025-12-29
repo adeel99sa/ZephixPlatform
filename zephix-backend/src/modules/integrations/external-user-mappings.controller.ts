@@ -15,7 +15,7 @@ import {
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
 
-@Controller('api/integrations/external-users/mappings')
+@Controller('integrations/external-users/mappings')
 @UseGuards(JwtAuthGuard)
 export class ExternalUserMappingsController {
   constructor(private readonly mappingService: ExternalUserMappingService) {}

@@ -7,7 +7,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequireOrgRole } from '../../workspaces/guards/require-org-role.guard';
 import { RequireOrgRoleGuard } from '../../workspaces/guards/require-org-role.guard';
 
-@Controller('/api/templates')
+@Controller('templates')
 @UseGuards(JwtAuthGuard)
 export class TemplateActionsController {
   constructor(private readonly templates: TemplatesService) {}

@@ -20,7 +20,7 @@ import {
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
 
-@Controller('api/integrations')
+@Controller('integrations')
 @UseGuards(JwtAuthGuard)
 export class IntegrationsController {
   constructor(
