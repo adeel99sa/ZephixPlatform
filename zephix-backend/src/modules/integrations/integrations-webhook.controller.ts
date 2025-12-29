@@ -23,7 +23,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
  * DISABLED BY DEFAULT: Only processes webhooks when connection.webhookEnabled === true
  * This is a skeleton implementation - no processing logic yet (Phase 2 scope)
  */
-@Controller('api/integrations/jira/webhook')
+@Controller('integrations/jira/webhook')
 export class IntegrationsWebhookController {
   private readonly logger = new Logger(IntegrationsWebhookController.name);
 

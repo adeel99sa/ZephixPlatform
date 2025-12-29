@@ -37,7 +37,7 @@ type UserJwt = {
   email?: string;
 };
 
-@Controller('api/templates')
+@Controller('templates')
 @UseGuards(JwtAuthGuard)
 export class TemplatesController {
   private readonly logger = new Logger(TemplatesController.name);

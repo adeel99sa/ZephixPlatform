@@ -18,7 +18,7 @@ import {
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
 
-@Controller('api/workspaces/:workspaceId/modules')
+@Controller('workspaces/:workspaceId/modules')
 @UseGuards(JwtAuthGuard)
 export class WorkspaceModulesController {
   constructor(private workspaceModuleService: WorkspaceModuleService) {}

@@ -3,7 +3,7 @@ import { Request } from 'express';
 import { LegoBlocksService } from '../services/lego-blocks.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
-@Controller('/api/lego-blocks')
+@Controller('lego-blocks')
 @UseGuards(JwtAuthGuard)
 export class LegoBlocksController {
   constructor(private readonly blocks: LegoBlocksService) {}

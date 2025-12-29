@@ -19,7 +19,7 @@ import {
 } from '../dto/template.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
-@Controller('/api/templates')
+@Controller('templates')
 @UseGuards(JwtAuthGuard)
 export class TemplateBlocksController {
   constructor(private readonly blocks: TemplateBlocksService) {}
