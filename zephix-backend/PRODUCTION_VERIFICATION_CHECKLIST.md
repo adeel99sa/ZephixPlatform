@@ -112,8 +112,10 @@ curl -X POST https://zephix-backend-production.up.railway.app/api/auth/register 
 - [ ] Test: Create PR, verify CI runs `guard:deploy` and blocks if it fails
 
 ### Railway Build Step
-- [ ] Verify `railway.toml` has `buildCommand = "npm ci && npm run build"`
+- [ ] Verify `railway.toml` has `buildCommand = "npm run build"` (NOT `npm ci && npm run build`)
+- [ ] Verify Nixpacks install phase runs `npm ci` (check nixpacks.toml)
 - [ ] Verify Railway deployment fails if build fails (check failed deployment logs)
+- [ ] Verify no EBUSY errors in build logs (indicates duplicate npm ci)
 
 ### Auth Module Ownership Rule
 - [ ] Verify `docs/AUTH_MODULE_OWNERSHIP_RULE.md` exists
@@ -144,9 +146,11 @@ curl -X POST https://zephix-backend-production.up.railway.app/api/auth/register 
 
 **If build fails in Railway:**
 1. Check Railway logs for TypeScript errors
-2. Verify `railway.toml` `buildCommand` is correct
-3. Test build locally: `npm ci && npm run build`
-4. Fix errors and redeploy
+2. Check for EBUSY errors (indicates duplicate npm ci - should be fixed)
+3. Verify `railway.toml` `buildCommand = "npm run build"` (no npm ci)
+4. Verify Nixpacks install phase runs `npm ci` (check nixpacks.toml)
+5. Test build locally: `npm ci && npm run build`
+6. Fix errors and redeploy
 
 **If CI gate not blocking:**
 1. Verify workflow file has `guard:deploy` step
