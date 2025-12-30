@@ -1,6 +1,10 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build"
+# CRITICAL: Build must fail fast on errors - no stale images
+# Railway will not deploy if buildCommand exits with non-zero
+buildCommand = "npm ci && npm run build"
+# Verify build succeeded before proceeding
+postBuildCommand = "test -f dist/main.js || (echo '❌ Build failed: dist/main.js not found' && exit 1)"
 
 [deploy]
 startCommand = "npm run start:railway"

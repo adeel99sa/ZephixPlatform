@@ -1,7 +1,7 @@
 /**
  * Smoke test to verify module compilation and basic DI wiring
  * This catches module wiring issues before deployment
- * 
+ *
  * Note: This test only verifies that modules compile and services are registered.
  * Full app boot with DB is tested in e2e tests.
  */

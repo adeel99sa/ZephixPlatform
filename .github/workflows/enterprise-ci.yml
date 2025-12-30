@@ -95,6 +95,11 @@ jobs:
         working-directory: zephix-backend
         run: npm ci
 
+      - name: Run deployment guard (build + smoke test)
+        working-directory: zephix-backend
+        run: |
+          npm run guard:deploy || exit 1
+
       - name: Run linting
         working-directory: zephix-backend
         run: npm run lint:new

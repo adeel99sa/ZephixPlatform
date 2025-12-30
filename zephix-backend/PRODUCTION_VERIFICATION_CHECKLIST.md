@@ -1,190 +1,159 @@
-# Production Verification Checklist
+# Production Verification Checklist - Commit ccaecb4
 
-After deploying to Railway with all variables set, run these checks in order.
+**Date:** 2025-12-29  
+**Commit:** `ccaecb4` - fix(auth): resolve build + DI and add deploy gates
 
-## 1. Backend Startup Log
+## Pre-Deployment Verification
 
-Check Railway deployment logs for:
-- ✅ No "TOKEN_HASH_SECRET is required" errors
-- ✅ No "INTEGRATION_ENCRYPTION_KEY is required" errors
-- ✅ Application starts successfully
-- ✅ Database connection established
+- [x] Local build passes: `npm run build`
+- [x] Smoke test passes: `npm run test:smoke`
+- [x] Guard script passes: `npm run guard:deploy`
+- [x] AuthRegistrationService in AuthModule.providers
+- [x] No `getUserByEmail` calls in AuthController
 
-## 2. Health Check
+## Railway Deployment Verification
 
-```bash
-curl https://zephix-backend-production.up.railway.app/api/health
+### 1. Confirm Railway Deployed Commit ccaecb4
+
+**Steps:**
+1. Open Railway Dashboard → `zephix-backend` service
+2. Go to **Deployments** tab
+3. Open latest deployment
+4. Check **Commit Hash** field
+
+**Expected:** `ccaecb4` or later
+
+**If different:**
+- Trigger manual redeploy
+- Verify branch is `chore/hardening-baseline` or `main`
+- Check Railway service settings → Source → Branch
+
+---
+
+### 2. Confirm AuthController is Registering
+
+**Steps:**
+1. Railway Dashboard → `zephix-backend` → Latest Deployment → **Logs**
+2. Search for: `RoutesResolver] AuthController`
+3. Search for: `Mapped {/api/auth`
+
+**Expected Log Lines:**
+```
+[Nest] LOG [RoutesResolver] AuthController {/api/auth}:
+[Nest] LOG [RouterExplorer] Mapped {/api/auth/register, POST} route
+[Nest] LOG [RouterExplorer] Mapped {/api/auth/signup, POST} route
+[Nest] LOG [RouterExplorer] Mapped {/api/auth/login, POST} route
+[Nest] LOG [RouterExplorer] Mapped {/api/auth/resend-verification, POST} route
+[Nest] LOG [RouterExplorer] Mapped {/api/auth/verify-email, POST} route
 ```
 
-Expected: `200 OK` with health status
+**If missing:**
+- AuthController failed to instantiate (DI error)
+- Check logs for: `Nest can't resolve dependencies of the AuthController`
+- Verify `AuthRegistrationService` is in `AuthModule.providers`
 
-## 3. Register Flow
+---
 
+### 3. Hit the Endpoint Directly
+
+**Test Command:**
 ```bash
 curl -X POST https://zephix-backend-production.up.railway.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test-'$(date +%s)'@example.com",
-    "password": "SecurePass123!@#",
+    "email": "test@example.com",
+    "password": "Test123!@#",
     "fullName": "Test User",
-    "orgName": "Test Organization"
+    "orgName": "Test Org"
   }'
 ```
 
-**Expected:**
-- Status: `200 OK`
-- Response: `{"message": "If an account with this email exists, you will receive a verification email."}`
-- Check email inbox for verification link
+**Expected Responses:**
+- ✅ `200 OK` with `{"message": "..."}` (neutral response)
+- ✅ `400 Bad Request` with validation errors
+- ❌ `404 Not Found` → Routes not registered (check step 2)
 
-## 4. Resend Flow
+**Alternative Test (Swagger):**
+1. Open: `https://zephix-backend-production.up.railway.app/api/docs`
+2. Find: `POST /api/auth/register`
+3. Click "Try it out"
+4. Fill in test data
+5. Click "Execute"
 
-```bash
-# Use the same email from step 3
-curl -X POST https://zephix-backend-production.up.railway.app/api/auth/resend-verification \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test-EMAIL@example.com"}'
-```
+**Expected:** 200 or 400, NOT 404
 
-**Expected:**
-- Status: `200 OK`
-- Response: Same neutral message (no account enumeration)
+---
 
-## 5. Verify Flow
+### 4. Verify DI Stability Under Cold Start
 
-1. Click verification link from email
-2. Token should validate and mark email as verified
-3. Try clicking the same link again
-
-**Expected:**
-- First click: Success, email verified
-- Second click: `400 Bad Request` - "Invalid or expired verification token"
-
-## 6. Invite Create Flow
-
-### 6a. Unverified User (Should be Blocked)
-
-```bash
-# Login as unverified user
-curl -X POST https://zephix-backend-production.up.railway.app/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "unverified@example.com", "password": "SecurePass123!@#"}'
-
-# Try to create invite
-curl -X POST https://zephix-backend-production.up.railway.app/api/orgs/ORG_ID/invites \
-  -H "Authorization: Bearer ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "invitee@example.com", "role": "pm"}'
-```
-
-**Expected:** `403 Forbidden` - "Please verify your email address"
-
-### 6b. Verified User (Should Succeed)
-
-1. Verify email from step 5
-2. Retry invite create
-
-**Expected:** `200 OK` - "Invitation sent successfully"
-
-## 7. Invite Accept Flow
-
-### 7a. First Accept
-
-1. Click invite link from email
-2. Login if not already logged in
-3. Accept invite
+**Steps:**
+1. Railway Dashboard → `zephix-backend` → **Deployments**
+2. Click **"Redeploy"** button
+3. Watch deployment logs
+4. Search for: `Nest can't resolve dependencies`
 
 **Expected:**
-- Status: `200 OK`
-- Membership created in `user_organizations` table
-- Invite marked as accepted
+- ✅ No DI errors
+- ✅ `RoutesResolver] AuthController` appears
+- ✅ All auth routes mapped
 
-### 7b. Second Accept (Idempotent)
+**If DI error appears:**
+- Check `AuthModule.providers` includes all controller dependencies
+- Verify all service dependencies are available
+- Check Railway logs for full error message
 
-1. Click the same invite link again
+---
 
-**Expected:**
-- Status: `200 OK`
-- No duplicate membership created
-- Same response as first accept
+## Hardening Verification
 
-## Database Verification
+### CI Gate
+- [ ] Verify `.github/workflows/ci.yml` has `guard:deploy` step
+- [ ] Verify `.github/workflows/enterprise-ci.yml` has `guard:deploy` step
+- [ ] Test: Create PR, verify CI runs `guard:deploy` and blocks if it fails
 
-Run these SQL queries on Railway database:
+### Railway Build Step
+- [ ] Verify `railway.toml` has `buildCommand = "npm ci && npm run build"`
+- [ ] Verify Railway deployment fails if build fails (check failed deployment logs)
 
-### Token Hash Verification
+### Auth Module Ownership Rule
+- [ ] Verify `docs/AUTH_MODULE_OWNERSHIP_RULE.md` exists
+- [ ] Review rule with team
+- [ ] Add to code review checklist
 
-```sql
--- Verify token_hash columns are 64 chars
-SELECT
-  table_name,
-  column_name,
-  character_maximum_length
-FROM information_schema.columns
-WHERE table_name IN ('email_verification_tokens', 'org_invites')
-  AND column_name = 'token_hash';
-
--- Expected: character_maximum_length = 64 for both tables
-```
-
-### Unique Indexes
-
-```sql
--- Verify unique indexes exist on token_hash
-SELECT
-  indexname,
-  tablename,
-  indexdef
-FROM pg_indexes
-WHERE tablename IN ('email_verification_tokens', 'org_invites')
-  AND indexname LIKE '%token_hash%';
-
--- Expected: Unique indexes on both tables
-```
-
-### Outbox Columns
-
-```sql
--- Verify outbox has required columns
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name = 'auth_outbox'
-  AND column_name IN ('claimed_at', 'processing_started_at', 'sent_at', 'last_error');
-
--- Expected: All 4 columns exist
-```
-
-### Token Hash Format
-
-```sql
--- Verify token hashes are 64 hex chars
-SELECT
-  id,
-  LENGTH(token_hash) as hash_length,
-  token_hash ~ '^[0-9a-f]{64}$' as is_valid_hex
-FROM email_verification_tokens
-LIMIT 5;
-
--- Expected: hash_length = 64, is_valid_hex = true
-```
-
-## E2E Test Verification
-
-Run the test suite:
-
-```bash
-cd zephix-backend
-npm run test:e2e:auth
-```
-
-**Expected:** All tests pass
+---
 
 ## Success Criteria
 
-- ✅ All API endpoints return expected status codes
-- ✅ Neutral responses prevent account enumeration
-- ✅ Token hashes are 64 hex chars and indexed
-- ✅ Outbox processor uses SKIP LOCKED
-- ✅ Verification gating blocks unverified users
-- ✅ Invite acceptance is idempotent
-- ✅ E2E tests pass
+✅ **All checks pass:**
+1. Railway deployed commit `ccaecb4`
+2. Logs show `RoutesResolver] AuthController`
+3. `POST /api/auth/register` returns 200 or 400 (not 404)
+4. No DI errors on redeploy
+5. CI gates block merges if `guard:deploy` fails
+6. Railway build fails fast on build errors
 
+---
+
+## Failure Recovery
+
+**If AuthController not registering:**
+1. Check Railway logs for DI error
+2. Verify `AuthRegistrationService` in `AuthModule.providers`
+3. Check all service dependencies are available
+4. Run `npm run guard:deploy` locally to reproduce
+
+**If build fails in Railway:**
+1. Check Railway logs for TypeScript errors
+2. Verify `railway.toml` `buildCommand` is correct
+3. Test build locally: `npm ci && npm run build`
+4. Fix errors and redeploy
+
+**If CI gate not blocking:**
+1. Verify workflow file has `guard:deploy` step
+2. Test by creating PR with intentional build error
+3. Verify CI fails and blocks merge
+
+---
+
+**Last Updated:** 2025-12-29  
+**Next Review:** After Railway deployment of ccaecb4
