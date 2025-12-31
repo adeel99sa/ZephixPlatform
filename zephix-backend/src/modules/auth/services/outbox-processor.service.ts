@@ -12,6 +12,7 @@ const RETRY_DELAYS = [5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000]; // 5mi
 export class OutboxProcessorService {
   private readonly logger = new Logger(OutboxProcessorService.name);
   private isProcessing = false;
+  private isDisabled = false; // Disable if table missing
 
   constructor(
     @InjectRepository(AuthOutbox)
@@ -29,6 +30,10 @@ export class OutboxProcessorService {
   async processOutbox(): Promise<void> {
     if (this.isProcessing) {
       return; // Prevent concurrent processing within same instance
+    }
+
+    if (this.isDisabled) {
+      return; // Disabled due to missing table
     }
 
     this.isProcessing = true;
@@ -111,7 +116,23 @@ export class OutboxProcessorService {
         } finally {
           await queryRunner.release();
         }
-      } catch (error) {
+      } catch (error: any) {
+        // Check if table is missing - disable processor and log once
+        if (
+          error?.message?.includes('relation "auth_outbox" does not exist') ||
+          error?.message?.includes('does not exist')
+        ) {
+          if (!this.isDisabled) {
+            this.isDisabled = true;
+            this.logger.error(
+              '❌ OutboxProcessorService DISABLED: auth_outbox table does not exist. Run migrations before enabling.',
+            );
+            this.logger.error(
+              '   Run: npm run migration:run or use Railway one-time command',
+            );
+          }
+          return; // Stop processing until migrations run
+        }
         this.logger.error('Error processing outbox', error);
       }
     } finally {

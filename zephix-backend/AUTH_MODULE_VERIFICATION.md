@@ -1,6 +1,6 @@
 # AuthModule Wiring Verification
 
-**Date:** 2025-12-29  
+**Date:** 2025-12-29
 **Commit:** `5f5cfb4` (after npm ci fix)
 
 ## ✅ Verification Checklist
