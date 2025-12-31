@@ -70,7 +70,8 @@ export class AuthRegistrationService {
     }
 
     // Use transaction for atomicity
-    return this.dataSource.transaction(async (manager) => {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       const orgRepo = manager.getRepository(Organization);
       const userOrgRepo = manager.getRepository(UserOrganization);
@@ -209,6 +210,30 @@ export class AuthRegistrationService {
         message:
           'If an account with this email exists, you will receive a verification email.',
       };
-    });
+      });
+    } catch (error: any) {
+      // Handle Postgres unique constraint violation (race condition)
+      // Error code 23505 = unique_violation
+      if (error?.code === '23505' || error?.code === 23505) {
+        // Check if it's the users.email constraint
+        const constraintName = error?.constraint || '';
+        if (
+          constraintName.includes('email') ||
+          error?.message?.includes('email') ||
+          error?.detail?.includes('email')
+        ) {
+          this.logger.warn(
+            `Registration duplicate key violation (race condition): ${normalizedEmail}`,
+          );
+          // Return neutral response (no account enumeration)
+          return {
+            message:
+              'If an account with this email exists, you will receive a verification email.',
+          };
+        }
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 }
