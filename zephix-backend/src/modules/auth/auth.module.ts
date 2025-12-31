@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { OrganizationSignupController } from './controllers/organization-signup.controller';
@@ -50,7 +49,6 @@ import { EmailService } from '../../shared/services/email.service';
       }),
       inject: [ConfigService],
     }),
-    ScheduleModule.forRoot(),
   ],
   controllers: [
     AuthController,
