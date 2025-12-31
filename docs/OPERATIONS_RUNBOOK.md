@@ -114,7 +114,7 @@ git tag -f v0.3-enterprise && git push --force --tags
 # Frontend health
 curl -f https://yourdomain.com/health || alert
 
-# Backend health  
+# Backend health
 curl -f https://api.yourdomain.com/health || alert
 ```
 
@@ -162,6 +162,33 @@ curl -f https://api.yourdomain.com/health || alert
 2. **Level 2**: Review logs, check correlation IDs
 3. **Level 3**: Full request tracing, backend investigation
 4. **Level 4**: Rollback to last known good version
+
+### Incident History
+
+#### 2025-01-XX: Missing `auth_outbox` Table (Production)
+**Date**: 2025-01-XX
+**Root Cause**: Migrations not applied in production environment
+**Detection**:
+- Backend logs showed: `relation "auth_outbox" does not exist`
+- Register endpoint returned 500 errors
+- OutboxProcessorService disabled itself
+
+**Fix Applied**:
+1. Ran migration `1770000000001-CreateAuthTables` via Railway one-time command
+2. Verified tables created: `auth_outbox`, `org_invites`, `email_verification_tokens`
+3. Restarted backend service
+4. Fixed duplicate key error handling to return 200 with neutral message (no account enumeration)
+
+**Prevention**:
+- Added migration verification step to deployment checklist
+- OutboxProcessorService now gracefully disables if table missing (with clear log)
+- Register endpoint handles Postgres unique constraint violations (23505) gracefully
+
+**Verification**:
+- ✅ Backend starts without `auth_outbox` errors
+- ✅ Register endpoint creates outbox rows
+- ✅ OutboxProcessorService processes events
+- ✅ Duplicate registrations return 200 (not 500)
 
 ---
 
