@@ -216,14 +216,21 @@ export class AuthRegistrationService {
       // Error code 23505 = unique_violation
       if (error?.code === '23505' || error?.code === 23505) {
         // Check if it's the users.email constraint
+        // Postgres constraint names: users_email_key, UQ_users_email, or similar
         const constraintName = error?.constraint || '';
-        if (
-          constraintName.includes('email') ||
-          error?.message?.includes('email') ||
-          error?.detail?.includes('email')
-        ) {
+        const tableName = error?.table || '';
+        const errorMessage = error?.message || '';
+        const errorDetail = error?.detail || '';
+        
+        // Only handle users.email constraint, not other unique violations
+        const isUsersEmailConstraint =
+          (constraintName.includes('email') && tableName === 'users') ||
+          (constraintName.includes('users') && constraintName.includes('email')) ||
+          (tableName === 'users' && (errorMessage.includes('email') || errorDetail.includes('email')));
+        
+        if (isUsersEmailConstraint) {
           this.logger.warn(
-            `Registration duplicate key violation (race condition): ${normalizedEmail}`,
+            `Registration duplicate key violation (race condition): ${normalizedEmail}, constraint: ${constraintName}`,
           );
           // Return neutral response (no account enumeration)
           return {
@@ -231,8 +238,12 @@ export class AuthRegistrationService {
               'If an account with this email exists, you will receive a verification email.',
           };
         }
+        // If it's a unique violation but not users.email, log and re-throw
+        this.logger.error(
+          `Unique constraint violation (not users.email): ${constraintName || 'unknown'}, table: ${tableName}`,
+        );
       }
-      // Re-throw other errors
+      // Re-throw all other errors
       throw error;
     }
   }
