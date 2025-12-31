@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
@@ -214,23 +214,37 @@ export class AuthRegistrationService {
     } catch (error: any) {
       // Handle Postgres unique constraint violation (race condition)
       // Error code 23505 = unique_violation
-      if (error?.code === '23505' || error?.code === 23505) {
-        // Check if it's the users.email constraint
-        // Postgres constraint names: users_email_key, UQ_users_email, or similar
-        const constraintName = error?.constraint || '';
-        const tableName = error?.table || '';
-        const errorMessage = error?.message || '';
-        const errorDetail = error?.detail || '';
+      // TypeORM wraps Postgres errors in QueryFailedError
+      // The error code might be on error.code or error.driverError.code
+      const errorCode = error?.code || error?.driverError?.code;
+      const isUniqueViolation = errorCode === '23505' || errorCode === 23505;
+      
+      if (isUniqueViolation || error instanceof QueryFailedError) {
+        // Extract error details from TypeORM QueryFailedError or direct Postgres error
+        // TypeORM may nest the Postgres error in driverError
+        const pgError = error?.driverError || error;
+        const constraintName = pgError?.constraint || error?.constraint || '';
+        const tableName = pgError?.table || error?.table || '';
+        const errorMessage = (pgError?.message || error?.message || '').toLowerCase();
+        const errorDetail = (pgError?.detail || error?.detail || '').toLowerCase();
+        
+        // Check if this is a users table violation
+        // Detail typically looks like: "Key (email)=(test@example.com) already exists."
+        // Constraint names may be auto-generated (e.g., UQ_963693341bd612aa01ddf3a4b68)
+        const isUsersTable = 
+          tableName === 'users' || 
+          errorMessage.includes('users') ||
+          errorMessage.includes('"users"');
+        const mentionsEmail = 
+          errorDetail.includes('email') ||
+          errorDetail.includes('(email)') ||
+          errorMessage.includes('email') ||
+          constraintName.toLowerCase().includes('email');
         
         // Only handle users.email constraint, not other unique violations
-        const isUsersEmailConstraint =
-          (constraintName.includes('email') && tableName === 'users') ||
-          (constraintName.includes('users') && constraintName.includes('email')) ||
-          (tableName === 'users' && (errorMessage.includes('email') || errorDetail.includes('email')));
-        
-        if (isUsersEmailConstraint) {
+        if (isUsersTable && mentionsEmail) {
           this.logger.warn(
-            `Registration duplicate key violation (race condition): ${normalizedEmail}, constraint: ${constraintName}`,
+            `Registration duplicate key violation (race condition): ${normalizedEmail}, table: ${tableName || 'unknown'}, constraint: ${constraintName || 'unknown'}`,
           );
           // Return neutral response (no account enumeration)
           return {
@@ -240,7 +254,7 @@ export class AuthRegistrationService {
         }
         // If it's a unique violation but not users.email, log and re-throw
         this.logger.error(
-          `Unique constraint violation (not users.email): ${constraintName || 'unknown'}, table: ${tableName}`,
+          `Unique constraint violation (not users.email): constraint: ${constraintName || 'unknown'}, table: ${tableName || 'unknown'}, detail: ${errorDetail || 'none'}, message: ${errorMessage || 'none'}`,
         );
       }
       // Re-throw all other errors
