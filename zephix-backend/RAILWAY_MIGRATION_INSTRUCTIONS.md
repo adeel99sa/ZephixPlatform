@@ -1,6 +1,6 @@
 # Railway Migration Instructions
 
-**Date:** 2025-12-29  
+**Date:** 2025-12-29
 **Issue:** `auth_outbox` table missing - migrations not run in production
 
 ## Required Tables
@@ -33,11 +33,14 @@ This migration creates all required auth tables.
 ### Verify:
 
 ```bash
-# In Railway one-time command or via Railway CLI
+# In Railway one-time command (DATABASE_URL is auto-set)
 psql $DATABASE_URL -c "\d auth_outbox"
 psql $DATABASE_URL -c "\d org_invites"
 psql $DATABASE_URL -c "\d email_verification_tokens"
 psql $DATABASE_URL -c "\d users" | grep email_verified_at
+
+# Or via Railway CLI
+railway run --service zephix-backend psql $DATABASE_URL -c "\d auth_outbox"
 ```
 
 All should return table/column definitions.
@@ -73,14 +76,47 @@ If you must enable it:
 
 **Better approach:** Use one-time command or separate migration job service.
 
+**⚠️ Do not run migrations on every deploy** - This can cause race conditions, lock conflicts, and unexpected downtime. Always use one-time commands for production migrations.
+
+## Rollback Plan
+
+If a migration causes issues, you have two options:
+
+### Option 1: Revert Migration (Recommended)
+
+```bash
+# Via Railway CLI
+railway run --service zephix-backend npm run migration:revert
+
+# Or via Railway Dashboard one-time command
+cd zephix-backend && npm run migration:revert
+```
+
+This will revert the last executed migration. Check which migration will be reverted:
+```bash
+railway run --service zephix-backend npm run migration:show
+```
+
+### Option 2: Restore Database Snapshot
+
+If you use Railway's database backups:
+
+1. **Railway Dashboard → Database Service → Backups**
+2. **Select snapshot from before migration**
+3. **Restore to new database** (or replace existing if you have downtime window)
+4. **Update `DATABASE_URL`** if you restored to a new database
+5. **Restart backend service**
+
+**Note:** Railway automatically creates backups, but verify backup frequency in your Railway plan settings.
+
 ## Verification After Migration
 
 ### 1. Check Tables Exist
 
 ```sql
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
   AND table_name IN ('auth_outbox', 'org_invites', 'email_verification_tokens');
 ```
 
@@ -89,9 +125,9 @@ Should return 3 rows.
 ### 2. Check Column Exists
 
 ```sql
-SELECT column_name 
-FROM information_schema.columns 
-WHERE table_name = 'users' 
+SELECT column_name
+FROM information_schema.columns
+WHERE table_name = 'users'
   AND column_name = 'email_verified_at';
 ```
 
@@ -163,6 +199,6 @@ After migrations run, processor will automatically resume on next cron cycle.
 
 ---
 
-**Last Updated:** 2025-12-29  
+**Last Updated:** 2025-12-29
 **Next Steps:** Run migration, restart backend, verify tables exist
 
