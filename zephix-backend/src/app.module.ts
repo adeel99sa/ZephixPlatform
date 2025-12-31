@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 
 import configuration from './config/configuration';
@@ -78,6 +79,8 @@ if (!(global as any).crypto) {
         limit: 100, // CHANGE FROM 10 TO 100 requests per minute
       },
     ]),
+
+    ScheduleModule.forRoot(), // Required for @Cron decorators (e.g., OutboxProcessorService)
 
     ...(process.env.SKIP_DATABASE !== 'true'
       ? [TypeOrmModule.forRoot(databaseConfig)]
