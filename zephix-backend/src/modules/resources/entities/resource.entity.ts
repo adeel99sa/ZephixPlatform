@@ -11,12 +11,14 @@ import {
 } from 'typeorm';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { User } from '../../../modules/users/entities/user.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { ResourceAllocation } from './resource-allocation.entity';
 
 @Entity('resources')
 @Index('idx_resources_org', ['organizationId'])
 @Index('idx_resources_user', ['userId'])
 @Index('idx_resources_active', ['isActive'])
+@Index('idx_resources_org_workspace', ['organizationId', 'workspaceId'])
 export class Resource {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -26,6 +28,9 @@ export class Resource {
 
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
+
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string | null;
 
   @Column({ name: 'name', nullable: true })
   name: string;
@@ -75,6 +80,10 @@ export class Resource {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @ManyToOne(() => Workspace, { nullable: true })
+  @JoinColumn({ name: 'workspace_id' })
+  workspace: Workspace | null;
 
   @OneToMany(() => ResourceAllocation, (allocation) => allocation.resource)
   allocations: ResourceAllocation[];

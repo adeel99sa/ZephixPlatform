@@ -12,15 +12,18 @@ import { Resource } from './resource.entity';
 import { Task } from '../../tasks/entities/task.entity';
 import { AllocationType } from '../enums/allocation-type.enum';
 import { BookingSource } from '../enums/booking-source.enum';
+import { UnitsType } from '../enums/units-type.enum';
 
 @Entity('resource_allocations')
 @Index('idx_ra_dates', ['startDate', 'endDate'])
 @Index('idx_ra_org_resource', ['organizationId', 'resourceId'])
+@Index('idx_ra_org_resource_dates', ['organizationId', 'resourceId', 'startDate', 'endDate'])
+@Index('idx_ra_org_project_dates', ['organizationId', 'projectId', 'startDate', 'endDate'])
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
+  @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
 
   @Column({ name: 'project_id', type: 'uuid', nullable: true })
@@ -46,6 +49,15 @@ export class ResourceAllocation {
 
   @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
   hoursPerWeek: number;
+
+  @Column({
+    type: 'enum',
+    enum: UnitsType,
+    name: 'units_type',
+    nullable: false,
+    default: UnitsType.PERCENT,
+  })
+  unitsType: UnitsType;
 
   @Column({
     type: 'enum',
