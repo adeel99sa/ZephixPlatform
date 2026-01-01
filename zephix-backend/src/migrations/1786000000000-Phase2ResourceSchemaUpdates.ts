@@ -93,14 +93,12 @@ export class Phase2ResourceSchemaUpdates1786000000000
           }),
         );
 
-        // Backfill: if allocation_percentage is set, use PERCENT; if hours_per_week is set, use HOURS
+        // Backfill: Default all existing rows to PERCENT
+        // The units_type column has a default, but we explicitly set it for existing rows
         await queryRunner.query(`
           UPDATE resource_allocations
-          SET units_type = CASE
-            WHEN allocation_percentage IS NOT NULL THEN 'PERCENT'
-            WHEN hours_per_week IS NOT NULL THEN 'HOURS'
-            ELSE 'PERCENT'
-          END
+          SET units_type = 'PERCENT'
+          WHERE units_type IS NULL
         `);
       }
 
