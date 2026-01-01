@@ -9,7 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Resource } from './resource.entity';
-import { Task } from '../../tasks/entities/task.entity';
+// import { Task } from '../../tasks/entities/task.entity'; // Not used - task_id column doesn't exist
 import { AllocationType } from '../enums/allocation-type.enum';
 import { BookingSource } from '../enums/booking-source.enum';
 import { UnitsType } from '../enums/units-type.enum';
@@ -44,8 +44,9 @@ export class ResourceAllocation {
   @Column({ name: 'allocation_percentage', type: 'integer', nullable: true })
   allocationPercentage: number;
 
-  @Column({ name: 'task_id', nullable: true })
-  taskId: string;
+  // taskId column removed - not present in database schema
+  // @Column({ name: 'task_id', nullable: true })
+  // taskId: string;
 
   @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
   hoursPerWeek: number;
@@ -91,7 +92,8 @@ export class ResourceAllocation {
   @JoinColumn({ name: 'resource_id' })
   resource: Resource;
 
-  @ManyToOne(() => Task, { nullable: true })
-  @JoinColumn({ name: 'task_id' })
-  task: Task;
+  // Task relation removed - task_id column doesn't exist in database
+  // @ManyToOne(() => Task, { nullable: true })
+  // @JoinColumn({ name: 'task_id' })
+  // task: Task;
 }
