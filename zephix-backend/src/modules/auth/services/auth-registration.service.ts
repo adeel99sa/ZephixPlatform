@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -228,20 +228,25 @@ export class AuthRegistrationService {
         const errorMessage = (pgError?.message || error?.message || '').toLowerCase();
         const errorDetail = (pgError?.detail || error?.detail || '').toLowerCase();
         
-        // Check if this is a users table violation
+        // Extract table and column information
+        const tableNameLower = tableName.toLowerCase();
+        const errorDetailLower = errorDetail.toLowerCase();
+        const constraintNameLower = constraintName.toLowerCase();
+        
+        // Check if this is a users.email constraint violation
         // Detail typically looks like: "Key (email)=(test@example.com) already exists."
         // Constraint names may be auto-generated (e.g., UQ_963693341bd612aa01ddf3a4b68)
         const isUsersTable = 
-          tableName === 'users' || 
+          tableNameLower === 'users' || 
           errorMessage.includes('users') ||
           errorMessage.includes('"users"');
         const mentionsEmail = 
-          errorDetail.includes('email') ||
-          errorDetail.includes('(email)') ||
+          errorDetailLower.includes('email') ||
+          errorDetailLower.includes('(email)') ||
           errorMessage.includes('email') ||
-          constraintName.toLowerCase().includes('email');
+          constraintNameLower.includes('email');
         
-        // Only handle users.email constraint, not other unique violations
+        // Handle users.email constraint - return neutral response (anti-enumeration)
         if (isUsersTable && mentionsEmail) {
           this.logger.warn(
             `Registration duplicate key violation (race condition): ${normalizedEmail}, table: ${tableName || 'unknown'}, constraint: ${constraintName || 'unknown'}`,
@@ -252,9 +257,41 @@ export class AuthRegistrationService {
               'If an account with this email exists, you will receive a verification email.',
           };
         }
-        // If it's a unique violation but not users.email, log and re-throw
+        
+        // Handle organizations/workspaces unique violations - return 409 Conflict
+        // Org/workspace duplicates are not sensitive, so we can return clear error messages
+        const isOrgTable = 
+          tableNameLower === 'organizations' || 
+          tableNameLower === 'orgs' ||
+          errorMessage.includes('organizations') ||
+          errorMessage.includes('"organizations"');
+        const isWorkspaceTable = 
+          tableNameLower === 'workspaces' ||
+          errorMessage.includes('workspaces') ||
+          errorMessage.includes('"workspaces"');
+        const mentionsSlug = 
+          errorDetailLower.includes('slug') ||
+          errorDetailLower.includes('(slug)') ||
+          constraintNameLower.includes('slug');
+        const mentionsName = 
+          errorDetailLower.includes('name') ||
+          errorDetailLower.includes('(name)') ||
+          constraintNameLower.includes('name');
+        
+        if ((isOrgTable || isWorkspaceTable) && (mentionsSlug || mentionsName)) {
+          const entityType = isOrgTable ? 'organization' : 'workspace';
+          const fieldType = mentionsSlug ? 'slug' : 'name';
+          this.logger.warn(
+            `Registration ${entityType} duplicate: ${fieldType} already exists, table: ${tableName || 'unknown'}, constraint: ${constraintName || 'unknown'}`,
+          );
+          throw new ConflictException(
+            `An ${entityType} with this ${fieldType} already exists. Please choose a different ${fieldType}.`,
+          );
+        }
+        
+        // If it's a unique violation but not handled above, log and re-throw
         this.logger.error(
-          `Unique constraint violation (not users.email): constraint: ${constraintName || 'unknown'}, table: ${tableName || 'unknown'}, detail: ${errorDetail || 'none'}, message: ${errorMessage || 'none'}`,
+          `Unique constraint violation (unhandled): constraint: ${constraintName || 'unknown'}, table: ${tableName || 'unknown'}, detail: ${errorDetail || 'none'}, message: ${errorMessage || 'none'}`,
         );
       }
       // Re-throw all other errors
