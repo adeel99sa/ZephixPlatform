@@ -740,7 +740,6 @@ export class ResourcesService {
       const allocationQuery = this.resourceAllocationRepository
         .createQueryBuilder('allocation')
         .leftJoinAndSelect('allocation.resource', 'resource')
-        .leftJoinAndSelect('allocation.task', 'task')
         .where('allocation.resourceId = :resourceId', { resourceId })
         .andWhere('allocation.organizationId = :organizationId', {
           organizationId,
