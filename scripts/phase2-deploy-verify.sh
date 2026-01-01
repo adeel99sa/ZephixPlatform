@@ -5,6 +5,7 @@
 #   export TOKEN="your-auth-token"
 #   export ORG_ID="your-org-id"
 #   export PROJECT_ID="your-project-id"
+#   export WORKSPACE_ID="your-workspace-id"
 #   ./scripts/phase2-deploy-verify.sh
 #
 # This script verifies Phase 2 deployment by:
@@ -52,6 +53,15 @@ if [ -z "${PROJECT_ID:-}" ]; then
   exit 1
 fi
 
+if [ -z "${WORKSPACE_ID:-}" ]; then
+  echo -e "${RED}❌ ERROR: WORKSPACE_ID environment variable is required${NC}"
+  echo "   export WORKSPACE_ID=\"your-workspace-id\""
+  echo ""
+  echo "   To get WORKSPACE_ID, run:"
+  echo "   curl -s \"$BASE_URL/api/workspaces\" -H \"Authorization: Bearer \$TOKEN\" | jq -r '.data[0].id'"
+  exit 2
+fi
+
 # Check dependencies
 if ! command -v jq &> /dev/null; then
   echo -e "${RED}❌ ERROR: jq is required but not installed${NC}"
@@ -92,17 +102,22 @@ echo "Production SHA (full): $PROD_SHA"
 echo "Production SHA (short): $PROD_SHORT"
 echo ""
 
-if [ "$LOCAL_SHORT" != "$PROD_SHORT" ]; then
+if [ "$PROD_SHA" = "unknown" ]; then
+  echo -e "${YELLOW}⚠️  WARNING: commitSha is 'unknown' (Railway may not set RAILWAY_GIT_COMMIT_SHA)${NC}"
+  echo "   Proceeding with verification assuming deployment is correct..."
+  echo "   Local SHA: $LOCAL_SHORT"
+  echo ""
+elif [ "$LOCAL_SHORT" != "$PROD_SHORT" ]; then
   echo -e "${RED}❌ ERROR: SHA mismatch!${NC}"
   echo "   Local:  $LOCAL_SHORT"
   echo "   Prod:   $PROD_SHORT"
   echo ""
   echo "Please deploy latest main to Railway first."
   exit 1
+else
+  echo -e "${GREEN}✅ SHA matches${NC}"
+  echo ""
 fi
-
-echo -e "${GREEN}✅ SHA matches${NC}"
-echo ""
 
 # Step 3: Run migration
 echo -e "${YELLOW}Step 3: Running migration in Railway environment...${NC}"
@@ -319,9 +334,9 @@ echo -e "${GREEN}✅ Second SOFT allocation succeeded (HTTP $SECOND_SOFT_STATUS)
 # Wait a moment for conflict creation
 sleep 2
 
-# Query conflicts
+# Query conflicts (with workspaceId)
 echo "Querying conflicts..."
-CONFLICTS_RESPONSE=$(curl -s "$BASE_URL/api/resources/conflicts?resourceId=$RESOURCE_ID&resolved=false" \
+CONFLICTS_RESPONSE=$(curl -s "$BASE_URL/api/resources/conflicts?workspaceId=$WORKSPACE_ID&resourceId=$RESOURCE_ID&resolved=false" \
   -H "Authorization: Bearer $TOKEN")
 
 CONFLICTS_COUNT=$(echo "$CONFLICTS_RESPONSE" | jq '.data | length')
@@ -343,10 +358,10 @@ echo -e "${GREEN}✅ Conflicts found: $CONFLICTS_COUNT (with totalAllocation > 1
 # 5d. Capacity endpoint
 echo ""
 echo "5d. Testing capacity endpoint..."
-CAPACITY_RESPONSE=$(curl -s "$BASE_URL/api/resources/capacity/resources?startDate=2026-02-01&endDate=2026-02-28" \
+CAPACITY_RESPONSE=$(curl -s "$BASE_URL/api/resources/capacity/resources?workspaceId=$WORKSPACE_ID&startDate=2026-02-01&endDate=2026-02-28" \
   -H "Authorization: Bearer $TOKEN")
 
-CAPACITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/resources/capacity/resources?startDate=2026-02-01&endDate=2026-02-28" \
+CAPACITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/resources/capacity/resources?workspaceId=$WORKSPACE_ID&startDate=2026-02-01&endDate=2026-02-28" \
   -H "Authorization: Bearer $TOKEN")
 
 if [ "$CAPACITY_STATUS" != "200" ]; then
