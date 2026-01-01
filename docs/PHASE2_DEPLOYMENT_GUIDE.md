@@ -6,6 +6,30 @@
 
 ---
 
+## Quick Start (Automated)
+
+**Prerequisites:**
+```bash
+export TOKEN="your-auth-token"
+export ORG_ID="your-org-id"
+export PROJECT_ID="your-project-id"
+```
+
+**Run automated verification:**
+```bash
+./scripts/phase2-deploy-verify.sh
+```
+
+This script will:
+- Verify local and production commit SHA match
+- Run migration in Railway environment
+- Verify schema changes
+- Run smoke tests
+
+**See manual steps below if you need to deploy first or prefer step-by-step verification.**
+
+---
+
 ## Release Checklist
 
 - [ ] **Step 1:** Local repo sanity
@@ -144,15 +168,28 @@ export ORG_ID="PASTE_ORG_ID"
 export PROJECT_ID="PASTE_PROJECT_ID"
 ```
 
-**If you don't have TOKEN, ORG_ID, PROJECT_ID:**
-1. Login to production frontend
-2. Open browser DevTools → Application/Storage → Local Storage
-3. Find `authToken` or `accessToken` key → Copy value to `TOKEN`
-4. Get ORG_ID and PROJECT_ID from API:
+**How to get TOKEN, ORG_ID, PROJECT_ID:**
+
+1. **Get TOKEN:**
+   - Login to production frontend
+   - Open browser DevTools → Application/Storage → Local Storage
+   - Find `authToken` or `accessToken` key → Copy value
+   - Or use Railway environment variables if available
+
+2. **Get ORG_ID:**
    ```bash
-   curl -s "$BASE/api/organizations" -H "Authorization: Bearer $TOKEN" | jq .
-   curl -s "$BASE/api/projects" -H "Authorization: Bearer $TOKEN" | jq .
+   curl -s "$BASE/api/organizations" \
+     -H "Authorization: Bearer $TOKEN" | jq '.data[0].id'
    ```
+
+3. **Get PROJECT_ID:**
+   ```bash
+   curl -s "$BASE/api/projects" \
+     -H "Authorization: Bearer $TOKEN" | jq '.data[0].id'
+   ```
+
+**Alternative: Use automated script**
+The `scripts/phase2-deploy-verify.sh` script will run all smoke tests automatically if you set the environment variables above.
 
 #### 8a. Create Resource
 
@@ -377,6 +414,50 @@ See `docs/RELEASE_LOG_PHASE2.md` for the template. Fill it in with:
 - Smoke test outcomes with HTTP codes
 - Final status: Success or Failed
 - If failed, where it stopped and why
+
+---
+
+## Automated Verification Script
+
+For faster verification, use the automated script:
+
+```bash
+# Set required environment variables
+export TOKEN="your-auth-token"
+export ORG_ID="your-org-id"
+export PROJECT_ID="your-project-id"
+
+# Run verification
+./scripts/phase2-deploy-verify.sh
+```
+
+The script will:
+- ✅ Verify commit SHA match
+- ✅ Run migration
+- ✅ Verify schema changes
+- ✅ Run all smoke tests
+- ✅ Exit with clear pass/fail status
+
+**Exit codes:**
+- `0` - All checks passed
+- `1` - Pre-deploy check failed
+- `2` - Migration failed
+- `3` - Schema verification failed
+- `4` - Smoke test failed
+
+---
+
+## Rollback Plan
+
+If deployment fails, see `docs/PHASE2_ROLLBACK_PLAN.md` for detailed rollback instructions.
+
+**Quick rollback:**
+```bash
+# Revert migration
+railway run --service zephix-backend -- sh -lc "cd zephix-backend && npm run migration:revert"
+
+# Redeploy previous commit via Railway Dashboard
+```
 
 ---
 
