@@ -10,12 +10,15 @@ import { Between, DataSource, In, Not } from 'typeorm';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
 import { Resource } from './entities/resource.entity';
+import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { Project } from '../projects/entities/project.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { UpdateAllocationDto } from './dto/update-allocation.dto';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { AllocationType } from './enums/allocation-type.enum';
 import { BookingSource } from './enums/booking-source.enum';
+import { UnitsType } from './enums/units-type.enum';
 import { getResourceSettings } from '../../organizations/utils/resource-settings.util';
 import { ResourceTimelineService } from './services/resource-timeline.service';
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
@@ -39,6 +42,8 @@ export class ResourceAllocationService {
     private taskRepository: Repository<Task>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    @InjectRepository(ResourceConflict)
+    private conflictRepository: Repository<ResourceConflict>,
     private dataSource: DataSource,
     private timelineService: ResourceTimelineService,
     private readonly tenantContextService: TenantContextService,
@@ -50,10 +55,45 @@ export class ResourceAllocationService {
     organizationId: string,
     userId: string,
   ) {
-    // Apply defaults: SOFT for type, MANUAL for bookingSource (independent of RBAC)
+    // Apply defaults: SOFT for type, MANUAL for bookingSource, PERCENT for unitsType
     const type = createAllocationDto.type ?? AllocationType.SOFT;
     const bookingSource =
       createAllocationDto.bookingSource ?? BookingSource.MANUAL;
+    const unitsType = createAllocationDto.unitsType ?? UnitsType.PERCENT;
+
+    // Phase 2: Validate unitsType and enforce only one units field
+    let allocationPercentage: number | null = null;
+    let hoursPerWeek: number | null = null;
+
+    if (unitsType === UnitsType.PERCENT) {
+      if (!createAllocationDto.allocationPercentage) {
+        throw new BadRequestException(
+          'allocationPercentage is required when unitsType is PERCENT',
+        );
+      }
+      allocationPercentage = createAllocationDto.allocationPercentage;
+      // Ensure hours fields are null
+      hoursPerWeek = null;
+    } else if (unitsType === UnitsType.HOURS) {
+      if (!createAllocationDto.hoursPerDay && !createAllocationDto.hoursPerWeek) {
+        throw new BadRequestException(
+          'hoursPerDay or hoursPerWeek is required when unitsType is HOURS',
+        );
+      }
+      // Convert hours to percentage for conflict checking (assuming 8 hours/day = 100%)
+      // For now, we'll use hoursPerWeek if provided, or calculate from hoursPerDay
+      if (createAllocationDto.hoursPerWeek) {
+        hoursPerWeek = createAllocationDto.hoursPerWeek;
+        // Convert to percentage: (hoursPerWeek / 40) * 100
+        allocationPercentage = (hoursPerWeek / 40) * 100;
+      } else if (createAllocationDto.hoursPerDay) {
+        // Convert hoursPerDay to percentage: (hoursPerDay / 8) * 100
+        allocationPercentage = (createAllocationDto.hoursPerDay / 8) * 100;
+        hoursPerWeek = createAllocationDto.hoursPerDay * 5; // Assume 5 days/week
+      }
+      // Ensure allocationPercentage field is null when using HOURS
+      // But we still need it for conflict checking, so we'll store it
+    }
 
     // Load organization for governance validation
     const organization = await this.organizationRepository.findOne({
@@ -64,13 +104,39 @@ export class ResourceAllocationService {
       throw new NotFoundException('Organization not found');
     }
 
-    // Validate governance before creating
+    // Phase 2: Check for HARD overallocation (> 100%) - block with 409
+    if (type === AllocationType.HARD) {
+      const conflictCheck = await this.checkDailyAllocation(
+        organizationId,
+        createAllocationDto.resourceId,
+        new Date(createAllocationDto.startDate),
+        new Date(createAllocationDto.endDate),
+        allocationPercentage!,
+        undefined, // No existing allocation ID for create
+      );
+
+      if (conflictCheck.hasConflict) {
+        this.logger.warn('HARD_allocation_blocked_over_100', {
+          organizationId,
+          resourceId: createAllocationDto.resourceId,
+          totalAllocation: conflictCheck.maxTotal,
+          dates: conflictCheck.conflictDates,
+        });
+
+        throw new ConflictException(
+          `HARD allocation would exceed 100% capacity. ` +
+            `Maximum total allocation: ${conflictCheck.maxTotal.toFixed(1)}%`,
+        );
+      }
+    }
+
+    // Validate governance (justification rules, etc.)
     await this.validateGovernance(
       organization,
       createAllocationDto.resourceId,
       new Date(createAllocationDto.startDate),
       new Date(createAllocationDto.endDate),
-      createAllocationDto.allocationPercentage,
+      allocationPercentage!,
       type,
       createAllocationDto.justification,
       undefined, // No existing allocation ID for create
@@ -78,6 +144,9 @@ export class ResourceAllocationService {
 
     const allocation = this.allocationRepository.create({
       ...createAllocationDto,
+      allocationPercentage: unitsType === UnitsType.PERCENT ? allocationPercentage : null,
+      hoursPerWeek: unitsType === UnitsType.HOURS ? hoursPerWeek : null,
+      unitsType,
       type,
       bookingSource,
       organizationId,
@@ -85,6 +154,19 @@ export class ResourceAllocationService {
     });
 
     const saved = await this.allocationRepository.save(allocation);
+
+    // Phase 2: For SOFT allocations, check if > 100% and create conflict rows
+    if (type === AllocationType.SOFT) {
+      await this.createConflictRowsIfNeeded(
+        organizationId,
+        createAllocationDto.resourceId,
+        new Date(createAllocationDto.startDate),
+        new Date(createAllocationDto.endDate),
+        allocationPercentage!,
+        saved.id,
+        createAllocationDto.projectId,
+      );
+    }
 
     // Log if allocation was saved with justification
     if (saved.justification && saved.justification.trim()) {
@@ -557,6 +639,223 @@ export class ResourceAllocationService {
           `Projected total: ${projectedTotal}%`,
       );
     }
+  }
+
+  /**
+   * Phase 2: Check daily allocation totals to detect conflicts
+   * Returns true if any day would exceed 100% after adding the new allocation
+   */
+  private async checkDailyAllocation(
+    organizationId: string,
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+    newAllocationPercentage: number,
+    excludeAllocationId?: string,
+  ): Promise<{
+    hasConflict: boolean;
+    maxTotal: number;
+    conflictDates: string[];
+  }> {
+    // Get existing allocations that overlap with the date range
+    const queryBuilder = this.allocationRepository
+      .qb('allocation')
+      .andWhere('allocation.organizationId = :organizationId', { organizationId })
+      .andWhere('allocation.resourceId = :resourceId', { resourceId })
+      .andWhere('allocation.type != :ghostType', {
+        ghostType: AllocationType.GHOST,
+      })
+      .andWhere(
+        'allocation.startDate <= :endDate AND allocation.endDate >= :startDate',
+        { startDate, endDate },
+      );
+
+    if (excludeAllocationId) {
+      queryBuilder.andWhere('allocation.id != :excludeId', {
+        excludeId: excludeAllocationId,
+      });
+    }
+
+    const existingAllocations = await queryBuilder.getMany();
+
+    // Check each day in the date range
+    const conflictDates: string[] = [];
+    let maxTotal = 0;
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      let dayTotal = newAllocationPercentage;
+
+      // Sum existing allocations for this day
+      for (const alloc of existingAllocations) {
+        const allocStart = new Date(alloc.startDate);
+        const allocEnd = new Date(alloc.endDate);
+        if (current >= allocStart && current <= allocEnd) {
+          dayTotal += alloc.allocationPercentage || 0;
+        }
+      }
+
+      if (dayTotal > 100) {
+        conflictDates.push(dateStr);
+      }
+      maxTotal = Math.max(maxTotal, dayTotal);
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return {
+      hasConflict: conflictDates.length > 0,
+      maxTotal,
+      conflictDates,
+    };
+  }
+
+  /**
+   * Phase 2: Create conflict rows for SOFT allocations that exceed 100%
+   */
+  private async createConflictRowsIfNeeded(
+    organizationId: string,
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+    newAllocationPercentage: number,
+    newAllocationId: string,
+    projectId?: string,
+  ): Promise<void> {
+    // Get existing allocations that overlap
+    const existingAllocations = await this.allocationRepository.find({
+      where: {
+        organizationId,
+        resourceId,
+        type: Not(AllocationType.GHOST),
+      },
+    });
+
+    // Filter to overlapping allocations
+    const overlapping = existingAllocations.filter((alloc) => {
+      const allocStart = new Date(alloc.startDate);
+      const allocEnd = new Date(alloc.endDate);
+      return allocStart <= endDate && allocEnd >= startDate;
+    });
+
+    // Check each day and create conflict rows
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+    const conflictsByDate = new Map<string, ResourceAllocation[]>();
+
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const dayAllocations: ResourceAllocation[] = [];
+
+      // Include new allocation (create a temporary object for calculation)
+      const newAlloc = {
+        id: newAllocationId,
+        startDate,
+        endDate,
+        allocationPercentage: newAllocationPercentage,
+        projectId,
+        type: AllocationType.SOFT, // This is a SOFT allocation
+      } as ResourceAllocation;
+      dayAllocations.push(newAlloc);
+
+      // Include overlapping existing allocations
+      for (const alloc of overlapping) {
+        const allocStart = new Date(alloc.startDate);
+        const allocEnd = new Date(alloc.endDate);
+        if (current >= allocStart && current <= allocEnd) {
+          dayAllocations.push(alloc);
+        }
+      }
+
+      // Calculate total for this day
+      const total = dayAllocations.reduce(
+        (sum, a) => sum + (a.allocationPercentage || 0),
+        0,
+      );
+
+      if (total > 100) {
+        conflictsByDate.set(dateStr, dayAllocations);
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    // Create conflict rows for each day that exceeds 100%
+    for (const [dateStr, allocations] of conflictsByDate) {
+      const total = allocations.reduce(
+        (sum, a) => sum + (a.allocationPercentage || 0),
+        0,
+      );
+
+      // Check if conflict already exists for this resource and date
+      const existing = await this.conflictRepository.findOne({
+        where: {
+          organizationId,
+          resourceId,
+          conflictDate: new Date(dateStr),
+          resolved: false,
+        },
+      });
+
+      if (!existing) {
+        // Get project names for affected projects
+        const projectIds = allocations
+          .map((a) => a.projectId)
+          .filter((id) => id) as string[];
+
+        let projectMap = new Map<string, string>();
+        if (projectIds.length > 0) {
+          const projectRepo = this.dataSource.getRepository(Project);
+          const projects = await projectRepo.find({
+            where: { id: In(projectIds), organizationId },
+            select: ['id', 'name'],
+          });
+          projectMap = new Map(projects.map((p) => [p.id, p.name]));
+        }
+
+        const severity = this.calculateSeverity(total);
+
+        const conflict = this.conflictRepository.create({
+          organizationId,
+          resourceId,
+          conflictDate: new Date(dateStr),
+          totalAllocation: total,
+          severity,
+          affectedProjects: allocations.map((a) => ({
+            projectId: a.projectId || '',
+            projectName: projectMap.get(a.projectId || '') || 'Unknown',
+            taskId: a.taskId,
+            taskName: 'Unknown', // Could be populated from task lookup if needed
+            allocation: a.allocationPercentage || 0,
+          })),
+          resolved: false,
+        });
+
+        await this.conflictRepository.save(conflict);
+
+        this.logger.log('soft_allocation_conflict_created', {
+          organizationId,
+          resourceId,
+          conflictDate: dateStr,
+          totalAllocation: total,
+          severity,
+        });
+      }
+    }
+  }
+
+  /**
+   * Calculate severity based on total allocation percentage
+   */
+  private calculateSeverity(
+    totalAllocation: number,
+  ): 'low' | 'medium' | 'high' | 'critical' {
+    if (totalAllocation <= 110) return 'low';
+    if (totalAllocation <= 125) return 'medium';
+    if (totalAllocation <= 150) return 'high';
+    return 'critical';
   }
 
   async getTaskBasedHeatMap(organizationId: string) {

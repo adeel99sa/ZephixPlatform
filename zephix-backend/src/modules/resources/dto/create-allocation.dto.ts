@@ -8,10 +8,13 @@ import {
   IsOptional,
   IsEnum,
   IsString,
+  ValidateIf,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AllocationType } from '../enums/allocation-type.enum';
 import { BookingSource } from '../enums/booking-source.enum';
+import { UnitsType } from '../enums/units-type.enum';
 
 export class CreateAllocationDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -19,16 +22,42 @@ export class CreateAllocationDto {
   @IsNotEmpty()
   resourceId: string;
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174001' })
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174001', required: false })
   @IsUUID()
-  @IsNotEmpty()
-  projectId: string;
+  @IsOptional()
+  projectId?: string;
 
-  @ApiProperty({ example: 50, minimum: 0, maximum: 150 })
+  @ApiProperty({
+    enum: UnitsType,
+    description: 'Units type: PERCENT or HOURS',
+    required: false,
+    default: UnitsType.PERCENT,
+  })
+  @IsOptional()
+  @IsEnum(UnitsType)
+  unitsType?: UnitsType;
+
+  @ApiProperty({ example: 50, minimum: 0, maximum: 150, required: false })
+  @ValidateIf((o) => o.unitsType === UnitsType.PERCENT || !o.unitsType)
   @IsInt()
   @Min(0)
   @Max(150) // From PRD: max 150%
-  allocationPercentage: number;
+  @IsOptional()
+  allocationPercentage?: number;
+
+  @ApiProperty({ example: 8, minimum: 0, required: false })
+  @ValidateIf((o) => o.unitsType === UnitsType.HOURS)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  hoursPerDay?: number;
+
+  @ApiProperty({ example: 40, minimum: 0, required: false })
+  @ValidateIf((o) => o.unitsType === UnitsType.HOURS)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  hoursPerWeek?: number;
 
   @ApiProperty({ example: '2025-01-01' })
   @IsDateString()
