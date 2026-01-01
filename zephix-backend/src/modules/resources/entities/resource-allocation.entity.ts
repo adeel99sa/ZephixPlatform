@@ -48,8 +48,9 @@ export class ResourceAllocation {
   // @Column({ name: 'task_id', nullable: true })
   // taskId: string;
 
-  @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
-  hoursPerWeek: number;
+  // hours_per_week column doesn't exist in database schema
+  // @Column({ name: 'hours_per_week', type: 'decimal', nullable: true })
+  // hoursPerWeek: number;
 
   @Column({
     type: 'enum',
