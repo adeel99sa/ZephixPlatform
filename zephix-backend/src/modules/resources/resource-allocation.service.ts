@@ -826,8 +826,9 @@ export class ResourceAllocationService {
           affectedProjects: allocations.map((a) => ({
             projectId: a.projectId || '',
             projectName: projectMap.get(a.projectId || '') || 'Unknown',
-            taskId: a.taskId,
-            taskName: 'Unknown', // Could be populated from task lookup if needed
+            // taskId removed - column doesn't exist in database
+            // taskId: a.taskId,
+            taskName: 'Unknown', // Task relation not available
             allocation: a.allocationPercentage || 0,
           })),
           resolved: false,
