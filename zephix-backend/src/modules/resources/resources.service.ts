@@ -8,6 +8,7 @@ import {
 import { Between, DataSource, Like, In, Not } from 'typeorm';
 import { Resource } from './entities/resource.entity';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
+import { ResourceConflict } from './entities/resource-conflict.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { Task } from '../tasks/entities/task.entity';
@@ -20,7 +21,7 @@ import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 
 @Injectable()
 export class ResourcesService {
@@ -35,6 +36,8 @@ export class ResourcesService {
     private projectRepository: TenantAwareRepository<Project>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    @InjectRepository(ResourceConflict)
+    private conflictRepository: Repository<ResourceConflict>,
     private dataSource: DataSource,
     @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
@@ -175,6 +178,41 @@ export class ResourcesService {
     } catch (error) {
       console.error('❌ Create resource error:', error);
       throw new BadRequestException('Failed to create resource');
+    }
+  }
+
+  async findOne(id: string, organizationId: string): Promise<Resource | null> {
+    try {
+      // TenantAwareRepository automatically scopes by organizationId
+      return await this.resourceRepository.findOne({
+        where: { id },
+        relations: ['allocations'],
+      });
+    } catch (error) {
+      console.error('❌ Find resource error:', error);
+      return null;
+    }
+  }
+
+  async update(
+    id: string,
+    updateResourceDto: any,
+    organizationId: string,
+  ): Promise<Resource> {
+    try {
+      const resource = await this.findOne(id, organizationId);
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      Object.assign(resource, updateResourceDto);
+      return await this.resourceRepository.save(resource);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('❌ Update resource error:', error);
+      throw new BadRequestException('Failed to update resource');
     }
   }
 
@@ -855,6 +893,190 @@ export class ResourcesService {
     } catch (error) {
       console.error('Error getting skills facet:', error);
       throw new BadRequestException('Failed to get skills facet');
+    }
+  }
+
+  /**
+   * Phase 2: Get conflicts from ResourceConflict entity
+   */
+  async getConflictsFromEntity(
+    organizationId: string,
+    resourceId?: string,
+    startDate?: string,
+    endDate?: string,
+    severity?: string,
+    resolved?: boolean,
+  ): Promise<{ data: ResourceConflict[] }> {
+    try {
+      const where: any = { organizationId };
+
+      if (resourceId) {
+        where.resourceId = resourceId;
+      }
+
+      if (severity) {
+        where.severity = severity;
+      }
+
+      if (resolved !== undefined) {
+        where.resolved = resolved;
+      }
+
+      if (startDate || endDate) {
+        if (startDate && endDate) {
+          where.conflictDate = Between(new Date(startDate), new Date(endDate));
+        } else if (startDate) {
+          where.conflictDate = MoreThanOrEqual(new Date(startDate));
+        } else if (endDate) {
+          where.conflictDate = LessThanOrEqual(new Date(endDate));
+        }
+      }
+
+      const conflicts = await this.conflictRepository.find({
+        where,
+        order: { conflictDate: 'ASC', severity: 'DESC' },
+        relations: ['resource'],
+      });
+
+      return { data: conflicts };
+    } catch (error) {
+      console.error('Error getting conflicts from entity:', error);
+      throw new BadRequestException('Failed to get conflicts');
+    }
+  }
+
+  /**
+   * Phase 2: Get capacity view with weekly rollup per resource
+   */
+  async getCapacityResources(
+    organizationId: string,
+    startDate: string,
+    endDate: string,
+    workspaceId?: string,
+  ): Promise<{
+    data: Array<{
+      resourceId: string;
+      resourceName: string;
+      weeks: Array<{
+        weekStart: string;
+        weekEnd: string;
+        totalHard: number;
+        totalSoft: number;
+        total: number;
+        remaining: number;
+      }>;
+    }>;
+  }> {
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Get resources (filter by workspace if provided)
+      const resourceWhere: any = { organizationId, isActive: true };
+      if (workspaceId) {
+        resourceWhere.workspaceId = workspaceId;
+      }
+
+      const resources = await this.resourceRepository.find({
+        where: resourceWhere,
+      });
+
+      // Get allocations in date range
+      const allocationWhere: any = {
+        organizationId,
+        startDate: LessThanOrEqual(end),
+        endDate: MoreThanOrEqual(start),
+        type: Not(AllocationType.GHOST),
+      };
+
+      if (workspaceId) {
+        // Get project IDs in workspace
+        const projects = await this.projectRepository.find({
+          where: { organizationId, workspaceId },
+          select: ['id'],
+        });
+        const projectIds = projects.map((p) => p.id);
+        if (projectIds.length > 0) {
+          allocationWhere.projectId = In(projectIds);
+        } else {
+          // No projects in workspace, return empty
+          return { data: [] };
+        }
+      }
+
+      const allocations = await this.resourceAllocationRepository.find({
+        where: allocationWhere,
+      });
+
+      // Group by resource and calculate weekly totals
+      const result = resources.map((resource) => {
+        const resourceAllocations = allocations.filter(
+          (a) => a.resourceId === resource.id,
+        );
+
+        // Calculate weeks
+        const weeks: Array<{
+          weekStart: string;
+          weekEnd: string;
+          totalHard: number;
+          totalSoft: number;
+          total: number;
+          remaining: number;
+        }> = [];
+
+        let currentWeekStart = new Date(start);
+        while (currentWeekStart <= end) {
+          const weekEnd = new Date(currentWeekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6); // 7 days including start
+          if (weekEnd > end) weekEnd.setTime(end.getTime());
+
+          let totalHard = 0;
+          let totalSoft = 0;
+
+          // Sum allocations for this week
+          for (const alloc of resourceAllocations) {
+            const allocStart = new Date(alloc.startDate);
+            const allocEnd = new Date(alloc.endDate);
+
+            // Check if allocation overlaps with this week
+            if (allocStart <= weekEnd && allocEnd >= currentWeekStart) {
+              const percentage = alloc.allocationPercentage || 0;
+              if (alloc.type === AllocationType.HARD) {
+                totalHard += percentage;
+              } else if (alloc.type === AllocationType.SOFT) {
+                totalSoft += percentage;
+              }
+            }
+          }
+
+          const total = totalHard + totalSoft;
+          const remaining = Math.max(0, 100 - total);
+
+          weeks.push({
+            weekStart: currentWeekStart.toISOString().split('T')[0],
+            weekEnd: weekEnd.toISOString().split('T')[0],
+            totalHard: Math.round(totalHard * 10) / 10,
+            totalSoft: Math.round(totalSoft * 10) / 10,
+            total: Math.round(total * 10) / 10,
+            remaining: Math.round(remaining * 10) / 10,
+          });
+
+          // Move to next week
+          currentWeekStart = new Date(weekEnd);
+          currentWeekStart.setDate(currentWeekStart.getDate() + 1);
+        }
+
+        return {
+          resourceId: resource.id,
+          resourceName: resource.name || 'Unknown',
+          weeks,
+        };
+      });
+
+      return { data: result };
+    } catch (error) {
+      console.error('Error getting capacity resources:', error);
+      throw new BadRequestException('Failed to get capacity resources');
     }
   }
 }
