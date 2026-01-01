@@ -60,7 +60,7 @@ if [ "$HTTP_STATUS" != "200" ]; then
   exit 1
 fi
 
-echo "✅ PASSED: HTTP 200 received"
+echo "✅ PASSED: HTTP 200 received (Step 3 expects 200)"
 echo "TEST_EMAIL=$TEST_EMAIL" > /tmp/test_email.txt
 echo "TEST_ORG=$TEST_ORG" >> /tmp/test_email.txt
 
