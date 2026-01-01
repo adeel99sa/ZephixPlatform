@@ -61,13 +61,13 @@ describe('Resources Phase 2 E2E Tests', () => {
   async function createUserOrganization(
     userId: string,
     orgId: string,
-    role: string,
+    role: 'owner' | 'admin' | 'pm' | 'viewer',
   ): Promise<UserOrganization> {
     const uoRepo = dataSource.getRepository(UserOrganization);
     return uoRepo.save({
       userId,
       organizationId: orgId,
-      role,
+      role: role as 'owner' | 'admin' | 'pm' | 'viewer',
     });
   }
 
@@ -202,8 +202,8 @@ describe('Resources Phase 2 E2E Tests', () => {
     );
 
     // Create UserOrganization entries
-    await createUserOrganization(adminUser1.id, org1.id, 'admin');
-    await createUserOrganization(adminUser2.id, org2.id, 'admin');
+    await createUserOrganization(adminUser1.id, org1.id, 'admin' as 'admin');
+    await createUserOrganization(adminUser2.id, org2.id, 'admin' as 'admin');
 
     // Create test workspace
     workspace1 = await createTestWorkspace(

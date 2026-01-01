@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Query,
   UseGuards,
   Req,
@@ -344,12 +345,12 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
   async getConflicts(
+    @Req() req: AuthRequest,
     @Query('resourceId') resourceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('severity') severity?: string,
     @Query('resolved') resolved?: string,
-    @Req() req: AuthRequest,
   ) {
     const { organizationId } = getAuthContext(req);
     if (!organizationId) {
@@ -514,10 +515,10 @@ export class ResourcesController {
     description: 'Capacity resources retrieved successfully',
   })
   async getCapacityResources(
+    @Req() req: AuthRequest,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('workspaceId') workspaceId?: string,
-    @Req() req: AuthRequest,
   ) {
     try {
       const { organizationId } = getAuthContext(req);
