@@ -41,12 +41,14 @@ echo ""
 echo "=========================================="
 echo "STEP 3: Verify Outbox Write"
 echo "=========================================="
-TEST_EMAIL="test-verification-$(date +%s)@example.com"
+TEST_EMAIL="test-verification-$(date +%s)-$RANDOM@example.com"
+TEST_ORG="Test Org $(date +%s) $RANDOM"
 echo "Registering with email: $TEST_EMAIL"
+echo "Registering with org: $TEST_ORG"
 
 RESPONSE=$(curl -i -s -X POST https://zephix-backend-production.up.railway.app/api/auth/register \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"Test123!@#\",\"fullName\":\"Test User\",\"orgName\":\"Test Org\"}")
+  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"Test123!@#\",\"fullName\":\"Test User\",\"orgName\":\"$TEST_ORG\"}")
 
 HTTP_STATUS=$(echo "$RESPONSE" | head -n 1 | grep -oP '\d{3}')
 echo ""
@@ -60,6 +62,7 @@ fi
 
 echo "✅ PASSED: HTTP 200 received"
 echo "TEST_EMAIL=$TEST_EMAIL" > /tmp/test_email.txt
+echo "TEST_ORG=$TEST_ORG" >> /tmp/test_email.txt
 
 # Step 4: Verify outbox row exists
 echo ""
@@ -106,9 +109,11 @@ if [ -f /tmp/test_email.txt ]; then
   source /tmp/test_email.txt
   echo "Re-registering with same email: $TEST_EMAIL"
 
+  # Use same email but different org name for duplicate test
+  DUPLICATE_ORG="Test Org Duplicate $(date +%s) $RANDOM"
   DUPLICATE_RESPONSE=$(curl -i -s -X POST https://zephix-backend-production.up.railway.app/api/auth/register \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"Test123!@#\",\"fullName\":\"Test User\",\"orgName\":\"Test Org\"}")
+    -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"Test123!@#\",\"fullName\":\"Test User\",\"orgName\":\"$DUPLICATE_ORG\"}")
 
   DUPLICATE_STATUS=$(echo "$DUPLICATE_RESPONSE" | head -n 1 | grep -oP '\d{3}')
   echo ""
