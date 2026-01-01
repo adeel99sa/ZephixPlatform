@@ -145,7 +145,8 @@ export class ResourceAllocationService {
     const allocation = this.allocationRepository.create({
       ...createAllocationDto,
       allocationPercentage: unitsType === UnitsType.PERCENT ? allocationPercentage : null,
-      hoursPerWeek: unitsType === UnitsType.HOURS ? hoursPerWeek : null,
+      // hoursPerWeek column doesn't exist in database - we convert HOURS to percentage for storage
+      // hoursPerWeek: unitsType === UnitsType.HOURS ? hoursPerWeek : null,
       unitsType,
       type,
       bookingSource,
