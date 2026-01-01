@@ -219,6 +219,12 @@ export class AuthRegistrationService {
       const errorCode = error?.code || error?.driverError?.code;
       const isUniqueViolation = errorCode === '23505' || errorCode === 23505;
       
+      // Log full error structure for debugging (first 30 lines of error object)
+      const requestId = (error as any)?.requestId || 'unknown';
+      this.logger.error(
+        `Registration error caught - requestId: ${requestId}, error.name: ${error?.name || 'unknown'}, error.code: ${error?.code || 'unknown'}, driverError.code: ${error?.driverError?.code || 'unknown'}, driverError.table: ${error?.driverError?.table || 'unknown'}, driverError.constraint: ${error?.driverError?.constraint || 'unknown'}, driverError.detail: ${error?.driverError?.detail || 'unknown'}`,
+      );
+      
       if (isUniqueViolation || error instanceof QueryFailedError) {
         // Extract error details from TypeORM QueryFailedError or direct Postgres error
         // TypeORM may nest the Postgres error in driverError
@@ -260,38 +266,62 @@ export class AuthRegistrationService {
         
         // Handle organizations/workspaces unique violations - return 409 Conflict
         // Org/workspace duplicates are not sensitive, so we can return clear error messages
+        // Check table name from multiple sources
         const isOrgTable = 
           tableNameLower === 'organizations' || 
           tableNameLower === 'orgs' ||
           errorMessage.includes('organizations') ||
-          errorMessage.includes('"organizations"');
+          errorMessage.includes('"organizations"') ||
+          // Fallback: if we're in registration and see slug constraint, assume org
+          (tableName === '' && errorDetailLower.includes('(slug)'));
         const isWorkspaceTable = 
           tableNameLower === 'workspaces' ||
           errorMessage.includes('workspaces') ||
           errorMessage.includes('"workspaces"');
+        
+        // Check for slug/name mentions in detail (most reliable)
+        // PostgreSQL detail format: "Key (slug)=(value) already exists."
         const mentionsSlug = 
+          errorDetailLower.includes('(slug)') ||  // Most specific - PostgreSQL format
           errorDetailLower.includes('slug') ||
-          errorDetailLower.includes('(slug)') ||
           constraintNameLower.includes('slug');
         const mentionsName = 
+          errorDetailLower.includes('(name)') ||  // Most specific - PostgreSQL format
           errorDetailLower.includes('name') ||
-          errorDetailLower.includes('(name)') ||
           constraintNameLower.includes('name');
         
+        // Log the detection logic for org slug handler
+        this.logger.warn(
+          `[ORG_SLUG_HANDLER] requestId: ${requestId}, isOrgTable: ${isOrgTable}, isWorkspaceTable: ${isWorkspaceTable}, mentionsSlug: ${mentionsSlug}, mentionsName: ${mentionsName}, tableName: ${tableName || 'empty'}, constraintName: ${constraintName || 'empty'}, errorDetail: ${errorDetail || 'empty'}, errorMessage: ${errorMessage || 'empty'}`,
+        );
+        
+        // If we detect org/workspace table AND slug/name, throw 409
+        // Also handle case where table name is missing but we see slug in detail (registration context)
         if ((isOrgTable || isWorkspaceTable) && (mentionsSlug || mentionsName)) {
           const entityType = isOrgTable ? 'organization' : 'workspace';
           const fieldType = mentionsSlug ? 'slug' : 'name';
           this.logger.warn(
-            `Registration ${entityType} duplicate: ${fieldType} already exists, table: ${tableName || 'unknown'}, constraint: ${constraintName || 'unknown'}`,
+            `Registration ${entityType} duplicate: ${fieldType} already exists, table: ${tableName || 'inferred'}, constraint: ${constraintName || 'unknown'}, requestId: ${requestId}`,
           );
           throw new ConflictException(
             `An ${entityType} with this ${fieldType} already exists. Please choose a different ${fieldType}.`,
           );
         }
         
+        // Fallback: If we see slug in detail but no table name, and we're in registration context,
+        // assume it's an org slug (since registration creates orgs, not workspaces)
+        if (!tableName && mentionsSlug && errorDetailLower.includes('(slug)')) {
+          this.logger.warn(
+            `Registration org duplicate (fallback detection): slug constraint detected without table name, constraint: ${constraintName || 'unknown'}, requestId: ${requestId}`,
+          );
+          throw new ConflictException(
+            'An organization with this slug already exists. Please choose a different slug.',
+          );
+        }
+        
         // If it's a unique violation but not handled above, log and re-throw
         this.logger.error(
-          `Unique constraint violation (unhandled): constraint: ${constraintName || 'unknown'}, table: ${tableName || 'unknown'}, detail: ${errorDetail || 'none'}, message: ${errorMessage || 'none'}`,
+          `Unique constraint violation (unhandled): constraint: ${constraintName || 'unknown'}, table: ${tableName || 'unknown'}, detail: ${errorDetail || 'none'}, message: ${errorMessage || 'none'}, requestId: ${requestId}`,
         );
       }
       // Re-throw all other errors
