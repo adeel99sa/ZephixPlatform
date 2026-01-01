@@ -103,11 +103,13 @@ export class HealthController {
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
   async version() {
+    const commitSha = process.env.APP_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown';
     return {
       version: process.env.npm_package_version || '0.0.1',
       name: 'Zephix Backend',
       environment: process.env.NODE_ENV || 'development',
       nodeVersion: process.version,
+      commitSha,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: {

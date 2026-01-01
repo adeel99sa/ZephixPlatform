@@ -223,3 +223,7 @@ console.log(
   `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
 );
 console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
+
+// Log commit SHA for deployment verification
+const commitSha = process.env.APP_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown';
+console.log(`📦 Application Commit SHA: ${commitSha}`);
