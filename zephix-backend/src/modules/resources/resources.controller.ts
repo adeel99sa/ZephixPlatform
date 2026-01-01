@@ -346,6 +346,7 @@ export class ResourcesController {
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
   async getConflicts(
     @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceId?: string,
     @Query('resourceId') resourceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -358,6 +359,7 @@ export class ResourcesController {
     }
     return this.resourcesService.getConflictsFromEntity(
       organizationId,
+      workspaceId,
       resourceId,
       startDate,
       endDate,

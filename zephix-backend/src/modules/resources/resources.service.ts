@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -898,9 +899,18 @@ export class ResourcesService {
 
   /**
    * Phase 2: Get conflicts from ResourceConflict entity
+   * 
+   * @param organizationId - Organization ID (required)
+   * @param workspaceId - Workspace ID (optional, validates access if provided)
+   * @param resourceId - Resource ID filter (optional)
+   * @param startDate - Start date filter (optional)
+   * @param endDate - End date filter (optional)
+   * @param severity - Severity filter (optional)
+   * @param resolved - Resolved status filter (optional)
    */
   async getConflictsFromEntity(
     organizationId: string,
+    workspaceId?: string,
     resourceId?: string,
     startDate?: string,
     endDate?: string,
@@ -908,6 +918,20 @@ export class ResourcesService {
     resolved?: boolean,
   ): Promise<{ data: ResourceConflict[] }> {
     try {
+      // If workspaceId is provided, validate access
+      if (workspaceId) {
+        const accessibleWorkspaceIds = await this.workspaceAccessService.getAccessibleWorkspaceIds(
+          organizationId,
+          undefined, // userId - not needed for org-level check
+          undefined, // userRole - not needed for org-level check
+        );
+
+        // If workspace membership is enforced and user has no accessible workspaces
+        if (accessibleWorkspaceIds !== null && !accessibleWorkspaceIds.includes(workspaceId)) {
+          throw new ForbiddenException('Workspace access denied');
+        }
+      }
+
       const where: any = { organizationId };
 
       if (resourceId) {
@@ -932,6 +956,36 @@ export class ResourcesService {
         }
       }
 
+      // If workspaceId is provided, filter conflicts by resources in that workspace
+      if (workspaceId) {
+        const conflicts = await this.conflictRepository
+          .createQueryBuilder('conflict')
+          .innerJoin('conflict.resource', 'resource')
+          .where('conflict.organizationId = :organizationId', { organizationId })
+          .andWhere('resource.workspaceId = :workspaceId', { workspaceId })
+          .andWhere(resourceId ? 'conflict.resourceId = :resourceId' : '1=1', resourceId ? { resourceId } : {})
+          .andWhere(severity ? 'conflict.severity = :severity' : '1=1', severity ? { severity } : {})
+          .andWhere(resolved !== undefined ? 'conflict.resolved = :resolved' : '1=1', resolved !== undefined ? { resolved } : {})
+          .andWhere(
+            startDate && endDate
+              ? 'conflict.conflictDate BETWEEN :startDate AND :endDate'
+              : startDate
+                ? 'conflict.conflictDate >= :startDate'
+                : endDate
+                  ? 'conflict.conflictDate <= :endDate'
+                  : '1=1',
+            startDate || endDate
+              ? { startDate, endDate }
+              : {},
+          )
+          .orderBy('conflict.conflictDate', 'ASC')
+          .addOrderBy('conflict.severity', 'DESC')
+          .getMany();
+
+        return { data: conflicts };
+      }
+
+      // No workspace filter - return all conflicts for the organization
       const conflicts = await this.conflictRepository.find({
         where,
         order: { conflictDate: 'ASC', severity: 'DESC' },
@@ -941,6 +995,9 @@ export class ResourcesService {
       return { data: conflicts };
     } catch (error) {
       console.error('Error getting conflicts from entity:', error);
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
       throw new BadRequestException('Failed to get conflicts');
     }
   }
