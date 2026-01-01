@@ -358,6 +358,26 @@ describe('Resources Phase 2 E2E Tests', () => {
       expect(conflict).toBeDefined();
       expect(parseFloat(conflict.totalAllocation.toString())).toBeGreaterThan(100);
     });
+
+    it('should return conflicts with workspaceId query param', async () => {
+      // Query conflicts endpoint with workspaceId
+      const conflictsResponse = await request(app.getHttpServer())
+        .get(`/api/resources/conflicts?workspaceId=${workspace1.id}&resourceId=${resource2.id}&resolved=false`)
+        .set('Authorization', `Bearer ${adminToken1}`);
+
+      expect(conflictsResponse.status).toBe(200);
+      expect(conflictsResponse.body.data).toBeDefined();
+      expect(Array.isArray(conflictsResponse.body.data)).toBe(true);
+
+      // All returned conflicts should be for resources in the specified workspace
+      const conflicts = conflictsResponse.body.data;
+      if (conflicts.length > 0) {
+        for (const conflict of conflicts) {
+          expect(conflict.organizationId).toBe(org1.id);
+          expect(conflict.resourceId).toBe(resource2.id);
+        }
+      }
+    });
   });
 
   describe('C. unitsType enforcement', () => {
