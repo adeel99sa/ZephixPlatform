@@ -211,7 +211,7 @@ export class ResourceAllocationService {
     // TenantAwareRepository automatically adds organizationId filter
     return this.allocationRepository.find({
       where,
-      relations: ['resource', 'task'],
+      relations: ['resource'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -221,7 +221,7 @@ export class ResourceAllocationService {
     // TenantAwareRepository automatically scopes by organizationId
     const allocation = await this.allocationRepository.findOne({
       where: { id },
-      relations: ['resource', 'task'],
+      relations: ['resource'],
     });
 
     if (!allocation) {
@@ -345,7 +345,7 @@ export class ResourceAllocationService {
     // TenantAwareRepository automatically scopes by organizationId
     return this.allocationRepository.find({
       where: { resourceId },
-      relations: ['resource', 'task', 'project'],
+      relations: ['resource', 'project'],
       order: { startDate: 'ASC' },
     });
   }
@@ -355,7 +355,7 @@ export class ResourceAllocationService {
     // TenantAwareRepository automatically scopes by organizationId
     return this.allocationRepository.find({
       where: { projectId },
-      relations: ['resource', 'task', 'project'],
+      relations: ['resource', 'project'],
       order: { startDate: 'ASC' },
     });
   }
