@@ -1,14 +1,30 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Resource } from './resource.entity';
 
 @Entity('resource_conflicts')
 @Index(['resourceId', 'conflictDate'])
 @Index(['severity'])
+@Index('idx_conflicts_org_resource_date', ['organizationId', 'resourceId', 'conflictDate'])
 export class ResourceConflict {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'organization_id', type: 'uuid' })
+  organizationId: string;
+
+  @Column({ name: 'resource_id', type: 'uuid' })
   resourceId: string;
+
+  @ManyToOne(() => Resource, { nullable: true })
+  @JoinColumn({ name: 'resource_id' })
+  resource?: Resource;
 
   @Column({ type: 'date' })
   conflictDate: Date;
