@@ -187,6 +187,85 @@ export class ResourcesController {
     }
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a specific resource' })
+  @ApiResponse({ status: 200, description: 'Resource retrieved successfully' })
+  async getResource(
+    @Param('id') id: string,
+    @Req() req: AuthRequest,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const resource = await this.resourcesService.findOne(id, organizationId);
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
+      return this.responseService.success(resource);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('❌ Get resource error:', error);
+      throw new BadRequestException('Failed to get resource');
+    }
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a resource' })
+  @ApiResponse({ status: 200, description: 'Resource updated successfully' })
+  async updateResource(
+    @Param('id') id: string,
+    @Body() updateResourceDto: any,
+    @Req() req: AuthRequest,
+  ) {
+    try {
+      const { userId, organizationId } = getAuthContext(req);
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      const resource = await this.resourcesService.update(
+        id,
+        updateResourceDto,
+        organizationId,
+      );
+
+      // Log audit
+      if (userId && organizationId) {
+        await this.auditService
+          .logAction({
+            userId: userId,
+            organizationId: organizationId,
+            entityType: 'resources',
+            entityId: resource.id,
+            action: 'update',
+            newValue: updateResourceDto,
+            ipAddress: req.ip || 'unknown',
+            userAgent: req.headers['user-agent'] || 'unknown',
+          })
+          .catch((err) => {
+            console.error('Audit log failed:', err);
+          });
+      }
+
+      return this.responseService.success(resource);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('❌ Update resource error:', error);
+      throw new BadRequestException('Failed to update resource');
+    }
+  }
+
   @Get(':id/capacity-breakdown')
   @ApiOperation({
     summary: 'Get capacity breakdown for a resource across projects',
@@ -262,15 +341,28 @@ export class ResourcesController {
   }
 
   @Get('conflicts')
-  @ApiOperation({ summary: 'Get resource conflicts' })
+  @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
-  async getConflicts(@Req() req: AuthRequest) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
-    const userRole = platformRole;
+  async getConflicts(
+    @Query('resourceId') resourceId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('severity') severity?: string,
+    @Query('resolved') resolved?: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req);
     if (!organizationId) {
       return { data: [] };
     }
-    return this.resourcesService.getConflicts(organizationId, userId, userRole);
+    return this.resourcesService.getConflictsFromEntity(
+      organizationId,
+      resourceId,
+      startDate,
+      endDate,
+      severity,
+      resolved === 'true',
+    );
   }
 
   @Post('detect-conflicts')
@@ -409,6 +501,45 @@ export class ResourcesController {
       return this.responseService.success(summary);
     } catch (error) {
       console.error('❌ Get capacity summary error:', error);
+      throw error;
+    }
+  }
+
+  @Get('capacity/resources')
+  @ApiOperation({
+    summary: 'Get capacity view with weekly rollup per resource (Phase 2)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Capacity resources retrieved successfully',
+  })
+  async getCapacityResources(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('workspaceId') workspaceId?: string,
+    @Req() req: AuthRequest,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      if (!startDate || !endDate) {
+        throw new BadRequestException('startDate and endDate are required');
+      }
+
+      const result = await this.resourcesService.getCapacityResources(
+        organizationId,
+        startDate,
+        endDate,
+        workspaceId,
+      );
+
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Get capacity resources error:', error);
       throw error;
     }
   }
