@@ -532,5 +532,45 @@ describe('Resources Phase 2 E2E Tests', () => {
       }
     });
   });
+
+  // Routing order guard: Ensure static routes come before dynamic routes
+  // This prevents regression where /api/resources/conflicts matches @Get(':id') instead of @Get('conflicts')
+  describe('Route Order Guard', () => {
+    it('should route /api/resources/conflicts to conflicts handler, not :id handler', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/resources/conflicts?resolved=false')
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id);
+
+      // Should NOT be 404 "Resource not found" (which would indicate :id handler)
+      expect(response.status).not.toBe(404);
+      if (response.status === 404) {
+        expect(response.body.message).not.toBe('Resource not found');
+      }
+
+      // Should be either 200 (success) or 403 (access denied), but not 404
+      expect([200, 403]).toContain(response.status);
+    });
+
+    it('should route /api/resources/capacity/resources to capacity handler, not :id handler', async () => {
+      const startDate = new Date();
+      const endDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      const response = await request(app.getHttpServer())
+        .get(
+          `/api/resources/capacity/resources?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}`,
+        )
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id);
+
+      // Should NOT be 404 "Resource not found" (which would indicate :id handler)
+      expect(response.status).not.toBe(404);
+      if (response.status === 404) {
+        expect(response.body.message).not.toBe('Resource not found');
+      }
+
+      // Should be either 200 (success) or 400/403 (validation/access), but not 404
+      expect([200, 400, 403]).toContain(response.status);
+    });
+  });
 });
 
