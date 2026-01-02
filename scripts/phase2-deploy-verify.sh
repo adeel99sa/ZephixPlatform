@@ -336,10 +336,11 @@ echo -e "${GREEN}✅ Second SOFT allocation succeeded (HTTP $SECOND_SOFT_STATUS)
 # Wait a moment for conflict creation
 sleep 2
 
-# Query conflicts (with workspaceId)
+# Query conflicts (with workspaceId in header for tenant context)
 echo "Querying conflicts..."
-CONFLICTS_RESPONSE=$(curl -s "$BASE_URL/api/resources/conflicts?workspaceId=$WORKSPACE_ID&resourceId=$RESOURCE_ID&resolved=false" \
-  -H "Authorization: Bearer $TOKEN")
+CONFLICTS_RESPONSE=$(curl -s "$BASE_URL/api/resources/conflicts?resourceId=$RESOURCE_ID&resolved=false" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-workspace-id: $WORKSPACE_ID")
 
 CONFLICTS_COUNT=$(echo "$CONFLICTS_RESPONSE" | jq '.data | length')
 if [ "$CONFLICTS_COUNT" -eq 0 ]; then
@@ -360,11 +361,13 @@ echo -e "${GREEN}✅ Conflicts found: $CONFLICTS_COUNT (with totalAllocation > 1
 # 5d. Capacity endpoint
 echo ""
 echo "5d. Testing capacity endpoint..."
-CAPACITY_RESPONSE=$(curl -s "$BASE_URL/api/resources/capacity/resources?workspaceId=$WORKSPACE_ID&startDate=2026-02-01&endDate=2026-02-28" \
-  -H "Authorization: Bearer $TOKEN")
+CAPACITY_RESPONSE=$(curl -s "$BASE_URL/api/resources/capacity/resources?startDate=2026-02-01&endDate=2026-02-28" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-workspace-id: $WORKSPACE_ID")
 
-CAPACITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/resources/capacity/resources?workspaceId=$WORKSPACE_ID&startDate=2026-02-01&endDate=2026-02-28" \
-  -H "Authorization: Bearer $TOKEN")
+CAPACITY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/resources/capacity/resources?startDate=2026-02-01&endDate=2026-02-28" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-workspace-id: $WORKSPACE_ID")
 
 if [ "$CAPACITY_STATUS" != "200" ]; then
   echo -e "${RED}❌ ERROR: Capacity endpoint returned HTTP $CAPACITY_STATUS${NC}"

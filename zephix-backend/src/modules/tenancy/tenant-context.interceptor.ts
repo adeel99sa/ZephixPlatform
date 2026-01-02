@@ -20,7 +20,7 @@ import { getAuthContextOptional } from '../../common/http/get-auth-context-optio
  *
  * Rules:
  * 1. organizationId comes ONLY from req.user.organizationId (JWT payload)
- * 2. workspaceId comes from route params (:workspaceId), then validated against org
+ * 2. workspaceId comes from route params (:workspaceId) or x-workspace-id header, then validated against org
  * 3. Context is cleared on response finish to prevent bleed
  */
 @Injectable()
@@ -57,34 +57,36 @@ export class TenantContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    // Rule 2: workspaceId from route params, then validate
+    // Rule 2: workspaceId from route params, then headers, then validate
     let workspaceId: string | undefined;
     const routeWorkspaceId = request.params?.workspaceId || request.params?.id;
+    const headerWorkspaceId = request.headers['x-workspace-id'] as string;
+    const workspaceIdToValidate = routeWorkspaceId || headerWorkspaceId;
 
-    if (routeWorkspaceId) {
+    if (workspaceIdToValidate) {
       // Validate workspace belongs to organization
       try {
         const workspaceRepo = this.dataSource.getRepository(Workspace);
         const workspace = await workspaceRepo.findOne({
           where: {
-            id: routeWorkspaceId,
+            id: workspaceIdToValidate,
             organizationId: organizationId,
           },
         });
 
         if (!workspace) {
           throw new ForbiddenException(
-            `Workspace ${routeWorkspaceId} does not belong to your organization`,
+            `Workspace ${workspaceIdToValidate} does not belong to your organization`,
           );
         }
 
-        workspaceId = routeWorkspaceId;
+        workspaceId = workspaceIdToValidate;
       } catch (error) {
         if (error instanceof ForbiddenException) {
           throw error;
         }
         this.logger.error(
-          `Error validating workspace ${routeWorkspaceId}: ${error.message}`,
+          `Error validating workspace ${workspaceIdToValidate}: ${error.message}`,
         );
         throw new ForbiddenException('Failed to validate workspace access');
       }
