@@ -353,7 +353,7 @@ export class ResourcesController {
     @Query('severity') severity?: string,
     @Query('resolved') resolved?: string,
   ) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
     if (!organizationId) {
       return { data: [] };
     }
@@ -365,6 +365,8 @@ export class ResourcesController {
       endDate,
       severity,
       resolved === 'true',
+      userId,
+      platformRole,
     );
   }
 
