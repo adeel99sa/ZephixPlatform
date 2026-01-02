@@ -394,13 +394,20 @@ if [ "$CAPACITY_STATUS" != "200" ]; then
   exit 4
 fi
 
-RESOURCES_COUNT=$(echo "$CAPACITY_RESPONSE" | jq '.data | length')
-if [ "$RESOURCES_COUNT" -eq 0 ]; then
+# Check if response has data array or data object
+RESOURCES_COUNT=$(echo "$CAPACITY_RESPONSE" | jq '.data | if type == "array" then length else (if .data then (.data | length) else 0 end) end' 2>/dev/null || echo "0")
+if [ "$RESOURCES_COUNT" = "0" ] || [ -z "$RESOURCES_COUNT" ]; then
   echo -e "${YELLOW}⚠️  No resources in capacity response (may be expected)${NC}"
 else
-  WEEKS_COUNT=$(echo "$CAPACITY_RESPONSE" | jq '.data[0].weeks | length')
-  echo -e "${GREEN}✅ Capacity endpoint responded (HTTP $CAPACITY_STATUS)${NC}"
-  echo "   Resources: $RESOURCES_COUNT, Weeks per resource: $WEEKS_COUNT"
+  # Try to get weeks count if available
+  WEEKS_COUNT=$(echo "$CAPACITY_RESPONSE" | jq '.data[0].weeks // .data.data[0].weeks // empty' 2>/dev/null || echo "")
+  if [ -n "$WEEKS_COUNT" ] && [ "$WEEKS_COUNT" != "null" ]; then
+    echo -e "${GREEN}✅ Capacity endpoint responded (HTTP $CAPACITY_STATUS)${NC}"
+    echo "   Resources: $RESOURCES_COUNT, Weeks per resource: $WEEKS_COUNT"
+  else
+    echo -e "${GREEN}✅ Capacity endpoint responded (HTTP $CAPACITY_STATUS)${NC}"
+    echo "   Resources: $RESOURCES_COUNT"
+  fi
 fi
 
 echo ""
