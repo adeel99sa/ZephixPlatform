@@ -915,14 +915,16 @@ export class ResourcesService {
     endDate?: string,
     severity?: string,
     resolved?: boolean,
+    userId?: string,
+    userRole?: string,
   ): Promise<{ data: ResourceConflict[] }> {
     try {
       // If workspaceId is provided, validate access
       if (workspaceId) {
         const accessibleWorkspaceIds = await this.workspaceAccessService.getAccessibleWorkspaceIds(
           organizationId,
-          undefined, // userId - not needed for org-level check
-          undefined, // userRole - not needed for org-level check
+          userId,
+          userRole,
         );
 
         // If workspace membership is enforced and user has no accessible workspaces
