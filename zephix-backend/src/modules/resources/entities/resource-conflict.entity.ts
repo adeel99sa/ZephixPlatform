@@ -26,13 +26,13 @@ export class ResourceConflict {
   @JoinColumn({ name: 'resource_id' })
   resource?: Resource;
 
-  @Column({ type: 'date' })
+  @Column({ name: 'conflict_date', type: 'date' })
   conflictDate: Date;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  @Column({ name: 'total_allocation', type: 'decimal', precision: 5, scale: 2 })
   totalAllocation: number; // Will be >100 if overallocated
 
-  @Column({ type: 'jsonb' })
+  @Column({ name: 'affected_projects', type: 'jsonb' })
   affectedProjects: {
     projectId: string;
     projectName: string;
@@ -47,9 +47,9 @@ export class ResourceConflict {
   @Column({ default: false })
   resolved: boolean;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'detected_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   detectedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'resolved_at', type: 'timestamp', nullable: true })
   resolvedAt: Date;
 }
