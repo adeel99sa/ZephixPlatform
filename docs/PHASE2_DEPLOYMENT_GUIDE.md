@@ -1,7 +1,7 @@
 # Phase 2 Deployment Guide
 
-**Service:** zephix-backend  
-**Platform:** Railway  
+**Service:** zephix-backend
+**Platform:** Railway
 **Date:** [Fill in deployment date]
 
 ---
@@ -84,7 +84,7 @@ railway link
 curl -s https://zephix-backend-production.up.railway.app/api/version | jq .
 ```
 
-**Record:** PreDeploy commitSha value, or note if missing.
+**Record:** PreDeploy commitSha and commitShaTrusted values, or note if missing.
 
 ### Step 4: Deploy Latest Main
 
@@ -106,10 +106,20 @@ curl -s https://zephix-backend-production.up.railway.app/api/version | jq .
 LOCAL_SHORT=$(git rev-parse HEAD | cut -c1-7)
 echo "Local short SHA: $LOCAL_SHORT"
 
-curl -s https://zephix-backend-production.up.railway.app/api/version | jq .
+VERSION_RESPONSE=$(curl -s https://zephix-backend-production.up.railway.app/api/version)
+echo "$VERSION_RESPONSE" | jq .
 
-PROD_SHORT=$(curl -s https://zephix-backend-production.up.railway.app/api/version | jq -r '.commitSha' | cut -c1-7)
-echo "Production short SHA: $PROD_SHORT"
+PROD_SHA=$(echo "$VERSION_RESPONSE" | jq -r '.data.commitSha // empty')
+PROD_TRUSTED=$(echo "$VERSION_RESPONSE" | jq -r '.data.commitShaTrusted // false')
+PROD_SHORT=$(echo "$PROD_SHA" | cut -c1-7)
+
+echo "Production SHA (full): $PROD_SHA"
+echo "Production SHA (short): $PROD_SHORT"
+echo "Commit SHA trusted: $PROD_TRUSTED"
+
+if [ "$PROD_TRUSTED" != "true" ] && [ "$PROD_SHA" != "unknown" ]; then
+  echo "⚠️  WARNING: commitShaTrusted is false (SHA may not reflect actual deployment)"
+fi
 
 if [ "$LOCAL_SHORT" = "$PROD_SHORT" ]; then
   echo "✅ SHA matches"
@@ -118,7 +128,9 @@ else
 fi
 ```
 
-**Stop if:** commitSha missing or mismatch after redeploy.
+**Stop if:**
+- commitSha is 'unknown' and commitShaTrusted is false (Railway not setting RAILWAY_GIT_COMMIT_SHA)
+- commitSha missing or mismatch after redeploy
 
 ### Step 6: Run Migration in Railway Environment
 
@@ -165,10 +177,13 @@ AND column_name = '\''organization_id'\'';"'
 export BASE="https://zephix-backend-production.up.railway.app"
 export TOKEN="PASTE_TOKEN"
 export ORG_ID="PASTE_ORG_ID"
+export WORKSPACE_ID="PASTE_WORKSPACE_ID"
 export PROJECT_ID="PASTE_PROJECT_ID"
 ```
 
-**How to get TOKEN, ORG_ID, PROJECT_ID:**
+**Important:** Workspace-scoped endpoints (conflicts, capacity) require the `x-workspace-id` header. Always include this header when calling these endpoints.
+
+**How to get TOKEN, ORG_ID, WORKSPACE_ID, PROJECT_ID:**
 
 1. **Get TOKEN:**
    - Login to production frontend
@@ -182,10 +197,17 @@ export PROJECT_ID="PASTE_PROJECT_ID"
      -H "Authorization: Bearer $TOKEN" | jq '.data[0].id'
    ```
 
-3. **Get PROJECT_ID:**
+3. **Get WORKSPACE_ID:**
    ```bash
-   curl -s "$BASE/api/projects" \
-     -H "Authorization: Bearer $TOKEN" | jq '.data[0].id'
+   export WORKSPACE_ID=$(curl -s "$BASE/api/workspaces" \
+     -H "Authorization: Bearer $TOKEN" | jq -r '.data[0].id')
+   ```
+
+4. **Get PROJECT_ID:**
+   ```bash
+   export PROJECT_ID=$(curl -s "$BASE/api/projects" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "x-workspace-id: $WORKSPACE_ID" | jq -r '.data.projects[0].id // .data[0].id')
    ```
 
 **Alternative: Use automated script**
@@ -307,14 +329,15 @@ Fill in `docs/RELEASE_LOG_PHASE2.md` with results from all steps above.
 
 ### Step 3: Pre-Deploy Proof
 - ✅ `/api/version` endpoint responds
-- ✅ Response includes `commitSha` field (or note if missing)
+- ✅ Response includes `commitSha` and `commitShaTrusted` fields
+- ✅ `commitShaTrusted` is `true` in production (indicates Railway set RAILWAY_GIT_COMMIT_SHA)
 
 ### Step 4: Deploy Latest Main
 - ✅ Deployment shows **Success** status
 - ✅ Deployment is **Active**
 
 ### Step 5: Post-Deploy Proof
-- ✅ `/api/version` returns `commitSha` field
+- ✅ `/api/version` returns `commitSha` and `commitShaTrusted` fields
 - ✅ `PROD_SHORT` equals `LOCAL_SHORT` (first 7 characters match)
 
 ### Step 6: Migration
@@ -365,6 +388,7 @@ Fill in `docs/RELEASE_LOG_PHASE2.md` with results from all steps above.
 
 2. **Step 5: SHA Mismatch**
    - `commitSha` missing from `/api/version` response after redeploy
+   - `commitShaTrusted` is `false` in production (Railway not setting RAILWAY_GIT_COMMIT_SHA)
    - `PROD_SHORT` does not equal `LOCAL_SHORT` after redeploy
    - **Action:** Investigate deployment, check Railway logs, redeploy if needed
 
@@ -407,8 +431,8 @@ Fill in `docs/RELEASE_LOG_PHASE2.md` with results from all steps above.
 See `docs/RELEASE_LOG_PHASE2.md` for the template. Fill it in with:
 - Date/time
 - LOCAL_SHA (full and short)
-- PreDeploy commitSha
-- PostDeploy commitSha
+- PreDeploy commitSha and commitShaTrusted
+- PostDeploy commitSha and commitShaTrusted
 - Migration output summary
 - Schema verification results
 - Smoke test outcomes with HTTP codes

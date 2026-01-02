@@ -23,7 +23,7 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 const cookieParser = require('cookie-parser');
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
@@ -225,5 +225,6 @@ console.log(
 console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
 
 // Log commit SHA for deployment verification
-const commitSha = process.env.APP_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown';
-console.log(`📦 Application Commit SHA: ${commitSha}`);
+import { logCommitSha } from './common/utils/commit-sha.resolver';
+const bootstrapLogger = new Logger('Bootstrap');
+logCommitSha(bootstrapLogger);

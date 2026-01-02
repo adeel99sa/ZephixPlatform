@@ -9,12 +9,12 @@ import {
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Request } from 'express';
-import { validate as isUuid } from 'uuid';
 import { TenantContextService } from './tenant-context.service';
 import { DataSource } from 'typeorm';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContextOptional } from '../../common/http/get-auth-context-optional';
+import { extractValidUuid } from '../../common/utils/uuid-validator.util';
 
 /**
  * TenantContextInterceptor sets tenant context for each request using AsyncLocalStorage.
@@ -44,26 +44,27 @@ export class TenantContextInterceptor implements NestInterceptor {
    * Extract workspaceId from request.
    * Only accepts workspaceId from:
    * 1. Header: x-workspace-id
-   * 2. Route param: workspaceId (only if route declares :workspaceId)
-   * 3. Query param: workspaceId (optional)
-   * 
-   * Validates that workspaceId is a valid UUID before returning.
+   * 2. Route param: workspaceId (only if route declares :workspaceId and value is valid UUID)
+   * 3. Query param: workspaceId (only if value is valid UUID)
+   *
+   * Invalid UUIDs are silently ignored (not treated as workspaceId).
+   * Never extracts from path segments.
    */
   private extractWorkspaceId(req: any): string | undefined {
-    const fromHeader = req.headers?.['x-workspace-id'];
-    const fromParam = req.params?.workspaceId;
-    const fromQuery = req.query?.workspaceId;
+    // Priority 1: Header
+    const fromHeader = extractValidUuid(req.headers?.['x-workspace-id']);
+    if (fromHeader) return fromHeader;
 
-    const candidate = fromHeader || fromParam || fromQuery;
-    if (!candidate) return undefined;
+    // Priority 2: Route param (only if valid UUID)
+    const fromParam = extractValidUuid(req.params?.workspaceId);
+    if (fromParam) return fromParam;
 
-    const value = Array.isArray(candidate) ? candidate[0] : String(candidate).trim();
-    if (!isUuid(value)) {
-      // Not a valid UUID - don't treat as workspaceId
-      return undefined;
-    }
+    // Priority 3: Query param (only if valid UUID)
+    const fromQuery = extractValidUuid(req.query?.workspaceId);
+    if (fromQuery) return fromQuery;
 
-    return value;
+    // No valid workspaceId found
+    return undefined;
   }
 
   async intercept(

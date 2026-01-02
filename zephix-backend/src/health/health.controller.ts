@@ -11,6 +11,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
+import { resolveCommitSha } from '../common/utils/commit-sha.resolver';
 
 // Define the health check interface
 interface HealthCheck {
@@ -103,18 +104,25 @@ export class HealthController {
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
   async version() {
-    const commitSha = process.env.APP_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown';
+    const commitShaResult = resolveCommitSha();
     return {
-      version: process.env.npm_package_version || '0.0.1',
-      name: 'Zephix Backend',
-      environment: process.env.NODE_ENV || 'development',
-      nodeVersion: process.version,
-      commitSha,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      data: {
+        version: process.env.npm_package_version || '0.0.1',
+        name: 'Zephix Backend',
+        environment: process.env.NODE_ENV || 'development',
+        nodeVersion: process.version,
+        commitSha: commitShaResult.commitSha,
+        commitShaTrusted: commitShaResult.commitShaTrusted,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: {
+          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        },
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       },
     };
   }
@@ -241,7 +249,7 @@ export class HealthController {
         // Check foreign key constraints (non-critical)
         try {
           const foreignKeys = await this.dataSource?.query(`
-            SELECT COUNT(*) as count FROM information_schema.table_constraints 
+            SELECT COUNT(*) as count FROM information_schema.table_constraints
             WHERE constraint_type = 'FOREIGN KEY' AND table_schema = 'public'
           `);
           const fkCount = parseInt(foreignKeys?.[0]?.count);

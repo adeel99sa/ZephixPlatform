@@ -125,4 +125,23 @@ export class EmailVerificationService {
       return { userId: token.userId };
     });
   }
+
+  /**
+   * Get latest outbox rows by userId
+   *
+   * Phase 1 requirement: repo query helper for latest outbox rows by userId.
+   * Useful for testing and debugging email verification flows.
+   */
+  async getLatestOutboxByUserId(
+    userId: string,
+    limit: number = 10,
+  ): Promise<AuthOutbox[]> {
+    // Query using JSONB path to find events with matching userId in payload
+    return this.authOutboxRepository
+      .createQueryBuilder('outbox')
+      .where("outbox.payloadJson->>'userId' = :userId", { userId })
+      .orderBy('outbox.createdAt', 'DESC')
+      .limit(limit)
+      .getMany();
+  }
 }

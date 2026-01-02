@@ -11,7 +11,9 @@ import {
   UseGuards,
   Get,
   Request,
+  Query,
   UnauthorizedException,
+  BadRequestException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -84,6 +86,7 @@ export class AuthController {
     let password: string;
     let fullName: string;
     let orgName: string;
+    let orgSlug: string | undefined;
 
     if ('fullName' in dto && 'orgName' in dto) {
       // RegisterDto format
@@ -91,12 +94,14 @@ export class AuthController {
       password = dto.password;
       fullName = dto.fullName;
       orgName = dto.orgName;
+      orgSlug = (dto as any).orgSlug; // RegisterDto has orgSlug
     } else {
       // SignupDto format (backward compatibility)
       email = dto.email;
       password = dto.password;
       fullName = `${dto.firstName} ${dto.lastName}`.trim();
       orgName = dto.organizationName;
+      orgSlug = undefined; // SignupDto doesn't have orgSlug
     }
 
     return this.authRegistrationService.registerSelfServe({
@@ -104,6 +109,7 @@ export class AuthController {
       password,
       fullName,
       orgName,
+      orgSlug,
       ip: typeof ip === 'string' ? ip : ip[0],
       userAgent,
     });
@@ -155,11 +161,12 @@ export class AuthController {
   }
 
   /**
-   * POST /api/auth/verify-email
+   * GET /api/auth/verify-email?token=...
    *
-   * Verify email address using token
+   * Verify email address using token (Phase 1: GET with query param)
+   * Token is single-use and expires after 24 hours
    */
-  @Post('verify-email')
+  @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 requests per hour
   @ApiOperation({ summary: 'Verify email address' })
@@ -171,11 +178,13 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async verifyEmail(
-    @Body() dto: VerifyEmailDto,
+    @Query('token') token: string,
   ): Promise<VerifyEmailResponseDto> {
-    const { userId } = await this.emailVerificationService.verifyToken(
-      dto.token,
-    );
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestException('Token query parameter is required');
+    }
+
+    const { userId } = await this.emailVerificationService.verifyToken(token);
 
     return {
       message: 'Email verified successfully',

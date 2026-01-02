@@ -1,25 +1,24 @@
 # Phase 2 Railway Environment Variables
 
-## Required Variables
+## Commit SHA Resolution
 
-### APP_COMMIT_SHA
+**Note:** Railway automatically sets `RAILWAY_GIT_COMMIT_SHA` for each deployment. The `/api/version` endpoint uses this value in production.
 
-**Purpose:** Provides commit SHA to `/api/version` endpoint for deployment verification.
-
-**How to Set:**
-1. Go to Railway Dashboard → Zephix project → zephix-backend service
-2. Click on "Variables" tab
-3. Add new variable:
-   - **Name:** `APP_COMMIT_SHA`
-   - **Value:** Full git commit SHA (e.g., `ad956a2721a6b3311576f1cc9471ad5d24faf13d`)
-4. Redeploy the service
+**Priority Order:**
+1. `RAILWAY_GIT_COMMIT_SHA` (Railway auto-injected) - **Used in production**
+2. `GIT_COMMIT_SHA` (CI/CD or manual)
+3. `APP_COMMIT_SHA` (only in non-production environments)
 
 **Verification:**
 ```bash
-curl -s https://zephix-backend-production.up.railway.app/api/version | jq .data.commitSha
+curl -s https://zephix-backend-production.up.railway.app/api/version | jq '.data | {commitSha, commitShaTrusted}'
 ```
 
-Should return the commit SHA, not "unknown".
+**Expected Response:**
+- `commitSha`: The actual deployment commit SHA (from `RAILWAY_GIT_COMMIT_SHA`)
+- `commitShaTrusted`: `true` if SHA comes from Railway or CI/CD, `false` if missing in production
+
+**Important:** Do not set `APP_COMMIT_SHA` in production. Railway automatically provides the commit SHA via `RAILWAY_GIT_COMMIT_SHA`.
 
 ## Verification Script Environment Variables
 
