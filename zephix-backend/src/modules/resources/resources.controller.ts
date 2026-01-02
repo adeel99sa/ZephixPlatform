@@ -190,6 +190,83 @@ export class ResourcesController {
     }
   }
 
+  // Static routes must come BEFORE dynamic routes to prevent route conflicts
+  // e.g., /api/resources/conflicts should not match /api/resources/:id
+
+  @Get('conflicts')
+  @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
+  @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
+  async getConflicts(
+    @Req() req: AuthRequest,
+    @Query('workspaceId') workspaceIdQuery?: string,
+    @Query('resourceId') resourceId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('severity') severity?: string,
+    @Query('resolved') resolved?: string,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    if (!organizationId) {
+      return { data: [] };
+    }
+
+    // Prefer workspaceId from tenant context (set by interceptor from x-workspace-id header)
+    // Fall back to query param if not in context
+    const workspaceId = this.tenantContextService.getWorkspaceId() || workspaceIdQuery;
+
+    return this.resourcesService.getConflictsFromEntity(
+      organizationId,
+      workspaceId || undefined,
+      resourceId,
+      startDate,
+      endDate,
+      severity,
+      resolved === 'true',
+      userId,
+      platformRole,
+    );
+  }
+
+  @Get('capacity/resources')
+  @ApiOperation({
+    summary: 'Get capacity view with weekly rollup per resource (Phase 2)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Capacity resources retrieved successfully',
+  })
+  async getCapacityResources(
+    @Req() req: AuthRequest,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('workspaceId') workspaceId?: string,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+
+      if (!organizationId) {
+        throw new BadRequestException('Organization ID is required');
+      }
+
+      if (!startDate || !endDate) {
+        throw new BadRequestException('startDate and endDate are required');
+      }
+
+      const result = await this.resourcesService.getCapacityResources(
+        organizationId,
+        startDate,
+        endDate,
+        workspaceId,
+      );
+
+      return this.responseService.success(result);
+    } catch (error) {
+      console.error('❌ Get capacity resources error:', error);
+      throw error;
+    }
+  }
+
+  // Dynamic routes come AFTER all static routes
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific resource' })
   @ApiResponse({ status: 200, description: 'Resource retrieved successfully' })
@@ -343,40 +420,6 @@ export class ResourcesController {
     }
   }
 
-  @Get('conflicts')
-  @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
-  @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
-  async getConflicts(
-    @Req() req: AuthRequest,
-    @Query('workspaceId') workspaceIdQuery?: string,
-    @Query('resourceId') resourceId?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('severity') severity?: string,
-    @Query('resolved') resolved?: string,
-  ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
-    if (!organizationId) {
-      return { data: [] };
-    }
-
-    // Prefer workspaceId from tenant context (set by interceptor from x-workspace-id header)
-    // Fall back to query param if not in context
-    const workspaceId = this.tenantContextService.getWorkspaceId() || workspaceIdQuery;
-
-    return this.resourcesService.getConflictsFromEntity(
-      organizationId,
-      workspaceId || undefined,
-      resourceId,
-      startDate,
-      endDate,
-      severity,
-      resolved === 'true',
-      userId,
-      platformRole,
-    );
-  }
-
   @Post('detect-conflicts')
   @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 checks per minute
   @ApiOperation({ summary: 'Detect resource conflicts for allocation' })
@@ -513,45 +556,6 @@ export class ResourcesController {
       return this.responseService.success(summary);
     } catch (error) {
       console.error('❌ Get capacity summary error:', error);
-      throw error;
-    }
-  }
-
-  @Get('capacity/resources')
-  @ApiOperation({
-    summary: 'Get capacity view with weekly rollup per resource (Phase 2)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Capacity resources retrieved successfully',
-  })
-  async getCapacityResources(
-    @Req() req: AuthRequest,
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
-    @Query('workspaceId') workspaceId?: string,
-  ) {
-    try {
-      const { organizationId } = getAuthContext(req);
-
-      if (!organizationId) {
-        throw new BadRequestException('Organization ID is required');
-      }
-
-      if (!startDate || !endDate) {
-        throw new BadRequestException('startDate and endDate are required');
-      }
-
-      const result = await this.resourcesService.getCapacityResources(
-        organizationId,
-        startDate,
-        endDate,
-        workspaceId,
-      );
-
-      return this.responseService.success(result);
-    } catch (error) {
-      console.error('❌ Get capacity resources error:', error);
       throw error;
     }
   }
