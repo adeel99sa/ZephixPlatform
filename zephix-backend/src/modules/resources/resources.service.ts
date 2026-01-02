@@ -898,7 +898,7 @@ export class ResourcesService {
 
   /**
    * Phase 2: Get conflicts from ResourceConflict entity
-   * 
+   *
    * @param organizationId - Organization ID (required)
    * @param workspaceId - Workspace ID (optional, validates access if provided)
    * @param resourceId - Resource ID filter (optional)
@@ -955,13 +955,26 @@ export class ResourcesService {
         }
       }
 
-      // If workspaceId is provided, filter conflicts by resources in that workspace
+      // If workspaceId is provided, filter conflicts by checking if affected projects belong to that workspace
       if (workspaceId) {
+        // Get project IDs in the workspace
+        const workspaceProjects = await this.projectRepository.find({
+          where: { organizationId, workspaceId },
+          select: ['id'],
+        });
+
+        if (workspaceProjects.length === 0) {
+          // No projects in workspace, return empty
+          return { data: [] };
+        }
+
+        const projectIds = workspaceProjects.map((p) => p.id);
+
+        // Filter conflicts where affectedProjects contains at least one project in the workspace
+        // We'll use a JSONB query to check if any affected project ID matches
         const conflicts = await this.conflictRepository
           .createQueryBuilder('conflict')
-          .innerJoin('conflict.resource', 'resource')
           .where('conflict.organizationId = :organizationId', { organizationId })
-          .andWhere('resource.workspaceId = :workspaceId', { workspaceId })
           .andWhere(resourceId ? 'conflict.resourceId = :resourceId' : '1=1', resourceId ? { resourceId } : {})
           .andWhere(severity ? 'conflict.severity = :severity' : '1=1', severity ? { severity } : {})
           .andWhere(resolved !== undefined ? 'conflict.resolved = :resolved' : '1=1', resolved !== undefined ? { resolved } : {})
@@ -976,6 +989,14 @@ export class ResourcesService {
             startDate || endDate
               ? { startDate, endDate }
               : {},
+          )
+          .andWhere(
+            // Check if affectedProjects JSONB array contains any project ID from the workspace
+            `EXISTS (
+              SELECT 1 FROM jsonb_array_elements(conflict.affected_projects) AS project
+              WHERE (project->>'projectId')::uuid = ANY(:projectIds)
+            )`,
+            { projectIds },
           )
           .orderBy('conflict.conflictDate', 'ASC')
           .addOrderBy('conflict.severity', 'DESC')
