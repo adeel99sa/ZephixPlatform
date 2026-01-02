@@ -295,7 +295,8 @@ FIRST_SOFT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/resourc
 \"allocationPercentage\":60,
 \"type\":\"SOFT\",
 \"startDate\":\"2026-02-01\",
-\"endDate\":\"2026-02-28\"
+\"endDate\":\"2026-02-28\",
+\"justification\":\"Phase 2 smoke test - first SOFT allocation\"
 }")
 
 FIRST_SOFT_STATUS=$(echo "$FIRST_SOFT_RESPONSE" | tail -n1)
@@ -305,7 +306,7 @@ if [ "$FIRST_SOFT_STATUS" -lt 200 ] || [ "$FIRST_SOFT_STATUS" -ge 300 ]; then
 fi
 echo -e "${GREEN}✅ First SOFT allocation created (HTTP $FIRST_SOFT_STATUS)${NC}"
 
-# Second SOFT allocation (50%), should succeed
+# Second SOFT allocation (50%), should succeed (total will be 110%, requires justification)
 SECOND_SOFT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/resource-allocations" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -316,7 +317,8 @@ SECOND_SOFT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/resour
 \"allocationPercentage\":50,
 \"type\":\"SOFT\",
 \"startDate\":\"2026-02-01\",
-\"endDate\":\"2026-02-28\"
+\"endDate\":\"2026-02-28\",
+\"justification\":\"Phase 2 smoke test - second SOFT allocation creating conflict\"
 }")
 
 SECOND_SOFT_STATUS=$(echo "$SECOND_SOFT_RESPONSE" | tail -n1)
