@@ -7,11 +7,11 @@
 
 ## Pre-Deploy State
 
-**Local Commit SHA (Full):** `[full SHA from git rev-parse HEAD]`  
-**Local Commit SHA (Short):** `[first 7 chars]`  
-**Pre-Deploy Production SHA:** `[SHA from /api/version or "missing"]`  
-**Pre-Deploy Status:** [Match/Mismatch/Missing]  
-**Pre-Deploy Timestamp:** `[timestamp from /api/version response]`  
+**Local Commit SHA (Full):** `[full SHA from git rev-parse HEAD]`
+**Local Commit SHA (Short):** `[first 7 chars]`
+**Pre-Deploy Production SHA:** `[SHA from /api/version or "missing"]`
+**Pre-Deploy Status:** [Match/Mismatch/Missing]
+**Pre-Deploy Timestamp:** `[timestamp from /api/version response]`
 **Pre-Deploy RequestId:** `[requestId from /api/version response if present]`
 
 ## Deployment
@@ -25,8 +25,8 @@
 
 ## Migration
 
-**Migration Command:** `railway run --service zephix-backend -- sh -lc "cd zephix-backend && npm run migration:run"`  
-**Migration Status:** [Success / Failed / No Pending]  
+**Migration Command:** `railway run --service zephix-backend -- sh -lc "cd zephix-backend && npm run migration:run"`
+**Migration Status:** [Success / Failed / No Pending]
 **Migration Output:**
 ```
 [paste migration output here]
@@ -58,10 +58,10 @@ POST /api/resources
 Body: {"name":"Smoke Resource [timestamp]","email":"smoke-resource-[timestamp]@example.com","role":"Developer","organizationId":"[ORG_ID]"}
 ```
 
-**Response Status:** [200/201/4xx/5xx]  
-**Response Headers:** [Include requestId if present]  
-**RequestId:** `[requestId from response headers]`  
-**Resource ID:** `[UUID or null]`  
+**Response Status:** [200/201/4xx/5xx]
+**Response Headers:** [Include requestId if present]
+**RequestId:** `[requestId from response headers]`
+**Resource ID:** `[UUID or null]`
 **Result:** [✅ Pass / ❌ Fail]
 
 ### Test 8b: HARD Overallocation Block
@@ -102,10 +102,10 @@ Body: {"name":"Smoke Resource [timestamp]","email":"smoke-resource-[timestamp]@e
 GET /api/resources/capacity/resources?startDate=2026-02-01&endDate=2026-02-28
 ```
 
-**Response Status:** [200/4xx/5xx]  
-**RequestId:** `[requestId from response headers]`  
-**Resources Returned:** [count]  
-**Weeks Data Present:** [✅ Yes / ❌ No]  
+**Response Status:** [200/4xx/5xx]
+**RequestId:** `[requestId from response headers]`
+**Resources Returned:** [count]
+**Weeks Data Present:** [✅ Yes / ❌ No]
 **Sample Week Data:** [paste sample week entry if available]
 - weekStart: [date]
 - weekEnd: [date]

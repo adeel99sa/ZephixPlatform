@@ -171,15 +171,14 @@ export function extractTokenFromOutboxPayload(
 }
 
 /**
- * Verify email with token
+ * Verify email with token (Phase 1: GET with query param)
  */
 export async function verifyEmailWithToken(
   app: INestApplication,
   token: string,
 ): Promise<{ userId: string }> {
   const response = await request(app.getHttpServer())
-    .post('/api/auth/verify-email')
-    .send({ token })
+    .get(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
     .expect(200);
 
   return { userId: response.body.userId };

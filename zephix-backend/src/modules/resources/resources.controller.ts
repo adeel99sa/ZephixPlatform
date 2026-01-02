@@ -34,6 +34,7 @@ import { NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 
 @Controller('resources')
 @ApiTags('resources')
@@ -49,6 +50,7 @@ export class ResourcesController {
     private readonly riskScoreService: ResourceRiskScoreService,
     private readonly timelineService: ResourceTimelineService,
     private readonly responseService: ResponseService,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   @Get('heat-map')
@@ -346,7 +348,7 @@ export class ResourcesController {
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
   async getConflicts(
     @Req() req: AuthRequest,
-    @Query('workspaceId') workspaceId?: string,
+    @Query('workspaceId') workspaceIdQuery?: string,
     @Query('resourceId') resourceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -357,9 +359,14 @@ export class ResourcesController {
     if (!organizationId) {
       return { data: [] };
     }
+
+    // Prefer workspaceId from tenant context (set by interceptor from x-workspace-id header)
+    // Fall back to query param if not in context
+    const workspaceId = this.tenantContextService.getWorkspaceId() || workspaceIdQuery;
+
     return this.resourcesService.getConflictsFromEntity(
       organizationId,
-      workspaceId,
+      workspaceId || undefined,
       resourceId,
       startDate,
       endDate,

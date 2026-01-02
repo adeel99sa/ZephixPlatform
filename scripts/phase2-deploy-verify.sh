@@ -86,10 +86,11 @@ echo "Local SHA (full): $LOCAL_SHA"
 echo "Local SHA (short): $LOCAL_SHORT"
 echo ""
 
-# Step 2: Check production /api/version
-echo -e "${YELLOW}Step 2: Checking production /api/version...${NC}"
+# Step 2: Check production /api/version (preflight check)
+echo -e "${YELLOW}Step 2: Checking production /api/version (preflight)...${NC}"
 VERSION_RESPONSE=$(curl -s "$BASE_URL/api/version")
 PROD_SHA=$(echo "$VERSION_RESPONSE" | jq -r '.data.commitSha // empty')
+PROD_TRUSTED=$(echo "$VERSION_RESPONSE" | jq -r '.data.commitShaTrusted // false')
 PROD_SHORT=$(echo "$PROD_SHA" | cut -c1-7 2>/dev/null || echo "")
 
 if [ -z "$PROD_SHA" ]; then
@@ -100,13 +101,29 @@ fi
 
 echo "Production SHA (full): $PROD_SHA"
 echo "Production SHA (short): $PROD_SHORT"
+echo "Commit SHA trusted: $PROD_TRUSTED"
 echo ""
 
-if [ "$PROD_SHA" = "unknown" ]; then
-  echo -e "${YELLOW}⚠️  WARNING: commitSha is 'unknown' (Railway may not set RAILWAY_GIT_COMMIT_SHA)${NC}"
-  echo "   Proceeding with verification assuming deployment is correct..."
-  echo "   Local SHA: $LOCAL_SHORT"
+# Preflight: In production, commitShaTrusted must be true
+if [ "$PROD_TRUSTED" != "true" ] && [ "$PROD_SHA" != "unknown" ]; then
+  echo -e "${YELLOW}⚠️  WARNING: commitShaTrusted is false (commit SHA may be from APP_COMMIT_SHA in production)${NC}"
+  echo "   This indicates Railway is not setting RAILWAY_GIT_COMMIT_SHA correctly."
+  echo "   Proceeding with verification, but commit SHA may not reflect actual deployment."
   echo ""
+fi
+
+if [ "$PROD_SHA" = "unknown" ]; then
+  if [ "$PROD_TRUSTED" = "false" ]; then
+    echo -e "${RED}❌ ERROR: commitSha is 'unknown' and untrusted in production${NC}"
+    echo "   Railway must set RAILWAY_GIT_COMMIT_SHA for deployment verification."
+    echo "   Please check Railway environment variables and redeploy."
+    exit 1
+  else
+    echo -e "${YELLOW}⚠️  WARNING: commitSha is 'unknown' (Railway may not set RAILWAY_GIT_COMMIT_SHA)${NC}"
+    echo "   Proceeding with verification assuming deployment is correct..."
+    echo "   Local SHA: $LOCAL_SHORT"
+    echo ""
+  fi
 elif [ "$LOCAL_SHORT" != "$PROD_SHORT" ]; then
   echo -e "${RED}❌ ERROR: SHA mismatch!${NC}"
   echo "   Local:  $LOCAL_SHORT"
@@ -116,6 +133,9 @@ elif [ "$LOCAL_SHORT" != "$PROD_SHORT" ]; then
   exit 1
 else
   echo -e "${GREEN}✅ SHA matches${NC}"
+  if [ "$PROD_TRUSTED" = "true" ]; then
+    echo -e "${GREEN}✅ Commit SHA is trusted${NC}"
+  fi
   echo ""
 fi
 

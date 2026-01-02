@@ -16,6 +16,22 @@ echo "🚀 Phase 2 Verification - Getting IDs and Running Script"
 echo "========================================================="
 echo ""
 
+# Preflight: Check /api/version commitShaTrusted
+echo "📋 Preflight: Checking /api/version commitShaTrusted..."
+VERSION_CHECK=$(curl -s "$BASE/api/version")
+COMMIT_SHA_TRUSTED=$(echo "$VERSION_CHECK" | jq -r '.data.commitShaTrusted // false')
+if [ "$COMMIT_SHA_TRUSTED" != "true" ]; then
+  COMMIT_SHA=$(echo "$VERSION_CHECK" | jq -r '.data.commitSha // "unknown"')
+  if [ "$COMMIT_SHA" = "unknown" ] && [ "$COMMIT_SHA_TRUSTED" = "false" ]; then
+    echo "❌ ERROR: commitSha is 'unknown' and untrusted in production"
+    echo "   Railway must set RAILWAY_GIT_COMMIT_SHA for deployment verification."
+    exit 1
+  fi
+  echo "⚠️  WARNING: commitShaTrusted is false (commit SHA may not reflect actual deployment)"
+fi
+echo "✅ Preflight check passed"
+echo ""
+
 # Get IDs
 echo "📋 Step 1: Getting Organization ID..."
 export ORG_ID=$(curl -s "$BASE/api/organizations" -H "Authorization: Bearer $TOKEN" | jq -r ".data[0].id")
