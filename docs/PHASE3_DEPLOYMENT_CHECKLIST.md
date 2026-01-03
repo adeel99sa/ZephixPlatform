@@ -42,47 +42,68 @@
    - [ ] Capture script output
    - [ ] Verify all tests pass
 
-## Developer Auth Workflow
+## Developer Authentication Workflow
 
-**⚠️ This section is for engineers only. Customers never use this workflow.**
+**⚠️ Engineer-only tooling. Customers never use this.**
 
-During development and verification, engineers need to authenticate to run verification scripts. The `auth-login.sh` helper script automates this process.
+### Why This Exists
 
-### Quick Start
+- Access tokens expire fast (15 minutes by design)
+- Verification scripts run outside browser sessions
+- Browser auto-refreshes tokens; terminal does not
+- This eliminates token copy-paste friction for engineers
+
+### Correct Usage
 
 ```bash
 # Set base URL
 export BASE="https://zephix-backend-production.up.railway.app"
 
-# Option 1: Interactive login (prompts for email/password)
-# IMPORTANT: Use 'source' (not 'bash') to export TOKEN to current shell
+# Interactive login (prompts for email/password)
 source scripts/auth-login.sh
 
-# Option 2: Non-interactive (set env vars first)
+# Or non-interactive
 export EMAIL="your-email@example.com"
 export PASSWORD="your-password"
 source scripts/auth-login.sh
 
-# Token is now exported to TOKEN variable in current shell
-# Run verification
+# Token is now in TOKEN variable
 bash scripts/phase3-deploy-verify.sh
 ```
 
-**Important:** Use `source scripts/auth-login.sh` (not `bash scripts/auth-login.sh`) to export the `TOKEN` variable into your current terminal session. Using `bash` runs the script in a subshell, so the export won't persist.
+### Incorrect Usage
+
+```bash
+# ❌ WRONG: Using 'bash' runs script in subshell
+bash scripts/auth-login.sh
+# TOKEN export won't persist to current shell
+
+# ❌ WRONG: Copy-pasting tokens manually
+export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+# This works but defeats the purpose
+```
+
+### Why `source` is Required
+
+- `bash scripts/auth-login.sh` → runs in subshell → `export TOKEN` doesn't persist
+- `source scripts/auth-login.sh` → runs in current shell → `export TOKEN` persists
+- Without `source`, the TOKEN variable won't be available for verification scripts
 
 ### How It Works
 
-1. The script calls `POST /api/auth/login` with email and password
-2. Extracts `accessToken` from the response
-3. Exports it to the `TOKEN` environment variable (when sourced, not executed)
-4. Masks the token in output (shows first 6 and last 6 chars only)
+1. Calls `POST /api/auth/login` with email/password
+2. Extracts `.data.accessToken` from response
+3. Exports `TOKEN` to current shell (only when sourced)
+4. Masks token in output (shows first 6 and last 6 chars)
 5. Shows token expiry time
 
-**Why `source` instead of `bash`?**
-- Using `bash scripts/auth-login.sh` runs the script in a subshell
-- Environment variables exported in a subshell don't persist to the parent shell
-- Using `source scripts/auth-login.sh` runs the script in the current shell
-- This allows the `TOKEN` export to be available for subsequent commands
+### Security
+
+- Password input is hidden (`read -rs`)
+- Token is masked in console output
+- No password logging
+- No token persistence to disk
+- Dev/staging only (no production impact)
 
 ### Security Notes
 
