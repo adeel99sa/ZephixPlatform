@@ -165,7 +165,7 @@ if [ -z "${PROJECT_ID:-}" ]; then
     exit 2
   fi
 
-  PROJECT_ID=$(echo "$PROJ_BODY" | jq -r '.data.items[0].id // .data[0].id // empty')
+  PROJECT_ID=$(echo "$PROJ_BODY" | jq -r '.data.items[0].id // .data.projects[0].id // .data[0].id // empty')
   if [ -z "$PROJECT_ID" ]; then
     echo -e "${RED}❌ ERROR: No project found${NC}"
     exit 2
@@ -230,9 +230,22 @@ ALLOC1_RESPONSE=$(api_call "POST" "/api/resource-allocations" "$ALLOC1_BODY" "$W
 ALLOC1_STATUS=$(echo "$ALLOC1_RESPONSE" | cut -d'|' -f1)
 ALLOC1_BODY_RESP=$(echo "$ALLOC1_RESPONSE" | cut -d'|' -f2-)
 
+# Preflight validation: Fail fast on 400 or 500 for HOURS allocation
+if [ "$ALLOC1_STATUS" = "400" ]; then
+  echo -e "${RED}❌ ERROR: HOURS allocation validation failed (400)${NC}"
+  echo "$ALLOC1_BODY_RESP" | jq '.' || echo "$ALLOC1_BODY_RESP"
+  exit 3
+fi
+
+if [ "$ALLOC1_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: HOURS allocation server error (500)${NC}"
+  echo "$ALLOC1_BODY_RESP" | jq '.' || echo "$ALLOC1_BODY_RESP"
+  exit 3
+fi
+
 if [ "$ALLOC1_STATUS" != "201" ]; then
   echo -e "${RED}❌ ERROR: Failed to create HOURS allocation ($ALLOC1_STATUS)${NC}"
-  echo "$ALLOC1_BODY_RESP"
+  echo "$ALLOC1_BODY_RESP" | jq '.' || echo "$ALLOC1_BODY_RESP"
   exit 3
 fi
 
