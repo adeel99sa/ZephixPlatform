@@ -76,14 +76,14 @@ export class ResourceAllocationService {
       // Ensure hours fields are null
       hoursPerWeek = null;
     } else if (unitsType === UnitsType.HOURS) {
-      // Debug: Log the DTO to see what we're receiving
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[DEBUG] CreateAllocationDto for HOURS:', {
-          hoursPerWeek: createAllocationDto.hoursPerWeek,
-          hoursPerDay: createAllocationDto.hoursPerDay,
-          unitsType: createAllocationDto.unitsType,
-        });
-      }
+      // Debug: Log the DTO to see what we're receiving (always log for debugging)
+      console.log('[DEBUG] CreateAllocationDto for HOURS:', {
+        hoursPerWeek: createAllocationDto.hoursPerWeek,
+        hoursPerDay: createAllocationDto.hoursPerDay,
+        unitsType: createAllocationDto.unitsType,
+        hoursPerWeekType: typeof createAllocationDto.hoursPerWeek,
+        hoursPerDayType: typeof createAllocationDto.hoursPerDay,
+      });
 
       if (
         (createAllocationDto.hoursPerDay === null || createAllocationDto.hoursPerDay === undefined) &&
@@ -112,6 +112,13 @@ export class ResourceAllocationService {
       }
 
       // Ensure hoursPerWeek is set before calling helper
+      console.log('[DEBUG] Before helper call:', {
+        hoursPerWeek,
+        hoursPerWeekType: typeof hoursPerWeek,
+        hoursPerDay: createAllocationDto.hoursPerDay,
+        resourceCapacity: resource?.capacityHoursPerWeek,
+      });
+
       if (hoursPerWeek === null || hoursPerWeek === undefined) {
         throw new BadRequestException(
           'hoursPerWeek or hoursPerDay must be provided and valid when unitsType is HOURS',
@@ -124,6 +131,14 @@ export class ResourceAllocationService {
         unitsType: UnitsType.HOURS,
         allocationPercentage: null,
       } as ResourceAllocation;
+      
+      console.log('[DEBUG] Calling helper with:', {
+        hoursPerWeek,
+        hoursPerDay: createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
+          ? createAllocationDto.hoursPerDay
+          : null,
+      });
+      
       allocationPercentage = CapacityMathHelper.toPercentOfWeek(
         tempAllocation,
         resource,
