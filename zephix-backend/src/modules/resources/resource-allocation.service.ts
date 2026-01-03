@@ -76,23 +76,22 @@ export class ResourceAllocationService {
       // Ensure hours fields are null
       hoursPerWeek = null;
     } else if (unitsType === UnitsType.HOURS) {
-      // Debug: Log the DTO to see what we're receiving (always log for debugging)
-      console.log('[DEBUG] CreateAllocationDto for HOURS:', {
-        hoursPerWeek: createAllocationDto.hoursPerWeek,
-        hoursPerDay: createAllocationDto.hoursPerDay,
-        unitsType: createAllocationDto.unitsType,
-        hoursPerWeekType: typeof createAllocationDto.hoursPerWeek,
-        hoursPerDayType: typeof createAllocationDto.hoursPerDay,
-      });
+      // Hard guard: Ensure at least one of hoursPerWeek or hoursPerDay is provided
+      const hasHoursPerWeek =
+        createAllocationDto.hoursPerWeek !== null &&
+        createAllocationDto.hoursPerWeek !== undefined &&
+        !isNaN(Number(createAllocationDto.hoursPerWeek));
+      const hasHoursPerDay =
+        createAllocationDto.hoursPerDay !== null &&
+        createAllocationDto.hoursPerDay !== undefined &&
+        !isNaN(Number(createAllocationDto.hoursPerDay));
 
-      if (
-        (createAllocationDto.hoursPerDay === null || createAllocationDto.hoursPerDay === undefined) &&
-        (createAllocationDto.hoursPerWeek === null || createAllocationDto.hoursPerWeek === undefined)
-      ) {
+      if (!hasHoursPerWeek && !hasHoursPerDay) {
         throw new BadRequestException(
-          'hoursPerDay or hoursPerWeek is required when unitsType is HOURS',
+          'hoursPerWeek or hoursPerDay is required when unitsType is HOURS',
         );
       }
+
       // Phase 3: Convert hours to percentage using CapacityMathHelper
       // Load resource to get capacityHoursPerWeek
       const resource = await this.resourceRepository.findOne({
@@ -104,25 +103,36 @@ export class ResourceAllocationService {
         throw new NotFoundException('Resource not found');
       }
 
-      if (createAllocationDto.hoursPerWeek !== null && createAllocationDto.hoursPerWeek !== undefined) {
-        hoursPerWeek = createAllocationDto.hoursPerWeek;
-      } else if (createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined) {
+      // Determine hoursPerWeek value
+      if (hasHoursPerWeek) {
+        hoursPerWeek = Number(createAllocationDto.hoursPerWeek);
+      } else if (hasHoursPerDay) {
         // Convert hoursPerDay to hoursPerWeek: hoursPerDay * 5 (assume 5 days/week)
-        hoursPerWeek = createAllocationDto.hoursPerDay * 5;
+        hoursPerWeek = Number(createAllocationDto.hoursPerDay) * 5;
       }
 
-      // Ensure hoursPerWeek is set before calling helper
-      console.log('[DEBUG] Before helper call:', {
-        hoursPerWeek,
-        hoursPerWeekType: typeof hoursPerWeek,
-        hoursPerDay: createAllocationDto.hoursPerDay,
-        resourceCapacity: resource?.capacityHoursPerWeek,
-      });
-
-      if (hoursPerWeek === null || hoursPerWeek === undefined) {
+      // Hard guard: Ensure hoursPerWeek is a valid number before calling helper
+      if (
+        hoursPerWeek === null ||
+        hoursPerWeek === undefined ||
+        isNaN(hoursPerWeek) ||
+        hoursPerWeek < 0
+      ) {
         throw new BadRequestException(
-          'hoursPerWeek or hoursPerDay must be provided and valid when unitsType is HOURS',
+          'hoursPerWeek or hoursPerDay must be a valid positive number when unitsType is HOURS',
         );
+      }
+
+      // Production-safe debug logging (only if flag is set)
+      if (process.env.DEBUG_RESOURCE_ALLOCATIONS === 'true') {
+        console.log('[DEBUG_RESOURCE_ALLOCATIONS] Before helper call:', {
+          unitsType: UnitsType.HOURS,
+          hoursPerWeekType: typeof hoursPerWeek,
+          hoursPerWeekValue: hoursPerWeek,
+          hoursPerDayType: typeof createAllocationDto.hoursPerDay,
+          hoursPerDayValue: createAllocationDto.hoursPerDay,
+          resourceCapacity: resource?.capacityHoursPerWeek,
+        });
       }
 
       // Use CapacityMathHelper to convert to percent (single source of truth)
@@ -131,21 +141,12 @@ export class ResourceAllocationService {
         unitsType: UnitsType.HOURS,
         allocationPercentage: null,
       } as ResourceAllocation;
-      
-      console.log('[DEBUG] Calling helper with:', {
-        hoursPerWeek,
-        hoursPerDay: createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
-          ? createAllocationDto.hoursPerDay
-          : null,
-      });
-      
+
       allocationPercentage = CapacityMathHelper.toPercentOfWeek(
         tempAllocation,
         resource,
         hoursPerWeek,
-        createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
-          ? createAllocationDto.hoursPerDay
-          : null,
+        hasHoursPerDay ? Number(createAllocationDto.hoursPerDay) : null,
       );
       // Store converted percentage for conflict checking and rollups
     }
