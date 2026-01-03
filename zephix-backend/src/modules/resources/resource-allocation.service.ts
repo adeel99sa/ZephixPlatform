@@ -26,6 +26,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CapacityMathHelper } from './helpers/capacity-math.helper';
 
 @Injectable()
 export class ResourceAllocationService {
@@ -80,19 +81,39 @@ export class ResourceAllocationService {
           'hoursPerDay or hoursPerWeek is required when unitsType is HOURS',
         );
       }
-      // Convert hours to percentage for conflict checking (assuming 8 hours/day = 100%)
-      // For now, we'll use hoursPerWeek if provided, or calculate from hoursPerDay
+      // Phase 3: Convert hours to percentage using CapacityMathHelper
+      // Load resource to get capacityHoursPerWeek
+      const resource = await this.resourceRepository.findOne({
+        where: { id: createAllocationDto.resourceId },
+        select: ['id', 'capacityHoursPerWeek'],
+      });
+
+      if (!resource) {
+        throw new NotFoundException('Resource not found');
+      }
+
       if (createAllocationDto.hoursPerWeek) {
         hoursPerWeek = createAllocationDto.hoursPerWeek;
-        // Convert to percentage: (hoursPerWeek / 40) * 100
-        allocationPercentage = (hoursPerWeek / 40) * 100;
       } else if (createAllocationDto.hoursPerDay) {
-        // Convert hoursPerDay to percentage: (hoursPerDay / 8) * 100
-        allocationPercentage = (createAllocationDto.hoursPerDay / 8) * 100;
-        hoursPerWeek = createAllocationDto.hoursPerDay * 5; // Assume 5 days/week
+        // Convert hoursPerDay to hoursPerWeek: hoursPerDay * 5 (assume 5 days/week)
+        hoursPerWeek = createAllocationDto.hoursPerDay * 5;
       }
-      // Ensure allocationPercentage field is null when using HOURS
-      // But we still need it for conflict checking, so we'll store it
+
+      // Use CapacityMathHelper to convert to percent (single source of truth)
+      if (unitsType === UnitsType.HOURS && hoursPerWeek !== null) {
+        // Create temporary allocation object for helper
+        const tempAllocation = {
+          unitsType: UnitsType.HOURS,
+          allocationPercentage: null,
+        } as ResourceAllocation;
+        allocationPercentage = CapacityMathHelper.toPercentOfWeek(
+          tempAllocation,
+          resource,
+          hoursPerWeek,
+          createAllocationDto.hoursPerDay || null,
+        );
+      }
+      // Store converted percentage for conflict checking and rollups
     }
 
     // Load organization for governance validation
@@ -104,7 +125,8 @@ export class ResourceAllocationService {
       throw new NotFoundException('Organization not found');
     }
 
-    // Phase 2: Check for HARD overallocation (> 100%) - block with 409
+    // Phase 3: Check for HARD overallocation (> 100%) - block with 409
+    // Uses CapacityMathHelper via checkDailyAllocation
     if (type === AllocationType.HARD) {
       const conflictCheck = await this.checkDailyAllocation(
         organizationId,
@@ -280,9 +302,77 @@ export class ResourceAllocationService {
       );
     }
 
+    // Phase 3: Check for HARD breach before saving
+    // If updating to HARD type (or already HARD with changed dates/percentage), check for breach
+    const finalType = updateAllocationDto.type ?? allocation.type;
+    const finalStartDate = updateAllocationDto.startDate
+      ? new Date(updateAllocationDto.startDate)
+      : allocation.startDate;
+    const finalEndDate = updateAllocationDto.endDate
+      ? new Date(updateAllocationDto.endDate)
+      : allocation.endDate;
+    const finalPercentage =
+      updateAllocationDto.allocationPercentage ?? allocation.allocationPercentage;
+
+    // Check if type is HARD and would breach
+    if (finalType === AllocationType.HARD) {
+      const conflictCheck = await this.checkDailyAllocation(
+        organizationId,
+        allocation.resourceId,
+        finalStartDate,
+        finalEndDate,
+        finalPercentage!,
+        id, // Exclude this allocation
+      );
+
+      if (conflictCheck.hasConflict) {
+        this.logger.warn('HARD_allocation_blocked_over_100_on_update', {
+          organizationId,
+          resourceId: allocation.resourceId,
+          allocationId: id,
+          totalAllocation: conflictCheck.maxTotal,
+          conflictDates: conflictCheck.conflictDates,
+        });
+
+        throw new ConflictException(
+          `HARD allocation would exceed 100% capacity. ` +
+            `Maximum total allocation: ${conflictCheck.maxTotal.toFixed(1)}%`,
+        );
+      }
+    }
+
+    // Store old date range for recompute window
+    const oldStartDate = allocation.startDate;
+    const oldEndDate = allocation.endDate;
+
     // Update only provided fields (respects explicit values from client)
     Object.assign(allocation, updateAllocationDto);
     const saved = await this.allocationRepository.save(allocation);
+
+    // Phase 3: Recompute conflicts for impacted window
+    // Window must cover both old range and new range
+    const recomputeStart = new Date(
+      Math.min(
+        oldStartDate.getTime(),
+        saved.startDate.getTime(),
+      ),
+    );
+    const recomputeEnd = new Date(
+      Math.max(
+        oldEndDate.getTime(),
+        saved.endDate.getTime(),
+      ),
+    );
+
+    this.recomputeConflicts(
+      organizationId,
+      saved.resourceId,
+      recomputeStart,
+      recomputeEnd,
+    ).catch((error) => {
+      console.error('Failed to recompute conflicts:', error);
+      // Don't fail the update if recompute fails
+    });
 
     // Update timeline if dates or percentage changed
     if (
@@ -330,6 +420,17 @@ export class ResourceAllocationService {
     const endDate = allocation.endDate;
 
     await this.allocationRepository.remove(allocation);
+
+    // Phase 3: Recompute conflicts for deleted window
+    this.recomputeConflicts(
+      organizationId,
+      resourceId,
+      startDate,
+      endDate,
+    ).catch((error) => {
+      console.error('Failed to recompute conflicts after delete:', error);
+      // Don't fail the delete if recompute fails
+    });
 
     // Update timeline after deletion
     this.timelineService
@@ -581,24 +682,38 @@ export class ResourceAllocationService {
 
     const existingAllocations = await queryBuilder.getMany();
 
-    // Compute currentHardLoad: sum of HARD allocations (excluding GHOST)
+    // Load resource for capacity math normalization
+    const resource = await this.resourceRepository.findOne({
+      where: { id: resourceId },
+      select: ['id', 'capacityHoursPerWeek'],
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+
+    // Compute currentHardLoad: sum of HARD allocations using CapacityMathHelper
     const currentHardLoad = existingAllocations
       .filter((a) => a.type === AllocationType.HARD)
-      .reduce((sum, a) => sum + (a.allocationPercentage || 0), 0);
+      .reduce((sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource), 0);
 
-    // Compute currentSoftLoad: sum of SOFT allocations (excluding GHOST)
+    // Compute currentSoftLoad: sum of SOFT allocations using CapacityMathHelper
     const currentSoftLoad = existingAllocations
       .filter((a) => a.type === AllocationType.SOFT)
-      .reduce((sum, a) => sum + (a.allocationPercentage || 0), 0);
+      .reduce((sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource), 0);
 
-    // Compute projectedTotal
+    // Compute projectedTotal using helper for new allocation
     // Only include new allocation if it's HARD or SOFT (exclude GHOST)
     let projectedTotal = currentHardLoad + currentSoftLoad;
     if (
       newAllocationType === AllocationType.HARD ||
       newAllocationType === AllocationType.SOFT
     ) {
-      projectedTotal += newAllocationPercentage;
+      const newAlloc = {
+        unitsType: UnitsType.PERCENT,
+        allocationPercentage: newAllocationPercentage,
+      } as ResourceAllocation;
+      projectedTotal += CapacityMathHelper.toPercentOfWeek(newAlloc, resource);
     }
 
     // Hard cap rule: block if projectedTotal exceeds hardCap
@@ -643,8 +758,9 @@ export class ResourceAllocationService {
   }
 
   /**
-   * Phase 2: Check daily allocation totals to detect conflicts
+   * Phase 3: Check daily allocation totals to detect conflicts
    * Returns true if any day would exceed 100% after adding the new allocation
+   * Uses CapacityMathHelper for consistent math normalization
    */
   private async checkDailyAllocation(
     organizationId: string,
@@ -658,6 +774,16 @@ export class ResourceAllocationService {
     maxTotal: number;
     conflictDates: string[];
   }> {
+    // Load resource once for capacityHoursPerWeek
+    const resource = await this.resourceRepository.findOne({
+      where: { id: resourceId },
+      select: ['id', 'capacityHoursPerWeek'],
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+
     // Get existing allocations that overlap with the date range
     const queryBuilder = this.allocationRepository
       .qb('allocation')
@@ -679,6 +805,12 @@ export class ResourceAllocationService {
 
     const existingAllocations = await queryBuilder.getMany();
 
+    // Create temporary allocation for new allocation percentage
+    const newAlloc = {
+      unitsType: UnitsType.PERCENT,
+      allocationPercentage: newAllocationPercentage,
+    } as ResourceAllocation;
+
     // Check each day in the date range
     const conflictDates: string[] = [];
     let maxTotal = 0;
@@ -687,14 +819,16 @@ export class ResourceAllocationService {
 
     while (current <= end) {
       const dateStr = current.toISOString().split('T')[0];
-      let dayTotal = newAllocationPercentage;
+      // Use helper for new allocation
+      let dayTotal = CapacityMathHelper.toPercentOfWeek(newAlloc, resource);
 
-      // Sum existing allocations for this day
+      // Sum existing allocations for this day using helper
       for (const alloc of existingAllocations) {
         const allocStart = new Date(alloc.startDate);
         const allocEnd = new Date(alloc.endDate);
         if (current >= allocStart && current <= allocEnd) {
-          dayTotal += alloc.allocationPercentage || 0;
+          // Use helper to normalize (handles both PERCENT and HOURS)
+          dayTotal += CapacityMathHelper.toPercentOfWeek(alloc, resource);
         }
       }
 
@@ -714,7 +848,8 @@ export class ResourceAllocationService {
   }
 
   /**
-   * Phase 2: Create conflict rows for SOFT allocations that exceed 100%
+   * Phase 3: Create conflict rows for SOFT allocations that exceed 100%
+   * Uses CapacityMathHelper for consistent math normalization
    */
   private async createConflictRowsIfNeeded(
     organizationId: string,
@@ -725,6 +860,16 @@ export class ResourceAllocationService {
     newAllocationId: string,
     projectId?: string,
   ): Promise<void> {
+    // Load resource for capacity math normalization
+    const resource = await this.resourceRepository.findOne({
+      where: { id: resourceId },
+      select: ['id', 'capacityHoursPerWeek'],
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+
     // Get existing allocations that overlap
     const existingAllocations = await this.allocationRepository.find({
       where: {
@@ -751,6 +896,7 @@ export class ResourceAllocationService {
       const dayAllocations: ResourceAllocation[] = [];
 
       // Include new allocation (create a temporary object for calculation)
+      // Note: This is for SOFT allocations only, so unitsType is PERCENT (already converted)
       const newAlloc = {
         id: newAllocationId,
         startDate,
@@ -758,6 +904,7 @@ export class ResourceAllocationService {
         allocationPercentage: newAllocationPercentage,
         projectId,
         type: AllocationType.SOFT, // This is a SOFT allocation
+        unitsType: UnitsType.PERCENT, // Already converted to percent
       } as ResourceAllocation;
       dayAllocations.push(newAlloc);
 
@@ -770,9 +917,9 @@ export class ResourceAllocationService {
         }
       }
 
-      // Calculate total for this day
+      // Calculate total for this day using CapacityMathHelper
       const total = dayAllocations.reduce(
-        (sum, a) => sum + (a.allocationPercentage || 0),
+        (sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource),
         0,
       );
 
@@ -785,8 +932,9 @@ export class ResourceAllocationService {
 
     // Create conflict rows for each day that exceeds 100%
     for (const [dateStr, allocations] of conflictsByDate) {
+      // Calculate total using helper
       const total = allocations.reduce(
-        (sum, a) => sum + (a.allocationPercentage || 0),
+        (sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource),
         0,
       );
 
@@ -830,7 +978,7 @@ export class ResourceAllocationService {
             // taskId removed - column doesn't exist in database
             // taskId: a.taskId,
             taskName: 'Unknown', // Task relation not available
-            allocation: a.allocationPercentage || 0,
+            allocation: CapacityMathHelper.toPercentOfWeek(a, resource),
           })),
           resolved: false,
         });
@@ -858,6 +1006,138 @@ export class ResourceAllocationService {
     if (totalAllocation <= 125) return 'medium';
     if (totalAllocation <= 150) return 'high';
     return 'critical';
+  }
+
+  /**
+   * Phase 3: Recompute conflicts for a resource over a date range
+   *
+   * Rules:
+   * - If total allocation > 100 for a day, upsert conflict row
+   * - If total allocation <= 100 for a day, delete conflict row (both resolved and unresolved)
+   * - Uses CapacityMathHelper for consistent math
+   */
+  private async recomputeConflicts(
+    organizationId: string,
+    resourceId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<void> {
+    // Load resource for capacity math
+    const resource = await this.resourceRepository.findOne({
+      where: { id: resourceId },
+      select: ['id', 'capacityHoursPerWeek'],
+    });
+
+    if (!resource) {
+      throw new NotFoundException('Resource not found');
+    }
+
+    // Get all allocations for this resource in the date range
+    const allocations = await this.allocationRepository.find({
+      where: {
+        organizationId,
+        resourceId,
+        type: Not(AllocationType.GHOST),
+      },
+    });
+
+    // Filter to overlapping allocations
+    const overlapping = allocations.filter((alloc) => {
+      const allocStart = new Date(alloc.startDate);
+      const allocEnd = new Date(alloc.endDate);
+      return allocStart <= endDate && allocEnd >= startDate;
+    });
+
+    // Check each day in the range
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const dayAllocations: ResourceAllocation[] = [];
+
+      // Collect allocations active on this day
+      for (const alloc of overlapping) {
+        const allocStart = new Date(alloc.startDate);
+        const allocEnd = new Date(alloc.endDate);
+        if (current >= allocStart && current <= allocEnd) {
+          dayAllocations.push(alloc);
+        }
+      }
+
+      // Calculate total using CapacityMathHelper
+      const total = dayAllocations.reduce(
+        (sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource),
+        0,
+      );
+
+      // Check if conflict exists for this day
+      const existingConflict = await this.conflictRepository.findOne({
+        where: {
+          organizationId,
+          resourceId,
+          conflictDate: new Date(dateStr),
+        },
+      });
+
+      if (total > 100) {
+        // Upsert conflict
+        const projectIds = dayAllocations
+          .map((a) => a.projectId)
+          .filter((id) => id) as string[];
+
+        let projectMap = new Map<string, string>();
+        if (projectIds.length > 0) {
+          const projectRepo = this.dataSource.getRepository(Project);
+          const projects = await projectRepo.find({
+            where: { id: In(projectIds), organizationId },
+            select: ['id', 'name'],
+          });
+          projectMap = new Map(projects.map((p) => [p.id, p.name]));
+        }
+
+        const severity = this.calculateSeverity(total);
+
+        if (existingConflict) {
+          // Update existing conflict
+          existingConflict.totalAllocation = total;
+          existingConflict.severity = severity;
+          existingConflict.affectedProjects = dayAllocations.map((a) => ({
+            projectId: a.projectId || '',
+            projectName: projectMap.get(a.projectId || '') || 'Unknown',
+            taskName: 'Unknown',
+            allocation: CapacityMathHelper.toPercentOfWeek(a, resource),
+          }));
+          // If conflict was resolved but now exists again, keep resolved state
+          // (user must explicitly reopen if they want to)
+          await this.conflictRepository.save(existingConflict);
+        } else {
+          // Create new conflict
+          const conflict = this.conflictRepository.create({
+            organizationId,
+            resourceId,
+            conflictDate: new Date(dateStr),
+            totalAllocation: total,
+            severity,
+            affectedProjects: dayAllocations.map((a) => ({
+              projectId: a.projectId || '',
+              projectName: projectMap.get(a.projectId || '') || 'Unknown',
+              taskName: 'Unknown',
+              allocation: CapacityMathHelper.toPercentOfWeek(a, resource),
+            })),
+            resolved: false,
+          });
+          await this.conflictRepository.save(conflict);
+        }
+      } else {
+        // Delete conflict if it exists (conflict no longer exists)
+        if (existingConflict) {
+          await this.conflictRepository.remove(existingConflict);
+        }
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
   }
 
   async getTaskBasedHeatMap(organizationId: string) {

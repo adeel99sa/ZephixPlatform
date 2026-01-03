@@ -52,4 +52,10 @@ export class ResourceConflict {
 
   @Column({ name: 'resolved_at', type: 'timestamp', nullable: true })
   resolvedAt: Date;
+
+  @Column({ name: 'resolved_by_user_id', type: 'uuid', nullable: true })
+  resolvedByUserId: string | null;
+
+  @Column({ name: 'resolution_note', type: 'text', nullable: true })
+  resolutionNote: string | null;
 }

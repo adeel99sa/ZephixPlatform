@@ -23,6 +23,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { CapacityMathHelper } from './helpers/capacity-math.helper';
 
 @Injectable()
 export class ResourcesService {
@@ -1025,6 +1026,125 @@ export class ResourcesService {
   }
 
   /**
+   * Phase 3: Resolve a conflict
+   *
+   * Rules:
+   * - Resolving conflict does not change allocations, it only acknowledges
+   * - Sets resolved=true, resolvedAt=now, resolvedByUserId, resolutionNote
+   * - Creates audit outbox event
+   */
+  async resolveConflict(
+    conflictId: string,
+    organizationId: string,
+    userId: string,
+    resolutionNote?: string,
+  ): Promise<{ data: ResourceConflict }> {
+    try {
+      const conflict = await this.conflictRepository.findOne({
+        where: { id: conflictId, organizationId },
+      });
+
+      if (!conflict) {
+        throw new NotFoundException('Conflict not found');
+      }
+
+      // Update conflict
+      conflict.resolved = true;
+      conflict.resolvedAt = new Date();
+      conflict.resolvedByUserId = userId;
+      conflict.resolutionNote = resolutionNote || null;
+
+      const saved = await this.conflictRepository.save(conflict);
+
+      // Create audit outbox event (async, non-blocking)
+      this.createConflictAuditEvent('resolve', conflictId, organizationId, userId, resolutionNote)
+        .catch((err) => {
+          console.error('Failed to create conflict resolve audit event:', err);
+        });
+
+      return { data: saved };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error resolving conflict:', error);
+      throw new BadRequestException('Failed to resolve conflict');
+    }
+  }
+
+  /**
+   * Phase 3: Reopen a resolved conflict
+   *
+   * Rules:
+   * - Sets resolved=false, resolvedAt=null, clears resolvedByUserId and resolutionNote
+   * - Creates audit outbox event
+   */
+  async reopenConflict(
+    conflictId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<{ data: ResourceConflict }> {
+    try {
+      const conflict = await this.conflictRepository.findOne({
+        where: { id: conflictId, organizationId },
+      });
+
+      if (!conflict) {
+        throw new NotFoundException('Conflict not found');
+      }
+
+      // Update conflict
+      conflict.resolved = false;
+      conflict.resolvedAt = null;
+      conflict.resolvedByUserId = null;
+      conflict.resolutionNote = null;
+
+      const saved = await this.conflictRepository.save(conflict);
+
+      // Create audit outbox event (async, non-blocking)
+      this.createConflictAuditEvent('reopen', conflictId, organizationId, userId)
+        .catch((err) => {
+          console.error('Failed to create conflict reopen audit event:', err);
+        });
+
+      return { data: saved };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error reopening conflict:', error);
+      throw new BadRequestException('Failed to reopen conflict');
+    }
+  }
+
+  /**
+   * Create audit outbox event for conflict lifecycle actions
+   *
+   * Phase 3: Creates structured log entry for conflict resolve/reopen
+   * Future: Can be extended to use outbox pattern for async processing
+   */
+  private async createConflictAuditEvent(
+    action: 'resolve' | 'reopen',
+    conflictId: string,
+    organizationId: string,
+    userId: string,
+    resolutionNote?: string,
+  ): Promise<void> {
+    // Structured logging for observability
+    console.log('Conflict lifecycle event', {
+      action,
+      conflictId,
+      organizationId,
+      userId,
+      resolutionNote: resolutionNote ? '[present]' : null, // Don't log full note (may contain PII)
+      timestamp: new Date().toISOString(),
+    });
+
+    // TODO: Phase 3+ - Create outbox event for async audit processing
+    // For now, structured logs are sufficient for observability
+  }
+
+  /**
    * Phase 2: Get capacity view with weekly rollup per resource
    */
   async getCapacityResources(
@@ -1112,14 +1232,15 @@ export class ResourcesService {
           let totalHard = 0;
           let totalSoft = 0;
 
-          // Sum allocations for this week
+          // Sum allocations for this week using CapacityMathHelper
           for (const alloc of resourceAllocations) {
             const allocStart = new Date(alloc.startDate);
             const allocEnd = new Date(alloc.endDate);
 
             // Check if allocation overlaps with this week
             if (allocStart <= weekEnd && allocEnd >= currentWeekStart) {
-              const percentage = alloc.allocationPercentage || 0;
+              // Use helper to normalize (handles both PERCENT and HOURS)
+              const percentage = CapacityMathHelper.toPercentOfWeek(alloc, resource);
               if (alloc.type === AllocationType.HARD) {
                 totalHard += percentage;
               } else if (alloc.type === AllocationType.SOFT) {
