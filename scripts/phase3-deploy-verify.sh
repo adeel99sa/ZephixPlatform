@@ -42,6 +42,12 @@ BASE_URL="${BASE:-https://zephix-backend-production.up.railway.app}"
 # Check required environment variables
 if [ -z "${TOKEN:-}" ]; then
   echo -e "${RED}❌ ERROR: TOKEN environment variable is required${NC}"
+  echo ""
+  echo "   To get a token, run:"
+  echo "   export BASE=\"$BASE_URL\""
+  echo "   bash scripts/auth-login.sh"
+  echo ""
+  echo "   Or manually:"
   echo "   export TOKEN=\"your-auth-token\""
   exit 1
 fi

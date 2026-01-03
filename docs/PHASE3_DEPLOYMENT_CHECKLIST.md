@@ -32,7 +32,7 @@
    - [ ] Verify `commitShaTrusted: true`
 
 4. **Production Verification**
-   - [ ] Get fresh access token
+   - [ ] Get fresh access token (see Developer Auth Workflow below)
    - [ ] Run Phase 3 verification script:
      ```bash
      export BASE="https://zephix-backend-production.up.railway.app"
@@ -41,6 +41,54 @@
      ```
    - [ ] Capture script output
    - [ ] Verify all tests pass
+
+## Developer Auth Workflow
+
+**⚠️ This section is for engineers only. Customers never use this workflow.**
+
+During development and verification, engineers need to authenticate to run verification scripts. The `auth-login.sh` helper script automates this process.
+
+### Quick Start
+
+```bash
+# Set base URL
+export BASE="https://zephix-backend-production.up.railway.app"
+
+# Option 1: Interactive login (prompts for email/password)
+bash scripts/auth-login.sh
+
+# Option 2: Non-interactive (set env vars first)
+export EMAIL="your-email@example.com"
+export PASSWORD="your-password"
+bash scripts/auth-login.sh
+
+# Token is now exported to TOKEN variable
+# Run verification
+bash scripts/phase3-deploy-verify.sh
+```
+
+### How It Works
+
+1. The script calls `POST /api/auth/login` with email and password
+2. Extracts `accessToken` from the response
+3. Exports it to the `TOKEN` environment variable
+4. Masks the token in output (shows first 6 and last 6 chars only)
+5. Shows token expiry time
+
+### Security Notes
+
+- **Dev and staging only**: This workflow is for engineering verification only
+- **No production impact**: JWT expiry, refresh tokens, and auth guards are unchanged
+- **Password masking**: Password input is hidden (read -rs)
+- **Token masking**: Full token is never printed to console
+- **No persistence**: Token is only exported to current shell session
+
+### Troubleshooting
+
+- **"BASE environment variable is required"**: Set `export BASE="https://..."` first
+- **"jq is required"**: Install jq: `brew install jq` (macOS) or `apt-get install jq` (Linux)
+- **"Login failed (HTTP 401)"**: Check email and password are correct
+- **"Access token not found"**: Check API response format hasn't changed
 
 5. **Release Documentation**
    - [ ] Update `docs/RELEASE_LOG_PHASE3.md` with:
