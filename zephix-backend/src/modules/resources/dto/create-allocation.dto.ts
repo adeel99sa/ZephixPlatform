@@ -46,14 +46,12 @@ export class CreateAllocationDto {
   allocationPercentage?: number;
 
   @ApiProperty({ example: 8, minimum: 0, required: false })
-  @ValidateIf((o) => o.unitsType === UnitsType.HOURS)
   @IsNumber()
   @Min(0)
   @IsOptional()
   hoursPerDay?: number;
 
   @ApiProperty({ example: 40, minimum: 0, required: false })
-  @ValidateIf((o) => o.unitsType === UnitsType.HOURS)
   @IsNumber()
   @Min(0)
   @IsOptional()
