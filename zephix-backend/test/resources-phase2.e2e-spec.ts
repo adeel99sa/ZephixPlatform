@@ -924,5 +924,105 @@ describe('Resources Phase 2 E2E Tests', () => {
       expect([200, 400, 403]).toContain(response.status);
     });
   });
+
+  // HOURS allocation tests
+  describe('HOURS Allocation Tests', () => {
+    let testResource: Resource;
+
+    beforeAll(async () => {
+      // Create a test resource with capacityHoursPerWeek
+      const resourceRepo = dataSource.getRepository(Resource);
+      testResource = await resourceRepo.save({
+        organizationId: org1.id,
+        name: 'Test Resource HOURS',
+        email: 'test-hours@example.com',
+        role: 'Developer',
+        skills: ['TypeScript'],
+        capacityHoursPerWeek: 40,
+        costPerHour: 100,
+        isActive: true,
+      });
+    });
+
+    it('should create HOURS allocation with hoursPerWeek successfully', async () => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() + 30);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/resource-allocations')
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id)
+        .send({
+          resourceId: testResource.id,
+          projectId: project1.id,
+          unitsType: 'HOURS',
+          hoursPerWeek: 20,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          type: 'SOFT',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.unitsType).toBe('HOURS');
+      expect(response.body.data.allocationPercentage).toBeDefined();
+      expect(typeof response.body.data.allocationPercentage).toBe('number');
+    });
+
+    it('should return 400 when HOURS allocation missing both hoursPerWeek and hoursPerDay', async () => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() + 30);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/resource-allocations')
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id)
+        .send({
+          resourceId: testResource.id,
+          projectId: project1.id,
+          unitsType: 'HOURS',
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          type: 'SOFT',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeDefined();
+      expect(response.body.error.message).toContain('hoursPerWeek or hoursPerDay is required');
+    });
+
+    it('should create HOURS allocation with hoursPerDay successfully', async () => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() + 30);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/resource-allocations')
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id)
+        .send({
+          resourceId: testResource.id,
+          projectId: project1.id,
+          unitsType: 'HOURS',
+          hoursPerDay: 4,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          type: 'SOFT',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.unitsType).toBe('HOURS');
+      expect(response.body.data.allocationPercentage).toBeDefined();
+      // hoursPerDay 4 should convert to hoursPerWeek 20 (4 * 5)
+      // With capacity 40, that's 50%
+      expect(response.body.data.allocationPercentage).toBe(50);
+    });
+  });
 });
 
