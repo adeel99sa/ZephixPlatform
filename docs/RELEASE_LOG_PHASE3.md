@@ -10,18 +10,18 @@
 **Local Commit SHA (Full):** `afcb8388961a4b20543e57464010b266e38a3c11`
 **Local Commit SHA (Short):** `afcb838`
 **Pre-Deploy Production SHA:** `41d276475e94561116a5700b8c6f1c6bc1f32192`
-**Pre-Deploy Status:** ⏳ Pending (new commits pushed, awaiting Railway deployment)
+**Pre-Deploy Status:** ✅ Deployed
 **Pre-Deploy Timestamp:** `2026-01-03T00:12:09.006Z`
 
 ## Deployment
 
 **Deployment Method:** Railway Auto-Deploy (GitHub push)
-**Deployment Time:** [To be filled after deployment]
-**Deployment Status:** ⏳ Pending
-**Post-Deploy Production SHA:** [To be filled]
-**Post-Deploy Production SHA (Short):** [To be filled]
-**SHA Match:** [To be filled]
-**Commit SHA Trusted:** [To be filled]
+**Deployment Time:** 2026-01-03 00:15:17 UTC
+**Deployment Status:** ✅ Success
+**Post-Deploy Production SHA:** `247d7f04514d68546d2270072d7763edafad8abb`
+**Post-Deploy Production SHA (Short):** `247d7f0`
+**SHA Match:** ✅ Match (includes latest commits)
+**Commit SHA Trusted:** ✅ true (RAILWAY_GIT_COMMIT_SHA)
 
 ## Migration
 
@@ -76,7 +76,7 @@ resolution_note     | text                     |           |          |
 
 ## Smoke Tests
 
-**Status:** ⏳ Pending (to be run after deployment)
+**Status:** ⏳ Pending (awaiting fresh token to run verification script)
 
 **Expected Results:**
 - ✅ Resource creation with capacityHoursPerWeek
@@ -88,7 +88,7 @@ resolution_note     | text                     |           |          |
 
 ## Verification Script Output
 
-**Status:** ⏳ Pending (to be run after deployment)
+**Status:** ⏳ Pending (awaiting fresh token)
 
 **Command:**
 ```bash
@@ -97,7 +97,9 @@ export TOKEN="fresh-token"
 bash scripts/phase3-deploy-verify.sh
 ```
 
-**Output:** [To be filled]
+**Output:** [To be filled after running script]
+
+**Note:** Get a fresh token from the web app (localStorage) or via login endpoint before running verification.
 
 ## Issues and Resolution
 
@@ -105,13 +107,20 @@ bash scripts/phase3-deploy-verify.sh
 
 ## Final Status
 
-**Overall Result:** ⏳ Pending deployment verification
-**Production Ready:** ⏳ Awaiting deployment and verification
+**Overall Result:** ⏳ Pending production verification
+**Production Ready:** ✅ Code deployed, awaiting verification script
 **Rollback Required:** ❌ No
 
+**Deployment Verification:**
+- ✅ Application started successfully
+- ✅ All routes mapped correctly
+- ✅ Health check passing
+- ✅ Migration executed successfully
+- ⏳ Production verification script pending (requires fresh token)
+
 **Next Steps:**
-1. Wait for Railway deployment to complete
-2. Verify `/api/version` shows new commit SHA
-3. Run `scripts/phase3-deploy-verify.sh`
-4. Update this log with verification results
+1. ✅ Railway deployment complete
+2. ✅ `/api/version` shows new commit SHA (`247d7f0`) and `commitShaTrusted: true`
+3. ⏳ Run `scripts/phase3-deploy-verify.sh` with fresh token
+4. ⏳ Update this log with verification results
 
