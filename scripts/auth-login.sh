@@ -1,17 +1,33 @@
 #!/usr/bin/env bash
 # Developer Auth Login Helper
 #
-# Usage:
+# Usage (MUST use 'source' to export TOKEN to current shell):
+#   export BASE="https://zephix-backend-production.up.railway.app"
+#   source scripts/auth-login.sh
+#
+# Or with env vars:
 #   export BASE="https://zephix-backend-production.up.railway.app"
 #   export EMAIL="your-email@example.com"
 #   export PASSWORD="your-password"
-#   bash scripts/auth-login.sh
-#
-# Or run interactively:
-#   bash scripts/auth-login.sh
+#   source scripts/auth-login.sh
 #
 # This script is for engineers only. Customers never use this.
 # Dev and staging environments only.
+
+# Detect if script is being sourced (vs executed)
+IS_SOURCED=false
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  IS_SOURCED=true
+fi
+
+# Use return when sourced, exit when executed
+exit_or_return() {
+  if [ "$IS_SOURCED" = true ]; then
+    return "$1"
+  else
+    exit "$1"
+  fi
+}
 
 set -euo pipefail
 
@@ -28,13 +44,13 @@ BASE_URL="${BASE:-}"
 if [ -z "$BASE_URL" ]; then
   echo -e "${RED}❌ ERROR: BASE environment variable is required${NC}"
   echo "   export BASE=\"https://zephix-backend-production.up.railway.app\""
-  exit 1
+  exit_or_return 1
 fi
 
 # Check dependencies
 if ! command -v jq &> /dev/null; then
   echo -e "${RED}❌ ERROR: jq is required but not installed${NC}"
-  exit 1
+  exit_or_return 1
 fi
 
 # Get email
@@ -55,7 +71,7 @@ fi
 # Validate inputs
 if [ -z "$EMAIL" ] || [ -z "$PASSWORD" ]; then
   echo -e "${RED}❌ ERROR: Email and password are required${NC}"
-  exit 1
+  exit_or_return 1
 fi
 
 # Call login endpoint
@@ -71,7 +87,7 @@ BODY=$(echo "$RESPONSE" | sed '$d')
 if [ "$HTTP_CODE" != "200" ]; then
   echo -e "${RED}❌ ERROR: Login failed (HTTP $HTTP_CODE)${NC}"
   echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
-  exit 1
+  exit_or_return 1
 fi
 
 # Extract token (handle both wrapped and unwrapped responses)
@@ -80,7 +96,7 @@ TOKEN=$(echo "$BODY" | jq -r '.data.accessToken // .accessToken // empty')
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
   echo -e "${RED}❌ ERROR: Access token not found in response${NC}"
   echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
-  exit 1
+  exit_or_return 1
 fi
 
 # Extract expiry (if available in response)
@@ -102,11 +118,11 @@ if [ "$EXPIRY" != "unknown" ] && [ "$EXPIRY" != "null" ]; then
   echo "   Expires in: ${EXPIRY}s"
 fi
 echo ""
-echo "💡 Token exported to TOKEN environment variable"
-echo ""
-echo "   Important: Use 'source' (not 'bash') to export TOKEN to current shell:"
-echo "   source scripts/auth-login.sh"
-echo ""
-echo "   Then run verification:"
-echo "   bash scripts/phase3-deploy-verify.sh"
+if [ "$IS_SOURCED" = true ]; then
+  echo "💡 Token exported to TOKEN environment variable in current shell"
+  echo "   Run verification: bash scripts/phase3-deploy-verify.sh"
+else
+  echo "⚠️  WARNING: Script was executed (not sourced)"
+  echo "   TOKEN export will not persist. Use 'source scripts/auth-login.sh' instead"
+fi
 
