@@ -103,5 +103,10 @@ if [ "$EXPIRY" != "unknown" ] && [ "$EXPIRY" != "null" ]; then
 fi
 echo ""
 echo "💡 Token exported to TOKEN environment variable"
-echo "   Run verification: bash scripts/phase3-deploy-verify.sh"
+echo ""
+echo "   Important: Use 'source' (not 'bash') to export TOKEN to current shell:"
+echo "   source scripts/auth-login.sh"
+echo ""
+echo "   Then run verification:"
+echo "   bash scripts/phase3-deploy-verify.sh"
 
