@@ -533,6 +533,358 @@ describe('Resources Phase 2 E2E Tests', () => {
     });
   });
 
+  // Phase 3: Workspace scoping tests - Ensure workspace access is enforced
+  describe('Phase 3: Workspace Scoping', () => {
+    let testAllocation: ResourceAllocation;
+
+    beforeAll(async () => {
+      // Create a test allocation for PATCH/DELETE tests
+      const allocationRepo = dataSource.getRepository(ResourceAllocation);
+      testAllocation = await allocationRepo.save({
+        organizationId: org1.id,
+        resourceId: resource1.id,
+        projectId: project1.id,
+        allocationPercentage: 50,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-01-31'),
+        type: 'SOFT' as any,
+        unitsType: 'PERCENT' as any,
+        bookingSource: 'MANUAL' as any,
+      });
+    });
+
+    describe('Missing x-workspace-id header', () => {
+      it('POST /api/resource-allocations should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .send({
+            resourceId: resource1.id,
+            projectId: project1.id,
+            allocationPercentage: 50,
+            startDate: '2026-01-01',
+            endDate: '2026-01-31',
+            type: 'SOFT',
+          });
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace ID is required');
+      });
+
+      it('GET /api/resource-allocations should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace ID is required');
+      });
+
+      it('GET /api/resource-allocations/:id should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .get(`/api/resource-allocations/${testAllocation.id}`)
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace ID is required');
+      });
+
+      it('PATCH /api/resource-allocations/:id should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resource-allocations/${testAllocation.id}`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .send({ allocationPercentage: 60 });
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace ID is required');
+      });
+
+      it('DELETE /api/resource-allocations/:id should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .delete(`/api/resource-allocations/${testAllocation.id}`)
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace ID is required');
+      });
+
+      it('GET /api/resources/conflicts should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resources/conflicts')
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+      });
+
+      it('GET /api/resources/capacity/resources should return 403', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resources/capacity/resources')
+          .query({
+            startDate: '2026-01-01',
+            endDate: '2026-01-31',
+          })
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('Invalid x-workspace-id header', () => {
+      it('should return 403 for invalid UUID', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', 'not-a-uuid');
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('Wrong workspace (different org)', () => {
+      it('should return 403 when workspace belongs to different org', async () => {
+        // Create a workspace in a different org (org2)
+        const otherWorkspace = await createTestWorkspace(
+          'Other Workspace',
+          org2.id,
+          adminUser2.id,
+        );
+
+        // Try to access with wrong workspace
+        const response = await request(app.getHttpServer())
+          .get('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', otherWorkspace.id);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error?.message).toContain('Workspace does not belong');
+      });
+    });
+
+    describe('Valid x-workspace-id header', () => {
+      it('GET /api/resource-allocations should return 200', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+      });
+
+      it('GET /api/resource-allocations/:id should return 200', async () => {
+        const response = await request(app.getHttpServer())
+          .get(`/api/resource-allocations/${testAllocation.id}`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+      });
+
+      it('POST /api/resource-allocations should return 201', async () => {
+        const response = await request(app.getHttpServer())
+          .post('/api/resource-allocations')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id)
+          .send({
+            resourceId: resource1.id,
+            projectId: project1.id,
+            allocationPercentage: 30,
+            startDate: '2026-02-01',
+            endDate: '2026-02-28',
+            type: 'SOFT',
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body.data).toBeDefined();
+      });
+
+      it('GET /api/resources/conflicts should return 200', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resources/conflicts')
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+      });
+
+      it('GET /api/resources/capacity/resources should return 200', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/api/resources/capacity/resources')
+          .query({
+            startDate: '2026-01-01',
+            endDate: '2026-01-31',
+          })
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+      });
+    });
+  });
+
+  // Phase 3: Conflict lifecycle tests
+  describe('Phase 3: Conflict Lifecycle', () => {
+    let testResource: Resource;
+    let conflictId: string;
+    let allocation1: ResourceAllocation;
+    let allocation2: ResourceAllocation;
+
+    beforeAll(async () => {
+      // Create resource with specific capacity
+      testResource = await createTestResource(
+        'Test Resource Phase3',
+        'test-resource-phase3@test.com',
+        'Developer',
+        ['TypeScript'],
+        org1.id,
+        workspace1.id,
+      );
+
+      // Update resource capacity
+      const resourceRepo = dataSource.getRepository(Resource);
+      testResource.capacityHoursPerWeek = 20;
+      await resourceRepo.save(testResource);
+
+      // Create two SOFT allocations that exceed 100% for overlapping window
+      const allocationRepo = dataSource.getRepository(ResourceAllocation);
+      const startDate = new Date('2026-03-01');
+      const endDate = new Date('2026-03-31');
+
+      allocation1 = await allocationRepo.save({
+        organizationId: org1.id,
+        resourceId: testResource.id,
+        projectId: project1.id,
+        allocationPercentage: 60,
+        startDate,
+        endDate,
+        type: 'SOFT' as any,
+        unitsType: 'PERCENT' as any,
+        bookingSource: 'MANUAL' as any,
+      });
+
+      allocation2 = await allocationRepo.save({
+        organizationId: org1.id,
+        resourceId: testResource.id,
+        projectId: project1.id,
+        allocationPercentage: 50,
+        startDate,
+        endDate,
+        type: 'SOFT' as any,
+        unitsType: 'PERCENT' as any,
+        bookingSource: 'MANUAL' as any,
+      });
+
+      // Wait a bit for conflict detection
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Fetch conflicts via API to get one conflict ID
+      const response = await request(app.getHttpServer())
+        .get(`/api/resources/conflicts?resourceId=${testResource.id}&resolved=false`)
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id);
+
+      if (response.status === 200 && response.body.data && response.body.data.length > 0) {
+        conflictId = response.body.data[0].id;
+      } else {
+        // If no conflicts found via API, create one manually for testing
+        const conflictRepo = dataSource.getRepository(ResourceConflict);
+        const conflict = await conflictRepo.save({
+          organizationId: org1.id,
+          resourceId: testResource.id,
+          conflictDate: startDate,
+          totalAllocation: 110,
+          severity: 'low',
+          resolved: false,
+          affectedProjects: [
+            {
+              projectId: project1.id,
+              projectName: project1.name,
+              allocation: 60,
+            },
+            {
+              projectId: project1.id,
+              projectName: project1.name,
+              allocation: 50,
+            },
+          ],
+        });
+        conflictId = conflict.id;
+      }
+    });
+
+    describe('Resolve conflict', () => {
+      it('should resolve conflict with resolutionNote', async () => {
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resources/conflicts/${conflictId}/resolve`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id)
+          .send({
+            resolutionNote: 'Test resolution note',
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+        expect(response.body.data.resolved).toBe(true);
+        expect(response.body.data.resolvedByUserId).toBe(adminUser1.id);
+        expect(response.body.data.resolutionNote).toBe('Test resolution note');
+        expect(response.body.data.resolvedAt).toBeDefined();
+      });
+
+      it('should return 403 without x-workspace-id header', async () => {
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resources/conflicts/${conflictId}/resolve`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .send({
+            resolutionNote: 'Test',
+          });
+
+        expect(response.status).toBe(403);
+      });
+    });
+
+    describe('Reopen conflict', () => {
+      it('should reopen resolved conflict', async () => {
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resources/conflicts/${conflictId}/reopen`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', workspace1.id);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toBeDefined();
+        expect(response.body.data.resolved).toBe(false);
+        expect(response.body.data.resolvedByUserId).toBeNull();
+        expect(response.body.data.resolutionNote).toBeNull();
+        expect(response.body.data.resolvedAt).toBeNull();
+      });
+
+      it('should return 403 without x-workspace-id header', async () => {
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resources/conflicts/${conflictId}/reopen`)
+          .set('Authorization', `Bearer ${adminToken1}`);
+
+        expect(response.status).toBe(403);
+      });
+
+      it('should return 403 with wrong workspace', async () => {
+        const otherWorkspace = await createTestWorkspace(
+          'Other Workspace Phase3',
+          org2.id,
+          adminUser2.id,
+        );
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/resources/conflicts/${conflictId}/reopen`)
+          .set('Authorization', `Bearer ${adminToken1}`)
+          .set('x-workspace-id', otherWorkspace.id);
+
+        expect(response.status).toBe(403);
+      });
+    });
+  });
+
   // Routing order guard: Ensure static routes come before dynamic routes
   // This prevents regression where /api/resources/conflicts matches @Get(':id') instead of @Get('conflicts')
   describe('Route Order Guard', () => {

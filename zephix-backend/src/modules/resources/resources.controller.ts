@@ -35,6 +35,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { TenantContextService } from '../tenancy/tenant-context.service';
+import { WorkspaceScopeHelper } from './helpers/workspace-scope.helper';
+import { WorkspaceAccessService } from '../workspaces/services/workspace-access.service';
 
 @Controller('resources')
 @ApiTags('resources')
@@ -51,6 +53,7 @@ export class ResourcesController {
     private readonly timelineService: ResourceTimelineService,
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   @Get('heat-map')
@@ -196,6 +199,7 @@ export class ResourcesController {
   @Get('conflicts')
   @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Workspace access denied' })
   async getConflicts(
     @Req() req: AuthRequest,
     @Query('workspaceId') workspaceIdQuery?: string,
@@ -227,6 +231,60 @@ export class ResourcesController {
     );
   }
 
+  @Patch('conflicts/:id/resolve')
+  @ApiOperation({ summary: 'Resolve a resource conflict (Phase 3)' })
+  @ApiResponse({ status: 200, description: 'Conflict resolved successfully' })
+  @ApiResponse({ status: 403, description: 'Workspace access denied' })
+  @ApiResponse({ status: 404, description: 'Conflict not found' })
+  async resolveConflict(
+    @Param('id') id: string,
+    @Body() body: { resolutionNote?: string },
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    
+    // Validate workspace access (required for workspace-scoped operations)
+    await WorkspaceScopeHelper.getValidatedWorkspaceId(
+      this.tenantContextService,
+      this.workspaceAccessService,
+      organizationId,
+      userId,
+      platformRole,
+      true, // Required
+    );
+
+    return this.resourcesService.resolveConflict(
+      id,
+      organizationId,
+      userId,
+      body.resolutionNote,
+    );
+  }
+
+  @Patch('conflicts/:id/reopen')
+  @ApiOperation({ summary: 'Reopen a resolved conflict (Phase 3)' })
+  @ApiResponse({ status: 200, description: 'Conflict reopened successfully' })
+  @ApiResponse({ status: 403, description: 'Workspace access denied' })
+  @ApiResponse({ status: 404, description: 'Conflict not found' })
+  async reopenConflict(
+    @Param('id') id: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    
+    // Validate workspace access (required for workspace-scoped operations)
+    await WorkspaceScopeHelper.getValidatedWorkspaceId(
+      this.tenantContextService,
+      this.workspaceAccessService,
+      organizationId,
+      userId,
+      platformRole,
+      true, // Required
+    );
+
+    return this.resourcesService.reopenConflict(id, organizationId, userId);
+  }
+
   @Get('capacity/resources')
   @ApiOperation({
     summary: 'Get capacity view with weekly rollup per resource (Phase 2)',
@@ -235,6 +293,7 @@ export class ResourcesController {
     status: 200,
     description: 'Capacity resources retrieved successfully',
   })
+  @ApiResponse({ status: 403, description: 'Workspace access denied' })
   async getCapacityResources(
     @Req() req: AuthRequest,
     @Query('startDate') startDate: string,
@@ -439,12 +498,24 @@ export class ResourcesController {
     summary: 'Create resource allocation with audit and cache invalidation',
   })
   @ApiResponse({ status: 201, description: 'Allocation created successfully' })
+  @ApiResponse({ status: 403, description: 'Workspace access denied' })
+  @ApiResponse({ status: 409, description: 'HARD allocation would exceed capacity' })
   async createAllocation(
     @Body() dto: CreateAllocationDto,
     @Req() req: AuthRequest,
   ) {
     const requestId = uuidv4();
-    const { userId, organizationId } = getAuthContext(req);
+    const { userId, organizationId, platformRole } = getAuthContext(req);
+    
+    // Validate workspace access (required for workspace-scoped operations)
+    await WorkspaceScopeHelper.getValidatedWorkspaceId(
+      this.tenantContextService,
+      this.workspaceAccessService,
+      organizationId,
+      userId,
+      platformRole,
+      true, // Required
+    );
 
     try {
       // 1. Create allocation
