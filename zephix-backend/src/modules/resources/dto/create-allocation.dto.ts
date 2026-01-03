@@ -10,11 +10,14 @@ import {
   IsString,
   ValidateIf,
   IsNumber,
+  Validate,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { AllocationType } from '../enums/allocation-type.enum';
 import { BookingSource } from '../enums/booking-source.enum';
 import { UnitsType } from '../enums/units-type.enum';
+import { UnitsTypeValidator } from './validators/units-type.validator';
 
 export class CreateAllocationDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -35,9 +38,11 @@ export class CreateAllocationDto {
   })
   @IsOptional()
   @IsEnum(UnitsType)
+  @Validate(UnitsTypeValidator)
   unitsType?: UnitsType;
 
   @ApiProperty({ example: 50, minimum: 0, maximum: 150, required: false })
+  @Type(() => Number)
   @ValidateIf((o) => o.unitsType === UnitsType.PERCENT || !o.unitsType)
   @IsInt()
   @Min(0)
@@ -46,12 +51,14 @@ export class CreateAllocationDto {
   allocationPercentage?: number;
 
   @ApiProperty({ example: 8, minimum: 0, required: false })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @IsOptional()
   hoursPerDay?: number;
 
   @ApiProperty({ example: 40, minimum: 0, required: false })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @IsOptional()
