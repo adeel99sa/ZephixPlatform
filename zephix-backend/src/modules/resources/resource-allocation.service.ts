@@ -76,7 +76,19 @@ export class ResourceAllocationService {
       // Ensure hours fields are null
       hoursPerWeek = null;
     } else if (unitsType === UnitsType.HOURS) {
-      if (!createAllocationDto.hoursPerDay && !createAllocationDto.hoursPerWeek) {
+      // Debug: Log the DTO to see what we're receiving
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[DEBUG] CreateAllocationDto for HOURS:', {
+          hoursPerWeek: createAllocationDto.hoursPerWeek,
+          hoursPerDay: createAllocationDto.hoursPerDay,
+          unitsType: createAllocationDto.unitsType,
+        });
+      }
+
+      if (
+        (createAllocationDto.hoursPerDay === null || createAllocationDto.hoursPerDay === undefined) &&
+        (createAllocationDto.hoursPerWeek === null || createAllocationDto.hoursPerWeek === undefined)
+      ) {
         throw new BadRequestException(
           'hoursPerDay or hoursPerWeek is required when unitsType is HOURS',
         );
@@ -99,22 +111,27 @@ export class ResourceAllocationService {
         hoursPerWeek = createAllocationDto.hoursPerDay * 5;
       }
 
-      // Use CapacityMathHelper to convert to percent (single source of truth)
-      if (unitsType === UnitsType.HOURS && hoursPerWeek !== null && hoursPerWeek !== undefined) {
-        // Create temporary allocation object for helper
-        const tempAllocation = {
-          unitsType: UnitsType.HOURS,
-          allocationPercentage: null,
-        } as ResourceAllocation;
-        allocationPercentage = CapacityMathHelper.toPercentOfWeek(
-          tempAllocation,
-          resource,
-          hoursPerWeek,
-          createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
-            ? createAllocationDto.hoursPerDay
-            : null,
+      // Ensure hoursPerWeek is set before calling helper
+      if (hoursPerWeek === null || hoursPerWeek === undefined) {
+        throw new BadRequestException(
+          'hoursPerWeek or hoursPerDay must be provided and valid when unitsType is HOURS',
         );
       }
+
+      // Use CapacityMathHelper to convert to percent (single source of truth)
+      // Create temporary allocation object for helper
+      const tempAllocation = {
+        unitsType: UnitsType.HOURS,
+        allocationPercentage: null,
+      } as ResourceAllocation;
+      allocationPercentage = CapacityMathHelper.toPercentOfWeek(
+        tempAllocation,
+        resource,
+        hoursPerWeek,
+        createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
+          ? createAllocationDto.hoursPerDay
+          : null,
+      );
       // Store converted percentage for conflict checking and rollups
     }
 
