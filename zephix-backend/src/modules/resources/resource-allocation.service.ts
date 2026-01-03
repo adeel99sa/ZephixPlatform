@@ -92,15 +92,15 @@ export class ResourceAllocationService {
         throw new NotFoundException('Resource not found');
       }
 
-      if (createAllocationDto.hoursPerWeek) {
+      if (createAllocationDto.hoursPerWeek !== null && createAllocationDto.hoursPerWeek !== undefined) {
         hoursPerWeek = createAllocationDto.hoursPerWeek;
-      } else if (createAllocationDto.hoursPerDay) {
+      } else if (createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined) {
         // Convert hoursPerDay to hoursPerWeek: hoursPerDay * 5 (assume 5 days/week)
         hoursPerWeek = createAllocationDto.hoursPerDay * 5;
       }
 
       // Use CapacityMathHelper to convert to percent (single source of truth)
-      if (unitsType === UnitsType.HOURS && hoursPerWeek !== null) {
+      if (unitsType === UnitsType.HOURS && hoursPerWeek !== null && hoursPerWeek !== undefined) {
         // Create temporary allocation object for helper
         const tempAllocation = {
           unitsType: UnitsType.HOURS,
@@ -110,7 +110,9 @@ export class ResourceAllocationService {
           tempAllocation,
           resource,
           hoursPerWeek,
-          createAllocationDto.hoursPerDay || null,
+          createAllocationDto.hoursPerDay !== null && createAllocationDto.hoursPerDay !== undefined
+            ? createAllocationDto.hoursPerDay
+            : null,
         );
       }
       // Store converted percentage for conflict checking and rollups
