@@ -201,7 +201,12 @@ export class ResourceAllocationService {
 
     const allocation = this.allocationRepository.create({
       ...createAllocationDto,
-      allocationPercentage: unitsType === UnitsType.PERCENT ? allocationPercentage : null,
+      // Phase 3: Store converted percentage for both PERCENT and HOURS
+      // For HOURS, allocationPercentage is the converted value from CapacityMathHelper
+      // For PERCENT, allocationPercentage is the direct value
+      // This allows conflict/governance checks to use CapacityMathHelper.toPercentOfWeek
+      // which will use the stored allocationPercentage for both types
+      allocationPercentage: allocationPercentage,
       // hoursPerWeek column doesn't exist in database - we convert HOURS to percentage for storage
       // hoursPerWeek: unitsType === UnitsType.HOURS ? hoursPerWeek : null,
       unitsType,
