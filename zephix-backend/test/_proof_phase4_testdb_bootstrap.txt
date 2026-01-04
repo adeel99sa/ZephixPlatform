@@ -1,0 +1,33 @@
+Test Database Bootstrap Proof
+==============================
+
+Command:
+cd zephix-backend
+export DATABASE_URL="postgresql://zephix_test:zephix_test@localhost:5433/zephix_test?sslmode=disable"
+bash scripts/setup-test-db.sh
+
+Output:
+🔧 Setting up test database...
+🔍 Local dev mode - will fall back gracefully on errors
+   Parsed from DATABASE_URL:
+   - User: zephix_test
+   - Host: localhost
+   - Port: 5433
+   - Database: zephix_test
+   - Test User: zephix_test
+📋 Connection Summary:
+   Host: localhost
+   Port: 5433
+   User: zephix_test
+   Database: zephix_test
+   Password: [REDACTED]
+✅ DATABASE_URL is set - using parsed connection details
+
+Verification:
+✅ Script correctly parses DATABASE_URL and extracts user, password, host, port, database
+✅ Uses parsed user (zephix_test) as TEST_DB_USER instead of hardcoding zephix_test_user
+✅ Port correctly parsed as 5433 (not default 5432)
+✅ No reference to zephix_test_user when DATABASE_URL is set
+
+Note: Connection fails because Postgres not running on port 5433, but parsing is correct.
+When Postgres is available, script will create user/database if needed.

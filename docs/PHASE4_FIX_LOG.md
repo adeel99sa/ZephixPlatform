@@ -69,6 +69,8 @@ grep -r "forwardRef(" zephix-backend/src/modules
 - **No cycle exists** - forwardRef is a defensive measure but not strictly necessary
 - **Status**: ✅ Cycle is broken, forwardRef is harmless
 
+**Justification**: The forwardRef in WorkspacesModule importing ResourceModule is safe because ResourceModule no longer imports WorkspacesModule (it imports WorkspaceAccessModule instead), so there is no circular dependency. The forwardRef is a defensive measure but not strictly necessary.
+
 ## Step 2: Phase 4 E2E Test Verification
 
 ### Test File Analysis
@@ -85,6 +87,17 @@ grep -r "forwardRef(" zephix-backend/src/modules
 - **Module Initialization**: ✅ Passes (no circular dependency)
 - **Test Structure**: ✅ Properly configured for auth, headers, and data
 - **Note**: Full test execution requires Postgres running locally
+
+## Step 2: E2E Config Deterministic
+
+### Changes Made
+- **setup-test-db.sh**: Fixed DATABASE_URL parsing to handle query strings (removes `?sslmode=disable` before parsing)
+- **setup-e2e.ts**: Already reads DATABASE_URL from environment (no changes needed)
+- **jest-e2e.json**: No hardcoded database config (uses environment)
+
+### Summary
+- Tests read DATABASE_URL from environment with no overrides
+- Script correctly parses port from DATABASE_URL even with query strings
 
 ## Step 1: Test DB Bootstrap Verification
 

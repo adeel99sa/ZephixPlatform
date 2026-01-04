@@ -8,6 +8,9 @@ import { TaskDependency } from '../modules/projects/entities/task-dependency.ent
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
+import { Portfolio } from '../modules/portfolios/entities/portfolio.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { PortfolioProject } from '../modules/portfolios/entities/portfolio-project.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -34,6 +37,9 @@ const AppDataSource = new DataSource({
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
+    Portfolio,
+    Program,
+    PortfolioProject,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

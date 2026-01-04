@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: zephix-test-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: zephix_test
+      POSTGRES_PASSWORD: zephix_test
+      POSTGRES_DB: zephix_test
+    volumes:
+      - zephix-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zephix_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  zephix-test-data:
+

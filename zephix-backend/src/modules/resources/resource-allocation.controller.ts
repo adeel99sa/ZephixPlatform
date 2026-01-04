@@ -49,7 +49,7 @@ export class ResourceAllocationController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -59,7 +59,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.create(
       createAllocationDto,
       organizationId,
@@ -80,7 +80,7 @@ export class ResourceAllocationController {
     @Query('projectId') projectId?: string,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -90,7 +90,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.findAll(
       organizationId,
       resourceId,
@@ -108,7 +108,7 @@ export class ResourceAllocationController {
   @ApiResponse({ status: 404, description: 'Resource allocation not found' })
   async findOne(@Param('id') id: string, @Req() req: AuthRequest) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -118,7 +118,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.findOne(id, organizationId);
   }
 
@@ -137,7 +137,7 @@ export class ResourceAllocationController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -147,7 +147,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.update(
       id,
       updateAllocationDto,
@@ -165,7 +165,7 @@ export class ResourceAllocationController {
   @ApiResponse({ status: 404, description: 'Resource allocation not found' })
   async remove(@Param('id') id: string, @Req() req: AuthRequest) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -175,7 +175,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.remove(id, organizationId);
   }
 
@@ -191,7 +191,7 @@ export class ResourceAllocationController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -201,7 +201,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.findByResource(resourceId, organizationId);
   }
 
@@ -217,7 +217,7 @@ export class ResourceAllocationController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -227,7 +227,7 @@ export class ResourceAllocationController {
       platformRole,
       true, // Required
     );
-    
+
     return this.allocationService.findByProject(projectId, organizationId);
   }
 }
