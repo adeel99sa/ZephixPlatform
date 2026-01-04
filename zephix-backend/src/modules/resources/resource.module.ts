@@ -18,12 +18,13 @@ import { ResponseService } from '../../shared/services/response.service';
 import { Project } from '../projects/entities/project.entity';
 import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
-import { WorkspacesModule } from '../workspaces/workspaces.module';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { ResourceDailyLoad } from './entities/resource-daily-load.entity';
 import { ResourceTimelineService } from './services/resource-timeline.service';
 import { TenancyModule } from '../tenancy/tenancy.module';
 import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-repository.provider';
+// ResponseService removed from imports - use from @Global() SharedModule
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-rep
       Organization,
     ]),
     TenancyModule, // Required for TenantAwareRepository
-    forwardRef(() => WorkspacesModule), // Required for WorkspaceAccessService injection
+    WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency with WorkspacesModule
+    // SharedModule is @Global(), so ResponseService is available without import
   ],
   providers: [
     // Provide TenantAwareRepository for tenant-scoped entities
@@ -56,7 +58,7 @@ import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-rep
     ResourceTimelineService,
     AuditService,
     CacheService,
-    ResponseService,
+    // ResponseService removed - use from @Global() SharedModule
   ],
   controllers: [ResourceAllocationController, ResourcesController],
   exports: [

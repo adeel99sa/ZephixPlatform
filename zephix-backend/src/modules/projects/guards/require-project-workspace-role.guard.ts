@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   REQUIRE_WORKSPACE_ROLE_KEY,
   RequireWorkspaceRoleOptions,
@@ -22,7 +22,6 @@ import { Project } from '../entities/project.entity';
 export class RequireProjectWorkspaceRoleGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    @Inject(forwardRef(() => WorkspaceAccessService))
     private accessService: WorkspaceAccessService,
     private configService: ConfigService,
     @InjectRepository(Project)

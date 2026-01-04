@@ -33,11 +33,11 @@ import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
-import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { WorkspaceAccessModule } from './modules/workspace-access/workspace-access.module';
 import { RisksModule } from './modules/risks/risks.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
@@ -88,6 +88,7 @@ if (!(global as any).crypto) {
 
     SharedModule,
     TenancyModule, // Must be imported early for global tenant context
+    WorkspaceAccessModule, // Must be imported early - provides WorkspaceAccessService used by many modules
     AuthModule,
     OrganizationsModule,
     BillingModule,
@@ -107,7 +108,6 @@ if (!(global as any).crypto) {
           ObservabilityModule,
           WaitlistModule,
           PortfoliosModule,
-          ProgramsModule,
           TasksModule,
           KPIModule,
           WorkspacesModule,

@@ -36,7 +36,7 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkspaceScopeHelper } from './helpers/workspace-scope.helper';
-import { WorkspaceAccessService } from '../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 
 @Controller('resources')
 @ApiTags('resources')

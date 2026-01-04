@@ -12,9 +12,7 @@ import { ProgramsService } from '../programs/services/programs.service';
 import { PortfoliosController } from './portfolios.controller';
 import { ProgramsController } from './programs.controller';
 import { TenancyModule } from '../tenancy/tenancy.module';
-import { WorkspacesModule } from '../workspaces/workspaces.module';
-import { forwardRef } from '@nestjs/common';
-import { ResponseService } from '../../shared/services/response.service';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 
 @Module({
   imports: [
@@ -28,14 +26,13 @@ import { ResponseService } from '../../shared/services/response.service';
       Resource,
     ]),
     TenancyModule,
-    // Removed SharedModule import to break circular dependency
-    // Provide ResponseService locally instead
-    forwardRef(() => WorkspacesModule), // Required for WorkspaceAccessService - use forwardRef to break cycle
+    WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency with WorkspacesModule
+    // SharedModule is @Global(), so ResponseService is available without import
   ],
   providers: [
     PortfoliosService,
     ProgramsService,
-    ResponseService, // Provide locally to avoid circular dependency through SharedModule
+    // ResponseService available from @Global() SharedModule - no local provider needed
   ],
   controllers: [PortfoliosController, ProgramsController],
   exports: [PortfoliosService, ProgramsService],
