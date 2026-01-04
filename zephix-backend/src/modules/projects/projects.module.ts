@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 
 // Import the UsersModule to get access to User entity
 import { UsersModule } from '../users/users.module';
-import { WorkspacesModule } from '../workspaces/workspaces.module';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -54,7 +54,7 @@ import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-works
     ConfigModule,
     TenancyModule, // Required for TenantAwareRepository
     UsersModule, // This provides access to User entity for TaskService
-    WorkspacesModule, // This provides WorkspaceAccessService for membership filtering
+    WorkspaceAccessModule, // Provides WorkspaceAccessService for membership filtering - breaks circular dependency
   ],
   controllers: [ProjectsController, TaskController],
   providers: [

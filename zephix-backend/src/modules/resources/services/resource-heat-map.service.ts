@@ -1,7 +1,7 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ResourceAllocation } from '../entities/resource-allocation.entity';
 import { HeatMapQueryDto } from '../dto/heat-map-query.dto';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Project } from '../../projects/entities/project.entity';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
@@ -15,7 +15,6 @@ export class ResourceHeatMapService {
     private resourceAllocationRepository: TenantAwareRepository<ResourceAllocation>,
     @Inject(getTenantAwareRepositoryToken(Project))
     private projectRepository: TenantAwareRepository<Project>,
-    @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly tenantContextService: TenantContextService,
   ) {}

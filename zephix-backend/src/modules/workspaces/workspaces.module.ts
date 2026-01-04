@@ -10,7 +10,7 @@ import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
-import { WorkspaceAccessService } from './services/workspace-access.service';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { WorkspaceBackfillService } from './services/workspace-backfill.service';
 import { WorkspacePermissionService } from './services/workspace-permission.service';
 import { WorkspaceModuleService } from './services/workspace-module.service';
@@ -44,6 +44,7 @@ import {
     ConfigModule,
     ObservabilityModule,
     SharedModule, // Provides ResponseService
+    WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency
     forwardRef(() => ResourceModule), // Provides ResourceRiskScoreService - forwardRef to break circular dependency
   ],
   providers: [
@@ -52,7 +53,7 @@ import {
     createTenantAwareRepositoryProvider(WorkspaceMember),
     WorkspacesService,
     WorkspaceMembersService,
-    WorkspaceAccessService,
+    // WorkspaceAccessService now provided by WorkspaceAccessModule
     WorkspaceBackfillService,
     WorkspacePermissionService,
     WorkspaceModuleService,
@@ -73,7 +74,7 @@ import {
   exports: [
     WorkspacesService,
     WorkspaceMembersService,
-    WorkspaceAccessService,
+    // WorkspaceAccessService exported by WorkspaceAccessModule
     WorkspacePermissionService,
     WorkspaceModuleService,
   ],

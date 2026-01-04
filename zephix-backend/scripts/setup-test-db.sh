@@ -19,8 +19,6 @@ else
 fi
 
 # Default values (can be overridden by environment)
-TEST_DB_USER="${TEST_DB_USER:-zephix_test_user}"
-TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-zephix_test_password}"
 # In CI, use unique database name per run to avoid collisions in matrix runs
 if [ -n "$GITHUB_RUN_ID" ]; then
   TEST_DB_NAME="${TEST_DB_NAME:-zephix_test_${GITHUB_RUN_ID}}"
@@ -30,6 +28,32 @@ fi
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+
+# Parse DATABASE_URL if set to extract connection details
+if [ -n "$DATABASE_URL" ] && [ "$CI_MODE" != "true" ]; then
+  # Parse DATABASE_URL: postgresql://user:password@host:port/database
+  if [[ "$DATABASE_URL" =~ postgresql://([^:]+):([^@]+)@([^:]+):([^/]+)/(.+) ]]; then
+    DB_USER_FROM_URL="${BASH_REMATCH[1]}"
+    DB_PASS_FROM_URL="${BASH_REMATCH[2]}"
+    DB_HOST_FROM_URL="${BASH_REMATCH[3]}"
+    DB_PORT_FROM_URL="${BASH_REMATCH[4]}"
+    DB_NAME_FROM_URL="${BASH_REMATCH[5]}"
+    
+    # Use parsed values, but allow overrides via env vars
+    POSTGRES_USER="${POSTGRES_USER:-$DB_USER_FROM_URL}"
+    POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$DB_PASS_FROM_URL}"
+    POSTGRES_HOST="${POSTGRES_HOST:-$DB_HOST_FROM_URL}"
+    POSTGRES_PORT="${POSTGRES_PORT:-$DB_PORT_FROM_URL}"
+    TEST_DB_NAME="${TEST_DB_NAME:-$DB_NAME_FROM_URL}"
+    # Use the user from DATABASE_URL for test user, or fallback to postgres
+    TEST_DB_USER="${TEST_DB_USER:-$DB_USER_FROM_URL}"
+    TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-$DB_PASS_FROM_URL}"
+  fi
+fi
+
+# Set defaults if not parsed from DATABASE_URL
+TEST_DB_USER="${TEST_DB_USER:-zephix_test_user}"
+TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-zephix_test_password}"
 
 # Assert required environment variables exist in CI mode
 if [ "$CI_MODE" = "true" ]; then
@@ -55,12 +79,10 @@ echo "   User: ${POSTGRES_USER}"
 echo "   Database: ${TEST_DB_NAME}"
 echo "   Password: [REDACTED]"
 
-# Check if DATABASE_URL is set (for local dev with pre-configured database)
-# In CI, we should NOT use DATABASE_URL - we use local Postgres service container
+# Log DATABASE_URL usage
 if [ -n "$DATABASE_URL" ] && [ "$CI_MODE" != "true" ]; then
-  echo "✅ DATABASE_URL is set - using provided connection (local dev)"
+  echo "✅ DATABASE_URL is set - using parsed connection details"
   echo "   Note: In CI, use local Postgres service container, not DATABASE_URL"
-  exit 0
 fi
 
 # In CI mode, refuse to use DATABASE_URL to prevent pointing at Railway/staging/prod

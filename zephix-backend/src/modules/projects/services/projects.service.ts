@@ -24,7 +24,7 @@ import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
 import { TenantAwareRepository } from '../../../common/decorators/tenant.decorator';
 import { ConfigService } from '@nestjs/config';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Template } from '../../templates/entities/template.entity';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
@@ -65,7 +65,6 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly dataSource: DataSource,
     private readonly tenantContext: TenantContextService,
     private configService: ConfigService,
-    @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
     // @InjectRepository(ProjectAssignment)
     // private readonly projectAssignmentRepository: Repository<ProjectAssignment>,

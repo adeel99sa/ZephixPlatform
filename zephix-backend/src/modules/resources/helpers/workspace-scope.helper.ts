@@ -1,6 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 
 /**
  * Helper to validate workspace access for resource operations.

@@ -14,7 +14,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
 import { Task } from '../tasks/entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
-import { WorkspaceAccessService } from '../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { AllocationType } from './enums/allocation-type.enum';
 import { getResourceSettings } from '../../organizations/utils/resource-settings.util';
@@ -41,7 +41,6 @@ export class ResourcesService {
     @InjectRepository(ResourceConflict)
     private conflictRepository: Repository<ResourceConflict>,
     private dataSource: DataSource,
-    @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly tenantContextService: TenantContextService,
   ) {}

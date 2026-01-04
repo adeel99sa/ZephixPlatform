@@ -3,7 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
@@ -13,7 +12,7 @@ import { ResourceConflict } from '../entities/resource-conflict.entity';
 import { UserDailyCapacity } from '../entities/user-daily-capacity.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 
 interface RiskScoreInput {
   averageAllocationPercent: number;
@@ -48,7 +47,6 @@ export class ResourceRiskScoreService {
     private projectRepository: Repository<Project>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
-    @Inject(forwardRef(() => WorkspaceAccessService))
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
