@@ -38,6 +38,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { WorkspaceAccessModule } from './modules/workspace-access/workspace-access.module';
+import { DashboardsModule } from './modules/dashboards/dashboards.module';
 import { RisksModule } from './modules/risks/risks.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
@@ -108,6 +109,7 @@ if (!(global as any).crypto) {
           ObservabilityModule,
           WaitlistModule,
           PortfoliosModule,
+          DashboardsModule,
           TasksModule,
           KPIModule,
           WorkspacesModule,
