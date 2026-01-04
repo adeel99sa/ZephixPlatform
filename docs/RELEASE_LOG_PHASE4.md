@@ -38,17 +38,42 @@
 
 ### Fixes Applied
 - **Fixed Circular Dependency (2026-01-03)**: 
-  - **Root Cause**: PortfoliosModule was importing WorkspacesModule (with forwardRef), which imports SharedModule. The circular resolution path was causing stack overflow during module initialization.
-  - **Solution**: Removed dependency on SharedModule from PortfoliosModule by providing ResponseService directly in PortfoliosModule providers array. This breaks the circular dependency chain while maintaining functionality.
+  - **Root Cause**: WorkspacesModule <-> ResourceModule circular dependency
+    - WorkspacesModule imported ResourceModule (for ResourceRiskScoreService)
+    - ResourceModule imported WorkspacesModule (for WorkspaceAccessService)
+    - PortfoliosModule also imported WorkspacesModule, creating additional cycle paths
+  - **Solution**: Extracted WorkspaceAccessService into dedicated WorkspaceAccessModule
+    - Created `zephix-backend/src/modules/workspace-access/` module
+    - WorkspaceAccessModule has zero dependencies on Resources, Portfolios, or Workspaces
+    - ResourceModule, PortfoliosModule, ProjectsModule now import WorkspaceAccessModule instead of WorkspacesModule
+    - Removed all forwardRef() decorators since cycle is broken
+    - WorkspacesModule imports WorkspaceAccessModule and re-exports it for backward compatibility
   - **Files Changed**: 
-    - `zephix-backend/src/modules/portfolios/portfolios.module.ts` - Added ResponseService to providers, removed SharedModule dependency comment
-  - **Verification**: E2E test now passes module initialization without stack overflow. Test failures are now limited to database setup issues (separate concern).
+    - Created: `workspace-access.module.ts`, `workspace-access.service.ts`
+    - Updated: `resource.module.ts`, `portfolios.module.ts`, `projects.module.ts`, `workspaces.module.ts`
+    - Updated all imports of WorkspaceAccessService to use new path
+  - **Verification**: ✅ Module initialization succeeds without stack overflow
   - **Debug Artifact**: Error captured in `zephix-backend/test/_debug_portfolio_cycle.txt`
+
+- **Fixed Test Database Setup (2026-01-03)**:
+  - **Root Cause**: `setup-test-db.sh` was exiting early when DATABASE_URL was set, never creating the test user
+  - **Solution**: Updated script to parse DATABASE_URL and extract user, password, host, port, database
+    - Uses parsed user as TEST_DB_USER instead of hardcoding `zephix_test_user`
+    - Continues with database setup even when DATABASE_URL is provided
+  - **Verification**: ✅ Script now handles DATABASE_URL correctly
+
+- **Fixed Build Errors (2026-01-03)**:
+  - **Root Cause**: axios missing in devDependencies causing TypeScript compilation errors in smoke test scripts
+  - **Solution**: Added axios to devDependencies (`npm install -D axios`)
+  - **Verification**: ✅ TypeScript compilation succeeds
 
 ## Final Signoff
 
-- [ ] All smoke tests passing
-- [ ] E2E tests passing locally
+- [x] Circular dependency fixed - module initialization succeeds
+- [x] Test database setup fixed - script handles DATABASE_URL correctly
+- [x] Build errors fixed - axios added to devDependencies
+- [x] E2E test module initialization passing (database connection separate issue)
+- [ ] E2E tests passing locally (requires Postgres running)
 - [ ] Migration verified in production
 - [ ] API documentation updated
 - [ ] Release approved
