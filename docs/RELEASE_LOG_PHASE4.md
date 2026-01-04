@@ -286,13 +286,19 @@ bash scripts/phase4-dashboard-studio-verify.sh
 - Uses `auth-login.sh` script with email/password
 - Token-based API calls for verification
 - Internal tooling only - not for customers
+- **Decision**: Keep this internal. Customers should never paste tokens.
 
 **Customer Dashboard Experience** (Phase 4.3 - Planned):
-- Browser-based authentication with refresh tokens
+- Browser-based authentication with refresh tokens (no token pasting)
 - One-click template selection
 - Auto-create dashboards and widgets
 - Drag-and-drop layout customization
 - Widget filter settings panel
 - Save as org template (with permissions)
 - AI-assisted generation with same schema enforcement
+
+**Note**: The verification scripts (`auth-login.sh`, `phase4-dashboard-studio-verify.sh`) are for engineer verification only. For customer API access in the future, implement:
+1. Personal access tokens with scopes and rotation
+2. OAuth2 for third party integrations
+3. Service accounts for automation and CI
 
