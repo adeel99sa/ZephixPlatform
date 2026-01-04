@@ -11,6 +11,10 @@ import { ProjectTemplate } from '../modules/templates/entities/project-template.
 import { Portfolio } from '../modules/portfolios/entities/portfolio.entity';
 import { Program } from '../modules/programs/entities/program.entity';
 import { PortfolioProject } from '../modules/portfolios/entities/portfolio-project.entity';
+import { Dashboard } from '../modules/dashboards/entities/dashboard.entity';
+import { DashboardWidget } from '../modules/dashboards/entities/dashboard-widget.entity';
+import { DashboardTemplate } from '../modules/dashboards/entities/dashboard-template.entity';
+import { MetricDefinition } from '../modules/dashboards/entities/metric-definition.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -40,6 +44,10 @@ const AppDataSource = new DataSource({
     Portfolio,
     Program,
     PortfolioProject,
+    Dashboard,
+    DashboardWidget,
+    DashboardTemplate,
+    MetricDefinition,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
