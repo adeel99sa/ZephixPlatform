@@ -48,7 +48,7 @@ if [ -n "$DATABASE_URL" ] && [ "$CI_MODE" != "true" ]; then
     # Use the user from DATABASE_URL for test user
     TEST_DB_USER="${TEST_DB_USER:-$DB_USER_FROM_URL}"
     TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-$DB_PASS_FROM_URL}"
-    
+
     echo "   Parsed from DATABASE_URL:"
     echo "   - User: $POSTGRES_USER"
     echo "   - Host: $POSTGRES_HOST"

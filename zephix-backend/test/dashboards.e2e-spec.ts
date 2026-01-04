@@ -193,6 +193,25 @@ describe('Dashboards E2E Tests', () => {
       // Should not be a single dashboard object (which would indicate :id route matched)
       expect(response.body.data.id).toBeUndefined();
     });
+
+    it('should route POST /api/dashboards/activate-template correctly and not hit :id handler', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/dashboards/activate-template')
+        .set('Authorization', `Bearer ${adminToken1}`)
+        .set('x-workspace-id', workspace1.id)
+        .send({
+          templateKey: 'resource_utilization_conflicts',
+        });
+
+      // Should NOT be 404 "Dashboard not found" (which would indicate :id handler)
+      expect(response.status).not.toBe(404);
+      if (response.status === 404) {
+        expect(response.body.message).not.toBe('Dashboard not found');
+      }
+
+      // Should be either 201 (success) or 400/403 (validation/access), but not 404
+      expect([201, 400, 403]).toContain(response.status);
+    });
   });
 
   // B. Template activation
