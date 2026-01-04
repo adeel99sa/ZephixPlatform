@@ -75,6 +75,47 @@ jobs:
             exit 1
           fi
           echo "✅ Response format guardrail passed"
+      - name: Check route order (static routes before :id)
+        working-directory: zephix-backend
+        run: |
+          echo "Checking route order to prevent regressions..."
+          # Check that static routes are defined before :id routes in controllers
+          # This prevents routes like /api/dashboards/templates from matching :id handler
+          
+          # Dashboards: templates and activate-template must come before :id
+          DASHBOARDS_TEMPLATES_BEFORE_ID=$(grep -n "@Get('templates')" src/modules/dashboards/controllers/dashboards.controller.ts src/modules/dashboards/controllers/dashboard-templates.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          DASHBOARDS_ID_AFTER_TEMPLATES=$(grep -n "@Get(':id')" src/modules/dashboards/controllers/dashboards.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+          
+          if [ "$DASHBOARDS_TEMPLATES_BEFORE_ID" != "0" ] && [ "$DASHBOARDS_ID_AFTER_TEMPLATES" != "9999" ]; then
+            if [ "$DASHBOARDS_TEMPLATES_BEFORE_ID" -gt "$DASHBOARDS_ID_AFTER_TEMPLATES" ]; then
+              echo "❌ Route order violation: @Get(':id') comes before @Get('templates') in dashboards controller"
+              exit 1
+            fi
+          fi
+          
+          # Portfolios: :id/summary must come before :id
+          PORTFOLIOS_SUMMARY_BEFORE_ID=$(grep -n "@Get(':id/summary')" src/modules/portfolios/portfolios.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          PORTFOLIOS_ID_AFTER_SUMMARY=$(grep -n "@Get(':id')" src/modules/portfolios/portfolios.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+          
+          if [ "$PORTFOLIOS_SUMMARY_BEFORE_ID" != "0" ] && [ "$PORTFOLIOS_ID_AFTER_SUMMARY" != "9999" ]; then
+            if [ "$PORTFOLIOS_SUMMARY_BEFORE_ID" -gt "$PORTFOLIOS_ID_AFTER_SUMMARY" ]; then
+              echo "❌ Route order violation: @Get(':id') comes before @Get(':id/summary') in portfolios controller"
+              exit 1
+            fi
+          fi
+          
+          # Programs: :id/summary must come before :id
+          PROGRAMS_SUMMARY_BEFORE_ID=$(grep -n "@Get(':id/summary')" src/modules/programs/programs.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          PROGRAMS_ID_AFTER_SUMMARY=$(grep -n "@Get(':id')" src/modules/programs/programs.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+          
+          if [ "$PROGRAMS_SUMMARY_BEFORE_ID" != "0" ] && [ "$PROGRAMS_ID_AFTER_SUMMARY" != "9999" ]; then
+            if [ "$PROGRAMS_SUMMARY_BEFORE_ID" -gt "$PROGRAMS_ID_AFTER_SUMMARY" ]; then
+              echo "❌ Route order violation: @Get(':id') comes before @Get(':id/summary') in programs controller"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Route order checks passed"
       - name: Run all contract tests
         working-directory: zephix-backend
         run: |
