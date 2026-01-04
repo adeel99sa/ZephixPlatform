@@ -242,7 +242,7 @@ export class ResourcesController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -271,7 +271,7 @@ export class ResourcesController {
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,
@@ -506,7 +506,7 @@ export class ResourcesController {
   ) {
     const requestId = uuidv4();
     const { userId, organizationId, platformRole } = getAuthContext(req);
-    
+
     // Validate workspace access (required for workspace-scoped operations)
     await WorkspaceScopeHelper.getValidatedWorkspaceId(
       this.tenantContextService,

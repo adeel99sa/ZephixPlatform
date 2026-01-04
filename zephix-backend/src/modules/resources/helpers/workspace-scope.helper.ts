@@ -4,7 +4,7 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 
 /**
  * Helper to validate workspace access for resource operations.
- * 
+ *
  * Rules:
  * - If workspaceId is provided (via header or context), validate user has access
  * - If workspaceId is missing on workspace-scoped endpoints, return 403
@@ -13,7 +13,7 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 export class WorkspaceScopeHelper {
   /**
    * Get and validate workspaceId for workspace-scoped operations
-   * 
+   *
    * @param tenantContextService - Tenant context service
    * @param workspaceAccessService - Workspace access service
    * @param organizationId - User's organization ID
@@ -62,7 +62,7 @@ export class WorkspaceScopeHelper {
 
   /**
    * Validate that a resource belongs to the workspace (if workspace-scoped)
-   * 
+   *
    * @param resourceWorkspaceId - WorkspaceId from the resource entity
    * @param requestedWorkspaceId - WorkspaceId from request context
    * @param required - If true, workspace scoping is required

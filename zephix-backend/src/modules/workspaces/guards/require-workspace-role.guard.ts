@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { WorkspaceAccessService } from '../services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   REQUIRE_WORKSPACE_ROLE_KEY,
   RequireWorkspaceRoleOptions,

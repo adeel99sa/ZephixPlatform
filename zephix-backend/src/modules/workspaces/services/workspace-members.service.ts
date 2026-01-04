@@ -11,7 +11,7 @@ import { UserOrganization } from '../../../organizations/entities/user-organizat
 import { WorkspaceRole } from '../entities/workspace.entity';
 import { Actor, canManageWsMembers, canAssignOwner } from '../rbac';
 import { EventsService } from './events.service';
-import { WorkspaceAccessService } from './workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   PlatformRole,
   normalizePlatformRole,

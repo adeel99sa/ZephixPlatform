@@ -1,0 +1,1 @@
+zephix-backend/src/modules/workspaces/workspaces.module.ts:    forwardRef(() => ResourceModule), // Provides ResourceRiskScoreService - forwardRef to break circular dependency

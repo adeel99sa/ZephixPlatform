@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ClaudeService } from '../ai/claude.service';
 import { LLMProviderService } from '../ai/llm-provider.service';
 import { EmailService } from './services/email.service';
@@ -20,7 +20,9 @@ import { AdminGuard } from './guards/admin.guard';
  * - EmailService: Email sending service for notifications
  * - AuditService: Audit logging service
  * - AdminGuard: Guard for admin-only endpoints
+ * - ResponseService: Global response formatting service
  */
+@Global() // Make SharedModule global so ResponseService is available everywhere without imports
 @Module({
   providers: [
     LLMProviderService,

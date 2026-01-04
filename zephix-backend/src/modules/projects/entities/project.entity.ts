@@ -15,6 +15,7 @@ import { Task } from './task.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceScoped } from '../../tenancy/workspace-scoped.decorator';
+import { Program } from '../../programs/entities/program.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -121,7 +122,9 @@ export class Project {
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 
-  // Missing database columns
+  // Phase 4.1: Program assignment
+  // Decision: Add programId directly to Project for simplicity and performance
+  // Projects reach portfolio through program (program.portfolioId -> portfolio.id)
   @Column({ name: 'program_id', type: 'uuid', nullable: true })
   programId: string;
 
@@ -144,6 +147,11 @@ export class Project {
   @ManyToOne(() => Organization, (organization) => organization.projects)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  // Phase 4.1: Program relation
+  @ManyToOne(() => Program, (program) => program.projects, { nullable: true })
+  @JoinColumn({ name: 'program_id' })
+  program?: Program;
 
   // Template Center v1 fields
   @Column({ name: 'template_id', type: 'uuid', nullable: true })

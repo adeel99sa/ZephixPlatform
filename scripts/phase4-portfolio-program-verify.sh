@@ -136,7 +136,20 @@ PORTFOLIOS_ROUTE_RESPONSE=$(api_call "GET" "/api/portfolios" "" "")
 PORTFOLIOS_ROUTE_STATUS=$(echo "$PORTFOLIOS_ROUTE_RESPONSE" | cut -d'|' -f1)
 PORTFOLIOS_ROUTE_BODY=$(echo "$PORTFOLIOS_ROUTE_RESPONSE" | cut -d'|' -f2)
 
+# Fail fast on 401, 403, 500
+if [ "$PORTFOLIOS_ROUTE_STATUS" = "401" ] || [ "$PORTFOLIOS_ROUTE_STATUS" = "403" ] || [ "$PORTFOLIOS_ROUTE_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: /api/portfolios failed with $PORTFOLIOS_ROUTE_STATUS${NC}"
+  echo "$PORTFOLIOS_ROUTE_BODY" | jq '.' || echo "$PORTFOLIOS_ROUTE_BODY"
+  exit 1
+fi
+
 if [ "$PORTFOLIOS_ROUTE_STATUS" = "404" ]; then
+  # Check if response body contains "Resource not found" - indicates route mismatch
+  if echo "$PORTFOLIOS_ROUTE_BODY" | grep -qi "Resource not found"; then
+    echo -e "${RED}❌ ERROR: /api/portfolios route mismatch (404 with 'Resource not found')${NC}"
+    echo "$PORTFOLIOS_ROUTE_BODY" | jq '.' || echo "$PORTFOLIOS_ROUTE_BODY"
+    exit 1
+  fi
   echo -e "${RED}❌ ERROR: /api/portfolios returned 404${NC}"
   echo "$PORTFOLIOS_ROUTE_BODY" | jq '.' || echo "$PORTFOLIOS_ROUTE_BODY"
   exit 1
@@ -146,7 +159,20 @@ PROGRAMS_ROUTE_RESPONSE=$(api_call "GET" "/api/programs" "" "")
 PROGRAMS_ROUTE_STATUS=$(echo "$PROGRAMS_ROUTE_RESPONSE" | cut -d'|' -f1)
 PROGRAMS_ROUTE_BODY=$(echo "$PROGRAMS_ROUTE_RESPONSE" | cut -d'|' -f2)
 
+# Fail fast on 401, 403, 500
+if [ "$PROGRAMS_ROUTE_STATUS" = "401" ] || [ "$PROGRAMS_ROUTE_STATUS" = "403" ] || [ "$PROGRAMS_ROUTE_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: /api/programs failed with $PROGRAMS_ROUTE_STATUS${NC}"
+  echo "$PROGRAMS_ROUTE_BODY" | jq '.' || echo "$PROGRAMS_ROUTE_BODY"
+  exit 1
+fi
+
 if [ "$PROGRAMS_ROUTE_STATUS" = "404" ]; then
+  # Check if response body contains "Resource not found" - indicates route mismatch
+  if echo "$PROGRAMS_ROUTE_BODY" | grep -qi "Resource not found"; then
+    echo -e "${RED}❌ ERROR: /api/programs route mismatch (404 with 'Resource not found')${NC}"
+    echo "$PROGRAMS_ROUTE_BODY" | jq '.' || echo "$PROGRAMS_ROUTE_BODY"
+    exit 1
+  fi
   echo -e "${RED}❌ ERROR: /api/programs returned 404${NC}"
   echo "$PROGRAMS_ROUTE_BODY" | jq '.' || echo "$PROGRAMS_ROUTE_BODY"
   exit 1

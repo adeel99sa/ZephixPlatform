@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
-import { WorkspaceAccessService } from './services/workspace-access.service';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
 import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { AddMemberDto } from './dto/add-member.dto';

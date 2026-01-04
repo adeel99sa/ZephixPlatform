@@ -25,31 +25,43 @@ if [ -n "$GITHUB_RUN_ID" ]; then
 else
   TEST_DB_NAME="${TEST_DB_NAME:-zephix_test}"
 fi
-POSTGRES_USER="${POSTGRES_USER:-postgres}"
-POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
-POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
-# Parse DATABASE_URL if set to extract connection details
+# Parse DATABASE_URL FIRST if set to extract connection details
+# This ensures parsed values take precedence over defaults
 if [ -n "$DATABASE_URL" ] && [ "$CI_MODE" != "true" ]; then
-  # Parse DATABASE_URL: postgresql://user:password@host:port/database
-  if [[ "$DATABASE_URL" =~ postgresql://([^:]+):([^@]+)@([^:]+):([^/]+)/(.+) ]]; then
+  # Parse DATABASE_URL: postgresql://user:password@host:port/database?query
+  # Remove query string first for parsing
+  DB_URL_NO_QUERY="${DATABASE_URL%%\?*}"
+  if [[ "$DB_URL_NO_QUERY" =~ postgresql://([^:]+):([^@]+)@([^:]+):([^/]+)/(.+) ]]; then
     DB_USER_FROM_URL="${BASH_REMATCH[1]}"
     DB_PASS_FROM_URL="${BASH_REMATCH[2]}"
     DB_HOST_FROM_URL="${BASH_REMATCH[3]}"
     DB_PORT_FROM_URL="${BASH_REMATCH[4]}"
     DB_NAME_FROM_URL="${BASH_REMATCH[5]}"
-    
+
     # Use parsed values, but allow overrides via env vars
     POSTGRES_USER="${POSTGRES_USER:-$DB_USER_FROM_URL}"
     POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$DB_PASS_FROM_URL}"
     POSTGRES_HOST="${POSTGRES_HOST:-$DB_HOST_FROM_URL}"
     POSTGRES_PORT="${POSTGRES_PORT:-$DB_PORT_FROM_URL}"
     TEST_DB_NAME="${TEST_DB_NAME:-$DB_NAME_FROM_URL}"
-    # Use the user from DATABASE_URL for test user, or fallback to postgres
+    # Use the user from DATABASE_URL for test user
     TEST_DB_USER="${TEST_DB_USER:-$DB_USER_FROM_URL}"
     TEST_DB_PASSWORD="${TEST_DB_PASSWORD:-$DB_PASS_FROM_URL}"
+    
+    echo "   Parsed from DATABASE_URL:"
+    echo "   - User: $POSTGRES_USER"
+    echo "   - Host: $POSTGRES_HOST"
+    echo "   - Port: $POSTGRES_PORT"
+    echo "   - Database: $TEST_DB_NAME"
+    echo "   - Test User: $TEST_DB_USER"
   fi
 fi
+
+# Set defaults ONLY if not parsed from DATABASE_URL
+POSTGRES_USER="${POSTGRES_USER:-postgres}"
+POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 
 # Set defaults if not parsed from DATABASE_URL
 TEST_DB_USER="${TEST_DB_USER:-zephix_test_user}"

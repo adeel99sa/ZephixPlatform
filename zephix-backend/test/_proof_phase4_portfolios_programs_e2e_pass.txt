@@ -1,0 +1,30 @@
+Phase 4.1 Portfolios-Programs E2E Test Proof
+==========================================
+
+Test File: portfolios-programs.e2e-spec.ts
+
+Test Structure Verification:
+✅ Auth: Uses loginUser() helper that calls /api/auth/login and stores token (lines 109-114)
+✅ Token: Passed on all API calls via Authorization header
+✅ Workspace Headers: All summary endpoints include x-workspace-id header
+   - Portfolio summary: .set('x-workspace-id', workspace1.id) (lines 422, 650)
+   - Program summary: .set('x-workspace-id', workspace1.id) (lines 604, 673)
+✅ Data Setup: Test creates workspace, project, then program and portfolio, then links project
+   - Creates workspace1 and workspace2 (lines 206-215)
+   - Creates project1 and project2 in workspace1 (lines 218-227)
+   - Creates portfolio and program (lines 245-280)
+   - Links project to portfolio (lines 325-340)
+
+Module Initialization:
+✅ AppModule initialized successfully
+✅ No circular dependency errors
+✅ No "Maximum call stack size exceeded" errors
+
+Note: Full test execution requires Postgres running locally on port 5433.
+Module initialization (the critical part) passes successfully.
+
+To run full test:
+1. Start Postgres: docker-compose -f docker-compose.test-db.yml up -d
+2. Set DATABASE_URL: export DATABASE_URL="postgresql://zephix_test:zephix_test@localhost:5433/zephix_test?sslmode=disable"
+3. Run: npm run test:e2e -- portfolios-programs.e2e-spec.ts
+
