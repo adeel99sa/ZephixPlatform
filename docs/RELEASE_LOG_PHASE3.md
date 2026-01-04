@@ -34,9 +34,9 @@ Migration AddConflictLifecycleFields1767376476696 has been executed successfully
 
 **Schema Verification Queries Output:**
 ```
-resolved_at         | timestamp with time zone |           |          | 
-resolved_by_user_id | uuid                     |           |          | 
-resolution_note     | text                     |           |          | 
+resolved_at         | timestamp with time zone |           |          |
+resolved_by_user_id | uuid                     |           |          |
+resolution_note     | text                     |           |          |
 "fk_conflicts_resolved_by_user" FOREIGN KEY (resolved_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ```
 
