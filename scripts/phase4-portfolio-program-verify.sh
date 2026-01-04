@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # Phase 4.1 Portfolio and Program Verification Script
 #
+# Required Environment Variables:
+#   BASE - Backend base URL (e.g., "https://zephix-backend-production.up.railway.app")
+#   TOKEN - Authentication token (obtain via: source scripts/auth-login.sh)
+#
+# Optional Environment Variables:
+#   ORG_ID - Organization ID (will be fetched if not provided)
+#   WORKSPACE_ID - Workspace ID (will be fetched if not provided, required for summary endpoints)
+#   PROJECT_ID - Project ID (will be fetched if not provided)
+#
 # Usage:
 #   export BASE="https://zephix-backend-production.up.railway.app"
-#   export TOKEN="your-auth-token"
-#   export ORG_ID="your-org-id"  # Optional, will derive if missing
-#   export WORKSPACE_ID="your-workspace-id"  # Optional, will derive if missing
-#   export PROJECT_ID="your-project-id"  # Optional, will derive if missing
-#   ./scripts/phase4-portfolio-program-verify.sh
+#   source scripts/auth-login.sh  # Sets TOKEN
+#   bash scripts/phase4-portfolio-program-verify.sh
 #
 # This script verifies Phase 4.1 deployment by:
 # 1. Preflight: Check commitShaTrusted
@@ -37,6 +43,12 @@ NC='\033[0m' # No Color
 BASE_URL="${BASE:-https://zephix-backend-production.up.railway.app}"
 
 # Check required environment variables
+if [ -z "${BASE:-}" ]; then
+  echo -e "${RED}❌ ERROR: BASE environment variable is required${NC}"
+  echo "   export BASE=\"https://zephix-backend-production.up.railway.app\""
+  exit 1
+fi
+
 if [ -z "${TOKEN:-}" ]; then
   echo -e "${RED}❌ ERROR: TOKEN environment variable is required${NC}"
   echo ""
@@ -61,8 +73,8 @@ echo -e "${GREEN}🚀 Phase 4.1 Portfolio and Program Verification${NC}"
 echo "=============================================="
 echo ""
 
-# Helper function to make API calls with error handling
-api_call() {
+# Helper function for JSON API calls with error handling
+curl_json() {
   local method="$1"
   local endpoint="$2"
   local body="${3:-}"
@@ -76,24 +88,44 @@ api_call() {
   local url="$BASE_URL$endpoint"
   local response
   local status
+  local http_code
 
   if [ "$method" = "GET" ]; then
-    response=$(curl -s -w "\n%{http_code}" "$url" "${headers[@]}")
+    response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt "$url" "${headers[@]}" 2>&1)
   elif [ "$method" = "POST" ] || [ "$method" = "PATCH" ] || [ "$method" = "DELETE" ]; then
     if [ -n "$body" ]; then
-      response=$(curl -s -w "\n%{http_code}" -X "$method" "$url" "${headers[@]}" -d "$body")
+      response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt -X "$method" "$url" "${headers[@]}" -d "$body" 2>&1)
     else
-      response=$(curl -s -w "\n%{http_code}" -X "$method" "$url" "${headers[@]}")
+      response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt -X "$method" "$url" "${headers[@]}" 2>&1)
     fi
   fi
 
-  status=$(echo "$response" | tail -n1)
+  http_code=$(echo "$response" | tail -n1)
+  status="$http_code"
   body=$(echo "$response" | sed '$d')
 
-  # Extract requestId if present
-  local request_id=$(echo "$response" | grep -i "x-request-id" | head -1 | cut -d' ' -f2 || echo "")
+  # Extract requestId from headers if present
+  local request_id=""
+  if [ -f /tmp/curl_headers.txt ]; then
+    request_id=$(grep -i "x-request-id:" /tmp/curl_headers.txt | cut -d' ' -f2 | tr -d '\r' || echo "")
+    rm -f /tmp/curl_headers.txt
+  fi
+
+  # Print status and body on error
+  if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+    echo -e "${RED}❌ HTTP $http_code${NC}" >&2
+    echo "$body" | jq '.' 2>/dev/null || echo "$body" >&2
+    if [ -n "$request_id" ]; then
+      echo -e "${YELLOW}RequestId: $request_id${NC}" >&2
+    fi
+  fi
 
   echo "$status|$body|$request_id"
+}
+
+# Helper function to make API calls with error handling (backward compatibility)
+api_call() {
+  curl_json "$@"
 }
 
 # Step 0: Routing Guard Check
@@ -197,8 +229,11 @@ if [ -z "${WORKSPACE_ID:-}" ]; then
     exit 2
   fi
   echo "✅ WORKSPACE_ID: $WORKSPACE_ID"
+  # Export WORKSPACE_ID for use in summary endpoints
+  export WORKSPACE_ID
 else
   echo "✅ WORKSPACE_ID: $WORKSPACE_ID (from env)"
+  export WORKSPACE_ID
 fi
 
 if [ -z "${PROJECT_ID:-}" ]; then
@@ -362,10 +397,13 @@ if [ "$PORTFOLIO_SUMMARY_STATUS" = "401" ] || [ "$PORTFOLIO_SUMMARY_STATUS" = "4
   exit 3
 fi
 
-# Check for 404 with route mismatch
+# Check for 404 with route mismatch or "Resource not found"
 if [ "$PORTFOLIO_SUMMARY_STATUS" = "404" ]; then
   if echo "$PORTFOLIO_SUMMARY_BODY" | grep -qi "Resource not found\|route mismatch"; then
-    echo -e "${RED}❌ ERROR: Portfolio summary route mismatch (404)${NC}"
+    echo -e "${RED}❌ ERROR: Portfolio summary route mismatch or resource not found (404)${NC}"
+    if [ -n "$PORTFOLIO_SUMMARY_REQUEST_ID" ]; then
+      echo "RequestId: $PORTFOLIO_SUMMARY_REQUEST_ID"
+    fi
     echo "$PORTFOLIO_SUMMARY_BODY" | jq '.' || echo "$PORTFOLIO_SUMMARY_BODY"
     exit 3
   fi
@@ -419,10 +457,13 @@ if [ "$PROGRAM_SUMMARY_STATUS" = "401" ] || [ "$PROGRAM_SUMMARY_STATUS" = "403" 
   exit 3
 fi
 
-# Check for 404 with route mismatch
+# Check for 404 with route mismatch or "Resource not found"
 if [ "$PROGRAM_SUMMARY_STATUS" = "404" ]; then
   if echo "$PROGRAM_SUMMARY_BODY" | grep -qi "Resource not found\|route mismatch"; then
-    echo -e "${RED}❌ ERROR: Program summary route mismatch (404)${NC}"
+    echo -e "${RED}❌ ERROR: Program summary route mismatch or resource not found (404)${NC}"
+    if [ -n "$PROGRAM_SUMMARY_REQUEST_ID" ]; then
+      echo "RequestId: $PROGRAM_SUMMARY_REQUEST_ID"
+    fi
     echo "$PROGRAM_SUMMARY_BODY" | jq '.' || echo "$PROGRAM_SUMMARY_BODY"
     exit 3
   fi
