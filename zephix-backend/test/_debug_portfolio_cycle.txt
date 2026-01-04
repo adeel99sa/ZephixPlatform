@@ -1,0 +1,15 @@
+Circular Dependency Error - Phase 4.1 E2E Test
+================================================
+
+Error: RangeError: Maximum call stack size exceeded
+    at Object.get [as Scope] (/Users/malikadeel/Downloads/ZephixApp/zephix-backend/node_modules/@nestjs/common/index.js:17:75)
+    at InstanceWrapper.getInstanceByContextId (/Users/malikadeel/Downloads/ZephixApp/zephix-backend/node_modules/@nestjs/core/injector/instance-wrapper.js:45:37)
+    at InstanceWrapper.cloneStaticInstance (/Users/malikadeel/Downloads/ZephixApp/zephix-backend/node_modules/@nestjs/core/injector/instance-wrapper.js:180:37)
+    ... (repeating pattern indicates circular dependency)
+
+Test Command:
+npm run test:e2e -- portfolios-programs.e2e-spec.ts
+
+The error occurs during module initialization, specifically when NestJS is trying to resolve dependencies.
+The stack trace shows infinite recursion in InstanceWrapper.getInstanceByContextId and cloneStaticInstance,
+which is the classic symptom of a circular module dependency.
