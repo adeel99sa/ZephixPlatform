@@ -4,7 +4,6 @@ import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { Task } from '../modules/projects/entities/task.entity';
-import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
@@ -15,6 +14,10 @@ import { Dashboard } from '../modules/dashboards/entities/dashboard.entity';
 import { DashboardWidget } from '../modules/dashboards/entities/dashboard-widget.entity';
 import { DashboardTemplate } from '../modules/dashboards/entities/dashboard-template.entity';
 import { MetricDefinition } from '../modules/dashboards/entities/metric-definition.entity';
+import { WorkTask } from '../modules/work-management/entities/work-task.entity';
+import { TaskDependency } from '../modules/work-management/entities/task-dependency.entity';
+import { TaskComment } from '../modules/work-management/entities/task-comment.entity';
+import { TaskActivity } from '../modules/work-management/entities/task-activity.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -37,7 +40,6 @@ const AppDataSource = new DataSource({
     UserOrganization,
     Project,
     Task,
-    TaskDependency,
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
@@ -48,6 +50,10 @@ const AppDataSource = new DataSource({
     DashboardWidget,
     DashboardTemplate,
     MetricDefinition,
+    WorkTask,
+    TaskDependency,
+    TaskComment,
+    TaskActivity,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
