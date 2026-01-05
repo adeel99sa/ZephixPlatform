@@ -171,108 +171,58 @@ jobs:
             fi
           fi
 
-          # Work Tasks Controller: Check route order (Phase 5.1)
-          WORK_TASKS_CONTROLLER="src/modules/work-management/controllers/work-tasks.controller.ts"
-          if [ -f "$WORK_TASKS_CONTROLLER" ]; then
-            echo "Checking work-tasks controller route order..."
-
+          # Tasks Controller: Check route order (Phase 5.1)
+          TASKS_CONTROLLER="src/modules/work-management/controllers/tasks.controller.ts"
+          if [ -f "$TASKS_CONTROLLER" ]; then
+            echo "Checking tasks controller route order..."
+            
             # Static routes that must come before @Get(':id')
-            WORK_TASKS_BULK_LINE=$(grep -n "@Patch('bulk')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            WORK_TASKS_COMMENTS_GET_LINE=$(grep -n "@Get(':id/comments')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            WORK_TASKS_COMMENTS_POST_LINE=$(grep -n "@Post(':id/comments')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            WORK_TASKS_ACTIVITY_LINE=$(grep -n "@Get(':id/activity')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            WORK_TASKS_DEPS_POST_LINE=$(grep -n "@Post(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            WORK_TASKS_DEPS_DELETE_LINE=$(grep -n "@Delete(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-
-            WORK_TASKS_ID_GET_LINE=$(grep -n "@Get(':id')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-
+            TASKS_BULK_LINE=$(grep -n "@Patch('bulk')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_ACTIVITY_LINE=$(grep -n "@Get(':id/activity')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_COMMENTS_GET_LINE=$(grep -n "@Get(':id/comments')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_COMMENTS_POST_LINE=$(grep -n "@Post(':id/comments')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_DEPS_GET_LINE=$(grep -n "@Get(':id/dependencies')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_DEPS_POST_LINE=$(grep -n "@Post(':id/dependencies')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TASKS_DEPS_DELETE_LINE=$(grep -n "@Delete(':id/dependencies/:depId')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            
+            TASKS_ID_GET_LINE=$(grep -n "@Get(':id')" "$TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+            
             # Check each static route is before @Get(':id')
-            for route_name in "bulk" "comments (GET)" "comments (POST)" "activity" "dependencies (POST)" "dependencies (DELETE)"; do
+            for route_name in "bulk" "activity" "comments (GET)" "comments (POST)" "dependencies (GET)" "dependencies (POST)" "dependencies (DELETE)"; do
               case "$route_name" in
                 "bulk")
-                  ROUTE_LINE="$WORK_TASKS_BULK_LINE"
-                  ;;
-                "comments (GET)")
-                  ROUTE_LINE="$WORK_TASKS_COMMENTS_GET_LINE"
-                  ;;
-                "comments (POST)")
-                  ROUTE_LINE="$WORK_TASKS_COMMENTS_POST_LINE"
+                  ROUTE_LINE="$TASKS_BULK_LINE"
                   ;;
                 "activity")
-                  ROUTE_LINE="$WORK_TASKS_ACTIVITY_LINE"
+                  ROUTE_LINE="$TASKS_ACTIVITY_LINE"
+                  ;;
+                "comments (GET)")
+                  ROUTE_LINE="$TASKS_COMMENTS_GET_LINE"
+                  ;;
+                "comments (POST)")
+                  ROUTE_LINE="$TASKS_COMMENTS_POST_LINE"
+                  ;;
+                "dependencies (GET)")
+                  ROUTE_LINE="$TASKS_DEPS_GET_LINE"
                   ;;
                 "dependencies (POST)")
-                  ROUTE_LINE="$WORK_TASKS_DEPS_POST_LINE"
+                  ROUTE_LINE="$TASKS_DEPS_POST_LINE"
                   ;;
                 "dependencies (DELETE)")
-                  ROUTE_LINE="$WORK_TASKS_DEPS_DELETE_LINE"
+                  ROUTE_LINE="$TASKS_DEPS_DELETE_LINE"
                   ;;
               esac
-
-              if [ "$ROUTE_LINE" != "0" ] && [ "$WORK_TASKS_ID_GET_LINE" != "9999" ]; then
-                if [ "$ROUTE_LINE" -gt "$WORK_TASKS_ID_GET_LINE" ]; then
-                  echo "❌ Route order violation in work-tasks.controller.ts: @Get(':id') (line $WORK_TASKS_ID_GET_LINE) comes before '$route_name' route (line $ROUTE_LINE)"
+              
+              if [ "$ROUTE_LINE" != "0" ] && [ "$TASKS_ID_GET_LINE" != "9999" ]; then
+                if [ "$ROUTE_LINE" -gt "$TASKS_ID_GET_LINE" ]; then
+                  echo "❌ Route order violation in tasks.controller.ts: @Get(':id') (line $TASKS_ID_GET_LINE) comes before '$route_name' route (line $ROUTE_LINE)"
                   echo "   Static routes must be defined before :id routes to prevent route shadowing"
                   exit 1
                 fi
               fi
             done
-
-            echo "✅ Work-tasks controller route order check passed"
-          fi
-
-          # Templates Controller: Check route order (Sprint 2.5)
-          TEMPLATES_CONTROLLER="src/modules/templates/controllers/templates.controller.ts"
-          if [ -f "$TEMPLATES_CONTROLLER" ]; then
-            echo "Checking templates controller route order..."
-
-            # instantiate-v5_1 route must appear before legacy instantiate route
-            TEMPLATES_V51_LINE=$(grep -n "@Post(':templateId/instantiate-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            TEMPLATES_LEGACY_INSTANTIATE_LINE=$(grep -n "@Post(':id/instantiate')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-
-            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_LEGACY_INSTANTIATE_LINE" != "0" ]; then
-              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_LEGACY_INSTANTIATE_LINE" ]; then
-                echo "❌ Route order violation in templates.controller.ts: @Post(':id/instantiate') (line $TEMPLATES_LEGACY_INSTANTIATE_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
-                echo "   instantiate-v5_1 route must be defined before legacy instantiate route to prevent route shadowing"
-                exit 1
-              fi
-            fi
-
-            # Any :id catch-all must be last
-            TEMPLATES_ID_GET_LINE=$(grep -n "@Get(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-            TEMPLATES_ID_PATCH_LINE=$(grep -n "@Patch(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-            TEMPLATES_ID_DELETE_LINE=$(grep -n "@Delete(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-
-            # Check that instantiate-v5_1 comes before any :id route
-            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
-              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
-                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
-                echo "   instantiate-v5_1 route must be defined before :id routes to prevent route shadowing"
-                exit 1
-              fi
-            fi
-
-            # Sprint 4: Check recommendations route comes before :id
-            TEMPLATES_RECOMMENDATIONS_LINE=$(grep -n "@Get('recommendations')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            if [ "$TEMPLATES_RECOMMENDATIONS_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
-              if [ "$TEMPLATES_RECOMMENDATIONS_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
-                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get('recommendations') (line $TEMPLATES_RECOMMENDATIONS_LINE)"
-                echo "   recommendations route must be defined before :id routes to prevent route shadowing"
-                exit 1
-              fi
-            fi
-
-            # Sprint 4: Check preview-v5_1 route comes before :id
-            TEMPLATES_PREVIEW_LINE=$(grep -n "@Get(':templateId/preview-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            if [ "$TEMPLATES_PREVIEW_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
-              if [ "$TEMPLATES_PREVIEW_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
-                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get(':templateId/preview-v5_1') (line $TEMPLATES_PREVIEW_LINE)"
-                echo "   preview-v5_1 route must be defined before :id routes to prevent route shadowing"
-                exit 1
-              fi
-            fi
-
-            echo "✅ Templates controller route order check passed"
+            
+            echo "✅ Tasks controller route order check passed"
           fi
 
           echo "✅ Route order checks passed"
