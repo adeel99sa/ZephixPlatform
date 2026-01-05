@@ -39,8 +39,10 @@ import { Project } from '../projects/entities/project.entity';
   ],
   providers: [DashboardsService, TemplatesService],
   controllers: [
-    DashboardsController,
+    // Register DashboardTemplatesController FIRST so static routes (templates, activate-template)
+    // are matched before dynamic :id routes in DashboardsController
     DashboardTemplatesController,
+    DashboardsController,
     MetricsController,
     AnalyticsWidgetsController,
     AiDashboardController,
