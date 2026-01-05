@@ -1,8 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import {
-  TenantAwareRepository,
-  getTenantAwareRepositoryToken,
-} from '../../tenancy/tenancy.module';
+import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
 import { TaskComment } from '../entities/task-comment.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
@@ -85,3 +82,4 @@ export class TaskCommentsService {
     return { items, total };
   }
 }
+

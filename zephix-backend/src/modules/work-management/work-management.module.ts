@@ -4,6 +4,12 @@ import { WorkTask } from './entities/work-task.entity';
 import { WorkTaskDependency } from './entities/task-dependency.entity';
 import { TaskComment } from './entities/task-comment.entity';
 import { TaskActivity } from './entities/task-activity.entity';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
+import { WorkTasksService } from './services/work-tasks.service';
+import { TaskDependenciesService } from './services/task-dependencies.service';
+import { TaskCommentsService } from './services/task-comments.service';
+import { TaskActivityService } from './services/task-activity.service';
 
 @Module({
   imports: [
@@ -13,8 +19,26 @@ import { TaskActivity } from './entities/task-activity.entity';
       TaskComment,
       TaskActivity,
     ]),
+    WorkspaceAccessModule,
+    TenancyModule,
   ],
-  exports: [TypeOrmModule],
+  providers: [
+    createTenantAwareRepositoryProvider(WorkTask),
+    createTenantAwareRepositoryProvider(WorkTaskDependency),
+    createTenantAwareRepositoryProvider(TaskComment),
+    createTenantAwareRepositoryProvider(TaskActivity),
+    WorkTasksService,
+    TaskDependenciesService,
+    TaskCommentsService,
+    TaskActivityService,
+  ],
+  exports: [
+    TypeOrmModule,
+    WorkTasksService,
+    TaskDependenciesService,
+    TaskCommentsService,
+    TaskActivityService,
+  ],
 })
 export class WorkManagementModule {}
 
