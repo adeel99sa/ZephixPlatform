@@ -11,7 +11,7 @@ import {
 import { WorkTask } from './work-task.entity';
 import { DependencyType } from '../enums/task.enums';
 
-@Entity('task_dependencies')
+@Entity('work_task_dependencies')
 @Index(['organizationId'])
 @Index(['workspaceId'])
 @Index(['projectId'])
@@ -19,7 +19,7 @@ import { DependencyType } from '../enums/task.enums';
 @Index(['successorTaskId'])
 @Index(['createdByUserId'])
 @Unique(['workspaceId', 'predecessorTaskId', 'successorTaskId', 'type'])
-export class TaskDependency {
+export class WorkTaskDependency {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
