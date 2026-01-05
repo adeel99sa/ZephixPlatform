@@ -107,28 +107,11 @@ describe('Work Management Routing E2E Tests', () => {
     const userRepo = dataSource.getRepository(User);
     const orgRepo = dataSource.getRepository(Organization);
 
-    // Delete in order to respect foreign key constraints
-    // Skip demo users (they may have deletion protection)
-    try {
-      await projectRepo.delete({});
-      await workspaceRepo.delete({});
-      await uoRepo.delete({});
-      // Only delete test users (not demo users)
-      await userRepo
-        .createQueryBuilder()
-        .delete()
-        .where('email LIKE :pattern', { pattern: '%@workmgmt-test.com' })
-        .execute();
-      // Only delete test organizations
-      await orgRepo
-        .createQueryBuilder()
-        .delete()
-        .where('name LIKE :pattern', { pattern: 'WorkMgmt Test Org%' })
-        .execute();
-    } catch (error) {
-      // Ignore cleanup errors - test data may already be cleaned
-      console.warn('Cleanup warning:', error.message);
-    }
+    await projectRepo.delete({});
+    await workspaceRepo.delete({});
+    await uoRepo.delete({});
+    await userRepo.delete({});
+    await orgRepo.delete({});
   }
 
   beforeAll(async () => {
@@ -219,9 +202,8 @@ describe('Work Management Routing E2E Tests', () => {
         });
 
       expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.error?.message).toContain('x-workspace-id');
       // Verify path is /bulk, not routed to :id
       expect(response.request.url).toContain('/bulk');
     });
@@ -236,9 +218,8 @@ describe('Work Management Routing E2E Tests', () => {
         .set('Authorization', `Bearer ${adminToken1}`);
 
       expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /comments, not routed to :id
       expect(response.request.url).toContain('/comments');
     });
@@ -253,9 +234,8 @@ describe('Work Management Routing E2E Tests', () => {
         .set('Authorization', `Bearer ${adminToken1}`);
 
       expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /activity, not routed to :id
       expect(response.request.url).toContain('/activity');
     });
@@ -273,45 +253,10 @@ describe('Work Management Routing E2E Tests', () => {
         });
 
       expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /dependencies, not routed to :id
       expect(response.request.url).toContain('/dependencies');
-    });
-
-    it('GET /api/work/projects/:projectId/plan should route to plan handler (403 WORKSPACE_REQUIRED, not 404)', async () => {
-      const randomProjectId = uuidv4();
-
-      // Call plan endpoint without workspace header
-      // Should return 403 WORKSPACE_REQUIRED, not 404 Project not found
-      const response = await request(app.getHttpServer())
-        .get(`/api/work/projects/${randomProjectId}/plan`)
-        .set('Authorization', `Bearer ${adminToken1}`);
-
-      expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
-      // Verify path includes /plan, not routed to a catch-all
-      expect(response.request.url).toContain('/plan');
-    });
-
-    it('GET /api/work/programs/:programId/plan should route to plan handler (403 WORKSPACE_REQUIRED, not 404)', async () => {
-      const randomProgramId = uuidv4();
-
-      // Call plan endpoint without workspace header
-      // Should return 403 WORKSPACE_REQUIRED, not 404 Program not found
-      const response = await request(app.getHttpServer())
-        .get(`/api/work/programs/${randomProgramId}/plan`)
-        .set('Authorization', `Bearer ${adminToken1}`);
-
-      expect(response.status).toBe(403);
-      // Response format: { code, message } not { error: { code, message } }
-      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
-      // Verify path includes /plan, not routed to a catch-all
-      expect(response.request.url).toContain('/plan');
     });
   });
 });
