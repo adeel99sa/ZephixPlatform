@@ -1,0 +1,8 @@
+export * from './create-work-task.dto';
+export * from './update-work-task.dto';
+export * from './list-work-tasks.query';
+export * from './bulk-status-update.dto';
+export * from './add-dependency.dto';
+export * from './remove-dependency.dto';
+export * from './add-comment.dto';
+
