@@ -7,6 +7,7 @@ import {
   BadRequestException,
   Headers,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,8 @@ import {
   ApiBearerAuth,
   ApiHeader,
 } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, IsEnum } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -33,8 +36,17 @@ class SuggestDto {
 }
 
 class GenerateDto {
+  @Transform(({ value, obj }) => value ?? obj.prompt ?? obj.userPrompt ?? obj.text ?? obj.description ?? obj.query)
+  @IsString()
+  @IsNotEmpty()
   prompt: string;
-  persona: DashboardPersona;
+
+  @IsEnum(DashboardPersona)
+  @IsOptional()
+  persona?: DashboardPersona;
+
+  @IsUUID()
+  @IsOptional()
   workspaceId?: string;
 }
 
@@ -43,6 +55,8 @@ class GenerateDto {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class AiDashboardController {
+  private readonly logger = new Logger(AiDashboardController.name);
+
   constructor(
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
@@ -136,6 +150,10 @@ export class AiDashboardController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
+    // Debug logging (remove after confirmation)
+    this.logger.log(`AI generate payload keys: ${Object.keys(dto || {}).join(',')}`);
+    this.logger.log(`AI generate prompt length: ${(dto?.prompt || '').length}`);
+
     const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId) {
