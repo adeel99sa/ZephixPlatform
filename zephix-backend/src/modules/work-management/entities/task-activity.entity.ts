@@ -52,3 +52,4 @@ export class TaskActivity {
   @JoinColumn({ name: 'task_id' })
   task: WorkTask | null;
 }
+

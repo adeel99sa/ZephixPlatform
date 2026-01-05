@@ -1,23 +1,14 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableColumn,
-  TableIndex,
-  TableForeignKey,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableForeignKey } from 'typeorm';
 
 /**
  * Phase 5.1: Work Management Core Schema
  *
  * Creates:
  * - Enum types: TaskStatus, TaskPriority, TaskType, DependencyType, TaskActivityType
- * - Tables: work_tasks, work_task_dependencies, task_comments, task_activities
+ * - Tables: work_tasks, task_dependencies, task_comments, task_activities
  * - Indexes and constraints
  */
-export class Phase5WorkManagementCore1767637754000
-  implements MigrationInterface
-{
+export class Phase5WorkManagementCore1767637754000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enum types
     await queryRunner.query(`
@@ -96,15 +87,7 @@ export class Phase5WorkManagementCore1767637754000
           {
             name: 'status',
             type: 'enum',
-            enum: [
-              'BACKLOG',
-              'TODO',
-              'IN_PROGRESS',
-              'BLOCKED',
-              'IN_REVIEW',
-              'DONE',
-              'CANCELED',
-            ],
+            enum: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'DONE', 'CANCELED'],
             default: "'TODO'",
           },
           {
@@ -174,10 +157,10 @@ export class Phase5WorkManagementCore1767637754000
       true,
     );
 
-    // 2. Create work_task_dependencies table
+    // 2. Create task_dependencies table
     await queryRunner.createTable(
       new Table({
-        name: 'work_task_dependencies',
+        name: 'task_dependencies',
         columns: [
           {
             name: 'id',
@@ -213,12 +196,7 @@ export class Phase5WorkManagementCore1767637754000
           {
             name: 'type',
             type: 'enum',
-            enum: [
-              'FINISH_TO_START',
-              'START_TO_START',
-              'FINISH_TO_FINISH',
-              'START_TO_FINISH',
-            ],
+            enum: ['FINISH_TO_START', 'START_TO_START', 'FINISH_TO_FINISH', 'START_TO_FINISH'],
             default: "'FINISH_TO_START'",
           },
           {
@@ -236,25 +214,61 @@ export class Phase5WorkManagementCore1767637754000
       true,
     );
 
-    // 3. Create task_comments table using raw SQL to ensure exact column names
-    // Drop existing table if it has wrong schema (from old migration)
-    await queryRunner.query(`
-      DROP TABLE IF EXISTS task_comments CASCADE;
-    `);
-
-    await queryRunner.query(`
-      CREATE TABLE task_comments (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        organization_id uuid NOT NULL,
-        workspace_id uuid NOT NULL,
-        task_id uuid NOT NULL,
-        body text NOT NULL,
-        created_by_user_id uuid NOT NULL,
-        updated_by_user_id uuid,
-        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-        updated_at timestamp DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    // 3. Create task_comments table
+    await queryRunner.createTable(
+      new Table({
+        name: 'task_comments',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            default: 'gen_random_uuid()',
+          },
+          {
+            name: 'organization_id',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'workspace_id',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'task_id',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'body',
+            type: 'text',
+            isNullable: false,
+          },
+          {
+            name: 'created_by_user_id',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'updated_by_user_id',
+            type: 'uuid',
+            isNullable: true,
+          },
+          {
+            name: 'created_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+          },
+          {
+            name: 'updated_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+          },
+        ],
+      }),
+      true,
+    );
 
     // 4. Create task_activities table
     await queryRunner.createTable(
@@ -381,66 +395,61 @@ export class Phase5WorkManagementCore1767637754000
       }),
     );
 
-    // Create indexes for work_task_dependencies
+    // Create indexes for task_dependencies
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_organization_id',
+        name: 'IDX_task_dependencies_organization_id',
         columnNames: ['organization_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_workspace_id',
+        name: 'IDX_task_dependencies_workspace_id',
         columnNames: ['workspace_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_project_id',
+        name: 'IDX_task_dependencies_project_id',
         columnNames: ['project_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_predecessor_task_id',
+        name: 'IDX_task_dependencies_predecessor_task_id',
         columnNames: ['predecessor_task_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_successor_task_id',
+        name: 'IDX_task_dependencies_successor_task_id',
         columnNames: ['successor_task_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_created_by_user_id',
+        name: 'IDX_task_dependencies_created_by_user_id',
         columnNames: ['created_by_user_id'],
       }),
     );
 
-    // Create unique index for work_task_dependencies
+    // Create unique index for task_dependencies
     await queryRunner.createIndex(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableIndex({
-        name: 'IDX_work_task_dependencies_unique',
-        columnNames: [
-          'workspace_id',
-          'predecessor_task_id',
-          'successor_task_id',
-          'type',
-        ],
+        name: 'IDX_task_dependencies_unique',
+        columnNames: ['workspace_id', 'predecessor_task_id', 'successor_task_id', 'type'],
         isUnique: true,
       }),
     );
@@ -529,7 +538,7 @@ export class Phase5WorkManagementCore1767637754000
 
     // Add check constraint: predecessor != successor
     await queryRunner.query(`
-      ALTER TABLE work_task_dependencies
+      ALTER TABLE task_dependencies
       ADD CONSTRAINT check_predecessor_not_equal_successor
       CHECK (predecessor_task_id != successor_task_id);
     `);
@@ -557,9 +566,9 @@ export class Phase5WorkManagementCore1767637754000
       }),
     );
 
-    // work_task_dependencies.predecessor_task_id -> work_tasks.id (CASCADE)
+    // task_dependencies.predecessor_task_id -> work_tasks.id (CASCADE)
     await queryRunner.createForeignKey(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableForeignKey({
         columnNames: ['predecessor_task_id'],
         referencedTableName: 'work_tasks',
@@ -568,9 +577,9 @@ export class Phase5WorkManagementCore1767637754000
       }),
     );
 
-    // work_task_dependencies.successor_task_id -> work_tasks.id (CASCADE)
+    // task_dependencies.successor_task_id -> work_tasks.id (CASCADE)
     await queryRunner.createForeignKey(
-      'work_task_dependencies',
+      'task_dependencies',
       new TableForeignKey({
         columnNames: ['successor_task_id'],
         referencedTableName: 'work_tasks',
@@ -605,9 +614,7 @@ export class Phase5WorkManagementCore1767637754000
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys first
     const workTasksTable = await queryRunner.getTable('work_tasks');
-    const taskDependenciesTable = await queryRunner.getTable(
-      'work_task_dependencies',
-    );
+    const taskDependenciesTable = await queryRunner.getTable('task_dependencies');
     const taskCommentsTable = await queryRunner.getTable('task_comments');
     const taskActivitiesTable = await queryRunner.getTable('task_activities');
 
@@ -634,17 +641,14 @@ export class Phase5WorkManagementCore1767637754000
         (fk) => fk.columnNames.indexOf('predecessor_task_id') !== -1,
       );
       if (predecessorFk) {
-        await queryRunner.dropForeignKey(
-          'work_task_dependencies',
-          predecessorFk,
-        );
+        await queryRunner.dropForeignKey('task_dependencies', predecessorFk);
       }
 
       const successorFk = taskDependenciesTable.foreignKeys.find(
         (fk) => fk.columnNames.indexOf('successor_task_id') !== -1,
       );
       if (successorFk) {
-        await queryRunner.dropForeignKey('work_task_dependencies', successorFk);
+        await queryRunner.dropForeignKey('task_dependencies', successorFk);
       }
     }
 
@@ -666,14 +670,14 @@ export class Phase5WorkManagementCore1767637754000
 
     // Drop check constraint
     await queryRunner.query(`
-      ALTER TABLE work_task_dependencies
+      ALTER TABLE task_dependencies
       DROP CONSTRAINT IF EXISTS check_predecessor_not_equal_successor;
     `);
 
     // Drop tables (in reverse order due to dependencies)
     await queryRunner.dropTable('task_activities', true);
     await queryRunner.dropTable('task_comments', true);
-    await queryRunner.dropTable('work_task_dependencies', true);
+    await queryRunner.dropTable('task_dependencies', true);
     await queryRunner.dropTable('work_tasks', true);
 
     // Drop enum types
@@ -684,3 +688,4 @@ export class Phase5WorkManagementCore1767637754000
     await queryRunner.query(`DROP TYPE IF EXISTS task_status;`);
   }
 }
+
