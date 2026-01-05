@@ -25,6 +25,11 @@
 #    - Call 3 analytics widget endpoints and assert 200
 # 5. AI copilot tests:
 #    - Call ai suggest and ai generate and validate JSON fields exist
+# 6. Share functionality tests (Step 8):
+#    - Enable share for dashboard
+#    - Public fetch with share token (no Authorization)
+#    - Disable share
+#    - Verify old token fails
 #
 # Exit codes:
 #   0 - All checks passed
@@ -33,6 +38,7 @@
 #   3 - Dashboard template test failed
 #   4 - Analytics widget test failed
 #   5 - AI copilot test failed
+#   6 - Share functionality test failed
 
 set -euo pipefail
 
@@ -97,7 +103,8 @@ curl_json() {
     response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt "$url" "${headers[@]}" 2>&1)
   elif [ "$method" = "POST" ] || [ "$method" = "PATCH" ] || [ "$method" = "DELETE" ]; then
     if [ -n "$body" ]; then
-      response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt -X "$method" "$url" "${headers[@]}" -d "$body" 2>&1)
+      # Use --data-raw to prevent shell interpretation of JSON quotes
+      response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt -X "$method" "$url" "${headers[@]}" --data-raw "$body" 2>&1)
     else
       response=$(curl -s -w "\n%{http_code}" -D /tmp/curl_headers.txt -X "$method" "$url" "${headers[@]}" 2>&1)
     fi
@@ -227,7 +234,17 @@ if [ "$TEMPLATES_STATUS" != "200" ]; then
 fi
 
 TEMPLATE_COUNT=$(echo "$TEMPLATES_BODY" | jq '.data | length')
+if [ "$TEMPLATE_COUNT" -lt 1 ]; then
+  echo -e "${RED}❌ ERROR: Templates list must contain at least 1 template, found $TEMPLATE_COUNT${NC}"
+  if [ -n "$TEMPLATES_REQUEST_ID" ]; then
+    echo "RequestId: $TEMPLATES_REQUEST_ID"
+  fi
+  exit 3
+fi
 echo -e "${GREEN}✅ Templates listed: $TEMPLATE_COUNT templates found${NC}"
+if [ -n "$TEMPLATES_REQUEST_ID" ]; then
+  echo "   RequestId: $TEMPLATES_REQUEST_ID"
+fi
 
 echo "3.2: Activating resource_utilization_conflicts template..."
 ACTIVATE_BODY=$(cat <<EOF
@@ -252,13 +269,43 @@ if [ "$ACTIVATE_STATUS" != "201" ]; then
 fi
 
 DASHBOARD_ID=$(echo "$ACTIVATE_BODY_RESP" | jq -r '.data.id // empty')
-if [ -z "$DASHBOARD_ID" ]; then
+if [ -z "$DASHBOARD_ID" ] || [ "$DASHBOARD_ID" = "null" ]; then
   echo -e "${RED}❌ ERROR: Dashboard ID not found in response${NC}"
+  echo "$ACTIVATE_BODY_RESP" | jq '.'
   exit 3
 fi
-echo -e "${GREEN}✅ Template activated: Dashboard $DASHBOARD_ID created${NC}"
+echo -e "${GREEN}✅ Template activated: Dashboard $DASHBOARD_ID created (201)${NC}"
+if [ -n "$ACTIVATE_REQUEST_ID" ]; then
+  echo "   RequestId: $ACTIVATE_REQUEST_ID"
+fi
 
-echo "3.3: Fetching dashboard and widgets..."
+echo "3.3: Verifying dashboard appears in list..."
+DASHBOARDS_LIST_RESPONSE=$(curl_json "GET" "/api/dashboards" "" "$WORKSPACE_ID")
+DASHBOARDS_LIST_STATUS=$(echo "$DASHBOARDS_LIST_RESPONSE" | cut -d'|' -f1)
+DASHBOARDS_LIST_BODY=$(echo "$DASHBOARDS_LIST_RESPONSE" | cut -d'|' -f2)
+DASHBOARDS_LIST_REQUEST_ID=$(echo "$DASHBOARDS_LIST_RESPONSE" | cut -d'|' -f3)
+
+if [ "$DASHBOARDS_LIST_STATUS" != "200" ]; then
+  echo -e "${RED}❌ ERROR: Failed to list dashboards ($DASHBOARDS_LIST_STATUS)${NC}"
+  if [ -n "$DASHBOARDS_LIST_REQUEST_ID" ]; then
+    echo "RequestId: $DASHBOARDS_LIST_REQUEST_ID"
+  fi
+  echo "$DASHBOARDS_LIST_BODY" | jq '.' || echo "$DASHBOARDS_LIST_BODY"
+  exit 3
+fi
+
+DASHBOARD_IN_LIST=$(echo "$DASHBOARDS_LIST_BODY" | jq -r ".data[] | select(.id == \"$DASHBOARD_ID\") | .id" | head -1)
+if [ -z "$DASHBOARD_IN_LIST" ] || [ "$DASHBOARD_IN_LIST" != "$DASHBOARD_ID" ]; then
+  echo -e "${RED}❌ ERROR: Dashboard $DASHBOARD_ID not found in dashboards list${NC}"
+  echo "$DASHBOARDS_LIST_BODY" | jq '.'
+  exit 3
+fi
+echo -e "${GREEN}✅ Dashboard $DASHBOARD_ID found in dashboards list${NC}"
+if [ -n "$DASHBOARDS_LIST_REQUEST_ID" ]; then
+  echo "   RequestId: $DASHBOARDS_LIST_REQUEST_ID"
+fi
+
+echo "3.4: Fetching dashboard and widgets..."
 DASHBOARD_RESPONSE=$(curl_json "GET" "/api/dashboards/$DASHBOARD_ID" "" "$WORKSPACE_ID")
 DASHBOARD_STATUS=$(echo "$DASHBOARD_RESPONSE" | cut -d'|' -f1)
 DASHBOARD_BODY=$(echo "$DASHBOARD_RESPONSE" | cut -d'|' -f2)
@@ -274,7 +321,18 @@ if [ "$DASHBOARD_STATUS" != "200" ]; then
 fi
 
 WIDGET_COUNT=$(echo "$DASHBOARD_BODY" | jq '.data.widgets | length')
-echo -e "${GREEN}✅ Dashboard fetched: $WIDGET_COUNT widgets${NC}"
+if [ "$WIDGET_COUNT" -lt 1 ]; then
+  echo -e "${RED}❌ ERROR: Dashboard widgets array must be non-empty, found $WIDGET_COUNT widgets${NC}"
+  if [ -n "$DASHBOARD_REQUEST_ID" ]; then
+    echo "RequestId: $DASHBOARD_REQUEST_ID"
+  fi
+  echo "$DASHBOARD_BODY" | jq '.'
+  exit 3
+fi
+echo -e "${GREEN}✅ Dashboard fetched: $WIDGET_COUNT widgets (non-empty)${NC}"
+if [ -n "$DASHBOARD_REQUEST_ID" ]; then
+  echo "   RequestId: $DASHBOARD_REQUEST_ID"
+fi
 echo ""
 
 # Step 4: Analytics Widget Tests
@@ -302,7 +360,17 @@ fi
 if [ "$PROJECT_HEALTH_STATUS" != "200" ]; then
   echo -e "${YELLOW}⚠️  project-health widget returned $PROJECT_HEALTH_STATUS (non-fatal)${NC}"
 else
-  echo -e "${GREEN}✅ project-health widget: 200${NC}"
+  # Assert required fields present (data array with projectId, projectName, status, riskLevel, conflictCount)
+  HAS_REQUIRED_FIELDS=$(echo "$PROJECT_HEALTH_BODY" | jq -r '.data | if type == "array" and length > 0 then .[0] | has("projectId") and has("projectName") and has("status") and has("riskLevel") and has("conflictCount") else false end')
+  if [ "$HAS_REQUIRED_FIELDS" != "true" ]; then
+    echo -e "${RED}❌ ERROR: project-health widget missing required fields${NC}"
+    echo "$PROJECT_HEALTH_BODY" | jq '.'
+    exit 4
+  fi
+  echo -e "${GREEN}✅ project-health widget: 200 with required fields${NC}"
+  if [ -n "$PROJECT_HEALTH_REQUEST_ID" ]; then
+    echo "   RequestId: $PROJECT_HEALTH_REQUEST_ID"
+  fi
 fi
 
 echo "4.2: Testing resource-utilization widget..."
@@ -324,7 +392,17 @@ fi
 if [ "$RESOURCE_UTIL_STATUS" != "200" ]; then
   echo -e "${YELLOW}⚠️  resource-utilization widget returned $RESOURCE_UTIL_STATUS (non-fatal)${NC}"
 else
-  echo -e "${GREEN}✅ resource-utilization widget: 200${NC}"
+  # Assert required fields present (data array with resource objects containing id, displayName, totalCapacityHours, totalAllocatedHours, utilizationPercentage)
+  HAS_REQUIRED_FIELDS=$(echo "$RESOURCE_UTIL_BODY" | jq -r '.data | if type == "array" and length > 0 then .[0] | has("id") and has("displayName") and (has("totalCapacityHours") or has("totalAllocatedHours") or has("utilizationPercentage")) else (type == "array") end')
+  if [ "$HAS_REQUIRED_FIELDS" != "true" ]; then
+    echo -e "${RED}❌ ERROR: resource-utilization widget missing required fields${NC}"
+    echo "$RESOURCE_UTIL_BODY" | jq '.'
+    exit 4
+  fi
+  echo -e "${GREEN}✅ resource-utilization widget: 200 with required fields${NC}"
+  if [ -n "$RESOURCE_UTIL_REQUEST_ID" ]; then
+    echo "   RequestId: $RESOURCE_UTIL_REQUEST_ID"
+  fi
 fi
 
 echo "4.3: Testing conflict-trends widget..."
@@ -346,7 +424,31 @@ fi
 if [ "$CONFLICT_TRENDS_STATUS" != "200" ]; then
   echo -e "${YELLOW}⚠️  conflict-trends widget returned $CONFLICT_TRENDS_STATUS (non-fatal)${NC}"
 else
-  echo -e "${GREEN}✅ conflict-trends widget: 200${NC}"
+  # Assert required fields present (data array with week and count)
+  # Handle empty array case: if array is empty, it's valid. If not empty, check first element has week and count
+  DATA_TYPE=$(echo "$CONFLICT_TRENDS_BODY" | jq -r '.data | type')
+  if [ "$DATA_TYPE" != "array" ]; then
+    echo -e "${RED}❌ ERROR: conflict-trends widget data must be an array, got $DATA_TYPE${NC}"
+    echo "$CONFLICT_TRENDS_BODY" | jq '.'
+    exit 4
+  fi
+  ARRAY_LENGTH=$(echo "$CONFLICT_TRENDS_BODY" | jq '.data | length')
+  if [ "$ARRAY_LENGTH" -eq 0 ]; then
+    # Empty array is valid (no conflicts in date range)
+    HAS_REQUIRED_FIELDS="true"
+  else
+    # Check first element has week and count
+    HAS_REQUIRED_FIELDS=$(echo "$CONFLICT_TRENDS_BODY" | jq -r '.data[0] | if type == "object" then (has("week") and has("count")) else false end')
+  fi
+  if [ "$HAS_REQUIRED_FIELDS" != "true" ]; then
+    echo -e "${RED}❌ ERROR: conflict-trends widget missing required fields${NC}"
+    echo "$CONFLICT_TRENDS_BODY" | jq '.'
+    exit 4
+  fi
+  echo -e "${GREEN}✅ conflict-trends widget: 200 with required fields${NC}"
+  if [ -n "$CONFLICT_TRENDS_REQUEST_ID" ]; then
+    echo "   RequestId: $CONFLICT_TRENDS_REQUEST_ID"
+  fi
 fi
 
 echo ""
@@ -377,7 +479,8 @@ if [ "$AI_SUGGEST_STATUS" = "401" ] || [ "$AI_SUGGEST_STATUS" = "403" ] || [ "$A
   exit 5
 fi
 
-if [ "$AI_SUGGEST_STATUS" != "200" ]; then
+# Accept both 200 and 201 as success
+if [ "$AI_SUGGEST_STATUS" != "200" ] && [ "$AI_SUGGEST_STATUS" != "201" ]; then
   echo -e "${RED}❌ ERROR: AI suggest returned $AI_SUGGEST_STATUS${NC}"
   echo "$AI_SUGGEST_BODY_RESP" | jq '.' || echo "$AI_SUGGEST_BODY_RESP"
   exit 5
@@ -392,18 +495,65 @@ if [ -z "$TEMPLATE_KEY" ] || [ -z "$WIDGET_SUGGESTIONS" ]; then
   exit 5
 fi
 
-echo -e "${GREEN}✅ AI suggest: templateKey=$TEMPLATE_KEY, widgetSuggestions present${NC}"
+# Assert widgetSuggestions is an array and all items are from allowlist
+WIDGET_ALLOWLIST="project_health sprint_metrics resource_utilization conflict_trends portfolio_summary program_summary budget_variance risk_summary"
+WIDGET_SUGGESTIONS_ARRAY=$(echo "$AI_SUGGEST_BODY_RESP" | jq -r '.data.widgetSuggestions | if type == "array" then .[] else empty end')
+ALL_IN_ALLOWLIST=true
+for widget in $WIDGET_SUGGESTIONS_ARRAY; do
+  if ! echo "$WIDGET_ALLOWLIST" | grep -q "$widget"; then
+    echo -e "${RED}❌ ERROR: AI suggest returned widget '$widget' not in allowlist${NC}"
+    echo "Allowlist: $WIDGET_ALLOWLIST"
+    ALL_IN_ALLOWLIST=false
+  fi
+done
+
+if [ "$ALL_IN_ALLOWLIST" != "true" ]; then
+  echo "$AI_SUGGEST_BODY_RESP" | jq '.'
+  exit 5
+fi
+
+echo -e "${GREEN}✅ AI suggest: templateKey=$TEMPLATE_KEY, widgetSuggestions from allowlist${NC}"
+if [ -n "$AI_SUGGEST_REQUEST_ID" ]; then
+  echo "   RequestId: $AI_SUGGEST_REQUEST_ID"
+fi
 
 echo "5.2: Testing AI generate..."
-AI_GENERATE_BODY=$(cat <<EOF
-{
-  "prompt": "Show me resource utilization and conflicts",
-  "persona": "RESOURCE_MANAGER"
-}
-EOF
-)
 
-AI_GENERATE_RESPONSE=$(curl_json "POST" "/api/ai/dashboards/generate" "$AI_GENERATE_BODY" "$WORKSPACE_ID")
+# Guard: WORKSPACE_ID is required
+if [ -z "${WORKSPACE_ID:-}" ]; then
+  echo -e "${RED}❌ WORKSPACE_ID is required for AI generate${NC}"
+  exit 1
+fi
+
+# Build JSON body using jq to avoid shell quoting issues
+AI_GENERATE_BODY=$(jq -n \
+  --arg prompt "Create a PMO dashboard for execs. Include project health, resource utilization, conflict trends, and delivery risk. Use weekly trend widgets. Keep to 6 to 8 widgets." \
+  --arg persona "RESOURCE_MANAGER" \
+  '{
+    prompt: $prompt,
+    persona: $persona
+  }')
+
+# Debug output (safe - no secrets)
+echo "   AI_GENERATE_BODY length: ${#AI_GENERATE_BODY}"
+echo "   AI_GENERATE_BODY preview: $(echo "$AI_GENERATE_BODY" | head -c 120)"
+
+# Use curl directly with --data-raw to ensure proper JSON transmission
+AI_GEN_RESP=$(curl -s -w "\n%{http_code}" \
+  "$BASE_URL/api/ai/dashboards/generate" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-workspace-id: $WORKSPACE_ID" \
+  --data-raw "$AI_GENERATE_BODY" 2>&1)
+
+AI_GENERATE_STATUS=$(echo "$AI_GEN_RESP" | tail -n1)
+AI_GENERATE_BODY_RESP=$(echo "$AI_GEN_RESP" | sed '$d')
+
+# Extract requestId from response if present
+AI_GENERATE_REQUEST_ID=$(echo "$AI_GENERATE_BODY_RESP" | jq -r '.error.requestId // .meta.requestId // empty' 2>/dev/null || echo "")
+
+# Create response in same format as curl_json function for consistency
+AI_GENERATE_RESPONSE="$AI_GENERATE_STATUS|$AI_GENERATE_BODY_RESP|$AI_GENERATE_REQUEST_ID"
 AI_GENERATE_STATUS=$(echo "$AI_GENERATE_RESPONSE" | cut -d'|' -f1)
 AI_GENERATE_BODY_RESP=$(echo "$AI_GENERATE_RESPONSE" | cut -d'|' -f2)
 AI_GENERATE_REQUEST_ID=$(echo "$AI_GENERATE_RESPONSE" | cut -d'|' -f3)
@@ -418,7 +568,8 @@ if [ "$AI_GENERATE_STATUS" = "401" ] || [ "$AI_GENERATE_STATUS" = "403" ] || [ "
   exit 5
 fi
 
-if [ "$AI_GENERATE_STATUS" != "200" ]; then
+# Accept both 200 and 201 as success
+if [ "$AI_GENERATE_STATUS" != "200" ] && [ "$AI_GENERATE_STATUS" != "201" ]; then
   echo -e "${RED}❌ ERROR: AI generate returned $AI_GENERATE_STATUS${NC}"
   echo "$AI_GENERATE_BODY_RESP" | jq '.' || echo "$AI_GENERATE_BODY_RESP"
   exit 5
@@ -434,8 +585,226 @@ if [ -z "$DASHBOARD_NAME" ] || [ -z "$DASHBOARD_VISIBILITY" ] || [ -z "$DASHBOAR
   exit 5
 fi
 
+# Assert dashboard schema passes backend schema guard:
+# - widgets is an array
+# - Each widget has: widgetKey, title, config (object), layout (object with x, y, w, h as numbers)
+# - All widgetKeys are in allowlist
 WIDGET_COUNT=$(echo "$AI_GENERATE_BODY_RESP" | jq '.data.widgets | length')
-echo -e "${GREEN}✅ AI generate: name=$DASHBOARD_NAME, visibility=$DASHBOARD_VISIBILITY, widgets=$WIDGET_COUNT${NC}"
+WIDGETS_IS_ARRAY=$(echo "$AI_GENERATE_BODY_RESP" | jq -r '.data.widgets | if type == "array" then "true" else "false" end')
+
+if [ "$WIDGETS_IS_ARRAY" != "true" ]; then
+  echo -e "${RED}❌ ERROR: AI generate widgets must be an array${NC}"
+  echo "$AI_GENERATE_BODY_RESP" | jq '.'
+  exit 5
+fi
+
+# Validate each widget structure
+WIDGET_ALLOWLIST="project_health sprint_metrics resource_utilization conflict_trends portfolio_summary program_summary budget_variance risk_summary"
+for i in $(seq 0 $((WIDGET_COUNT - 1))); do
+  WIDGET=$(echo "$AI_GENERATE_BODY_RESP" | jq ".data.widgets[$i]")
+  WIDGET_KEY=$(echo "$WIDGET" | jq -r '.widgetKey // empty')
+  WIDGET_TITLE=$(echo "$WIDGET" | jq -r '.title // empty')
+  WIDGET_CONFIG=$(echo "$WIDGET" | jq -r '.config // empty')
+  WIDGET_LAYOUT=$(echo "$WIDGET" | jq -r '.layout // empty')
+
+  if [ -z "$WIDGET_KEY" ] || [ -z "$WIDGET_TITLE" ] || [ "$WIDGET_CONFIG" = "null" ] || [ "$WIDGET_LAYOUT" = "null" ]; then
+    echo -e "${RED}❌ ERROR: AI generate widget $i missing required fields (widgetKey, title, config, layout)${NC}"
+    echo "$WIDGET" | jq '.'
+    exit 5
+  fi
+
+  # Check widgetKey is in allowlist
+  if ! echo "$WIDGET_ALLOWLIST" | grep -q "$WIDGET_KEY"; then
+    echo -e "${RED}❌ ERROR: AI generate widget $i has widgetKey '$WIDGET_KEY' not in allowlist${NC}"
+    echo "Allowlist: $WIDGET_ALLOWLIST"
+    exit 5
+  fi
+
+  # Check layout has numeric x, y, w, h
+  LAYOUT_X=$(echo "$WIDGET" | jq -r '.layout.x // empty')
+  LAYOUT_Y=$(echo "$WIDGET" | jq -r '.layout.y // empty')
+  LAYOUT_W=$(echo "$WIDGET" | jq -r '.layout.w // empty')
+  LAYOUT_H=$(echo "$WIDGET" | jq -r '.layout.h // empty')
+
+  if [ -z "$LAYOUT_X" ] || [ -z "$LAYOUT_Y" ] || [ -z "$LAYOUT_W" ] || [ -z "$LAYOUT_H" ]; then
+    echo -e "${RED}❌ ERROR: AI generate widget $i layout missing numeric x, y, w, h${NC}"
+    echo "$WIDGET" | jq '.'
+    exit 5
+  fi
+done
+
+echo -e "${GREEN}✅ AI generate: name=$DASHBOARD_NAME, visibility=$DASHBOARD_VISIBILITY, widgets=$WIDGET_COUNT (schema valid)${NC}"
+if [ -n "$AI_GENERATE_REQUEST_ID" ]; then
+  echo "   RequestId: $AI_GENERATE_REQUEST_ID"
+fi
+echo ""
+
+# Step 6: Share Functionality Tests
+echo -e "${YELLOW}📋 Step 6: Share Functionality Tests${NC}"
+
+echo "6.1: Enabling share for dashboard..."
+ENABLE_SHARE_BODY=$(jq -n '{"expiresAt": null}')
+ENABLE_SHARE_RESPONSE=$(curl_json "POST" "/api/dashboards/$DASHBOARD_ID/share-enable" "$ENABLE_SHARE_BODY" "$WORKSPACE_ID")
+ENABLE_SHARE_STATUS=$(echo "$ENABLE_SHARE_RESPONSE" | cut -d'|' -f1)
+ENABLE_SHARE_BODY_RESP=$(echo "$ENABLE_SHARE_RESPONSE" | cut -d'|' -f2)
+ENABLE_SHARE_REQUEST_ID=$(echo "$ENABLE_SHARE_RESPONSE" | cut -d'|' -f3)
+
+# Fail fast on 401, 403, 404, 500
+if [ "$ENABLE_SHARE_STATUS" = "401" ] || [ "$ENABLE_SHARE_STATUS" = "403" ] || [ "$ENABLE_SHARE_STATUS" = "404" ] || [ "$ENABLE_SHARE_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: Enable share failed with $ENABLE_SHARE_STATUS${NC}"
+  if [ -n "$ENABLE_SHARE_REQUEST_ID" ]; then
+    echo "RequestId: $ENABLE_SHARE_REQUEST_ID"
+  fi
+  echo "$ENABLE_SHARE_BODY_RESP" | jq '.' || echo "$ENABLE_SHARE_BODY_RESP"
+  exit 6
+fi
+
+if [ "$ENABLE_SHARE_STATUS" != "200" ] && [ "$ENABLE_SHARE_STATUS" != "201" ]; then
+  echo -e "${RED}❌ ERROR: Enable share returned $ENABLE_SHARE_STATUS${NC}"
+  if [ -n "$ENABLE_SHARE_REQUEST_ID" ]; then
+    echo "RequestId: $ENABLE_SHARE_REQUEST_ID"
+  fi
+  echo "$ENABLE_SHARE_BODY_RESP" | jq '.' || echo "$ENABLE_SHARE_BODY_RESP"
+  exit 6
+fi
+
+# Parse shareToken from .data.shareToken or .data.token, support both, fail if missing
+SHARE_TOKEN=$(echo "$ENABLE_SHARE_BODY_RESP" | jq -e -r '.data.shareToken // .data.token // empty' 2>/dev/null || echo "")
+
+if [ -z "$SHARE_TOKEN" ] || [ "$SHARE_TOKEN" = "null" ]; then
+  # Try extracting from shareUrlPath if token not directly available
+  SHARE_URL_PATH=$(echo "$ENABLE_SHARE_BODY_RESP" | jq -r '.data.shareUrlPath // .shareUrlPath // empty')
+  if [ -n "$SHARE_URL_PATH" ] && [ "$SHARE_URL_PATH" != "null" ]; then
+    SHARE_TOKEN=$(echo "$SHARE_URL_PATH" | grep -oP 'share=\K[^&]+' || echo "")
+  fi
+fi
+
+if [ -z "$SHARE_TOKEN" ] || [ "$SHARE_TOKEN" = "null" ]; then
+  echo -e "${RED}❌ ERROR: shareToken not found in enable share response${NC}"
+  echo "$ENABLE_SHARE_BODY_RESP" | jq '.'
+  exit 6
+fi
+
+SHARE_TOKEN_MASKED="${SHARE_TOKEN:0:6}...${SHARE_TOKEN: -6}"
+echo -e "${GREEN}✅ Share enabled: Token $SHARE_TOKEN_MASKED (HTTP $ENABLE_SHARE_STATUS)${NC}"
+if [ -n "$ENABLE_SHARE_REQUEST_ID" ]; then
+  echo "   RequestId: $ENABLE_SHARE_REQUEST_ID"
+fi
+
+echo "6.2: Testing public fetch with share token (no Authorization header)..."
+# Public fetch without Authorization header
+PUBLIC_FETCH_RESP=$(curl -sS -w "\n%{http_code}" -D /tmp/public_headers.txt \
+  "$BASE_URL/api/dashboards/$DASHBOARD_ID?share=$SHARE_TOKEN" \
+  -H "Content-Type: application/json" 2>&1)
+
+PUBLIC_FETCH_STATUS=$(echo "$PUBLIC_FETCH_RESP" | tail -n1)
+PUBLIC_FETCH_BODY=$(echo "$PUBLIC_FETCH_RESP" | sed '$d')
+PUBLIC_FETCH_REQUEST_ID=$(grep -i "x-request-id:" /tmp/public_headers.txt 2>/dev/null | cut -d' ' -f2 | tr -d '\r' || echo "")
+rm -f /tmp/public_headers.txt
+
+# Fail fast on 401, 403, 404, 500
+if [ "$PUBLIC_FETCH_STATUS" = "401" ] || [ "$PUBLIC_FETCH_STATUS" = "403" ] || [ "$PUBLIC_FETCH_STATUS" = "404" ] || [ "$PUBLIC_FETCH_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: Public fetch failed with $PUBLIC_FETCH_STATUS${NC}"
+  if [ -n "$PUBLIC_FETCH_REQUEST_ID" ]; then
+    echo "RequestId: $PUBLIC_FETCH_REQUEST_ID"
+  fi
+  echo "$PUBLIC_FETCH_BODY" | jq '.' || echo "$PUBLIC_FETCH_BODY"
+  exit 6
+fi
+
+if [ "$PUBLIC_FETCH_STATUS" != "200" ]; then
+  echo -e "${RED}❌ ERROR: Public fetch returned $PUBLIC_FETCH_STATUS (expected 200)${NC}"
+  if [ -n "$PUBLIC_FETCH_REQUEST_ID" ]; then
+    echo "RequestId: $PUBLIC_FETCH_REQUEST_ID"
+  fi
+  echo "$PUBLIC_FETCH_BODY" | jq '.' || echo "$PUBLIC_FETCH_BODY"
+  exit 6
+fi
+
+# Assert response includes dashboard id and widgets array
+PUBLIC_DASHBOARD_ID=$(echo "$PUBLIC_FETCH_BODY" | jq -e -r '.data.id // .id // empty' 2>/dev/null || echo "")
+PUBLIC_WIDGETS=$(echo "$PUBLIC_FETCH_BODY" | jq -e -r '.data.widgets // .widgets // empty' 2>/dev/null || echo "")
+
+if [ -z "$PUBLIC_DASHBOARD_ID" ] || [ "$PUBLIC_DASHBOARD_ID" != "$DASHBOARD_ID" ]; then
+  echo -e "${RED}❌ ERROR: Public fetch returned wrong dashboard ID${NC}"
+  echo "$PUBLIC_FETCH_BODY" | jq '.'
+  exit 6
+fi
+
+if [ -z "$PUBLIC_WIDGETS" ] || [ "$PUBLIC_WIDGETS" = "null" ]; then
+  echo -e "${RED}❌ ERROR: Public fetch response missing widgets array${NC}"
+  echo "$PUBLIC_FETCH_BODY" | jq '.'
+  exit 6
+fi
+
+echo -e "${GREEN}✅ Public fetch succeeded: Dashboard $PUBLIC_DASHBOARD_ID (HTTP $PUBLIC_FETCH_STATUS)${NC}"
+if [ -n "$PUBLIC_FETCH_REQUEST_ID" ]; then
+  echo "   RequestId: $PUBLIC_FETCH_REQUEST_ID"
+fi
+
+echo "6.3: Disabling share..."
+DISABLE_SHARE_RESPONSE=$(curl_json "POST" "/api/dashboards/$DASHBOARD_ID/share-disable" "" "$WORKSPACE_ID")
+DISABLE_SHARE_STATUS=$(echo "$DISABLE_SHARE_RESPONSE" | cut -d'|' -f1)
+DISABLE_SHARE_BODY_RESP=$(echo "$DISABLE_SHARE_RESPONSE" | cut -d'|' -f2)
+DISABLE_SHARE_REQUEST_ID=$(echo "$DISABLE_SHARE_RESPONSE" | cut -d'|' -f3)
+
+# Fail fast on 401, 403, 404, 500
+if [ "$DISABLE_SHARE_STATUS" = "401" ] || [ "$DISABLE_SHARE_STATUS" = "403" ] || [ "$DISABLE_SHARE_STATUS" = "404" ] || [ "$DISABLE_SHARE_STATUS" = "500" ]; then
+  echo -e "${RED}❌ ERROR: Disable share failed with $DISABLE_SHARE_STATUS${NC}"
+  if [ -n "$DISABLE_SHARE_REQUEST_ID" ]; then
+    echo "RequestId: $DISABLE_SHARE_REQUEST_ID"
+  fi
+  echo "$DISABLE_SHARE_BODY_RESP" | jq '.' || echo "$DISABLE_SHARE_BODY_RESP"
+  exit 6
+fi
+
+if [ "$DISABLE_SHARE_STATUS" != "200" ] && [ "$DISABLE_SHARE_STATUS" != "201" ]; then
+  echo -e "${RED}❌ ERROR: Disable share returned $DISABLE_SHARE_STATUS${NC}"
+  if [ -n "$DISABLE_SHARE_REQUEST_ID" ]; then
+    echo "RequestId: $DISABLE_SHARE_REQUEST_ID"
+  fi
+  echo "$DISABLE_SHARE_BODY_RESP" | jq '.' || echo "$DISABLE_SHARE_BODY_RESP"
+  exit 6
+fi
+
+echo -e "${GREEN}✅ Share disabled (HTTP $DISABLE_SHARE_STATUS)${NC}"
+if [ -n "$DISABLE_SHARE_REQUEST_ID" ]; then
+  echo "   RequestId: $DISABLE_SHARE_REQUEST_ID"
+fi
+
+echo "6.4: Verifying old share token no longer works..."
+OLD_TOKEN_RESP=$(curl -sS -w "\n%{http_code}" -D /tmp/old_token_headers.txt \
+  "$BASE_URL/api/dashboards/$DASHBOARD_ID?share=$SHARE_TOKEN" \
+  -H "Content-Type: application/json" 2>&1)
+
+OLD_TOKEN_STATUS=$(echo "$OLD_TOKEN_RESP" | tail -n1)
+OLD_TOKEN_BODY=$(echo "$OLD_TOKEN_RESP" | sed '$d')
+OLD_TOKEN_REQUEST_ID=$(grep -i "x-request-id:" /tmp/old_token_headers.txt 2>/dev/null | cut -d' ' -f2 | tr -d '\r' || echo "")
+rm -f /tmp/old_token_headers.txt
+
+if [ "$OLD_TOKEN_STATUS" = "200" ]; then
+  echo -e "${RED}❌ ERROR: Old token should be rejected but returned HTTP 200${NC}"
+  if [ -n "$OLD_TOKEN_REQUEST_ID" ]; then
+    echo "RequestId: $OLD_TOKEN_REQUEST_ID"
+  fi
+  echo "$OLD_TOKEN_BODY" | jq '.' || echo "$OLD_TOKEN_BODY"
+  exit 6
+fi
+
+if [ "$OLD_TOKEN_STATUS" != "400" ] && [ "$OLD_TOKEN_STATUS" != "403" ]; then
+  echo -e "${YELLOW}⚠️  WARNING: Old token rejected with HTTP $OLD_TOKEN_STATUS (expected 400 or 403)${NC}"
+  if [ -n "$OLD_TOKEN_REQUEST_ID" ]; then
+    echo "RequestId: $OLD_TOKEN_REQUEST_ID"
+  fi
+  echo "$OLD_TOKEN_BODY" | jq '.' || echo "$OLD_TOKEN_BODY"
+else
+  echo -e "${GREEN}✅ Old token correctly rejected (HTTP $OLD_TOKEN_STATUS)${NC}"
+  if [ -n "$OLD_TOKEN_REQUEST_ID" ]; then
+    echo "   RequestId: $OLD_TOKEN_REQUEST_ID"
+  fi
+  ERROR_MSG=$(echo "$OLD_TOKEN_BODY" | jq -r '.message // .error // "Token invalid"' 2>/dev/null || echo "Token invalid")
+  echo "   Error: $ERROR_MSG"
+fi
 echo ""
 
 # Final Summary
@@ -446,6 +815,7 @@ echo "✅ Templates: Listed and activated successfully"
 echo "✅ Dashboard: Created with widgets"
 echo "✅ Analytics Widgets: Tested (3 endpoints)"
 echo "✅ AI Copilot: Suggest and generate working"
+echo "✅ Share Functionality: Enable, public fetch, disable, token invalidation"
 echo ""
 echo "All checks passed!"
 
