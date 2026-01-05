@@ -10,19 +10,20 @@ import {
   Index,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
-import { WorkPhase } from './work-phase.entity';
-import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
+import {
+  TaskStatus,
+  TaskPriority,
+  TaskType,
+} from '../enums/task.enums';
 
 @Entity('work_tasks')
 @Index(['organizationId'])
 @Index(['workspaceId'])
 @Index(['projectId'])
 @Index(['parentTaskId'])
-@Index(['phaseId'])
 @Index(['assigneeUserId'])
 @Index(['reporterUserId'])
 @Index(['rank'])
-@Index(['workspaceId', 'phaseId', 'rank'], { where: '"phase_id" IS NOT NULL' })
 export class WorkTask {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -38,9 +39,6 @@ export class WorkTask {
 
   @Column({ type: 'uuid', name: 'parent_task_id', nullable: true })
   parentTaskId: string | null;
-
-  @Column({ type: 'uuid', name: 'phase_id', nullable: true })
-  phaseId: string | null;
 
   @Column({ type: 'varchar', length: 300 })
   title: string;
@@ -113,8 +111,5 @@ export class WorkTask {
 
   @OneToMany(() => WorkTask, (task) => task.parentTask)
   subtasks: WorkTask[];
-
-  @ManyToOne(() => WorkPhase, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'phase_id' })
-  phase: WorkPhase | null;
 }
+

@@ -1,81 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkTask } from './entities/work-task.entity';
-import { WorkPhase } from './entities/work-phase.entity';
-import { WorkTaskDependency } from './entities/task-dependency.entity';
+import { TaskDependency } from './entities/task-dependency.entity';
 import { TaskComment } from './entities/task-comment.entity';
 import { TaskActivity } from './entities/task-activity.entity';
-import { AckToken } from './entities/ack-token.entity';
-import { AuditEvent } from './entities/audit-event.entity';
-import { Project } from '../projects/entities/project.entity';
-import { Program } from '../programs/entities/program.entity';
-import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
-import {
-  TenancyModule,
-  createTenantAwareRepositoryProvider,
-} from '../tenancy/tenancy.module';
-import { WorkTasksService } from './services/work-tasks.service';
-import { WorkPlanService } from './services/work-plan.service';
-import { ProjectStartService } from './services/project-start.service';
-import { ProjectStructureGuardService } from './services/project-structure-guard.service';
-import { TaskDependenciesService } from './services/task-dependencies.service';
-import { TaskCommentsService } from './services/task-comments.service';
-import { TaskActivityService } from './services/task-activity.service';
-import { ProjectHealthService } from './services/project-health.service';
-import { ProjectOverviewService } from './services/project-overview.service';
-import { AckTokenService } from './services/ack-token.service';
-import { WorkPhasesService } from './services/work-phases.service';
-import { WorkTasksController } from './controllers/work-tasks.controller';
-import { WorkPlanController } from './controllers/work-plan.controller';
-import { WorkPhasesController } from './controllers/work-phases.controller';
-// ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       WorkTask,
-      WorkPhase,
-      WorkTaskDependency,
+      TaskDependency,
       TaskComment,
       TaskActivity,
-      AckToken,
-      AuditEvent,
-      Project,
-      Program,
     ]),
-    WorkspaceAccessModule,
-    TenancyModule,
   ],
-  controllers: [WorkTasksController, WorkPlanController, WorkPhasesController],
-  providers: [
-    createTenantAwareRepositoryProvider(WorkTask),
-    createTenantAwareRepositoryProvider(WorkPhase),
-    createTenantAwareRepositoryProvider(WorkTaskDependency),
-    createTenantAwareRepositoryProvider(TaskComment),
-    createTenantAwareRepositoryProvider(TaskActivity),
-    WorkTasksService,
-    WorkPlanService,
-    ProjectStartService,
-    ProjectStructureGuardService,
-    TaskDependenciesService,
-    TaskCommentsService,
-    TaskActivityService,
-    ProjectHealthService,
-    ProjectOverviewService,
-    AckTokenService,
-    WorkPhasesService,
-  ],
-  exports: [
-    TypeOrmModule,
-    WorkTasksService,
-    WorkPlanService,
-    ProjectStartService,
-    ProjectStructureGuardService,
-    TaskDependenciesService,
-    TaskCommentsService,
-    TaskActivityService,
-    ProjectHealthService,
-    ProjectOverviewService,
-  ],
+  exports: [TypeOrmModule],
 })
 export class WorkManagementModule {}
+
