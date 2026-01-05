@@ -13,3 +13,4 @@ export class BulkStatusUpdateDto {
   @IsEnum(TaskStatus)
   status: TaskStatus;
 }
+

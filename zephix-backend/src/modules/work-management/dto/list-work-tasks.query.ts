@@ -1,13 +1,4 @@
-import {
-  IsUUID,
-  IsOptional,
-  IsEnum,
-  IsString,
-  IsInt,
-  Min,
-  Max,
-  IsBoolean,
-} from 'class-validator';
+import { IsUUID, IsOptional, IsEnum, IsString, IsInt, Min, Max, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus } from '../enums/task.enums';
@@ -18,11 +9,7 @@ export class ListWorkTasksQueryDto {
   @IsUUID()
   projectId?: string;
 
-  @ApiProperty({
-    description: 'Filter by status',
-    enum: TaskStatus,
-    required: false,
-  })
+  @ApiProperty({ description: 'Filter by status', enum: TaskStatus, required: false })
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;
@@ -37,23 +24,13 @@ export class ListWorkTasksQueryDto {
   @IsString()
   search?: string;
 
-  @ApiProperty({
-    description: 'Include archived tasks',
-    required: false,
-    default: false,
-  })
+  @ApiProperty({ description: 'Include archived tasks', required: false, default: false })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   includeArchived?: boolean;
 
-  @ApiProperty({
-    description: 'Limit results',
-    required: false,
-    default: 50,
-    minimum: 1,
-    maximum: 200,
-  })
+  @ApiProperty({ description: 'Limit results', required: false, default: 50, minimum: 1, maximum: 200 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -61,15 +38,11 @@ export class ListWorkTasksQueryDto {
   @Max(200)
   limit?: number;
 
-  @ApiProperty({
-    description: 'Offset for pagination',
-    required: false,
-    default: 0,
-    minimum: 0,
-  })
+  @ApiProperty({ description: 'Offset for pagination', required: false, default: 0, minimum: 0 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   offset?: number;
 }
+

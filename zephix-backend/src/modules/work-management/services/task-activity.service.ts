@@ -1,8 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import {
-  TenantAwareRepository,
-  getTenantAwareRepositoryToken,
-} from '../../tenancy/tenancy.module';
+import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
 import { TaskActivity } from '../entities/task-activity.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityType } from '../enums/task.enums';
@@ -72,3 +69,4 @@ export class TaskActivityService {
     return { items, total };
   }
 }
+
