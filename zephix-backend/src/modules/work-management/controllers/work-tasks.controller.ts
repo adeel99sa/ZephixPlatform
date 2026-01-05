@@ -30,7 +30,6 @@ import { WorkTasksService } from '../services/work-tasks.service';
 import { TaskDependenciesService } from '../services/task-dependencies.service';
 import { TaskCommentsService } from '../services/task-comments.service';
 import { TaskActivityService } from '../services/task-activity.service';
-import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import {
   CreateWorkTaskDto,
   UpdateWorkTaskDto,
@@ -42,8 +41,7 @@ import {
 } from '../dto';
 
 // UUID validation regex
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function validateWorkspaceId(workspaceId: string | undefined): string {
   if (!workspaceId) {
@@ -61,7 +59,7 @@ function validateWorkspaceId(workspaceId: string | undefined): string {
   return workspaceId;
 }
 
-@Controller('work/tasks')
+@Controller('api/work/tasks')
 @ApiTags('Work Management')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
@@ -72,44 +70,21 @@ export class WorkTasksController {
     private readonly taskCommentsService: TaskCommentsService,
     private readonly taskActivityService: TaskActivityService,
     private readonly responseService: ResponseService,
-    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
   ) {}
 
   // 1. GET /api/work/tasks
   @Get()
   @ApiOperation({ summary: 'List work tasks' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiQuery({ name: 'projectId', required: false, type: String })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: [
-      'BACKLOG',
-      'TODO',
-      'IN_PROGRESS',
-      'BLOCKED',
-      'IN_REVIEW',
-      'DONE',
-      'CANCELED',
-    ],
-  })
+  @ApiQuery({ name: 'status', required: false, enum: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'DONE', 'CANCELED'] })
   @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
   async listTasks(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -118,37 +93,17 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    const result = await this.workTasksService.listTasks(
-      auth,
-      workspaceId,
-      query,
-    );
+    const result = await this.workTasksService.listTasks(auth, workspaceId, query);
     return this.responseService.success(result);
   }
 
   // 2. POST /api/work/tasks
   @Post()
   @ApiOperation({ summary: 'Create a work task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiResponse({ status: 201, description: 'Task created successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - validation error',
-    schema: {
-      properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } },
-    },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error', schema: { properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } } } })
   async createTask(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -157,12 +112,6 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
-
     const task = await this.workTasksService.createTask(auth, workspaceId, dto);
     return this.responseService.success(task);
   }
@@ -170,24 +119,10 @@ export class WorkTasksController {
   // 3. PATCH /api/work/tasks/bulk
   @Patch('bulk')
   @ApiOperation({ summary: 'Bulk update task status' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiResponse({ status: 200, description: 'Tasks updated successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - one or more tasks not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - one or more tasks not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async bulkUpdateStatus(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -196,54 +131,20 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
-
-    const result = await this.workTasksService.bulkUpdateStatus(
-      auth,
-      workspaceId,
-      dto,
-    );
+    const result = await this.workTasksService.bulkUpdateStatus(auth, workspaceId, dto);
     return this.responseService.success(result);
   }
 
   // 4. POST /api/work/tasks/:id/dependencies
   @Post(':id/dependencies')
   @ApiOperation({ summary: 'Add a dependency to a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID (successor)' })
   @ApiResponse({ status: 201, description: 'Dependency added successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - validation error (cycle or self-dependency)',
-    schema: {
-      properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } },
-    },
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - dependency already exists',
-    schema: { properties: { code: { type: 'string', example: 'CONFLICT' } } },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - task not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error (cycle or self-dependency)', schema: { properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } } } })
+  @ApiResponse({ status: 409, description: 'Conflict - dependency already exists', schema: { properties: { code: { type: 'string', example: 'CONFLICT' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - task not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async addDependency(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -252,12 +153,6 @@ export class WorkTasksController {
   ) {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
-
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
 
     const dependency = await this.taskDependenciesService.addDependency(
       auth,
@@ -271,25 +166,11 @@ export class WorkTasksController {
   // 5. DELETE /api/work/tasks/:id/dependencies
   @Delete(':id/dependencies')
   @ApiOperation({ summary: 'Remove a dependency from a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID (successor)' })
   @ApiResponse({ status: 200, description: 'Dependency removed successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - dependency not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - dependency not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async removeDependency(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -298,12 +179,6 @@ export class WorkTasksController {
   ) {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
-
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
 
     await this.taskDependenciesService.removeDependency(
       auth,
@@ -317,25 +192,11 @@ export class WorkTasksController {
   // 6. POST /api/work/tasks/:id/comments
   @Post(':id/comments')
   @ApiOperation({ summary: 'Add a comment to a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 201, description: 'Comment added successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - task not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - task not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async addComment(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -344,12 +205,6 @@ export class WorkTasksController {
   ) {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
-
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
 
     const comment = await this.taskCommentsService.addComment(
       auth,
@@ -363,22 +218,12 @@ export class WorkTasksController {
   // 7. GET /api/work/tasks/:id/comments
   @Get(':id/comments')
   @ApiOperation({ summary: 'List comments for a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Comments retrieved successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
   async listComments(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -402,25 +247,12 @@ export class WorkTasksController {
   // 8. GET /api/work/tasks/:id/activity
   @Get(':id/activity')
   @ApiOperation({ summary: 'List activity feed for a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
-  @ApiResponse({
-    status: 200,
-    description: 'Activity feed retrieved successfully',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
+  @ApiResponse({ status: 200, description: 'Activity feed retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
   async listActivity(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -444,25 +276,11 @@ export class WorkTasksController {
   // 9. GET /api/work/tasks/:id
   @Get(':id')
   @ApiOperation({ summary: 'Get a work task by ID' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task retrieved successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - task not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - task not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async getTaskById(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -471,43 +289,19 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    const task = await this.workTasksService.getTaskById(
-      auth,
-      workspaceId,
-      taskId,
-    );
+    const task = await this.workTasksService.getTaskById(auth, workspaceId, taskId);
     return this.responseService.success(task);
   }
 
   // 10. PATCH /api/work/tasks/:id
   @Patch(':id')
   @ApiOperation({ summary: 'Update a work task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task updated successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - task not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - validation error',
-    schema: {
-      properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } },
-    },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - task not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error', schema: { properties: { code: { type: 'string', example: 'VALIDATION_ERROR' } } } })
   async updateTask(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -517,43 +311,18 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
-
-    const task = await this.workTasksService.updateTask(
-      auth,
-      workspaceId,
-      taskId,
-      dto,
-    );
+    const task = await this.workTasksService.updateTask(auth, workspaceId, taskId, dto);
     return this.responseService.success(task);
   }
 
   // 11. DELETE /api/work/tasks/:id
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a work task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID', required: true })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task deleted successfully' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - task not found',
-    schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } },
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied', schema: { properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } } } })
+  @ApiResponse({ status: 404, description: 'Not found - task not found', schema: { properties: { code: { type: 'string', example: 'NOT_FOUND' } } } })
   async deleteTask(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceIdHeader: string,
@@ -562,13 +331,8 @@ export class WorkTasksController {
     const workspaceId = validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
-    await this.workspaceRoleGuard.requireWorkspaceWrite(
-      workspaceId,
-      auth.userId,
-    );
-
     await this.workTasksService.deleteTask(auth, workspaceId, taskId);
     return this.responseService.success({ message: 'Task deleted' });
   }
 }
+
