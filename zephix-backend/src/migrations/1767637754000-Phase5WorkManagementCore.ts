@@ -5,7 +5,7 @@ import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableF
  *
  * Creates:
  * - Enum types: TaskStatus, TaskPriority, TaskType, DependencyType, TaskActivityType
- * - Tables: work_tasks, task_dependencies, task_comments, task_activities
+ * - Tables: work_tasks, work_task_dependencies, task_comments, task_activities
  * - Indexes and constraints
  */
 export class Phase5WorkManagementCore1767637754000 implements MigrationInterface {
@@ -157,10 +157,10 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       true,
     );
 
-    // 2. Create task_dependencies table
+    // 2. Create work_task_dependencies table
     await queryRunner.createTable(
       new Table({
-        name: 'task_dependencies',
+        name: 'work_task_dependencies',
         columns: [
           {
             name: 'id',
@@ -395,60 +395,60 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       }),
     );
 
-    // Create indexes for task_dependencies
+    // Create indexes for work_task_dependencies
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_organization_id',
+        name: 'IDX_work_task_dependencies_organization_id',
         columnNames: ['organization_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_workspace_id',
+        name: 'IDX_work_task_dependencies_workspace_id',
         columnNames: ['workspace_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_project_id',
+        name: 'IDX_work_task_dependencies_project_id',
         columnNames: ['project_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_predecessor_task_id',
+        name: 'IDX_work_task_dependencies_predecessor_task_id',
         columnNames: ['predecessor_task_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_successor_task_id',
+        name: 'IDX_work_task_dependencies_successor_task_id',
         columnNames: ['successor_task_id'],
       }),
     );
 
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_created_by_user_id',
+        name: 'IDX_work_task_dependencies_created_by_user_id',
         columnNames: ['created_by_user_id'],
       }),
     );
 
-    // Create unique index for task_dependencies
+    // Create unique index for work_task_dependencies
     await queryRunner.createIndex(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableIndex({
-        name: 'IDX_task_dependencies_unique',
+        name: 'IDX_work_task_dependencies_unique',
         columnNames: ['workspace_id', 'predecessor_task_id', 'successor_task_id', 'type'],
         isUnique: true,
       }),
@@ -538,7 +538,7 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
 
     // Add check constraint: predecessor != successor
     await queryRunner.query(`
-      ALTER TABLE task_dependencies
+      ALTER TABLE work_task_dependencies
       ADD CONSTRAINT check_predecessor_not_equal_successor
       CHECK (predecessor_task_id != successor_task_id);
     `);
@@ -566,9 +566,9 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       }),
     );
 
-    // task_dependencies.predecessor_task_id -> work_tasks.id (CASCADE)
+    // work_task_dependencies.predecessor_task_id -> work_tasks.id (CASCADE)
     await queryRunner.createForeignKey(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableForeignKey({
         columnNames: ['predecessor_task_id'],
         referencedTableName: 'work_tasks',
@@ -577,9 +577,9 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       }),
     );
 
-    // task_dependencies.successor_task_id -> work_tasks.id (CASCADE)
+    // work_task_dependencies.successor_task_id -> work_tasks.id (CASCADE)
     await queryRunner.createForeignKey(
-      'task_dependencies',
+      'work_task_dependencies',
       new TableForeignKey({
         columnNames: ['successor_task_id'],
         referencedTableName: 'work_tasks',
@@ -614,7 +614,7 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys first
     const workTasksTable = await queryRunner.getTable('work_tasks');
-    const taskDependenciesTable = await queryRunner.getTable('task_dependencies');
+    const taskDependenciesTable = await queryRunner.getTable('work_task_dependencies');
     const taskCommentsTable = await queryRunner.getTable('task_comments');
     const taskActivitiesTable = await queryRunner.getTable('task_activities');
 
@@ -641,14 +641,14 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
         (fk) => fk.columnNames.indexOf('predecessor_task_id') !== -1,
       );
       if (predecessorFk) {
-        await queryRunner.dropForeignKey('task_dependencies', predecessorFk);
+        await queryRunner.dropForeignKey('work_task_dependencies', predecessorFk);
       }
 
       const successorFk = taskDependenciesTable.foreignKeys.find(
         (fk) => fk.columnNames.indexOf('successor_task_id') !== -1,
       );
       if (successorFk) {
-        await queryRunner.dropForeignKey('task_dependencies', successorFk);
+        await queryRunner.dropForeignKey('work_task_dependencies', successorFk);
       }
     }
 
@@ -670,14 +670,14 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
 
     // Drop check constraint
     await queryRunner.query(`
-      ALTER TABLE task_dependencies
+      ALTER TABLE work_task_dependencies
       DROP CONSTRAINT IF EXISTS check_predecessor_not_equal_successor;
     `);
 
     // Drop tables (in reverse order due to dependencies)
     await queryRunner.dropTable('task_activities', true);
     await queryRunner.dropTable('task_comments', true);
-    await queryRunner.dropTable('task_dependencies', true);
+    await queryRunner.dropTable('work_task_dependencies', true);
     await queryRunner.dropTable('work_tasks', true);
 
     // Drop enum types
