@@ -4,6 +4,7 @@ import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { Task } from '../modules/projects/entities/task.entity';
+import { TaskDependency as LegacyTaskDependency } from '../modules/projects/entities/task-dependency.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
@@ -15,7 +16,7 @@ import { DashboardWidget } from '../modules/dashboards/entities/dashboard-widget
 import { DashboardTemplate } from '../modules/dashboards/entities/dashboard-template.entity';
 import { MetricDefinition } from '../modules/dashboards/entities/metric-definition.entity';
 import { WorkTask } from '../modules/work-management/entities/work-task.entity';
-import { TaskDependency } from '../modules/work-management/entities/task-dependency.entity';
+import { WorkTaskDependency } from '../modules/work-management/entities/task-dependency.entity';
 import { TaskComment } from '../modules/work-management/entities/task-comment.entity';
 import { TaskActivity } from '../modules/work-management/entities/task-activity.entity';
 // Remove these lines:
@@ -40,6 +41,7 @@ const AppDataSource = new DataSource({
     UserOrganization,
     Project,
     Task,
+    LegacyTaskDependency,
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
@@ -51,7 +53,7 @@ const AppDataSource = new DataSource({
     DashboardTemplate,
     MetricDefinition,
     WorkTask,
-    TaskDependency,
+    WorkTaskDependency,
     TaskComment,
     TaskActivity,
   ],

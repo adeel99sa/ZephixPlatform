@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkTask } from './entities/work-task.entity';
-import { TaskDependency } from './entities/task-dependency.entity';
+import { WorkTaskDependency } from './entities/task-dependency.entity';
 import { TaskComment } from './entities/task-comment.entity';
 import { TaskActivity } from './entities/task-activity.entity';
 
@@ -9,7 +9,7 @@ import { TaskActivity } from './entities/task-activity.entity';
   imports: [
     TypeOrmModule.forFeature([
       WorkTask,
-      TaskDependency,
+      WorkTaskDependency,
       TaskComment,
       TaskActivity,
     ]),
