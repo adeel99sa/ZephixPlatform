@@ -11,3 +11,4 @@ export enum AllocationType {
   SOFT = 'SOFT',
   GHOST = 'GHOST',
 }
+

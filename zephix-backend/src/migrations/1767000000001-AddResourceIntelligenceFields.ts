@@ -98,3 +98,4 @@ export class AddResourceIntelligenceFields1767000000001
     await queryRunner.query(`DROP TYPE IF EXISTS "allocation_type_enum"`);
   }
 }
+

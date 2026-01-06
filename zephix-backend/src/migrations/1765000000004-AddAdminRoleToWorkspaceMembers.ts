@@ -39,3 +39,4 @@ export class AddAdminRoleToWorkspaceMembers1765000000004
     // This is acceptable as this is a new feature in Phase 3
   }
 }
+

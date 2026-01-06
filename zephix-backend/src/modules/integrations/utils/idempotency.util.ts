@@ -73,3 +73,4 @@ export function generatePollingIdempotencyKey(
   // Use connectionId + issue.id + updated (monotonic)
   return `jira:poll:${connectionId}:${issue.id}:${issue.updated}`;
 }
+

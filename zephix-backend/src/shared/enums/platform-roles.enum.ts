@@ -91,3 +91,4 @@ export function canCreateWorkspaces(
 ): boolean {
   return isAdminRole(role);
 }
+

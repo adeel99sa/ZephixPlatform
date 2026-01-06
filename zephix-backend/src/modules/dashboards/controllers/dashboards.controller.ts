@@ -121,19 +121,18 @@ export class DashboardsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Enable sharing for a dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required for WORKSPACE dashboards)', required: false })
   @ApiResponse({ status: 200, description: 'Sharing enabled successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - only owner can enable sharing',
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - only owner can enable sharing' })
   @ApiResponse({ status: 404, description: 'Dashboard not found' })
   async enableShare(
     @Param('id') id: string,
     @Body() dto: ShareEnableDto,
     @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -144,7 +143,7 @@ export class DashboardsController {
       id,
       organizationId,
       userId,
-      platformRole,
+      workspaceId,
       expiresAt,
     );
 
@@ -157,56 +156,12 @@ export class DashboardsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Disable sharing for a dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required for WORKSPACE dashboards)', required: false })
   @ApiResponse({ status: 200, description: 'Sharing disabled successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - only owner can disable sharing',
-  })
+  @ApiResponse({ status: 403, description: 'Forbidden - only owner can disable sharing' })
   @ApiResponse({ status: 404, description: 'Dashboard not found' })
-  async disableShare(@Param('id') id: string, @Req() req: AuthRequest) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
-
-    if (!organizationId || !userId) {
-      throw new BadRequestException('Organization ID and User ID are required');
-    }
-
-    await this.dashboardsService.disableShare(
-      id,
-      organizationId,
-      userId,
-      platformRole,
-    );
-
-    return this.responseService.success({ message: 'Sharing disabled' });
-  }
-
-  // 5. GET /api/dashboards/:id (supports share token for read-only access)
-  @Get(':id')
-  @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: 'Get dashboard by ID' })
-  @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
-  @ApiQuery({
-    name: 'share',
-    description: 'Share token for read-only access (alternative to JWT)',
-    required: false,
-    type: String,
-  })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description:
-      'Workspace ID (required for WORKSPACE dashboards when using JWT)',
-    required: false,
-  })
-  @ApiResponse({ status: 200, description: 'Dashboard retrieved successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized (when using JWT)' })
-  @ApiResponse({
-    status: 403,
-    description:
-      'Forbidden - invalid share token, workspace access denied, or private dashboard',
-  })
-  @ApiResponse({ status: 404, description: 'Dashboard not found' })
-  async getById(
+  async disableShare(
     @Param('id') id: string,
     @Query('share') shareToken: string | undefined,
     @Req() req: AuthRequest,
@@ -236,6 +191,80 @@ export class DashboardsController {
       throw new BadRequestException('Organization ID and User ID are required');
     }
 
+    await this.dashboardsService.disableShare(
+      id,
+      organizationId,
+      userId,
+      workspaceId,
+    );
+
+    return this.responseService.success({ message: 'Sharing disabled' });
+  }
+
+  // 5. GET /api/dashboards/:id (supports share token for read-only access)
+  @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Get dashboard by ID' })
+  @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
+  @ApiQuery({ name: 'share', description: 'Share token for read-only access (alternative to JWT)', required: false, type: String })
+  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required for WORKSPACE dashboards when using JWT)', required: false })
+  @ApiResponse({ status: 200, description: 'Dashboard retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized (when using JWT)' })
+  @ApiResponse({ status: 403, description: 'Forbidden - invalid share token, workspace access denied, or private dashboard' })
+  @ApiResponse({ status: 404, description: 'Dashboard not found' })
+  async getById(
+    @Param('id') id: string,
+    @Query('share') shareToken: string | undefined,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId?: string,
+  ) {
+    // Share token access (read-only, no JWT required)
+    if (shareToken) {
+      // Find dashboard by ID and share token
+      const dashboard = await this.dashboardsService.dashboardRepository.findOne({
+        where: { id, deletedAt: null },
+        relations: ['widgets'],
+      });
+
+      if (!dashboard) {
+        throw new BadRequestException(`Dashboard with ID ${id} not found`);
+      }
+
+      // Validate share token
+      if (
+        !dashboard.shareEnabled ||
+        dashboard.shareToken !== shareToken ||
+        (dashboard.shareExpiresAt && dashboard.shareExpiresAt <= new Date())
+      ) {
+        throw new BadRequestException('Invalid or expired share token');
+      }
+
+      // Order widgets
+      dashboard.widgets = dashboard.widgets.sort((a, b) => {
+        if (a.layout.y !== b.layout.y) {
+          return a.layout.y - b.layout.y;
+        }
+        if (a.layout.x !== b.layout.x) {
+          return a.layout.x - b.layout.x;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      });
+
+      return this.responseService.success(dashboard);
+    }
+
+    // Normal JWT-based access (requires authentication)
+    // Check if user is authenticated
+    if (!req.user) {
+      throw new BadRequestException('Authentication required. Use JWT token or provide share token in query parameter.');
+    }
+
+    const { organizationId, userId } = getAuthContext(req);
+
+    if (!organizationId || !userId) {
+      throw new BadRequestException('Organization ID and User ID are required');
+    }
+
     const dashboard = await this.dashboardsService.getDashboard(
       id,
       organizationId,
@@ -250,10 +279,7 @@ export class DashboardsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary:
-      'Update dashboard (JWT required, share tokens not accepted). Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
-  })
+  @ApiOperation({ summary: 'Update dashboard (JWT required, share tokens not accepted)' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiResponse({ status: 200, description: 'Dashboard updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -329,10 +355,7 @@ export class DashboardsController {
   @Post(':id/widgets')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary:
-      'Add widget to dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
-  })
+  @ApiOperation({ summary: 'Add widget to dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiResponse({ status: 201, description: 'Widget added successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid widget key' })
@@ -369,10 +392,7 @@ export class DashboardsController {
   @Patch(':id/widgets/:widgetId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary:
-      'Update widget in dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
-  })
+  @ApiOperation({ summary: 'Update widget in dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiParam({ name: 'widgetId', description: 'Widget ID', type: String })
   @ApiResponse({ status: 200, description: 'Widget updated successfully' })
@@ -412,10 +432,7 @@ export class DashboardsController {
   @Delete(':id/widgets/:widgetId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary:
-      'Delete widget from dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
-  })
+  @ApiOperation({ summary: 'Delete widget from dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiParam({ name: 'widgetId', description: 'Widget ID', type: String })
   @ApiResponse({ status: 200, description: 'Widget deleted successfully' })

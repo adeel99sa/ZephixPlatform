@@ -36,3 +36,4 @@ export function isWorkspaceScoped(target: any): boolean {
     Reflect.getMetadata(WORKSPACE_SCOPED_METADATA_KEY, constructor) === true
   );
 }
+

@@ -175,7 +175,7 @@ jobs:
           WORK_TASKS_CONTROLLER="src/modules/work-management/controllers/work-tasks.controller.ts"
           if [ -f "$WORK_TASKS_CONTROLLER" ]; then
             echo "Checking work-tasks controller route order..."
-            
+
             # Static routes that must come before @Get(':id')
             WORK_TASKS_BULK_LINE=$(grep -n "@Patch('bulk')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
             WORK_TASKS_COMMENTS_GET_LINE=$(grep -n "@Get(':id/comments')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
@@ -183,9 +183,9 @@ jobs:
             WORK_TASKS_ACTIVITY_LINE=$(grep -n "@Get(':id/activity')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
             WORK_TASKS_DEPS_POST_LINE=$(grep -n "@Post(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
             WORK_TASKS_DEPS_DELETE_LINE=$(grep -n "@Delete(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-            
+
             WORK_TASKS_ID_GET_LINE=$(grep -n "@Get(':id')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-            
+
             # Check each static route is before @Get(':id')
             for route_name in "bulk" "comments (GET)" "comments (POST)" "activity" "dependencies (POST)" "dependencies (DELETE)"; do
               case "$route_name" in
@@ -208,7 +208,7 @@ jobs:
                   ROUTE_LINE="$WORK_TASKS_DEPS_DELETE_LINE"
                   ;;
               esac
-              
+
               if [ "$ROUTE_LINE" != "0" ] && [ "$WORK_TASKS_ID_GET_LINE" != "9999" ]; then
                 if [ "$ROUTE_LINE" -gt "$WORK_TASKS_ID_GET_LINE" ]; then
                   echo "❌ Route order violation in work-tasks.controller.ts: @Get(':id') (line $WORK_TASKS_ID_GET_LINE) comes before '$route_name' route (line $ROUTE_LINE)"
@@ -217,7 +217,7 @@ jobs:
                 fi
               fi
             done
-            
+
             echo "✅ Work-tasks controller route order check passed"
           fi
 

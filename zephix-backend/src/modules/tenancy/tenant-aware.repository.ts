@@ -558,3 +558,4 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
 export function getTenantAwareRepositoryToken(entity: any): string {
   return `TenantAwareRepository_${entity.name}`;
 }
+

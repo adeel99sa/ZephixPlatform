@@ -74,3 +74,4 @@ export function formatStatsResponse<T extends Record<string, number>>(
     data: { ...defaults, ...(stats || {}) } as T,
   };
 }
+

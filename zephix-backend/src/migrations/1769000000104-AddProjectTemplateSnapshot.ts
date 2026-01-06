@@ -56,3 +56,4 @@ export class AddProjectTemplateSnapshot1769000000104
     // Intentionally keep template_id if it existed before this migration.
   }
 }
+

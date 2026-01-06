@@ -63,3 +63,4 @@ export class AddPermissionsConfigToWorkspaces1765000000005
     `);
   }
 }
+
