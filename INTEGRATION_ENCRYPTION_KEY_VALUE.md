@@ -39,3 +39,4 @@ After adding and redeploying, check logs:
 - **Algorithm:** AES-256-GCM (requires 32 bytes = 256 bits)
 - **Security:** Never commit to git, store only in Railway Variables
 
+

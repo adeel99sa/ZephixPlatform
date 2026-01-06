@@ -10,6 +10,8 @@ import { WorkTasksService } from './services/work-tasks.service';
 import { TaskDependenciesService } from './services/task-dependencies.service';
 import { TaskCommentsService } from './services/task-comments.service';
 import { TaskActivityService } from './services/task-activity.service';
+import { WorkTasksController } from './controllers/work-tasks.controller';
+// ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { TaskActivityService } from './services/task-activity.service';
     WorkspaceAccessModule,
     TenancyModule,
   ],
+  controllers: [WorkTasksController],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
     createTenantAwareRepositoryProvider(WorkTaskDependency),

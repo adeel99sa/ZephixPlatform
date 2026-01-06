@@ -107,3 +107,4 @@ export class ResourceDailyLoad {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 }
+

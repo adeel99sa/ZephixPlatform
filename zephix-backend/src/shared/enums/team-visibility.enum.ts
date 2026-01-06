@@ -7,3 +7,4 @@ export enum TeamVisibility {
   ORG = 'ORG', // Visible to all organization members
   PRIVATE = 'PRIVATE', // Only team members can see
 }
+

@@ -67,3 +67,4 @@ railway logs --service zephix-backend
 
 **Status:** Frontend fixes applied. Backend requires Railway variable configuration.
 
+

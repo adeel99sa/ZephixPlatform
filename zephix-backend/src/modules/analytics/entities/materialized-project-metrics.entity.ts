@@ -70,3 +70,4 @@ export class MaterializedProjectMetrics {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+

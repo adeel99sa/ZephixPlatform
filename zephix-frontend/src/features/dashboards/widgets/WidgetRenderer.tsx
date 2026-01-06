@@ -1,16 +1,67 @@
+// Phase 4.3: Widget Renderer with Analytics Widgets
 import { fmtPercent, trendArrow } from "./format";
+import { ProjectHealthWidget } from "./project-health";
+import { ResourceUtilizationWidget } from "./resource-utilization";
+import { ConflictTrendsWidget } from "./conflict-trends";
+import type { DashboardWidget } from "../types";
+import type { WidgetFilters } from "./types";
 
-type Widget =
-  | { id: string; type: 'kpi'; label: string; value: string; trend?: string }
+type LegacyWidget =
+  | { id: string; type: 'kpi'; label: string; value: string; trend?: string; config?: any }
   | { id: string; type: 'note'; text: string }
   | { id: string; type: 'table'; columns: string[]; rows: string[][] }
   | { id: string; type: 'chart'; chartType: 'line' | 'bar'; series: number[] };
 
-type Props = { widget: Widget; data?: any };
+type Props = {
+  widget: LegacyWidget | DashboardWidget;
+  data?: any;
+  filters?: WidgetFilters;
+  isShareMode?: boolean; // If true, show "Sign in to load live data" for analytics widgets
+};
 
-export function WidgetRenderer({ widget, data }: Props) {
-  if (widget.type === 'kpi') {
-    const label = widget.config?.label ?? 'KPI';
+export function WidgetRenderer({ widget, data, filters, isShareMode = false }: Props) {
+  // Handle new analytics widget types (DashboardWidget)
+  if ('type' in widget && typeof widget.type === 'string' && 'layout' in widget) {
+    const dashboardWidget = widget as DashboardWidget;
+    const widgetFilters: WidgetFilters = filters || {
+      startDate: undefined,
+      endDate: undefined,
+    };
+
+    // In share mode, show sign-in prompt for analytics widgets
+    if (isShareMode) {
+      return (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
+          <p className="text-sm font-medium mb-2">Sign in required</p>
+          <p className="text-xs">Please sign in to load live data for this widget.</p>
+        </div>
+      );
+    }
+
+    switch (dashboardWidget.type) {
+      case 'project_health':
+        return <ProjectHealthWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      case 'resource_utilization':
+        return <ResourceUtilizationWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      case 'conflict_trends':
+        return <ConflictTrendsWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      default:
+        return (
+          <div className="rounded-lg border p-3 shadow-sm text-sm text-gray-500" data-testid={`widget-${widget.id}`}>
+            Widget type not supported: {dashboardWidget.type}
+          </div>
+        );
+    }
+  }
+
+  // Legacy widget types (for backward compatibility)
+  const legacyWidget = widget as LegacyWidget;
+
+  if (legacyWidget.type === 'kpi') {
+    const label = legacyWidget.config?.label ?? legacyWidget.label ?? 'KPI';
     const val = typeof data?.value === 'number' ? data.value : 0;
     const trend = data?.trend;
     const error = data?.error;
@@ -33,8 +84,8 @@ export function WidgetRenderer({ widget, data }: Props) {
     );
   }
 
-  if (widget.type === 'note') {
-    const d = data ?? { text: widget.text ?? 'Note' };
+  if (legacyWidget.type === 'note') {
+    const d = data ?? { text: legacyWidget.text ?? 'Note' };
     return (
       <div className="rounded-lg border p-3 shadow-sm" data-testid={`widget-${widget.id}`}>
         <div className="whitespace-pre-wrap text-sm">{d.text}</div>
@@ -42,8 +93,8 @@ export function WidgetRenderer({ widget, data }: Props) {
     );
   }
 
-  if (widget.type === 'table') {
-    const d = data ?? { columns: widget.columns ?? [], rows: widget.rows ?? [] };
+  if (legacyWidget.type === 'table') {
+    const d = data ?? { columns: legacyWidget.columns ?? [], rows: legacyWidget.rows ?? [] };
     return (
       <div className="rounded-lg border p-3 shadow-sm" data-testid={`widget-${widget.id}`}>
         <div className="overflow-x-auto max-h-96">
@@ -64,8 +115,8 @@ export function WidgetRenderer({ widget, data }: Props) {
     );
   }
 
-  if (widget.type === 'chart') {
-    const d = data ?? { chartType: widget.chartType ?? 'line', series: widget.series ?? [] };
+  if (legacyWidget.type === 'chart') {
+    const d = data ?? { chartType: legacyWidget.chartType ?? 'line', series: legacyWidget.series ?? [] };
     return (
       <div className="rounded-lg border p-3 shadow-sm" data-testid={`widget-${widget.id}`}>
         <div className="text-xs text-neutral-500 mb-1">Chart ({d.chartType})</div>
@@ -74,5 +125,10 @@ export function WidgetRenderer({ widget, data }: Props) {
     );
   }
 
-  return <div className="rounded-lg border p-3 shadow-sm text-sm">Unknown widget</div>;
+  // Unknown widget type
+  return (
+    <div className="rounded-lg border p-3 shadow-sm text-sm text-gray-500" data-testid={`widget-${widget.id}`}>
+      Widget type not supported: {('type' in widget ? widget.type : 'unknown')}
+    </div>
+  );
 }

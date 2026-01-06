@@ -77,3 +77,4 @@ export class RagIndex {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+

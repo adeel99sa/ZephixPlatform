@@ -52,6 +52,16 @@ export class Dashboard {
   @Column({ type: 'varchar', length: 100, name: 'template_key', nullable: true })
   templateKey: string | null;
 
+  @Column({ type: 'uuid', name: 'share_token', nullable: true })
+  @Index(['shareToken'])
+  shareToken: string | null;
+
+  @Column({ type: 'boolean', name: 'share_enabled', default: false })
+  shareEnabled: boolean;
+
+  @Column({ type: 'timestamp', name: 'share_expires_at', nullable: true })
+  shareExpiresAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

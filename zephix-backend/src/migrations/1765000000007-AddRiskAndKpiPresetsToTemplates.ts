@@ -32,3 +32,4 @@ export class AddRiskAndKpiPresetsToTemplates1765000000007
     `);
   }
 }
+

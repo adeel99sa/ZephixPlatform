@@ -17,10 +17,11 @@ export class ApiErrorFilter implements ExceptionFilter {
     const status = this.getStatus(exception);
     const message = this.getMessage(exception);
     const details = this.getDetails(exception);
+    const code = this.getCode(exception, status);
 
     const errorResponse = {
       error: {
-        code: this.mapCode(status),
+        code,
         message,
         details,
         timestamp: new Date().toISOString(),
@@ -62,6 +63,18 @@ export class ApiErrorFilter implements ExceptionFilter {
       }
     }
     return undefined;
+  }
+
+  private getCode(exception: any, status: number): string {
+    // First, try to extract code from exception response object
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+      if (typeof response === 'object' && response !== null && (response as any).code) {
+        return (response as any).code;
+      }
+    }
+    // Fall back to status code mapping
+    return this.mapCode(status);
   }
 
   private mapCode(status: number): string {

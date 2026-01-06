@@ -23,3 +23,4 @@ export class AddInternalManagedToOrganizations1768000000001
     `);
   }
 }
+

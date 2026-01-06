@@ -73,3 +73,4 @@ curl -X POST https://zephix-backend-production.up.railway.app/api/auth/register 
 
 **Expected:** 200 or 400 (NOT 404)
 
+
