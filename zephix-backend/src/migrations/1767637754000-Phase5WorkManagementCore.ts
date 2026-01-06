@@ -214,61 +214,25 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       true,
     );
 
-    // 3. Create task_comments table
-    await queryRunner.createTable(
-      new Table({
-        name: 'task_comments',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            default: 'gen_random_uuid()',
-          },
-          {
-            name: 'organization_id',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'workspace_id',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'task_id',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'body',
-            type: 'text',
-            isNullable: false,
-          },
-          {
-            name: 'created_by_user_id',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'updated_by_user_id',
-            type: 'uuid',
-            isNullable: true,
-          },
-          {
-            name: 'created_at',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updated_at',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-          },
-        ],
-      }),
-      true,
-    );
+    // 3. Create task_comments table using raw SQL to ensure exact column names
+    // Drop existing table if it has wrong schema (from old migration)
+    await queryRunner.query(`
+      DROP TABLE IF EXISTS task_comments CASCADE;
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE task_comments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        organization_id uuid NOT NULL,
+        workspace_id uuid NOT NULL,
+        task_id uuid NOT NULL,
+        body text NOT NULL,
+        created_by_user_id uuid NOT NULL,
+        updated_by_user_id uuid,
+        created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+        updated_at timestamp DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     // 4. Create task_activities table
     await queryRunner.createTable(

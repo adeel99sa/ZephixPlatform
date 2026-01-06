@@ -84,3 +84,4 @@ export class CreateTemplateBlocksV11769000000103 implements MigrationInterface {
     }
   }
 }
+

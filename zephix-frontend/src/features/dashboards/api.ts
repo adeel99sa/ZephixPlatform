@@ -1,20 +1,8 @@
 // Phase 4.3: Dashboard API Client with Workspace Header Enforcement
 import { api } from "@/lib/api";
 import { getWorkspaceHeader, WorkspaceRequiredError } from "./workspace-header";
-import {
-  DashboardEntitySchema,
-  DashboardTemplateSchema,
-  AISuggestResponseSchema,
-  AIGenerateResponseSchema,
-  SharedDashboardSchema,
-} from "./schemas";
-import type {
-  DashboardEntity,
-  DashboardTemplate,
-  AISuggestResponse,
-  AIGenerateResponse,
-  SharedDashboardEntity,
-} from "./types";
+import { DashboardEntitySchema, DashboardTemplateSchema, AISuggestResponseSchema, AIGenerateResponseSchema } from "./schemas";
+import type { DashboardEntity, DashboardTemplate, AISuggestResponse, AIGenerateResponse } from "./types";
 
 // Legacy type for backward compatibility
 export type Dashboard = {
@@ -262,10 +250,10 @@ export async function disableShare(dashboardId: string): Promise<void> {
 /**
  * Fetch dashboard using share token (public access, no JWT required)
  */
-export async function fetchDashboardPublic(dashboardId: string, shareToken: string): Promise<SharedDashboardEntity> {
+export async function fetchDashboardPublic(dashboardId: string, shareToken: string): Promise<DashboardEntity> {
   const response = await api.get(`/api/dashboards/${dashboardId}`, {
     params: { share: shareToken },
     // No Authorization header, no workspace header
   });
-  return SharedDashboardSchema.parse(response.data || response);
+  return DashboardEntitySchema.parse(response.data || response);
 }

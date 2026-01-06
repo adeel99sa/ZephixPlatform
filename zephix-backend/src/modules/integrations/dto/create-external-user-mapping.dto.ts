@@ -24,3 +24,4 @@ export class CreateExternalUserMappingDto {
   @IsNotEmpty()
   resourceId!: string;
 }
+

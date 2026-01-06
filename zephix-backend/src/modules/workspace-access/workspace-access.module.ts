@@ -40,3 +40,5 @@ import {
   exports: [WorkspaceAccessService, WorkspaceRoleGuardService],
 })
 export class WorkspaceAccessModule {}
+
+

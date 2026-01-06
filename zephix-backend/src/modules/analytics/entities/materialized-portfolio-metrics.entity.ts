@@ -53,3 +53,4 @@ export class MaterializedPortfolioMetrics {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+

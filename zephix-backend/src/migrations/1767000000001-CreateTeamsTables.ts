@@ -124,3 +124,4 @@ export class CreateTeamsTables1767000000001 implements MigrationInterface {
     await queryRunner.query(`DROP TYPE IF EXISTS "team_visibility_enum"`);
   }
 }
+

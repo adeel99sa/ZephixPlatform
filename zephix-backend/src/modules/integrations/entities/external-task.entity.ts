@@ -94,3 +94,4 @@ export class ExternalTask {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 }
+

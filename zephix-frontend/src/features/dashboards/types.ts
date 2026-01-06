@@ -52,14 +52,6 @@ export interface DashboardEntity {
   shareExpiresAt?: string | null;
 }
 
-export interface SharedDashboardEntity {
-  id: string;
-  name: string;
-  description?: string | null;
-  visibility?: DashboardVisibility;
-  widgets: DashboardWidget[];
-}
-
 export interface DashboardTemplate {
   id: string;
   key: string;

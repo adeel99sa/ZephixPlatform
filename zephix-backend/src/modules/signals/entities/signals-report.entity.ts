@@ -52,3 +52,4 @@ export class SignalsReport {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
+

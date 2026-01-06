@@ -96,3 +96,4 @@ export class CreateSignalsAndRagTables1766000000002
     await queryRunner.query(`DROP TABLE IF EXISTS "signals_reports"`);
   }
 }
+
