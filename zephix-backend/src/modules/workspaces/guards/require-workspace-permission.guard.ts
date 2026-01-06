@@ -60,3 +60,4 @@ export class RequireWorkspacePermissionGuard implements CanActivate {
     return true;
   }
 }
+

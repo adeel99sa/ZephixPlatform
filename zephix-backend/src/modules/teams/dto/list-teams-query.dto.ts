@@ -33,3 +33,4 @@ export class ListTeamsQueryDto {
   @Min(1)
   limit?: number;
 }
+

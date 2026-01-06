@@ -45,3 +45,4 @@ export class WorkspaceModuleConfig {
   @JoinColumn({ name: 'workspace_id' })
   workspace: Workspace;
 }
+

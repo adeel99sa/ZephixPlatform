@@ -59,7 +59,7 @@ function validateWorkspaceId(workspaceId: string | undefined): string {
   return workspaceId;
 }
 
-@Controller('api/work/tasks')
+@Controller('work/tasks')
 @ApiTags('Work Management')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()

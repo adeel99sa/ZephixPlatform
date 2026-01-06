@@ -26,3 +26,4 @@ import {
   exports: [RiskDetectionService],
 })
 export class RisksModule {}
+

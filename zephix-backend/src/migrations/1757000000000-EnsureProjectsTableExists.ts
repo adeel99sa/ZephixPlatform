@@ -94,3 +94,4 @@ export class EnsureProjectsTableExists1757000000000
     await queryRunner.query(`DROP TABLE IF EXISTS projects CASCADE;`);
   }
 }
+

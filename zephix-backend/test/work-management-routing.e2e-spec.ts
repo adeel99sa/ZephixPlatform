@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest';
+import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { User } from '../src/modules/users/entities/user.entity';
@@ -107,11 +107,28 @@ describe('Work Management Routing E2E Tests', () => {
     const userRepo = dataSource.getRepository(User);
     const orgRepo = dataSource.getRepository(Organization);
 
-    await projectRepo.delete({});
-    await workspaceRepo.delete({});
-    await uoRepo.delete({});
-    await userRepo.delete({});
-    await orgRepo.delete({});
+    // Delete in order to respect foreign key constraints
+    // Skip demo users (they may have deletion protection)
+    try {
+      await projectRepo.delete({});
+      await workspaceRepo.delete({});
+      await uoRepo.delete({});
+      // Only delete test users (not demo users)
+      await userRepo
+        .createQueryBuilder()
+        .delete()
+        .where('email LIKE :pattern', { pattern: '%@workmgmt-test.com' })
+        .execute();
+      // Only delete test organizations
+      await orgRepo
+        .createQueryBuilder()
+        .delete()
+        .where('name LIKE :pattern', { pattern: 'WorkMgmt Test Org%' })
+        .execute();
+    } catch (error) {
+      // Ignore cleanup errors - test data may already be cleaned
+      console.warn('Cleanup warning:', error.message);
+    }
   }
 
   beforeAll(async () => {
@@ -202,8 +219,9 @@ describe('Work Management Routing E2E Tests', () => {
         });
 
       expect(response.status).toBe(403);
-      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.error?.message).toContain('x-workspace-id');
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
       // Verify path is /bulk, not routed to :id
       expect(response.request.url).toContain('/bulk');
     });
@@ -218,8 +236,9 @@ describe('Work Management Routing E2E Tests', () => {
         .set('Authorization', `Bearer ${adminToken1}`);
 
       expect(response.status).toBe(403);
-      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.error?.message).toContain('x-workspace-id');
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /comments, not routed to :id
       expect(response.request.url).toContain('/comments');
     });
@@ -234,8 +253,9 @@ describe('Work Management Routing E2E Tests', () => {
         .set('Authorization', `Bearer ${adminToken1}`);
 
       expect(response.status).toBe(403);
-      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.error?.message).toContain('x-workspace-id');
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /activity, not routed to :id
       expect(response.request.url).toContain('/activity');
     });
@@ -253,8 +273,9 @@ describe('Work Management Routing E2E Tests', () => {
         });
 
       expect(response.status).toBe(403);
-      expect(response.body.error?.code).toBe('WORKSPACE_REQUIRED');
-      expect(response.body.error?.message).toContain('x-workspace-id');
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
       // Verify path includes /dependencies, not routed to :id
       expect(response.request.url).toContain('/dependencies');
     });

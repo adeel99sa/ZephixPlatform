@@ -24,7 +24,7 @@ export class DashboardsService {
 
   constructor(
     @InjectRepository(Dashboard)
-    private readonly dashboardRepository: Repository<Dashboard>,
+    public readonly dashboardRepository: Repository<Dashboard>,
     @InjectRepository(DashboardWidget)
     private readonly widgetRepository: Repository<DashboardWidget>,
     private readonly tenantContext: TenantContextService,
@@ -111,6 +111,7 @@ export class DashboardsService {
     organizationId: string,
     userId: string,
     workspaceId?: string,
+    shareToken?: string,
   ): Promise<Dashboard> {
     const dashboard = await this.dashboardRepository.findOne({
       where: { id, organizationId, deletedAt: null },
@@ -121,6 +122,30 @@ export class DashboardsService {
       throw new NotFoundException(`Dashboard with ID ${id} not found`);
     }
 
+    // Share token access (read-only, bypasses normal RBAC)
+    if (shareToken) {
+      if (
+        dashboard.shareEnabled &&
+        dashboard.shareToken === shareToken &&
+        (!dashboard.shareExpiresAt || dashboard.shareExpiresAt > new Date())
+      ) {
+        // Share access granted - return dashboard without further checks
+        dashboard.widgets = dashboard.widgets.sort((a, b) => {
+          if (a.layout.y !== b.layout.y) {
+            return a.layout.y - b.layout.y;
+          }
+          if (a.layout.x !== b.layout.x) {
+            return a.layout.x - b.layout.x;
+          }
+          return a.createdAt.getTime() - b.createdAt.getTime();
+        });
+        return dashboard;
+      } else {
+        throw new ForbiddenException('Invalid or expired share token');
+      }
+    }
+
+    // Normal JWT-based access checks
     // Check visibility access
     if (dashboard.visibility === DashboardVisibility.PRIVATE) {
       if (dashboard.ownerUserId !== userId) {
@@ -320,6 +345,67 @@ export class DashboardsService {
     }
 
     await this.widgetRepository.remove(widget);
+  }
+
+  async enableShare(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    workspaceId?: string,
+    expiresAt?: Date,
+  ): Promise<{ shareUrlPath: string }> {
+    const dashboard = await this.getDashboard(
+      dashboardId,
+      organizationId,
+      userId,
+      workspaceId,
+    );
+
+    // Check ownership for PRIVATE dashboards
+    if (dashboard.visibility === DashboardVisibility.PRIVATE) {
+      if (dashboard.ownerUserId !== userId) {
+        throw new ForbiddenException('Only owner can enable sharing for private dashboard');
+      }
+    }
+
+    // Generate share token
+    const { randomUUID } = await import('crypto');
+    dashboard.shareToken = randomUUID();
+    dashboard.shareEnabled = true;
+    dashboard.shareExpiresAt = expiresAt || null;
+
+    await this.dashboardRepository.save(dashboard);
+
+    return {
+      shareUrlPath: `/dashboards/${dashboardId}?share=${dashboard.shareToken}`,
+    };
+  }
+
+  async disableShare(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    workspaceId?: string,
+  ): Promise<void> {
+    const dashboard = await this.getDashboard(
+      dashboardId,
+      organizationId,
+      userId,
+      workspaceId,
+    );
+
+    // Check ownership for PRIVATE dashboards
+    if (dashboard.visibility === DashboardVisibility.PRIVATE) {
+      if (dashboard.ownerUserId !== userId) {
+        throw new ForbiddenException('Only owner can disable sharing for private dashboard');
+      }
+    }
+
+    dashboard.shareToken = null;
+    dashboard.shareEnabled = false;
+    dashboard.shareExpiresAt = null;
+
+    await this.dashboardRepository.save(dashboard);
   }
 }
 

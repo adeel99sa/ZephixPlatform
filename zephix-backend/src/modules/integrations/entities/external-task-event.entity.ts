@@ -44,3 +44,4 @@ export class ExternalTaskEvent {
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage?: string;
 }
+

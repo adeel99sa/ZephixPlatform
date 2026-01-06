@@ -125,3 +125,4 @@ railway run --service zephix-backend -- sh -lc 'psql "$DATABASE_URL" -c "SELECT 
 
 **Status**: Waiting for deployment verification (Step 1) before retrying Step 3.
 
+

@@ -163,3 +163,4 @@ This will show why the handler isn't matching the error.
 3. Fallback detection for missing table names (checks `(slug)` in error detail)
 4. Commit SHA tracking for deployment verification
 
+
