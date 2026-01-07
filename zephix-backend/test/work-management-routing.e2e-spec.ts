@@ -279,6 +279,40 @@ describe('Work Management Routing E2E Tests', () => {
       // Verify path includes /dependencies, not routed to :id
       expect(response.request.url).toContain('/dependencies');
     });
+
+    it('GET /api/work/projects/:projectId/plan should route to plan handler (403 WORKSPACE_REQUIRED, not 404)', async () => {
+      const randomProjectId = uuidv4();
+
+      // Call plan endpoint without workspace header
+      // Should return 403 WORKSPACE_REQUIRED, not 404 Project not found
+      const response = await request(app.getHttpServer())
+        .get(`/api/work/projects/${randomProjectId}/plan`)
+        .set('Authorization', `Bearer ${adminToken1}`);
+
+      expect(response.status).toBe(403);
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      // Verify path includes /plan, not routed to a catch-all
+      expect(response.request.url).toContain('/plan');
+    });
+
+    it('GET /api/work/programs/:programId/plan should route to plan handler (403 WORKSPACE_REQUIRED, not 404)', async () => {
+      const randomProgramId = uuidv4();
+
+      // Call plan endpoint without workspace header
+      // Should return 403 WORKSPACE_REQUIRED, not 404 Program not found
+      const response = await request(app.getHttpServer())
+        .get(`/api/work/programs/${randomProgramId}/plan`)
+        .set('Authorization', `Bearer ${adminToken1}`);
+
+      expect(response.status).toBe(403);
+      // Response format: { code, message } not { error: { code, message } }
+      expect(response.body.code || response.body.error?.code).toBe('WORKSPACE_REQUIRED');
+      expect(response.body.message || response.body.error?.message).toContain('x-workspace-id');
+      // Verify path includes /plan, not routed to a catch-all
+      expect(response.request.url).toContain('/plan');
+    });
   });
 });
 
