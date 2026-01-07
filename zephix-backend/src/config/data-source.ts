@@ -16,6 +16,7 @@ import { DashboardWidget } from '../modules/dashboards/entities/dashboard-widget
 import { DashboardTemplate } from '../modules/dashboards/entities/dashboard-template.entity';
 import { MetricDefinition } from '../modules/dashboards/entities/metric-definition.entity';
 import { WorkTask } from '../modules/work-management/entities/work-task.entity';
+import { WorkPhase } from '../modules/work-management/entities/work-phase.entity';
 import { WorkTaskDependency } from '../modules/work-management/entities/task-dependency.entity';
 import { TaskComment } from '../modules/work-management/entities/task-comment.entity';
 import { TaskActivity } from '../modules/work-management/entities/task-activity.entity';
@@ -65,6 +66,7 @@ const AppDataSource = new DataSource({
     DashboardTemplate,
     MetricDefinition,
     WorkTask,
+    WorkPhase,
     WorkTaskDependency,
     TaskComment,
     TaskActivity,
