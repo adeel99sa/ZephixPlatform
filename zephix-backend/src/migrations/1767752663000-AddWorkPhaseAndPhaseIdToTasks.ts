@@ -312,6 +312,8 @@ export class AddWorkPhaseAndPhaseIdToTasks1767752663000 implements MigrationInte
     await queryRunner.dropForeignKey('work_phases', 'FK_work_phases_project_id');
 
     // Remove indexes
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_program_reporting_key";`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_project_reporting_key";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_program_sort";`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_project_sort";`);
     await queryRunner.dropIndex('work_phases', 'IDX_work_phases_sort_order');
