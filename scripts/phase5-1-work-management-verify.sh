@@ -126,21 +126,21 @@ main() {
   local t1_body t2_body code t1_id t2_id
 
   t1_body="$(jq -n --arg projectId "$PROJECT_ID" --arg title "P5.1 Task 1" '{projectId:$projectId,title:$title,status:"TODO",type:"TASK",priority:"P2"}')"
-  code="$(http_code POST "/api/tasks" "$t1_body")"
+  code="$(http_code POST "/api/work/tasks" "$t1_body")"
   assert_code "201" "$code"
   t1_id="$(jq -r '.data.id' "$body_file")"
   [ -n "$t1_id" ] && [ "$t1_id" != "null" ] || die "Task1 create failed"
   echo "✅ Task1: $t1_id"
 
   t2_body="$(jq -n --arg projectId "$PROJECT_ID" --arg title "P5.1 Task 2" '{projectId:$projectId,title:$title,status:"TODO",type:"TASK",priority:"P2"}')"
-  code="$(http_code POST "/api/tasks" "$t2_body")"
+  code="$(http_code POST "/api/work/tasks" "$t2_body")"
   assert_code "201" "$code"
   t2_id="$(jq -r '.data.id' "$body_file")"
   [ -n "$t2_id" ] && [ "$t2_id" != "null" ] || die "Task2 create failed"
   echo "✅ Task2: $t2_id"
 
   echo "📋 Step 2: List tasks and assert presence"
-  code="$(http_code GET "/api/tasks?projectId=${PROJECT_ID}&limit=50")"
+  code="$(http_code GET "/api/work/tasks?projectId=${PROJECT_ID}&limit=50")"
   assert_code "200" "$code"
   jq -e --arg t1 "$t1_id" --arg t2 "$t2_id" '
     (.data.items // .data // []) as $items
@@ -152,15 +152,15 @@ main() {
 
   echo "📋 Step 3: Bulk update tasks"
   local bulk_body
-  bulk_body="$(jq -n --arg t1 "$t1_id" --arg t2 "$t2_id" '{taskIds:[$t1,$t2], patch:{status:"IN_PROGRESS"}}')"
-  code="$(http_code PATCH "/api/tasks/bulk" "$bulk_body")"
+  bulk_body="$(jq -n --arg t1 "$t1_id" --arg t2 "$t2_id" '{taskIds:[$t1,$t2], status:"IN_PROGRESS"}')"
+  code="$(http_code PATCH "/api/work/tasks/bulk" "$bulk_body")"
   assert_code "200" "$code"
   echo "✅ Bulk update ok"
 
   echo "📋 Step 4: Add dependency (t2 depends on t1)"
   local dep_body dep_id
   dep_body="$(jq -n --arg predecessorTaskId "$t1_id" '{predecessorTaskId:$predecessorTaskId,type:"FINISH_TO_START"}')"
-  code="$(http_code POST "/api/tasks/${t2_id}/dependencies" "$dep_body")"
+  code="$(http_code POST "/api/work/tasks/${t2_id}/dependencies" "$dep_body")"
   assert_code "201" "$code"
   dep_id="$(jq -r '.data.id' "$body_file")"
   [ -n "$dep_id" ] && [ "$dep_id" != "null" ] || die "Dependency create failed"
@@ -168,7 +168,7 @@ main() {
 
   echo "📋 Step 5: Cycle prevention (expect 400)"
   dep_body="$(jq -n --arg predecessorTaskId "$t2_id" '{predecessorTaskId:$predecessorTaskId,type:"FINISH_TO_START"}')"
-  code="$(http_code POST "/api/tasks/${t1_id}/dependencies" "$dep_body")"
+  code="$(http_code POST "/api/work/tasks/${t1_id}/dependencies" "$dep_body")"
   if [ "$code" != "400" ]; then
     echo "❌ Expected 400 for cycle prevention, got ${code}"
     echo "RequestId: $(extract_request_id)"
@@ -181,14 +181,14 @@ main() {
   echo "📋 Step 6: Comments"
   local c_body
   c_body="$(jq -n --arg body "P5.1 comment" '{body:$body}')"
-  code="$(http_code POST "/api/tasks/${t1_id}/comments" "$c_body")"
+  code="$(http_code POST "/api/work/tasks/${t1_id}/comments" "$c_body")"
   assert_code "201" "$code"
-  code="$(http_code GET "/api/tasks/${t1_id}/comments?limit=10")"
+  code="$(http_code GET "/api/work/tasks/${t1_id}/comments?limit=10")"
   assert_code "200" "$code"
   echo "✅ Comments ok"
 
   echo "📋 Step 7: Activity feed"
-  code="$(http_code GET "/api/tasks/${t1_id}/activity?limit=50")"
+  code="$(http_code GET "/api/work/tasks/${t1_id}/activity?limit=50")"
   assert_code "200" "$code"
   jq -e '
     (.data.items // .data // []) as $items
@@ -197,6 +197,12 @@ main() {
     ($items | map(.type) | index("TASK_COMMENT_ADDED")) != null
   ' "$body_file" >/dev/null || { echo "❌ Missing expected activities"; cat "$body_file" | jq '.' 2>/dev/null || cat "$body_file"; exit 1; }
   echo "✅ Activity ok"
+
+  echo "📋 Step 8: Work plan (project)"
+  code="$(http_code GET "/api/work/projects/${PROJECT_ID}/plan")"
+  assert_code "200" "$code"
+  jq -e '.data.phases | type == "array"' "$body_file" >/dev/null || { echo "❌ Invalid work plan response"; cat "$body_file" | jq '.' 2>/dev/null || cat "$body_file"; exit 1; }
+  echo "✅ Work plan ok"
 
   echo ""
   echo "✅ Phase 5.1 Work Management verification PASSED"
