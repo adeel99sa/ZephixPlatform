@@ -24,7 +24,7 @@ export interface WorkPlanTaskDto {
   id: string;
   title: string;
   status: string;
-  ownerUserId: string | null;
+  ownerId: string | null; // Changed from ownerUserId to ownerId for API consistency
   dueDate: string | null;
   blockedByCount: number;
   sortOrder: number | null;
@@ -173,7 +173,7 @@ export class WorkPlanService {
           id: task.id,
           title: task.title,
           status: task.status,
-          ownerUserId: task.assigneeUserId,
+          ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
           dueDate: task.dueDate ? task.dueDate.toISOString().split('T')[0] : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
@@ -203,7 +203,7 @@ export class WorkPlanService {
           id: task.id,
           title: task.title,
           status: task.status,
-          ownerUserId: task.assigneeUserId,
+          ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
           dueDate: task.dueDate ? task.dueDate.toISOString().split('T')[0] : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
