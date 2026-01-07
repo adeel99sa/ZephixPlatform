@@ -171,6 +171,20 @@ export class AddWorkPhaseAndPhaseIdToTasks1767752663000 implements MigrationInte
       WHERE program_id IS NOT NULL;
     `);
 
+    // Unique index for project reporting_key: (workspace_id, project_id, reporting_key)
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX "IDX_work_phases_project_reporting_key"
+      ON work_phases (workspace_id, project_id, reporting_key)
+      WHERE project_id IS NOT NULL;
+    `);
+
+    // Unique index for program reporting_key: (workspace_id, program_id, reporting_key)
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX "IDX_work_phases_program_reporting_key"
+      ON work_phases (workspace_id, program_id, reporting_key)
+      WHERE program_id IS NOT NULL;
+    `);
+
     // 4. Add foreign keys
     await queryRunner.createForeignKey(
       'work_phases',
