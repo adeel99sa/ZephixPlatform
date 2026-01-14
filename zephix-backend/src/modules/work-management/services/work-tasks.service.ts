@@ -5,7 +5,10 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
+import {
+  TenantAwareRepository,
+  getTenantAwareRepositoryToken,
+} from '../../tenancy/tenancy.module';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
@@ -21,6 +24,11 @@ import {
 import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DataSource, ILike, In } from 'typeorm';
+import { WorkPhase } from '../entities/work-phase.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
+import { ProjectHealthService } from './project-health.service';
 
 interface AuthContext {
   organizationId: string;
@@ -39,10 +47,13 @@ export class WorkTasksService {
     private readonly commentRepo: TenantAwareRepository<TaskComment>,
     @Inject(getTenantAwareRepositoryToken(TaskActivity))
     private readonly activityRepo: TenantAwareRepository<TaskActivity>,
+    @InjectRepository(WorkPhase)
+    private readonly workPhaseRepository: Repository<WorkPhase>,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly activityService: TaskActivityService,
     private readonly tenantContext: TenantContextService,
     private readonly dataSource: DataSource,
+    private readonly projectHealthService: ProjectHealthService,
   ) {}
 
   async createTask(
@@ -67,10 +78,37 @@ export class WorkTasksService {
       });
     }
 
+    // Sprint 2: Auto-assign phaseId if missing
+    let phaseId = dto.phaseId || null;
+    if (!phaseId && dto.projectId) {
+      // Find first phase by sortOrder for this project
+      const firstPhase = await this.workPhaseRepository.findOne({
+        where: {
+          organizationId,
+          workspaceId,
+          projectId: dto.projectId,
+        },
+        order: {
+          sortOrder: 'ASC',
+        },
+        select: ['id'],
+      });
+
+      if (!firstPhase) {
+        throw new ConflictException({
+          code: 'WORK_PLAN_INVALID',
+          message: 'No phases exist for this project.',
+        });
+      }
+
+      phaseId = firstPhase.id;
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
       projectId: dto.projectId,
+      phaseId,
       title: dto.title,
       description: dto.description || null,
       status: dto.status || TaskStatus.TODO,
@@ -129,7 +167,9 @@ export class WorkTasksService {
       .where('task.workspaceId = :workspaceId', { workspaceId });
 
     if (query.projectId) {
-      qb.andWhere('task.projectId = :projectId', { projectId: query.projectId });
+      qb.andWhere('task.projectId = :projectId', {
+        projectId: query.projectId,
+      });
     }
 
     if (query.status) {
@@ -257,7 +297,10 @@ export class WorkTasksService {
       task.priority = dto.priority;
       changedFields.push('priority');
     }
-    if (dto.assigneeUserId !== undefined && dto.assigneeUserId !== task.assigneeUserId) {
+    if (
+      dto.assigneeUserId !== undefined &&
+      dto.assigneeUserId !== task.assigneeUserId
+    ) {
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
     }
@@ -305,7 +348,9 @@ export class WorkTasksService {
         auth,
         workspaceId,
         saved.id,
-        saved.assigneeUserId ? ('TASK_ASSIGNED' as any) : ('TASK_UNASSIGNED' as any),
+        saved.assigneeUserId
+          ? ('TASK_ASSIGNED' as any)
+          : ('TASK_UNASSIGNED' as any),
         {
           from: oldAssignee,
           to: saved.assigneeUserId,
@@ -321,6 +366,25 @@ export class WorkTasksService {
         'TASK_UPDATED' as any,
         { changedFields },
       );
+    }
+
+    // Trigger health recalculation if status or dueDate changed
+    const dueDateChanged =
+      dto.dueDate !== undefined &&
+      (dto.dueDate ? new Date(dto.dueDate).getTime() : null) !==
+        (task.dueDate ? task.dueDate.getTime() : null);
+
+    if (oldStatus !== saved.status || dueDateChanged) {
+      try {
+        await this.projectHealthService.recalculateProjectHealth(
+          saved.projectId,
+          organizationId,
+          workspaceId,
+        );
+      } catch (error) {
+        // Log but don't fail the task update if health recalculation fails
+        console.warn('Failed to recalculate project health:', error);
+      }
     }
 
     return saved;
@@ -363,6 +427,9 @@ export class WorkTasksService {
       });
     }
 
+    // Get projectIds for health recalculation (before update)
+    const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+
     // Update all tasks
     await this.taskRepo
       .qb('task')
@@ -371,6 +438,19 @@ export class WorkTasksService {
       .where('task.id IN (:...taskIds)', { taskIds: dto.taskIds })
       .andWhere('task.workspaceId = :workspaceId', { workspaceId })
       .execute();
+
+    // Trigger health recalculation for affected projects
+    for (const projectId of projectIds) {
+      try {
+        await this.projectHealthService.recalculateProjectHealth(
+          projectId,
+          organizationId,
+          workspaceId,
+        );
+      } catch (error) {
+        console.warn('Failed to recalculate project health:', error);
+      }
+    }
 
     // Emit activity for each task
     for (const taskId of dto.taskIds) {
@@ -451,4 +531,3 @@ export class WorkTasksService {
     });
   }
 }
-

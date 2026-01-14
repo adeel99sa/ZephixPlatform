@@ -69,4 +69,3 @@ export class UpdateWorkspaceMemberRoles1765000000008
     `);
   }
 }
-

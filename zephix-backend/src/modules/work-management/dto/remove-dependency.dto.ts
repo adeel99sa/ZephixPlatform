@@ -7,9 +7,12 @@ export class RemoveDependencyDto {
   @IsUUID()
   predecessorTaskId: string;
 
-  @ApiProperty({ description: 'Dependency type', enum: DependencyType, required: false })
+  @ApiProperty({
+    description: 'Dependency type',
+    enum: DependencyType,
+    required: false,
+  })
   @IsOptional()
   @IsEnum(DependencyType)
   type?: DependencyType;
 }
-

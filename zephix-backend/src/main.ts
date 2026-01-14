@@ -23,13 +23,19 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import helmet from 'helmet';
 const cookieParser = require('cookie-parser');
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
 
 async function bootstrap() {
+  // Skip env validation in test mode (tests use Test.createTestingModule, not bootstrap)
+  if (process.env.NODE_ENV === 'test') {
+    // Tests don't call bootstrap, but guardrail in case they do
+    return;
+  }
+
   // Validate required environment variables at startup
   const requiredEnvVars = {
     INTEGRATION_ENCRYPTION_KEY: {
@@ -114,11 +120,24 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true, // Changed to true to reject unknown params
       forbidUnknownValues: false,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
+      },
+      exceptionFactory: (errors) => {
+        // Build standardized validation error
+        const firstError = errors[0];
+        const firstMessage = firstError?.constraints
+          ? Object.values(firstError.constraints)[0]
+          : 'Invalid request';
+
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: firstMessage,
+          errors, // Keep for detailed extraction in filter
+        });
       },
     }),
   );

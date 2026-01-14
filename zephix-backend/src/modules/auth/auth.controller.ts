@@ -193,8 +193,14 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Request() req: Request) {
+    // Extract IP and userAgent with x-forwarded-for support
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      (req as any).ip ||
+      'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    return this.authService.login(loginDto, ip as string, userAgent);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -233,16 +239,31 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  async logout(@Request() req: AuthRequest) {
+  async logout(
+    @Request() req: AuthRequest,
+    @Body() body?: { sessionId?: string; refreshToken?: string },
+  ) {
     const { userId } = getAuthContext(req);
-    await this.authService.logout(userId);
+    await this.authService.logout(userId, body?.sessionId, body?.refreshToken);
     return { message: 'Logged out successfully' };
   }
 
   @Post('refresh')
-  async refreshToken(@Request() req, @Body() body: { refreshToken: string }) {
-    const ip = req.ip || 'unknown';
+  async refreshToken(
+    @Request() req,
+    @Body() body: { refreshToken: string; sessionId?: string },
+  ) {
+    // Extract IP and userAgent with x-forwarded-for support
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip ||
+      'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.refreshToken(body.refreshToken, ip, userAgent);
+    return this.authService.refreshToken(
+      body.refreshToken,
+      body.sessionId || null,
+      ip,
+      userAgent,
+    );
   }
 }

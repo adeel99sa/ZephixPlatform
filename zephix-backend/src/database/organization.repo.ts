@@ -30,4 +30,3 @@ export function getOrganizationRepository(
 ): Repository<Organization> {
   return dataSource.getRepository(Organization);
 }
-

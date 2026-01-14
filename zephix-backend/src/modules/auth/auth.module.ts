@@ -22,9 +22,13 @@ import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { OrgInvite } from './entities/org-invite.entity';
+import { OrgInviteWorkspaceAssignment } from './entities/org-invite-workspace-assignment.entity';
 import { AuthOutbox } from './entities/auth-outbox.entity';
+import { AuthSession } from './entities/auth-session.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../../shared/services/email.service';
+import { SessionsController } from './controllers/sessions.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -36,7 +40,9 @@ import { EmailService } from '../../shared/services/email.service';
       WorkspaceMember,
       EmailVerificationToken,
       OrgInvite,
+      OrgInviteWorkspaceAssignment,
       AuthOutbox,
+      AuthSession,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
@@ -49,12 +55,14 @@ import { EmailService } from '../../shared/services/email.service';
       }),
       inject: [ConfigService],
     }),
+    NotificationsModule,
   ],
   controllers: [
     AuthController,
     OrganizationSignupController,
     OrgInvitesController,
     InvitesController,
+    SessionsController,
   ],
   providers: [
     AuthService,

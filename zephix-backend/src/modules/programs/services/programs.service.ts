@@ -5,7 +5,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual, MoreThanOrEqual, Between } from 'typeorm';
+import {
+  Repository,
+  In,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Between,
+} from 'typeorm';
 import { Program } from '../entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { ResourceAllocation } from '../../resources/entities/resource-allocation.entity';
@@ -37,16 +43,17 @@ export class ProgramsService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
+  // PHASE 6: Workspace-scoped create
   async create(
     createDto: CreateProgramDto,
     organizationId: string,
+    workspaceId: string,
     userId: string,
   ): Promise<Program> {
-    // Verify portfolio exists and belongs to org
-    // (Portfolio check will be done via foreign key constraint, but we can add explicit check)
     const program = this.programRepository.create({
       ...createDto,
       organizationId,
+      workspaceId,
       createdById: userId,
       status: createDto.status || ProgramStatus.ACTIVE,
     });
@@ -54,6 +61,80 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
+  // PHASE 6: Workspace-scoped list all programs in workspace
+  async listByWorkspace(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Program[]> {
+    return await this.programRepository.find({
+      where: { organizationId, workspaceId },
+      relations: ['portfolio'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // PHASE 6: Workspace-scoped list by portfolio
+  async listByPortfolio(
+    organizationId: string,
+    workspaceId: string,
+    portfolioId: string,
+  ): Promise<Program[]> {
+    return await this.programRepository.find({
+      where: { organizationId, workspaceId, portfolioId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // PHASE 6: Workspace-scoped getById
+  async getById(
+    id: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Program | null> {
+    const program = await this.programRepository.findOne({
+      where: { id, organizationId, workspaceId },
+      relations: ['portfolio', 'projects'],
+    });
+
+    return program || null;
+  }
+
+  // PHASE 6: Workspace-scoped update
+  async update(
+    id: string,
+    updateDto: UpdateProgramDto,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Program> {
+    const program = await this.getById(id, organizationId, workspaceId);
+
+    if (!program) {
+      throw new NotFoundException(`Program with ID ${id} not found`);
+    }
+
+    Object.assign(program, updateDto);
+
+    return await this.programRepository.save(program);
+  }
+
+  // PHASE 6: Archive program
+  async archive(
+    id: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Program> {
+    const program = await this.getById(id, organizationId, workspaceId);
+
+    if (!program) {
+      throw new NotFoundException(`Program with ID ${id} not found`);
+    }
+
+    program.status = ProgramStatus.ARCHIVED;
+
+    return await this.programRepository.save(program);
+  }
+
+  // Legacy methods - kept for backward compatibility during migration
   async list(organizationId: string, portfolioId?: string): Promise<Program[]> {
     const where: any = { organizationId };
     if (portfolioId) {
@@ -66,7 +147,7 @@ export class ProgramsService {
     });
   }
 
-  async getById(id: string, organizationId: string): Promise<Program> {
+  async getByIdLegacy(id: string, organizationId: string): Promise<Program> {
     const program = await this.programRepository.findOne({
       where: { id, organizationId },
       relations: ['portfolio', 'projects'],
@@ -79,12 +160,13 @@ export class ProgramsService {
     return program;
   }
 
-  async update(
+  // Legacy method - kept for backward compatibility during migration
+  async updateLegacy(
     id: string,
     updateDto: UpdateProgramDto,
     organizationId: string,
   ): Promise<Program> {
-    const program = await this.getById(id, organizationId);
+    const program = await this.getByIdLegacy(id, organizationId);
 
     // Don't allow portfolioId update via UpdateProgramDto
     const { portfolioId, ...updateData } = updateDto;
@@ -93,12 +175,13 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
+  // Legacy method - kept for backward compatibility during migration
   async assignProgramToProject(
     programId: string,
     dto: AssignProgramToProjectDto,
     organizationId: string,
   ): Promise<void> {
-    const program = await this.getById(programId, organizationId);
+    const program = await this.getByIdLegacy(programId, organizationId);
 
     // Verify project belongs to organization
     const project = await this.projectRepository.findOne({
@@ -150,7 +233,12 @@ export class ProgramsService {
     endDate: string,
     organizationId: string,
   ): Promise<any> {
-    const program = await this.getById(programId, organizationId);
+    // PHASE 6: Use workspace-scoped getById
+    const program = await this.getById(programId, organizationId, workspaceId);
+
+    if (!program) {
+      throw new NotFoundException(`Program with ID ${programId} not found`);
+    }
 
     // Get projects in program that belong to the workspace
     const projects = await this.projectRepository.find({
@@ -292,10 +380,13 @@ export class ProgramsService {
     });
 
     // Project status counts
-    const statusCounts = projects.reduce((acc, project) => {
-      acc[project.status] = (acc[project.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const statusCounts = projects.reduce(
+      (acc, project) => {
+        acc[project.status] = (acc[project.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       weeks: weeklyMetrics,
@@ -306,7 +397,10 @@ export class ProgramsService {
     };
   }
 
-  private computeWeekBuckets(start: Date, end: Date): Array<{
+  private computeWeekBuckets(
+    start: Date,
+    end: Date,
+  ): Array<{
     weekStart: string;
     weekEnd: string;
   }> {
@@ -340,7 +434,10 @@ export class ProgramsService {
   }
 
   private emptySummary(startDate: string, endDate: string): any {
-    const weeks = this.computeWeekBuckets(new Date(startDate), new Date(endDate));
+    const weeks = this.computeWeekBuckets(
+      new Date(startDate),
+      new Date(endDate),
+    );
     return {
       weeks: weeks.map((week) => ({
         ...week,
@@ -359,4 +456,3 @@ export class ProgramsService {
     };
   }
 }
-

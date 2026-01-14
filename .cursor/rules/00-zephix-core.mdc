@@ -1,0 +1,23 @@
+---
+description: Zephix core engineering rules
+alwaysApply: true
+---
+
+You are working in the Zephix monorepo.
+
+Non negotiables
+- Preserve multi tenant boundaries. Always scope queries by organizationId. Scope by workspaceId when the domain is workspace scoped.
+- Enforce role rules. PlatformRole: ADMIN, MEMBER, VIEWER. VIEWER is Guest.
+- Never ship data leakage across workspaces for MEMBER or VIEWER.
+- Prefer platformRole over legacy role. Normalize once. Reuse helpers.
+
+Workflow
+- Start by listing impacted modules and files.
+- Propose a plan with acceptance criteria.
+- Implement in small commits with clear diffs.
+- Add tests for security and scoping. Update docs in /docs for any behavior change.
+
+Code style
+- Follow existing patterns in the repo.
+- Avoid introducing new abstractions unless required.
+- Prefer explicit names over cleverness.

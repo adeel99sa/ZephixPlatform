@@ -15,14 +15,33 @@ import { Organization } from '../../../organizations/entities/organization.entit
 import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
-// Workspace roles - Phase 1: Updated to use workspace_ prefix for clarity
-// workspace_owner: Full control over workspace, can manage members
-// workspace_member: Can create projects and content, cannot manage members
-// workspace_viewer: Read-only access to workspace content
+/**
+ * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
+ *
+ * These are INTERNAL workspace access levels. They are NOT exposed as "roles" in UI language.
+ * UI should use "access" terminology: Owner, Member, Viewer.
+ *
+ * Workspace Access Levels (Internal Only):
+ * - workspace_owner: Full control over workspace, can manage members
+ * - workspace_member: Can create projects and content, cannot manage members
+ * - workspace_viewer: Read-only access to workspace content
+ *
+ * Project-Scoped Roles (MUST REMAIN UNCHANGED):
+ * - delivery_owner: Can write within assigned containers (project-scoped, not workspace-scoped)
+ * - stakeholder: Read-only access (project-scoped, not workspace-scoped)
+ *
+ * IMPORTANT:
+ * - Project-scoped roles (delivery_owner, stakeholder) are NOT workspace roles
+ * - They exist at project level and are invisible unless inside a project
+ * - DO NOT migrate or collapse project-scoped roles into workspace roles
+ * - These provide granular permissions that Linear and Monday don't have
+ */
 export type WorkspaceRole =
-  | 'workspace_owner'
-  | 'workspace_member'
-  | 'workspace_viewer';
+  | 'workspace_owner' // Internal: Workspace Owner access
+  | 'workspace_member' // Internal: Workspace Member access
+  | 'workspace_viewer' // Internal: Workspace Viewer access
+  | 'delivery_owner' // Project-scoped: DO NOT MIGRATE - remains project-level
+  | 'stakeholder'; // Project-scoped: DO NOT MIGRATE - remains project-level
 
 @Entity('workspaces')
 export class Workspace {
@@ -31,7 +50,13 @@ export class Workspace {
   @Column('uuid', { name: 'organization_id' }) organizationId!: string;
 
   @Column({ length: 100 }) name!: string;
-  @Column({ length: 50, nullable: true }) slug?: string;
+  // PROMPT 10: Slug is unique per organization (enforced by unique index)
+  @Index('IDX_workspaces_org_slug_unique', ['organizationId', 'slug'], {
+    unique: true,
+    where: '"slug" IS NOT NULL',
+  })
+  @Column({ length: 50, nullable: true })
+  slug?: string;
   @Column({ type: 'text', nullable: true }) description?: string;
   @Column({ name: 'is_private', type: 'boolean', default: false })
   isPrivate!: boolean;
@@ -74,4 +99,10 @@ export class Workspace {
     nullable: true,
   })
   defaultMethodology?: string | null;
+
+  // PHASE 5.1: Workspace notes for Workspace Home page
+  // Stores workspace context, rules, links, expectations
+  // Editable only by workspace owner
+  @Column({ type: 'text', name: 'home_notes', nullable: true })
+  homeNotes?: string | null;
 }

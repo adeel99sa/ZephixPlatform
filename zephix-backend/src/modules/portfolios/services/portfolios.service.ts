@@ -5,7 +5,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual, MoreThanOrEqual, Between } from 'typeorm';
+import {
+  Repository,
+  In,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Between,
+} from 'typeorm';
 import { Portfolio } from '../entities/portfolio.entity';
 import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Program } from '../../programs/entities/program.entity';
@@ -46,14 +52,17 @@ export class PortfoliosService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
+  // PHASE 6: Workspace-scoped create
   async create(
     createDto: CreatePortfolioDto,
     organizationId: string,
+    workspaceId: string,
     userId: string,
   ): Promise<Portfolio> {
     const portfolio = this.portfolioRepository.create({
       ...createDto,
       organizationId,
+      workspaceId,
       createdById: userId,
       status: createDto.status || PortfolioStatus.ACTIVE,
     });
@@ -61,6 +70,18 @@ export class PortfoliosService {
     return await this.portfolioRepository.save(portfolio);
   }
 
+  // PHASE 6: Workspace-scoped list
+  async listByWorkspace(
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Portfolio[]> {
+    return await this.portfolioRepository.find({
+      where: { organizationId, workspaceId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  // Legacy method - kept for backward compatibility during migration
   async list(organizationId: string): Promise<Portfolio[]> {
     return await this.portfolioRepository.find({
       where: { organizationId },
@@ -68,7 +89,57 @@ export class PortfoliosService {
     });
   }
 
-  async getById(id: string, organizationId: string): Promise<Portfolio> {
+  // PHASE 6: Workspace-scoped getById
+  async getById(
+    id: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Portfolio | null> {
+    const portfolio = await this.portfolioRepository.findOne({
+      where: { id, organizationId, workspaceId },
+      relations: ['programs', 'portfolioProjects', 'portfolioProjects.project'],
+    });
+
+    return portfolio || null;
+  }
+
+  // PHASE 6: Workspace-scoped update
+  async update(
+    id: string,
+    updateDto: UpdatePortfolioDto,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Portfolio> {
+    const portfolio = await this.getById(id, organizationId, workspaceId);
+
+    if (!portfolio) {
+      throw new NotFoundException(`Portfolio with ID ${id} not found`);
+    }
+
+    Object.assign(portfolio, updateDto);
+
+    return await this.portfolioRepository.save(portfolio);
+  }
+
+  // PHASE 6: Archive portfolio
+  async archive(
+    id: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Portfolio> {
+    const portfolio = await this.getById(id, organizationId, workspaceId);
+
+    if (!portfolio) {
+      throw new NotFoundException(`Portfolio with ID ${id} not found`);
+    }
+
+    portfolio.status = PortfolioStatus.ARCHIVED;
+
+    return await this.portfolioRepository.save(portfolio);
+  }
+
+  // Legacy method - kept for backward compatibility during migration
+  async getByIdLegacy(id: string, organizationId: string): Promise<Portfolio> {
     const portfolio = await this.portfolioRepository.findOne({
       where: { id, organizationId },
       relations: ['programs', 'portfolioProjects', 'portfolioProjects.project'],
@@ -81,24 +152,26 @@ export class PortfoliosService {
     return portfolio;
   }
 
-  async update(
+  // Legacy method - kept for backward compatibility during migration
+  async updateLegacy(
     id: string,
     updateDto: UpdatePortfolioDto,
     organizationId: string,
   ): Promise<Portfolio> {
-    const portfolio = await this.getById(id, organizationId);
+    const portfolio = await this.getByIdLegacy(id, organizationId);
 
     Object.assign(portfolio, updateDto);
 
     return await this.portfolioRepository.save(portfolio);
   }
 
+  // Legacy method - kept for backward compatibility during migration
   async addProjects(
     portfolioId: string,
     dto: AddProjectsToPortfolioDto,
     organizationId: string,
   ): Promise<void> {
-    const portfolio = await this.getById(portfolioId, organizationId);
+    const portfolio = await this.getByIdLegacy(portfolioId, organizationId);
 
     // Verify all projects belong to the organization
     const projects = await this.projectRepository.find({
@@ -130,12 +203,13 @@ export class PortfoliosService {
     }
   }
 
+  // Legacy method - kept for backward compatibility during migration
   async removeProjects(
     portfolioId: string,
     dto: RemoveProjectsFromPortfolioDto,
     organizationId: string,
   ): Promise<void> {
-    await this.getById(portfolioId, organizationId);
+    await this.getByIdLegacy(portfolioId, organizationId);
 
     await this.portfolioProjectRepository.delete({
       portfolioId,
@@ -150,7 +224,16 @@ export class PortfoliosService {
     endDate: string,
     organizationId: string,
   ): Promise<any> {
-    const portfolio = await this.getById(portfolioId, organizationId);
+    // PHASE 6: Use workspace-scoped getById
+    const portfolio = await this.getById(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
+
+    if (!portfolio) {
+      throw new NotFoundException(`Portfolio with ID ${portfolioId} not found`);
+    }
 
     // Get projects in portfolio that belong to the workspace
     const portfolioProjects = await this.portfolioProjectRepository.find({
@@ -294,10 +377,13 @@ export class PortfoliosService {
     });
 
     // Project status counts
-    const statusCounts = projects.reduce((acc, project) => {
-      acc[project.status] = (acc[project.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const statusCounts = projects.reduce(
+      (acc, project) => {
+        acc[project.status] = (acc[project.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       weeks: weeklyMetrics,
@@ -308,7 +394,10 @@ export class PortfoliosService {
     };
   }
 
-  private computeWeekBuckets(start: Date, end: Date): Array<{
+  private computeWeekBuckets(
+    start: Date,
+    end: Date,
+  ): Array<{
     weekStart: string;
     weekEnd: string;
   }> {
@@ -342,7 +431,10 @@ export class PortfoliosService {
   }
 
   private emptySummary(startDate: string, endDate: string): any {
-    const weeks = this.computeWeekBuckets(new Date(startDate), new Date(endDate));
+    const weeks = this.computeWeekBuckets(
+      new Date(startDate),
+      new Date(endDate),
+    );
     return {
       weeks: weeks.map((week) => ({
         ...week,
@@ -361,4 +453,3 @@ export class PortfoliosService {
     };
   }
 }
-

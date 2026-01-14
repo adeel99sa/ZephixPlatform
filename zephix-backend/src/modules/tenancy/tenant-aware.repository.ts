@@ -87,8 +87,11 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
 
     // Map organizationId to the correct column name
     // TypeORM uses property names, but DB may use snake_case
+    // Only add org filter if the entity has an organizationId column
     const orgColumn = this.getOrganizationIdColumn();
-    filter[orgColumn] = orgId;
+    if (orgColumn) {
+      filter[orgColumn] = orgId;
+    }
 
     // Add workspace filter if entity is workspace-scoped and workspaceId exists
     if (this.isEntityWorkspaceScoped()) {
@@ -107,8 +110,9 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
   /**
    * Get the organizationId column name for this entity.
    * Handles both camelCase (entity property) and snake_case (DB column).
+   * Returns null if the entity doesn't have an organizationId column.
    */
-  private getOrganizationIdColumn(): string {
+  private getOrganizationIdColumn(): string | null {
     const metadata = this.repository.metadata;
     const orgColumn = metadata.columns.find(
       (col) =>
@@ -116,7 +120,7 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
         col.databaseName === 'organization_id' ||
         col.databaseName === 'organizationId',
     );
-    return orgColumn?.propertyName || 'organizationId';
+    return orgColumn?.propertyName || null;
   }
 
   /**
@@ -554,4 +558,3 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
 export function getTenantAwareRepositoryToken(entity: any): string {
   return `TenantAwareRepository_${entity.name}`;
 }
-

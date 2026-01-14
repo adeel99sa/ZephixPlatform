@@ -1,4 +1,9 @@
-import { MigrationInterface, QueryRunner, TableColumn, TableIndex } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  TableColumn,
+  TableIndex,
+} from 'typeorm';
 
 /**
  * Phase 2: Resource and Allocation Engine MVP Schema Updates
@@ -103,7 +108,9 @@ export class Phase2ResourceSchemaUpdates1786000000000
       }
 
       // 4. Add indexes for common queries
-      const existingIndexes = await queryRunner.getTable('resource_allocations');
+      const existingIndexes = await queryRunner.getTable(
+        'resource_allocations',
+      );
       const hasOrgResourceDateIndex = existingIndexes?.indices.some(
         (idx) => idx.name === 'idx_ra_org_resource_dates',
       );
@@ -112,7 +119,12 @@ export class Phase2ResourceSchemaUpdates1786000000000
           'resource_allocations',
           new TableIndex({
             name: 'idx_ra_org_resource_dates',
-            columnNames: ['organization_id', 'resource_id', 'start_date', 'end_date'],
+            columnNames: [
+              'organization_id',
+              'resource_id',
+              'start_date',
+              'end_date',
+            ],
           }),
         );
       }
@@ -125,7 +137,12 @@ export class Phase2ResourceSchemaUpdates1786000000000
           'resource_allocations',
           new TableIndex({
             name: 'idx_ra_org_project_dates',
-            columnNames: ['organization_id', 'project_id', 'start_date', 'end_date'],
+            columnNames: [
+              'organization_id',
+              'project_id',
+              'start_date',
+              'end_date',
+            ],
           }),
         );
       }
@@ -187,7 +204,10 @@ export class Phase2ResourceSchemaUpdates1786000000000
         (idx) => idx.name === 'idx_conflicts_org_resource_date',
       );
       if (index) {
-        await queryRunner.dropIndex('resource_conflicts', 'idx_conflicts_org_resource_date');
+        await queryRunner.dropIndex(
+          'resource_conflicts',
+          'idx_conflicts_org_resource_date',
+        );
       }
 
       const orgIdColumn = conflictsTable.findColumnByName('organization_id');
@@ -206,14 +226,20 @@ export class Phase2ResourceSchemaUpdates1786000000000
         (idx) => idx.name === 'idx_ra_org_project_dates',
       );
       if (index1) {
-        await queryRunner.dropIndex('resource_allocations', 'idx_ra_org_project_dates');
+        await queryRunner.dropIndex(
+          'resource_allocations',
+          'idx_ra_org_project_dates',
+        );
       }
 
       const index2 = allocationsTable.indices.find(
         (idx) => idx.name === 'idx_ra_org_resource_dates',
       );
       if (index2) {
-        await queryRunner.dropIndex('resource_allocations', 'idx_ra_org_resource_dates');
+        await queryRunner.dropIndex(
+          'resource_allocations',
+          'idx_ra_org_resource_dates',
+        );
       }
 
       const unitsTypeColumn = allocationsTable.findColumnByName('units_type');
@@ -251,4 +277,3 @@ export class Phase2ResourceSchemaUpdates1786000000000
     }
   }
 }
-

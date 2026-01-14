@@ -1,20 +1,43 @@
 /**
- * Platform-level roles for Zephix Enterprise
- * These roles apply at the organization level and determine what users can do across the platform.
+ * PHASE 5.1: LOCKED PRODUCT MODEL - Platform Roles
  *
- * ADMIN: Full organization level authority. Can create workspaces, manage all content, access admin dashboards.
- * MEMBER: Normal user. Can access workspaces where they are members, create/update projects and work items.
- * VIEWER: Read-only user. Can only view content where they have workspace_viewer access.
+ * Only three platform roles exist. These are the ONLY roles exposed at the platform level.
+ *
+ * ADMIN (Paid):
+ * - Creates organizations
+ * - Creates workspaces
+ * - Assigns initial workspace owner (must be a Member)
+ * - Does NOT participate in daily work by default
+ * - Has implicit workspace_owner access to all workspaces in organization
+ *
+ * MEMBER (Paid):
+ * - Can be assigned as workspace owner or workspace member
+ * - Participates in work (creates projects, tasks, etc.)
+ * - Can be workspace owner and manage workspace members
+ *
+ * GUEST (Free):
+ * - View only access
+ * - Limited surfaces only
+ * - ALWAYS maps to workspace_viewer when added to workspace (enforced)
+ * - Cannot be workspace owner or workspace member
+ *
+ * IMPORTANT:
+ * - Org role complexity (owner/admin/pm/member/viewer) is kept internal for backward compatibility
+ * - UI should NEVER expose org role naming - only use Admin/Member/Guest
+ * - Legacy role mapping exists for migration but new code should use PlatformRole enum
  */
 export enum PlatformRole {
   ADMIN = 'ADMIN',
   MEMBER = 'MEMBER',
-  VIEWER = 'VIEWER',
+  VIEWER = 'VIEWER', // VIEWER represents Guest users (free, view only)
 }
 
 /**
  * Legacy role mapping for backward compatibility during migration
  * Maps old role values to new PlatformRole enum
+ *
+ * NOTE: This mapping is for INTERNAL use only. UI should never expose these legacy values.
+ * All new code should use PlatformRole enum directly.
  */
 export const LEGACY_ROLE_MAPPING: Record<string, PlatformRole> = {
   // Old values -> New values
@@ -23,7 +46,7 @@ export const LEGACY_ROLE_MAPPING: Record<string, PlatformRole> = {
   pm: PlatformRole.MEMBER,
   project_manager: PlatformRole.MEMBER,
   member: PlatformRole.MEMBER,
-  guest: PlatformRole.VIEWER,
+  guest: PlatformRole.VIEWER, // Guest maps to VIEWER (free, view only)
   viewer: PlatformRole.VIEWER,
 };
 
@@ -68,4 +91,3 @@ export function canCreateWorkspaces(
 ): boolean {
   return isAdminRole(role);
 }
-

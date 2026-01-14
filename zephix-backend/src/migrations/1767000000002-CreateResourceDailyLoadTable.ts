@@ -152,4 +152,3 @@ export class CreateResourceDailyLoadTable1767000000002
     await queryRunner.dropTable('resource_daily_load', true);
   }
 }
-

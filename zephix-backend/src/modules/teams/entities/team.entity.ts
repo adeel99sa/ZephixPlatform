@@ -69,4 +69,3 @@ export class Team {
   @OneToMany(() => TeamMember, (member) => member.team)
   members?: TeamMember[];
 }
-

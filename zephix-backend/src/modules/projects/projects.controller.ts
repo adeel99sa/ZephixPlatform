@@ -1,4 +1,8 @@
-console.log('🔍 ProjectsController file loading...');
+if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== 'test') {
+  console.log('🔍 ProjectsController file loading...');
+}
+}
 
 import {
   Controller,
@@ -13,6 +17,9 @@ import {
   Logger,
   BadRequestException,
   Req,
+  NotFoundException,
+  ForbiddenException,
+  SetMetadata,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ProjectsService } from './services/projects.service';
@@ -39,7 +46,9 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     // private readonly assignmentService: ProjectAssignmentService,
   ) {
-    console.log('🚀 ProjectsController constructor called!');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('🚀 ProjectsController constructor called!');
+    }
   }
 
   @Get('test')
@@ -437,4 +446,5 @@ export class ProjectsController {
   //     organizationId: tenant.organizationId,
   //   });
   // }
+
 }

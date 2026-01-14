@@ -96,6 +96,41 @@ export class Template {
   @Column({ default: 1 })
   version: number;
 
+  // Sprint 4: Template recommendation fields
+  @Column({ name: 'work_type_tags', type: 'text', array: true, default: [] })
+  workTypeTags: string[];
+
+  @Column({ name: 'scope_tags', type: 'text', array: true, default: [] })
+  scopeTags: string[];
+
+  @Column({
+    name: 'complexity_bucket',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  complexityBucket?: string;
+
+  @Column({ name: 'duration_min_days', type: 'integer', nullable: true })
+  durationMinDays?: number;
+
+  @Column({ name: 'duration_max_days', type: 'integer', nullable: true })
+  durationMaxDays?: number;
+
+  @Column({
+    name: 'setup_time_bucket',
+    type: 'varchar',
+    length: 20,
+    default: 'SHORT',
+  })
+  setupTimeBucket: string;
+
+  @Column({ name: 'structure_summary', type: 'jsonb', nullable: true })
+  structureSummary?: Record<string, any>;
+
+  @Column({ name: 'lock_policy', type: 'jsonb', nullable: true })
+  lockPolicy?: Record<string, any>;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt: Date;
 

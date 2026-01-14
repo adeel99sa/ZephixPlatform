@@ -49,7 +49,12 @@ export class Dashboard {
   @Column({ type: 'boolean', name: 'is_template_instance', default: false })
   isTemplateInstance: boolean;
 
-  @Column({ type: 'varchar', length: 100, name: 'template_key', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 100,
+    name: 'template_key',
+    nullable: true,
+  })
   templateKey: string | null;
 
   @Column({ type: 'uuid', name: 'share_token', nullable: true })
@@ -76,4 +81,3 @@ export class Dashboard {
   })
   widgets: DashboardWidget[];
 }
-

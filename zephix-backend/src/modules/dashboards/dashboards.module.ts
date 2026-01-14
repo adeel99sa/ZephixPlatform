@@ -14,7 +14,8 @@ import { MetricsController } from './controllers/metrics.controller';
 import { AnalyticsWidgetsController } from './controllers/analytics-widgets.controller';
 import { AiDashboardController } from './controllers/ai-dashboard.controller';
 import { TenancyModule } from '../tenancy/tenancy.module';
-import { PortfoliosModule } from '../portfolios/portfolios.module'; // Exports PortfoliosService and ProgramsService
+import { PortfoliosModule } from '../portfolios/portfolios.module'; // Exports PortfoliosService
+import { ProgramsModule } from '../programs/programs.module'; // Exports ProgramsService
 import { ResourceModule } from '../resources/resource.module'; // Exports ResourcesService
 import { ProjectsModule } from '../projects/projects.module'; // Exports ProjectsService
 import { ResourceConflict } from '../resources/entities/resource-conflict.entity';
@@ -33,7 +34,8 @@ import { Project } from '../projects/entities/project.entity';
     SharedModule, // Provides ResponseService
     WorkspaceAccessModule, // Provides WorkspaceAccessService for workspace checks
     TenancyModule, // Required for TenantAwareRepository
-    PortfoliosModule, // Provides PortfoliosService and ProgramsService
+    PortfoliosModule, // Provides PortfoliosService
+    ProgramsModule, // Provides ProgramsService
     ResourceModule, // Provides ResourcesService
     ProjectsModule, // Provides ProjectsService
   ],
@@ -50,4 +52,3 @@ import { Project } from '../projects/entities/project.entity';
   exports: [DashboardsService], // For analytics use
 })
 export class DashboardsModule {}
-

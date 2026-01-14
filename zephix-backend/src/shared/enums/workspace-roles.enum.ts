@@ -33,4 +33,3 @@ export function hasWorkspaceRoleAtLeast(
     WORKSPACE_ROLE_HIERARCHY[requiredRole]
   );
 }
-

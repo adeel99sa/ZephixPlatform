@@ -17,4 +17,3 @@ export class AddExternalTaskLoadToResourceDailyLoad1769000000003
     `);
   }
 }
-

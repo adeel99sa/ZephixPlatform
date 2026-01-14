@@ -25,7 +25,10 @@ export class CreateAllocationDto {
   @IsNotEmpty()
   resourceId: string;
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174001', required: false })
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174001',
+    required: false,
+  })
   @IsUUID()
   @IsOptional()
   projectId?: string;

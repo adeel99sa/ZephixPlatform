@@ -197,7 +197,9 @@ export class ResourcesController {
   // e.g., /api/resources/conflicts should not match /api/resources/:id
 
   @Get('conflicts')
-  @ApiOperation({ summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)' })
+  @ApiOperation({
+    summary: 'Get resource conflicts (Phase 2: uses ResourceConflict entity)',
+  })
   @ApiResponse({ status: 200, description: 'Conflicts retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Workspace access denied' })
   async getConflicts(
@@ -216,7 +218,8 @@ export class ResourcesController {
 
     // Prefer workspaceId from tenant context (set by interceptor from x-workspace-id header)
     // Fall back to query param if not in context
-    const workspaceId = this.tenantContextService.getWorkspaceId() || workspaceIdQuery;
+    const workspaceId =
+      this.tenantContextService.getWorkspaceId() || workspaceIdQuery;
 
     return this.resourcesService.getConflictsFromEntity(
       organizationId,
@@ -266,10 +269,7 @@ export class ResourcesController {
   @ApiResponse({ status: 200, description: 'Conflict reopened successfully' })
   @ApiResponse({ status: 403, description: 'Workspace access denied' })
   @ApiResponse({ status: 404, description: 'Conflict not found' })
-  async reopenConflict(
-    @Param('id') id: string,
-    @Req() req: AuthRequest,
-  ) {
+  async reopenConflict(@Param('id') id: string, @Req() req: AuthRequest) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
 
     // Validate workspace access (required for workspace-scoped operations)
@@ -329,10 +329,7 @@ export class ResourcesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific resource' })
   @ApiResponse({ status: 200, description: 'Resource retrieved successfully' })
-  async getResource(
-    @Param('id') id: string,
-    @Req() req: AuthRequest,
-  ) {
+  async getResource(@Param('id') id: string, @Req() req: AuthRequest) {
     try {
       const { organizationId } = getAuthContext(req);
 
@@ -499,7 +496,10 @@ export class ResourcesController {
   })
   @ApiResponse({ status: 201, description: 'Allocation created successfully' })
   @ApiResponse({ status: 403, description: 'Workspace access denied' })
-  @ApiResponse({ status: 409, description: 'HARD allocation would exceed capacity' })
+  @ApiResponse({
+    status: 409,
+    description: 'HARD allocation would exceed capacity',
+  })
   async createAllocation(
     @Body() dto: CreateAllocationDto,
     @Req() req: AuthRequest,

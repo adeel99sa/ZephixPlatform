@@ -71,7 +71,9 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     // @InjectRepository(ProjectPhase)
     // private readonly projectPhaseRepository: Repository<ProjectPhase>,
   ) {
-    console.log('🚀 ProjectsService constructor called!');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('🚀 ProjectsService constructor called!');
+    }
     super(projectRepository, 'Project');
   }
 
@@ -427,6 +429,34 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       // Return null for not found or other errors
       this.logger.error(
         `❌ Failed to fetch project ${id} for org ${organizationId}:`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * PHASE 6: Find project by ID in workspace - prevents existence leakage
+   * Query includes id, organizationId, and workspaceId in where clause
+   */
+  async findByIdInWorkspace(
+    projectId: string,
+    organizationId: string,
+    workspaceId: string,
+  ): Promise<Project | null> {
+    try {
+      const project = await this.projectRepository.findOne({
+        where: {
+          id: projectId,
+          organizationId,
+          workspaceId,
+        },
+      });
+
+      return project || null;
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to fetch project ${projectId} in workspace ${workspaceId} for org ${organizationId}:`,
         error,
       );
       return null;

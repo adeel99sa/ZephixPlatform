@@ -15,5 +15,3 @@ export class AddProjectsToPortfolioDto {
   @IsUUID('4', { each: true })
   projectIds: string[];
 }
-
-

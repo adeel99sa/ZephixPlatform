@@ -49,5 +49,3 @@ export class PortfolioProject {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
-
-

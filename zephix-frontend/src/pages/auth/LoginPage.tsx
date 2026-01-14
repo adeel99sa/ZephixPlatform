@@ -24,7 +24,9 @@ export const LoginPage: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      const returnUrl = location.state?.from?.pathname || '/home';
+      // Phase 5.1: Redirect to /workspaces instead of /home
+      // /workspaces handles workspace selection properly
+      const returnUrl = location.state?.from?.pathname || '/workspaces';
       navigate(returnUrl, { replace: true });
     }
   }, [user, navigate, location.state?.from?.pathname]);
@@ -59,14 +61,16 @@ export const LoginPage: React.FC = () => {
           // Redirect to onboarding if not completed
           navigate('/onboarding', { replace: true });
         } else {
-          // Redirect to intended destination or home
-          const returnUrl = location.state?.from?.pathname || '/home';
+          // Phase 5.1: Redirect to /workspaces instead of /home
+          // /workspaces handles workspace selection/auto-select properly
+          // /home requires a workspace, so it's not appropriate for post-login
+          const returnUrl = location.state?.from?.pathname || '/workspaces';
           navigate(returnUrl, { replace: true });
         }
       } catch (onboardingError) {
         console.error('Failed to check onboarding:', onboardingError);
-        // Fallback to normal redirect
-        const returnUrl = location.state?.from?.pathname || '/home';
+        // Fallback: Redirect to /workspaces (proper workspace selection page)
+        const returnUrl = location.state?.from?.pathname || '/workspaces';
         navigate(returnUrl, { replace: true });
       }
     } catch (err: any) {

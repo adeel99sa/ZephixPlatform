@@ -1,23 +1,33 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard'; // Fix path
-import { AdminGuard } from '../../guards/admin.guard'; // Fix path
+import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../../guards/admin.guard';
+import { OrgInvitesService } from '../../../modules/auth/services/org-invites.service';
+import { AdminInviteDto, AdminInviteResponseDto } from './dto/admin-invite.dto';
+import { getAuthContext } from '../../../common/http/get-auth-context';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
+import { formatResponse } from '../../../shared/helpers/response.helper';
 
 // DTOs (to be created)
 interface PaginationDto {
   page: number;
   limit: number;
-}
-
-interface InviteUsersDto {
-  emails: string[];
-  role: string;
-  message?: string;
 }
 
 interface CreateRoleDto {
@@ -31,6 +41,7 @@ interface CreateRoleDto {
 @Controller('admin/organization')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class OrganizationAdminController {
+  constructor(private readonly orgInvitesService: OrgInvitesService) {}
   @Get('overview')
   @ApiOperation({ summary: 'Get organization overview' })
   @ApiResponse({
@@ -118,29 +129,38 @@ export class OrganizationAdminController {
     };
   }
 
+  /**
+   * PROMPT 9: Admin invite with workspace assignments
+   * POST /api/admin/organization/users/invite
+   */
   @Post('users/invite')
-  @ApiOperation({ summary: 'Bulk invite users' })
-  @ApiResponse({
-    status: 201,
-    description: 'Users invited successfully',
+  @ApiOperation({
+    summary: 'Invite users to organization with optional workspace assignments',
   })
-  async inviteUsers(@Body() inviteDto: InviteUsersDto) {
-    const { emails, role, message } = inviteDto;
+  @ApiResponse({
+    status: 200,
+    description: 'Users invited successfully',
+    type: AdminInviteResponseDto,
+  })
+  async inviteUsers(
+    @Body() inviteDto: AdminInviteDto,
+    @Req() req: any,
+  ): Promise<{ data: AdminInviteResponseDto }> {
+    const { userId, organizationId, platformRole } = getAuthContext(req);
+    const normalizedPlatformRole = normalizePlatformRole(
+      platformRole || 'viewer',
+    );
 
-    // Mock invitation logic - replace with actual service call
-    const invitations = emails.map((email) => ({
-      email,
-      role,
-      status: 'pending',
-      invitedAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    }));
+    const results = await this.orgInvitesService.adminInviteWithWorkspaces(
+      organizationId,
+      inviteDto.emails,
+      inviteDto.platformRole,
+      inviteDto.workspaceAssignments,
+      userId,
+      normalizedPlatformRole,
+    );
 
-    return {
-      message: `Invited ${emails.length} users`,
-      invitations,
-      success: true,
-    };
+    return formatResponse({ results });
   }
 
   @Get('roles')

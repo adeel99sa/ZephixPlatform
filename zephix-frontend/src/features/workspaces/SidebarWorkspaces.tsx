@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronDown, Plus } from 'lucide-react';
 
 import { useAuth } from '@/state/AuthContext';
@@ -13,6 +13,7 @@ import { isAdminRole } from '@/types/roles';
 export function SidebarWorkspaces() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [open, setOpen] = useState(false);
@@ -68,15 +69,38 @@ export function SidebarWorkspaces() {
     refresh();
   }, [authLoading, user]);
 
+  // PHASE 5.3: Workspace selection - always go to /w/:slug/home
   const handleWorkspaceSelect = (workspaceId: string) => {
     setActiveWorkspace(workspaceId);
     setDropdownOpen(false);
-    navigate(`/workspaces/${workspaceId}`);
     telemetry.track('workspace.selected', { workspaceId });
+
+    // Find workspace slug
+    const workspace = workspaces.find(w => w.id === workspaceId);
+    if (workspace?.slug) {
+      // PHASE 5.3: Navigate to /w/:slug/home
+      navigate(`/w/${workspace.slug}/home`, { replace: false });
+    } else {
+      // Fallback to old route if slug not available
+      navigate(`/workspaces/${workspaceId}`, { replace: false });
+    }
   };
 
   const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
   const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
+
+  // Phase 5.1: Auto-select if only one workspace exists
+  useEffect(() => {
+    if (availableWorkspaces.length === 1 && !activeWorkspaceId && !authLoading && user) {
+      const singleWorkspace = availableWorkspaces[0];
+      if (singleWorkspace) {
+        setActiveWorkspace(singleWorkspace.id);
+        navigate(`/workspaces/${singleWorkspace.id}`);
+        telemetry.track('workspace.selected', { workspaceId: singleWorkspace.id });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableWorkspaces.length, activeWorkspaceId, authLoading, user]);
 
   return (
     <div className="px-2 mb-2" data-testid="sidebar-workspaces">
@@ -84,21 +108,32 @@ export function SidebarWorkspaces() {
       <div className="relative">
         <button
           ref={buttonRef}
-          onClick={() => canCreateWorkspace && setDropdownOpen(!dropdownOpen)}
+          onClick={() => {
+            if (availableWorkspaces.length > 0 && !currentWorkspace) {
+              // Phase 5.1: Make "Select workspace" clickable
+              if (availableWorkspaces.length === 1) {
+                handleWorkspaceSelect(availableWorkspaces[0].id);
+              } else {
+                setDropdownOpen(!dropdownOpen);
+              }
+            } else if (canCreateWorkspace) {
+              setDropdownOpen(!dropdownOpen);
+            }
+          }}
           className={`w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm ${
             currentWorkspace
               ? 'bg-gray-50 border-gray-300 hover:bg-gray-100'
               : 'bg-white border-gray-300 hover:bg-gray-50'
-          } ${!canCreateWorkspace ? 'cursor-default' : 'cursor-pointer'}`}
+          } ${availableWorkspaces.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
           data-testid="workspace-selector"
-          disabled={!canCreateWorkspace && availableWorkspaces.length === 0}
+          disabled={availableWorkspaces.length === 0 && !canCreateWorkspace}
         >
           <span className="text-sm font-medium truncate flex-1 text-left">
             {currentWorkspace
               ? currentWorkspace.name
               : availableWorkspaces.length > 0
-                ? 'Select workspace...'
-                : 'No workspaces'}
+                ? 'Select workspace'
+                : 'Select workspace'}
           </span>
           {canCreateWorkspace && availableWorkspaces.length > 0 && (
             <ChevronDown

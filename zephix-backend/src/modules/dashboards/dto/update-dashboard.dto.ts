@@ -37,4 +37,3 @@ export class UpdateDashboardDto {
   @IsOptional()
   visibility?: DashboardVisibility;
 }
-

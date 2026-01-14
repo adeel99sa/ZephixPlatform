@@ -5,5 +5,3 @@ export class UpdateProgramDto extends PartialType(CreateProgramDto) {
   // portfolioId should not be updatable via UpdateProgramDto
   // If needed, create a separate transfer endpoint
 }
-
-

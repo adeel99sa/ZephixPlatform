@@ -155,4 +155,3 @@ export class ExternalTaskService {
     return true; // Processed successfully
   }
 }
-

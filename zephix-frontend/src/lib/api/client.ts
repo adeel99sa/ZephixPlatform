@@ -173,12 +173,12 @@ class ApiClient {
   }
 
   private getWorkspaceId(): string | null {
-    // Get workspace ID from UI store
+    // Get workspace ID from workspace store (workspace-storage)
     try {
-      const uiStorage = localStorage.getItem('zephix-ui-storage');
-      if (uiStorage) {
-        const { state } = JSON.parse(uiStorage);
-        return state?.workspaceId || null;
+      const workspaceStorage = localStorage.getItem('workspace-storage');
+      if (workspaceStorage) {
+        const { state } = JSON.parse(workspaceStorage);
+        return state?.activeWorkspaceId || null;
       }
     } catch (error) {
       console.warn('Failed to get workspace ID from storage:', error);

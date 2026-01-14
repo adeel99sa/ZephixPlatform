@@ -74,4 +74,3 @@ export class DashboardTemplate {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

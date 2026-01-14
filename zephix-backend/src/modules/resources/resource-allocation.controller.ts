@@ -130,7 +130,10 @@ export class ResourceAllocationController {
   })
   @ApiResponse({ status: 403, description: 'Workspace access denied' })
   @ApiResponse({ status: 404, description: 'Resource allocation not found' })
-  @ApiResponse({ status: 409, description: 'HARD allocation would exceed capacity' })
+  @ApiResponse({
+    status: 409,
+    description: 'HARD allocation would exceed capacity',
+  })
   async update(
     @Param('id') id: string,
     @Body() updateAllocationDto: UpdateAllocationDto,
