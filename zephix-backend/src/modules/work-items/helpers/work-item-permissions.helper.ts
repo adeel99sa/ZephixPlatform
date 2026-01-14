@@ -3,7 +3,11 @@
  * Centralized permission checks for work items
  */
 import { ForbiddenException } from '@nestjs/common';
-import { normalizePlatformRole, PlatformRole, isAdminRole } from '../../../shared/enums/platform-roles.enum';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
