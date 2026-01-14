@@ -958,5 +958,4 @@ export class WorkspacesController {
       );
     }
   }
-
 }

@@ -7,7 +7,10 @@ export class PortfolioBasicDto {
   @ApiProperty({ description: 'Portfolio name' })
   name: string;
 
-  @ApiProperty({ description: 'Portfolio status', enum: ['active', 'archived'] })
+  @ApiProperty({
+    description: 'Portfolio status',
+    enum: ['active', 'archived'],
+  })
   status: string;
 
   @ApiProperty({ description: 'Workspace ID' })
@@ -81,7 +84,10 @@ export class TotalsDto {
 }
 
 export class HealthDto {
-  @ApiProperty({ description: 'Health status', enum: ['green', 'yellow', 'red'] })
+  @ApiProperty({
+    description: 'Health status',
+    enum: ['green', 'yellow', 'red'],
+  })
   status: 'green' | 'yellow' | 'red';
 
   @ApiProperty({ description: 'Health reasons', type: [String] })
@@ -104,9 +110,15 @@ export class PortfolioRollupResponseDto {
   @ApiProperty({ description: 'Health status', type: HealthDto })
   health: HealthDto;
 
-  @ApiProperty({ description: 'Programs in portfolio', type: [ProgramSummaryDto] })
+  @ApiProperty({
+    description: 'Programs in portfolio',
+    type: [ProgramSummaryDto],
+  })
   programs: ProgramSummaryDto[];
 
-  @ApiProperty({ description: 'Direct portfolio projects (not via program)', type: [ProjectSummaryDto] })
+  @ApiProperty({
+    description: 'Direct portfolio projects (not via program)',
+    type: [ProjectSummaryDto],
+  })
   projectsDirect: ProjectSummaryDto[];
 }

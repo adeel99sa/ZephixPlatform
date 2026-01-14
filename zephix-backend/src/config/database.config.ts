@@ -20,7 +20,10 @@ export const databaseConfig: TypeOrmModuleOptions = {
   },
   retryAttempts: 5, // Increased retry attempts
   retryDelay: 5000, // Increased retry delay
-  logging: process.env.NODE_ENV === 'test' ? false : ['error', 'warn', 'query', 'schema'], // Disable logging in test mode
+  logging:
+    process.env.NODE_ENV === 'test'
+      ? false
+      : ['error', 'warn', 'query', 'schema'], // Disable logging in test mode
   // Add connection health check
   keepConnectionAlive: true,
   // Add connection pool settings

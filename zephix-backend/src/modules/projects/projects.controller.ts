@@ -1,7 +1,7 @@
 if (process.env.NODE_ENV !== 'test') {
   if (process.env.NODE_ENV !== 'test') {
-  console.log('🔍 ProjectsController file loading...');
-}
+    console.log('🔍 ProjectsController file loading...');
+  }
 }
 
 import {
@@ -446,5 +446,4 @@ export class ProjectsController {
   //     organizationId: tenant.organizationId,
   //   });
   // }
-
 }

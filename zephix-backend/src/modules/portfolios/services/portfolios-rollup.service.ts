@@ -5,7 +5,10 @@ import { Portfolio } from '../entities/portfolio.entity';
 import { PortfolioProject } from '../entities/portfolio-project.entity';
 import { Program } from '../../programs/entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
-import { WorkItem, WorkItemStatus } from '../../work-items/entities/work-item.entity';
+import {
+  WorkItem,
+  WorkItemStatus,
+} from '../../work-items/entities/work-item.entity';
 import { ResourceConflict } from '../../resources/entities/resource-conflict.entity';
 import { Risk } from '../../risks/entities/risk.entity';
 import { computeHealthV1 } from '../../shared/rollups/health-v1';
@@ -17,7 +20,10 @@ import {
   TotalsDto,
   HealthDto,
 } from '../dto/portfolio-rollup.dto';
-import { ProjectStatus, ProjectHealth } from '../../projects/entities/project.entity';
+import {
+  ProjectStatus,
+  ProjectHealth,
+} from '../../projects/entities/project.entity';
 
 @Injectable()
 export class PortfoliosRollupService {
@@ -77,16 +83,25 @@ export class PortfoliosRollupService {
     const programIds = programs.map((p) => p.id);
 
     // Load projects under programs - workspace scoped
-    const projectsUnderPrograms = programIds.length > 0
-      ? await this.projectRepository.find({
-          where: {
-            programId: In(programIds),
-            organizationId,
-            workspaceId,
-          },
-          select: ['id', 'name', 'status', 'startDate', 'endDate', 'health', 'programId'],
-        })
-      : [];
+    const projectsUnderPrograms =
+      programIds.length > 0
+        ? await this.projectRepository.find({
+            where: {
+              programId: In(programIds),
+              organizationId,
+              workspaceId,
+            },
+            select: [
+              'id',
+              'name',
+              'status',
+              'startDate',
+              'endDate',
+              'health',
+              'programId',
+            ],
+          })
+        : [];
 
     // Load direct portfolio projects (via portfolio_projects join table)
     const portfolioProjects = await this.portfolioProjectRepository.find({
@@ -98,23 +113,18 @@ export class PortfoliosRollupService {
     });
 
     // Filter to workspace and exclude projects already in programs
-    const directProjectIds = new Set(
-      projectsUnderPrograms.map((p) => p.id),
-    );
+    const directProjectIds = new Set(projectsUnderPrograms.map((p) => p.id));
     const projectsDirect = portfolioProjects
       .filter(
         (pp) =>
           pp.project?.workspaceId === workspaceId &&
           !directProjectIds.has(pp.projectId),
       )
-      .map((pp) => pp.project!)
+      .map((pp) => pp.project)
       .filter((p) => p !== null && p !== undefined);
 
     // Combine all projects and deduplicate
-    const allProjects = [
-      ...projectsUnderPrograms,
-      ...projectsDirect,
-    ];
+    const allProjects = [...projectsUnderPrograms, ...projectsDirect];
     const uniqueProjects = Array.from(
       new Map(allProjects.map((p) => [p.id, p])).values(),
     );
@@ -155,20 +165,23 @@ export class PortfoliosRollupService {
 
         // Compute program-level health
         const programProjectsAtRisk = programProjects.filter(
-          (p) => p.health === ProjectHealth.AT_RISK || p.health === ProjectHealth.BLOCKED,
+          (p) =>
+            p.health === ProjectHealth.AT_RISK ||
+            p.health === ProjectHealth.BLOCKED,
         ).length;
 
         // Get work items and conflicts for this program's projects
-        const programWorkItems = programProjectIds.length > 0
-          ? await this.workItemRepository.find({
-              where: {
-                projectId: In(programProjectIds),
-                organizationId,
-                workspaceId,
-              },
-              select: ['id', 'status', 'dueDate'],
-            })
-          : [];
+        const programWorkItems =
+          programProjectIds.length > 0
+            ? await this.workItemRepository.find({
+                where: {
+                  projectId: In(programProjectIds),
+                  organizationId,
+                  workspaceId,
+                },
+                select: ['id', 'status', 'dueDate'],
+              })
+            : [];
 
         const now = new Date();
         const programWorkItemsOverdue = programWorkItems.filter(
@@ -186,11 +199,14 @@ export class PortfoliosRollupService {
         });
 
         const programConflictsOpen = allConflicts.filter((conflict) => {
-          if (!conflict.affectedProjects || !Array.isArray(conflict.affectedProjects)) {
+          if (
+            !conflict.affectedProjects ||
+            !Array.isArray(conflict.affectedProjects)
+          ) {
             return false;
           }
-          return conflict.affectedProjects.some(
-            (ap: any) => programProjectIds.includes(ap.projectId),
+          return conflict.affectedProjects.some((ap: any) =>
+            programProjectIds.includes(ap.projectId),
           );
         }).length;
 
@@ -252,21 +268,24 @@ export class PortfoliosRollupService {
       (p) => p.status === ProjectStatus.ACTIVE,
     ).length;
     const projectsAtRisk = projects.filter(
-      (p) => p.health === ProjectHealth.AT_RISK || p.health === ProjectHealth.BLOCKED,
+      (p) =>
+        p.health === ProjectHealth.AT_RISK ||
+        p.health === ProjectHealth.BLOCKED,
     ).length;
 
     // Work items metrics - workspace and project scoped
     const now = new Date();
-    const workItems = projectIds.length > 0
-      ? await this.workItemRepository.find({
-          where: {
-            projectId: In(projectIds),
-            organizationId,
-            workspaceId,
-          },
-          select: ['id', 'status', 'dueDate'],
-        })
-      : [];
+    const workItems =
+      projectIds.length > 0
+        ? await this.workItemRepository.find({
+            where: {
+              projectId: In(projectIds),
+              organizationId,
+              workspaceId,
+            },
+            select: ['id', 'status', 'dueDate'],
+          })
+        : [];
 
     const workItemsOpen = workItems.filter(
       (wi) => wi.status !== WorkItemStatus.DONE,
@@ -289,24 +308,28 @@ export class PortfoliosRollupService {
 
     // Filter conflicts where affectedProjects includes any projectId in our list
     const resourceConflictsOpen = allConflicts.filter((conflict) => {
-      if (!conflict.affectedProjects || !Array.isArray(conflict.affectedProjects)) {
+      if (
+        !conflict.affectedProjects ||
+        !Array.isArray(conflict.affectedProjects)
+      ) {
         return false;
       }
-      return conflict.affectedProjects.some(
-        (ap: any) => projectIds.includes(ap.projectId),
+      return conflict.affectedProjects.some((ap: any) =>
+        projectIds.includes(ap.projectId),
       );
     }).length;
 
     // Risks - filter by projectId and status
-    const risks = projectIds.length > 0
-      ? await this.riskRepository.find({
-          where: {
-            projectId: In(projectIds),
-            organizationId,
-            status: 'open',
-          },
-        })
-      : [];
+    const risks =
+      projectIds.length > 0
+        ? await this.riskRepository.find({
+            where: {
+              projectId: In(projectIds),
+              organizationId,
+              status: 'open',
+            },
+          })
+        : [];
 
     const risksActive = risks.length;
 

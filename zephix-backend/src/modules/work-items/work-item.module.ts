@@ -18,7 +18,12 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([WorkItem, WorkItemComment, WorkItemActivity, WorkspaceMember]),
+    TypeOrmModule.forFeature([
+      WorkItem,
+      WorkItemComment,
+      WorkItemActivity,
+      WorkspaceMember,
+    ]),
     TenancyModule, // Required for TenantAwareRepository
     WorkspaceAccessModule, // For workspace access checks
   ],
@@ -33,6 +38,11 @@ import {
     MyWorkService,
   ],
   controllers: [WorkItemController, MyWorkController],
-  exports: [WorkItemService, WorkItemCommentService, WorkItemActivityService, MyWorkService],
+  exports: [
+    WorkItemService,
+    WorkItemCommentService,
+    WorkItemActivityService,
+    MyWorkService,
+  ],
 })
 export class WorkItemModule {}

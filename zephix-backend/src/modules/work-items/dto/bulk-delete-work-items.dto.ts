@@ -14,6 +14,8 @@ export class BulkDeleteWorkItemsDto {
 
   @IsArray()
   @IsUUID(undefined, { each: true })
-  @ArrayMaxSize(200, { message: 'Maximum 200 items allowed per bulk operation' })
+  @ArrayMaxSize(200, {
+    message: 'Maximum 200 items allowed per bulk operation',
+  })
   ids: string[];
 }

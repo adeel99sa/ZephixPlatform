@@ -17,13 +17,22 @@ import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkItemActivityService } from './services/work-item-activity.service';
-import { WorkItemActivityType, WorkItemActivity } from './entities/work-item-activity.entity';
+import {
+  WorkItemActivityType,
+  WorkItemActivity,
+} from './entities/work-item-activity.entity';
 import { BulkUpdateWorkItemsDto } from './dto/bulk-update-work-items.dto';
 import { BulkDeleteWorkItemsDto } from './dto/bulk-delete-work-items.dto';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
-import { canEditWorkItem, blockGuestWrite } from './helpers/work-item-permissions.helper';
-import { normalizePlatformRole, isAdminRole } from '../../shared/enums/platform-roles.enum';
+import {
+  canEditWorkItem,
+  blockGuestWrite,
+} from './helpers/work-item-permissions.helper';
+import {
+  normalizePlatformRole,
+  isAdminRole,
+} from '../../shared/enums/platform-roles.enum';
 import { ForbiddenException } from '@nestjs/common';
 import { In } from 'typeorm';
 
@@ -231,7 +240,10 @@ export class WorkItemService {
         );
       }
 
-      if (options.assigneeId !== undefined && options.assigneeId !== oldAssigneeId) {
+      if (
+        options.assigneeId !== undefined &&
+        options.assigneeId !== oldAssigneeId
+      ) {
         if (options.assigneeId) {
           await this.activityService.record(
             saved.id,
@@ -254,7 +266,10 @@ export class WorkItemService {
 
       const newDueDate = options.dueDate ? new Date(options.dueDate) : null;
       const oldDueDateObj = oldDueDate ? new Date(oldDueDate) : null;
-      if (options.dueDate !== undefined && newDueDate?.getTime() !== oldDueDateObj?.getTime()) {
+      if (
+        options.dueDate !== undefined &&
+        newDueDate?.getTime() !== oldDueDateObj?.getTime()
+      ) {
         await this.activityService.record(
           saved.id,
           saved.workspaceId,
@@ -265,7 +280,11 @@ export class WorkItemService {
         );
       }
 
-      if (!options.status && !options.assigneeId && options.dueDate === undefined) {
+      if (
+        !options.status &&
+        !options.assigneeId &&
+        options.dueDate === undefined
+      ) {
         // General update
         await this.activityService.record(
           saved.id,
@@ -342,7 +361,9 @@ export class WorkItemService {
 
     // Validate ids limit
     if (dto.ids.length > 200) {
-      throw new BadRequestException('Maximum 200 items allowed per bulk operation');
+      throw new BadRequestException(
+        'Maximum 200 items allowed per bulk operation',
+      );
     }
 
     // Block Guest writes
@@ -360,8 +381,8 @@ export class WorkItemService {
     });
 
     // Validate all IDs exist in the workspace/project
-    const foundIds = new Set(workItems.map(item => item.id));
-    const missingIds = dto.ids.filter(id => !foundIds.has(id));
+    const foundIds = new Set(workItems.map((item) => item.id));
+    const missingIds = dto.ids.filter((id) => !foundIds.has(id));
 
     if (missingIds.length > 0) {
       throw new NotFoundException(
@@ -440,11 +461,19 @@ export class WorkItemService {
         if (dto.patch.status !== undefined && dto.patch.status !== oldStatus) {
           changedFields.status = { from: oldStatus, to: dto.patch.status };
         }
-        if (dto.patch.assigneeId !== undefined && dto.patch.assigneeId !== oldAssigneeId) {
-          changedFields.assigneeId = { from: oldAssigneeId, to: dto.patch.assigneeId };
+        if (
+          dto.patch.assigneeId !== undefined &&
+          dto.patch.assigneeId !== oldAssigneeId
+        ) {
+          changedFields.assigneeId = {
+            from: oldAssigneeId,
+            to: dto.patch.assigneeId,
+          };
         }
         if (dto.patch.dueDate !== undefined) {
-          const newDueDate = dto.patch.dueDate ? new Date(dto.patch.dueDate) : null;
+          const newDueDate = dto.patch.dueDate
+            ? new Date(dto.patch.dueDate)
+            : null;
           const oldDueDateObj = oldDueDate ? new Date(oldDueDate) : null;
           if (newDueDate?.getTime() !== oldDueDateObj?.getTime()) {
             changedFields.dueDate = { from: oldDueDate, to: dto.patch.dueDate };
@@ -478,7 +507,9 @@ export class WorkItemService {
           this.workItemActivityRepo.create(act),
         );
         await Promise.all(
-          activityEntities.map((entity) => this.workItemActivityRepo.save(entity)),
+          activityEntities.map((entity) =>
+            this.workItemActivityRepo.save(entity),
+          ),
         );
       } catch (error) {
         console.error('Failed to record bulk activities:', error);
@@ -500,7 +531,9 @@ export class WorkItemService {
 
     // Validate ids limit
     if (dto.ids.length > 200) {
-      throw new BadRequestException('Maximum 200 items allowed per bulk operation');
+      throw new BadRequestException(
+        'Maximum 200 items allowed per bulk operation',
+      );
     }
 
     // Block Guest writes
@@ -525,8 +558,8 @@ export class WorkItemService {
     });
 
     // Validate all IDs exist
-    const foundIds = new Set(workItems.map(item => item.id));
-    const missingIds = dto.ids.filter(id => !foundIds.has(id));
+    const foundIds = new Set(workItems.map((item) => item.id));
+    const missingIds = dto.ids.filter((id) => !foundIds.has(id));
 
     if (missingIds.length > 0) {
       throw new NotFoundException(
@@ -552,7 +585,9 @@ export class WorkItemService {
           this.workItemActivityRepo.create(act),
         );
         await Promise.all(
-          activityEntities.map((entity) => this.workItemActivityRepo.save(entity)),
+          activityEntities.map((entity) =>
+            this.workItemActivityRepo.save(entity),
+          ),
         );
       } catch (error) {
         console.error('Failed to record bulk delete activities:', error);
