@@ -106,19 +106,13 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
         `);
 
         // Backfill portfolioId from program.portfolioId for existing projects
-        // Only if programs.portfolio_id exists
-        const programsTable = await queryRunner.getTable('programs');
-        const programPortfolioIdColumn =
-          programsTable?.findColumnByName('portfolio_id');
-        if (programPortfolioIdColumn) {
-          await queryRunner.query(`
-            UPDATE projects p
-            SET portfolio_id = pr.portfolio_id
-            FROM programs pr
-            WHERE p.program_id = pr.id
-            AND p.portfolio_id IS NULL
-          `);
-        }
+        await queryRunner.query(`
+          UPDATE projects p
+          SET portfolio_id = pr.portfolio_id
+          FROM programs pr
+          WHERE p.program_id = pr.id
+          AND p.portfolio_id IS NULL
+        `);
 
         console.log(
           '[Phase6Migration] Added portfolio_id to projects and backfilled from programs',
@@ -127,51 +121,29 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
     }
 
     // Step 9: Add indexes
-    // Detect column names for indexes
-    const portfolioOrgCol = await this.getColumnName(
-      queryRunner,
+    await queryRunner.createIndex(
       'portfolios',
-      ['organization_id', 'organizationId'],
+      new TableIndex({
+        name: 'idx_portfolio_org_workspace',
+        columnNames: ['organization_id', 'workspace_id'],
+      }),
     );
-    const programOrgCol = await this.getColumnName(queryRunner, 'programs', [
-      'organization_id',
-      'organizationId',
-    ]);
-    const programPortfolioCol = await this.getColumnName(
-      queryRunner,
+
+    await queryRunner.createIndex(
       'programs',
-      ['portfolio_id', 'portfolioId'],
+      new TableIndex({
+        name: 'idx_program_org_workspace',
+        columnNames: ['organization_id', 'workspace_id'],
+      }),
     );
 
-    if (portfolioOrgCol) {
-      await queryRunner.createIndex(
-        'portfolios',
-        new TableIndex({
-          name: 'idx_portfolio_org_workspace',
-          columnNames: [portfolioOrgCol, 'workspace_id'],
-        }),
-      );
-    }
-
-    if (programOrgCol) {
-      await queryRunner.createIndex(
-        'programs',
-        new TableIndex({
-          name: 'idx_program_org_workspace',
-          columnNames: [programOrgCol, 'workspace_id'],
-        }),
-      );
-    }
-
-    if (programOrgCol && programPortfolioCol) {
-      await queryRunner.createIndex(
-        'programs',
-        new TableIndex({
-          name: 'idx_program_org_workspace_portfolio',
-          columnNames: [programOrgCol, 'workspace_id', programPortfolioCol],
-        }),
-      );
-    }
+    await queryRunner.createIndex(
+      'programs',
+      new TableIndex({
+        name: 'idx_program_org_workspace_portfolio',
+        columnNames: ['organization_id', 'workspace_id', 'portfolio_id'],
+      }),
+    );
 
     // Update unique constraints: portfolio unique per workspace, program unique per portfolio
     // Drop old unique index
@@ -192,14 +164,11 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
     `);
 
     // Create new unique index: (portfolio_id, name) - case insensitive
-    // Only if portfolio_id column exists
-    if (programPortfolioCol) {
-      await queryRunner.query(`
-        CREATE UNIQUE INDEX "idx_program_portfolio_name"
-        ON "programs" ("${programPortfolioCol}", LOWER("name"))
-        WHERE "status" != 'archived'
-      `);
-    }
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX "idx_program_portfolio_name"
+      ON "programs" ("portfolio_id", LOWER("name"))
+      WHERE "status" != 'archived'
+    `);
 
     console.log('[Phase6Migration] ✅ Workspace-scoped migration complete');
   }
@@ -431,27 +400,9 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
       );
     }
 
-    // Detect portfolio_id column name
-    // Check if portfolio_id exists - it may not exist in older schemas
-    const portfolioCol = await this.getColumnName(queryRunner, 'programs', [
-      'portfolio_id',
-      'portfolioId',
-    ]);
-
-    // If portfolio_id doesn't exist, programs may not have portfolio relationship yet
-    if (!portfolioCol) {
-      console.log(
-        '[Phase6Migration] Warning: portfolio_id column not found in programs table. Programs may not have portfolio relationship yet.',
-      );
-    }
-
     // Get all programs using detected column names
-    // If portfolio_id doesn't exist, select NULL for it
-    const portfolioSelect = portfolioCol
-      ? `"${portfolioCol}" as portfolio_id`
-      : 'NULL as portfolio_id';
     const programs = await queryRunner.query(`
-      SELECT id, "${orgCol}" as organization_id, ${portfolioSelect}, name
+      SELECT id, "${orgCol}" as organization_id, portfolio_id, name
       FROM programs
       WHERE workspace_id IS NULL
     `);
@@ -554,11 +505,10 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
       // Find or create portfolio in this workspace - use detected column names
       let portfolioId = portfolioMap.get(group.workspace_id);
       if (!portfolioId) {
-        const portfolioOrgCol = await this.getColumnName(
-          queryRunner,
-          'portfolios',
-          ['organization_id', 'organizationId'],
-        );
+        const portfolioOrgCol = await this.getColumnName(queryRunner, 'portfolios', [
+          'organization_id',
+          'organizationId',
+        ]);
         if (!portfolioOrgCol) {
           throw new Error(
             'Migration failed: Could not find organization column in portfolios table',
@@ -734,25 +684,8 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
       );
     }
 
-    // Detect portfolio_id column name
-    // Check if portfolio_id exists - it may not exist in older schemas
-    const portfolioCol = await this.getColumnName(queryRunner, 'programs', [
-      'portfolio_id',
-      'portfolioId',
-    ]);
-
-    // If portfolio_id doesn't exist, programs may not have portfolio relationship yet
-    if (!portfolioCol) {
-      console.log(
-        '[Phase6Migration] Warning: portfolio_id column not found in programs table. Programs may not have portfolio relationship yet.',
-      );
-    }
-
-    const portfolioSelect = portfolioCol
-      ? `"${portfolioCol}" as portfolio_id`
-      : 'NULL as portfolio_id';
     const orphanedPrograms = await queryRunner.query(`
-      SELECT id, "${orgCol}" as organization_id, ${portfolioSelect}
+      SELECT id, "${orgCol}" as organization_id, portfolio_id
       FROM programs
       WHERE workspace_id IS NULL
     `);

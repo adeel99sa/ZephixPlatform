@@ -13,14 +13,8 @@ import {
 } from '../../../shared/enums/platform-roles.enum';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import {
-  WorkItem,
-  WorkItemStatus,
-} from '../../work-items/entities/work-item.entity';
-import {
-  WorkItemActivity,
-  WorkItemActivityType,
-} from '../../work-items/entities/work-item-activity.entity';
+import { WorkItem, WorkItemStatus } from '../../work-items/entities/work-item.entity';
+import { WorkItemActivity, WorkItemActivityType } from '../../work-items/entities/work-item-activity.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Injectable()
@@ -131,10 +125,7 @@ export class WorkspaceHealthService {
     }
 
     // PHASE 7 MODULE 7.3: Execution Summary
-    const executionSummary = await this.getExecutionSummary(
-      workspace.id,
-      orgId,
-    );
+    const executionSummary = await this.getExecutionSummary(workspace.id, orgId);
 
     return {
       workspace: {
@@ -197,7 +188,7 @@ export class WorkspaceHealthService {
     });
 
     // Calculate counts
-    const totalWorkItems = allWorkItems.length;
+    let totalWorkItems = allWorkItems.length;
     let overdueWorkItems = 0;
     let dueSoon7Days = 0;
     let inProgress = 0;
@@ -225,11 +216,7 @@ export class WorkspaceHealthService {
       }
 
       // Check overdue
-      if (
-        item.dueDate &&
-        new Date(item.dueDate) < now &&
-        item.status !== WorkItemStatus.DONE
-      ) {
+      if (item.dueDate && new Date(item.dueDate) < now && item.status !== WorkItemStatus.DONE) {
         overdueWorkItems++;
         if (overdueItems.length < 10) {
           overdueItems.push({
@@ -240,8 +227,7 @@ export class WorkspaceHealthService {
             projectName: item.project?.name || 'Unknown Project',
             assigneeId: item.assigneeId || null,
             assigneeName: item.assignee
-              ? `${item.assignee.firstName || ''} ${item.assignee.lastName || ''}`.trim() ||
-                item.assignee.email
+              ? `${item.assignee.firstName || ''} ${item.assignee.lastName || ''}`.trim() || item.assignee.email
               : null,
           });
         }
@@ -274,22 +260,18 @@ export class WorkspaceHealthService {
     });
 
     // Get project names for activities
-    const projectIds = [
-      ...new Set(recentActivities.map((a) => a.projectId).filter(Boolean)),
-    ];
-    const projects =
-      projectIds.length > 0
-        ? await this.projectRepo.find({
-            where: { id: projectIds as any, organizationId },
-            select: ['id', 'name'],
-          })
-        : [];
-    const projectMap = new Map(projects.map((p) => [p.id, p.name]));
+    const projectIds = [...new Set(recentActivities.map(a => a.projectId).filter(Boolean))];
+    const projects = projectIds.length > 0
+      ? await this.projectRepo.find({
+          where: { id: projectIds as any, organizationId },
+          select: ['id', 'name'],
+        })
+      : [];
+    const projectMap = new Map(projects.map(p => [p.id, p.name]));
 
     const activityList = recentActivities.map((activity) => {
       const actorName = activity.actorUser
-        ? `${activity.actorUser.firstName || ''} ${activity.actorUser.lastName || ''}`.trim() ||
-          activity.actorUser.email
+        ? `${activity.actorUser.firstName || ''} ${activity.actorUser.lastName || ''}`.trim() || activity.actorUser.email
         : 'Unknown';
 
       return {
@@ -300,10 +282,7 @@ export class WorkspaceHealthService {
         workItemId: activity.workItemId,
         workItemTitle: activity.workItem?.title || 'Unknown Task',
         projectId: activity.projectId,
-        projectName:
-          projectMap.get(activity.projectId) ||
-          activity.workItem?.project?.name ||
-          'Unknown Project',
+        projectName: projectMap.get(activity.projectId) || activity.workItem?.project?.name || 'Unknown Project',
       };
     });
 

@@ -27,13 +27,11 @@ import GuestHomePage from "@/pages/home/GuestHomePage";
 import { DashboardsIndex } from "@/views/dashboards/Index";
 import { DashboardBuilder } from "@/views/dashboards/Builder";
 import DashboardView from "@/views/dashboards/View";
+import DashboardPage from "@/pages/dashboard/DashboardPage";
 import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
-import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
-import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
-import DocsPage from "@/pages/docs/DocsPage";
-import FormsPage from "@/pages/forms/FormsPage";
+import { TemplateCenter } from "@/views/templates/TemplateCenter";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectOverviewPage } from "@/features/projects/overview/ProjectOverviewPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -55,7 +53,6 @@ import ProgramsListPage from "@/pages/programs/ProgramsListPage";
 import ProgramDetailPage from "@/pages/programs/ProgramDetailPage";
 import PortfoliosListPage from "@/pages/portfolios/PortfoliosListPage";
 import PortfolioDetailPage from "@/pages/portfolios/PortfolioDetailPage";
-import FeaturesRoute from "@/routes/FeaturesRoute";
 // PHASE 7 MODULE 7.2: My Work
 import MyWorkPage from "@/pages/my-work/MyWorkPage";
 
@@ -118,21 +115,16 @@ export default function App() {
               <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
               <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
-              <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
               <Route path="/workspaces/:id" element={<WorkspaceView />} />
               <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
               <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
               <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
-              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
-              <Route element={<FeaturesRoute feature="programsPortfolios" />}>
-                <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
-                <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
-                <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
-                <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
-              </Route>
-              <Route path="/templates" element={<TemplateCenterPage />} />
-              <Route path="/docs/:docId" element={<DocsPage />} />
-              <Route path="/forms/:formId/edit" element={<FormsPage />} />
+              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes */}
+              <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
+              <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
+              <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
+              <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+              <Route path="/templates" element={<TemplateCenter />} />
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

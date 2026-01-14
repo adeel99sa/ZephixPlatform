@@ -51,16 +51,18 @@ export class DashboardTemplatesController {
 
   // POST /api/dashboards/activate-template (static route before :id)
   @Post('activate-template')
-  @ApiOperation({
-    summary:
-      'Activate a dashboard template. Use DTO workspaceId, header x-workspace-id is ignored.',
+  @ApiOperation({ summary: 'Activate a dashboard template' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required for WORKSPACE templates)',
+    required: false,
   })
   @ApiResponse({ status: 201, description: 'Template activated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
-    status: 404,
-    description: 'Template not found or workspace access denied',
+    status: 403,
+    description: 'Forbidden - workspace access denied',
   })
   async activateTemplate(
     @Body() activateDto: ActivateTemplateDto,

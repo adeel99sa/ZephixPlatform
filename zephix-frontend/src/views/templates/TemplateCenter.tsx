@@ -186,8 +186,11 @@ export function TemplateCenter() {
         instantiate: { loading: false, error: null },
       }));
 
-      // Navigate to project overview on success
-      navigate(`/projects/${result.projectId}`, { replace: true });
+      // Navigate to project overview
+      // The user said "project overview route" and to "open project plan and confirm phases and tasks appear"
+      // For now, navigate to /projects/:id which should show project detail
+      // If /work/projects/:id/overview route exists, use that instead
+      navigate(`/projects/${result.projectId}`);
     } catch (error: any) {
       const errorCode = error?.response?.data?.code || error?.code || 'UNKNOWN_ERROR';
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to create project';

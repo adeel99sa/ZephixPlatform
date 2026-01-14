@@ -64,7 +64,7 @@ export class ProgramsController {
     @Param('workspaceId') workspaceId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -75,7 +75,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -104,7 +104,7 @@ export class ProgramsController {
     @Param('portfolioId') portfolioId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -115,7 +115,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -146,7 +146,7 @@ export class ProgramsController {
     @Body() createDto: CreateProgramDto,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -157,7 +157,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -165,7 +165,9 @@ export class ProgramsController {
     }
 
     // Check if user is Admin (only Admin can create)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -196,7 +198,7 @@ export class ProgramsController {
     @Param('programId') programId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -207,7 +209,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -242,7 +244,7 @@ export class ProgramsController {
     @Body() updateDto: UpdateProgramDto,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -253,7 +255,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -261,7 +263,9 @@ export class ProgramsController {
     }
 
     // Check if user is Admin (only Admin can edit)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -292,7 +296,7 @@ export class ProgramsController {
     @Param('programId') programId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -303,7 +307,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -311,7 +315,9 @@ export class ProgramsController {
     }
 
     // Check if user is Admin (only Admin can archive)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -334,17 +340,14 @@ export class ProgramsController {
   @ApiOperation({ summary: 'Get program rollup' })
   @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
   @ApiParam({ name: 'programId', description: 'Program ID', type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'Program rollup retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Program rollup retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Program or workspace not found' })
   async getRollup(
     @Param('workspaceId') workspaceId: string,
     @Param('programId') programId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -355,7 +358,7 @@ export class ProgramsController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {

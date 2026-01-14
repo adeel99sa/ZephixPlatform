@@ -11,11 +11,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
-import {
-  TaskStatus,
-  TaskPriority,
-  TaskType,
-} from '../enums/task.enums';
+import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
 
 @Entity('work_tasks')
 @Index(['organizationId'])
@@ -122,4 +118,3 @@ export class WorkTask {
   @JoinColumn({ name: 'phase_id' })
   phase: WorkPhase | null;
 }
-

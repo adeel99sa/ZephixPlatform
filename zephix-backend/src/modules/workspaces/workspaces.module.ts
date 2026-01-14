@@ -10,7 +10,7 @@ import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
-// WorkspaceAccessService is imported from WorkspaceAccessModule (not local service)
+import { WorkspaceAccessService } from './services/workspace-access.service';
 import { WorkspaceBackfillService } from './services/workspace-backfill.service';
 import { WorkspacePermissionService } from './services/workspace-permission.service'; // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
 import { WorkspaceInviteService } from './services/workspace-invite.service';
@@ -32,7 +32,6 @@ import { WorkItem } from '../work-items/entities/work-item.entity';
 import { WorkItemActivity } from '../work-items/entities/work-item-activity.entity';
 import { Project } from '../projects/entities/project.entity'; // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs TenantAwareRepository_Project
 import { WorkspaceHealthService } from './services/workspace-health.service';
-import { WorkTask } from '../work-management/entities/work-task.entity';
 import { forwardRef } from '@nestjs/common';
 import {
   TenancyModule,
@@ -50,7 +49,6 @@ import {
       Project, // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs this
       WorkItem, // PHASE 7 MODULE 7.3: For execution summary
       WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary
-      WorkTask, // For workspace summary counts
     ]),
     ConfigModule,
     ObservabilityModule,
@@ -66,7 +64,7 @@ import {
   providers: [
     WorkspacesService,
     WorkspaceMembersService,
-    // WorkspaceAccessService is provided by WorkspaceAccessModule (imported above), not local service
+    WorkspaceAccessService,
     WorkspaceBackfillService,
     WorkspaceHealthService, // PHASE 7 MODULE 7.3: Workspace home execution summary
     WorkspacePermissionService, // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
@@ -84,13 +82,12 @@ import {
     // PHASE 7 MODULE 7.3: Tenant-aware repositories for WorkItem and WorkItemActivity
     createTenantAwareRepositoryProvider(WorkItem),
     createTenantAwareRepositoryProvider(WorkItemActivity),
-    createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
   ],
   controllers: [WorkspacesController, AdminTrashController],
   exports: [
     WorkspacesService,
     WorkspaceMembersService,
-    // WorkspaceAccessService is exported by WorkspaceAccessModule, not here
+    WorkspaceAccessService,
     WorkspacePermissionService, // PHASE 7.4.3: Fix DI - Export for TemplateModule
     RequireWorkspaceAccessGuard, // PHASE 7.4.3: Export guard for use in other modules
   ],

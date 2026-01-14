@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Template } from '../entities/template.entity';
+import { ProjectTemplate } from '../entities/project-template.entity';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
@@ -31,8 +31,8 @@ export class TemplatesInstantiateV51Service {
   private readonly logger = new Logger(TemplatesInstantiateV51Service.name);
 
   constructor(
-    @InjectRepository(Template)
-    private templateRepository: Repository<Template>,
+    @InjectRepository(ProjectTemplate)
+    private templateRepository: Repository<ProjectTemplate>,
     @InjectRepository(Workspace)
     private workspaceRepository: Repository<Workspace>,
     @InjectRepository(Project)
@@ -64,15 +64,6 @@ export class TemplatesInstantiateV51Service {
     phaseCount: number;
     taskCount: number;
   }> {
-    // workspaceId is required and validated at controller level
-    // This ensures we fail fast before any template lookup
-    if (!workspaceId) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'x-workspace-id header is required for template instantiation',
-      });
-    }
-
     // Validate workspace access
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workspaceId,
@@ -89,51 +80,26 @@ export class TemplatesInstantiateV51Service {
 
     // Wrap entire flow in transaction
     return await this.dataSource.transaction(async (manager) => {
-      const templateRepo = manager.getRepository(Template);
+      const templateRepo = manager.getRepository(ProjectTemplate);
       const projectRepo = manager.getRepository(Project);
       const workspaceRepo = manager.getRepository(Workspace);
       const phaseRepo = manager.getRepository(WorkPhase);
       const taskRepo = manager.getRepository(WorkTask);
 
-      // 1. Load template - enforce scope rules
-      // For SYSTEM templates: organizationId is null
-      // For ORG templates: organizationId must match
-      // For WORKSPACE templates: organizationId must match and workspaceId must match
+      // 1. Load template - enforce org alignment (templates are org-scoped)
+      // Template orgId must equal workspace orgId for the request
       const template = await templateRepo.findOne({
-        where: [
-          { id: templateId, templateScope: 'SYSTEM', organizationId: null },
-          { id: templateId, templateScope: 'ORG', organizationId },
-          {
-            id: templateId,
-            templateScope: 'WORKSPACE',
-            organizationId,
-            workspaceId,
-          },
-        ],
+        where: {
+          id: templateId,
+          organizationId, // Guard: Template must belong to same org as workspace
+        },
       });
 
       if (!template) {
         throw new NotFoundException({
           code: 'NOT_FOUND',
-          message: 'Template not found or not accessible',
+          message: 'Template not found',
         });
-      }
-
-      // Enforce scope-specific rules
-      if (template.templateScope === 'WORKSPACE') {
-        // WORKSPACE templates must match the workspace from header
-        if (template.workspaceId !== workspaceId) {
-          throw new ForbiddenException({
-            code: 'WORKSPACE_MISMATCH',
-            message: 'Template belongs to a different workspace',
-          });
-        }
-      } else if (template.templateScope === 'ORG') {
-        // ORG templates can be instantiated in any workspace within the org
-        // No additional check needed - organizationId already validated
-      } else if (template.templateScope === 'SYSTEM') {
-        // SYSTEM templates can be instantiated in any workspace
-        // No additional check needed
       }
 
       // 2. Verify workspace belongs to organization (double-check org alignment)
@@ -219,12 +185,6 @@ export class TemplatesInstantiateV51Service {
           startedAt: null,
           structureSnapshot: null,
           createdById: userId,
-          // Phase 7.5: Set activeKpiIds from template defaultEnabledKPIs
-          activeKpiIds:
-            template.defaultEnabledKPIs &&
-            template.defaultEnabledKPIs.length > 0
-              ? [...template.defaultEnabledKPIs]
-              : [],
         });
 
         project = await projectRepo.save(project);
@@ -377,56 +337,6 @@ export class TemplatesInstantiateV51Service {
         }
       }
 
-      // PART 2 Step 6: Store templateId, templateVersion, and structureSnapshot
-      // Use Template.version as the deterministic version
-      const templateVersion = template.version || 1;
-
-      project.templateId = template.id;
-      project.templateVersion = templateVersion;
-
-      // Set activeKpiIds from template defaults
-      project.activeKpiIds =
-        template.defaultEnabledKPIs && template.defaultEnabledKPIs.length > 0
-          ? [...template.defaultEnabledKPIs]
-          : [];
-      // Extract structure from template for snapshot (reuse already extracted structure)
-      const templateStructureForSnapshot = templateStructure;
-
-      // Set templateSnapshot with template blocks and defaults
-      // Note: Project.templateSnapshot has a specific structure, but we'll store the essential data
-      project.templateSnapshot = {
-        templateId: template.id,
-        templateVersion: templateVersion,
-        locked: false,
-        blocks: (templateStructureForSnapshot
-          ? templateStructureForSnapshot.phases
-          : []
-        ).map((phase, idx) => ({
-          blockId: `phase-${idx}`,
-          enabled: true,
-          displayOrder: phase.sortOrder,
-          config: { name: phase.name, reportingKey: phase.reportingKey },
-          locked: false,
-        })),
-      };
-
-      // Also set structureSnapshot for backward compatibility
-      project.structureSnapshot = {
-        containerType: 'PROJECT',
-        containerId: project.id,
-        templateId: template.id,
-        templateVersion: templateVersion,
-        phases: createdPhases.map((p) => ({
-          phaseId: p.id,
-          reportingKey: p.reportingKey || p.name,
-          name: p.name,
-          sortOrder: p.sortOrder,
-        })),
-        lockedAt: new Date().toISOString(),
-        lockedByUserId: userId,
-      };
-      await projectRepo.save(project);
-
       return {
         projectId: project.id,
         projectName: project.name,
@@ -440,9 +350,8 @@ export class TemplatesInstantiateV51Service {
 
   /**
    * Extract template structure - supports both normalized and JSON paths
-   * Now works with Template entity instead of ProjectTemplate
    */
-  private async extractTemplateStructure(template: Template): Promise<{
+  private async extractTemplateStructure(template: ProjectTemplate): Promise<{
     phases: Array<{
       name: string;
       sortOrder: number;
@@ -462,7 +371,7 @@ export class TemplatesInstantiateV51Service {
     // Feature detection: Check if template has related phase entities
     // For now, we'll check template.structure JSON first, then fall back to normalized if needed
 
-    // Path B: JSON structure (primary path for Template entity)
+    // Path B: JSON structure (primary path for Sprint 2.5)
     if (template.structure && typeof template.structure === 'object') {
       const structure = template.structure as any;
       if (structure.phases && Array.isArray(structure.phases)) {
@@ -487,8 +396,54 @@ export class TemplatesInstantiateV51Service {
       }
     }
 
-    // Template entity doesn't have phases/taskTemplates fields like ProjectTemplate
-    // If structure is not in expected format, return null
+    // Fallback: Check if template has phases/taskTemplates in legacy format
+    if (
+      template.phases &&
+      Array.isArray(template.phases) &&
+      template.phases.length > 0
+    ) {
+      // Convert legacy format to v5.1 format
+      const phases = template.phases.map((phase: any, index: number) => ({
+        name: phase.name || phase.phaseName || `Phase ${index + 1}`,
+        sortOrder: phase.sortOrder !== undefined ? phase.sortOrder : index,
+        reportingKey: phase.reportingKey || phase.reporting_key,
+        tasks: (phase.tasks || []).map((task: any, taskIndex: number) => ({
+          title: task.title || task.name || `Task ${taskIndex + 1}`,
+          sortOrder: task.sortOrder !== undefined ? task.sortOrder : taskIndex,
+          description: task.description,
+          status: task.status,
+          priority: task.priority,
+        })),
+      }));
+
+      return { phases };
+    }
+
+    // Check taskTemplates as flat list (legacy)
+    if (
+      template.taskTemplates &&
+      Array.isArray(template.taskTemplates) &&
+      template.taskTemplates.length > 0
+    ) {
+      // Create a single default phase with all tasks
+      return {
+        phases: [
+          {
+            name: 'Work',
+            sortOrder: 0,
+            reportingKey: 'work',
+            tasks: template.taskTemplates.map((task: any, index: number) => ({
+              title: task.name || task.title || `Task ${index + 1}`,
+              sortOrder: index,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+            })),
+          },
+        ],
+      };
+    }
+
     return null;
   }
 

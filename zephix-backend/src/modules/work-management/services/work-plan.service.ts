@@ -33,19 +33,21 @@ export interface WorkPlanTaskDto {
 export interface ProjectWorkPlanDto {
   projectId: string;
   projectName: string;
+  projectState: string;
+  structureLocked: boolean;
   phases: WorkPlanPhaseDto[];
 }
 
 export interface ProgramWorkPlanDto {
   programId: string;
   programName: string;
-  childProjects: Array<{
+  projects: Array<{
     projectId: string;
-    name: string;
-    health: string | null;
-    nextMilestone: string | null;
+    projectName: string;
+    projectState: string;
+    structureLocked: boolean;
+    phases: WorkPlanPhaseDto[];
   }>;
-  plans: ProjectWorkPlanDto[];
 }
 
 @Injectable()
@@ -118,7 +120,11 @@ export class WorkPlanService {
     // Count blocked-by dependencies for each task
     const blockedByCounts = await this.workTaskRepository
       .createQueryBuilder('task')
-      .leftJoin('work_task_dependencies', 'dep', 'dep.successor_task_id = task.id')
+      .leftJoin(
+        'work_task_dependencies',
+        'dep',
+        'dep.successor_task_id = task.id',
+      )
       .where('task.organization_id = :organizationId', { organizationId })
       .andWhere('task.workspace_id = :workspaceId', { workspaceId })
       .andWhere('task.project_id = :projectId', { projectId })
@@ -141,7 +147,7 @@ export class WorkPlanService {
         if (!tasksByPhaseId.has(task.phaseId)) {
           tasksByPhaseId.set(task.phaseId, []);
         }
-        tasksByPhaseId.get(task.phaseId)!.push(task);
+        tasksByPhaseId.get(task.phaseId).push(task);
       } else {
         tasksWithoutPhase.push(task);
       }
@@ -166,15 +172,21 @@ export class WorkPlanService {
         sortOrder: phase.sortOrder,
         reportingKey: phase.reportingKey,
         isMilestone: phase.isMilestone,
-        startDate: phase.startDate ? phase.startDate.toISOString().split('T')[0] : null,
-        dueDate: phase.dueDate ? phase.dueDate.toISOString().split('T')[0] : null,
+        startDate: phase.startDate
+          ? phase.startDate.toISOString().split('T')[0]
+          : null,
+        dueDate: phase.dueDate
+          ? phase.dueDate.toISOString().split('T')[0]
+          : null,
         isLocked: phase.isLocked,
         tasks: phaseTasks.map((task) => ({
           id: task.id,
           title: task.title,
           status: task.status,
           ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
-          dueDate: task.dueDate ? task.dueDate.toISOString().split('T')[0] : null,
+          dueDate: task.dueDate
+            ? task.dueDate.toISOString().split('T')[0]
+            : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
         })),
@@ -204,7 +216,9 @@ export class WorkPlanService {
           title: task.title,
           status: task.status,
           ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
-          dueDate: task.dueDate ? task.dueDate.toISOString().split('T')[0] : null,
+          dueDate: task.dueDate
+            ? task.dueDate.toISOString().split('T')[0]
+            : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
         })),
@@ -214,6 +228,8 @@ export class WorkPlanService {
     return {
       projectId: project.id,
       projectName: project.name,
+      projectState: project.state || 'DRAFT',
+      structureLocked: project.structureLocked || false,
       phases: phaseDtos,
     };
   }
@@ -261,12 +277,12 @@ export class WorkPlanService {
     });
 
     // For each project, get its work plan
-    const plans: ProjectWorkPlanDto[] = [];
-    const childProjects: Array<{
+    const projectPlans: Array<{
       projectId: string;
-      name: string;
-      health: string | null;
-      nextMilestone: string | null;
+      projectName: string;
+      projectState: string;
+      structureLocked: boolean;
+      phases: WorkPlanPhaseDto[];
     }> = [];
 
     for (const project of projects) {
@@ -278,18 +294,12 @@ export class WorkPlanService {
           userId,
           platformRole,
         );
-        plans.push(plan);
-
-        // Find next milestone from phases
-        const nextMilestone = plan.phases
-          .filter((p) => p.isMilestone && p.dueDate)
-          .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))[0]?.dueDate || null;
-
-        childProjects.push({
-          projectId: project.id,
-          name: project.name,
-          health: null, // Will be calculated in Sprint 3
-          nextMilestone,
+        projectPlans.push({
+          projectId: plan.projectId,
+          projectName: plan.projectName,
+          projectState: plan.projectState,
+          structureLocked: plan.structureLocked,
+          phases: plan.phases,
         });
       } catch (error) {
         // Skip projects that fail (e.g., access denied)
@@ -300,9 +310,7 @@ export class WorkPlanService {
     return {
       programId: program.id,
       programName: program.name,
-      childProjects,
-      plans,
+      projects: projectPlans,
     };
   }
 }
-

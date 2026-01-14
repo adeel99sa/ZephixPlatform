@@ -76,7 +76,7 @@ export class PortfoliosController {
     @Param('workspaceId') workspaceId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -86,8 +86,8 @@ export class PortfoliosController {
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workspaceId,
       organizationId,
-      userId,
-      platformRole,
+      req.user.id,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -116,7 +116,7 @@ export class PortfoliosController {
     @Body() createDto: CreatePortfolioDto,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -127,7 +127,7 @@ export class PortfoliosController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -135,7 +135,9 @@ export class PortfoliosController {
     }
 
     // Check if user is Admin (only Admin can create)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -166,7 +168,7 @@ export class PortfoliosController {
     @Param('portfolioId') portfolioId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -177,7 +179,7 @@ export class PortfoliosController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -212,7 +214,7 @@ export class PortfoliosController {
     @Body() updateDto: UpdatePortfolioDto,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -223,7 +225,7 @@ export class PortfoliosController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -231,7 +233,9 @@ export class PortfoliosController {
     }
 
     // Check if user is Admin (only Admin can edit)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -262,7 +266,7 @@ export class PortfoliosController {
     @Param('portfolioId') portfolioId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -273,7 +277,7 @@ export class PortfoliosController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -281,7 +285,9 @@ export class PortfoliosController {
     }
 
     // Check if user is Admin (only Admin can archive)
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(
+      req.user.platformRole || req.user.role,
+    );
     const isAdmin = isAdminRole(userRole);
 
     if (!isAdmin) {
@@ -304,17 +310,14 @@ export class PortfoliosController {
   @ApiOperation({ summary: 'Get portfolio rollup' })
   @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
   @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'Portfolio rollup retrieved successfully',
-  })
+  @ApiResponse({ status: 200, description: 'Portfolio rollup retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
   async getRollup(
     @Param('workspaceId') workspaceId: string,
     @Param('portfolioId') portfolioId: string,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -325,7 +328,7 @@ export class PortfoliosController {
       workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {

@@ -3,10 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Program } from '../entities/program.entity';
 import { Project } from '../../projects/entities/project.entity';
-import {
-  WorkItem,
-  WorkItemStatus,
-} from '../../work-items/entities/work-item.entity';
+import { WorkItem, WorkItemStatus } from '../../work-items/entities/work-item.entity';
 import { ResourceConflict } from '../../resources/entities/resource-conflict.entity';
 import { Risk } from '../../risks/entities/risk.entity';
 import { computeHealthV1 } from '../../shared/rollups/health-v1';
@@ -17,10 +14,7 @@ import {
   TotalsDto,
   HealthDto,
 } from '../dto/program-rollup.dto';
-import {
-  ProjectStatus,
-  ProjectHealth,
-} from '../../projects/entities/project.entity';
+import { ProjectStatus, ProjectHealth } from '../../projects/entities/project.entity';
 
 @Injectable()
 export class ProgramsRollupService {
@@ -148,9 +142,7 @@ export class ProgramsRollupService {
       (p) => p.status === ProjectStatus.ACTIVE,
     ).length;
     const projectsAtRisk = projects.filter(
-      (p) =>
-        p.health === ProjectHealth.AT_RISK ||
-        p.health === ProjectHealth.BLOCKED,
+      (p) => p.health === ProjectHealth.AT_RISK || p.health === ProjectHealth.BLOCKED,
     ).length;
 
     // Work items metrics - workspace and project scoped
@@ -185,14 +177,11 @@ export class ProgramsRollupService {
 
     // Filter conflicts where affectedProjects includes any projectId in our list
     const resourceConflictsOpen = allConflicts.filter((conflict) => {
-      if (
-        !conflict.affectedProjects ||
-        !Array.isArray(conflict.affectedProjects)
-      ) {
+      if (!conflict.affectedProjects || !Array.isArray(conflict.affectedProjects)) {
         return false;
       }
-      return conflict.affectedProjects.some((ap: any) =>
-        projectIds.includes(ap.projectId),
+      return conflict.affectedProjects.some(
+        (ap: any) => projectIds.includes(ap.projectId),
       );
     }).length;
 

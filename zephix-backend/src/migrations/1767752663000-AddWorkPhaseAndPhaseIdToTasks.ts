@@ -1,15 +1,25 @@
-import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableForeignKey, TableCheck } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableColumn,
+  TableIndex,
+  TableForeignKey,
+  TableCheck,
+} from 'typeorm';
 
 /**
  * Sprint 1: Add WorkPhase entity and phaseId to WorkTask
- * 
+ *
  * Creates:
  * - work_phases table with all required fields
  * - Adds phase_id column to work_tasks
  * - Creates indexes and constraints
  * - Backfills default "Work" phase per project and attaches existing tasks
  */
-export class AddWorkPhaseAndPhaseIdToTasks1767752663000 implements MigrationInterface {
+export class AddWorkPhaseAndPhaseIdToTasks1767752663000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create work_phases table
     await queryRunner.createTable(
@@ -301,32 +311,52 @@ export class AddWorkPhaseAndPhaseIdToTasks1767752663000 implements MigrationInte
     await queryRunner.dropForeignKey('work_tasks', 'FK_work_tasks_phase_id');
 
     // Remove indexes
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_tasks_workspace_phase_rank";`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_tasks_workspace_phase_rank";`,
+    );
     await queryRunner.dropIndex('work_tasks', 'IDX_work_tasks_phase_id');
 
     // Remove phase_id column from work_tasks
     await queryRunner.dropColumn('work_tasks', 'phase_id');
 
     // Remove foreign keys from work_phases
-    await queryRunner.dropForeignKey('work_phases', 'FK_work_phases_program_id');
-    await queryRunner.dropForeignKey('work_phases', 'FK_work_phases_project_id');
+    await queryRunner.dropForeignKey(
+      'work_phases',
+      'FK_work_phases_program_id',
+    );
+    await queryRunner.dropForeignKey(
+      'work_phases',
+      'FK_work_phases_project_id',
+    );
 
     // Remove indexes
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_program_reporting_key";`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_project_reporting_key";`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_program_sort";`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_phases_project_sort";`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_phases_program_reporting_key";`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_phases_project_reporting_key";`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_phases_program_sort";`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_phases_project_sort";`,
+    );
     await queryRunner.dropIndex('work_phases', 'IDX_work_phases_sort_order');
     await queryRunner.dropIndex('work_phases', 'IDX_work_phases_program_id');
     await queryRunner.dropIndex('work_phases', 'IDX_work_phases_project_id');
     await queryRunner.dropIndex('work_phases', 'IDX_work_phases_workspace_id');
-    await queryRunner.dropIndex('work_phases', 'IDX_work_phases_organization_id');
+    await queryRunner.dropIndex(
+      'work_phases',
+      'IDX_work_phases_organization_id',
+    );
 
     // Remove check constraint
-    await queryRunner.query(`ALTER TABLE work_phases DROP CONSTRAINT IF EXISTS check_work_phase_container;`);
+    await queryRunner.query(
+      `ALTER TABLE work_phases DROP CONSTRAINT IF EXISTS check_work_phase_container;`,
+    );
 
     // Drop table
     await queryRunner.dropTable('work_phases');
   }
 }
-

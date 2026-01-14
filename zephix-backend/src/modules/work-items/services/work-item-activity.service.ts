@@ -1,4 +1,7 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+} from '@nestjs/common';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';

@@ -44,6 +44,8 @@ import { RisksModule } from './modules/risks/risks.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { WorkManagementModule } from './modules/work-management/work-management.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { HomeModule } from './modules/home/home.module';
 import { DebugController } from './debug.controller';
 import { DemoModule } from './bootstrap/demo.module';
 import { BillingModule } from './billing/billing.module';
@@ -122,6 +124,8 @@ if (!(global as any).crypto) {
           CustomFieldsModule,
           IntegrationsModule,
           WorkManagementModule,
+          NotificationsModule,
+          HomeModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks

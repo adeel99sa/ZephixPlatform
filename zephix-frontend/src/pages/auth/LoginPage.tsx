@@ -24,8 +24,10 @@ export const LoginPage: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      // Always redirect to /home (HomeView will handle workspace redirect)
-      navigate('/home', { replace: true });
+      // Phase 5.1: Redirect to /workspaces instead of /home
+      // /workspaces handles workspace selection properly
+      const returnUrl = location.state?.from?.pathname || '/workspaces';
+      navigate(returnUrl, { replace: true });
     }
   }, [user, navigate]);
 
@@ -59,13 +61,17 @@ export const LoginPage: React.FC = () => {
           // Redirect to onboarding if not completed
           navigate('/onboarding', { replace: true });
         } else {
-          // Always redirect to /home after login (HomeView will handle workspace redirect)
-          navigate('/home', { replace: true });
+          // Phase 5.1: Redirect to /workspaces instead of /home
+          // /workspaces handles workspace selection/auto-select properly
+          // /home requires a workspace, so it's not appropriate for post-login
+          const returnUrl = location.state?.from?.pathname || '/workspaces';
+          navigate(returnUrl, { replace: true });
         }
       } catch (onboardingError) {
         console.error('Failed to check onboarding:', onboardingError);
-        // Fallback: Always redirect to /home
-        navigate('/home', { replace: true });
+        // Fallback: Redirect to /workspaces (proper workspace selection page)
+        const returnUrl = location.state?.from?.pathname || '/workspaces';
+        navigate(returnUrl, { replace: true });
       }
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");

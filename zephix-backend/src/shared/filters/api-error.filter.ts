@@ -93,14 +93,8 @@ export class ApiErrorFilter implements ExceptionFilter {
     // Normalize all error responses to { code, message } at top level
     // Keep requestId in headers for consistency
     const errorResponse = {
-      error: {
-        code,
-        message,
-        details,
-        timestamp: new Date().toISOString(),
-        requestId: request.id || 'unknown',
-        path: request.url,
-      },
+      code,
+      message,
     };
 
     // Add requestId as header instead of body
@@ -145,7 +139,11 @@ export class ApiErrorFilter implements ExceptionFilter {
     // First, try to extract code from exception response object
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
-      if (typeof response === 'object' && response !== null && (response as any).code) {
+      if (
+        typeof response === 'object' &&
+        response !== null &&
+        (response as any).code
+      ) {
         return (response as any).code;
       }
     }

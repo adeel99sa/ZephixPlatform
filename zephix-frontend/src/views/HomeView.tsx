@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
-import { HomeEmptyState } from './home/HomeEmptyState';
+import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
+import { AdminHome } from './home/AdminHome';
+import { MemberHome } from './home/MemberHome';
+import { GuestHome } from './home/GuestHome';
 
 export const HomeView: React.FC = () => {
   const { user, activeWorkspaceId } = useAuth();
@@ -17,13 +20,17 @@ export const HomeView: React.FC = () => {
     );
   }
 
-  // If activeWorkspaceId exists, redirect to workspace home
-  useEffect(() => {
-    if (activeWorkspaceId) {
-      navigate(`/workspaces/${activeWorkspaceId}/home`, { replace: true });
-    }
-  }, [activeWorkspaceId, navigate]);
+  // PHASE 5.3: Route by platform role
+  // Fix 4: Use platformRole first (source of truth), fallback to role only if missing
+  const platformRole = normalizePlatformRole(user.platformRole || user.role);
 
-  // If no active workspace, show empty state
-  return <HomeEmptyState />;
+  // Fix 4: Use PlatformRole constants instead of string literals to prevent drift and typos
+  if (platformRole === PLATFORM_ROLE.ADMIN) {
+    return <AdminHome />;
+  } else if (platformRole === PLATFORM_ROLE.MEMBER) {
+    return <MemberHome />;
+  } else {
+    // VIEWER (Guest)
+    return <GuestHome />;
+  }
 };

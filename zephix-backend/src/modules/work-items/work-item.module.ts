@@ -3,8 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkItem } from './entities/work-item.entity';
 import { WorkItemComment } from './entities/work-item-comment.entity';
 import { WorkItemActivity } from './entities/work-item-activity.entity';
-import { WorkTask } from '../work-management/entities/work-task.entity';
-import { Project } from '../projects/entities/project.entity';
 import { WorkItemService } from './work-item.service';
 import { WorkItemCommentService } from './services/work-item-comment.service';
 import { WorkItemActivityService } from './services/work-item-activity.service';
@@ -20,14 +18,7 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      WorkItem,
-      WorkItemComment,
-      WorkItemActivity,
-      WorkspaceMember,
-      WorkTask, // For My Work service
-      Project, // For workspace relation via project
-    ]),
+    TypeOrmModule.forFeature([WorkItem, WorkItemComment, WorkItemActivity, WorkspaceMember]),
     TenancyModule, // Required for TenantAwareRepository
     WorkspaceAccessModule, // For workspace access checks
   ],
@@ -36,18 +27,12 @@ import {
     createTenantAwareRepositoryProvider(WorkItemComment),
     createTenantAwareRepositoryProvider(WorkItemActivity),
     createTenantAwareRepositoryProvider(WorkspaceMember),
-    createTenantAwareRepositoryProvider(WorkTask), // For My Work service
     WorkItemService,
     WorkItemCommentService,
     WorkItemActivityService,
     MyWorkService,
   ],
   controllers: [WorkItemController, MyWorkController],
-  exports: [
-    WorkItemService,
-    WorkItemCommentService,
-    WorkItemActivityService,
-    MyWorkService,
-  ],
+  exports: [WorkItemService, WorkItemCommentService, WorkItemActivityService, MyWorkService],
 })
 export class WorkItemModule {}

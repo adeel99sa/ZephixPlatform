@@ -53,7 +53,7 @@ export class TemplatesService {
       );
     }
 
-    // Validate workspace requirement - use DTO workspaceId only, not header
+    // Validate workspace requirement
     const templateVisibility = template.definition
       .visibility as DashboardVisibility;
     if (templateVisibility === DashboardVisibility.WORKSPACE) {

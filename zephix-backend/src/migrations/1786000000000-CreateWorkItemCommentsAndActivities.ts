@@ -3,9 +3,7 @@ import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 /**
  * PHASE 7 MODULE 7.1: Create WorkItem Comments and Activities tables
  */
-export class CreateWorkItemCommentsAndActivities1786000000000
-  implements MigrationInterface
-{
+export class CreateWorkItemCommentsAndActivities1786000000000 implements MigrationInterface {
   name = 'CreateWorkItemCommentsAndActivities1786000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

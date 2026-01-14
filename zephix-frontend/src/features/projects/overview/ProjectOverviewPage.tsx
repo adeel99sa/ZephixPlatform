@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../../../services/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
@@ -10,8 +10,6 @@ import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
 // PHASE 7 MODULE 7.1: Task list
 import { TaskListSection } from '../components/TaskListSection';
 import { api as apiClient } from '@/lib/api';
-// Commit 5: KPI Panel
-import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -52,7 +50,6 @@ const healthColors: Record<string, string> = {
 
 export const ProjectOverviewPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const { isReadOnly, canWrite } = useWorkspaceRole(workspaceId);
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
@@ -175,22 +172,6 @@ export const ProjectOverviewPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header with Project Name and Open Plan Button */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{overview.projectName}</h1>
-            <p className="text-sm text-gray-500 mt-1">Project Overview</p>
-          </div>
-          <button
-            onClick={() => navigate(`/work/projects/${projectId}/plan`, { replace: false })}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Open Plan
-          </button>
-        </div>
-      </div>
-
       {/* Start Work Section - Sprint 6 */}
       {overview.projectState === 'DRAFT' && canWrite && (
         <div className="bg-white rounded-lg shadow p-6">
@@ -285,14 +266,6 @@ export const ProjectOverviewPage: React.FC = () => {
       {/* PHASE 7 MODULE 7.1: Task List Section */}
       {workspaceId && (
         <TaskListSection
-          projectId={projectId!}
-          workspaceId={workspaceId}
-        />
-      )}
-
-      {/* Commit 5: KPI Panel */}
-      {workspaceId && (
-        <ProjectKpiPanel
           projectId={projectId!}
           workspaceId={workspaceId}
         />

@@ -52,4 +52,3 @@ export class ExternalUserMapping {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 }
-
