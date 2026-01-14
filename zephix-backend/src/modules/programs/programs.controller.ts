@@ -340,7 +340,10 @@ export class ProgramsController {
   @ApiOperation({ summary: 'Get program rollup' })
   @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
   @ApiParam({ name: 'programId', description: 'Program ID', type: String })
-  @ApiResponse({ status: 200, description: 'Program rollup retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Program rollup retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Program or workspace not found' })
   async getRollup(
     @Param('workspaceId') workspaceId: string,

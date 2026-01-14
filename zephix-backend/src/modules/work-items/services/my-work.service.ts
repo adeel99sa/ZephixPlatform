@@ -10,7 +10,10 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkItem, WorkItemStatus } from '../entities/work-item.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { MyWorkResponseDto, MyWorkItemDto } from '../dto/my-work-response.dto';
-import { normalizePlatformRole, PlatformRole } from '../../../shared/enums/platform-roles.enum';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
 
 @Injectable()
 export class MyWorkService {
@@ -28,14 +31,18 @@ export class MyWorkService {
     const organizationId = this.tenantContextService.assertOrganizationId();
 
     // Get accessible workspace IDs
-    const accessibleWorkspaceIds = await this.workspaceAccessService.getAccessibleWorkspaceIds(
-      organizationId,
-      userId,
-      userRole,
-    );
+    const accessibleWorkspaceIds =
+      await this.workspaceAccessService.getAccessibleWorkspaceIds(
+        organizationId,
+        userId,
+        userRole,
+      );
 
     // If no accessible workspaces, return empty
-    if (accessibleWorkspaceIds !== null && accessibleWorkspaceIds.length === 0) {
+    if (
+      accessibleWorkspaceIds !== null &&
+      accessibleWorkspaceIds.length === 0
+    ) {
       return {
         version: 1,
         counts: {
@@ -92,7 +99,8 @@ export class MyWorkService {
       }
 
       // Check overdue (dueDate < now AND status != DONE)
-      const isOverdue = item.dueDate &&
+      const isOverdue =
+        item.dueDate &&
         new Date(item.dueDate) < now &&
         item.status !== WorkItemStatus.DONE;
 
@@ -101,10 +109,12 @@ export class MyWorkService {
       }
 
       // Check due soon (dueDate within 7 days AND status != DONE)
-      if (item.dueDate &&
-          new Date(item.dueDate) >= now &&
-          new Date(item.dueDate) <= sevenDaysFromNow &&
-          item.status !== WorkItemStatus.DONE) {
+      if (
+        item.dueDate &&
+        new Date(item.dueDate) >= now &&
+        new Date(item.dueDate) <= sevenDaysFromNow &&
+        item.status !== WorkItemStatus.DONE
+      ) {
         dueSoon7Days++;
       }
 
