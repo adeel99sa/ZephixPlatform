@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, UseGuards, Req, BadRequestException, Inject } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,20 +6,20 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { AdminOnlyGuard } from '../../../shared/guards/admin-only.guard';
+import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { Resource } from '../entities/resource.entity';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('resources')
 @ApiTags('resources')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AdminOnlyGuard)
 @ApiBearerAuth()
 export class ResourceSeedController {
   constructor(
-    @InjectRepository(Resource)
-    private resourceRepository: Repository<Resource>,
+    @Inject(getTenantAwareRepositoryToken(Resource))
+    private readonly resourceRepo: TenantAwareRepository<Resource>,
   ) {}
 
   @Post('seed')
@@ -29,61 +29,7 @@ export class ResourceSeedController {
     const { organizationId } = getAuthContext(req);
 
     if (!organizationId) {
-      // Create a temporary organization for the user
-      // This is a quick fix for testing
-      const tempOrgId = 'temp-org-' + Date.now();
-
-      // Update user with temporary organization
-      // Note: This would normally be done through a proper user service
-      console.log('Creating temporary organization for user');
-
-      // Create sample resources with temporary org
-      const sampleResources = [
-        {
-          name: 'John Smith',
-          email: 'john@example.com',
-          role: 'Senior Developer',
-          skills: ['TypeScript', 'React', 'Node.js'],
-          capacityHoursPerWeek: 40,
-          costPerHour: 150,
-          organizationId: tempOrgId,
-          isActive: true,
-        },
-        {
-          name: 'Sarah Johnson',
-          email: 'sarah@example.com',
-          role: 'Project Manager',
-          skills: ['Agile', 'Scrum', 'Risk Management'],
-          capacityHoursPerWeek: 40,
-          costPerHour: 120,
-          organizationId: tempOrgId,
-          isActive: true,
-        },
-        {
-          name: 'Mike Chen',
-          email: 'mike@example.com',
-          role: 'UX Designer',
-          skills: ['Figma', 'UI/UX', 'Prototyping'],
-          capacityHoursPerWeek: 40,
-          costPerHour: 130,
-          organizationId: tempOrgId,
-          isActive: true,
-        },
-      ];
-
-      const createdResources = [];
-      for (const resourceData of sampleResources) {
-        const resource = this.resourceRepository.create(resourceData);
-        const savedResource = await this.resourceRepository.save(resource);
-        createdResources.push(savedResource);
-      }
-
-      return {
-        success: true,
-        message: 'Resources seeded with temporary organization',
-        organizationId: tempOrgId,
-        resources: createdResources,
-      };
+      throw new BadRequestException('Missing organization');
     }
 
     // If user already has organization, create resources for it
@@ -112,8 +58,8 @@ export class ResourceSeedController {
 
     const createdResources = [];
     for (const resourceData of sampleResources) {
-      const resource = this.resourceRepository.create(resourceData);
-      const savedResource = await this.resourceRepository.save(resource);
+      const resource = this.resourceRepo.create(resourceData);
+      const savedResource = await this.resourceRepo.save(resource);
       createdResources.push(savedResource);
     }
 
