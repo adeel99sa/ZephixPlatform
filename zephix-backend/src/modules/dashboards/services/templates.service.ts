@@ -53,8 +53,8 @@ export class TemplatesService {
     }
 
     // Validate workspace requirement
-    const templateVisibility =
-      template.definition.visibility as DashboardVisibility;
+    const templateVisibility = template.definition
+      .visibility as DashboardVisibility;
     if (templateVisibility === DashboardVisibility.WORKSPACE) {
       const requiredWorkspaceId = dto.workspaceId || workspaceId;
       if (!requiredWorkspaceId) {
@@ -122,4 +122,3 @@ export class TemplatesService {
     }
   }
 }
-

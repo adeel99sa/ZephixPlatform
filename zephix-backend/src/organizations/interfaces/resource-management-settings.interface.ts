@@ -38,4 +38,3 @@ export const DEFAULT_RESOURCE_MANAGEMENT_SETTINGS: ResourceManagementSettings =
     hardCap: 150,
     requireJustificationAbove: 100,
   };
-

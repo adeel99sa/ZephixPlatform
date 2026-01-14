@@ -28,6 +28,10 @@ export class OutboxProcessorService {
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async processOutbox(): Promise<void> {
+    // Skip in test mode
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
     if (this.isProcessing) {
       return; // Prevent concurrent processing within same instance
     }

@@ -10,5 +10,3 @@ export class UnassignProgramFromProjectDto {
   @IsNotEmpty()
   projectId: string;
 }
-
-

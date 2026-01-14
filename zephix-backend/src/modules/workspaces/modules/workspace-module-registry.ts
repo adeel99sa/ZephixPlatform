@@ -53,4 +53,3 @@ export function getModuleDefaults(key: string): {
     version: module.version,
   };
 }
-

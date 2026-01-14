@@ -11,8 +11,11 @@ import {
   Req,
   BadRequestException,
   ForbiddenException,
+  UnauthorizedException,
   NotFoundException,
+  ConflictException,
   Logger,
+  SetMetadata,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
@@ -22,6 +25,13 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { AddMemberDto } from './dto/add-member.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { ChangeOwnerDto } from './dto/change-owner.dto';
+import { UpdateOwnersDto } from './dto/update-owners.dto';
+import { CreateInviteLinkDto } from './dto/create-invite-link.dto';
+import { JoinWorkspaceDto } from './dto/join-workspace.dto';
+import { InviteMembersEmailDto } from './dto/invite-members-email.dto';
+import { SuspendMemberDto } from './dto/suspend-member.dto';
+import { ReinstateMemberDto } from './dto/reinstate-member.dto';
+import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WorkspacePolicy } from './workspace.policy';
@@ -41,6 +51,7 @@ import { ResourceRiskScoreService } from '../resources/services/resource-risk-sc
 import { ResponseService } from '../../shared/services/response.service';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
+import { getAuthContextOptional } from '../../common/http/get-auth-context-optional';
 import {
   normalizePlatformRole,
   PlatformRole,
@@ -49,11 +60,13 @@ import {
   formatResponse,
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
+import { WorkspaceHealthService } from './services/workspace-health.service';
 
 type UserJwt = {
   id: string;
   organizationId: string;
   role: 'admin' | 'member' | 'guest';
+  platformRole?: PlatformRole;
   email?: string; // Email is available from JWT payload
 };
 
@@ -69,7 +82,65 @@ export class WorkspacesController {
     private readonly accessService: WorkspaceAccessService,
     private readonly riskScoreService: ResourceRiskScoreService,
     private readonly responseService: ResponseService,
+    private readonly inviteService: WorkspaceInviteService,
+    private readonly workspaceHealthService: WorkspaceHealthService,
   ) {}
+
+  /**
+   * PROMPT 10: Resolve workspace by slug
+   * GET /api/workspaces/resolve/:slug
+   */
+  @Get('resolve/:slug')
+  async resolveBySlug(@Param('slug') slug: string, @CurrentUser() u: UserJwt) {
+    const workspace = await this.svc.findBySlug(u.organizationId, slug);
+    if (!workspace) {
+      throw new NotFoundException({
+        code: 'WORKSPACE_NOT_FOUND',
+        message: 'Workspace not found',
+      });
+    }
+
+    // PROMPT 10: Check access - non-members get 403 without revealing workspaceId
+    const canAccess = await this.accessService.canAccessWorkspace(
+      workspace.id,
+      u.organizationId,
+      u.id,
+      u.role,
+    );
+
+    if (!canAccess) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'You do not have access to this workspace',
+      });
+    }
+
+    return formatResponse({ workspaceId: workspace.id });
+  }
+
+  /**
+   * PHASE 5.3: Get workspace home data by slug
+   * GET /api/workspaces/slug/:slug/home
+   */
+  @Get('slug/:slug/home')
+  async getWorkspaceHomeBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    // Fix 2: Normalize platformRole before passing to service (use platformRole first, fallback to role)
+    // JWT payload may have platformRole even if UserJwt type doesn't include it
+    const userPayload = u as UserJwt & { platformRole?: string };
+    const platformRole = normalizePlatformRole(
+      userPayload.platformRole || u.role,
+    );
+    const data = await this.workspaceHealthService.getWorkspaceHomeData(
+      slug,
+      u.organizationId,
+      u.id,
+      platformRole,
+    );
+    return formatResponse(data);
+  }
 
   @Get()
   async findAll(@CurrentUser() u: UserJwt, @Req() req: Request) {
@@ -142,6 +213,18 @@ export class WorkspacesController {
     }
   }
 
+  /**
+   * PROMPT 6: Create workspace
+   *
+   * Constraints enforced:
+   * - Only platform ADMIN can create workspaces (enforced by RequireOrgRoleGuard)
+   * - Request user platformRole must be Admin, else 403 FORBIDDEN_ROLE
+   * - Payload must include ownerUserIds array, min 1
+   * - Each ownerUserId must belong to the org and must have platformRole Member or Admin
+   * - Guest cannot be assigned Owner or Member in any workspace
+   * - Create workspace_members rows for owners with role workspace_owner
+   * - If creator is Admin and not in ownerUserIds, still add creator as workspace_owner for safety
+   */
   @Post()
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
   @RequireOrgRole(PlatformRole.ADMIN) // Only platform ADMIN can create workspaces
@@ -152,6 +235,15 @@ export class WorkspacesController {
     @Actor() actor: any,
   ) {
     const requestId = req.headers['x-request-id'] || 'unknown';
+
+    // PROMPT 6: Explicit platform role check
+    const userPlatformRole = normalizePlatformRole(u.role);
+    if (userPlatformRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Read only access',
+      });
+    }
 
     // Input validation with explicit error codes
     if (!dto.name || dto.name.trim().length === 0) {
@@ -165,6 +257,14 @@ export class WorkspacesController {
       throw new BadRequestException({
         code: 'MISSING_ORGANIZATION_ID',
         message: 'Organization context is missing',
+      });
+    }
+
+    // PROMPT 6: Validate ownerUserIds array
+    if (!dto.ownerUserIds || dto.ownerUserIds.length === 0) {
+      throw new BadRequestException({
+        code: 'MISSING_OWNER_USER_IDS',
+        message: 'At least one owner is required',
       });
     }
 
@@ -193,13 +293,13 @@ export class WorkspacesController {
         defaultMethodology: dto.defaultMethodology,
         isPrivate: dto.isPrivate ?? false,
         organizationId: u.organizationId,
-        ownerId: dto.ownerId || u.id,
+        ownerUserIds: dto.ownerUserIds,
         createdBy: u.id,
       };
 
       // Early dev bypass - skip all demo and feature flag checks
       if (isDev) {
-        const workspace = await this.svc.createWithOwner(payload);
+        const workspace = await this.svc.createWithOwners(payload);
         // Structured logging for workspace creation
         this.logger.log('Workspace created', {
           event: 'workspace.created',
@@ -207,12 +307,13 @@ export class WorkspacesController {
           workspaceId: workspace.id,
           creatorUserId: u.id,
           creatorPlatformRole: u.role,
-          createdAsWorkspaceRole: 'workspace_owner',
+          ownerUserIds: dto.ownerUserIds,
           workspaceName: workspace.name,
           requestId,
           endpoint: 'POST /api/workspaces',
         });
-        return formatResponse(workspace);
+        // PROMPT 6: Return shape { data: { workspaceId } }
+        return formatResponse({ workspaceId: workspace.id });
       }
 
       // Production logic: demo user restrictions
@@ -232,16 +333,7 @@ export class WorkspacesController {
         );
       }
 
-      // Enforce ownerId requirement when feature flag is enabled
-      if (!payload.ownerId) {
-        throw new BadRequestException({
-          code: 'MISSING_OWNER_ID',
-          message:
-            'ownerId is required when workspace membership feature is enabled',
-        });
-      }
-
-      const workspace = await this.svc.createWithOwner(payload);
+      const workspace = await this.svc.createWithOwners(payload);
 
       // Structured logging for workspace creation
       this.logger.log('Workspace created', {
@@ -250,13 +342,14 @@ export class WorkspacesController {
         workspaceId: workspace.id,
         creatorUserId: u.id,
         creatorPlatformRole: u.role,
-        createdAsWorkspaceRole: 'workspace_owner',
+        ownerUserIds: dto.ownerUserIds,
         workspaceName: workspace.name,
         requestId,
         endpoint: 'POST /api/workspaces',
       });
 
-      return formatResponse(workspace);
+      // PROMPT 6: Return shape { data: { workspaceId } }
+      return formatResponse({ workspaceId: workspace.id });
     } catch (error) {
       // Re-throw validation and auth errors
       if (
@@ -509,6 +602,69 @@ export class WorkspacesController {
     return formatResponse(result);
   }
 
+  /**
+   * PROMPT 8: Suspend workspace member
+   * PATCH /api/workspaces/:id/members/:memberId/suspend
+   * Requires workspace owner or platform Admin
+   */
+  @Patch(':id/members/:memberId/suspend')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async suspendMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Body() dto: SuspendMemberDto,
+    @Actor() actor: any,
+  ) {
+    try {
+      const result = await this.members.suspend(id, memberId, actor);
+      return formatResponse(result);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException({
+        code: 'SUSPEND_FAILED',
+        message: 'Failed to suspend member',
+      });
+    }
+  }
+
+  /**
+   * PROMPT 8: Reinstate workspace member
+   * PATCH /api/workspaces/:id/members/:memberId/reinstate
+   * Requires workspace owner or platform Admin
+   */
+  @Patch(':id/members/:memberId/reinstate')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async reinstateMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Body() dto: ReinstateMemberDto,
+    @Actor() actor: any,
+  ) {
+    try {
+      const result = await this.members.reinstate(id, memberId, actor);
+      return formatResponse(result);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException({
+        code: 'REINSTATE_FAILED',
+        message: 'Failed to reinstate member',
+      });
+    }
+  }
+
   @Post(':id/change-owner')
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
   @RequireOrgRole(PlatformRole.ADMIN) // Only platform ADMIN can change workspace owner
@@ -528,6 +684,227 @@ export class WorkspacesController {
     }
     const result = await this.members.changeOwner(id, dto.newOwnerId, actor);
     return formatResponse(result);
+  }
+
+  /**
+   * PROMPT 6: Update workspace owners
+   *
+   * Rules:
+   * - Admin only
+   * - Must keep at least one owner after update
+   * - Guest cannot be owner
+   * - Ensure workspace_members updated accordingly
+   * - Keep last owner protection
+   */
+  @Patch(':id/owners')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
+  @RequireOrgRole(PlatformRole.ADMIN)
+  async updateOwners(
+    @Param('id') id: string,
+    @Body() dto: UpdateOwnersDto,
+    @CurrentUser() u: UserJwt,
+    @Req() req: Request,
+  ) {
+    const requestId = req.headers['x-request-id'] || 'unknown';
+
+    // PROMPT 6: Explicit platform role check
+    const userPlatformRole = normalizePlatformRole(u.role);
+    if (userPlatformRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Read only access',
+      });
+    }
+
+    try {
+      const result = await this.svc.updateOwners(
+        u.organizationId,
+        id,
+        dto.ownerUserIds,
+        u.id,
+      );
+      return formatResponse(result);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      this.logger.error('Failed to update workspace owners', {
+        error: error instanceof Error ? error.message : String(error),
+        organizationId: u.organizationId,
+        userId: u.id,
+        workspaceId: id,
+        requestId,
+        endpoint: 'PATCH /api/workspaces/:id/owners',
+      });
+      throw new BadRequestException({
+        code: 'OWNERS_UPDATE_FAILED',
+        message: 'Failed to update workspace owners',
+      });
+    }
+  }
+
+  /**
+   * PROMPT 7: Create invite link
+   * POST /api/workspaces/:id/invite-link
+   * Requires workspace write for owner, or platform Admin
+   */
+  @Post(':id/invite-link')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async createInviteLink(
+    @Param('id') id: string,
+    @Body() dto: CreateInviteLinkDto,
+    @CurrentUser() u: UserJwt,
+    @Req() req: Request,
+  ) {
+    const requestId = req.headers['x-request-id'] || 'unknown';
+
+    try {
+      const result = await this.inviteService.createInviteLink(
+        id,
+        u.id,
+        dto.expiresInDays,
+      );
+      return formatResponse(result);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      this.logger.error('Failed to create invite link', {
+        error: error instanceof Error ? error.message : String(error),
+        organizationId: u.organizationId,
+        userId: u.id,
+        workspaceId: id,
+        requestId,
+        endpoint: 'POST /api/workspaces/:id/invite-link',
+      });
+      throw new BadRequestException({
+        code: 'INVITE_LINK_CREATION_FAILED',
+        message: 'Failed to create invite link',
+      });
+    }
+  }
+
+  /**
+   * PROMPT 7: Revoke invite link
+   * DELETE /api/workspaces/:id/invite-link/:linkId
+   */
+  @Delete(':id/invite-link/:linkId')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async revokeInviteLink(
+    @Param('id') id: string,
+    @Param('linkId') linkId: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    try {
+      await this.inviteService.revokeInviteLink(id, linkId, u.id);
+      return formatResponse({ ok: true });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException({
+        code: 'INVITE_LINK_REVOKE_FAILED',
+        message: 'Failed to revoke invite link',
+      });
+    }
+  }
+
+  /**
+   * PROMPT 7: Get active invite link
+   * GET /api/workspaces/:id/invite-link
+   */
+  @Get(':id/invite-link')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspaceAccessGuard)
+  @RequireWorkspaceAccess('viewer')
+  async getActiveInviteLink(
+    @Param('id') id: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    const link = await this.inviteService.getActiveInviteLink(id);
+    if (!link) {
+      return formatResponse(null);
+    }
+
+    // Generate URL (we need to return the raw token, but we only have hash)
+    // For security, we'll return a flag that a link exists, but not the actual token
+    // The frontend will need to create a new link if they want to see the URL
+    return formatResponse({
+      exists: true,
+      expiresAt: link.expiresAt,
+      createdAt: link.createdAt,
+    });
+  }
+
+  /**
+   * PROMPT 7: Join workspace
+   * POST /api/workspaces/join
+   * Auth optional - supports logged in and not logged in cases
+   */
+  @Post('join')
+  async joinWorkspace(@Body() dto: JoinWorkspaceDto, @Req() req: Request) {
+    // Try to get user from request (may not be authenticated)
+    const ctx = getAuthContextOptional(req as AuthRequest);
+
+    // PROMPT 7: Case 2 - Not logged in
+    if (!ctx || !ctx.userId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Sign in to join this workspace',
+      });
+    }
+
+    // PROMPT 7: Case 1 - Logged in user
+    try {
+      const result = await this.inviteService.joinWorkspace(
+        dto.token,
+        ctx.userId,
+      );
+      return formatResponse(result);
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException({
+        code: 'JOIN_WORKSPACE_FAILED',
+        message: 'Failed to join workspace',
+      });
+    }
+  }
+
+  /**
+   * PROMPT 7: Invite members by email (optional)
+   * POST /api/workspaces/:id/members/invite
+   */
+  @Post(':id/members/invite')
+  @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('manage_workspace_members')
+  async inviteMembersByEmail(
+    @Param('id') id: string,
+    @Body() dto: InviteMembersEmailDto,
+    @CurrentUser() u: UserJwt,
+    @Actor() actor: any,
+  ) {
+    // TODO: Implement email invite if email service exists
+    // For now, return error indicating feature not available
+    throw new BadRequestException({
+      code: 'FEATURE_NOT_AVAILABLE',
+      message: 'Email invite feature is not yet available',
+    });
   }
 
   @Get(':id/resource-risk-summary')
@@ -581,4 +958,5 @@ export class WorkspacesController {
       );
     }
   }
+
 }

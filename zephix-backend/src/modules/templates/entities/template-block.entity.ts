@@ -65,4 +65,3 @@ export class TemplateBlock {
   @JoinColumn({ name: 'block_id' })
   block: LegoBlock;
 }
-

@@ -1,0 +1,15 @@
+---
+description: Zephix frontend rules for React and routing
+globs:
+  - zephix-frontend/**/*
+---
+
+Frontend standards
+- Role gating uses helpers and constants. No raw string role comparisons.
+- VIEWER is Guest. Paid routes are ADMIN and MEMBER only.
+- Keep routing stable. Use existing layouts and guards.
+
+UX rules
+- Do not clone competitors.
+- Keep profile actions role aware and minimal.
+- Keep navigation consistent with workspace slug routing: /w/:slug/home.

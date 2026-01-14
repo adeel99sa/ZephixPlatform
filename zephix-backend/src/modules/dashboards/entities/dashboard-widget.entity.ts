@@ -53,4 +53,3 @@ export class DashboardWidget {
   @JoinColumn({ name: 'dashboard_id' })
   dashboard: Dashboard;
 }
-

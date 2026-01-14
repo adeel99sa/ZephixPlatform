@@ -47,4 +47,3 @@ export class IntegrationEncryptionService {
     return decrypted;
   }
 }
-

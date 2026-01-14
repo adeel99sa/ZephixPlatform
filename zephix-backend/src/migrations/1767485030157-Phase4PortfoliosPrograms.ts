@@ -240,9 +240,8 @@ export class Phase4PortfoliosPrograms1767485030157
     }
 
     // 2.3: Create portfolio_projects join table
-    const portfolioProjectsTableExists = await queryRunner.hasTable(
-      'portfolio_projects',
-    );
+    const portfolioProjectsTableExists =
+      await queryRunner.hasTable('portfolio_projects');
     if (!portfolioProjectsTableExists) {
       await queryRunner.createTable(
         new Table({

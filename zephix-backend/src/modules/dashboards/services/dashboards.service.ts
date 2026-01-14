@@ -66,9 +66,7 @@ export class DashboardsService {
       },
     );
 
-    return await queryBuilder
-      .orderBy('dashboard.createdAt', 'DESC')
-      .getMany();
+    return await queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
   }
 
   async createDashboard(
@@ -270,7 +268,16 @@ export class DashboardsService {
     if (!isWidgetKeyAllowed(dto.widgetKey)) {
       throw new BadRequestException(
         `Widget key '${dto.widgetKey}' is not allowed. Must be one of: ${Object.values(
-          ['project_health', 'sprint_metrics', 'resource_utilization', 'conflict_trends', 'budget_variance', 'risk_summary', 'portfolio_summary', 'program_summary'],
+          [
+            'project_health',
+            'sprint_metrics',
+            'resource_utilization',
+            'conflict_trends',
+            'budget_variance',
+            'risk_summary',
+            'portfolio_summary',
+            'program_summary',
+          ],
         ).join(', ')}`,
       );
     }
@@ -364,7 +371,9 @@ export class DashboardsService {
     // Check ownership for PRIVATE dashboards
     if (dashboard.visibility === DashboardVisibility.PRIVATE) {
       if (dashboard.ownerUserId !== userId) {
-        throw new ForbiddenException('Only owner can enable sharing for private dashboard');
+        throw new ForbiddenException(
+          'Only owner can enable sharing for private dashboard',
+        );
       }
     }
 
@@ -397,7 +406,9 @@ export class DashboardsService {
     // Check ownership for PRIVATE dashboards
     if (dashboard.visibility === DashboardVisibility.PRIVATE) {
       if (dashboard.ownerUserId !== userId) {
-        throw new ForbiddenException('Only owner can disable sharing for private dashboard');
+        throw new ForbiddenException(
+          'Only owner can disable sharing for private dashboard',
+        );
       }
     }
 
@@ -408,4 +419,3 @@ export class DashboardsService {
     await this.dashboardRepository.save(dashboard);
   }
 }
-

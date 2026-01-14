@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import AdminRoute from "@/routes/AdminRoute";
+import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { AuthProvider } from "@/state/AuthContext";
@@ -24,10 +25,16 @@ import { DashboardsIndex } from "@/views/dashboards/Index";
 import { DashboardBuilder } from "@/views/dashboards/Builder";
 import DashboardView from "@/views/dashboards/View";
 import DashboardPage from "@/pages/dashboard/DashboardPage";
-import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
+import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
+import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
 import { TemplateCenter } from "@/views/templates/TemplateCenter";
+import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
+import { ProjectOverviewPage } from "@/features/projects/overview/ProjectOverviewPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
+import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
+import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
+import InboxPage from "@/pages/InboxPage";
 import ResourcesPage from "@/pages/ResourcesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
@@ -35,6 +42,16 @@ import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
 import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
 import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
+import { JoinWorkspacePage } from "@/views/workspaces/JoinWorkspacePage";
+import WorkspaceSlugRedirect from "@/views/workspaces/WorkspaceSlugRedirect";
+import WorkspaceHomeBySlug from "@/views/workspaces/WorkspaceHomeBySlug";
+// PHASE 6 MODULE 3-4: Program and Portfolio pages
+import ProgramsListPage from "@/pages/programs/ProgramsListPage";
+import ProgramDetailPage from "@/pages/programs/ProgramDetailPage";
+import PortfoliosListPage from "@/pages/portfolios/PortfoliosListPage";
+import PortfolioDetailPage from "@/pages/portfolios/PortfolioDetailPage";
+// PHASE 7 MODULE 7.2: My Work
+import MyWorkPage from "@/pages/my-work/MyWorkPage";
 
 // Admin pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
@@ -68,6 +85,11 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
           <Route path="/invite" element={<InvitePage />} />
+          <Route path="/join/workspace" element={<JoinWorkspacePage />} />
+          {/* PROMPT 10: Workspace slug route - redirects to /w/:slug/home */}
+          <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
+          {/* PHASE 5.3: Workspace home route */}
+          <Route path="/w/:slug/home" element={<WorkspaceHomeBySlug />} />
 
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
@@ -85,16 +107,31 @@ export default function App() {
               <Route path="/dashboards/:id" element={<DashboardView />} />
               <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
               <Route path="/projects" element={<div>Projects Page</div>} />
-              <Route path="/projects/:id" element={<div>Project Detail</div>} />
-              <Route path="/workspaces" element={<WorkspacesPage />} />
+              <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
+              <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
+              <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/workspaces/:id" element={<WorkspaceView />} />
+              <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
               <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
               <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
+              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes */}
+              <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
+              <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
+              <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
+              <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
               <Route path="/templates" element={<TemplateCenter />} />
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {/* Paid routes - Admin and Member only */}
+              <Route element={<PaidRoute />}>
+                <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
+                <Route path="/settings/security" element={<SecuritySettingsPage />} />
+                <Route path="/inbox" element={<InboxPage />} />
+                {/* PHASE 7 MODULE 7.2: My Work */}
+                <Route path="/my-work" element={<MyWorkPage />} />
+              </Route>
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/403" element={<Forbidden />} />
               <Route path="/404" element={<NotFound />} />

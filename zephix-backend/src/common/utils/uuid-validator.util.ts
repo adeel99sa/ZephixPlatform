@@ -19,7 +19,9 @@ export function isValidUuid(value: unknown): boolean {
 export function extractValidUuid(candidate: unknown): string | undefined {
   if (!candidate) return undefined;
 
-  const value = Array.isArray(candidate) ? candidate[0] : String(candidate).trim();
+  const value = Array.isArray(candidate)
+    ? candidate[0]
+    : String(candidate).trim();
 
   if (!isValidUuid(value)) {
     return undefined;
@@ -27,4 +29,3 @@ export function extractValidUuid(candidate: unknown): string | undefined {
 
   return value;
 }
-

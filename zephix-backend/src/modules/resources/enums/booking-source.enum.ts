@@ -13,4 +13,3 @@ export enum BookingSource {
   GITHUB = 'GITHUB',
   AI = 'AI',
 }
-

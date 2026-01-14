@@ -11,6 +11,8 @@ import { useOrganizationStore } from "@/stores/organizationStore";
 import { ChevronDown } from "lucide-react";
 import { track } from "@/lib/telemetry";
 import { isAdminUser } from "@/types/roles";
+import { isPaidUser } from "@/utils/roles";
+import { PHASE_5_1_UAT_MODE } from "@/config/phase5_1";
 
 export function UserProfileDropdown() {
   const { user, logout } = useAuth();
@@ -227,18 +229,20 @@ export function UserProfileDropdown() {
               Invite Members
             </button>
 
-            {/* Administration - only visible to admin/owner */}
-            {(() => {
-              const isAdmin = isAdminUser(user);
-              if (process.env.NODE_ENV === 'development') {
-                console.log('[UserProfileDropdown] isAdminUser check:', {
-                  isAdmin,
-                  userEmail: user?.email,
-                  permissions: user?.permissions,
-                });
-              }
-              return isAdmin;
-            })() && (
+            {/* Workspaces - visible to Admin (always, not just during UAT) */}
+            {isAdminUser(user) && (
+              <button
+                onClick={() => navigate("/admin/workspaces")}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
+                data-testid="menu-workspaces"
+              >
+                <span className="w-5">🏢</span>
+                Workspaces
+              </button>
+            )}
+
+            {/* Administration - visible to Admin when UAT mode is off, or always if you want both */}
+            {isAdminUser(user) && (
               <button
                 onClick={() => handleMenuClick("administration")}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
@@ -247,6 +251,28 @@ export function UserProfileDropdown() {
                 <span className="w-5">⚙️</span>
                 Administration
               </button>
+            )}
+
+            {/* Notifications and Security - visible to Admin and Member only */}
+            {isPaidUser(user) && (
+              <>
+                <button
+                  onClick={() => navigate("/settings/notifications")}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
+                  data-testid="menu-notifications"
+                >
+                  <span className="w-5">🔔</span>
+                  Notifications
+                </button>
+                <button
+                  onClick={() => navigate("/settings/security")}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-3"
+                  data-testid="menu-security"
+                >
+                  <span className="w-5">🔒</span>
+                  Security
+                </button>
+              </>
             )}
 
             <div className="border-t border-gray-200 my-1"></div>

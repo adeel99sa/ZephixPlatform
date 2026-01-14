@@ -67,4 +67,3 @@ export class BackfillTemplateBlocksV11769000000108
     // One-way migration by design
   }
 }
-

@@ -217,6 +217,59 @@ jobs:
             echo "✅ Work-tasks controller route order check passed"
           fi
 
+          # Templates Controller: Check route order (Sprint 2.5)
+          TEMPLATES_CONTROLLER="src/modules/templates/controllers/templates.controller.ts"
+          if [ -f "$TEMPLATES_CONTROLLER" ]; then
+            echo "Checking templates controller route order..."
+
+            # instantiate-v5_1 route must appear before legacy instantiate route
+            TEMPLATES_V51_LINE=$(grep -n "@Post(':templateId/instantiate-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TEMPLATES_LEGACY_INSTANTIATE_LINE=$(grep -n "@Post(':id/instantiate')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+
+            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_LEGACY_INSTANTIATE_LINE" != "0" ]; then
+              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_LEGACY_INSTANTIATE_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Post(':id/instantiate') (line $TEMPLATES_LEGACY_INSTANTIATE_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
+                echo "   instantiate-v5_1 route must be defined before legacy instantiate route to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Any :id catch-all must be last
+            TEMPLATES_ID_GET_LINE=$(grep -n "@Get(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+            TEMPLATES_ID_PATCH_LINE=$(grep -n "@Patch(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+            TEMPLATES_ID_DELETE_LINE=$(grep -n "@Delete(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+
+            # Check that instantiate-v5_1 comes before any :id route
+            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
+                echo "   instantiate-v5_1 route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Sprint 4: Check recommendations route comes before :id
+            TEMPLATES_RECOMMENDATIONS_LINE=$(grep -n "@Get('recommendations')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            if [ "$TEMPLATES_RECOMMENDATIONS_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_RECOMMENDATIONS_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get('recommendations') (line $TEMPLATES_RECOMMENDATIONS_LINE)"
+                echo "   recommendations route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Sprint 4: Check preview-v5_1 route comes before :id
+            TEMPLATES_PREVIEW_LINE=$(grep -n "@Get(':templateId/preview-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            if [ "$TEMPLATES_PREVIEW_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_PREVIEW_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get(':templateId/preview-v5_1') (line $TEMPLATES_PREVIEW_LINE)"
+                echo "   preview-v5_1 route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            echo "✅ Templates controller route order check passed"
+          fi
 
           echo "✅ Route order checks passed"
       - name: Run all contract tests

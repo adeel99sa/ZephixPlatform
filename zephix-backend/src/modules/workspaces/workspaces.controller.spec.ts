@@ -285,6 +285,46 @@ describe('WorkspacesController - Contract Tests', () => {
     });
   });
 
+  describe('MICRO PATCH: Workspace creation with workspace_members row', () => {
+    it('should create workspace_members row with workspace_owner role when workspace is created', async () => {
+      const memberUserId = 'member-user-id';
+      const mockWorkspaceWithOwner = {
+        ...mockWorkspace,
+        ownerId: memberUserId,
+      };
+
+      // Mock createWithOwner to verify it creates workspace_members row
+      const createWithOwnerSpy = jest.spyOn(workspacesService, 'createWithOwner').mockResolvedValue(mockWorkspaceWithOwner);
+
+      const req = { headers: {} };
+      const dto = { name: 'New Workspace', ownerId: memberUserId };
+      const result = await controller.create(dto as any, mockUser as any, req as any, {});
+
+      expect(createWithOwnerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ownerId: memberUserId,
+        }),
+      );
+      expect(result).toHaveProperty('data');
+      expect(result.data.ownerId).toBe(memberUserId);
+    });
+
+    it('should reject Guest user as workspace owner', async () => {
+      const guestUserId = 'guest-user-id';
+      const req = { headers: {} };
+      const dto = { name: 'New Workspace', ownerId: guestUserId };
+
+      // Mock createWithOwner to throw ForbiddenException for Guest
+      jest.spyOn(workspacesService, 'createWithOwner').mockRejectedValue(
+        new ForbiddenException('Guest users cannot be workspace owners. Workspace owner must be a Member. Admin creates workspace and assigns a Member as owner.'),
+      );
+
+      await expect(
+        controller.create(dto as any, mockUser as any, req as any, {}),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('PATCH /api/workspaces/:id', () => {
     it('should return { data: Workspace } format on success', async () => {
       jest.spyOn(workspacesService, 'getById').mockResolvedValue(mockWorkspace);

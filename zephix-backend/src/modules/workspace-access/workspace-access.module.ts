@@ -4,7 +4,11 @@ import { ConfigModule } from '@nestjs/config';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { Workspace } from '../workspaces/entities/workspace.entity';
 import { WorkspaceAccessService } from './workspace-access.service';
-import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
+import { WorkspaceRoleGuardService } from './workspace-role-guard.service';
+import {
+  TenancyModule,
+  createTenantAwareRepositoryProvider,
+} from '../tenancy/tenancy.module';
 
 /**
  * WorkspaceAccessModule
@@ -31,9 +35,8 @@ import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/t
     // Provide TenantAwareRepository for WorkspaceMember
     createTenantAwareRepositoryProvider(WorkspaceMember),
     WorkspaceAccessService,
+    WorkspaceRoleGuardService,
   ],
-  exports: [WorkspaceAccessService],
+  exports: [WorkspaceAccessService, WorkspaceRoleGuardService],
 })
 export class WorkspaceAccessModule {}
-
-

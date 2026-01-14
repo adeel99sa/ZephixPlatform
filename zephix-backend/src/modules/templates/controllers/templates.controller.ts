@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   UseGuards,
+  UsePipes,
   HttpCode,
   HttpStatus,
   ForbiddenException,
@@ -16,10 +17,16 @@ import {
   NotFoundException,
   Logger,
   Req,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TemplatesService } from '../services/templates.service';
 import { TemplatesInstantiateService } from '../services/templates-instantiate.service';
+import { TemplatesInstantiateV51Service } from '../services/templates-instantiate-v51.service';
+import { TemplatesRecommendationService } from '../services/templates-recommendation.service';
+import { TemplatesPreviewV51Service } from '../services/templates-preview-v51.service';
+import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
+import { RecommendationsQueryDto } from '../dto/recommendations-query.dto';
 import { CreateTemplateDto as CreateTemplateLegacyDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { ApplyTemplateDto } from '../dto/apply-template.dto';
@@ -29,6 +36,20 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { RequireOrgRole } from '../../workspaces/guards/require-org-role.guard';
 import { RequireOrgRoleGuard } from '../../workspaces/guards/require-org-role.guard';
+import { ResponseService } from '../../../shared/services/response.service';
+import { AuthRequest } from '../../../common/http/auth-request';
+import { getAuthContext } from '../../../common/http/get-auth-context';
+import { Headers } from '@nestjs/common';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiHeader,
+  ApiBody,
+} from '@nestjs/swagger';
 
 type UserJwt = {
   id: string;
@@ -39,12 +60,39 @@ type UserJwt = {
 
 @Controller('templates')
 @UseGuards(JwtAuthGuard)
+@ApiTags('Templates')
+@ApiBearerAuth()
 export class TemplatesController {
   private readonly logger = new Logger(TemplatesController.name);
+
+  // UUID validation regex
+  private readonly UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  private validateWorkspaceId(workspaceId: string | undefined): string {
+    if (!workspaceId) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Workspace header x-workspace-id is required',
+      });
+    }
+    if (!this.UUID_REGEX.test(workspaceId)) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Workspace header x-workspace-id must be a valid UUID',
+      });
+    }
+    return workspaceId;
+  }
 
   constructor(
     private readonly templatesService: TemplatesService,
     private readonly instantiateService: TemplatesInstantiateService,
+    private readonly instantiateV51Service: TemplatesInstantiateV51Service,
+    private readonly recommendationService: TemplatesRecommendationService,
+    private readonly previewV51Service: TemplatesPreviewV51Service,
+    private readonly responseService: ResponseService,
+    private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
   ) {}
 
   /**
@@ -83,6 +131,162 @@ export class TemplatesController {
       includeArchived: false,
     };
     return { data: await this.templatesService.listV1(req, params) };
+  }
+
+  /**
+   * Sprint 4: GET /api/templates/recommendations
+   * Get template recommendations with deterministic scoring
+   * Route order: Must be before @Get(':id') to avoid shadowing
+   */
+  @Get('recommendations')
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      exceptionFactory: (errors) => {
+        // Build standardized validation error
+        const firstError = errors[0];
+        const firstMessage = firstError?.constraints
+          ? Object.values(firstError.constraints)[0]
+          : 'Invalid request';
+
+        // Extract property name if available
+        const property = firstError?.property || 'unknown';
+        const message = `Query parameter '${property}' is not allowed`;
+
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message,
+          errors, // Keep for detailed extraction in filter
+        });
+      },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Get template recommendations',
+    description:
+      'Returns top 3 recommended templates and up to 12 others based on deterministic scoring',
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recommendations returned successfully',
+    schema: {
+      properties: {
+        data: {
+          type: 'object',
+          properties: {
+            recommended: { type: 'array' },
+            others: { type: 'array' },
+            inputsEcho: { type: 'object' },
+            generatedAt: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  async getRecommendations(
+    @Query() queryDto: RecommendationsQueryDto,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+  ) {
+    const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Additional check for forbidden params (ValidationPipe should catch these, but extra safety)
+    const forbiddenParams = ['userId', 'popularity', 'rankScore', 'usageCount'];
+    const queryParams = req.query as Record<string, any>;
+    for (const param of forbiddenParams) {
+      if (param in queryParams) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: `Query parameter '${param}' is not allowed`,
+        });
+      }
+    }
+
+    const query = {
+      containerType: queryDto.containerType,
+      workType: queryDto.workType,
+      durationDays: queryDto.durationDays,
+      complexity: queryDto.complexity,
+    };
+
+    const result = await this.recommendationService.getRecommendations(
+      query,
+      auth.organizationId,
+      workspaceId,
+    );
+
+    return this.responseService.success(result);
+  }
+
+  /**
+   * Sprint 4: GET /api/templates/:templateId/preview-v5_1
+   * Get template preview for v5_1
+   * Route order: Must be before @Get(':id') to avoid shadowing
+   */
+  @Get(':templateId/preview-v5_1')
+  @ApiOperation({
+    summary: 'Get template preview for v5.1',
+    description:
+      'Returns template structure, phases, task counts, and lock policy',
+  })
+  @ApiParam({ name: 'templateId', description: 'Template ID' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Preview returned successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - workspace access denied',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not found - template not found',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  async getPreviewV51(
+    @Param('templateId') templateId: string,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+  ) {
+    const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Sprint 6: Require read access
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.previewV51Service.getPreview(
+      templateId,
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+
+    return this.responseService.success(result);
   }
 
   /**
@@ -152,10 +356,104 @@ export class TemplatesController {
   }
 
   /**
+   * Sprint 2.5: POST /api/templates/:templateId/instantiate-v5_1
+   * Phase 5.1 compliant template instantiation - creates WorkPhase and WorkTask
+   * Route order: Must be before @Post(':id/instantiate') to avoid shadowing
+   */
+  @Post(':templateId/instantiate-v5_1')
+  @ApiOperation({
+    summary: 'Instantiate template v5.1 (creates WorkPhase and WorkTask)',
+    description:
+      'Phase 5.1 compliant template instantiation. Creates WorkPhase and WorkTask entities instead of legacy Task entities.',
+  })
+  @ApiParam({ name: 'templateId', description: 'Template ID' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiBody({ type: InstantiateV51Dto })
+  @ApiResponse({
+    status: 201,
+    description: 'Template instantiated successfully',
+    schema: {
+      properties: {
+        data: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string', format: 'uuid' },
+            projectName: { type: 'string' },
+            state: { type: 'string', enum: ['DRAFT', 'ACTIVE', 'COMPLETED'] },
+            structureLocked: { type: 'boolean' },
+            phaseCount: { type: 'number' },
+            taskCount: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - workspace access denied',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not found - template or project not found',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - project locked or invalid state',
+    schema: {
+      properties: { code: { type: 'string' }, message: { type: 'string' } },
+    },
+  })
+  async instantiateV51(
+    @Param('templateId') templateId: string,
+    @Body() dto: InstantiateV51Dto,
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+  ) {
+    const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Sprint 6: Require write access
+    await this.workspaceRoleGuard.requireWorkspaceWrite(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.instantiateV51Service.instantiateV51(
+      templateId,
+      dto,
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+
+    return this.responseService.success(result);
+  }
+
+  /**
    * POST /api/templates/:id/instantiate
-   * Phase 4: Create a project from a template
+   * Phase 4: Create a project from a template (legacy - creates Task entities)
    * Checks workspace permission: create_projects_in_workspace
    * Returns 400 with clear error codes for validation failures
+   *
+   * Note: For Phase 5.1, use /api/templates/:id/instantiate-v5_1 instead
    */
   @Post(':id/instantiate')
   async instantiate(

@@ -50,4 +50,3 @@ export class AddTemplateIdToProjectTemplates1769000000105
     `);
   }
 }
-

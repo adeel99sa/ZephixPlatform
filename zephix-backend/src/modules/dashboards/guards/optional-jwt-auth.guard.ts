@@ -10,7 +10,9 @@ import { Observable } from 'rxjs';
  */
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
 
     // If share token is present, allow request without JWT
@@ -37,4 +39,3 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
     return user;
   }
 }
-

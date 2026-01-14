@@ -1,19 +1,28 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableColumn, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableColumn,
+  TableForeignKey,
+} from 'typeorm';
 
 /**
  * Phase 2 Hotfix: Create resource_conflicts table
- * 
+ *
  * This migration creates the resource_conflicts table if it doesn't exist.
  * The Phase 2 schema migration assumed the table existed, but it may not
  * have been created in production.
  */
-export class CreateResourceConflictsTable1786000000001 implements MigrationInterface {
+export class CreateResourceConflictsTable1786000000001
+  implements MigrationInterface
+{
   name = 'CreateResourceConflictsTable1786000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if table exists
     const conflictsTable = await queryRunner.getTable('resource_conflicts');
-    
+
     if (!conflictsTable) {
       // Create the table
       await queryRunner.createTable(
@@ -143,7 +152,7 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
     } else {
       // Table exists, check if organization_id column exists
       const orgIdColumn = conflictsTable.findColumnByName('organization_id');
-      
+
       if (!orgIdColumn) {
         // Add organization_id column
         await queryRunner.addColumn(
@@ -182,11 +191,12 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
         );
 
         // Add index if it doesn't exist
-        const existingIndexes = await queryRunner.getTable('resource_conflicts');
+        const existingIndexes =
+          await queryRunner.getTable('resource_conflicts');
         const hasOrgResourceDateIndex = existingIndexes?.indices.some(
           (idx) => idx.name === 'idx_conflicts_org_resource_date',
         );
-        
+
         if (!hasOrgResourceDateIndex) {
           await queryRunner.createIndex(
             'resource_conflicts',
@@ -200,7 +210,7 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
         const hasOrgResolvedIndex = existingIndexes?.indices.some(
           (idx) => idx.name === 'idx_conflicts_org_resolved',
         );
-        
+
         if (!hasOrgResolvedIndex) {
           await queryRunner.createIndex(
             'resource_conflicts',
@@ -214,7 +224,7 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
         const hasOrgSeverityIndex = existingIndexes?.indices.some(
           (idx) => idx.name === 'idx_conflicts_org_severity',
         );
-        
+
         if (!hasOrgSeverityIndex) {
           await queryRunner.createIndex(
             'resource_conflicts',
@@ -230,7 +240,7 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const conflictsTable = await queryRunner.getTable('resource_conflicts');
-    
+
     if (conflictsTable) {
       // Drop indexes
       const existingIndexes = conflictsTable.indices;
@@ -251,4 +261,3 @@ export class CreateResourceConflictsTable1786000000001 implements MigrationInter
     }
   }
 }
-

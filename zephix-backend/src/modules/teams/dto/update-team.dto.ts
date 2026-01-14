@@ -48,4 +48,3 @@ export class UpdateTeamDto {
   @IsBoolean()
   isArchived?: boolean;
 }
-

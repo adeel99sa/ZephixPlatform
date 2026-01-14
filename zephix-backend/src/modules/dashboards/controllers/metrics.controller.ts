@@ -42,7 +42,11 @@ export class MetricsController {
 
   @Get()
   @ApiOperation({ summary: 'List metric definitions' })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (optional)', required: false })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (optional)',
+    required: false,
+  })
   @ApiResponse({ status: 200, description: 'Metrics retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async list(
@@ -70,7 +74,11 @@ export class MetricsController {
 
   @Post()
   @ApiOperation({ summary: 'Create metric definition' })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (optional)', required: false })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (optional)',
+    required: false,
+  })
   @ApiResponse({ status: 201, description: 'Metric created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -123,7 +131,11 @@ export class MetricsController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update metric definition' })
   @ApiParam({ name: 'id', description: 'Metric ID', type: String })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (optional)', required: false })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (optional)',
+    required: false,
+  })
   @ApiResponse({ status: 200, description: 'Metric updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -182,4 +194,3 @@ export class MetricsController {
     return this.responseService.success({ message: 'Metric deleted' });
   }
 }
-

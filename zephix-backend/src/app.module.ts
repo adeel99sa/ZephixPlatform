@@ -33,6 +33,7 @@ import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PortfoliosModule } from './modules/portfolios/portfolios.module';
+import { ProgramsModule } from './modules/programs/programs.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { KPIModule } from './modules/kpi/kpi.module';
@@ -43,6 +44,8 @@ import { RisksModule } from './modules/risks/risks.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { WorkManagementModule } from './modules/work-management/work-management.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { HomeModule } from './modules/home/home.module';
 import { DebugController } from './debug.controller';
 import { DemoModule } from './bootstrap/demo.module';
 import { BillingModule } from './billing/billing.module';
@@ -110,6 +113,7 @@ if (!(global as any).crypto) {
           ObservabilityModule,
           WaitlistModule,
           PortfoliosModule,
+          ProgramsModule, // PHASE 6: Workspace-scoped programs
           DashboardsModule,
           TasksModule,
           KPIModule,
@@ -118,6 +122,8 @@ if (!(global as any).crypto) {
           CustomFieldsModule,
           IntegrationsModule,
           WorkManagementModule,
+          NotificationsModule,
+          HomeModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks
@@ -151,7 +157,9 @@ if (!(global as any).crypto) {
 })
 export class AppModule implements NestModule {
   constructor() {
-    console.log('🚀 AppModule initialized');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('🚀 AppModule initialized');
+    }
   }
 
   configure(consumer: MiddlewareConsumer) {

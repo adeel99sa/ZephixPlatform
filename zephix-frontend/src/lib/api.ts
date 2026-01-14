@@ -11,12 +11,15 @@ export const api = axios.create({
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+let sessionId: string | null = null;
 
-export function setTokens(at: string, rt?: string) {
+export function setTokens(at: string, rt?: string, sid?: string) {
   accessToken = at;
   if (rt) refreshToken = rt;
+  if (sid) sessionId = sid;
   localStorage.setItem("zephix.at", accessToken ?? "");
   if (rt) localStorage.setItem("zephix.rt", refreshToken ?? "");
+  if (sid) localStorage.setItem("zephix.sessionId", sessionId ?? "");
 
   // CRITICAL: Also sync to zephix-auth-storage for apiClient compatibility
   // This ensures both API clients can find the tokens
@@ -27,6 +30,7 @@ export function setTokens(at: string, rt?: string) {
       ...state,
       accessToken: at,
       refreshToken: rt || state.refreshToken,
+      sessionId: sid || state.sessionId,
     };
     localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
   } catch (error) {
@@ -35,20 +39,26 @@ export function setTokens(at: string, rt?: string) {
 }
 
 export function clearTokens() {
-  accessToken = null; refreshToken = null;
+  accessToken = null; refreshToken = null; sessionId = null;
   localStorage.removeItem("zephix.at");
   localStorage.removeItem("zephix.rt");
+  localStorage.removeItem("zephix.sessionId");
   // Also clear legacy storage
   localStorage.removeItem("zephix-auth-storage");
+}
+
+export function getSessionId(): string | null {
+  return sessionId || localStorage.getItem("zephix.sessionId");
 }
 
 export function loadTokensFromStorage() {
   accessToken = localStorage.getItem("zephix.at");
   refreshToken = localStorage.getItem("zephix.rt");
+  sessionId = localStorage.getItem("zephix.sessionId");
 }
 
 api.interceptors.request.use((cfg) => {
-  if (!cfg.headers) cfg.headers = {};
+  if (!cfg.headers) cfg.headers = {} as any;
   // Load from storage on every request to handle page refresh
   const token = accessToken || localStorage.getItem("zephix.at");
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
@@ -112,7 +122,11 @@ api.interceptors.response.use(
               refreshTokenLength: refreshToken?.length,
             });
 
-            const response = await axios.post("/api/auth/refresh", { refreshToken });
+            const currentSessionId = getSessionId();
+            const response = await axios.post("/api/auth/refresh", {
+              refreshToken,
+              sessionId: currentSessionId || undefined,
+            });
 
             // Handle different response formats
             let tokens;
@@ -131,7 +145,7 @@ api.interceptors.response.use(
               throw new Error('Refresh response missing accessToken');
             }
 
-            setTokens(tokens.accessToken, tokens.refreshToken || refreshToken);
+            setTokens(tokens.accessToken, tokens.refreshToken || refreshToken, tokens.sessionId);
             console.log('[Auth] ✅ Token refresh successful');
 
             // Resolve all queued requests
@@ -148,15 +162,11 @@ api.interceptors.response.use(
             queuedRequests.forEach(({ reject }) => reject(refreshErr));
             queuedRequests = [];
 
-            // Don't redirect if we're on an admin route - let AdminRoute handle it
-            const isAdminRoute = window.location.pathname.startsWith('/admin');
+            // Clear auth and redirect to login on refresh failure
             const isLoginPage = window.location.pathname.includes('/login');
-
-            if (!isLoginPage && !isAdminRoute) {
-              console.log('[Auth] Redirecting to login (not on admin route)');
+            if (!isLoginPage) {
+              console.log('[Auth] Refresh failed, redirecting to login');
               window.location.href = "/login?reason=session_expired";
-            } else if (isAdminRoute) {
-              console.warn('[Auth] On admin route, not redirecting - AdminRoute will handle access denial');
             }
             return null;
           } finally {

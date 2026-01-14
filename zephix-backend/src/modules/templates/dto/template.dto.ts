@@ -43,4 +43,3 @@ export class ReorderBlocksDto {
 export class PatchBlockConfigDto {
   config: any;
 }
-
