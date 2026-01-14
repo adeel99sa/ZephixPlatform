@@ -1,4 +1,13 @@
-import { IsString, IsUUID, IsOptional, IsEnum, IsDateString, IsArray, IsBoolean, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  IsArray,
+  IsBoolean,
+  IsNumber,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus, TaskPriority } from '../enums/task.enums';
 
@@ -13,12 +22,20 @@ export class UpdateWorkTaskDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Task status', enum: TaskStatus, required: false })
+  @ApiProperty({
+    description: 'Task status',
+    enum: TaskStatus,
+    required: false,
+  })
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;
 
-  @ApiProperty({ description: 'Task priority', enum: TaskPriority, required: false })
+  @ApiProperty({
+    description: 'Task priority',
+    enum: TaskPriority,
+    required: false,
+  })
   @IsOptional()
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
@@ -54,4 +71,3 @@ export class UpdateWorkTaskDto {
   @IsBoolean()
   archived?: boolean;
 }
-

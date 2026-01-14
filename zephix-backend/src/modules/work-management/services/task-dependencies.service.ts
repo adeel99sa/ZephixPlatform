@@ -5,7 +5,10 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
+import {
+  TenantAwareRepository,
+  getTenantAwareRepositoryToken,
+} from '../../tenancy/tenancy.module';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
@@ -13,6 +16,7 @@ import { AddDependencyDto, RemoveDependencyDto } from '../dto';
 import { DependencyType } from '../enums/task.enums';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { In } from 'typeorm';
+import { ProjectHealthService } from './project-health.service';
 
 interface AuthContext {
   organizationId: string;
@@ -29,6 +33,7 @@ export class TaskDependenciesService {
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     private readonly activityService: TaskActivityService,
     private readonly tenantContext: TenantContextService,
+    private readonly projectHealthService: ProjectHealthService,
   ) {}
 
   async addDependency(
@@ -123,6 +128,17 @@ export class TaskDependenciesService {
       },
     );
 
+    // Trigger health recalculation
+    try {
+      await this.projectHealthService.recalculateProjectHealth(
+        successor.projectId,
+        organizationId,
+        workspaceId,
+      );
+    } catch (error) {
+      console.warn('Failed to recalculate project health:', error);
+    }
+
     return saved;
   }
 
@@ -172,6 +188,12 @@ export class TaskDependenciesService {
       });
     }
 
+    // Get projectId from successor task for health recalculation
+    const successor = await this.taskRepo.findOne({
+      where: { id: successorTaskId, workspaceId },
+      select: ['projectId'],
+    });
+
     await this.dependencyRepo.remove(dependency);
 
     // Emit activity
@@ -185,15 +207,29 @@ export class TaskDependenciesService {
         type: dependency.type,
       },
     );
+
+    // Trigger health recalculation
+    if (successor) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      try {
+        await this.projectHealthService.recalculateProjectHealth(
+          successor.projectId,
+          organizationId,
+          workspaceId,
+        );
+      } catch (error) {
+        console.warn('Failed to recalculate project health:', error);
+      }
+    }
   }
 
   /**
    * Check if adding edge predecessor -> successor would create a cycle
    * Uses BFS to check if successor can already reach predecessor
-   * 
+   *
    * If we're adding P->S, and S can already reach P through existing dependencies,
    * then adding P->S creates a cycle.
-   * 
+   *
    * To check if S can reach P:
    * - Start from S
    * - Follow dependencies where S is predecessor (S->X means X depends on S)
@@ -215,7 +251,7 @@ export class TaskDependenciesService {
       depth++;
 
       for (let i = 0; i < currentLevelSize; i++) {
-        const current = queue.shift()!;
+        const current = queue.shift();
 
         if (visited.has(current)) {
           continue;
@@ -251,4 +287,3 @@ export class TaskDependenciesService {
     return false;
   }
 }
-

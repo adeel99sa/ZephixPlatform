@@ -13,10 +13,7 @@ import { ProgramsController } from './programs.controller';
 import { ProjectsModule } from '../projects/projects.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
-import {
-  TenancyModule,
-  createTenantAwareRepositoryProvider,
-} from '../tenancy/tenancy.module';
+import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
 import { ResourceModule } from '../resources/resource.module'; // PHASE 7.4.3: Fix DI - Provides ResourceAllocation repository
 import { Workspace } from '../workspaces/entities/workspace.entity'; // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'; // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this

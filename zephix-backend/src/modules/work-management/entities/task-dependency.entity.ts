@@ -60,4 +60,3 @@ export class WorkTaskDependency {
   @JoinColumn({ name: 'successor_task_id' })
   successorTask: WorkTask;
 }
-

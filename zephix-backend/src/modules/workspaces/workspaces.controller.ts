@@ -260,14 +260,8 @@ export class WorkspacesController {
       });
     }
 
-    // Derive owner from auth context if not provided in request
-    // Frontend should never send ownerId - backend derives it from @CurrentUser()
-    const ownerUserIds = dto.ownerUserIds && dto.ownerUserIds.length > 0
-      ? dto.ownerUserIds
-      : [u.id]; // Default to current user as owner
-
-    // Validate at least one owner exists (should always be true after derivation)
-    if (!ownerUserIds || ownerUserIds.length === 0) {
+    // PROMPT 6: Validate ownerUserIds array
+    if (!dto.ownerUserIds || dto.ownerUserIds.length === 0) {
       throw new BadRequestException({
         code: 'MISSING_OWNER_USER_IDS',
         message: 'At least one owner is required',
@@ -299,7 +293,7 @@ export class WorkspacesController {
         defaultMethodology: dto.defaultMethodology,
         isPrivate: dto.isPrivate ?? false,
         organizationId: u.organizationId,
-        ownerUserIds: ownerUserIds, // Derived from auth context if not provided
+        ownerUserIds: dto.ownerUserIds,
         createdBy: u.id,
       };
 
@@ -313,7 +307,7 @@ export class WorkspacesController {
           workspaceId: workspace.id,
           creatorUserId: u.id,
           creatorPlatformRole: u.role,
-          ownerUserIds: ownerUserIds,
+          ownerUserIds: dto.ownerUserIds,
           workspaceName: workspace.name,
           requestId,
           endpoint: 'POST /api/workspaces',
@@ -1022,4 +1016,5 @@ export class WorkspacesController {
       );
     }
   }
+
 }

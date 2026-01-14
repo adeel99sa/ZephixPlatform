@@ -22,9 +22,15 @@ import { WorkTask } from './work-task.entity';
 @Index(['projectId'])
 @Index(['programId'])
 @Index(['sortOrder'])
-@Index(['workspaceId', 'projectId', 'sortOrder'], { where: '"project_id" IS NOT NULL' })
-@Index(['workspaceId', 'programId', 'sortOrder'], { where: '"program_id" IS NOT NULL' })
-@Check(`("project_id" IS NOT NULL AND "program_id" IS NULL) OR ("project_id" IS NULL AND "program_id" IS NOT NULL)`)
+@Index(['workspaceId', 'projectId', 'sortOrder'], {
+  where: '"project_id" IS NOT NULL',
+})
+@Index(['workspaceId', 'programId', 'sortOrder'], {
+  where: '"program_id" IS NOT NULL',
+})
+@Check(
+  `("project_id" IS NOT NULL AND "program_id" IS NULL) OR ("project_id" IS NULL AND "program_id" IS NOT NULL)`,
+)
 export class WorkPhase {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -88,4 +94,3 @@ export class WorkPhase {
   @OneToMany(() => WorkTask, (task) => task.phase)
   tasks: WorkTask[];
 }
-

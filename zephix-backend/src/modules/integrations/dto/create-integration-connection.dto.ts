@@ -64,4 +64,3 @@ export class CreateIntegrationConnectionDto {
   @IsBoolean()
   enabled?: boolean = true;
 }
-

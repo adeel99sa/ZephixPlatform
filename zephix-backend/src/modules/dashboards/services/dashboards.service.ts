@@ -353,7 +353,7 @@ export class DashboardsService {
       },
     );
 
-    return queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
+    return await queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
   }
 
   async createDashboard(
@@ -778,7 +778,9 @@ export class DashboardsService {
     // Check ownership for PRIVATE dashboards
     if (dashboard.visibility === DashboardVisibility.PRIVATE) {
       if (dashboard.ownerUserId !== userId) {
-        throw new ForbiddenException('Only owner can enable sharing for private dashboard');
+        throw new ForbiddenException(
+          'Only owner can enable sharing for private dashboard',
+        );
       }
     }
 
@@ -811,89 +813,12 @@ export class DashboardsService {
     // Check ownership for PRIVATE dashboards
     if (dashboard.visibility === DashboardVisibility.PRIVATE) {
       if (dashboard.ownerUserId !== userId) {
-        throw new ForbiddenException('Only owner can disable sharing for private dashboard');
-      }
-    }
-
-    dashboard.shareToken = null;
-    dashboard.shareEnabled = false;
-    dashboard.shareExpiresAt = null;
-
-    await this.dashboardRepository.save(dashboard);
-  }
-}
-
-  async enableShare(
-    dashboardId: string,
-    organizationId: string,
-    userId: string,
-    platformRole?: string,
-    expiresAt?: Date,
-  ): Promise<{ shareUrlPath: string }> {
-    // Authorize off stored record
-    const dashboard = await this.getDashboardForMutation(
-      dashboardId,
-      organizationId,
-      userId,
-      platformRole,
-    );
-
-    // Check ownership for PRIVATE dashboards
-    if (dashboard.visibility === DashboardVisibility.PRIVATE) {
-      if (dashboard.ownerUserId !== userId) {
-        throw new ForbiddenException(
-          'Only owner can enable sharing for private dashboard',
-        );
-      }
-    }
-
-    // Generate new token if missing or regenerate for security
-    if (!dashboard.shareToken) {
-      dashboard.shareToken = randomUUID();
-    }
-    dashboard.shareEnabled = true;
-
-    // Validate expiresAt if provided
-    if (expiresAt) {
-      if (Number.isNaN(expiresAt.valueOf()) || expiresAt <= new Date()) {
-        throw new BadRequestException('Share expiration must be in the future');
-      }
-      dashboard.shareExpiresAt = expiresAt;
-    } else {
-      dashboard.shareExpiresAt = null;
-    }
-
-    await this.dashboardRepository.save(dashboard);
-
-    return {
-      shareUrlPath: `/dashboards/${dashboardId}?share=${dashboard.shareToken}`,
-    };
-  }
-
-  async disableShare(
-    dashboardId: string,
-    organizationId: string,
-    userId: string,
-    platformRole?: string,
-  ): Promise<void> {
-    // Authorize off stored record
-    const dashboard = await this.getDashboardForMutation(
-      dashboardId,
-      organizationId,
-      userId,
-      platformRole,
-    );
-
-    // Check ownership for PRIVATE dashboards
-    if (dashboard.visibility === DashboardVisibility.PRIVATE) {
-      if (dashboard.ownerUserId !== userId) {
         throw new ForbiddenException(
           'Only owner can disable sharing for private dashboard',
         );
       }
     }
 
-    // Clear token and disable sharing
     dashboard.shareToken = null;
     dashboard.shareEnabled = false;
     dashboard.shareExpiresAt = null;

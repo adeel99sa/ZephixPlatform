@@ -24,4 +24,3 @@ import {
   exports: [TeamsService],
 })
 export class TeamsModule {}
-

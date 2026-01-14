@@ -1,7 +1,7 @@
 if (process.env.NODE_ENV !== 'test') {
   if (process.env.NODE_ENV !== 'test') {
-    console.log('🔍 ProjectsController file loading...');
-  }
+  console.log('🔍 ProjectsController file loading...');
+}
 }
 
 import {
@@ -447,45 +447,4 @@ export class ProjectsController {
   //   });
   // }
 
-  /**
-   * GET /api/projects/:id/kpis
-   * Returns available KPIs for the project plus current activeKpiIds
-   */
-  @Get(':id/kpis')
-  @UseGuards(RequireProjectWorkspaceRoleGuard)
-  @RequireWorkspaceRole('workspace_viewer', { allowAdminOverride: true })
-  async getProjectKPIs(
-    @Param('id') id: string,
-    @GetTenant() tenant: TenantContext,
-  ) {
-    this.logger.log(`Fetching KPIs for project ${id}`);
-    return this.projectsService.getProjectKPIs(
-      id,
-      tenant.organizationId,
-      tenant.userId,
-      tenant.userRole,
-    );
-  }
-
-  /**
-   * PATCH /api/projects/:id/kpis
-   * Updates activeKpiIds for the project
-   * Validates that activeKpiIds are subset of available KPIs
-   */
-  @Patch(':id/kpis')
-  @UseGuards(RequireProjectWorkspaceRoleGuard)
-  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
-  async updateProjectKPIs(
-    @Param('id') id: string,
-    @Body() dto: { activeKpiIds: string[] },
-    @GetTenant() tenant: TenantContext,
-  ) {
-    this.logger.log(`Updating KPIs for project ${id}`);
-    return this.projectsService.updateProjectKPIs(
-      id,
-      dto.activeKpiIds,
-      tenant.organizationId,
-      tenant.userId,
-    );
-  }
 }

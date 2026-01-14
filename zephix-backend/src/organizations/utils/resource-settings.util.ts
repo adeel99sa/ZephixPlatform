@@ -31,4 +31,3 @@ export function getResourceSettings(
       DEFAULT_RESOURCE_MANAGEMENT_SETTINGS.requireJustificationAbove,
   };
 }
-

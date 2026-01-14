@@ -1,4 +1,11 @@
-import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableColumn,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
 /**
  * Phase 5.1: Work Management Core Schema
@@ -8,7 +15,9 @@ import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableF
  * - Tables: work_tasks, work_task_dependencies, task_comments, task_activities
  * - Indexes and constraints
  */
-export class Phase5WorkManagementCore1767637754000 implements MigrationInterface {
+export class Phase5WorkManagementCore1767637754000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enum types
     await queryRunner.query(`
@@ -87,7 +96,15 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
           {
             name: 'status',
             type: 'enum',
-            enum: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'DONE', 'CANCELED'],
+            enum: [
+              'BACKLOG',
+              'TODO',
+              'IN_PROGRESS',
+              'BLOCKED',
+              'IN_REVIEW',
+              'DONE',
+              'CANCELED',
+            ],
             default: "'TODO'",
           },
           {
@@ -196,7 +213,12 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
           {
             name: 'type',
             type: 'enum',
-            enum: ['FINISH_TO_START', 'START_TO_START', 'FINISH_TO_FINISH', 'START_TO_FINISH'],
+            enum: [
+              'FINISH_TO_START',
+              'START_TO_START',
+              'FINISH_TO_FINISH',
+              'START_TO_FINISH',
+            ],
             default: "'FINISH_TO_START'",
           },
           {
@@ -413,7 +435,12 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
       'work_task_dependencies',
       new TableIndex({
         name: 'IDX_work_task_dependencies_unique',
-        columnNames: ['workspace_id', 'predecessor_task_id', 'successor_task_id', 'type'],
+        columnNames: [
+          'workspace_id',
+          'predecessor_task_id',
+          'successor_task_id',
+          'type',
+        ],
         isUnique: true,
       }),
     );
@@ -578,7 +605,9 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys first
     const workTasksTable = await queryRunner.getTable('work_tasks');
-    const taskDependenciesTable = await queryRunner.getTable('work_task_dependencies');
+    const taskDependenciesTable = await queryRunner.getTable(
+      'work_task_dependencies',
+    );
     const taskCommentsTable = await queryRunner.getTable('task_comments');
     const taskActivitiesTable = await queryRunner.getTable('task_activities');
 
@@ -605,7 +634,10 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
         (fk) => fk.columnNames.indexOf('predecessor_task_id') !== -1,
       );
       if (predecessorFk) {
-        await queryRunner.dropForeignKey('work_task_dependencies', predecessorFk);
+        await queryRunner.dropForeignKey(
+          'work_task_dependencies',
+          predecessorFk,
+        );
       }
 
       const successorFk = taskDependenciesTable.foreignKeys.find(
@@ -652,4 +684,3 @@ export class Phase5WorkManagementCore1767637754000 implements MigrationInterface
     await queryRunner.query(`DROP TYPE IF EXISTS task_status;`);
   }
 }
-

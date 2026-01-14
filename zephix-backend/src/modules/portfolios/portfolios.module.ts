@@ -12,10 +12,7 @@ import { Risk } from '../risks/entities/risk.entity';
 import { PortfoliosService } from './services/portfolios.service';
 import { PortfoliosRollupService } from './services/portfolios-rollup.service';
 import { PortfoliosController } from './portfolios.controller';
-import {
-  TenancyModule,
-  createTenantAwareRepositoryProvider,
-} from '../tenancy/tenancy.module';
+import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { WorkspacesModule } from '../workspaces/workspaces.module'; // PHASE 7.4.3: Fix DI - Import to get RequireWorkspaceAccessGuard and its dependencies
 import { ProjectsModule } from '../projects/projects.module';

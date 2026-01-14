@@ -35,20 +35,12 @@ import { WorkspaceAccessService } from '../workspace-access/workspace-access.ser
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRequest } from '../../common/http/auth-request';
 import { ForbiddenException } from '@nestjs/common';
-import {
-  normalizePlatformRole,
-  PlatformRole,
-  isAdminRole,
-} from '../../shared/enums/platform-roles.enum';
-import {
-  blockGuestWrite,
-  canEditWorkItem,
-} from './helpers/work-item-permissions.helper';
+import { normalizePlatformRole, PlatformRole, isAdminRole } from '../../shared/enums/platform-roles.enum';
+import { blockGuestWrite, canEditWorkItem } from './helpers/work-item-permissions.helper';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { Inject } from '@nestjs/common';
-import { AdminOnlyGuard } from '../../shared/guards/admin-only.guard';
 
 type UserJwt = {
   id: string;
@@ -254,19 +246,24 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      platformRole,
+      user.role,
     );
 
     if (!canAccess) {
       throw new BadRequestException('Workspace not found');
     }
 
-    return this.commentService.create(id, workItem.workspaceId, dto, user.id);
+    return this.commentService.create(
+      id,
+      workItem.workspaceId,
+      dto,
+      user.id,
+    );
   }
 
   @Get(':id/comments')
@@ -286,12 +283,12 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access (read access)
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -319,12 +316,12 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access (read access)
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      platformRole,
+      req.user.role || req.user.platformRole,
     );
 
     if (!canAccess) {
@@ -343,13 +340,12 @@ export class WorkItemController {
     @Req() req: AuthRequest,
   ) {
     // PHASE 7 MODULE 7.2: Block Guest (VIEWER)
-    const { platformRole } = getAuthContext(req);
-    const userRole = normalizePlatformRole(platformRole);
+    const userRole = normalizePlatformRole(user.role || req.user.platformRole);
     if (userRole === PlatformRole.VIEWER) {
       throw new ForbiddenException('Forbidden');
     }
 
-    return this.myWorkService.getMyWork(user.id, platformRole);
+    return this.myWorkService.getMyWork(user.id, user.role || req.user.platformRole);
   }
 
   // PHASE 7 MODULE 7.4: Bulk update work items
@@ -361,8 +357,8 @@ export class WorkItemController {
     @CurrentUser() user: UserJwt,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
-    const userRole = platformRole;
+    const { organizationId, userId } = getAuthContext(req);
+    const userRole = user.role || req.user.platformRole;
 
     // Verify workspace access
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
@@ -382,15 +378,14 @@ export class WorkItemController {
   // PHASE 7 MODULE 7.4: Bulk delete work items (Admin only)
   @Post('bulk/delete')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AdminOnlyGuard)
   async bulkDelete(
     @GetTenant() tenant: TenantContext,
     @Body() dto: BulkDeleteWorkItemsDto,
     @CurrentUser() user: UserJwt,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
-    const userRole = platformRole;
+    const { organizationId, userId } = getAuthContext(req);
+    const userRole = user.role || req.user.platformRole;
 
     // Verify workspace access
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(

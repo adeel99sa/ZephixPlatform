@@ -251,8 +251,4 @@ export class Project {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'delivery_owner_user_id' })
   deliveryOwner?: User;
-
-  // Phase 7.5: KPI activation state - array of KPI IDs that are active for this project
-  @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
-  activeKpiIds: string[];
 }

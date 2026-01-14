@@ -9,4 +9,3 @@ export const REQUIRE_WORKSPACE_PERMISSION_KEY = 'requireWorkspacePermission';
  */
 export const RequireWorkspacePermission = (action: WorkspacePermissionAction) =>
   SetMetadata(REQUIRE_WORKSPACE_PERMISSION_KEY, action);
-

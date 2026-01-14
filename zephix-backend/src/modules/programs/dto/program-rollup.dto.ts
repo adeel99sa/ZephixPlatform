@@ -61,10 +61,7 @@ export class TotalsDto {
 }
 
 export class HealthDto {
-  @ApiProperty({
-    description: 'Health status',
-    enum: ['green', 'yellow', 'red'],
-  })
+  @ApiProperty({ description: 'Health status', enum: ['green', 'yellow', 'red'] })
   status: 'green' | 'yellow' | 'red';
 
   @ApiProperty({ description: 'Health reasons', type: [String] })
@@ -87,9 +84,6 @@ export class ProgramRollupResponseDto {
   @ApiProperty({ description: 'Health status', type: HealthDto })
   health: HealthDto;
 
-  @ApiProperty({
-    description: 'Projects in program',
-    type: [ProjectSummaryDto],
-  })
+  @ApiProperty({ description: 'Projects in program', type: [ProjectSummaryDto] })
   projects: ProjectSummaryDto[];
 }

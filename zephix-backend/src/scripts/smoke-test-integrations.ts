@@ -154,4 +154,3 @@ smokeTestIntegrations().catch((error) => {
   console.error('❌ Smoke test failed:', error);
   process.exit(1);
 });
-

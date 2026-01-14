@@ -60,4 +60,3 @@ export async function runJobWithTenant<T>(
       'Use TenantContextService.runWithTenant() directly, or create a job processor class that injects TenantContextService.',
   );
 }
-

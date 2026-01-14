@@ -63,11 +63,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
   ],
-  controllers: [
-    ProjectsController,
-    TaskController,
-    WorkspaceProjectsController,
-  ], // PHASE 6: Added WorkspaceProjectsController
+  controllers: [ProjectsController, TaskController, WorkspaceProjectsController], // PHASE 6: Added WorkspaceProjectsController
   providers: [
     // Provide TenantAwareRepository for Project, Task, Template, TemplateBlock
     createTenantAwareRepositoryProvider(Project),

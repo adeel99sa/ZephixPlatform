@@ -1,4 +1,9 @@
-import { MigrationInterface, QueryRunner, TableColumn, TableIndex } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  TableColumn,
+  TableIndex,
+} from 'typeorm';
 
 /**
  * Phase 4.3: Add Dashboard Sharing Fields
@@ -60,4 +65,3 @@ export class AddDashboardSharing1767590539000 implements MigrationInterface {
     await queryRunner.dropColumn('dashboards', 'share_token');
   }
 }
-

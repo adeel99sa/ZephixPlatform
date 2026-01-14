@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest';
+import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { Project, ProjectState } from '../src/modules/projects/entities/project.entity';
@@ -11,7 +11,6 @@ import { WorkspaceMember } from '../src/modules/workspaces/entities/workspace-me
 import { UserOrganization } from '../src/organizations/entities/user-organization.entity';
 import { WorkPhase } from '../src/modules/work-management/entities/work-phase.entity';
 import { WorkTask } from '../src/modules/work-management/entities/work-task.entity';
-import { TaskStatus } from '../src/modules/work-management/enums/task.enums';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { ApiErrorFilter } from '../src/shared/filters/api-error.filter';
@@ -95,12 +94,12 @@ describe('Work Management Roles (e2e)', () => {
     await uoRepo.save({
       userId: stakeholderUser.id,
       organizationId: org1.id,
-      role: 'pm',
+      role: 'member',
     });
     await uoRepo.save({
       userId: deliveryOwnerUser.id,
       organizationId: org1.id,
-      role: 'pm',
+      role: 'member',
     });
 
     // Login to get tokens
@@ -294,14 +293,13 @@ describe('Work Management Roles (e2e)', () => {
     it('should allow delivery owner to update task', async () => {
       // Create task first
       const taskRepo = dataSource.getRepository(WorkTask);
-      const saved = await taskRepo.save({
+      const task = await taskRepo.save({
         organizationId: org1.id,
         workspaceId: workspace1.id,
         projectId: project1.id,
         title: 'Test Task',
-        status: TaskStatus.TODO,
+        status: 'TODO',
       });
-      const task = Array.isArray(saved) ? saved[0] : saved;
 
       const response = await request(app.getHttpServer())
         .patch(`/api/work/tasks/${task.id}`)
