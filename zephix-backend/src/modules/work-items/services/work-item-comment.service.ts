@@ -1,15 +1,14 @@
-import {
-  Injectable,
-  NotFoundException,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkItemComment } from '../entities/work-item-comment.entity';
 import { WorkItem } from '../entities/work-item.entity';
 import { CreateWorkItemCommentDto } from '../dto/create-work-item-comment.dto';
-import { WorkItemActivity, WorkItemActivityType } from '../entities/work-item-activity.entity';
+import {
+  WorkItemActivity,
+  WorkItemActivityType,
+} from '../entities/work-item-activity.entity';
 
 @Injectable()
 export class WorkItemCommentService {

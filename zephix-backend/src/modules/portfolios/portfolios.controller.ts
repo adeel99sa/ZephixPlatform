@@ -310,7 +310,10 @@ export class PortfoliosController {
   @ApiOperation({ summary: 'Get portfolio rollup' })
   @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
   @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
-  @ApiResponse({ status: 200, description: 'Portfolio rollup retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Portfolio rollup retrieved successfully',
+  })
   @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
   async getRollup(
     @Param('workspaceId') workspaceId: string,

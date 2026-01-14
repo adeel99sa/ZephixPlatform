@@ -505,10 +505,11 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
       // Find or create portfolio in this workspace - use detected column names
       let portfolioId = portfolioMap.get(group.workspace_id);
       if (!portfolioId) {
-        const portfolioOrgCol = await this.getColumnName(queryRunner, 'portfolios', [
-          'organization_id',
-          'organizationId',
-        ]);
+        const portfolioOrgCol = await this.getColumnName(
+          queryRunner,
+          'portfolios',
+          ['organization_id', 'organizationId'],
+        );
         if (!portfolioOrgCol) {
           throw new Error(
             'Migration failed: Could not find organization column in portfolios table',

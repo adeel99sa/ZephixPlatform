@@ -1016,5 +1016,4 @@ export class WorkspacesController {
       );
     }
   }
-
 }

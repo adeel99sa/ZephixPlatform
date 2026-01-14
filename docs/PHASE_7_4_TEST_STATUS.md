@@ -29,9 +29,6 @@ All 10 bulk work-item integration tests are now passing. Test suite runs in ~12 
 5. **Validation Message Assertion**
    - Fixed to access array element `message[0]` instead of string
 
-6. **AdminOnlyGuard**
-   - Added `AdminOnlyGuard` and applied to bulk delete endpoint to enforce admin-only access consistently
-
 ## Test Infrastructure Notes
 
 - **Railway test DB is live** - Integration tests connect to Railway-hosted test database
