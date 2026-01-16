@@ -4,7 +4,10 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { listTemplates, updateTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
+import { listTemplates, updateTemplate, publishTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
+import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplateStructureEditor } from './TemplateStructureEditor';
 import { TemplateKpiSelector } from './TemplateKpiSelector';
@@ -169,7 +172,16 @@ export default function TemplateCenterPage() {
       {/* Right Panel - Template Details */}
       <div className="flex-1 flex flex-col bg-gray-50">
         {selectedTemplate ? (
-          <TemplateDetailsPanel template={selectedTemplate} />
+          <TemplateDetailsPanel 
+            template={selectedTemplate} 
+            onTemplateUpdate={(updated) => {
+              // Update in list
+              setAllTemplates((prev) =>
+                prev.map((t) => (t.id === updated.id ? updated : t))
+              );
+              setSelectedTemplate(updated);
+            }}
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -196,12 +208,18 @@ export default function TemplateCenterPage() {
 
 interface TemplateDetailsPanelProps {
   template: TemplateDto;
+  onTemplateUpdate?: (template: TemplateDto) => void;
 }
 
-function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
+function TemplateDetailsPanel({ template, onTemplateUpdate }: TemplateDetailsPanelProps) {
+  const { user } = useAuth();
+  const { activeWorkspaceId } = useWorkspaceStore();
+  const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
+  
   const [structure, setStructure] = useState(template.structure || { phases: [] });
   const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [localTemplate, setLocalTemplate] = useState(template);
 
@@ -251,6 +269,37 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
       setSaving(false);
     }
   };
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    setSaveError(null);
+    try {
+      const updated = await publishTemplate(localTemplate.id, localTemplate.templateScope);
+      setLocalTemplate(updated);
+      // Notify parent to refresh list
+      if (onTemplateUpdate) {
+        onTemplateUpdate(updated);
+      }
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to publish template');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // Determine if publish button should be enabled
+  const canPublish = (() => {
+    // Admin can publish ORG templates
+    if (localTemplate.templateScope === 'ORG' && user?.role === 'admin') {
+      return true;
+    }
+    // Workspace Owner can publish WORKSPACE templates
+    if (localTemplate.templateScope === 'WORKSPACE' && !isReadOnly) {
+      // For MVP, rely on backend 403 if role is wrong
+      return true;
+    }
+    return false;
+  })();
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -314,12 +363,11 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
           Edit
         </button>
         <button
-          onClick={() => {
-            // TODO: Publish template
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onClick={handlePublish}
+          disabled={!canPublish || publishing}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Publish
+          {publishing ? 'Publishing...' : 'Publish'}
         </button>
         <button
           onClick={() => {
