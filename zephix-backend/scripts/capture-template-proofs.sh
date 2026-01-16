@@ -122,6 +122,13 @@ req "09_instantiate_workspace_template_correct_workspace" "POST" "$API_BASE/temp
 
 req "10_legacy_instantiate_route_gone" "POST" "$API_BASE/templates/$WS_TEMPLATE_ID/instantiate" "$ADMIN_TOKEN" "$WORKSPACE_ID" "{}"
 
+# Update operations proof (after fix)
+PATCH_STRUCTURE_BODY="{\"structure\":{\"phases\":[{\"name\":\"Phase 1 Updated\",\"reportingKey\":\"PLAN\",\"sortOrder\":1,\"tasks\":[{\"title\":\"Task 1 Updated\",\"status\":\"TODO\",\"sortOrder\":1},{\"title\":\"Task 2 New\",\"status\":\"IN_PROGRESS\",\"sortOrder\":2}]}]},\"defaultEnabledKPIs\":[\"schedule_variance\",\"budget_variance\"]}"
+req "11_admin_patch_org_template_structure" "PATCH" "$API_BASE/templates/$ORG_TEMPLATE_ID" "$ADMIN_TOKEN" "" "$PATCH_STRUCTURE_BODY"
+
+PATCH_KPIS_BODY="{\"defaultEnabledKPIs\":[\"schedule_variance\",\"budget_variance\",\"resource_utilization\"]}"
+req "12_owner_patch_workspace_template_kpis" "PATCH" "$API_BASE/templates/$WS_TEMPLATE_ID" "$OWNER_TOKEN" "$WORKSPACE_ID" "$PATCH_KPIS_BODY"
+
 echo ""
 echo "Done. Files saved under $OUT_DIR"
 echo ""

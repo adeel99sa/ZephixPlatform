@@ -124,7 +124,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     const response = await api.post("/auth/login", { email, password });
     // API interceptor unwraps the response, so tokens are at the top level
+    
+    // CRITICAL: Write token to storage IMMEDIATELY before any other operations
+    // This ensures token is available for subsequent requests even if state update fails
     setTokens(response.accessToken, response.refreshToken, response.sessionId);
+    
+    // Verify token was written (defensive check)
+    const writtenToken = localStorage.getItem('zephix.at');
+    if (!writtenToken || writtenToken !== response.accessToken) {
+      console.error('[AuthContext] Token write failed! Expected:', response.accessToken?.substring(0, 20), 'Got:', writtenToken?.substring(0, 20));
+      throw new Error('Failed to store authentication token');
+    }
+    
     // Add computed name field
     const userWithName = {
       ...response.user,
