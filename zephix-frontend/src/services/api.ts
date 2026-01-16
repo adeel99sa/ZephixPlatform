@@ -87,60 +87,79 @@ const api: AxiosInstance = axios.create({
 // Request interceptor for token attachment and logging
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Get token from Zustand auth store
-    const authStorage = localStorage.getItem('auth-storage');
+    // CRITICAL FIX: Read token from AuthContext storage (zephix.at) first
+    // AuthContext stores tokens in zephix.at, not auth-storage
+    let token: string | null = null;
+    
+    // First, try AuthContext storage (zephix.at)
+    token = localStorage.getItem('zephix.at');
+    
+    // Fallback to Zustand auth store (auth-storage) for backward compatibility
+    if (!token) {
+      const authStorage = localStorage.getItem('auth-storage');
+      if (authStorage) {
+        try {
+          const { state } = JSON.parse(authStorage) as { state: AuthState };
 
-    if (authStorage) {
+          // Check if we have a valid token that hasn't expired
+          const hasValidToken = state?.accessToken &&
+                               state.accessToken !== 'null' &&
+                               state.accessToken !== null &&
+                               typeof state.accessToken === 'string' &&
+                               state.accessToken.length > 0 &&
+                               state?.expiresAt;
+
+          if (hasValidToken) {
+            const now = Date.now();
+
+            if (now < state.expiresAt) {
+              token = state.accessToken;
+            } else {
+              // Token expired, remove it
+              console.warn('Access token expired, will attempt refresh');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse auth storage:', error);
+          localStorage.removeItem('auth-storage');
+        }
+      }
+    }
+    
+    // Attach token if found
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // CRITICAL FIX: Do NOT add x-workspace-id to auth endpoints
+    // Auth endpoints like /api/auth/me should not require workspace context
+    const isAuthEndpoint = config.url?.includes('/auth/') || config.url?.startsWith('/auth/');
+    
+    if (!isAuthEndpoint) {
+      // Get workspace ID from centralized helper
+      // Use dynamic import to avoid circular dependency
+      let activeWorkspaceId: string | null = null;
       try {
-        const { state } = JSON.parse(authStorage) as { state: AuthState };
-
-        // Check if we have a valid token that hasn't expired
-        const hasValidToken = state?.accessToken &&
-                             state.accessToken !== 'null' &&
-                             state.accessToken !== null &&
-                             typeof state.accessToken === 'string' &&
-                             state.accessToken.length > 0 &&
-                             state?.expiresAt;
-
-        if (hasValidToken) {
-          const now = Date.now();
-
-          if (now < state.expiresAt) {
-            config.headers.Authorization = `Bearer ${state.accessToken}`;
-          } else {
-            // Token expired, remove it
-            console.warn('Access token expired, will attempt refresh');
+        const { getActiveWorkspaceId } = await import('../utils/workspace');
+        activeWorkspaceId = getActiveWorkspaceId();
+      } catch (error) {
+        // Fallback to direct store access if import fails
+        const workspaceStorage = localStorage.getItem('workspace-storage');
+        if (workspaceStorage) {
+          try {
+            const { state } = JSON.parse(workspaceStorage) as { state: { activeWorkspaceId: string | null } };
+            activeWorkspaceId = state?.activeWorkspaceId || null;
+          } catch (parseError) {
+            console.warn('Failed to parse workspace storage:', parseError);
           }
         }
-      } catch (error) {
-        console.error('Failed to parse auth storage:', error);
-        localStorage.removeItem('auth-storage');
       }
-    }
 
-    // Get workspace ID from centralized helper
-    // Use dynamic import to avoid circular dependency
-    let activeWorkspaceId: string | null = null;
-    try {
-      const { getActiveWorkspaceId } = await import('../utils/workspace');
-      activeWorkspaceId = getActiveWorkspaceId();
-    } catch (error) {
-      // Fallback to direct store access if import fails
-      const workspaceStorage = localStorage.getItem('workspace-storage');
-      if (workspaceStorage) {
-        try {
-          const { state } = JSON.parse(workspaceStorage) as { state: { activeWorkspaceId: string | null } };
-          activeWorkspaceId = state?.activeWorkspaceId || null;
-        } catch (parseError) {
-          console.warn('Failed to parse workspace storage:', parseError);
-        }
+      // Add x-workspace-id header if workspace is available
+      // Do not send "default" - only send actual UUID
+      if (activeWorkspaceId && activeWorkspaceId !== 'default') {
+        config.headers['x-workspace-id'] = activeWorkspaceId;
       }
-    }
-
-    // Add x-workspace-id header if workspace is available
-    // Do not send "default" - only send actual UUID
-    if (activeWorkspaceId && activeWorkspaceId !== 'default') {
-      config.headers['x-workspace-id'] = activeWorkspaceId;
     }
 
     // Check if route requires workspace context
