@@ -802,7 +802,7 @@ export class TemplatesService {
    * Update template V1
    * Supports updating: name, description, category, icon, methodology, metadata, structure, defaultEnabledKPIs
    * Does NOT allow changing templateScope or workspaceId
-   * 
+   *
    * @param templateId - Template ID to update
    * @param dto - Update data
    * @param ctx - Tenant context (organizationId, userId, platformRole, workspaceId)
@@ -829,7 +829,7 @@ export class TemplatesService {
     // Wrap in tenant context to ensure repository operations work
     // runWithTenant requires organizationId, so use a placeholder for SYSTEM templates
     const tenantOrgId = ctx.organizationId || 'system-templates';
-    
+
     return this.tenantContextService.runWithTenant(
       {
         organizationId: tenantOrgId,
