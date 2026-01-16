@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { instantiateTemplate, InstantiateTemplateResponse } from '@/features/templates/templates.api';
 import { useNavigate } from 'react-router-dom';
 import { getActiveWorkspaceId } from '@/utils/workspace';
-import { toast } from 'sonner';
 
 interface InstantiateTemplateModalProps {
   open: boolean;
@@ -50,21 +49,17 @@ export function InstantiateTemplateModal({
         projectName: projectName.trim(),
       });
 
-      // Navigate to project page on success
+      // Navigate to project page
+      // Try /projects/:id first, fallback to showing success message
       if (result.projectId) {
-        toast.success('Project created successfully');
-        navigate(`/projects/${result.projectId}`, { replace: true });
-        onClose();
+        navigate(`/projects/${result.projectId}`);
       } else {
-        // Fallback: show error if projectId missing
-        const errorMsg = 'Project created but projectId not returned';
-        setError(errorMsg);
-        toast.error(errorMsg);
+        // Fallback: show success message
+        alert(`Project created successfully! Project ID: ${result.projectId || 'unknown'}`);
+        onClose();
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create project from template';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      setError(err?.message || 'Failed to create project from template');
     } finally {
       setLoading(false);
     }
