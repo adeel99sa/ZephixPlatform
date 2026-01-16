@@ -21,6 +21,9 @@ import {
   GoneException,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { Template } from '../entities/template.entity';
 import { TemplatesService } from '../services/templates.service';
 import { TemplatesInstantiateService } from '../services/templates-instantiate.service';
 import { TemplatesInstantiateV51Service } from '../services/templates-instantiate-v51.service';
@@ -114,6 +117,8 @@ export class TemplatesController {
     private readonly previewV51Service: TemplatesPreviewV51Service,
     private readonly responseService: ResponseService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -406,34 +411,24 @@ export class TemplatesController {
    * Update a template
    * V1: Blocked by TemplateLockGuard if template is locked
    */
-  @UseGuards(TemplateLockGuard)
+  @UseGuards(JwtAuthGuard, TemplateLockGuard)
   @Put(':id')
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTemplateDto,
     @Req() req: AuthRequest,
   ) {
-    // Use updateV1 for Template entity
-    return this.responseService.success(
-      await this.templatesService.updateV1(req, id, dto),
-    );
-  }
-
-  /**
-   * PATCH /api/templates/:id
-   * Update a template (alternative to PUT)
-   * V1: Blocked by TemplateLockGuard if template is locked
-   * Phase 5: Only org owner/admin can update riskPresets and kpiPresets
-   */
-  @UseGuards(TemplateLockGuard)
-  @Patch(':id')
-  async patch(
-    @Param('id') id: string,
-    @Body() dto: UpdateTemplateDto,
-    @Req() req: AuthRequest,
-  ) {
     const auth = getAuthContext(req);
-    const template = await this.templatesService.getV1(req, id);
+    // Load template directly using dataSource to avoid req dependency in getV1
+    const template = await this.dataSource.getRepository(Template).findOne({
+      where: [
+        { id, organizationId: auth.organizationId },
+        { id, templateScope: 'SYSTEM', organizationId: null },
+      ],
+    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
 
     // Role enforcement: same as create
     const platformRole = normalizePlatformRole(auth.platformRole);
@@ -443,6 +438,15 @@ export class TemplatesController {
       );
     }
     if (template.templateScope === 'WORKSPACE') {
+      // Validate workspace header is present for WORKSPACE templates
+      const workspaceId = this.validateWorkspaceId(
+        req.headers['x-workspace-id'] as string | undefined,
+      );
+      if (!workspaceId || workspaceId !== template.workspaceId) {
+        throw new BadRequestException(
+          'x-workspace-id header is required and must match template workspaceId for WORKSPACE templates',
+        );
+      }
       if (!isAdminRole(platformRole)) {
         const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
           template.workspaceId,
@@ -459,8 +463,97 @@ export class TemplatesController {
       throw new ForbiddenException('Cannot update SYSTEM templates');
     }
 
+    // Build context for updateV1
+    const ctx = {
+      organizationId: auth.organizationId,
+      userId: auth.userId,
+      platformRole: auth.platformRole,
+      workspaceId:
+        template.templateScope === 'WORKSPACE'
+          ? this.validateWorkspaceId(
+              req.headers['x-workspace-id'] as string | undefined,
+            )
+          : null,
+    };
+
     return this.responseService.success(
-      await this.templatesService.updateV1(req, id, dto),
+      await this.templatesService.updateV1(id, dto, ctx),
+    );
+  }
+
+  /**
+   * PATCH /api/templates/:id
+   * Update a template (alternative to PUT)
+   * V1: Blocked by TemplateLockGuard if template is locked
+   * Phase 5: Only org owner/admin can update riskPresets and kpiPresets
+   */
+  @UseGuards(JwtAuthGuard, TemplateLockGuard)
+  @Patch(':id')
+  async patch(
+    @Param('id') id: string,
+    @Body() dto: UpdateTemplateDto,
+    @Req() req: AuthRequest,
+  ) {
+    const auth = getAuthContext(req);
+    // Load template directly using dataSource to avoid req dependency in getV1
+    const template = await this.dataSource.getRepository(Template).findOne({
+      where: [
+        { id, organizationId: auth.organizationId },
+        { id, templateScope: 'SYSTEM', organizationId: null },
+      ],
+    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    // Role enforcement: same as create
+    const platformRole = normalizePlatformRole(auth.platformRole);
+    if (template.templateScope === 'ORG' && !isAdminRole(platformRole)) {
+      throw new ForbiddenException(
+        'Only organization admins can update ORG templates',
+      );
+    }
+    if (template.templateScope === 'WORKSPACE') {
+      // Validate workspace header is present for WORKSPACE templates
+      const workspaceId = this.validateWorkspaceId(
+        req.headers['x-workspace-id'] as string | undefined,
+      );
+      if (!workspaceId || workspaceId !== template.workspaceId) {
+        throw new BadRequestException(
+          'x-workspace-id header is required and must match template workspaceId for WORKSPACE templates',
+        );
+      }
+      if (!isAdminRole(platformRole)) {
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          template.workspaceId,
+          auth.userId,
+        );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can update WORKSPACE templates',
+          );
+        }
+      }
+    }
+    if (template.templateScope === 'SYSTEM') {
+      throw new ForbiddenException('Cannot update SYSTEM templates');
+    }
+
+    // Build context for updateV1
+    const ctx = {
+      organizationId: auth.organizationId,
+      userId: auth.userId,
+      platformRole: auth.platformRole,
+      workspaceId:
+        template.templateScope === 'WORKSPACE'
+          ? this.validateWorkspaceId(
+              req.headers['x-workspace-id'] as string | undefined,
+            )
+          : null,
+    };
+
+    return this.responseService.success(
+      await this.templatesService.updateV1(id, dto, ctx),
     );
   }
 
@@ -720,7 +813,11 @@ export class TemplatesController {
 export class AdminTemplatesController {
   private readonly logger = new Logger(AdminTemplatesController.name);
 
-  constructor(private readonly templatesService: TemplatesService) {}
+  constructor(
+    private readonly templatesService: TemplatesService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+  ) {}
 
   /**
    * GET /admin/templates
@@ -772,8 +869,31 @@ export class AdminTemplatesController {
     @Body() dto: UpdateTemplateDto,
     @Req() req: AuthRequest,
   ) {
-    // Use updateV1 for Template entity
-    return this.templatesService.updateV1(req, id, dto);
+    const auth = getAuthContext(req);
+    // Load template directly using dataSource to avoid req dependency in getV1
+    const template = await this.dataSource.getRepository(Template).findOne({
+      where: [
+        { id, organizationId: auth.organizationId },
+        { id, templateScope: 'SYSTEM', organizationId: null },
+      ],
+    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    // Admin controller - workspaceId validation not needed for admin
+    // Build context for updateV1
+    const ctx = {
+      organizationId: auth.organizationId,
+      userId: auth.userId,
+      platformRole: auth.platformRole,
+      workspaceId:
+        template.templateScope === 'WORKSPACE'
+          ? (req.headers['x-workspace-id'] as string | undefined) || null
+          : null,
+    };
+
+    return this.templatesService.updateV1(id, dto, ctx);
   }
 
   /**

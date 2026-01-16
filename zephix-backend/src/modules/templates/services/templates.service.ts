@@ -24,6 +24,11 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -794,12 +799,15 @@ export class TemplatesService {
   }
 
   /**
-   * Publish a template - increments version and sets publishedAt
-   * Only increments version on publish, not on every edit
-   * Uses atomic update to prevent version collisions
+   * Update template V1
+   * Supports updating: name, description, category, icon, methodology, metadata, structure, defaultEnabledKPIs
+   * Does NOT allow changing templateScope or workspaceId
+   * 
+   * @param templateId - Template ID to update
+   * @param dto - Update data
+   * @param ctx - Tenant context (organizationId, userId, platformRole, workspaceId)
    */
   async updateV1(
-    req: Request,
     templateId: string,
     dto: {
       name?: string;
@@ -811,29 +819,76 @@ export class TemplatesService {
       structure?: Record<string, any>;
       defaultEnabledKPIs?: string[];
     },
+    ctx: {
+      organizationId: string | null;
+      userId: string;
+      platformRole?: string;
+      workspaceId?: string | null;
+    },
   ): Promise<Template> {
-    const orgId = this.getOrgId(req);
-    const userId = this.getUserId(req);
-
-    return this.dataSource.transaction(async (manager) => {
+    // Wrap in tenant context to ensure repository operations work
+    // runWithTenant requires organizationId, so use a placeholder for SYSTEM templates
+    const tenantOrgId = ctx.organizationId || 'system-templates';
+    
+    return this.tenantContextService.runWithTenant(
+      {
+        organizationId: tenantOrgId,
+        workspaceId: ctx.workspaceId || undefined,
+      },
+      async () => {
+        return this.dataSource.transaction(async (manager) => {
+      // Load template by id first
       const template = await manager.getRepository(Template).findOne({
-        where: [
-          { id: templateId, organizationId: orgId },
-          { id: templateId, templateScope: 'SYSTEM', organizationId: null },
-        ],
+        where: { id: templateId },
       });
 
       if (!template) {
-        throw new NotFoundException('Template not found or not accessible');
+        throw new NotFoundException('Template not found');
       }
 
-      // Prevent editing system templates
-      if (template.templateScope === 'SYSTEM') {
-        throw new ForbiddenException('Cannot edit SYSTEM templates');
+      // Apply scope checks using ctx
+      if (template.templateScope === 'ORG') {
+        // Require ctx.organizationId equals template.organizationId
+        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
+          throw new ForbiddenException(
+            'Cannot update template from different organization',
+          );
+        }
+        // Admin role required
+        const platformRole = ctx.platformRole
+          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+          : null;
+        if (!isAdminRole(platformRole)) {
+          throw new ForbiddenException(
+            'Only organization admins can update ORG templates',
+          );
+        }
+      } else if (template.templateScope === 'WORKSPACE') {
+        // Require ctx.organizationId equals template.organizationId
+        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
+          throw new ForbiddenException(
+            'Cannot update template from different organization',
+          );
+        }
+        // Require ctx.workspaceId equals template.workspaceId
+        if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
+          throw new ForbiddenException(
+            'Cannot update template from different workspace',
+          );
+        }
+        // Allow admin, or workspace_owner with write access
+        // For non-admin, workspace role check is done in controller
+      } else if (template.templateScope === 'SYSTEM') {
+        // Allow only admin
+        const platformRole = ctx.platformRole
+          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+          : null;
+        if (!isAdminRole(platformRole)) {
+          throw new ForbiddenException('Cannot update SYSTEM templates');
+        }
       }
 
-      // Enforce scope rules - cannot change templateScope or workspaceId
-      // Only allow updates to: name, description, category, icon, methodology, metadata, structure, defaultEnabledKPIs
+      // Update allowed fields only
       if (dto.name !== undefined) {
         template.name = dto.name.trim();
       }
@@ -859,11 +914,15 @@ export class TemplatesService {
         template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
       }
 
-      template.updatedById = userId;
+      template.updatedById = ctx.userId;
 
+      // Persist via repository save
+      // Use manager.getRepository which doesn't require tenant context
       const saved = await manager.getRepository(Template).save(template);
       return saved;
-    });
+        });
+      },
+    );
   }
 
   async publishV1(req: Request, templateId: string): Promise<Template> {
