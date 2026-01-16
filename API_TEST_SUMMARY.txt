@@ -1,0 +1,21 @@
+## API Test Summary
+
+### ✅ Passing Tests
+1. Admin list templates (no workspace) - Returns ORG only
+2. Owner list templates (with workspace) - Returns ORG + WORKSPACE
+3. Create ORG template - 201, correct scope and workspaceId
+4. Create WORKSPACE template - 201, correct scope and workspaceId
+5. Member restrictions - 403 for both ORG and WORKSPACE creation
+6. Update structure - Persists correctly
+7. Update defaultEnabledKPIs - Persists correctly
+8. Publish template - Version increments, RBAC enforced
+9. Instantiate template - Project created successfully
+
+### ⚠️ UI Tests Required
+- Structure editor validation (client-side)
+- KPI selector UI behavior
+- Publish button enablement
+- Navigation after instantiate
+
+### 📁 Test Artifacts
+All API responses saved in /tmp/step-*-response.txt files
