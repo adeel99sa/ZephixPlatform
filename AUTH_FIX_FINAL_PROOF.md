@@ -75,10 +75,10 @@ api.interceptors.request.use(
     // CRITICAL FIX: Read token from AuthContext storage (zephix.at) first
     // AuthContext stores tokens in zephix.at, not auth-storage
     let token: string | null = null;
-
+    
     // First, try AuthContext storage (zephix.at)
     token = localStorage.getItem('zephix.at');
-
+    
     // Fallback to Zustand auth store (auth-storage) for backward compatibility
     if (!token) {
       const authStorage = localStorage.getItem('auth-storage');
@@ -106,7 +106,7 @@ api.interceptors.request.use(
         }
       }
     }
-
+    
     // Attach token if found
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -162,18 +162,18 @@ api.interceptors.request.use(
 const login = async (email: string, password: string) => {
   const response = await api.post("/auth/login", { email, password });
   // API interceptor unwraps the response, so tokens are at the top level
-
+  
   // CRITICAL: Write token to storage IMMEDIATELY before any other operations
   // This ensures token is available for subsequent requests even if state update fails
   setTokens(response.accessToken, response.refreshToken, response.sessionId);
-
+  
   // Verify token was written (defensive check)
   const writtenToken = localStorage.getItem('zephix.at');
   if (!writtenToken || writtenToken !== response.accessToken) {
     console.error('[AuthContext] Token write failed! Expected:', response.accessToken?.substring(0, 20), 'Got:', writtenToken?.substring(0, 20));
     throw new Error('Failed to store authentication token');
   }
-
+  
   // Add computed name field
   const userWithName = {
     ...response.user,
@@ -196,10 +196,10 @@ const login = async (email: string, password: string) => {
 
 ## Summary
 
-✅ **Backend**: Token generation works, 7d expiration for dev
-✅ **Curl Test**: `/api/auth/me` returns 200 with user data
-✅ **Interceptor**: Reads from `zephix.at`, skips workspace header for auth endpoints
-✅ **Login Flow**: Writes token immediately and verifies storage
+✅ **Backend**: Token generation works, 7d expiration for dev  
+✅ **Curl Test**: `/api/auth/me` returns 200 with user data  
+✅ **Interceptor**: Reads from `zephix.at`, skips workspace header for auth endpoints  
+✅ **Login Flow**: Writes token immediately and verifies storage  
 ✅ **Guardrails**: Auth, health, and version endpoints protected from workspace header
 
 ## Next Steps
