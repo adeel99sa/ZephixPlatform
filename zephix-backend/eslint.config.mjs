@@ -35,17 +35,15 @@ export default tseslint.config(
         {
           paths: [
             {
+              name: 'typeorm',
+              message:
+                'Direct TypeORM imports are forbidden. Use tenancy repositories.',
+            },
+            {
               name: '@nestjs/typeorm',
               importNames: ['InjectRepository'],
               message:
-                'Use TenantAwareRepository instead of @InjectRepository. Import from tenancy module.',
-            },
-          ],
-          patterns: [
-            {
-              group: ['typeorm'],
-              message:
-                'Direct TypeORM imports are forbidden in modules. Use TenantAwareRepository from tenancy module.',
+                'InjectRepository is forbidden. Use tenancy repositories.',
             },
           ],
         },
