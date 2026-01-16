@@ -34,7 +34,7 @@ export class TemplateLockGuard implements CanActivate {
       ],
       select: ['id', 'lockState'],
     });
-    
+
     if (!tpl) return true;
 
     if (tpl.lockState === 'LOCKED') {

@@ -90,10 +90,10 @@ api.interceptors.request.use(
     // CRITICAL FIX: Read token from AuthContext storage (zephix.at) first
     // AuthContext stores tokens in zephix.at, not auth-storage
     let token: string | null = null;
-    
+
     // First, try AuthContext storage (zephix.at)
     token = localStorage.getItem('zephix.at');
-    
+
     // Fallback to Zustand auth store (auth-storage) for backward compatibility
     if (!token) {
       const authStorage = localStorage.getItem('auth-storage');
@@ -125,7 +125,7 @@ api.interceptors.request.use(
         }
       }
     }
-    
+
     // Attach token if found
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -134,8 +134,8 @@ api.interceptors.request.use(
     // CRITICAL FIX: Do NOT add x-workspace-id to auth endpoints
     // Auth endpoints like /api/auth/me should not require workspace context
     const isAuthEndpoint = config.url?.includes('/auth/') || config.url?.startsWith('/auth/');
-    
-    if (!isAuthEndpoint) {
+
+    if (!shouldSkipWorkspaceHeader) {
       // Get workspace ID from centralized helper
       // Use dynamic import to avoid circular dependency
       let activeWorkspaceId: string | null = null;

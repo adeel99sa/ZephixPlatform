@@ -258,9 +258,14 @@ export class AuthService {
       platformRole: platformRole, // Normalized platform role
     };
 
+    // Use config service for expiration, with dev-friendly default
+    const expiresIn = process.env.NODE_ENV === 'development' 
+      ? (process.env.JWT_EXPIRES_IN || '7d')  // 7 days for dev testing
+      : (process.env.JWT_EXPIRES_IN || '15m'); // 15 minutes for production
+    
     return this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn: '15m',
+      expiresIn,
     });
   }
 
