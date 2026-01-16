@@ -26,6 +26,10 @@ jobs:
         working-directory: zephix-backend
         run: |
           npm run lint:tenancy-guard-full || exit 1
+      - name: Lint changed files (merge gate)
+        working-directory: zephix-backend
+        run: |
+          npm run lint:changed || exit 1
       - name: Check for circular dependencies (module-level only)
         working-directory: zephix-backend
         run: |
