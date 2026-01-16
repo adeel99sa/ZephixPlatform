@@ -87,12 +87,13 @@ const api: AxiosInstance = axios.create({
 // Request interceptor for token attachment and logging
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Get token from Zustand auth store
-    const authStorage = localStorage.getItem('auth-storage');
-
+    // CRITICAL FIX: Read token from AuthContext storage (zephix.at) first
+    // AuthContext stores tokens in zephix.at, not auth-storage
+    let token: string | null = null;
+    
     // First, try AuthContext storage (zephix.at)
     token = localStorage.getItem('zephix.at');
-
+    
     // Fallback to Zustand auth store (auth-storage) for backward compatibility
     if (!token) {
       const authStorage = localStorage.getItem('auth-storage');
@@ -124,21 +125,17 @@ api.interceptors.request.use(
         }
       }
     }
-
+    
     // Attach token if found
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
-    // These endpoints should not require workspace context
-    const url = config.url || '';
-    const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
-    const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
-    const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
-    const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
-
-    if (!shouldSkipWorkspaceHeader) {
+    // CRITICAL FIX: Do NOT add x-workspace-id to auth endpoints
+    // Auth endpoints like /api/auth/me should not require workspace context
+    const isAuthEndpoint = config.url?.includes('/auth/') || config.url?.startsWith('/auth/');
+    
+    if (!isAuthEndpoint) {
       // Get workspace ID from centralized helper
       // Use dynamic import to avoid circular dependency
       let activeWorkspaceId: string | null = null;
@@ -163,44 +160,6 @@ api.interceptors.request.use(
       if (activeWorkspaceId && activeWorkspaceId !== 'default') {
         config.headers['x-workspace-id'] = activeWorkspaceId;
       }
-    }
-
-    // Check if route requires workspace context
-    const requiresWorkspace = url.startsWith('/work/') ||
-                             url.startsWith('/projects/') ||
-                             url.includes('/work/') ||
-                             url.includes('/projects/');
-
-    // For routes that require workspace, fail fast if no workspace selected
-    if (requiresWorkspace && !activeWorkspaceId) {
-      const error = new Error('Workspace required. Please select a workspace first.');
-      (error as any).code = 'WORKSPACE_REQUIRED';
-      return Promise.reject(error);
-    }
-
-    // Get workspace ID from centralized helper
-    // Use dynamic import to avoid circular dependency
-    let activeWorkspaceId: string | null = null;
-    try {
-      const { getActiveWorkspaceId } = await import('../utils/workspace');
-      activeWorkspaceId = getActiveWorkspaceId();
-    } catch (error) {
-      // Fallback to direct store access if import fails
-      const workspaceStorage = localStorage.getItem('workspace-storage');
-      if (workspaceStorage) {
-        try {
-          const { state } = JSON.parse(workspaceStorage) as { state: { activeWorkspaceId: string | null } };
-          activeWorkspaceId = state?.activeWorkspaceId || null;
-        } catch (parseError) {
-          console.warn('Failed to parse workspace storage:', parseError);
-        }
-      }
-    }
-
-    // Add x-workspace-id header if workspace is available
-    // Do not send "default" - only send actual UUID
-    if (activeWorkspaceId && activeWorkspaceId !== 'default') {
-      config.headers['x-workspace-id'] = activeWorkspaceId;
     }
 
     // Check if route requires workspace context
