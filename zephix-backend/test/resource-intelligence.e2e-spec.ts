@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { User } from '../src/modules/users/entities/user.entity';
 import { Organization } from '../src/organizations/entities/organization.entity';
 import { Resource } from '../src/modules/resources/entities/resource.entity';
@@ -125,7 +125,9 @@ describe('Resource Intelligence (E2E)', () => {
   afterAll(async () => {
     // Cleanup
     if (dataSource && dataSource.isInitialized) {
-      const allocationRepo = dataSource.getRepository(ResourceAllocation);
+      const allocationRepo = dataSource.getRepository(
+        ResourceAllocation,
+      ) as Repository<ResourceAllocation>;
       await allocationRepo.delete({ organizationId: testOrg.id });
 
       const resourceRepo = dataSource.getRepository(Resource);
@@ -176,9 +178,11 @@ describe('Resource Intelligence (E2E)', () => {
 
     beforeEach(async () => {
       // Create an existing allocation for testing
-      const allocationRepo = dataSource.getRepository(ResourceAllocation);
-      const existing = allocationRepo.create({
-        resourceId: testResource.id,
+      const allocationRepo = dataSource.getRepository(
+        ResourceAllocation,
+      ) as Repository<ResourceAllocation>;
+      const saved = await allocationRepo.save({
+        resource: { id: testResource.id },
         projectId: testProject.id,
         organizationId: testOrg.id,
         userId: testUser.id,
@@ -187,8 +191,7 @@ describe('Resource Intelligence (E2E)', () => {
         endDate,
         type: 'HARD',
         bookingSource: 'MANUAL',
-      });
-      const saved = await allocationRepo.save(existing);
+      } as any);
       existingAllocationId = saved.id;
     });
 

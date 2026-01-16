@@ -31,8 +31,12 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
   const loadDependencies = async () => {
     try {
       setLoadingDependencies(true);
-      const response = await api.get(`/tasks/${task.id}/dependencies`);
-      setDependencies(response.data?.data || response.data || []);
+      // Note: Dependencies are included in task response, or use GET /work/tasks/:id
+      // For now, dependencies are managed via task update
+      const response = await api.get(`/work/tasks/${task.id}`);
+      const taskData = response.data?.data || response.data;
+      // If backend includes dependencies in task response, extract them here
+      setDependencies([]);
     } catch (error) {
       console.error('Failed to load dependencies:', error);
       setDependencies([]);
@@ -43,7 +47,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
 
   const addDependency = async (taskId: string, predecessorId: string) => {
     try {
-      await api.post(`/tasks/${taskId}/dependencies`, { predecessorId });
+      await api.post(`/work/tasks/${taskId}/dependencies`, { predecessorId });
       await loadDependencies();
     } catch (error: any) {
       console.error('Failed to add dependency:', error);
@@ -53,7 +57,10 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
 
   const removeDependency = async (taskId: string, dependencyId: string) => {
     try {
-      await api.delete(`/tasks/${taskId}/dependencies/${dependencyId}`);
+      // Backend DELETE /work/tasks/:id/dependencies expects body with predecessorId
+      await api.delete(`/work/tasks/${taskId}/dependencies`, {
+        data: { predecessorId: dependencyId }
+      });
       await loadDependencies();
     } catch (error: any) {
       console.error('Failed to remove dependency:', error);
@@ -70,24 +77,24 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
     e.preventDefault();
     setSaving(true);
     setError(null);
-    
+
     try {
-      const response = await api.patch(`/tasks/${task.id}`, formData);
+      const response = await api.patch(`/work/tasks/${task.id}`, formData);
       onSuccess(response.data?.data || response.data);
       onClose();
     } catch (err: any) {
       console.error('Task update error:', err);
-      
+
       // Handle different error response formats
       let errorMessage = 'Failed to update task';
-      
+
       if (err.response?.data) {
         const errorData = err.response.data;
         if (typeof errorData === 'string') {
           errorMessage = errorData;
         } else if (errorData.message) {
-          errorMessage = typeof errorData.message === 'string' 
-            ? errorData.message 
+          errorMessage = typeof errorData.message === 'string'
+            ? errorData.message
             : JSON.stringify(errorData.message);
         } else if (errorData.error) {
           errorMessage = typeof errorData.error === 'string'
@@ -97,7 +104,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
     } finally {
       setSaving(false);
@@ -108,7 +115,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
         <h2 className="text-xl font-semibold mb-4">Edit Task</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Task Name *</label>
@@ -171,7 +178,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
                 className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">End Date</label>
               <input
@@ -213,7 +220,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
             <div className="border rounded p-3 bg-gray-50">
               {projectTasks && projectTasks.length > 0 ? (
                 <>
-                  <select 
+                  <select
                     onChange={(e) => {
                       if (e.target.value) {
                         addDependency(task.id, e.target.value);
@@ -233,7 +240,7 @@ export function EditTaskModal({ task, onClose, onSuccess, projectTasks = [] }: E
                       ))
                     }
                   </select>
-                  
+
                   {loadingDependencies ? (
                     <div className="text-sm text-gray-500">Loading dependencies...</div>
                   ) : dependencies.length > 0 ? (

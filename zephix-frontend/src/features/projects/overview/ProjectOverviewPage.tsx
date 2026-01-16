@@ -10,6 +10,8 @@ import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
 // PHASE 7 MODULE 7.1: Task list
 import { TaskListSection } from '../components/TaskListSection';
 import { api as apiClient } from '@/lib/api';
+// Commit 5: KPI Panel
+import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -266,6 +268,14 @@ export const ProjectOverviewPage: React.FC = () => {
       {/* PHASE 7 MODULE 7.1: Task List Section */}
       {workspaceId && (
         <TaskListSection
+          projectId={projectId!}
+          workspaceId={workspaceId}
+        />
+      )}
+
+      {/* Commit 5: KPI Panel */}
+      {workspaceId && (
+        <ProjectKpiPanel
           projectId={projectId!}
           workspaceId={workspaceId}
         />

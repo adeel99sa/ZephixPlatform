@@ -1,0 +1,6 @@
+METHOD: POST
+URL: http://localhost:3000/api/templates
+Authorization: Bearer <redacted>
+x-workspace-id: ad81dadf-af55-42ed-9b00-903aab7ce0ec
+BODY:
+{"name":"Proof WORKSPACE Template 1768531089","templateScope":"WORKSPACE","methodology":"agile","structure":{"phases":[{"name":"Phase 1","order":0,"tasks":[{"name":"Task 1","description":"First task"}]}]},"defaultEnabledKPIs":["schedule_variance"]}

@@ -1,0 +1,6 @@
+METHOD: POST
+URL: http://localhost:3000/api/templates/c8c988ab-4b4c-4f8c-b7f6-949785dfd2d5/instantiate-v5_1
+Authorization: Bearer <redacted>
+x-workspace-id: ad81dadf-af55-42ed-9b00-903aab7ce0ec
+BODY:
+{"projectName":"Proof Project From Workspace Template"}

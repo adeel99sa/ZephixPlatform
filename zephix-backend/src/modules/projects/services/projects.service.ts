@@ -866,4 +866,130 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       },
     );
   }
+
+  /**
+   * Get available KPIs and active KPI IDs for a project
+   * Available KPIs come from:
+   * 1. Project's templateSnapshot (if exists)
+   * 2. Project's template (if templateId exists)
+   * 3. Empty array if neither exists
+   */
+  async getProjectKPIs(
+    projectId: string,
+    organizationId: string,
+    userId: string,
+    userRole?: string,
+  ) {
+    // Verify project exists and user has access
+    const project = await this.findProjectById(
+      projectId,
+      organizationId,
+      userId,
+      userRole,
+    );
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // Get available KPIs from template or templateSnapshot
+    let availableKPIs: Array<{ id: string; name: string; [key: string]: any }> =
+      [];
+
+    // Priority 1: Check templateSnapshot
+    if (project.templateSnapshot?.blocks) {
+      for (const block of project.templateSnapshot.blocks) {
+        if (block.config?.kpis) {
+          availableKPIs = availableKPIs.concat(
+            block.config.kpis.map((kpi: any) => ({
+              id: kpi.id || kpi.name,
+              name: kpi.name || kpi.id,
+              ...kpi,
+            })),
+          );
+        }
+      }
+    }
+
+    // Priority 2: Check templateId and load template
+    if (availableKPIs.length === 0 && project.templateId) {
+      try {
+        // Use DataSource to get ProjectTemplate repository
+        // Note: ProjectTemplate is in templates module, so we use string name
+        const templateRepo = this.dataSource.getRepository('ProjectTemplate');
+        const template = await templateRepo.findOne({
+          where: { id: project.templateId, organizationId },
+        });
+
+        if (template && (template as any).availableKPIs) {
+          availableKPIs = (template as any).availableKPIs.map((kpi: any) => ({
+            id: kpi.id || kpi.name,
+            name: kpi.name || kpi.id,
+            ...kpi,
+          }));
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to load template ${project.templateId} for KPIs: ${error}`,
+        );
+      }
+    }
+
+    return {
+      availableKPIs,
+      activeKpiIds: project.activeKpiIds || [],
+    };
+  }
+
+  /**
+   * Update active KPI IDs for a project
+   * Validates that all activeKpiIds are in the available KPIs list
+   */
+  async updateProjectKPIs(
+    projectId: string,
+    activeKpiIds: string[],
+    organizationId: string,
+    userId: string,
+  ) {
+    // Verify project exists and user has access
+    const project = await this.findProjectById(
+      projectId,
+      organizationId,
+      userId,
+    );
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // Get available KPIs to validate against
+    const kpiData = await this.getProjectKPIs(
+      projectId,
+      organizationId,
+      userId,
+    );
+
+    const availableKpiIds = kpiData.availableKPIs.map((kpi) => kpi.id);
+
+    // Validate that all activeKpiIds are in available list
+    const invalidIds = activeKpiIds.filter(
+      (id) => !availableKpiIds.includes(id),
+    );
+
+    if (invalidIds.length > 0) {
+      throw new BadRequestException({
+        code: 'INVALID_KPI_IDS',
+        message: `The following KPI IDs are not available: ${invalidIds.join(', ')}`,
+      });
+    }
+
+    // Update project
+    project.activeKpiIds = activeKpiIds;
+    await this.projectRepository.save(project);
+
+    return {
+      activeKpiIds: project.activeKpiIds,
+      availableKPIs: kpiData.availableKPIs,
+    };
+  }
 }

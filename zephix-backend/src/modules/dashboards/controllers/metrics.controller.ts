@@ -28,6 +28,9 @@ import { getAuthContext } from '../../../common/http/get-auth-context';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MetricDefinition } from '../entities/metric-definition.entity';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import { NotFoundException } from '@nestjs/common';
+import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Controller('metrics')
 @ApiTags('metrics')
@@ -38,25 +41,40 @@ export class MetricsController {
     @InjectRepository(MetricDefinition)
     private readonly metricRepository: Repository<MetricDefinition>,
     private readonly responseService: ResponseService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   @Get()
   @ApiOperation({ summary: 'List metric definitions' })
   @ApiHeader({
     name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
+    description: 'Workspace ID (optional, filters results)',
     required: false,
   })
   @ApiResponse({ status: 200, description: 'Metrics retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
   async list(
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
+    }
+
+    // If workspaceId provided, validate access before querying
+    if (workspaceId) {
+      const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+        workspaceId,
+        organizationId,
+        userId,
+        normalizePlatformRole(platformRole),
+      );
+      if (!hasAccess) {
+        throw new NotFoundException('Workspace not found');
+      }
     }
 
     const where: any = { organizationId };
@@ -76,28 +94,39 @@ export class MetricsController {
   @ApiOperation({ summary: 'Create metric definition' })
   @ApiHeader({
     name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
+    description: 'Workspace ID (ignored - use DTO workspaceId)',
     required: false,
   })
   @ApiResponse({ status: 201, description: 'Metric created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(
-    @Body() createDto: CreateMetricDto,
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
-  ) {
-    const { organizationId, userId } = getAuthContext(req);
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async create(@Body() createDto: CreateMetricDto, @Req() req: AuthRequest) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
+    }
+
+    // Validate workspace access if workspaceId provided in DTO
+    const targetWorkspaceId = createDto.workspaceId;
+    if (targetWorkspaceId) {
+      const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+        targetWorkspaceId,
+        organizationId,
+        userId,
+        normalizePlatformRole(platformRole),
+      );
+      if (!hasAccess) {
+        throw new NotFoundException('Workspace not found');
+      }
     }
 
     const metric = this.metricRepository.create({
       ...createDto,
       organizationId,
       createdByUserId: userId,
-      workspaceId: createDto.workspaceId || workspaceId || null,
+      workspaceId: targetWorkspaceId || null,
     });
 
     const saved = await this.metricRepository.save(metric);
@@ -109,9 +138,12 @@ export class MetricsController {
   @ApiParam({ name: 'id', description: 'Metric ID', type: String })
   @ApiResponse({ status: 200, description: 'Metric retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Metric not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Metric not found or workspace access denied',
+  })
   async getById(@Param('id') id: string, @Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
@@ -122,42 +154,88 @@ export class MetricsController {
     });
 
     if (!metric) {
-      throw new BadRequestException(`Metric with ID ${id} not found`);
+      throw new NotFoundException(`Metric with ID ${id} not found`);
+    }
+
+    // If metric has workspaceId, validate access
+    if (metric.workspaceId) {
+      const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+        metric.workspaceId,
+        organizationId,
+        userId,
+        normalizePlatformRole(platformRole),
+      );
+      if (!hasAccess) {
+        throw new NotFoundException('Metric not found');
+      }
     }
 
     return this.responseService.success(metric);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update metric definition' })
-  @ApiParam({ name: 'id', description: 'Metric ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
-    required: false,
+  @ApiOperation({
+    summary:
+      'Update metric definition. Authorization uses stored metric workspaceId, header x-workspace-id is ignored.',
   })
+  @ApiParam({ name: 'id', description: 'Metric ID', type: String })
   @ApiResponse({ status: 200, description: 'Metric updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Metric not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Metric not found or workspace access denied',
+  })
   async update(
     @Param('id') id: string,
     @Body() updateDto: UpdateMetricDto,
     @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
     }
 
+    // Load metric and authorize off stored record
     const metric = await this.metricRepository.findOne({
       where: { id, organizationId },
     });
 
     if (!metric) {
-      throw new BadRequestException(`Metric with ID ${id} not found`);
+      throw new NotFoundException(`Metric with ID ${id} not found`);
+    }
+
+    // Validate access to stored workspaceId (authorize off record, not header)
+    if (metric.workspaceId) {
+      const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+        metric.workspaceId,
+        organizationId,
+        userId,
+        normalizePlatformRole(platformRole),
+      );
+      if (!hasAccess) {
+        throw new NotFoundException('Metric not found');
+      }
+    }
+
+    // If updating workspaceId, validate access to target workspace
+    if (
+      updateDto.workspaceId !== undefined &&
+      updateDto.workspaceId !== metric.workspaceId
+    ) {
+      const targetWorkspaceId = updateDto.workspaceId;
+      if (targetWorkspaceId) {
+        const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+          targetWorkspaceId,
+          organizationId,
+          userId,
+          normalizePlatformRole(platformRole),
+        );
+        if (!hasAccess) {
+          throw new NotFoundException('Workspace not found');
+        }
+      }
     }
 
     Object.assign(metric, updateDto);
@@ -170,24 +248,44 @@ export class MetricsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete metric definition' })
+  @ApiOperation({
+    summary:
+      'Delete metric definition. Authorization uses stored metric workspaceId.',
+  })
   @ApiParam({ name: 'id', description: 'Metric ID', type: String })
   @ApiResponse({ status: 200, description: 'Metric deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Metric not found' })
+  @ApiResponse({
+    status: 404,
+    description: 'Metric not found or workspace access denied',
+  })
   async delete(@Param('id') id: string, @Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId) {
       throw new BadRequestException('Organization ID is required');
     }
 
+    // Load metric and authorize off stored record
     const metric = await this.metricRepository.findOne({
       where: { id, organizationId },
     });
 
     if (!metric) {
-      throw new BadRequestException(`Metric with ID ${id} not found`);
+      throw new NotFoundException(`Metric with ID ${id} not found`);
+    }
+
+    // Validate access to stored workspaceId (authorize off record, not header)
+    if (metric.workspaceId) {
+      const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+        metric.workspaceId,
+        organizationId,
+        userId,
+        normalizePlatformRole(platformRole),
+      );
+      if (!hasAccess) {
+        throw new NotFoundException('Metric not found');
+      }
     }
 
     await this.metricRepository.remove(metric);

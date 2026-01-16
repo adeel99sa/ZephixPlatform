@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { User } from '../src/modules/users/entities/user.entity';
 import { Organization } from '../src/organizations/entities/organization.entity';
 import { Workspace } from '../src/modules/workspaces/entities/workspace.entity';
@@ -158,7 +158,9 @@ describe('Resource Risk Scoring (E2E)', () => {
       });
 
     if (loginResponse.status === 200 || loginResponse.status === 201) {
-      adminToken = loginResponse.body.token || loginResponse.body.access_token;
+      adminToken =
+        loginResponse.body.accessToken ||
+        loginResponse.body.data?.accessToken;
     } else {
       throw new Error('Failed to login test user');
     }
@@ -406,12 +408,13 @@ describe('Resource Risk Scoring (E2E)', () => {
   }
 
   async function createTestOrganization(name: string): Promise<Organization> {
-    const orgRepo = dataSource.getRepository(Organization);
+    const orgRepo =
+      dataSource.getRepository(Organization) as Repository<Organization>;
     const timestamp = Date.now();
     const org = orgRepo.create({
       name: `${name}-${timestamp}`,
       slug: `${name.toLowerCase().replace(/\s+/g, '-')}-${timestamp}`,
-      domain: `${name.toLowerCase().replace(/\s+/g, '')}-${timestamp}.com`,
+      website: `${name.toLowerCase().replace(/\s+/g, '')}-${timestamp}.com`,
     });
     return orgRepo.save(org);
   }
@@ -439,9 +442,10 @@ describe('Resource Risk Scoring (E2E)', () => {
   async function createUserOrganization(
     userId: string,
     organizationId: string,
-    role: string,
+    role: 'owner' | 'admin' | 'pm' | 'viewer',
   ): Promise<UserOrganization> {
-    const userOrgRepo = dataSource.getRepository(UserOrganization);
+    const userOrgRepo =
+      dataSource.getRepository(UserOrganization) as Repository<UserOrganization>;
     const userOrg = userOrgRepo.create({
       userId,
       organizationId,

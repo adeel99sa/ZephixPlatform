@@ -13,7 +13,7 @@ import { AppModule } from '../../src/app.module';
 import { DataSource } from 'typeorm';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';
-import { Project } from '../../src/modules/projects/entities/project.entity';
+import { Project, ProjectStatus } from '../../src/modules/projects/entities/project.entity';
 import { Task } from '../../src/modules/tasks/entities/task.entity';
 import { Workspace } from '../../src/modules/workspaces/entities/workspace.entity';
 import { UserOrganization } from '../../src/organizations/entities/user-organization.entity';
@@ -119,20 +119,22 @@ describe('TasksModule Tenant Isolation (E2E)', () => {
 
     // Create projects
     const projectRepo = dataSource.getRepository(Project);
-    projectA = await projectRepo.save({
+    const savedA = await projectRepo.save({
       name: 'Project A - Tasks',
       organizationId: orgA.id,
       workspaceId: workspaceA.id,
-      status: 'active',
+      status: ProjectStatus.ACTIVE,
       createdBy: userA.id,
     });
-    projectB = await projectRepo.save({
+    const savedB = await projectRepo.save({
       name: 'Project B - Tasks',
       organizationId: orgB.id,
       workspaceId: workspaceB.id,
-      status: 'active',
+      status: ProjectStatus.ACTIVE,
       createdBy: userB.id,
     });
+    projectA = Array.isArray(savedA) ? savedA[0] : savedA;
+    projectB = Array.isArray(savedB) ? savedB[0] : savedB;
 
     // Create tasks
     const taskRepo = dataSource.getRepository(Task);
@@ -184,10 +186,8 @@ describe('TasksModule Tenant Isolation (E2E)', () => {
       await taskRepo.delete([taskA.id, taskB.id]);
       await projectRepo.delete([projectA.id, projectB.id]);
       await workspaceRepo.delete([workspaceA.id, workspaceB.id]);
-      await userOrgRepo.delete([
-        { userId: userA.id, organizationId: orgA.id },
-        { userId: userB.id, organizationId: orgB.id },
-      ]);
+      await userOrgRepo.delete({ user: { id: userA.id }, organization: { id: orgA.id } });
+      await userOrgRepo.delete({ user: { id: userB.id }, organization: { id: orgB.id } });
       await userRepo.delete([userA.id, userB.id]);
       await orgRepo.delete([orgA.id, orgB.id]);
     }

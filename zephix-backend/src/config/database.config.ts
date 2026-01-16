@@ -1,6 +1,22 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
+// Log database connection details (redact password)
+const dbUrl = process.env.DATABASE_URL || '';
+const dbUrlMasked = dbUrl.replace(/:[^:@]+@/, ':****@');
+const dbUrlObj = dbUrl ? new URL(dbUrl) : null;
+console.log('🔍 Database Config:', {
+  host: dbUrlObj?.hostname || 'N/A',
+  port: dbUrlObj?.port || 'N/A',
+  database: dbUrlObj?.pathname?.replace('/', '') || 'N/A',
+  username: dbUrlObj?.username || 'N/A',
+  url: dbUrlMasked,
+  ssl:
+    process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false,
+});
+
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,

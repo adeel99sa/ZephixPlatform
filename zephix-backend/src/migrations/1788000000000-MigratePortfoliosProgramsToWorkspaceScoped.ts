@@ -108,7 +108,8 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
         // Backfill portfolioId from program.portfolioId for existing projects
         // Only if programs.portfolio_id exists
         const programsTable = await queryRunner.getTable('programs');
-        const programPortfolioIdColumn = programsTable?.findColumnByName('portfolio_id');
+        const programPortfolioIdColumn =
+          programsTable?.findColumnByName('portfolio_id');
         if (programPortfolioIdColumn) {
           await queryRunner.query(`
             UPDATE projects p
@@ -127,18 +128,20 @@ export class MigratePortfoliosProgramsToWorkspaceScoped1788000000000
 
     // Step 9: Add indexes
     // Detect column names for indexes
-    const portfolioOrgCol = await this.getColumnName(queryRunner, 'portfolios', [
-      'organization_id',
-      'organizationId',
-    ]);
+    const portfolioOrgCol = await this.getColumnName(
+      queryRunner,
+      'portfolios',
+      ['organization_id', 'organizationId'],
+    );
     const programOrgCol = await this.getColumnName(queryRunner, 'programs', [
       'organization_id',
       'organizationId',
     ]);
-    const programPortfolioCol = await this.getColumnName(queryRunner, 'programs', [
-      'portfolio_id',
-      'portfolioId',
-    ]);
+    const programPortfolioCol = await this.getColumnName(
+      queryRunner,
+      'programs',
+      ['portfolio_id', 'portfolioId'],
+    );
 
     if (portfolioOrgCol) {
       await queryRunner.createIndex(
