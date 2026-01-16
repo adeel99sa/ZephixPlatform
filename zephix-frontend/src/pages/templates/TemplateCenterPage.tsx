@@ -3,69 +3,16 @@
  * MVP: Create, edit, publish, and instantiate templates
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { listTemplates, updateTemplate, publishTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
-import { useAuth } from '@/state/AuthContext';
-import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useWorkspaceStore } from '@/state/workspace.store';
-import { CreateTemplateModal } from './CreateTemplateModal';
-import { TemplateStructureEditor } from './TemplateStructureEditor';
-import { TemplateKpiSelector } from './TemplateKpiSelector';
+import { useState } from 'react';
+import { listTemplates, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
 
 export default function TemplateCenterPage() {
-  const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
+  const [templates, setTemplates] = useState<TemplateDto[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | TemplateScope>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showInstantiateModal, setShowInstantiateModal] = useState(false);
-
-  // Load templates on mount
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listTemplates();
-      setAllTemplates(data);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load templates');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Filter templates in memory
-  const templates = useMemo(() => {
-    let filtered = [...allTemplates];
-
-    // Scope filter
-    if (scopeFilter !== 'ALL') {
-      filtered = filtered.filter((t) => t.templateScope === scopeFilter);
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((t) =>
-        t.name.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort by updatedAt desc
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.updatedAt).getTime();
-      const dateB = new Date(b.updatedAt).getTime();
-      return dateB - dateA;
-    });
-
-    return filtered;
-  }, [allTemplates, scopeFilter, searchQuery]);
 
   // Empty state
   const isEmpty = !loading && templates.length === 0 && !error;
@@ -114,7 +61,9 @@ export default function TemplateCenterPage() {
 
           {/* New Template Button */}
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              // TODO: Open create modal
+            }}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
           >
             New Template
@@ -129,14 +78,7 @@ export default function TemplateCenterPage() {
 
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-md m-4">
-              <p className="text-sm text-red-800 font-medium">Error loading templates</p>
-              <p className="text-xs text-red-700 mt-1">{error}</p>
-              <button
-                onClick={loadTemplates}
-                className="mt-2 text-xs text-red-700 hover:text-red-900 underline"
-              >
-                Retry
-              </button>
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
@@ -173,17 +115,7 @@ export default function TemplateCenterPage() {
       {/* Right Panel - Template Details */}
       <div className="flex-1 flex flex-col bg-gray-50">
         {selectedTemplate ? (
-          <TemplateDetailsPanel 
-            template={selectedTemplate} 
-            onTemplateUpdate={(updated) => {
-              // Update in list
-              setAllTemplates((prev) =>
-                prev.map((t) => (t.id === updated.id ? updated : t))
-              );
-              setSelectedTemplate(updated);
-            }}
-            onInstantiate={() => setShowInstantiateModal(true)}
-          />
+          <TemplateDetailsPanel template={selectedTemplate} />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -192,128 +124,15 @@ export default function TemplateCenterPage() {
           </div>
         )}
       </div>
-
-      {/* Create Template Modal */}
-      <CreateTemplateModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={(template) => {
-          // Refresh list and select new template
-          loadTemplates();
-          setSelectedTemplate(template);
-          setShowCreateModal(false);
-        }}
-      />
-
-      {/* Instantiate Template Modal */}
-      {selectedTemplate && (
-        <InstantiateTemplateModal
-          open={showInstantiateModal}
-          templateId={selectedTemplate.id}
-          templateName={selectedTemplate.name}
-          onClose={() => setShowInstantiateModal(false)}
-        />
-      )}
     </div>
   );
 }
 
 interface TemplateDetailsPanelProps {
   template: TemplateDto;
-  onTemplateUpdate?: (template: TemplateDto) => void;
-  onInstantiate?: () => void;
 }
 
-function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: TemplateDetailsPanelProps) {
-  const { user } = useAuth();
-  const { activeWorkspaceId } = useWorkspaceStore();
-  const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
-  
-  const [structure, setStructure] = useState(template.structure || { phases: [] });
-  const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
-  const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [localTemplate, setLocalTemplate] = useState(template);
-
-  // Update local template when prop changes
-  useEffect(() => {
-    setLocalTemplate(template);
-    setStructure(template.structure || { phases: [] });
-    setDefaultKpis(template.defaultEnabledKPIs || []);
-  }, [template]);
-
-  const handleStructureChange = (newStructure: typeof structure) => {
-    setStructure(newStructure);
-    setSaveError(null);
-  };
-
-  const handleSaveStructure = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const updated = await updateTemplate(localTemplate.id, { structure }, localTemplate.templateScope);
-      setLocalTemplate(updated);
-      // Optimistic UI - structure is already updated locally
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to save structure');
-      // Revert on error
-      setStructure(localTemplate.structure || { phases: [] });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveKpis = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const updated = await updateTemplate(
-        localTemplate.id,
-        { defaultEnabledKPIs: defaultKpis },
-        localTemplate.templateScope
-      );
-      setLocalTemplate(updated);
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to save KPIs');
-      // Revert on error
-      setDefaultKpis(localTemplate.defaultEnabledKPIs || []);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePublish = async () => {
-    setPublishing(true);
-    setSaveError(null);
-    try {
-      const updated = await publishTemplate(localTemplate.id, localTemplate.templateScope);
-      setLocalTemplate(updated);
-      // Notify parent to refresh list
-      if (onTemplateUpdate) {
-        onTemplateUpdate(updated);
-      }
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to publish template');
-    } finally {
-      setPublishing(false);
-    }
-  };
-
-  // Determine if publish button should be enabled
-  const canPublish = (() => {
-    // Admin can publish ORG templates
-    if (localTemplate.templateScope === 'ORG' && user?.role === 'admin') {
-      return true;
-    }
-    // Workspace Owner can publish WORKSPACE templates
-    if (localTemplate.templateScope === 'WORKSPACE' && !isReadOnly) {
-      // For MVP, rely on backend 403 if role is wrong
-      return true;
-    }
-    return false;
-  })();
-
+function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
@@ -365,14 +184,8 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
         )}
       </div>
 
-      {/* Actions - Primary: Create Project from Template */}
+      {/* Actions */}
       <div className="mb-6 flex gap-2">
-        <button
-          onClick={onInstantiate}
-          className="px-6 py-3 bg-green-600 text-white rounded-md text-sm font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
-        >
-          Create Project
-        </button>
         <button
           onClick={() => {
             // TODO: Open edit modal
@@ -382,39 +195,27 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
           Edit
         </button>
         <button
-          onClick={handlePublish}
-          disabled={!canPublish || publishing}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => {
+            // TODO: Publish template
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {publishing ? 'Publishing...' : 'Publish'}
+          Publish
+        </button>
+        <button
+          onClick={() => {
+            // TODO: Instantiate template
+          }}
+          className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+        >
+          Instantiate
         </button>
       </div>
 
-      {/* Structure Editor */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure</h3>
-        <TemplateStructureEditor
-          structure={structure}
-          onChange={handleStructureChange}
-          onSave={handleSaveStructure}
-          saving={saving}
-          error={saveError}
-        />
-      </div>
-
-      {/* Default KPIs */}
+      {/* Placeholder for structure editor and KPIs */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Default KPIs</h3>
-          <button
-            onClick={handleSaveKpis}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save KPIs'}
-          </button>
-        </div>
-        <TemplateKpiSelector selectedKpiIds={defaultKpis} onChange={setDefaultKpis} />
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure</h3>
+        <p className="text-sm text-gray-500">Structure editor will be added in next step</p>
       </div>
     </div>
   );
