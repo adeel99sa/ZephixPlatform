@@ -3,16 +3,61 @@
  * MVP: Create, edit, publish, and instantiate templates
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { listTemplates, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
 
 export default function TemplateCenterPage() {
-  const [templates, setTemplates] = useState<TemplateDto[]>([]);
+  const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | TemplateScope>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Load templates on mount
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listTemplates();
+      setAllTemplates(data);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load templates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter templates in memory
+  const templates = useMemo(() => {
+    let filtered = [...allTemplates];
+
+    // Scope filter
+    if (scopeFilter !== 'ALL') {
+      filtered = filtered.filter((t) => t.templateScope === scopeFilter);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((t) =>
+        t.name.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort by updatedAt desc
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.updatedAt).getTime();
+      const dateB = new Date(b.updatedAt).getTime();
+      return dateB - dateA;
+    });
+
+    return filtered;
+  }, [allTemplates, scopeFilter, searchQuery]);
 
   // Empty state
   const isEmpty = !loading && templates.length === 0 && !error;
@@ -78,7 +123,14 @@ export default function TemplateCenterPage() {
 
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-md m-4">
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-sm text-red-800 font-medium">Error loading templates</p>
+              <p className="text-xs text-red-700 mt-1">{error}</p>
+              <button
+                onClick={loadTemplates}
+                className="mt-2 text-xs text-red-700 hover:text-red-900 underline"
+              >
+                Retry
+              </button>
             </div>
           )}
 
