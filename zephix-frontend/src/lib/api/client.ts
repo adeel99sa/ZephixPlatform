@@ -71,12 +71,18 @@ class ApiClient {
           config.headers['x-organization-id'] = orgId;
         }
 
-        // Add workspace context - do not send "default", only send actual UUID
-        const workspaceId = this.getWorkspaceId();
-        if (workspaceId && workspaceId !== 'default') {
-          config.headers['x-workspace-id'] = workspaceId;
+        // CRITICAL FIX: Do NOT add x-workspace-id to auth endpoints
+        // Auth endpoints like /api/auth/me should not require workspace context
+        const isAuthEndpoint = config.url?.includes('/auth/') || config.url?.startsWith('/auth/');
+        
+        if (!isAuthEndpoint) {
+          // Add workspace context - do not send "default", only send actual UUID
+          const workspaceId = this.getWorkspaceId();
+          if (workspaceId && workspaceId !== 'default') {
+            config.headers['x-workspace-id'] = workspaceId;
+          }
+          // If no workspace, don't add header (let backend validate)
         }
-        // If no workspace, don't add header (let backend validate)
 
         return config;
       },
