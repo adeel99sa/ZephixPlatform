@@ -17,6 +17,7 @@ import {
   PlatformRole,
 } from '../../shared/enums/platform-roles.enum';
 import { AuthRequest } from '../../common/http/auth-request';
+import { getAuthContext } from '../../common/http/get-auth-context';
 
 type UserJwt = {
   id: string;
@@ -31,15 +32,14 @@ export class MyWorkController {
 
   @Get()
   async getMyWork(@CurrentUser() user: UserJwt, @Req() req: AuthRequest) {
+    const { platformRole } = getAuthContext(req);
+
     // PHASE 7 MODULE 7.2: Block Guest (VIEWER)
-    const userRole = normalizePlatformRole(user.role || req.user.platformRole);
+    const userRole = normalizePlatformRole(platformRole);
     if (userRole === PlatformRole.VIEWER) {
       throw new ForbiddenException('Forbidden');
     }
 
-    return this.myWorkService.getMyWork(
-      user.id,
-      user.role || req.user.platformRole,
-    );
+    return this.myWorkService.getMyWork(user.id, platformRole);
   }
 }

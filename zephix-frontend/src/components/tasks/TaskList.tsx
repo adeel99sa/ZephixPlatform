@@ -38,9 +38,9 @@ export function TaskList({ projectId }: TaskListProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(`/projects/${projectId}/tasks`);
+      const response = await api.get(`/work/tasks?projectId=${projectId}`);
 
-      // Handle both interceptor-wrapped and direct responses
+      // Backend ResponseService returns { success: true, data: [...] }
       const responseData = response.data?.data || response.data;
 
       // Ensure we always have an array

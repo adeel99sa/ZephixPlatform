@@ -9,10 +9,9 @@ import {
   Body,
   Param,
   BadRequestException,
-  NotFoundException,
-  UnauthorizedException,
   Headers,
   Query,
+  Optional,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -33,13 +32,8 @@ import { UpdateWidgetDto } from '../dto/update-widget.dto';
 import { ShareEnableDto } from '../dto/share-enable.dto';
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
-import {
-  getAuthContext,
-  getAuthContextOptional,
-} from '../../../common/http/get-auth-context';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
-import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Controller('dashboards')
 @ApiTags('dashboards')
@@ -48,7 +42,6 @@ export class DashboardsController {
     private readonly dashboardsService: DashboardsService,
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
-    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   // 1. GET /api/dashboards
@@ -70,7 +63,7 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -79,7 +72,6 @@ export class DashboardsController {
     const dashboards = await this.dashboardsService.listDashboards(
       organizationId,
       userId,
-      platformRole,
       workspaceId,
     );
     return this.responseService.success(dashboards);
@@ -107,34 +99,17 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
-    }
-
-    // Determine effective workspaceId (from header or DTO)
-    const effectiveWorkspaceId = workspaceId || createDto.workspaceId;
-
-    // Enforce workspace access if workspaceId is present
-    if (effectiveWorkspaceId) {
-      const userRole = normalizePlatformRole(platformRole);
-      const canAccess = await this.workspaceAccessService.canAccessWorkspace(
-        effectiveWorkspaceId,
-        organizationId,
-        userId,
-        userRole,
-      );
-      if (!canAccess) {
-        throw new NotFoundException('Workspace not found');
-      }
     }
 
     const dashboard = await this.dashboardsService.createDashboard(
       createDto,
       organizationId,
       userId,
-      effectiveWorkspaceId,
+      workspaceId,
     );
 
     return this.responseService.success(dashboard);
@@ -146,11 +121,6 @@ export class DashboardsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Enable sharing for a dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Sharing enabled successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
@@ -187,11 +157,6 @@ export class DashboardsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Disable sharing for a dashboard' })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Sharing disabled successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
@@ -199,11 +164,7 @@ export class DashboardsController {
     description: 'Forbidden - only owner can disable sharing',
   })
   @ApiResponse({ status: 404, description: 'Dashboard not found' })
-  async disableShare(
-    @Param('id') id: string,
-    @Query('share') shareToken: string | undefined,
-    @Req() req: AuthRequest,
-  ) {
+  async disableShare(@Param('id') id: string, @Req() req: AuthRequest) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
@@ -251,27 +212,29 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const authContext = getAuthContextOptional(req);
-
     // Share token access (read-only, no JWT required)
     if (shareToken) {
-      const dashboard = await this.dashboardsService.getSharedDashboard(
+      // Use service method that returns sanitized SharedDashboardDto
+      const sharedDashboard = await this.dashboardsService.getSharedDashboard(
         id,
         shareToken,
       );
-      return this.responseService.success(dashboard);
+      return this.responseService.success(sharedDashboard);
     }
 
     // Normal JWT-based access (requires authentication)
-    if (!authContext?.userId) {
-      throw new UnauthorizedException('Missing user');
+    // Check if user is authenticated
+    if (!req.user) {
+      throw new BadRequestException(
+        'Authentication required. Use JWT token or provide share token in query parameter.',
+      );
     }
 
-    if (!authContext.organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
+    const { organizationId, userId } = getAuthContext(req);
 
-    const { organizationId, userId } = authContext;
+    if (!organizationId || !userId) {
+      throw new BadRequestException('Organization ID and User ID are required');
+    }
 
     const dashboard = await this.dashboardsService.getDashboard(
       id,
@@ -288,14 +251,10 @@ export class DashboardsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Update dashboard (JWT required, share tokens not accepted)',
+    summary:
+      'Update dashboard (JWT required, share tokens not accepted). Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
   })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Dashboard updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -348,8 +307,9 @@ export class DashboardsController {
   async delete(
     @Param('id') id: string,
     @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const { organizationId, userId } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -359,7 +319,7 @@ export class DashboardsController {
       id,
       organizationId,
       userId,
-      platformRole,
+      workspaceId,
     );
 
     return this.responseService.success({ message: 'Dashboard deleted' });
@@ -369,13 +329,11 @@ export class DashboardsController {
   @Post(':id/widgets')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Add widget to dashboard' })
-  @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
+  @ApiOperation({
+    summary:
+      'Add widget to dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
   })
+  @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiResponse({ status: 201, description: 'Widget added successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid widget key' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -411,14 +369,12 @@ export class DashboardsController {
   @Patch(':id/widgets/:widgetId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update widget in dashboard' })
+  @ApiOperation({
+    summary:
+      'Update widget in dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
+  })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiParam({ name: 'widgetId', description: 'Widget ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Widget updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - invalid widget key' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -456,14 +412,12 @@ export class DashboardsController {
   @Delete(':id/widgets/:widgetId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete widget from dashboard' })
+  @ApiOperation({
+    summary:
+      'Delete widget from dashboard. Authorization uses stored dashboard workspaceId, header x-workspace-id is ignored.',
+  })
   @ApiParam({ name: 'id', description: 'Dashboard ID', type: String })
   @ApiParam({ name: 'widgetId', description: 'Widget ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (required for WORKSPACE dashboards)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Widget deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({

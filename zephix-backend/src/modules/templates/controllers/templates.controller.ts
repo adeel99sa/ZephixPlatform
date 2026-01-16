@@ -18,6 +18,7 @@ import {
   Logger,
   Req,
   ValidationPipe,
+  GoneException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -44,6 +45,11 @@ import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { Headers } from '@nestjs/common';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 import {
   ApiTags,
   ApiOperation,
@@ -82,6 +88,21 @@ export class TemplatesController {
     if (!this.UUID_REGEX.test(workspaceId)) {
       throw new ForbiddenException({
         code: 'WORKSPACE_REQUIRED',
+        message: 'Workspace header x-workspace-id must be a valid UUID',
+      });
+    }
+    return workspaceId;
+  }
+
+  private validateWorkspaceIdOptional(
+    workspaceId: string | undefined,
+  ): string | null {
+    if (!workspaceId) {
+      return null;
+    }
+    if (!this.UUID_REGEX.test(workspaceId)) {
+      throw new BadRequestException({
+        code: 'INVALID_WORKSPACE_ID',
         message: 'Workspace header x-workspace-id must be a valid UUID',
       });
     }
@@ -373,162 +394,6 @@ export class TemplatesController {
   }
 
   /**
-   * Sprint 4: GET /api/templates/recommendations
-   * Get template recommendations with deterministic scoring
-   * Route order: Must be before @Get(':id') to avoid shadowing
-   */
-  @Get('recommendations')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-      exceptionFactory: (errors) => {
-        // Build standardized validation error
-        const firstError = errors[0];
-        const firstMessage = firstError?.constraints
-          ? Object.values(firstError.constraints)[0]
-          : 'Invalid request';
-
-        // Extract property name if available
-        const property = firstError?.property || 'unknown';
-        const message = `Query parameter '${property}' is not allowed`;
-
-        return new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message,
-          errors, // Keep for detailed extraction in filter
-        });
-      },
-    }),
-  )
-  @ApiOperation({
-    summary: 'Get template recommendations',
-    description:
-      'Returns top 3 recommended templates and up to 12 others based on deterministic scoring',
-  })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Recommendations returned successfully',
-    schema: {
-      properties: {
-        data: {
-          type: 'object',
-          properties: {
-            recommended: { type: 'array' },
-            others: { type: 'array' },
-            inputsEcho: { type: 'object' },
-            generatedAt: { type: 'string' },
-          },
-        },
-      },
-    },
-  })
-  async getRecommendations(
-    @Query() queryDto: RecommendationsQueryDto,
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceIdHeader: string,
-  ) {
-    const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
-    const auth = getAuthContext(req);
-
-    // Additional check for forbidden params (ValidationPipe should catch these, but extra safety)
-    const forbiddenParams = ['userId', 'popularity', 'rankScore', 'usageCount'];
-    const queryParams = req.query as Record<string, any>;
-    for (const param of forbiddenParams) {
-      if (param in queryParams) {
-        throw new BadRequestException({
-          code: 'VALIDATION_ERROR',
-          message: `Query parameter '${param}' is not allowed`,
-        });
-      }
-    }
-
-    const query = {
-      containerType: queryDto.containerType,
-      workType: queryDto.workType,
-      durationDays: queryDto.durationDays,
-      complexity: queryDto.complexity,
-    };
-
-    const result = await this.recommendationService.getRecommendations(
-      query,
-      auth.organizationId,
-      workspaceId,
-    );
-
-    return this.responseService.success(result);
-  }
-
-  /**
-   * Sprint 4: GET /api/templates/:templateId/preview-v5_1
-   * Get template preview for v5_1
-   * Route order: Must be before @Get(':id') to avoid shadowing
-   */
-  @Get(':templateId/preview-v5_1')
-  @ApiOperation({
-    summary: 'Get template preview for v5.1',
-    description:
-      'Returns template structure, phases, task counts, and lock policy',
-  })
-  @ApiParam({ name: 'templateId', description: 'Template ID' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Preview returned successfully',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - workspace access denied',
-    schema: {
-      properties: { code: { type: 'string' }, message: { type: 'string' } },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Not found - template not found',
-    schema: {
-      properties: { code: { type: 'string' }, message: { type: 'string' } },
-    },
-  })
-  async getPreviewV51(
-    @Param('templateId') templateId: string,
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceIdHeader: string,
-  ) {
-    const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
-    const auth = getAuthContext(req);
-
-    // Sprint 6: Require read access
-    await this.workspaceRoleGuard.requireWorkspaceRead(
-      workspaceId,
-      auth.userId,
-    );
-
-    const result = await this.previewV51Service.getPreview(
-      templateId,
-      workspaceId,
-      auth.organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
-
-    return this.responseService.success(result);
-  }
-
-  /**
    * GET /api/templates/:id
    * Get a single template by ID
    * V1: Include full blocks list, ordered, with block config
@@ -551,66 +416,9 @@ export class TemplatesController {
     @Body() dto: UpdateTemplateDto,
     @Req() req: AuthRequest,
   ) {
-    const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
-      throw new NotFoundException('Template not found');
-    }
-
-    // Role enforcement: same as create
-    const platformRole = normalizePlatformRole(auth.platformRole);
-    if (template.templateScope === 'ORG' && !isAdminRole(platformRole)) {
-      throw new ForbiddenException(
-        'Only organization admins can update ORG templates',
-      );
-    }
-    if (template.templateScope === 'WORKSPACE') {
-      // Validate workspace header is present for WORKSPACE templates
-      const workspaceId = this.validateWorkspaceId(
-        req.headers['x-workspace-id'] as string | undefined,
-      );
-      if (!workspaceId || workspaceId !== template.workspaceId) {
-        throw new BadRequestException(
-          'x-workspace-id header is required and must match template workspaceId for WORKSPACE templates',
-        );
-      }
-      if (!isAdminRole(platformRole)) {
-        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
-          template.workspaceId,
-          auth.userId,
-        );
-        if (workspaceRole !== 'workspace_owner') {
-          throw new ForbiddenException(
-            'Only workspace owners can update WORKSPACE templates',
-          );
-        }
-      }
-    }
-    if (template.templateScope === 'SYSTEM') {
-      throw new ForbiddenException('Cannot update SYSTEM templates');
-    }
-
-    // Build context for updateV1
-    const ctx = {
-      organizationId: auth.organizationId,
-      userId: auth.userId,
-      platformRole: auth.platformRole,
-      workspaceId:
-        template.templateScope === 'WORKSPACE'
-          ? this.validateWorkspaceId(
-              req.headers['x-workspace-id'] as string | undefined,
-            )
-          : null,
-    };
-
+    // Use updateV1 for Template entity
     return this.responseService.success(
-      await this.templatesService.updateV1(id, dto, ctx),
+      await this.templatesService.updateV1(req, id, dto),
     );
   }
 
@@ -628,16 +436,7 @@ export class TemplatesController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
-      throw new NotFoundException('Template not found');
-    }
+    const template = await this.templatesService.getV1(req, id);
 
     // Role enforcement: same as create
     const platformRole = normalizePlatformRole(auth.platformRole);
@@ -647,14 +446,16 @@ export class TemplatesController {
       );
     }
     if (template.templateScope === 'WORKSPACE') {
-      // Validate workspace header is present for WORKSPACE templates
-      const workspaceId = this.validateWorkspaceId(
-        req.headers['x-workspace-id'] as string | undefined,
-      );
-      if (!workspaceId || workspaceId !== template.workspaceId) {
-        throw new BadRequestException(
-          'x-workspace-id header is required and must match template workspaceId for WORKSPACE templates',
+      if (!isAdminRole(platformRole)) {
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          template.workspaceId,
+          auth.userId,
         );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can update WORKSPACE templates',
+          );
+        }
       }
       if (!isAdminRole(platformRole)) {
         const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
@@ -672,21 +473,8 @@ export class TemplatesController {
       throw new ForbiddenException('Cannot update SYSTEM templates');
     }
 
-    // Build context for updateV1
-    const ctx = {
-      organizationId: auth.organizationId,
-      userId: auth.userId,
-      platformRole: auth.platformRole,
-      workspaceId:
-        template.templateScope === 'WORKSPACE'
-          ? this.validateWorkspaceId(
-              req.headers['x-workspace-id'] as string | undefined,
-            )
-          : null,
-    };
-
     return this.responseService.success(
-      await this.templatesService.updateV1(id, dto, ctx),
+      await this.templatesService.updateV1(req, id, dto),
     );
   }
 
@@ -701,11 +489,31 @@ export class TemplatesController {
   }
 
   /**
+   * POST /api/templates/:id/publish
+   * Publish a template - increments version and sets publishedAt
+   * Admin only for ORG templates
+   * Workspace Owner plus Admin for WORKSPACE templates
+   */
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard, RequireOrgRoleGuard)
+  @RequireOrgRole('admin') // TODO: Add workspace owner check for WORKSPACE templates
+  async publish(@Param('id') id: string, @Req() req: Request) {
+    return this.responseService.success(
+      await this.templatesService.publishV1(req, id),
+    );
+  }
+
+  /**
    * Sprint 2.5: POST /api/templates/:templateId/instantiate-v5_1
    * Phase 5.1 compliant template instantiation - creates WorkPhase and WorkTask
    * Route order: Must be before @Post(':id/instantiate') to avoid shadowing
    */
   @Post(':templateId/instantiate-v5_1')
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
   @ApiOperation({
     summary: 'Instantiate template v5.1 (creates WorkPhase and WorkTask)',
     description:
@@ -794,11 +602,8 @@ export class TemplatesController {
 
   /**
    * POST /api/templates/:id/instantiate
-   * Phase 4: Create a project from a template (legacy - creates Task entities)
-   * Checks workspace permission: create_projects_in_workspace
-   * Returns 400 with clear error codes for validation failures
-   *
-   * Note: For Phase 5.1, use /api/templates/:id/instantiate-v5_1 instead
+   * LEGACY ROUTE - DEPRECATED
+   * This route is no longer supported. Use /api/templates/:id/instantiate-v5_1 instead
    */
   @Post(':id/instantiate')
   @HttpCode(HttpStatus.GONE)
@@ -985,31 +790,8 @@ export class AdminTemplatesController {
     @Body() dto: UpdateTemplateDto,
     @Req() req: AuthRequest,
   ) {
-    const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
-      throw new NotFoundException('Template not found');
-    }
-
-    // Admin controller - workspaceId validation not needed for admin
-    // Build context for updateV1
-    const ctx = {
-      organizationId: auth.organizationId,
-      userId: auth.userId,
-      platformRole: auth.platformRole,
-      workspaceId:
-        template.templateScope === 'WORKSPACE'
-          ? (req.headers['x-workspace-id'] as string | undefined) || null
-          : null,
-    };
-
-    return this.templatesService.updateV1(id, dto, ctx);
+    // Use updateV1 for Template entity
+    return this.templatesService.updateV1(req, id, dto);
   }
 
   /**

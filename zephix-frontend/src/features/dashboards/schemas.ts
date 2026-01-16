@@ -33,6 +33,14 @@ export const DashboardWidgetSchema = z.object({
   dataSource: z.string().optional(),
 });
 
+export const SharedDashboardWidgetSchema = z.object({
+  id: z.string().uuid(),
+  type: WidgetTypeSchema,
+  title: z.string().min(1).max(200),
+  layout: DashboardLayoutSchema,
+  config: z.record(z.any()).optional().default({}),
+});
+
 export const DashboardEntitySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(200),
@@ -45,6 +53,14 @@ export const DashboardEntitySchema = z.object({
   shareToken: z.string().uuid().nullable().optional(),
   shareEnabled: z.boolean().optional(),
   shareExpiresAt: z.string().nullable().optional(),
+});
+
+export const SharedDashboardSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(200),
+  description: z.string().optional().nullable(),
+  visibility: DashboardVisibilitySchema.optional(),
+  widgets: z.array(SharedDashboardWidgetSchema),
 });
 
 export const DashboardTemplateSchema = z.object({

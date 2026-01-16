@@ -109,6 +109,15 @@ export class Template {
   @Column({ default: 1 })
   version: number;
 
+  // KPI defaults for template instantiation
+  @Column({
+    name: 'default_enabled_kpis',
+    type: 'text',
+    array: true,
+    default: [],
+  })
+  defaultEnabledKPIs: string[]; // KPI IDs enabled by default
+
   // Sprint 4: Template recommendation fields
   @Column({ name: 'work_type_tags', type: 'text', array: true, default: [] })
   workTypeTags: string[];
@@ -144,7 +153,7 @@ export class Template {
   @Column({ name: 'lock_policy', type: 'jsonb', nullable: true })
   lockPolicy?: Record<string, any>;
 
-  @CreateDateColumn({ name: 'createdAt' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })

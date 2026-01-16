@@ -61,7 +61,11 @@ import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-rep
     CacheService,
     // ResponseService removed - use from @Global() SharedModule
   ],
-  controllers: [ResourceAllocationController, ResourcesController, ResourceSeedController],
+  controllers: [
+    ResourceAllocationController,
+    ResourcesController,
+    ResourceSeedController,
+  ],
   exports: [
     ResourceAllocationService,
     ResourcesService,
