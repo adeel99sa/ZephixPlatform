@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { listTemplates, updateTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplateStructureEditor } from './TemplateStructureEditor';
+import { TemplateKpiSelector } from './TemplateKpiSelector';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -199,6 +200,7 @@ interface TemplateDetailsPanelProps {
 
 function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
   const [structure, setStructure] = useState(template.structure || { phases: [] });
+  const [defaultKpis, setDefaultKpis] = useState<string[]>(template.defaultEnabledKPIs || []);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [localTemplate, setLocalTemplate] = useState(template);
@@ -207,6 +209,7 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
   useEffect(() => {
     setLocalTemplate(template);
     setStructure(template.structure || { phases: [] });
+    setDefaultKpis(template.defaultEnabledKPIs || []);
   }, [template]);
 
   const handleStructureChange = (newStructure: typeof structure) => {
@@ -225,6 +228,25 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
       setSaveError(err?.message || 'Failed to save structure');
       // Revert on error
       setStructure(localTemplate.structure || { phases: [] });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveKpis = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await updateTemplate(
+        localTemplate.id,
+        { defaultEnabledKPIs: defaultKpis },
+        localTemplate.templateScope
+      );
+      setLocalTemplate(updated);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save KPIs');
+      // Revert on error
+      setDefaultKpis(localTemplate.defaultEnabledKPIs || []);
     } finally {
       setSaving(false);
     }
@@ -310,7 +332,7 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
       </div>
 
       {/* Structure Editor */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure</h3>
         <TemplateStructureEditor
           structure={structure}
@@ -319,6 +341,21 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
           saving={saving}
           error={saveError}
         />
+      </div>
+
+      {/* Default KPIs */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Default KPIs</h3>
+          <button
+            onClick={handleSaveKpis}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save KPIs'}
+          </button>
+        </div>
+        <TemplateKpiSelector selectedKpiIds={defaultKpis} onChange={setDefaultKpis} />
       </div>
     </div>
   );
