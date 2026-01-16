@@ -20,6 +20,7 @@ export default function TemplateCenterPage() {
   const [scopeFilter, setScopeFilter] = useState<'ALL' | TemplateScope>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showInstantiateModal, setShowInstantiateModal] = useState(false);
 
   // Load templates on mount
   useEffect(() => {
@@ -181,6 +182,7 @@ export default function TemplateCenterPage() {
               );
               setSelectedTemplate(updated);
             }}
+            onInstantiate={() => setShowInstantiateModal(true)}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -202,6 +204,16 @@ export default function TemplateCenterPage() {
           setShowCreateModal(false);
         }}
       />
+
+      {/* Instantiate Template Modal */}
+      {selectedTemplate && (
+        <InstantiateTemplateModal
+          open={showInstantiateModal}
+          templateId={selectedTemplate.id}
+          templateName={selectedTemplate.name}
+          onClose={() => setShowInstantiateModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -209,9 +221,10 @@ export default function TemplateCenterPage() {
 interface TemplateDetailsPanelProps {
   template: TemplateDto;
   onTemplateUpdate?: (template: TemplateDto) => void;
+  onInstantiate?: () => void;
 }
 
-function TemplateDetailsPanel({ template, onTemplateUpdate }: TemplateDetailsPanelProps) {
+function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: TemplateDetailsPanelProps) {
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { isReadOnly } = useWorkspaceRole(activeWorkspaceId);
@@ -370,9 +383,7 @@ function TemplateDetailsPanel({ template, onTemplateUpdate }: TemplateDetailsPan
           {publishing ? 'Publishing...' : 'Publish'}
         </button>
         <button
-          onClick={() => {
-            // TODO: Instantiate template
-          }}
+          onClick={onInstantiate}
           className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
           Instantiate
