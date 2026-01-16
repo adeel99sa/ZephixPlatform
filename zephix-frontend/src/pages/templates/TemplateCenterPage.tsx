@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { listTemplates, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
+import { CreateTemplateModal } from './CreateTemplateModal';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -13,6 +14,7 @@ export default function TemplateCenterPage() {
   const [error, setError] = useState<string | null>(null);
   const [scopeFilter, setScopeFilter] = useState<'ALL' | TemplateScope>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Load templates on mount
   useEffect(() => {
@@ -106,9 +108,7 @@ export default function TemplateCenterPage() {
 
           {/* New Template Button */}
           <button
-            onClick={() => {
-              // TODO: Open create modal
-            }}
+            onClick={() => setShowCreateModal(true)}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
           >
             New Template
@@ -176,6 +176,18 @@ export default function TemplateCenterPage() {
           </div>
         )}
       </div>
+
+      {/* Create Template Modal */}
+      <CreateTemplateModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={(template) => {
+          // Refresh list and select new template
+          loadTemplates();
+          setSelectedTemplate(template);
+          setShowCreateModal(false);
+        }}
+      />
     </div>
   );
 }
