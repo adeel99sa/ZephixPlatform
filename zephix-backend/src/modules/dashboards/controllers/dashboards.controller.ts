@@ -9,9 +9,10 @@ import {
   Body,
   Param,
   BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
   Headers,
   Query,
-  Optional,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,8 +33,13 @@ import { UpdateWidgetDto } from '../dto/update-widget.dto';
 import { ShareEnableDto } from '../dto/share-enable.dto';
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
-import { getAuthContext } from '../../../common/http/get-auth-context';
+import {
+  getAuthContext,
+  getAuthContextOptional,
+} from '../../../common/http/get-auth-context';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Controller('dashboards')
 @ApiTags('dashboards')
@@ -42,6 +48,7 @@ export class DashboardsController {
     private readonly dashboardsService: DashboardsService,
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   // 1. GET /api/dashboards
@@ -63,7 +70,7 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -72,6 +79,7 @@ export class DashboardsController {
     const dashboards = await this.dashboardsService.listDashboards(
       organizationId,
       userId,
+      platformRole,
       workspaceId,
     );
     return this.responseService.success(dashboards);
@@ -99,17 +107,34 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
+    }
+
+    // Determine effective workspaceId (from header or DTO)
+    const effectiveWorkspaceId = workspaceId || createDto.workspaceId;
+
+    // Enforce workspace access if workspaceId is present
+    if (effectiveWorkspaceId) {
+      const userRole = normalizePlatformRole(platformRole);
+      const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+        effectiveWorkspaceId,
+        organizationId,
+        userId,
+        userRole,
+      );
+      if (!canAccess) {
+        throw new NotFoundException('Workspace not found');
+      }
     }
 
     const dashboard = await this.dashboardsService.createDashboard(
       createDto,
       organizationId,
       userId,
-      workspaceId,
+      effectiveWorkspaceId,
     );
 
     return this.responseService.success(dashboard);
@@ -137,9 +162,8 @@ export class DashboardsController {
     @Param('id') id: string,
     @Body() dto: ShareEnableDto,
     @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -150,7 +174,7 @@ export class DashboardsController {
       id,
       organizationId,
       userId,
-      workspaceId,
+      platformRole,
       expiresAt,
     );
 
@@ -179,27 +203,8 @@ export class DashboardsController {
     @Param('id') id: string,
     @Query('share') shareToken: string | undefined,
     @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    // Share token access (read-only, no JWT required)
-    if (shareToken) {
-      // Use service method that returns sanitized SharedDashboardDto
-      const sharedDashboard = await this.dashboardsService.getSharedDashboard(
-        id,
-        shareToken,
-      );
-      return this.responseService.success(sharedDashboard);
-    }
-
-    // Normal JWT-based access (requires authentication)
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new BadRequestException(
-        'Authentication required. Use JWT token or provide share token in query parameter.',
-      );
-    }
-
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -209,7 +214,7 @@ export class DashboardsController {
       id,
       organizationId,
       userId,
-      workspaceId,
+      platformRole,
     );
 
     return this.responseService.success({ message: 'Sharing disabled' });
@@ -246,55 +251,27 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
+    const authContext = getAuthContextOptional(req);
+
     // Share token access (read-only, no JWT required)
     if (shareToken) {
-      // Find dashboard by ID and share token
-      const dashboard =
-        await this.dashboardsService.dashboardRepository.findOne({
-          where: { id, deletedAt: null },
-          relations: ['widgets'],
-        });
-
-      if (!dashboard) {
-        throw new BadRequestException(`Dashboard with ID ${id} not found`);
-      }
-
-      // Validate share token
-      if (
-        !dashboard.shareEnabled ||
-        dashboard.shareToken !== shareToken ||
-        (dashboard.shareExpiresAt && dashboard.shareExpiresAt <= new Date())
-      ) {
-        throw new BadRequestException('Invalid or expired share token');
-      }
-
-      // Order widgets
-      dashboard.widgets = dashboard.widgets.sort((a, b) => {
-        if (a.layout.y !== b.layout.y) {
-          return a.layout.y - b.layout.y;
-        }
-        if (a.layout.x !== b.layout.x) {
-          return a.layout.x - b.layout.x;
-        }
-        return a.createdAt.getTime() - b.createdAt.getTime();
-      });
-
+      const dashboard = await this.dashboardsService.getSharedDashboard(
+        id,
+        shareToken,
+      );
       return this.responseService.success(dashboard);
     }
 
     // Normal JWT-based access (requires authentication)
-    // Check if user is authenticated
-    if (!req.user) {
-      throw new BadRequestException(
-        'Authentication required. Use JWT token or provide share token in query parameter.',
-      );
+    if (!authContext?.userId) {
+      throw new UnauthorizedException('Missing user');
     }
 
-    const { organizationId, userId } = getAuthContext(req);
-
-    if (!organizationId || !userId) {
-      throw new BadRequestException('Organization ID and User ID are required');
+    if (!authContext.organizationId) {
+      throw new BadRequestException('Organization ID is required');
     }
+
+    const { organizationId, userId } = authContext;
 
     const dashboard = await this.dashboardsService.getDashboard(
       id,
@@ -371,9 +348,8 @@ export class DashboardsController {
   async delete(
     @Param('id') id: string,
     @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -383,7 +359,7 @@ export class DashboardsController {
       id,
       organizationId,
       userId,
-      workspaceId,
+      platformRole,
     );
 
     return this.responseService.success({ message: 'Dashboard deleted' });
