@@ -167,7 +167,6 @@ api.interceptors.request.use(
     }
 
     // Check if route requires workspace context
-    const url = config.url || '';
     const requiresWorkspace = url.startsWith('/work/') ||
                              url.startsWith('/projects/') ||
                              url.includes('/work/') ||
