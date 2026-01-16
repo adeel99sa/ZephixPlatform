@@ -48,7 +48,7 @@ export class MetricsController {
   @ApiOperation({ summary: 'List metric definitions' })
   @ApiHeader({
     name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
+    description: 'Workspace ID (optional, filters results)',
     required: false,
   })
   @ApiResponse({ status: 200, description: 'Metrics retrieved successfully' })
@@ -94,7 +94,7 @@ export class MetricsController {
   @ApiOperation({ summary: 'Create metric definition' })
   @ApiHeader({
     name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
+    description: 'Workspace ID (ignored - use DTO workspaceId)',
     required: false,
   })
   @ApiResponse({ status: 201, description: 'Metric created successfully' })
@@ -179,11 +179,6 @@ export class MetricsController {
       'Update metric definition. Authorization uses stored metric workspaceId, header x-workspace-id is ignored.',
   })
   @ApiParam({ name: 'id', description: 'Metric ID', type: String })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID (optional)',
-    required: false,
-  })
   @ApiResponse({ status: 200, description: 'Metric updated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

@@ -227,30 +227,15 @@ async function devSeed() {
         platformRole: platformRole, // Normalized platform role
       };
 
-      // Use 7 days for dev testing (longer than production 15m)
-      const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-      
       return jwtService.sign(payload, {
         secret: process.env.JWT_SECRET || 'fallback-secret-key',
-        expiresIn,
+        expiresIn: '1h', // Longer expiry for testing
       });
     };
 
     const adminToken = await generateToken(adminUser);
     const ownerToken = await generateToken(ownerUser);
     const memberToken = await generateToken(memberUser);
-
-    // Decode tokens to get expiration times
-    const decodeExp = (token: string): Date => {
-      const parts = token.split('.');
-      if (parts.length !== 3) throw new Error('Invalid token format');
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      return new Date(payload.exp * 1000);
-    };
-
-    const adminExpiresAt = decodeExp(adminToken);
-    const ownerExpiresAt = decodeExp(ownerToken);
-    const memberExpiresAt = decodeExp(memberToken);
 
     // Print outputs
     console.log('\n🎉 Dev seed completed successfully!');
@@ -260,10 +245,6 @@ async function devSeed() {
     console.log(`export MEMBER_TOKEN="${memberToken}"`);
     console.log(`export ORG_ID="${organization.id}"`);
     console.log(`export WORKSPACE_ID="${workspaceId}"`);
-    console.log('\n📋 Token Expiration Times:');
-    console.log(`ADMIN_TOKEN expires at: ${adminExpiresAt.toISOString()}`);
-    console.log(`OWNER_TOKEN expires at: ${ownerExpiresAt.toISOString()}`);
-    console.log(`MEMBER_TOKEN expires at: ${memberExpiresAt.toISOString()}`);
     console.log('\n📋 Test Users:');
     console.log(`Admin:  ${adminUser.email} / Admin123!`);
     console.log(`Owner:  ${ownerUser.email} / Owner123!`);

@@ -1,13 +1,15 @@
 /**
  * PHASE 7 MODULE 7.2: My Work Service
- * Returns assigned work items for the current user across accessible workspaces
+ * Returns assigned work tasks for the current user across accessible workspaces
+ * Updated to use WorkTask entity instead of WorkItem
  */
 import { Injectable, Inject } from '@nestjs/common';
-import { In, IsNull } from 'typeorm';
+import { In } from 'typeorm';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { WorkItem, WorkItemStatus } from '../entities/work-item.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { TaskStatus } from '../../work-management/enums/task.enums';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { MyWorkResponseDto, MyWorkItemDto } from '../dto/my-work-response.dto';
 import {
@@ -18,8 +20,8 @@ import {
 @Injectable()
 export class MyWorkService {
   constructor(
-    @Inject(getTenantAwareRepositoryToken(WorkItem))
-    private workItemRepository: TenantAwareRepository<WorkItem>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private workTaskRepository: TenantAwareRepository<WorkTask>,
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
@@ -60,8 +62,7 @@ export class MyWorkService {
     // Build where clause
     const where: any = {
       organizationId,
-      assigneeId: userId,
-      deletedAt: IsNull(),
+      assigneeUserId: userId,
     };
 
     // Scope by accessible workspaces
@@ -69,15 +70,37 @@ export class MyWorkService {
       where.workspaceId = In(accessibleWorkspaceIds);
     }
 
-    // Get all work items for user
-    const workItems = await this.workItemRepository.find({
+    // Get all work tasks for user
+    const workTasks = await this.workTaskRepository.find({
       where,
-      relations: ['project', 'workspace'],
+      relations: ['project', 'project.workspace'],
       take: 200, // Default limit
     });
 
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Helper to map TaskStatus enum to response format
+    const mapStatus = (status: TaskStatus): string => {
+      switch (status) {
+        case TaskStatus.DONE:
+        case TaskStatus.CANCELED:
+          return 'done';
+        case TaskStatus.IN_PROGRESS:
+        case TaskStatus.IN_REVIEW:
+        case TaskStatus.BLOCKED:
+          return 'in_progress';
+        case TaskStatus.TODO:
+        case TaskStatus.BACKLOG:
+        default:
+          return 'todo';
+      }
+    };
+
+    // Helper to check if status is "done" for filtering
+    const isDoneStatus = (status: TaskStatus): boolean => {
+      return status === TaskStatus.DONE || status === TaskStatus.CANCELED;
+    };
 
     // Calculate counts
     let overdue = 0;
@@ -88,21 +111,23 @@ export class MyWorkService {
 
     const items: MyWorkItemDto[] = [];
 
-    for (const item of workItems) {
+    for (const task of workTasks) {
+      const mappedStatus = mapStatus(task.status);
+
       // Count by status
-      if (item.status === WorkItemStatus.DONE) {
+      if (mappedStatus === 'done') {
         done++;
-      } else if (item.status === WorkItemStatus.IN_PROGRESS) {
+      } else if (mappedStatus === 'in_progress') {
         inProgress++;
-      } else if (item.status === WorkItemStatus.TODO) {
+      } else if (mappedStatus === 'todo') {
         todo++;
       }
 
       // Check overdue (dueDate < now AND status != DONE)
       const isOverdue =
-        item.dueDate &&
-        new Date(item.dueDate) < now &&
-        item.status !== WorkItemStatus.DONE;
+        task.dueDate &&
+        new Date(task.dueDate) < now &&
+        !isDoneStatus(task.status);
 
       if (isOverdue) {
         overdue++;
@@ -110,25 +135,25 @@ export class MyWorkService {
 
       // Check due soon (dueDate within 7 days AND status != DONE)
       if (
-        item.dueDate &&
-        new Date(item.dueDate) >= now &&
-        new Date(item.dueDate) <= sevenDaysFromNow &&
-        item.status !== WorkItemStatus.DONE
+        task.dueDate &&
+        new Date(task.dueDate) >= now &&
+        new Date(task.dueDate) <= sevenDaysFromNow &&
+        !isDoneStatus(task.status)
       ) {
         dueSoon7Days++;
       }
 
       // Build item DTO
       items.push({
-        id: item.id,
-        title: item.title,
-        status: item.status,
-        dueDate: item.dueDate ? item.dueDate.toISOString() : null,
-        updatedAt: item.updatedAt.toISOString(),
-        projectId: item.projectId,
-        projectName: item.project?.name || 'Unknown Project',
-        workspaceId: item.workspaceId,
-        workspaceName: item.workspace?.name || 'Unknown Workspace',
+        id: task.id,
+        title: task.title,
+        status: mappedStatus,
+        dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+        updatedAt: task.updatedAt.toISOString(),
+        projectId: task.projectId,
+        projectName: task.project?.name || 'Unknown Project',
+        workspaceId: task.workspaceId,
+        workspaceName: task.project?.workspace?.name || 'Unknown Workspace',
       });
     }
 
@@ -137,8 +162,8 @@ export class MyWorkService {
       const aDue = a.dueDate ? new Date(a.dueDate) : null;
       const bDue = b.dueDate ? new Date(b.dueDate) : null;
 
-      const aOverdue = aDue && aDue < now && a.status !== WorkItemStatus.DONE;
-      const bOverdue = bDue && bDue < now && b.status !== WorkItemStatus.DONE;
+      const aOverdue = aDue && aDue < now && a.status !== 'done';
+      const bOverdue = bDue && bDue < now && b.status !== 'done';
 
       // Overdue items first
       if (aOverdue && !bOverdue) return -1;

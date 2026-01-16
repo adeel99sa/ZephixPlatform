@@ -353,7 +353,7 @@ export class DashboardsService {
       },
     );
 
-    return await queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
+    return queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
   }
 
   async createDashboard(
@@ -396,7 +396,6 @@ export class DashboardsService {
     organizationId: string,
     userId: string,
     workspaceId?: string,
-    shareToken?: string,
   ): Promise<Dashboard> {
     const dashboard = await this.dashboardRepository.findOne({
       where: { id, organizationId, deletedAt: null },
@@ -405,29 +404,6 @@ export class DashboardsService {
 
     if (!dashboard) {
       throw new NotFoundException(`Dashboard with ID ${id} not found`);
-    }
-
-    // Share token access (read-only, bypasses normal RBAC)
-    if (shareToken) {
-      if (
-        dashboard.shareEnabled &&
-        dashboard.shareToken === shareToken &&
-        (!dashboard.shareExpiresAt || dashboard.shareExpiresAt > new Date())
-      ) {
-        // Share access granted - return dashboard without further checks
-        dashboard.widgets = dashboard.widgets.sort((a, b) => {
-          if (a.layout.y !== b.layout.y) {
-            return a.layout.y - b.layout.y;
-          }
-          if (a.layout.x !== b.layout.x) {
-            return a.layout.x - b.layout.x;
-          }
-          return a.createdAt.getTime() - b.createdAt.getTime();
-        });
-        return dashboard;
-      } else {
-        throw new ForbiddenException('Invalid or expired share token');
-      }
     }
 
     // Normal JWT-based access checks
@@ -765,14 +741,15 @@ export class DashboardsService {
     dashboardId: string,
     organizationId: string,
     userId: string,
-    workspaceId?: string,
+    platformRole?: string,
     expiresAt?: Date,
   ): Promise<{ shareUrlPath: string }> {
-    const dashboard = await this.getDashboard(
+    // Authorize off stored record
+    const dashboard = await this.getDashboardForMutation(
       dashboardId,
       organizationId,
       userId,
-      workspaceId,
+      platformRole,
     );
 
     // Check ownership for PRIVATE dashboards
@@ -784,11 +761,21 @@ export class DashboardsService {
       }
     }
 
-    // Generate share token
-    const { randomUUID } = await import('crypto');
-    dashboard.shareToken = randomUUID();
+    // Generate new token if missing or regenerate for security
+    if (!dashboard.shareToken) {
+      dashboard.shareToken = randomUUID();
+    }
     dashboard.shareEnabled = true;
-    dashboard.shareExpiresAt = expiresAt || null;
+
+    // Validate expiresAt if provided
+    if (expiresAt) {
+      if (Number.isNaN(expiresAt.valueOf()) || expiresAt <= new Date()) {
+        throw new BadRequestException('Share expiration must be in the future');
+      }
+      dashboard.shareExpiresAt = expiresAt;
+    } else {
+      dashboard.shareExpiresAt = null;
+    }
 
     await this.dashboardRepository.save(dashboard);
 
@@ -801,13 +788,14 @@ export class DashboardsService {
     dashboardId: string,
     organizationId: string,
     userId: string,
-    workspaceId?: string,
+    platformRole?: string,
   ): Promise<void> {
-    const dashboard = await this.getDashboard(
+    // Authorize off stored record
+    const dashboard = await this.getDashboardForMutation(
       dashboardId,
       organizationId,
       userId,
-      workspaceId,
+      platformRole,
     );
 
     // Check ownership for PRIVATE dashboards
@@ -819,6 +807,7 @@ export class DashboardsService {
       }
     }
 
+    // Clear token and disable sharing
     dashboard.shareToken = null;
     dashboard.shareEnabled = false;
     dashboard.shareExpiresAt = null;

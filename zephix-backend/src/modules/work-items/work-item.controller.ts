@@ -254,12 +254,12 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      user.role,
+      platformRole,
     );
 
     if (!canAccess) {
@@ -286,12 +286,12 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access (read access)
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      req.user.role || req.user.platformRole,
+      platformRole,
     );
 
     if (!canAccess) {
@@ -319,12 +319,12 @@ export class WorkItemController {
     );
 
     // PHASE 7 MODULE 7.1 FIX: Verify workspace access (read access)
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workItem.workspaceId,
       organizationId,
       userId,
-      req.user.role || req.user.platformRole,
+      platformRole,
     );
 
     if (!canAccess) {
@@ -343,15 +343,13 @@ export class WorkItemController {
     @Req() req: AuthRequest,
   ) {
     // PHASE 7 MODULE 7.2: Block Guest (VIEWER)
-    const userRole = normalizePlatformRole(user.role || req.user.platformRole);
+    const { platformRole } = getAuthContext(req);
+    const userRole = normalizePlatformRole(platformRole);
     if (userRole === PlatformRole.VIEWER) {
       throw new ForbiddenException('Forbidden');
     }
 
-    return this.myWorkService.getMyWork(
-      user.id,
-      user.role || req.user.platformRole,
-    );
+    return this.myWorkService.getMyWork(user.id, platformRole);
   }
 
   // PHASE 7 MODULE 7.4: Bulk update work items
@@ -363,8 +361,8 @@ export class WorkItemController {
     @CurrentUser() user: UserJwt,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
-    const userRole = user.role || req.user.platformRole;
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const userRole = platformRole;
 
     // Verify workspace access
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
@@ -391,8 +389,8 @@ export class WorkItemController {
     @CurrentUser() user: UserJwt,
     @Req() req: AuthRequest,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
-    const userRole = user.role || req.user.platformRole;
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    const userRole = platformRole;
 
     // Verify workspace access
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
