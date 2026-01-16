@@ -4,8 +4,9 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { listTemplates, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
+import { listTemplates, updateTemplate, TemplateDto, TemplateScope } from '@/features/templates/templates.api';
 import { CreateTemplateModal } from './CreateTemplateModal';
+import { TemplateStructureEditor } from './TemplateStructureEditor';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);
@@ -197,6 +198,38 @@ interface TemplateDetailsPanelProps {
 }
 
 function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
+  const [structure, setStructure] = useState(template.structure || { phases: [] });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [localTemplate, setLocalTemplate] = useState(template);
+
+  // Update local template when prop changes
+  useEffect(() => {
+    setLocalTemplate(template);
+    setStructure(template.structure || { phases: [] });
+  }, [template]);
+
+  const handleStructureChange = (newStructure: typeof structure) => {
+    setStructure(newStructure);
+    setSaveError(null);
+  };
+
+  const handleSaveStructure = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await updateTemplate(localTemplate.id, { structure }, localTemplate.templateScope);
+      setLocalTemplate(updated);
+      // Optimistic UI - structure is already updated locally
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save structure');
+      // Revert on error
+      setStructure(localTemplate.structure || { phases: [] });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
@@ -276,10 +309,16 @@ function TemplateDetailsPanel({ template }: TemplateDetailsPanelProps) {
         </button>
       </div>
 
-      {/* Placeholder for structure editor and KPIs */}
+      {/* Structure Editor */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Structure</h3>
-        <p className="text-sm text-gray-500">Structure editor will be added in next step</p>
+        <TemplateStructureEditor
+          structure={structure}
+          onChange={handleStructureChange}
+          onSave={handleSaveStructure}
+          saving={saving}
+          error={saveError}
+        />
       </div>
     </div>
   );
