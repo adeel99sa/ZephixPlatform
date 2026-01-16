@@ -71,11 +71,15 @@ class ApiClient {
           config.headers['x-organization-id'] = orgId;
         }
 
-        // CRITICAL FIX: Do NOT add x-workspace-id to auth endpoints
-        // Auth endpoints like /api/auth/me should not require workspace context
-        const isAuthEndpoint = config.url?.includes('/auth/') || config.url?.startsWith('/auth/');
-        
-        if (!isAuthEndpoint) {
+        // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
+        // These endpoints should not require workspace context
+        const url = config.url || '';
+        const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
+        const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+        const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
+        const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
+
+        if (!shouldSkipWorkspaceHeader) {
           // Add workspace context - do not send "default", only send actual UUID
           const workspaceId = this.getWorkspaceId();
           if (workspaceId && workspaceId !== 'default') {
