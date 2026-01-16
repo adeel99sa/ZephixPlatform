@@ -25,7 +25,7 @@
 - **Status:** ✅ PASS
 - **Request:** `POST /api/templates` (Admin, no x-workspace-id)
 - **Response:** `201 Created`
-- **Result:**
+- **Result:** 
   - templateScope: "ORG" ✅
   - workspaceId: null ✅
   - No x-workspace-id header sent ✅
@@ -160,9 +160,9 @@ The following tests require manual browser testing as they involve UI interactio
 | 9: Publish behavior | ✅ PASS | ⏳ Manual | API Verified |
 | 10: Instantiate | ✅ PASS | ⏳ Manual | API Verified |
 
-**Total API Tests:** 9
-**Passing:** 7
-**Failing:** 2 (backend bugs)
+**Total API Tests:** 9  
+**Passing:** 7  
+**Failing:** 2 (backend bugs)  
 **UI Tests:** 5 (require manual browser testing)
 
 ---
