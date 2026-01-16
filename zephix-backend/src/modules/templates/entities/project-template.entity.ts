@@ -35,6 +35,18 @@ export interface KPIDefinition {
   unit?: string;
 }
 
+/**
+ * LEGACY ENTITY - FROZEN
+ *
+ * This entity is deprecated. Use Template entity instead.
+ *
+ * Migration path:
+ * - Template entity is now the single authoritative template model
+ * - instantiate-v5_1 now uses Template entity
+ * - This table remains for backward compatibility
+ * - Do not add new features to this entity
+ * - Future migration will archive or drop this table
+ */
 @Entity('project_templates')
 @Index('idx_templates_org', ['organizationId'])
 @Index('idx_templates_methodology', ['methodology'])

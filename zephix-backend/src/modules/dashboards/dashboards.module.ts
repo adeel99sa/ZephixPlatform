@@ -20,6 +20,11 @@ import { ResourceModule } from '../resources/resource.module'; // Exports Resour
 import { ProjectsModule } from '../projects/projects.module'; // Exports ProjectsService
 import { ResourceConflict } from '../resources/entities/resource-conflict.entity';
 import { Project } from '../projects/entities/project.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { WorkPhase } from '../work-management/entities/work-phase.entity';
+import { WorkManagementModule } from '../work-management/work-management.module';
+import { ProjectDashboardService } from './services/project-dashboard.service';
+import { ProjectDashboardController } from './controllers/project-dashboard.controller';
 
 @Module({
   imports: [
@@ -30,6 +35,8 @@ import { Project } from '../projects/entities/project.entity';
       MetricDefinition,
       ResourceConflict,
       Project,
+      WorkTask, // Phase 7.5: For project dashboard
+      WorkPhase, // Phase 7.5: For project dashboard
     ]),
     SharedModule, // Provides ResponseService
     WorkspaceAccessModule, // Provides WorkspaceAccessService for workspace checks
@@ -38,8 +45,9 @@ import { Project } from '../projects/entities/project.entity';
     ProgramsModule, // Provides ProgramsService
     ResourceModule, // Provides ResourcesService
     ProjectsModule, // Provides ProjectsService
+    WorkManagementModule, // Phase 7.5: Provides ProjectHealthService
   ],
-  providers: [DashboardsService, TemplatesService],
+  providers: [DashboardsService, TemplatesService, ProjectDashboardService],
   controllers: [
     // Register DashboardTemplatesController FIRST so static routes (templates, activate-template)
     // are matched before dynamic :id routes in DashboardsController
@@ -48,6 +56,7 @@ import { Project } from '../projects/entities/project.entity';
     MetricsController,
     AnalyticsWidgetsController,
     AiDashboardController,
+    ProjectDashboardController, // Phase 7.5: Project dashboard endpoints
   ],
   exports: [DashboardsService], // For analytics use
 })

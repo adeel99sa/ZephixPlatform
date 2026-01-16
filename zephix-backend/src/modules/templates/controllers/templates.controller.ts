@@ -18,6 +18,7 @@ import {
   Logger,
   Req,
   ValidationPipe,
+  GoneException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TemplatesService } from '../services/templates.service';
@@ -28,7 +29,7 @@ import { TemplatesPreviewV51Service } from '../services/templates-preview-v51.se
 import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
 import { RecommendationsQueryDto } from '../dto/recommendations-query.dto';
 import { CreateTemplateDto as CreateTemplateLegacyDto } from '../dto/create-template.dto';
-import { UpdateTemplateDto } from '../dto/update-template.dto';
+import { UpdateTemplateDto } from '../dto/template.dto';
 import { ApplyTemplateDto } from '../dto/apply-template.dto';
 import { TemplateListQueryDto, CreateTemplateDto } from '../dto/template.dto';
 import { TemplateLockGuard } from '../guards/template-lock.guard';
@@ -41,6 +42,11 @@ import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { Headers } from '@nestjs/common';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 import {
   ApiTags,
   ApiOperation,
@@ -85,6 +91,21 @@ export class TemplatesController {
     return workspaceId;
   }
 
+  private validateWorkspaceIdOptional(
+    workspaceId: string | undefined,
+  ): string | null {
+    if (!workspaceId) {
+      return null;
+    }
+    if (!this.UUID_REGEX.test(workspaceId)) {
+      throw new BadRequestException({
+        code: 'INVALID_WORKSPACE_ID',
+        message: 'Workspace header x-workspace-id must be a valid UUID',
+      });
+    }
+    return workspaceId;
+  }
+
   constructor(
     private readonly templatesService: TemplatesService,
     private readonly instantiateService: TemplatesInstantiateService,
@@ -98,11 +119,80 @@ export class TemplatesController {
   /**
    * POST /api/templates
    * Create a new template
+   * PART 2 Step 7: Admin can create ORG and WORKSPACE templates
+   * Workspace Owners can create WORKSPACE templates only
    * V1: Set createdById from user, lockState defaults to UNLOCKED, isDefault false
    */
   @Post()
-  async create(@Body() dto: CreateTemplateDto, @Req() req: Request) {
-    return { data: await this.templatesService.createV1(req, dto) };
+  @UseGuards(JwtAuthGuard)
+  async create(@Body() dto: CreateTemplateDto, @Req() req: AuthRequest) {
+    const auth = getAuthContext(req);
+    const userId = auth.userId;
+    const orgId = auth.organizationId;
+
+    // Get canonical org role using normalizePlatformRole
+    const platformRole = normalizePlatformRole(auth.platformRole);
+    const isOrgAdmin = isAdminRole(platformRole);
+
+    // Determine templateScope from DTO or default to ORG
+    const templateScope = dto.templateScope || 'ORG';
+
+    // Force templateScope into DTO to prevent service layer ambiguity
+    dto.templateScope = templateScope;
+
+    // Role enforcement:
+    // - Admin can create ORG and WORKSPACE templates
+    // - Workspace Owner can create WORKSPACE templates only (for their workspace)
+    // - Member and Guest cannot create templates
+    if (templateScope === 'ORG') {
+      // Only Admin can create ORG templates
+      if (!isOrgAdmin) {
+        throw new ForbiddenException(
+          'Only organization admins can create ORG templates',
+        );
+      }
+
+      // ORG templates must not have workspaceId
+      dto.workspaceId = null;
+    } else if (templateScope === 'WORKSPACE') {
+      // Admin or Workspace Owner can create WORKSPACE templates
+      // Validate workspaceId header ONLY for WORKSPACE scope
+      const workspaceId = this.validateWorkspaceId(
+        req.headers['x-workspace-id'] as string | undefined,
+      );
+
+      if (!workspaceId) {
+        throw new ForbiddenException(
+          'x-workspace-id header is required for WORKSPACE templates',
+        );
+      }
+
+      // Check if user is Admin (can create in any workspace) or Workspace Owner
+      if (!isOrgAdmin) {
+        // Check workspace role
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          workspaceId,
+          userId,
+        );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can create WORKSPACE templates',
+          );
+        }
+      }
+
+      // Override workspaceId from header (security: don't trust body)
+      dto.workspaceId = workspaceId;
+    } else if (templateScope === 'SYSTEM') {
+      // SYSTEM templates can only be created via admin super path (not via normal API)
+      throw new ForbiddenException(
+        'SYSTEM templates cannot be created via API',
+      );
+    }
+
+    return this.responseService.success(
+      await this.templatesService.createV1(req as any, dto),
+    );
   }
 
   /**
@@ -113,6 +203,14 @@ export class TemplatesController {
    */
   @Get()
   async list(@Query() q: TemplateListQueryDto, @Req() req: Request) {
+    // Validate x-workspace-id header if present
+    const workspaceIdHeader = req.headers['x-workspace-id'] as
+      | string
+      | undefined;
+    const workspaceId = workspaceIdHeader
+      ? this.validateWorkspaceIdOptional(workspaceIdHeader)
+      : null;
+
     const params = {
       isDefault:
         q.isDefault === 'true'
@@ -130,7 +228,10 @@ export class TemplatesController {
       includeBlocks: q.includeBlocks === 'true',
       includeArchived: false,
     };
-    return { data: await this.templatesService.listV1(req, params) };
+
+    return this.responseService.success(
+      await this.templatesService.listV1(req, params, workspaceId),
+    );
   }
 
   /**
@@ -310,11 +411,12 @@ export class TemplatesController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTemplateDto,
-    @CurrentUser() user: UserJwt,
+    @Req() req: AuthRequest,
   ) {
-    return {
-      data: await this.templatesService.update(id, user.organizationId, dto),
-    };
+    // Use updateV1 for Template entity
+    return this.responseService.success(
+      await this.templatesService.updateV1(req, id, dto),
+    );
   }
 
   /**
@@ -328,21 +430,38 @@ export class TemplatesController {
   async patch(
     @Param('id') id: string,
     @Body() dto: UpdateTemplateDto,
-    @CurrentUser() user: UserJwt,
+    @Req() req: AuthRequest,
   ) {
-    // Phase 5: Enforce org role check for preset updates
-    if (dto.riskPresets !== undefined || dto.kpiPresets !== undefined) {
-      const userRole = user.role || 'viewer';
-      const isAdmin = userRole === 'admin' || userRole === 'owner';
-      if (!isAdmin) {
-        throw new ForbiddenException(
-          'Only organization owners and admins can update risk and KPI presets',
+    const auth = getAuthContext(req);
+    const template = await this.templatesService.getV1(req, id);
+
+    // Role enforcement: same as create
+    const platformRole = normalizePlatformRole(auth.platformRole);
+    if (template.templateScope === 'ORG' && !isAdminRole(platformRole)) {
+      throw new ForbiddenException(
+        'Only organization admins can update ORG templates',
+      );
+    }
+    if (template.templateScope === 'WORKSPACE') {
+      if (!isAdminRole(platformRole)) {
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          template.workspaceId,
+          auth.userId,
         );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can update WORKSPACE templates',
+          );
+        }
       }
     }
-    return {
-      data: await this.templatesService.update(id, user.organizationId, dto),
-    };
+    if (template.templateScope === 'SYSTEM') {
+      throw new ForbiddenException('Cannot update SYSTEM templates');
+    }
+
+    return this.responseService.success(
+      await this.templatesService.updateV1(req, id, dto),
+    );
   }
 
   /**
@@ -356,11 +475,31 @@ export class TemplatesController {
   }
 
   /**
+   * POST /api/templates/:id/publish
+   * Publish a template - increments version and sets publishedAt
+   * Admin only for ORG templates
+   * Workspace Owner plus Admin for WORKSPACE templates
+   */
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard, RequireOrgRoleGuard)
+  @RequireOrgRole('admin') // TODO: Add workspace owner check for WORKSPACE templates
+  async publish(@Param('id') id: string, @Req() req: Request) {
+    return this.responseService.success(
+      await this.templatesService.publishV1(req, id),
+    );
+  }
+
+  /**
    * Sprint 2.5: POST /api/templates/:templateId/instantiate-v5_1
    * Phase 5.1 compliant template instantiation - creates WorkPhase and WorkTask
    * Route order: Must be before @Post(':id/instantiate') to avoid shadowing
    */
   @Post(':templateId/instantiate-v5_1')
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
   @ApiOperation({
     summary: 'Instantiate template v5.1 (creates WorkPhase and WorkTask)',
     description:
@@ -449,16 +588,29 @@ export class TemplatesController {
 
   /**
    * POST /api/templates/:id/instantiate
-   * Phase 4: Create a project from a template (legacy - creates Task entities)
-   * Checks workspace permission: create_projects_in_workspace
-   * Returns 400 with clear error codes for validation failures
-   *
-   * Note: For Phase 5.1, use /api/templates/:id/instantiate-v5_1 instead
+   * LEGACY ROUTE - DEPRECATED
+   * This route is no longer supported. Use /api/templates/:id/instantiate-v5_1 instead
    */
   @Post(':id/instantiate')
+  @HttpCode(HttpStatus.GONE)
   async instantiate(
-    @Param('id') templateId: string,
-    @Body()
+    @Param('id') _templateId: string,
+    @Body() _dto: any,
+    @CurrentUser() _user: UserJwt,
+    @Req() _req: Request,
+  ) {
+    throw new GoneException({
+      code: 'LEGACY_ROUTE',
+      message:
+        'This route is deprecated. Use POST /api/templates/:id/instantiate-v5_1 instead',
+    });
+  }
+
+  // Legacy instantiate implementation removed - route returns 410 Gone
+  // Original code preserved below for reference but never executed
+  /*
+  private async instantiateLegacy(
+    templateId: string,
     dto: {
       workspaceId: string;
       projectName: string;
@@ -466,19 +618,9 @@ export class TemplatesController {
       endDate?: string;
       ownerId?: string;
     },
-    @CurrentUser() user: UserJwt,
-    @Req() req: Request,
+    user: UserJwt,
+    req: Request,
   ) {
-    const requestId = req?.headers?.['x-request-id'] || 'unknown';
-
-    // Validate required fields - return 400 with clear codes
-    if (!dto.workspaceId) {
-      throw new BadRequestException({
-        code: 'MISSING_WORKSPACE_ID',
-        message: 'workspaceId is required to create a project from template',
-      });
-    }
-
     if (!dto.projectName || !dto.projectName.trim()) {
       throw new BadRequestException({
         code: 'MISSING_PROJECT_NAME',
@@ -566,6 +708,7 @@ export class TemplatesController {
       });
     }
   }
+  */
 }
 
 /**
@@ -627,9 +770,10 @@ export class AdminTemplatesController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTemplateDto,
-    @CurrentUser() user: UserJwt,
+    @Req() req: AuthRequest,
   ) {
-    return this.templatesService.update(id, user.organizationId, dto);
+    // Use updateV1 for Template entity
+    return this.templatesService.updateV1(req, id, dto);
   }
 
   /**

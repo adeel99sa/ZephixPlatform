@@ -87,8 +87,10 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await api.get(`/projects/${projectId}/tasks`);
-      setTasks(data);
+      const response = await api.get(`/work/tasks?projectId=${projectId}`);
+      // Backend ResponseService returns { success: true, data: [...] }
+      const data = response.data?.data || response.data || [];
+      setTasks(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
@@ -126,10 +128,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${taskId}`, {
-        method: 'PUT',
-        body: { status }
-      });
+      await api.patch(`/work/tasks/${taskId}`, { status });
       fetchTasks();
     } catch (error) {
       console.error('Failed to update task:', error);
@@ -138,10 +137,9 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskProgress = async (taskId: string, progress: number) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${taskId}/progress`, {
-        method: 'PUT',
-        body: { progress }
-      });
+      // Note: WorkTask entity doesn't have progress field - removed for now
+      // If needed, add progress to WorkTask entity first
+      console.warn('Progress update not supported for WorkTask entity');
       fetchTasks();
     } catch (error) {
       console.error('Failed to update progress:', error);
@@ -150,10 +148,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${updatedTask.id}`, {
-        method: 'PATCH',
-        body: updatedTask
-      });
+      await api.patch(`/work/tasks/${updatedTask.id}`, updatedTask);
       fetchTasks(); // Refresh list
       setEditModalOpen(false);
       setEditingTask(null);
@@ -431,10 +426,7 @@ const CreateTaskModal: React.FC<{
     console.log('Sending task data:', payload);
 
     try {
-      await api.get(`/projects/${projectId}/tasks`, {
-        method: 'POST',
-        body: payload
-      });
+      await api.post('/work/tasks', payload);
       onSuccess();
     } catch (error) {
       console.error('Failed to create task:', error);

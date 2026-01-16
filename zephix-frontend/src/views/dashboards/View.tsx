@@ -11,7 +11,7 @@ import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
 import ShareDialog from "@/features/dashboards/ShareDialog";
 import { track } from "@/lib/telemetry";
 import { getProjectsCountByWorkspace } from "@/features/projects/api";
-import type { DashboardEntity } from "@/features/dashboards/types";
+import type { DashboardEntity, SharedDashboardEntity } from "@/features/dashboards/types";
 import { WorkspaceRequiredError } from "@/features/dashboards/schemas";
 
 export default function DashboardView() {
@@ -23,7 +23,7 @@ export default function DashboardView() {
   const shareToken = searchParams.get('share');
   const isShareMode = !!shareToken && !user; // Share mode: has token but not signed in
 
-  const [dashboard, setDashboard] = useState<DashboardEntity | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardEntity | SharedDashboardEntity | null>(null);
   const [widgetsData, setWidgetsData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

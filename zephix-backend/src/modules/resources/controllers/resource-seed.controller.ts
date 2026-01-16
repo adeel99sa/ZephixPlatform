@@ -1,4 +1,11 @@
-import { Controller, Post, UseGuards, Req, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Req,
+  BadRequestException,
+  Inject,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,7 +14,10 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AdminOnlyGuard } from '../../../shared/guards/admin-only.guard';
-import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import {
+  TenantAwareRepository,
+  getTenantAwareRepositoryToken,
+} from '../../tenancy/tenant-aware.repository';
 import { Resource } from '../entities/resource.entity';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';

@@ -191,6 +191,14 @@ export class CreateTemplateDto {
   @IsOptional()
   scope?: 'organization' | 'team' | 'personal';
 
+  @IsEnum(['SYSTEM', 'ORG', 'WORKSPACE'])
+  @IsOptional()
+  templateScope?: 'SYSTEM' | 'ORG' | 'WORKSPACE';
+
+  @IsUUID()
+  @IsOptional()
+  workspaceId?: string;
+
   @IsUUID()
   @IsOptional()
   teamId?: string;

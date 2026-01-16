@@ -12,6 +12,7 @@ import { DashboardWidget } from '../entities/dashboard-widget.entity';
 import { DashboardVisibility } from '../entities/dashboard.entity';
 import { ActivateTemplateDto } from '../dto/activate-template.dto';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
+import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Injectable()
 export class TemplatesService {
@@ -39,7 +40,7 @@ export class TemplatesService {
     dto: ActivateTemplateDto,
     organizationId: string,
     userId: string,
-    workspaceId?: string,
+    platformRole?: string,
   ): Promise<Dashboard> {
     // Find template
     const template = await this.templateRepository.findOne({
@@ -52,11 +53,11 @@ export class TemplatesService {
       );
     }
 
-    // Validate workspace requirement
+    // Validate workspace requirement - use DTO workspaceId only, not header
     const templateVisibility = template.definition
       .visibility as DashboardVisibility;
     if (templateVisibility === DashboardVisibility.WORKSPACE) {
-      const requiredWorkspaceId = dto.workspaceId || workspaceId;
+      const requiredWorkspaceId = dto.workspaceId;
       if (!requiredWorkspaceId) {
         throw new BadRequestException(
           'Workspace ID is required for this template',
@@ -66,9 +67,10 @@ export class TemplatesService {
         requiredWorkspaceId,
         organizationId,
         userId,
+        normalizePlatformRole(platformRole),
       );
       if (!hasAccess) {
-        throw new BadRequestException('Access denied to workspace');
+        throw new NotFoundException('Workspace not found');
       }
     }
 
@@ -84,7 +86,7 @@ export class TemplatesService {
         description: `Dashboard created from template: ${template.name}`,
         organizationId,
         ownerUserId: userId,
-        workspaceId: dto.workspaceId || workspaceId || null,
+        workspaceId: dto.workspaceId || null,
         visibility: templateVisibility,
         isTemplateInstance: true,
         templateKey: template.key,

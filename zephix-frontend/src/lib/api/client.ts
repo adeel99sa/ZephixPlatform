@@ -71,9 +71,12 @@ class ApiClient {
           config.headers['x-organization-id'] = orgId;
         }
 
-        // Add workspace context (future-proofing)
+        // Add workspace context - do not send "default", only send actual UUID
         const workspaceId = this.getWorkspaceId();
-        config.headers['x-workspace-id'] = workspaceId || 'default';
+        if (workspaceId && workspaceId !== 'default') {
+          config.headers['x-workspace-id'] = workspaceId;
+        }
+        // If no workspace, don't add header (let backend validate)
 
         return config;
       },

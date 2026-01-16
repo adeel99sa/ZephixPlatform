@@ -1,0 +1,4 @@
+METHOD: GET
+URL: http://localhost:3000/api/templates
+Authorization: Bearer <redacted>
+x-workspace-id: ad81dadf-af55-42ed-9b00-903aab7ce0ec

@@ -14,28 +14,28 @@ describe('ArchitectureController (e2e)', () => {
     process.env.LLM_VALIDATE_ON_STARTUP = 'false';
     process.env.ANTHROPIC_API_KEY = 'test-key';
     process.env.CORS_ALLOWED_ORIGINS = 'http://localhost:3000';
-    
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    
+
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
     }));
-    
+
     app.setGlobalPrefix('api');
-    
+
     // Enable CORS for testing
     app.enableCors({
       origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
       credentials: true,
       allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'Origin', 'X-Requested-With', 'X-Timestamp'],
     });
-    
+
     await app.init();
   });
 
@@ -144,7 +144,7 @@ describe('ArchitectureController (e2e)', () => {
     it('should validate BRD data structure', async () => {
       // First, get an auth token (this would normally be done through login)
       // For this test, we'll skip the actual auth and test validation
-      
+
       const invalidBRD = {
         id: 'invalid-uuid',
         title: '', // Empty title should fail validation
@@ -177,7 +177,7 @@ describe('ArchitectureController (e2e)', () => {
   describe('GET /api/architecture/:id/bundle', () => {
     it('should require authentication', () => {
       const testId = '550e8400-e29b-41d4-a716-446655440000';
-      
+
       return request(app.getHttpServer())
         .get(`/api/architecture/${testId}/bundle`)
         .expect(401);
@@ -261,7 +261,7 @@ describe('ArchitectureController (e2e)', () => {
 
     it('should accept custom request ID', async () => {
       const customRequestId = '550e8400-e29b-41d4-a716-446655440001';
-      
+
       const response = await request(app.getHttpServer())
         .post('/api/architecture/derive')
         .set('x-request-id', customRequestId)
@@ -275,9 +275,9 @@ describe('ArchitectureController (e2e)', () => {
     it('should apply rate limiting to architecture endpoints', async () => {
       // Note: Rate limiting is disabled in test environment by default
       // This test documents the expected behavior in production
-      
+
       const testId = '550e8400-e29b-41d4-a716-446655440000';
-      
+
       const response = await request(app.getHttpServer())
         .get(`/api/architecture/${testId}/bundle`)
         .expect(401); // Auth failure
@@ -368,7 +368,7 @@ describe('ArchitectureController (e2e)', () => {
     it('should be accessible and properly formatted', async () => {
       // Test that the API documentation endpoints are available
       // This assumes Swagger/OpenAPI documentation is set up
-      
+
       const response = await request(app.getHttpServer())
         .get('/api-docs')
         .expect(404); // May not be configured in test environment

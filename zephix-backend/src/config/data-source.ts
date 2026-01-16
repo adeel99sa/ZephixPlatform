@@ -24,6 +24,18 @@ import { TaskActivity } from '../modules/work-management/entities/task-activity.
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
 
+// Log migration database connection details (redact password)
+const migrationDbUrl = process.env.DATABASE_URL || '';
+const migrationDbUrlMasked = migrationDbUrl.replace(/:[^:@]+@/, ':****@');
+const migrationDbUrlObj = migrationDbUrl ? new URL(migrationDbUrl) : null;
+console.log('🔍 Migration DataSource Config:', {
+  host: migrationDbUrlObj?.hostname || 'N/A',
+  port: migrationDbUrlObj?.port || 'N/A',
+  database: migrationDbUrlObj?.pathname?.replace('/', '') || 'N/A',
+  username: migrationDbUrlObj?.username || 'N/A',
+  url: migrationDbUrlMasked,
+});
+
 const AppDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
