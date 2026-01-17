@@ -35,8 +35,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
         slug: slug || undefined,
       });
       telemetry.track('ui.workspace.create.success', { workspaceId });
-      setActiveWorkspaceId(workspaceId);
-      navigate(`/workspaces/${workspaceId}/home`, { replace: true });
+      // Fix: Close modal first, then set workspace, then navigate (exact order required)
       onClose();
       setActiveWorkspaceId(workspaceId);
       navigate(`/workspaces/${workspaceId}/home`, { replace: true });
