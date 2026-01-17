@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { unwrapArray } from '@/lib/api/unwrapData';
+import { unwrapArray, unwrapData } from '@/lib/api/unwrapData';
 
 export type CreateWorkspaceInput = {
   name: string;
@@ -16,10 +16,22 @@ export type Workspace = {
   id: string;
   name: string;
   slug?: string | null;
+  description?: string | null;
 };
 
 export type GetWorkspaceResponse = {
   data: Workspace;
+};
+
+export type WorkspaceSummary = {
+  projectsTotal: number;
+  projectsInProgress: number;
+  tasksTotal: number;
+  tasksCompleted: number;
+};
+
+export type WorkspaceSummaryResponse = {
+  data: WorkspaceSummary;
 };
 
 export async function listWorkspaces(): Promise<Workspace[]> {
@@ -42,6 +54,18 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<stri
 
 export async function getWorkspace(workspaceId: string): Promise<Workspace> {
   const res = await api.get<GetWorkspaceResponse>(`/workspaces/${workspaceId}`);
+  // API interceptor unwraps { data: Workspace } to Workspace
+  return res as any as Workspace;
+}
+
+export async function getWorkspaceSummary(workspaceId: string): Promise<WorkspaceSummary> {
+  const res = await api.get<WorkspaceSummaryResponse>(`/workspaces/${workspaceId}/summary`);
+  // API interceptor unwraps { data: WorkspaceSummary } to WorkspaceSummary
+  return res as any as WorkspaceSummary;
+}
+
+export async function updateWorkspace(workspaceId: string, patch: { description?: string }): Promise<Workspace> {
+  const res = await api.patch<GetWorkspaceResponse>(`/workspaces/${workspaceId}`, patch);
   // API interceptor unwraps { data: Workspace } to Workspace
   return res as any as Workspace;
 }
