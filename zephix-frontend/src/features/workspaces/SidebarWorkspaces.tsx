@@ -69,7 +69,9 @@ export function SidebarWorkspaces() {
 
   function handleWorkspaceSelect(id: string) {
     if (!id) return;
+    // Single source of truth: set activeWorkspaceId in AuthContext
     setActiveWorkspaceId(id);
+    // Always navigate to workspace home
     navigate(`/workspaces/${id}/home`, { replace: true });
   }
 
@@ -208,9 +210,9 @@ export function SidebarWorkspaces() {
                   navigate('/workspaces');
                 }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-gray-600"
-                data-testid="workspace-manage-link"
+                data-testid="workspace-browse-all"
               >
-                Manage workspaces...
+                Browse all workspaces...
               </button>
             </div>
           </div>
