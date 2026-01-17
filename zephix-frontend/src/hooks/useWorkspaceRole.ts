@@ -1,21 +1,28 @@
-import { useEffect } from 'react';
-import { useWorkspaceStore, WorkspaceRole } from '@/state/workspace.store';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';
 
-/**
- * Hook to fetch and manage current user's workspace role
- * Fetches role from API and updates workspace store
- */
+type WorkspaceRoleResponse = {
+  data: {
+    role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
+    canWrite: boolean;
+    isReadOnly: boolean;
+  };
+};
+
 export function useWorkspaceRole(workspaceId: string | null | undefined) {
   const { user } = useAuth();
-  const { setWorkspaceRole, workspaceRole } = useWorkspaceStore();
+  const [role, setRole] = useState<'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' | null>(null);
+  const [canWrite, setCanWrite] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   if (!workspaceId) {
     return {
       role: null,
-      isReadOnly: true,
       canWrite: false,
+      isReadOnly: true,
       loading: false,
       error: null,
     };
@@ -23,35 +30,39 @@ export function useWorkspaceRole(workspaceId: string | null | undefined) {
 
   useEffect(() => {
     if (!user?.id) return;
-    
+
+    setLoading(true);
+    setError(null);
+
     const fetchWorkspaceRole = async () => {
       try {
-        const response = await api.get(`/workspaces/${workspaceId}/members`);
-        const members = response.data?.data || response.data || [];
-        const currentMember = members.find((m: any) =>
-          m.userId === user.id || m.user?.id === user.id || m.id === user.id
-        );
-
-        if (currentMember?.role) {
-          setWorkspaceRole(currentMember.role as WorkspaceRole);
-        } else {
-          setWorkspaceRole(null);
-        }
-      } catch (error) {
-        console.error('Failed to fetch workspace role:', error);
-        setWorkspaceRole(null);
+        const response = await api.get<WorkspaceRoleResponse>(`/workspaces/${workspaceId}/role`);
+        // API interceptor unwraps { data: { role, canWrite, isReadOnly } } to { role, canWrite, isReadOnly }
+        const roleData = (response as any)?.data || response;
+        
+        setRole(roleData.role || null);
+        setCanWrite(roleData.canWrite || false);
+        setIsReadOnly(roleData.isReadOnly !== false);
+      } catch (err) {
+        console.error('Failed to fetch workspace role:', err);
+        setError(err instanceof Error ? err : new Error('Failed to fetch role'));
+        setRole(null);
+        setCanWrite(false);
+        setIsReadOnly(true);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchWorkspaceRole();
-  }, [workspaceId, user?.id, setWorkspaceRole]);
+  }, [workspaceId, user?.id]);
 
   return {
-    role: workspaceRole,
-    isReadOnly: useWorkspaceStore((state) => state.isReadOnly),
-    canWrite: useWorkspaceStore((state) => state.canWrite),
-    loading: false,
-    error: null,
+    role,
+    canWrite,
+    isReadOnly,
+    loading,
+    error,
   };
 }
 
