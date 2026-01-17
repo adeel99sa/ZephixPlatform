@@ -10,7 +10,7 @@ import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
-import { WorkspaceAccessService } from './services/workspace-access.service';
+// WorkspaceAccessService is imported from WorkspaceAccessModule (not local service)
 import { WorkspaceBackfillService } from './services/workspace-backfill.service';
 import { WorkspacePermissionService } from './services/workspace-permission.service'; // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
 import { WorkspaceInviteService } from './services/workspace-invite.service';
@@ -66,7 +66,7 @@ import {
   providers: [
     WorkspacesService,
     WorkspaceMembersService,
-    WorkspaceAccessService,
+    // WorkspaceAccessService is provided by WorkspaceAccessModule (imported above), not local service
     WorkspaceBackfillService,
     WorkspaceHealthService, // PHASE 7 MODULE 7.3: Workspace home execution summary
     WorkspacePermissionService, // PHASE 7.4.3: Fix DI - TemplatesInstantiateService needs this
@@ -90,7 +90,7 @@ import {
   exports: [
     WorkspacesService,
     WorkspaceMembersService,
-    WorkspaceAccessService,
+    // WorkspaceAccessService is exported by WorkspaceAccessModule, not here
     WorkspacePermissionService, // PHASE 7.4.3: Fix DI - Export for TemplateModule
     RequireWorkspaceAccessGuard, // PHASE 7.4.3: Export guard for use in other modules
   ],
