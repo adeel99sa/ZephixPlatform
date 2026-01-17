@@ -31,6 +31,8 @@ import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPa
 import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
 import { TemplateCenter } from "@/views/templates/TemplateCenter";
 import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
+import DocsPage from "@/pages/docs/DocsPage";
+import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectOverviewPage } from "@/features/projects/overview/ProjectOverviewPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -126,6 +128,8 @@ export default function App() {
                 <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
               </Route>
               <Route path="/templates" element={<TemplateCenterPage />} />
+              <Route path="/docs" element={<DocsPage />} />
+              <Route path="/forms" element={<FormsPage />} />
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
