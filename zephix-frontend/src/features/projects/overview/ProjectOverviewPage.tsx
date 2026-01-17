@@ -183,7 +183,7 @@ export const ProjectOverviewPage: React.FC = () => {
             <p className="text-sm text-gray-500 mt-1">Project Overview</p>
           </div>
           <button
-            onClick={() => navigate(`/work/projects/${projectId}/plan`)}
+            onClick={() => navigate(`/work/projects/${projectId}/plan`, { replace: false })}
             className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Open Plan
