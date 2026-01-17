@@ -20,6 +20,11 @@ import {
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { TaskStatus } from '../work-management/enums/task.enums';
+import { ProjectStatus, ProjectState } from '../projects/entities/project.entity';
+import { In } from 'typeorm';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 
 const DEFAULT_RETENTION_DAYS = Number(process.env.TRASH_RETENTION_DAYS ?? 30); // admin can change later
 
@@ -30,9 +35,14 @@ export class WorkspacesService {
     private repo: TenantAwareRepository<Workspace>,
     @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
     private memberRepo: TenantAwareRepository<WorkspaceMember>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepo: TenantAwareRepository<Project>,
+    @Inject(getTenantAwareRepositoryToken(WorkTask))
+    private taskRepo: TenantAwareRepository<WorkTask>,
     private configService: ConfigService,
     private dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {
     // Debug metadata registration
     console.log(
@@ -570,6 +580,70 @@ export class WorkspacesService {
 
       return { workspaceId, ownerUserIds };
     });
+  }
+
+  /**
+   * Get workspace summary with counts
+   */
+  async getSummary(workspaceId: string, organizationId: string, userId: string) {
+    // Verify workspace access (service method handles access check)
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      undefined, // platformRole will be derived from context
+    );
+
+    if (!canAccess) {
+      throw new ForbiddenException('Workspace access denied');
+    }
+
+    // Count projects
+    const projectsTotal = await this.projectRepo.count({
+      where: { workspaceId, organizationId },
+    });
+
+    // Count projects in progress (status ACTIVE or state ACTIVE)
+    const projectsInProgress = await this.projectRepo.count({
+      where: {
+        workspaceId,
+        organizationId,
+        status: In([ProjectStatus.ACTIVE]),
+      },
+    });
+
+    // Also count by state if needed
+    const projectsInProgressByState = await this.projectRepo.count({
+      where: {
+        workspaceId,
+        organizationId,
+        state: ProjectState.ACTIVE,
+      },
+    });
+
+    // Use the higher count (some projects might have status != ACTIVE but state == ACTIVE)
+    const projectsInProgressCount = Math.max(projectsInProgress, projectsInProgressByState);
+
+    // Count tasks
+    const tasksTotal = await this.taskRepo.count({
+      where: { workspaceId, organizationId },
+    });
+
+    // Count completed tasks
+    const tasksCompleted = await this.taskRepo.count({
+      where: {
+        workspaceId,
+        organizationId,
+        status: TaskStatus.DONE,
+      },
+    });
+
+    return {
+      projectsTotal,
+      projectsInProgress: projectsInProgressCount,
+      tasksTotal,
+      tasksCompleted,
+    };
   }
 
   async update(organizationId: string, id: string, dto: UpdateWorkspaceDto) {
