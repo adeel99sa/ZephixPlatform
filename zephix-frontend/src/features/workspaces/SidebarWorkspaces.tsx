@@ -251,18 +251,38 @@ export function SidebarWorkspaces() {
                     Template Center
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setPlusMenuOpen(false);
-                      navigate('/docs');
+                      if (!activeWorkspaceId) {
+                        toast.error("Please select a workspace first");
+                        return;
+                      }
+                      try {
+                        const { createDoc } = await import("@/features/docs/api");
+                        const docId = await createDoc(activeWorkspaceId, "New doc");
+                        navigate(`/docs/${docId}`);
+                      } catch (e: any) {
+                        toast.error(e?.message || "Failed to create doc");
+                      }
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
                     Doc
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setPlusMenuOpen(false);
-                      navigate('/forms');
+                      if (!activeWorkspaceId) {
+                        toast.error("Please select a workspace first");
+                        return;
+                      }
+                      try {
+                        const { createForm } = await import("@/features/forms/api");
+                        const formId = await createForm(activeWorkspaceId, "New form");
+                        navigate(`/forms/${formId}/edit`);
+                      } catch (e: any) {
+                        toast.error(e?.message || "Failed to create form");
+                      }
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
