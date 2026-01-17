@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface MemberHomeData {
   myWork: {
@@ -26,23 +28,53 @@ interface MemberHomeData {
 export function MemberHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { activeWorkspaceId } = useWorkspaceStore();
   const [data, setData] = useState<MemberHomeData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // /home endpoint is org-scoped, works without workspace
+    // But show empty state if no workspace selected for better UX
     loadHomeData();
   }, []);
 
   async function loadHomeData() {
     try {
       setLoading(true);
+      setError(null);
       const response = await api.get<{ data: MemberHomeData }>('/home');
       setData(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load member home data:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load home data';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Empty state when no workspace selected
+  if (!activeWorkspaceId) {
+    return (
+      <div className="p-6">
+        <div className="max-w-2xl mx-auto text-center space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Get Started</h1>
+            <p className="text-gray-600">Select a workspace or create a project from a template</p>
+          </div>
+          <div className="flex gap-4 justify-center">
+            <Button onClick={() => navigate('/workspaces')} className="px-6 py-3">
+              Select Workspace
+            </Button>
+            <Button onClick={() => navigate('/templates')} variant="outline" className="px-6 py-3">
+              Create Project
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
@@ -55,10 +87,18 @@ export function MemberHome() {
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <div className="p-6">
-        <p className="text-gray-600">Failed to load home data</p>
+        <div className="max-w-2xl mx-auto text-center space-y-4">
+          <div>
+            <p className="text-gray-900 font-medium mb-2">Failed to load home data</p>
+            {error && <p className="text-sm text-gray-600 mb-4">{error}</p>}
+          </div>
+          <Button onClick={loadHomeData} className="px-6 py-2">
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
