@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { getWorkspace, Workspace } from "@/features/workspaces/api";
 import { useAuth } from "@/state/AuthContext";
+import { toast } from "sonner";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
-  const { setActiveWorkspaceId } = useAuth();
+  const { setActiveWorkspaceId, activeWorkspaceId } = useAuth();
+  const navigate = useNavigate();
   const [ws, setWs] = useState<Workspace | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -86,6 +88,49 @@ export default function WorkspaceHomePage() {
           >
             Open Template Center
           </Link>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mt-6 rounded-lg border p-4">
+        <div className="font-medium mb-4">Quick Actions</div>
+        <div className="flex gap-3">
+          <button
+            onClick={async () => {
+              if (!workspaceId) {
+                toast.error("Workspace ID required");
+                return;
+              }
+              try {
+                const { createDoc } = await import("@/features/docs/api");
+                const docId = await createDoc(workspaceId, "New doc");
+                navigate(`/docs/${docId}`);
+              } catch (e: any) {
+                toast.error(e?.message || "Failed to create doc");
+              }
+            }}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+          >
+            New doc
+          </button>
+          <button
+            onClick={async () => {
+              if (!workspaceId) {
+                toast.error("Workspace ID required");
+                return;
+              }
+              try {
+                const { createForm } = await import("@/features/forms/api");
+                const formId = await createForm(workspaceId, "New form");
+                navigate(`/forms/${formId}/edit`);
+              } catch (e: any) {
+                toast.error(e?.message || "Failed to create form");
+              }
+            }}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+          >
+            New form
+          </button>
         </div>
       </div>
     </div>
