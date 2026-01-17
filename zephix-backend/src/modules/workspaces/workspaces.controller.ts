@@ -565,41 +565,6 @@ export class WorkspacesController {
     }
   }
 
-  @Get(':workspaceId/summary')
-  @UseGuards(JwtAuthGuard)
-  async getSummary(
-    @Param('workspaceId') workspaceId: string,
-    @CurrentUser() u: UserJwt,
-    @Req() req: Request,
-  ) {
-    try {
-      // Verify workspace access
-      const canAccess = await this.accessService.canAccessWorkspace(
-        workspaceId,
-        u.organizationId,
-        u.id,
-        u.role,
-      );
-
-      if (!canAccess) {
-        throw new ForbiddenException('Workspace access denied');
-      }
-
-      const summary = await this.svc.getSummary(workspaceId, u.organizationId, u.id);
-      return formatResponse(summary);
-    } catch (error) {
-      const requestId = req.headers['x-request-id'] || 'unknown';
-      this.logger.error('Failed to get workspace summary', {
-        error: error instanceof Error ? error.message : String(error),
-        workspaceId,
-        userId: u.id,
-        organizationId: u.organizationId,
-        requestId,
-      });
-      throw error;
-    }
-  }
-
   // Workspace Members endpoints - All gated behind feature flag
   @Get(':id/members')
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspaceAccessGuard)
