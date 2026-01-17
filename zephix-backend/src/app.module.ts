@@ -52,6 +52,8 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { AdminModule } from './admin/admin.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { TenantContextInterceptor } from './modules/tenancy/tenant-context.interceptor';
+import { DocsModule } from './modules/docs/docs.module';
+import { FormsModule } from './modules/forms/forms.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -123,6 +125,8 @@ if (!(global as any).crypto) {
           WorkManagementModule,
           NotificationsModule,
           HomeModule,
+          DocsModule,
+          FormsModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks
