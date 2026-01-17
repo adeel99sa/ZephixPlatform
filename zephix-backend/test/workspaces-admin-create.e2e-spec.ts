@@ -147,7 +147,7 @@ describe('Workspaces Admin Create (e2e)', () => {
   describe('POST /api/workspaces', () => {
     it('1. Admin creates workspace with owners - should return 201 with { data: { workspaceId } }', async () => {
       const response = await request(app.getHttpServer())
-        .post('/workspaces')
+        .post('/api/workspaces')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Workspace',
@@ -175,7 +175,7 @@ describe('Workspaces Admin Create (e2e)', () => {
 
     it('2. Admin cannot set Guest as owner - should return 409', async () => {
       const response = await request(app.getHttpServer())
-        .post('/workspaces')
+        .post('/api/workspaces')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Test Workspace 2',
@@ -189,7 +189,7 @@ describe('Workspaces Admin Create (e2e)', () => {
 
     it('3. Member cannot create workspace - should return 403 FORBIDDEN_ROLE', async () => {
       const response = await request(app.getHttpServer())
-        .post('/workspaces')
+        .post('/api/workspaces')
         .set('Authorization', `Bearer ${memberToken}`)
         .send({
           name: 'Test Workspace 3',
@@ -199,6 +199,50 @@ describe('Workspaces Admin Create (e2e)', () => {
       expect(response.status).toBe(403);
       expect(response.body).toHaveProperty('code', 'FORBIDDEN_ROLE');
       expect(response.body).toHaveProperty('message', 'Read only access');
+    });
+
+    it('4. POST /api/workspaces with only name and slug - should succeed and derive owner from auth', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/workspaces')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Data Management',
+          slug: 'data-management',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('workspaceId');
+      expect(typeof response.body.data.workspaceId).toBe('string');
+
+      // Verify workspace_members row exists with admin as owner (derived from auth context)
+      const memberRepo = dataSource.getRepository(WorkspaceMember);
+      const members = await memberRepo.find({
+        where: { workspaceId: response.body.data.workspaceId },
+      });
+
+      expect(members.length).toBeGreaterThanOrEqual(1);
+      const ownerMembers = members.filter(m => m.role === 'workspace_owner');
+      expect(ownerMembers.length).toBeGreaterThanOrEqual(1);
+      expect(ownerMembers.some(m => m.userId === adminUserId)).toBe(true);
+    });
+
+    it('5. POST /api/workspaces with forbidden field ownerId in body - should return 400 with property error', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/workspaces')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Test Workspace Forbidden',
+          slug: 'test-workspace-forbidden',
+          ownerId: adminUserId, // Forbidden - should not be in request body
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('code', 'VALIDATION_ERROR');
+      // Error message should reference body property, not query parameter
+      expect(response.body.message).toContain('ownerId');
+      expect(response.body.message).not.toContain('Query parameter');
+      expect(response.body.message).toContain('property');
     });
   });
 
@@ -229,7 +273,7 @@ describe('Workspaces Admin Create (e2e)', () => {
 
     it('4. Owners update must keep at least one owner - should return 409', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}/owners`)
+        .patch(`/api/workspaces/${workspaceId}/owners`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           ownerUserIds: [],
@@ -242,7 +286,7 @@ describe('Workspaces Admin Create (e2e)', () => {
 
     it('5. Owners update rejects Guest - should return 409', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/workspaces/${workspaceId}/owners`)
+        .patch(`/api/workspaces/${workspaceId}/owners`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           ownerUserIds: [guestUserId],
@@ -251,6 +295,50 @@ describe('Workspaces Admin Create (e2e)', () => {
       expect(response.status).toBe(409);
       expect(response.body).toHaveProperty('code');
       expect(response.body).toHaveProperty('message');
+    });
+
+    it('6. POST /api/workspaces with only name and slug - should succeed and derive owner from auth', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/workspaces')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Data Management',
+          slug: 'data-management',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('workspaceId');
+      expect(typeof response.body.data.workspaceId).toBe('string');
+
+      // Verify workspace_members row exists with admin as owner (derived from auth context)
+      const memberRepo = dataSource.getRepository(WorkspaceMember);
+      const members = await memberRepo.find({
+        where: { workspaceId: response.body.data.workspaceId },
+      });
+
+      expect(members.length).toBeGreaterThanOrEqual(1);
+      const ownerMembers = members.filter(m => m.role === 'workspace_owner');
+      expect(ownerMembers.length).toBeGreaterThanOrEqual(1);
+      expect(ownerMembers.some(m => m.userId === adminUserId)).toBe(true);
+    });
+
+    it('7. POST /api/workspaces with forbidden field ownerId in body - should return 400 with property error', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/workspaces')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Test Workspace Forbidden',
+          slug: 'test-workspace-forbidden',
+          ownerId: adminUserId, // Forbidden - should not be in request body
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('code', 'VALIDATION_ERROR');
+      // Error message should reference body property, not query parameter
+      expect(response.body.message).toContain('ownerId');
+      expect(response.body.message).not.toContain('Query parameter');
+      expect(response.body.message).toContain('property');
     });
   });
 });

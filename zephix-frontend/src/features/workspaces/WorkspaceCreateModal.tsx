@@ -28,6 +28,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
 
   async function submit() {
     if (!name.trim()) return;
+    // Backend derives owner from auth context - no need to send ownerId
     setBusy(true);
     try {
       const workspaceId = await createWorkspace({
