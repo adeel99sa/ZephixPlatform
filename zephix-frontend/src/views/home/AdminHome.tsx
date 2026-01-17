@@ -37,10 +37,13 @@ export function AdminHome() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // /home endpoint is org-scoped, works without workspace
-    // But show empty state if no workspace selected for better UX
+    // STEP 1: Only load data if workspace is selected
+    // HomeView already guards for null workspace, but double-check here
+    if (!activeWorkspaceId) {
+      return;
+    }
     loadHomeData();
-  }, []);
+  }, [activeWorkspaceId]);
 
   async function loadHomeData() {
     try {
@@ -50,34 +53,17 @@ export function AdminHome() {
       setData(response.data);
     } catch (error: any) {
       console.error('Failed to load admin home data:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load home data';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      // STEP 5: Don't show toast errors - silent failure, show empty state instead
+      setError('Unable to load data');
     } finally {
       setLoading(false);
     }
   }
 
-  // Empty state when no workspace selected
+  // STEP 1: This should never render - HomeView guards for null workspace
+  // But keep as safety check
   if (!activeWorkspaceId) {
-    return (
-      <div className="p-6">
-        <div className="max-w-2xl mx-auto text-center space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Get Started</h1>
-            <p className="text-gray-600">Select a workspace or create a project from a template</p>
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Button onClick={() => navigate('/workspaces')} className="px-6 py-3">
-              Select Workspace
-            </Button>
-            <Button onClick={() => navigate('/templates')} variant="outline" className="px-6 py-3">
-              Create Project
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (loading) {
@@ -90,13 +76,14 @@ export function AdminHome() {
     );
   }
 
+  // STEP 5: Replace error with empty state - no "Failed to load" messages
   if (error || !data) {
     return (
       <div className="p-6">
         <div className="max-w-2xl mx-auto text-center space-y-4">
           <div>
-            <p className="text-gray-900 font-medium mb-2">Failed to load home data</p>
-            {error && <p className="text-sm text-gray-600 mb-4">{error}</p>}
+            <p className="text-gray-900 font-medium mb-2">Unable to load home data</p>
+            <p className="text-sm text-gray-600 mb-4">Please try again later</p>
           </div>
           <Button onClick={loadHomeData} className="px-6 py-2">
             Retry

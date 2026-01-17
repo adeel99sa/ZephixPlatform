@@ -1,12 +1,16 @@
 import React from 'react';
 import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { normalizePlatformRole, PLATFORM_ROLE } from '@/utils/roles';
 import { AdminHome } from './home/AdminHome';
 import { MemberHome } from './home/MemberHome';
 import { GuestHome } from './home/GuestHome';
+import { HomeEmptyState } from './home/HomeEmptyState';
 
 export const HomeView: React.FC = () => {
   const { user } = useAuth();
+  // STEP A: Read activeWorkspaceId from workspace store FIRST
+  const { activeWorkspaceId } = useWorkspaceStore();
 
   if (!user) {
     return (
@@ -17,6 +21,14 @@ export const HomeView: React.FC = () => {
       </div>
     );
   }
+
+  // STEP A: Guard must be FIRST return after user check
+  // If null, return HomeEmptyState immediately - prevents ANY workspace-scoped API calls
+  if (!activeWorkspaceId) {
+    return <HomeEmptyState />;
+  }
+
+  // STEP A: Only after guard passes, render role-based home components
 
   // PHASE 5.3: Route by platform role
   // Fix 4: Use platformRole first (source of truth), fallback to role only if missing

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useWorkspaceStore } from "@/state/workspace.store";
 
 // Derive from env once
 const BASE_URL =
@@ -62,6 +63,46 @@ api.interceptors.request.use((cfg) => {
   // Load from storage on every request to handle page refresh
   const token = accessToken || localStorage.getItem("zephix.at");
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
+
+  // STEP D: Workspace header safety - read from Zustand store
+  // Skip workspace header for auth, health, and version endpoints
+  const url = cfg.url || '';
+  const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
+  const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+  const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
+  const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
+
+  if (!shouldSkipWorkspaceHeader) {
+    const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+    // STEP D: If activeWorkspaceId is null, delete headers to prevent stale context
+    if (!wsId) {
+      delete cfg.headers?.['X-Workspace-Id'];
+      delete cfg.headers?.['x-workspace-id'];
+      
+      // Development log for debugging
+      if (import.meta.env.MODE === 'development') {
+        console.log('[API] Workspace header removed - activeWorkspaceId is null', {
+          url: cfg.url,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } else {
+      // STEP D: Set header only when activeWorkspaceId exists
+      cfg.headers['X-Workspace-Id'] = wsId;
+      cfg.headers['x-workspace-id'] = wsId; // Support both cases
+      
+      // Development log for debugging
+      if (import.meta.env.MODE === 'development') {
+        console.log('[API] Workspace header injected', {
+          workspaceId: wsId,
+          url: cfg.url,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
   return cfg;
 });
 

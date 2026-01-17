@@ -60,20 +60,23 @@ export default function WorkspacesIndexPage() {
     }
   }
 
-  // Auto-select if only one workspace exists
+  // STEP 4: Auto-select if only one workspace exists - navigate to /home
   useEffect(() => {
     if (availableWorkspaces.length === 1 && !loading && !authLoading && user) {
       const singleWorkspace = availableWorkspaces[0];
       if (singleWorkspace) {
         setActiveWorkspace(singleWorkspace.id);
-        navigate(`/workspaces/${singleWorkspace.id}`, { replace: true });
+        // Navigate to /home - HomeView will handle workspace-scoped rendering
+        navigate('/home', { replace: true });
       }
     }
   }, [availableWorkspaces.length, loading, authLoading, user, navigate, setActiveWorkspace]);
 
+  // STEP 2: Workspace selection from /workspaces page - navigate to /home
   function handleSelectWorkspace(workspaceId: string) {
     setActiveWorkspace(workspaceId);
-    navigate(`/workspaces/${workspaceId}`);
+    // Navigate to /home - HomeView will handle workspace-scoped rendering
+    navigate('/home', { replace: false });
   }
 
   if (loading || authLoading) {
@@ -134,7 +137,8 @@ export default function WorkspacesIndexPage() {
             onCreated={(workspaceId) => {
               loadWorkspaces();
               setActiveWorkspace(workspaceId);
-              navigate(`/workspaces/${workspaceId}`);
+              // Navigate to /home after creating workspace
+              navigate('/home', { replace: false });
               setShowCreateModal(false);
             }}
           />
@@ -204,7 +208,8 @@ export default function WorkspacesIndexPage() {
           onCreated={(workspaceId) => {
             loadWorkspaces();
             setActiveWorkspace(workspaceId);
-            navigate(`/workspaces/${workspaceId}`);
+            // Navigate to /home after creating workspace
+            navigate('/home', { replace: false });
             setShowCreateModal(false);
           }}
         />
