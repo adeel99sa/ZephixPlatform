@@ -128,8 +128,8 @@ export default function App() {
                 <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
               </Route>
               <Route path="/templates" element={<TemplateCenterPage />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="/forms" element={<FormsPage />} />
+              <Route path="/docs/:docId" element={<DocsPage />} />
+              <Route path="/forms/:formId/edit" element={<FormsPage />} />
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
