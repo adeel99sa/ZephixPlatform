@@ -542,6 +542,29 @@ export class WorkspacesController {
     return formatResponse(result);
   }
 
+  @Get(':workspaceId/role')
+  @UseGuards(JwtAuthGuard)
+  async getWorkspaceRole(
+    @Param('workspaceId') workspaceId: string,
+    @CurrentUser() u: UserJwt,
+    @Req() req: Request,
+  ) {
+    try {
+      const roleData = await this.svc.getUserRole(workspaceId, u.id, u.organizationId);
+      return formatResponse(roleData);
+    } catch (error) {
+      const requestId = req.headers['x-request-id'] || 'unknown';
+      this.logger.error('Failed to get workspace role', {
+        error: error instanceof Error ? error.message : String(error),
+        workspaceId,
+        userId: u.id,
+        organizationId: u.organizationId,
+        requestId,
+      });
+      throw error;
+    }
+  }
+
   // Workspace Members endpoints - All gated behind feature flag
   @Get(':id/members')
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireWorkspaceAccessGuard)

@@ -147,6 +147,69 @@ export class WorkspacesService {
     }
   }
 
+  async getUserRole(workspaceId: string, userId: string, organizationId: string): Promise<{
+    role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
+    canWrite: boolean;
+    isReadOnly: boolean;
+  }> {
+    // Check if workspace exists and belongs to organization
+    const workspace = await this.repo.findOne({
+      where: { id: workspaceId, organizationId },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // Check if user is workspace owner
+    if (workspace.ownerId === userId) {
+      return {
+        role: 'OWNER',
+        canWrite: true,
+        isReadOnly: false,
+      };
+    }
+
+    // Check workspace membership (only query the requesting user's record)
+    const membership = await this.memberRepo.findOne({
+      where: {
+        workspaceId,
+        userId,
+        status: 'active',
+      },
+    });
+
+    if (membership) {
+      // Map workspace roles to API roles
+      if (membership.role === 'workspace_owner') {
+        return {
+          role: 'OWNER',
+          canWrite: true,
+          isReadOnly: false,
+        };
+      } else if (membership.role === 'workspace_admin' || membership.role === 'workspace_member') {
+        return {
+          role: membership.role === 'workspace_admin' ? 'ADMIN' : 'MEMBER',
+          canWrite: true,
+          isReadOnly: false,
+        };
+      } else if (membership.role === 'workspace_viewer') {
+        return {
+          role: 'GUEST',
+          canWrite: false,
+          isReadOnly: true,
+        };
+      }
+    }
+
+    // Default: no membership found
+    return {
+      role: 'GUEST',
+      canWrite: false,
+      isReadOnly: true,
+    };
+  }
+
   async create(input: {
     name: string;
     slug: string;
