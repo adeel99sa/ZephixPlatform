@@ -104,45 +104,62 @@ export function SidebarWorkspaces() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableWorkspaces.length, activeWorkspaceId, authLoading, user]);
 
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close plus menu when clicking outside
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(event.target as Node)) {
+        setPlusMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [plusMenuOpen]);
+
   return (
     <div className="px-2 mb-2" data-testid="sidebar-workspaces">
-      {/* Workspace Dropdown - Monday.com style rectangular box */}
-      <div className="relative">
-        <button
-          ref={buttonRef}
-          onClick={() => {
-            if (availableWorkspaces.length > 0 && !currentWorkspace) {
-              // Phase 5.1: Make "Select workspace" clickable
-              if (availableWorkspaces.length === 1) {
-                handleWorkspaceSelect(availableWorkspaces[0].id);
-              } else {
+      {/* Workspace Dropdown and Plus Button */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <button
+            ref={buttonRef}
+            onClick={() => {
+              if (availableWorkspaces.length > 0 && !currentWorkspace) {
+                if (availableWorkspaces.length === 1) {
+                  handleWorkspaceSelect(availableWorkspaces[0].id);
+                } else {
+                  setDropdownOpen(!dropdownOpen);
+                }
+              } else if (canCreateWorkspace) {
                 setDropdownOpen(!dropdownOpen);
               }
-            } else if (canCreateWorkspace) {
-              setDropdownOpen(!dropdownOpen);
-            }
-          }}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm ${
-            currentWorkspace
-              ? 'bg-gray-50 border-gray-300 hover:bg-gray-100'
-              : 'bg-white border-gray-300 hover:bg-gray-50'
-          } ${availableWorkspaces.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
-          data-testid="workspace-selector"
-          disabled={availableWorkspaces.length === 0 && !canCreateWorkspace}
-        >
-          <span className="text-sm font-medium truncate flex-1 text-left">
-            {currentWorkspace
-              ? currentWorkspace.name
-              : availableWorkspaces.length > 0
-                ? 'Select workspace'
-                : 'Select workspace'}
-          </span>
-          {canCreateWorkspace && availableWorkspaces.length > 0 && (
-            <ChevronDown
-              className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
-            />
-          )}
-        </button>
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded border text-sm ${
+              currentWorkspace
+                ? 'bg-gray-50 border-gray-300 hover:bg-gray-100'
+                : 'bg-white border-gray-300 hover:bg-gray-50'
+            } ${availableWorkspaces.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+            data-testid="workspace-selector"
+            disabled={availableWorkspaces.length === 0 && !canCreateWorkspace}
+          >
+            <span className="text-sm font-medium truncate flex-1 text-left">
+              {currentWorkspace
+                ? currentWorkspace.name
+                : availableWorkspaces.length > 0
+                  ? 'Select workspace'
+                  : 'Select workspace'}
+            </span>
+            {canCreateWorkspace && availableWorkspaces.length > 0 && (
+              <ChevronDown
+                className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
+              />
+            )}
+          </button>
 
         {/* STEP 2: Dropdown menu - compact selector only, never renders full workspace list */}
         {/* STEP 4: Dropdown is for SWITCHING, not browsing - only shows list of workspace names */}
@@ -234,40 +251,18 @@ export function SidebarWorkspaces() {
                     Template Center
                   </button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setPlusMenuOpen(false);
-                      if (!activeWorkspaceId) {
-                        toast.error("Please select a workspace first");
-                        return;
-                      }
-                      try {
-                        const { createDoc } = await import("@/features/docs/api");
-                        const docId = await createDoc(activeWorkspaceId, "Untitled");
-                        navigate(`/docs/${docId}`, { replace: true });
-                        toast.success("Doc created");
-                      } catch (e: any) {
-                        toast.error(e?.message || "Failed to create doc");
-                      }
+                      navigate('/docs');
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
                     Doc
                   </button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       setPlusMenuOpen(false);
-                      if (!activeWorkspaceId) {
-                        toast.error("Please select a workspace first");
-                        return;
-                      }
-                      try {
-                        const { createForm } = await import("@/features/forms/api");
-                        const formId = await createForm(activeWorkspaceId, "Untitled");
-                        navigate(`/forms/${formId}/edit`, { replace: true });
-                        toast.success("Form created");
-                      } catch (e: any) {
-                        toast.error(e?.message || "Failed to create form");
-                      }
+                      navigate('/forms');
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
