@@ -5,3 +5,7 @@ build/
 tmp/
 temp/
 /generated/prisma
+# Template proofs - ignore generated files but keep structure
+proofs/templates/*.txt
+!proofs/templates/.gitkeep
+!proofs/templates/README.txt

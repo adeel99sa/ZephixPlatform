@@ -1,7 +1,26 @@
-import { api } from '@/lib/api';
-import { unwrapData, unwrapArray } from '@/lib/api/unwrapData';
+import { api } from "@/lib/api";
+import { unwrapArray } from '@/lib/api/unwrapData';
 
-import type { Workspace } from './types';
+export type CreateWorkspaceInput = {
+  name: string;
+  slug?: string;
+};
+
+export type CreateWorkspaceResponse = {
+  data: {
+    workspaceId: string;
+  };
+};
+
+export type Workspace = {
+  id: string;
+  name: string;
+  slug?: string | null;
+};
+
+export type GetWorkspaceResponse = {
+  data: Workspace;
+};
 
 export async function listWorkspaces(): Promise<Workspace[]> {
   const response = await api.get<{ data: Workspace[] }>('/workspaces');
@@ -9,54 +28,22 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return unwrapArray<Workspace>(response);
 }
 
-/**
- * Strict input type for workspace creation.
- * Backend derives owner from auth context - frontend must never send ownerId, organizationId, userId, etc.
- */
-export type CreateWorkspaceInput = {
-  name: string;
-  slug?: string;
-};
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<string> {
+  const res = await api.post<CreateWorkspaceResponse>("/workspaces", input);
+  // API interceptor unwraps { data: { workspaceId } } to { workspaceId }
+  const workspaceId = (res as any)?.data?.workspaceId || (res as any)?.workspaceId;
 
-/**
- * Create workspace with strict payload contract.
- * 
- * Contract:
- * - URL: /api/workspaces (no query parameters)
- * - Body: { name: string, slug?: string }
- * - Backend derives owner from auth context
- */
-export async function createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
-  // Build strict payload - only name and slug
-  const payload: CreateWorkspaceInput = {
-    name: input.name.trim(),
-  };
-  
-  // Only include slug if provided and non-empty
-  if (input.slug && input.slug.trim().length > 0) {
-    payload.slug = input.slug.trim();
+  if (!workspaceId) {
+    throw new Error("Workspace create returned no workspaceId");
   }
 
-  // Dev runtime guard - detect extra keys
-  if (import.meta.env.MODE === "development") {
-    const keys = Object.keys(input || {});
-    const allowed = ["name", "slug"];
-    const extra = keys.filter(k => !allowed.includes(k));
-    if (extra.length > 0) {
-      throw new Error(`createWorkspace extra keys: ${extra.join(", ")}. Only name and slug are allowed.`);
-    }
-  }
-
-  // POST to /workspaces with strict payload (no query params, no forbidden fields)
-  const response = await api.post<{ data: Workspace }>('/workspaces', payload);
-  // Backend returns { data: Workspace }
-  return unwrapData<Workspace>(response) || {} as Workspace;
+  return workspaceId;
 }
 
-export async function getWorkspace(id: string): Promise<Workspace | null> {
-  const response = await api.get<{ data: Workspace | null }>(`/workspaces/${id}`);
-  // Backend returns { data: Workspace | null }
-  return unwrapData<Workspace>(response);
+export async function getWorkspace(workspaceId: string): Promise<Workspace> {
+  const res = await api.get<GetWorkspaceResponse>(`/workspaces/${workspaceId}`);
+  // API interceptor unwraps { data: Workspace } to Workspace
+  return res as any as Workspace;
 }
 
 export async function renameWorkspace(id: string, name: string): Promise<Workspace> {

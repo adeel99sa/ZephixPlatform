@@ -26,9 +26,13 @@ type User = {
   } | null;
   name?: string; // computed field
 };
+const ACTIVE_WORKSPACE_KEY = "activeWorkspaceId";
+
 type AuthCtx = {
   user: User | null;
   loading: boolean;
+  activeWorkspaceId: string | null;
+  setActiveWorkspaceId: (id: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -42,6 +46,19 @@ let hydrationPromise: Promise<void> | null = null;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeWorkspaceId, _setActiveWorkspaceId] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_WORKSPACE_KEY)
+  );
+
+  const setActiveWorkspaceId = (id: string | null) => {
+    if (!id) {
+      localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+      _setActiveWorkspaceId(null);
+      return;
+    }
+    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
+    _setActiveWorkspaceId(id);
+  };
 
   async function hydrate() {
     // Prevent concurrent hydration calls
@@ -147,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, activeWorkspaceId, setActiveWorkspaceId, login, logout }}>{children}</Ctx.Provider>;
 };
 
 export const useAuth = () => {
