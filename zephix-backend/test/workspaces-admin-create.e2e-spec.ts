@@ -341,4 +341,46 @@ describe('Workspaces Admin Create (e2e)', () => {
       expect(response.body.message).toContain('property');
     });
   });
+
+  describe('POST /api/templates/:templateId/instantiate-v5_1', () => {
+    let templateId: string;
+
+    beforeAll(async () => {
+      // Create a test template
+      const templateRepo = dataSource.getRepository(require('../src/modules/templates/entities/template.entity').Template);
+      const template = templateRepo.create({
+        name: 'Test Template',
+        templateScope: 'ORG',
+        organizationId: orgId,
+        structure: {
+          phases: [
+            {
+              name: 'Phase 1',
+              sortOrder: 0,
+              tasks: [{ title: 'Task 1', sortOrder: 0 }],
+            },
+          ],
+        },
+        version: 1,
+      });
+      const saved = await templateRepo.save(template);
+      templateId = saved.id;
+    });
+
+    it('1. Instantiate template returns projectId', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/templates/${templateId}/instantiate-v5_1`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('x-workspace-id', (await dataSource.getRepository(Workspace).findOne({ where: { organizationId: orgId } }))?.id || '')
+        .send({
+          projectName: 'Test Project from Template',
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('projectId');
+      expect(typeof response.body.data.projectId).toBe('string');
+      expect(response.body.data).toHaveProperty('projectName', 'Test Project from Template');
+    });
+  });
 });

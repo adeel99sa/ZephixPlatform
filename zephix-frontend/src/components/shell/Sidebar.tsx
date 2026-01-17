@@ -14,6 +14,7 @@ import { useAuth } from "@/state/AuthContext";
 import { isAdminRole } from "@/types/roles";
 import { isPaidUser } from "@/utils/roles";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
+import { useProgramsPortfoliosEnabled } from "@/lib/features";
 
 function InboxBadge() {
   const { unreadCount } = useUnreadNotifications();
@@ -335,25 +336,29 @@ export function Sidebar() {
             >
               Projects
             </NavLink>
-            {/* PHASE 6 MODULE 6: Portfolios and Programs navigation */}
-            <NavLink
-              data-testid="ws-nav-portfolios"
-              to={`/workspaces/${activeWorkspaceId}/portfolios`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Portfolios
-            </NavLink>
-            <NavLink
-              data-testid="ws-nav-programs"
-              to={`/workspaces/${activeWorkspaceId}/programs`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Programs
-            </NavLink>
+            {/* PHASE 6 MODULE 6: Portfolios and Programs navigation - Hidden by default for MVP */}
+            {enableProgramsPortfolios && (
+              <>
+                <NavLink
+                  data-testid="ws-nav-portfolios"
+                  to={`/workspaces/${activeWorkspaceId}/portfolios`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Portfolios
+                </NavLink>
+                <NavLink
+                  data-testid="ws-nav-programs"
+                  to={`/workspaces/${activeWorkspaceId}/programs`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Programs
+                </NavLink>
+              </>
+            )}
             {/* Phase 5.1: Hide out-of-scope items - Boards, Documents, Forms */}
             <NavLink
               data-testid="ws-nav-members"
@@ -380,18 +385,23 @@ export function Sidebar() {
             >
               Projects
             </button>
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-            >
-              Portfolios
-            </button>
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-            >
-              Programs
-            </button>
+            {/* Portfolios and Programs hidden by default for MVP */}
+            {enableProgramsPortfolios && (
+              <>
+                <button
+                  onClick={() => navigate('/workspaces')}
+                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+                >
+                  Portfolios
+                </button>
+                <button
+                  onClick={() => navigate('/workspaces')}
+                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+                >
+                  Programs
+                </button>
+              </>
+            )}
             <button
               onClick={() => navigate('/workspaces')}
               className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
