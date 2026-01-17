@@ -35,9 +35,11 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
         slug: slug || undefined,
       });
       telemetry.track('ui.workspace.create.success', { workspaceId });
+      // Fix: Close modal first, then set workspace, then navigate (exact order required)
+      onClose();
       setActiveWorkspaceId(workspaceId);
       navigate(`/workspaces/${workspaceId}/home`, { replace: true });
-      onClose();
+      onCreated(workspaceId);
     } catch (e) {
       telemetry.track('ui.workspace.create.error', { message: (e as Error).message });
       const errorMessage = (e as any)?.response?.data?.message || (e as Error).message || 'Failed to create workspace.';
