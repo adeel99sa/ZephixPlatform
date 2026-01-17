@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { useAuth } from '@/state/AuthContext';
 import { telemetry } from '@/lib/telemetry';
@@ -38,7 +39,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
     } catch (e) {
       telemetry.track('ui.workspace.create.error', { message: (e as Error).message });
       const errorMessage = (e as any)?.response?.data?.message || (e as Error).message || 'Failed to create workspace.';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setBusy(false);
     }
