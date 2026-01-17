@@ -32,7 +32,14 @@ export function buildValidationError(exception: any): {
       if (responseObj.errors && Array.isArray(responseObj.errors)) {
         const firstError = responseObj.errors[0];
         if (firstError && firstError.property) {
-          message = `Query parameter '${firstError.property}' is not allowed`;
+          // Check if it's a whitelist validation error (forbidNonWhitelisted)
+          const isWhitelistError = firstError.constraints && 
+            Object.keys(firstError.constraints).some(key => key.includes('whitelist'));
+          if (isWhitelistError) {
+            message = `property '${firstError.property}' should not exist`;
+          } else {
+            message = `property '${firstError.property}' is not allowed`;
+          }
         }
       }
     }
