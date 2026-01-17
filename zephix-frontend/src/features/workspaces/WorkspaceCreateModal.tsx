@@ -25,16 +25,12 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
 
   async function submit() {
     if (!name.trim()) return;
-    if (!user?.id) {
-      alert('User ID is required to create workspace.');
-      return;
-    }
+    // Backend derives owner from auth context - no need to send ownerId
     setBusy(true);
     try {
       const ws = await createWorkspace({
         name,
         slug: slug || undefined,
-        ownerId: user.id, // Backend requires ownerId when workspace membership feature is enabled
       });
       telemetry.track('ui.workspace.create.success', { workspaceId: ws.id });
       onCreated(ws.id);
