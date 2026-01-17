@@ -24,8 +24,6 @@ import { WorkTask } from '../work-management/entities/work-task.entity';
 import { TaskStatus } from '../work-management/enums/task.enums';
 import { ProjectStatus, ProjectState } from '../projects/entities/project.entity';
 import { In } from 'typeorm';
-// Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
-// Import it from the module, not the local service
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 
 const DEFAULT_RETENTION_DAYS = Number(process.env.TRASH_RETENTION_DAYS ?? 30); // admin can change later
