@@ -125,6 +125,8 @@ if (!(global as any).crypto) {
           WorkManagementModule,
           NotificationsModule,
           HomeModule,
+          DocsModule,
+          FormsModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks
