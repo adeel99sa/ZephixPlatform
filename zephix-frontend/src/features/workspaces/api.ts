@@ -9,8 +9,36 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return unwrapArray<Workspace>(response);
 }
 
-export async function createWorkspace(input: { name: string; slug?: string; ownerId?: string }): Promise<Workspace> {
-  const response = await api.post<{ data: Workspace }>('/workspaces', input);
+/**
+ * Strict input type for workspace creation.
+ * Backend derives owner from auth context - frontend must never send ownerId, organizationId, userId, etc.
+ */
+export type CreateWorkspaceInput = {
+  name: string;
+  slug?: string;
+};
+
+/**
+ * Create workspace with strict payload contract.
+ * 
+ * Contract:
+ * - URL: /api/workspaces (no query parameters)
+ * - Body: { name: string, slug?: string }
+ * - Backend derives owner from auth context
+ */
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<Workspace> {
+  // Build strict payload - only name and slug
+  const payload: CreateWorkspaceInput = {
+    name: input.name.trim(),
+  };
+  
+  // Only include slug if provided and non-empty
+  if (input.slug && input.slug.trim().length > 0) {
+    payload.slug = input.slug.trim();
+  }
+
+  // POST to /workspaces with strict payload (no query params, no forbidden fields)
+  const response = await api.post<{ data: Workspace }>('/workspaces', payload);
   // Backend returns { data: Workspace }
   return unwrapData<Workspace>(response) || {} as Workspace;
 }
