@@ -261,8 +261,9 @@ export function SidebarWorkspaces() {
                       }
                       try {
                         const { createDoc } = await import("@/features/docs/api");
-                        const docId = await createDoc(activeWorkspaceId, "New doc");
-                        navigate(`/docs/${docId}`);
+                        const docId = await createDoc(activeWorkspaceId, "Untitled");
+                        navigate(`/docs/${docId}`, { replace: true });
+                        toast.success("Doc created");
                       } catch (e: any) {
                         toast.error(e?.message || "Failed to create doc");
                       }
@@ -280,8 +281,9 @@ export function SidebarWorkspaces() {
                       }
                       try {
                         const { createForm } = await import("@/features/forms/api");
-                        const formId = await createForm(activeWorkspaceId, "New form");
-                        navigate(`/forms/${formId}/edit`);
+                        const formId = await createForm(activeWorkspaceId, "Untitled");
+                        navigate(`/forms/${formId}/edit`, { replace: true });
+                        toast.success("Form created");
                       } catch (e: any) {
                         toast.error(e?.message || "Failed to create form");
                       }
