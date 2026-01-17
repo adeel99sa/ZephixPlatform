@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,8 +13,6 @@ import { isAdminRole } from '@/types/roles';
 export function SidebarWorkspaces() {
   const { user, loading: authLoading, activeWorkspaceId, setActiveWorkspaceId } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [open, setOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -69,34 +67,38 @@ export function SidebarWorkspaces() {
     refresh();
   }, [authLoading, user]);
 
-  // PHASE 5.3: Workspace selection - always go to /w/:slug/home
-  const handleWorkspaceSelect = (workspaceId: string) => {
-    setActiveWorkspace(workspaceId);
-    setDropdownOpen(false);
-    telemetry.track('workspace.selected', { workspaceId });
-
-    // Find workspace slug
-    const workspace = workspaces.find(w => w.id === workspaceId);
-    if (workspace?.slug) {
-      // PHASE 5.3: Navigate to /w/:slug/home
-      navigate(`/w/${workspace.slug}/home`, { replace: false });
-    } else {
-      // Fallback to old route if slug not available
-      navigate(`/workspaces/${workspaceId}`, { replace: false });
-    }
-  };
+  function handleWorkspaceSelect(id: string) {
+    if (!id) return;
+    setActiveWorkspaceId(id);
+    navigate(`/workspaces/${id}/home`, { replace: true });
+  }
 
   const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
   const availableWorkspaces = workspaces.filter(w => !w.deletedAt);
 
-  // Phase 5.1: Auto-select if only one workspace exists
+  // STEP 4: Auto-select FIRST workspace ONCE after login if none selected
+  // Use ref to ensure this only happens once, not on every render
+  const hasInitializedRef = useRef(false);
   useEffect(() => {
-    if (availableWorkspaces.length === 1 && !activeWorkspaceId && !authLoading && user) {
-      const singleWorkspace = availableWorkspaces[0];
-      if (singleWorkspace) {
-        setActiveWorkspace(singleWorkspace.id);
-        navigate(`/workspaces/${singleWorkspace.id}`);
-        telemetry.track('workspace.selected', { workspaceId: singleWorkspace.id });
+    // Only auto-select if:
+    // 1. Auth is ready
+    // 2. User exists
+    // 3. Workspaces are loaded
+    // 4. No workspace is currently selected
+    // 5. We haven't already initialized
+    if (
+      !authLoading &&
+      user &&
+      availableWorkspaces.length > 0 &&
+      !activeWorkspaceId &&
+      !hasInitializedRef.current
+    ) {
+      hasInitializedRef.current = true;
+      const firstWorkspace = availableWorkspaces[0];
+      if (firstWorkspace) {
+        setActiveWorkspaceId(firstWorkspace.id);
+        navigate(`/workspaces/${firstWorkspace.id}/home`, { replace: true });
+        telemetry.track('workspace.selected', { workspaceId: firstWorkspace.id });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,9 +191,9 @@ export function SidebarWorkspaces() {
                   navigate('/workspaces');
                 }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 text-gray-600"
-                data-testid="workspace-browse-all"
+                data-testid="workspace-manage-link"
               >
-                Browse all workspaces...
+                Manage workspaces...
               </button>
             </div>
           </div>

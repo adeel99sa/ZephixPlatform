@@ -81,12 +81,37 @@ class ApiClient {
         const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
 
         if (!shouldSkipWorkspaceHeader) {
-          // Add workspace context - do not send "default", only send actual UUID
-          const workspaceId = this.getWorkspaceId();
-          if (workspaceId && workspaceId !== 'default') {
-            config.headers['x-workspace-id'] = workspaceId;
+          // STEP D: Read activeWorkspaceId from Zustand store directly
+          // This ensures we always have the latest value, not stale localStorage
+          const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+          // STEP D: If activeWorkspaceId is null, delete headers to prevent stale context
+          if (!wsId) {
+            delete config.headers?.['X-Workspace-Id'];
+            delete config.headers?.['x-workspace-id'];
+            
+            // Development log for debugging
+            if (import.meta.env.MODE === 'development') {
+              console.log('[API] Workspace header removed - activeWorkspaceId is null', {
+                url: config.url,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } else {
+            // STEP D: Set header only when activeWorkspaceId exists
+            config.headers = config.headers || {};
+            config.headers['X-Workspace-Id'] = wsId;
+            config.headers['x-workspace-id'] = wsId; // Support both cases
+            
+            // Development log for debugging
+            if (import.meta.env.MODE === 'development') {
+              console.log('[API] Workspace header injected', {
+                workspaceId: wsId,
+                url: config.url,
+                timestamp: new Date().toISOString(),
+              });
+            }
           }
-          // If no workspace, don't add header (let backend validate)
         }
 
         return config;

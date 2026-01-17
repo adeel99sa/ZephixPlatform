@@ -11,13 +11,19 @@ export function useWorkspaceRole(workspaceId: string | null | undefined) {
   const { user } = useAuth();
   const { setWorkspaceRole, workspaceRole } = useWorkspaceStore();
 
-  useEffect(() => {
-    if (!workspaceId || !user?.id) {
-      setWorkspaceRole(null);
-      return;
-    }
+  if (!workspaceId) {
+    return {
+      role: null,
+      isReadOnly: true,
+      canWrite: false,
+      loading: false,
+      error: null,
+    };
+  }
 
-    // Fetch workspace members to find current user's role
+  useEffect(() => {
+    if (!user?.id) return;
+    
     const fetchWorkspaceRole = async () => {
       try {
         const response = await api.get(`/workspaces/${workspaceId}/members`);
@@ -29,7 +35,6 @@ export function useWorkspaceRole(workspaceId: string | null | undefined) {
         if (currentMember?.role) {
           setWorkspaceRole(currentMember.role as WorkspaceRole);
         } else {
-          // If not a member, default to null (will be handled by access guards)
           setWorkspaceRole(null);
         }
       } catch (error) {
@@ -42,9 +47,11 @@ export function useWorkspaceRole(workspaceId: string | null | undefined) {
   }, [workspaceId, user?.id, setWorkspaceRole]);
 
   return {
-    workspaceRole,
+    role: workspaceRole,
     isReadOnly: useWorkspaceStore((state) => state.isReadOnly),
     canWrite: useWorkspaceStore((state) => state.canWrite),
+    loading: false,
+    error: null,
   };
 }
 

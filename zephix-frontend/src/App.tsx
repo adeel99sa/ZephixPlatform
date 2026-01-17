@@ -31,6 +31,7 @@ import DashboardPage from "@/pages/dashboard/DashboardPage";
 import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
+import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
 import { TemplateCenter } from "@/views/templates/TemplateCenter";
 import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
@@ -117,6 +118,7 @@ export default function App() {
               <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
               <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
+              <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
               <Route path="/workspaces/:id" element={<WorkspaceView />} />
               <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
               <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
