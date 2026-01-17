@@ -365,8 +365,14 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
         )}
       </div>
 
-      {/* Actions */}
+      {/* Actions - Primary: Create Project from Template */}
       <div className="mb-6 flex gap-2">
+        <button
+          onClick={onInstantiate}
+          className="px-6 py-3 bg-green-600 text-white rounded-md text-sm font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
+        >
+          Create Project
+        </button>
         <button
           onClick={() => {
             // TODO: Open edit modal
@@ -381,12 +387,6 @@ function TemplateDetailsPanel({ template, onTemplateUpdate, onInstantiate }: Tem
           className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {publishing ? 'Publishing...' : 'Publish'}
-        </button>
-        <button
-          onClick={onInstantiate}
-          className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          Instantiate
         </button>
       </div>
 

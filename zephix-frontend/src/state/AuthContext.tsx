@@ -16,6 +16,14 @@ type User = {
     canViewAnalytics?: boolean;
   };
   organizationId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+    features?: {
+      enableProgramsPortfolios?: boolean;
+    };
+  } | null;
   name?: string; // computed field
 };
 type AuthCtx = {
