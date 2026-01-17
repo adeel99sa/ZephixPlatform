@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/state/AuthContext';
@@ -27,7 +28,6 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
 
   async function submit() {
     if (!name.trim()) return;
-    // Backend derives owner from auth context - no need to send ownerId
     setBusy(true);
     try {
       const workspaceId = await createWorkspace({
@@ -35,7 +35,8 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
         slug: slug || undefined,
       });
       telemetry.track('ui.workspace.create.success', { workspaceId });
-      // Fix: Close modal first, then set workspace, then navigate (exact order required)
+      setActiveWorkspaceId(workspaceId);
+      navigate(`/workspaces/${workspaceId}/home`, { replace: true });
       onClose();
       setActiveWorkspaceId(workspaceId);
       navigate(`/workspaces/${workspaceId}/home`, { replace: true });
