@@ -54,6 +54,7 @@ import ProgramsListPage from "@/pages/programs/ProgramsListPage";
 import ProgramDetailPage from "@/pages/programs/ProgramDetailPage";
 import PortfoliosListPage from "@/pages/portfolios/PortfoliosListPage";
 import PortfolioDetailPage from "@/pages/portfolios/PortfolioDetailPage";
+import FeaturesRoute from "@/routes/FeaturesRoute";
 // PHASE 7 MODULE 7.2: My Work
 import MyWorkPage from "@/pages/my-work/MyWorkPage";
 
@@ -120,11 +121,13 @@ export default function App() {
               <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
               <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
               <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
-              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes */}
-              <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
-              <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
-              <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
-              <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
+              <Route element={<FeaturesRoute feature="programsPortfolios" />}>
+                <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
+                <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
+                <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
+                <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+              </Route>
               <Route path="/templates" element={<TemplateCenterPage />} />
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />

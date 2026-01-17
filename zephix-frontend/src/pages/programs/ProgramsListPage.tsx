@@ -193,12 +193,15 @@ export default function ProgramsListPage() {
             >
               + New Program
             </button>
-            <Link
-              to={`/workspaces/${wsId}/portfolios`}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-            >
-              Manage Portfolios
-            </Link>
+            {/* Hide "Manage Portfolios" link when feature is disabled */}
+            {false && (
+              <Link
+                to={`/workspaces/${wsId}/portfolios`}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+              >
+                Manage Portfolios
+              </Link>
+            )}
           </div>
         )}
       </div>
