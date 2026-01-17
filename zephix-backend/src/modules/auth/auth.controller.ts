@@ -33,6 +33,7 @@ import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { normalizePlatformRole } from '../../shared/enums/platform-roles.enum';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
@@ -50,6 +51,8 @@ export class AuthController {
     private userOrgRepository: Repository<UserOrganization>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
   ) {}
 
   /**
@@ -215,6 +218,7 @@ export class AuthController {
 
     // Load UserOrganization record for the current user and organization
     let orgRole: string | null = null;
+    let organization: Organization | null = null;
     if (user.organizationId) {
       const userOrg = await this.userOrgRepository.findOne({
         where: {
@@ -230,11 +234,16 @@ export class AuthController {
           `[AuthController] No UserOrganization record found for user ${user.email} in org ${user.organizationId}. Falling back to user.role`,
         );
       }
+
+      // Load organization to get features
+      organization = await this.organizationRepository.findOne({
+        where: { id: user.organizationId },
+      });
     }
 
     // Use the same helper as login to ensure consistent structure
-    // Pass the org role explicitly
-    return this.authService.buildUserResponse(user, orgRole);
+    // Pass the org role and organization explicitly
+    return this.authService.buildUserResponse(user, orgRole, organization);
   }
 
   @Post('logout')

@@ -128,7 +128,8 @@ export class AuthService {
 
       // Build complete user response with permissions
       // Pass the org role explicitly
-      const userResponse = this.buildUserResponse(savedUser, 'admin');
+      // savedOrg is already available in the transaction scope
+      const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
 
       return {
         user: userResponse,
@@ -193,6 +194,7 @@ export class AuthService {
 
     // Get UserOrganization role if available
     let orgRole: string | null = null;
+    let organization: Organization | null = null;
     if (user.organizationId) {
       const userOrg = await this.userOrgRepository.findOne({
         where: {
@@ -204,11 +206,16 @@ export class AuthService {
       if (userOrg) {
         orgRole = userOrg.role;
       }
+
+      // Load organization to get features
+      organization = await this.organizationRepository.findOne({
+        where: { id: user.organizationId },
+      });
     }
 
     // Build complete user response with permissions
-    // Pass the org role explicitly
-    const userResponse = this.buildUserResponse(user, orgRole);
+    // Pass the org role and organization explicitly
+    const userResponse = this.buildUserResponse(user, orgRole, organization);
 
     return {
       user: userResponse,
@@ -320,6 +327,7 @@ export class AuthService {
   public buildUserResponse(
     user: User,
     orgRoleFromUserOrg?: string | null,
+    organization?: Organization | null,
   ): any {
     // Resolve platform role:
     // 1. If orgRoleFromUserOrg provided, use it (from UserOrganization)
@@ -379,6 +387,12 @@ export class AuthService {
     // Sanitize user (remove password)
     const sanitized = this.sanitizeUser(user);
 
+    // Extract organization features from settings
+    // Default to empty object if no organization or no features in settings
+    const features = organization?.settings && typeof organization.settings === 'object'
+      ? (organization.settings as any).features || {}
+      : {};
+
     // Return consistent structure
     return {
       ...sanitized,
@@ -387,6 +401,12 @@ export class AuthService {
       permissions,
       organizationId: user.organizationId,
       emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
+      organization: organization ? {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        features, // Organization feature flags (e.g., enableProgramsPortfolios)
+      } : null,
     };
   }
 

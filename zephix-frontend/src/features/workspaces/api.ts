@@ -37,6 +37,16 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Work
     payload.slug = input.slug.trim();
   }
 
+  // Dev runtime guard - detect extra keys
+  if (import.meta.env.MODE === "development") {
+    const keys = Object.keys(input || {});
+    const allowed = ["name", "slug"];
+    const extra = keys.filter(k => !allowed.includes(k));
+    if (extra.length > 0) {
+      throw new Error(`createWorkspace extra keys: ${extra.join(", ")}. Only name and slug are allowed.`);
+    }
+  }
+
   // POST to /workspaces with strict payload (no query params, no forbidden fields)
   const response = await api.post<{ data: Workspace }>('/workspaces', payload);
   // Backend returns { data: Workspace }
