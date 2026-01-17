@@ -49,14 +49,44 @@ export default function WorkspaceHomePage() {
       <div className="text-2xl font-semibold">{ws.name}</div>
       <div className="mt-2 text-sm text-muted-foreground">Workspace home</div>
 
+      {/* About Section */}
       <div className="mt-6 rounded-lg border p-4">
-        <div className="font-medium">No projects yet</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Create your first project from Template Center.
+        <div className="font-medium mb-2">About</div>
+        <div className="text-sm text-muted-foreground">
+          Add a short intro for your team
         </div>
-        <Link className="mt-3 inline-block text-blue-600" to="/templates">
-          Open Template Center
-        </Link>
+      </div>
+
+      {/* KPI Tiles */}
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="rounded-lg border p-4">
+          <div className="text-sm text-muted-foreground mb-1">Projects in progress</div>
+          <div className="text-2xl font-semibold">0</div>
+        </div>
+        <div className="rounded-lg border p-4">
+          <div className="text-sm text-muted-foreground mb-1">Tasks in progress</div>
+          <div className="text-2xl font-semibold">0</div>
+        </div>
+        <div className="rounded-lg border p-4">
+          <div className="text-sm text-muted-foreground mb-1">Tasks completed</div>
+          <div className="text-2xl font-semibold">0</div>
+        </div>
+      </div>
+
+      {/* Projects Section */}
+      <div className="mt-6 rounded-lg border p-4">
+        <div className="font-medium mb-2">Projects</div>
+        <div className="mt-4 text-center py-8">
+          <div className="text-sm text-muted-foreground mb-4">
+            No projects yet
+          </div>
+          <Link
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            to="/templates"
+          >
+            Open Template Center
+          </Link>
+        </div>
       </div>
     </div>
   );
