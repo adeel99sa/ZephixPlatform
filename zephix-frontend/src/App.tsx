@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import AdminRoute from "@/routes/AdminRoute";
 import PaidRoute from "@/routes/PaidRoute";
@@ -20,16 +21,16 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import { HomeView } from "@/views/HomeView";
+import HomeRouterPage from "@/pages/home/HomeRouterPage";
+import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
+import GuestHomePage from "@/pages/home/GuestHomePage";
 import { DashboardsIndex } from "@/views/dashboards/Index";
 import { DashboardBuilder } from "@/views/dashboards/Builder";
 import DashboardView from "@/views/dashboards/View";
-import DashboardPage from "@/pages/dashboard/DashboardPage";
 import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
 import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
-import { TemplateCenter } from "@/views/templates/TemplateCenter";
 import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
 import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
@@ -107,7 +108,9 @@ export default function App() {
                 <DashboardLayout />
               </ErrorBoundary>
             }>
-              <Route path="/home" element={<HomeView />} />
+              <Route path="/home" element={<HomeRouterPage />} />
+              <Route path="/select-workspace" element={<SelectWorkspacePage />} />
+              <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/dashboards" element={<DashboardsIndex />} />
               <Route path="/dashboards/:id" element={<DashboardView />} />
               <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
@@ -155,6 +158,7 @@ export default function App() {
                 </ErrorBoundary>
               }>
                 <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/home" element={<AdminDashboardPage />} />
                 <Route path="/admin/overview" element={<AdminOverviewPage />} />
 
                 {/* Organization Section */}

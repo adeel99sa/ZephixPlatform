@@ -3,8 +3,9 @@
  * Shows clear message instead of allowing failed requests
  */
 import React from 'react';
-import { useWorkspaceStore } from '@/state/workspace.store';
 import { useNavigate } from 'react-router-dom';
+
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface WorkspaceGuardProps {
   children: React.ReactNode;
@@ -49,10 +50,10 @@ export function WorkspaceGuard({ children, fallback }: WorkspaceGuardProps) {
             <div className="mt-4">
               <button
                 type="button"
-                onClick={() => navigate('/workspaces')}
+                onClick={() => navigate('/select-workspace')}
                 className="bg-yellow-100 px-3 py-2 rounded-md text-sm font-medium text-yellow-800 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
               >
-                Go to Workspaces
+                Select Workspace
               </button>
             </div>
           </div>
