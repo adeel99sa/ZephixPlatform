@@ -8,9 +8,15 @@
 
 ## RULES
 
-1. **Working** = Has proof artifact in `proofs/recovery/commands/` OR runtime evidence in `proofs/runtime/` (HAR + screenshots OR curl outputs with 200 responses)
-2. **Partial** = Code exists (controller/page) but no runtime proof
+1. **Working** = Has proof artifact in `proofs/recovery/commands/` OR runtime evidence in `proofs/runtime/` where:
+   - For curl proofs: Response file exists AND contains HTTP 200 status
+   - For browser proofs: HAR file exists AND screenshots exist
+2. **Partial** = Code exists (controller/page) but no runtime proof with 200 status
 3. **Not Working** = Code missing or build fails
+
+**Runtime Proof Requirements:**
+- Auth Flow: `proofs/runtime/curl/01_login_response.txt` exists AND contains "HTTP 200"
+- Workspace Selection: `proofs/runtime/curl/04_workspace_home_response.txt` exists AND contains "HTTP 200"
 
 ---
 
@@ -26,8 +32,8 @@
 | **Route Counts** | ✅ **Working** | `commands/42_route_counts.txt` | Counts extracted from proof |
 | **Backend Tests** | ⚠️ **Partial** | `commands/10_backend_counts.txt` | 52 test files exist, no test run output |
 | **Frontend Tests** | ⚠️ **Partial** | `commands/20_frontend_counts.txt` | 42 test files exist, no test run output |
-| **Auth Flow** | ⚠️ **Partial** | Controllers exist | Runtime proof: `proofs/runtime/auth/` or `proofs/runtime/curl/01_login_response.txt` |
-| **Workspace Selection** | ⚠️ **Partial** | Controllers exist | Runtime proof: `proofs/runtime/workspaces/` or `proofs/runtime/curl/04_workspace_home_response.txt` |
+| **Auth Flow** | ⚠️ **Partial** | Controllers exist | Runtime proof required: `proofs/runtime/curl/01_login_response.txt` with HTTP 200 OR `proofs/runtime/auth/auth_flow.har` |
+| **Workspace Selection** | ⚠️ **Partial** | Controllers exist | Runtime proof required: `proofs/runtime/curl/04_workspace_home_response.txt` with HTTP 200 OR `proofs/runtime/workspaces/workspace_flow.har` |
 | **Project Create** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
 | **Template Instantiate** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
 | **Docs Flow** | ⚠️ **Partial** | Controller exists | No runtime proof (HAR + screenshots) |
@@ -67,32 +73,27 @@ cd zephix-frontend && npm run build
 
 ### Runtime Flows (All Partial)
 
-All runtime flows are marked **Partial** until runtime proof is provided.
+All runtime flows are marked **Partial** until runtime proof with HTTP 200 status is provided.
 
 **Required Proof Per Flow:**
-1. **HAR file** - Network requests for the flow
-2. **Screenshots** - Visual sequence showing the flow
-3. **Console logs** - Only if flow fails
 
-**Example Flow (Login → Workspace Selection):**
-- Screenshot: Landing page
-- Screenshot: Click "Sign In"
-- Screenshot: Login page
-- Screenshot: Submit credentials
-- HAR: Contains `/api/auth/login`, `/api/auth/me`
-- Screenshot: Workspace picker
-- Screenshot: Select workspace
-- HAR: Contains `/api/workspaces`, workspace home fetch
-- Screenshot: Workspace home
+**Option 1: Curl Proofs (Automated)**
+- Response file exists in `proofs/runtime/curl/`
+- File contains "HTTP 200" status line
+- Example: `proofs/runtime/curl/01_login_response.txt` contains "HTTP 200"
 
-**Missing Proofs:**
-- Auth flow: No HAR, no screenshots
-- Workspace selection: No HAR, no screenshots
-- Project create: No HAR, no screenshots
-- Template instantiate: No HAR, no screenshots
-- Docs flow: No HAR, no screenshots
-- Forms flow: No HAR, no screenshots
-- Admin flow: No HAR, no screenshots
+**Option 2: Browser Proofs (Manual)**
+- HAR file exists in `proofs/runtime/auth/` or `proofs/runtime/workspaces/`
+- Screenshots exist showing the flow sequence
+
+**Current Status:**
+- Auth flow: No `proofs/runtime/curl/01_login_response.txt` with HTTP 200
+- Workspace selection: No `proofs/runtime/curl/04_workspace_home_response.txt` with HTTP 200
+- Project create: No runtime proof
+- Template instantiate: No runtime proof
+- Docs flow: No runtime proof
+- Forms flow: No runtime proof
+- Admin flow: No runtime proof
 
 ---
 

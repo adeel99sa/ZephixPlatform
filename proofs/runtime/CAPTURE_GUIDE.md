@@ -11,6 +11,19 @@
 3. Chrome DevTools ready
 4. Test credentials available
 
+### URLs
+
+**Frontend URL**
+- Default: `http://localhost:5173`
+- If Vite prints a different port, use the one shown in the terminal.
+
+**Backend URL**
+- Default: `http://localhost:3000`
+- If backend prints a different port, set BASE_URL when running curl proofs:
+  ```bash
+  BASE_URL=http://localhost:<port> ./run.sh <email> <password>
+  ```
+
 ---
 
 ## Step A: Clear Session
