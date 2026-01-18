@@ -1,0 +1,54 @@
+## 00_phase0_frontend_router
+Time: 2026-01-18 13:37:05 CST
+Cmd: grep -rn "createBrowserRouter\|createRoutesFromElements\|Routes\|Route" zephix-frontend/src 2>/dev/null | head -50
+
+zephix-frontend/src/App.tsx:1:import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+zephix-frontend/src/App.tsx:2:import ProtectedRoute from "@/routes/ProtectedRoute";
+zephix-frontend/src/App.tsx:3:import AdminRoute from "@/routes/AdminRoute";
+zephix-frontend/src/App.tsx:4:import PaidRoute from "@/routes/PaidRoute";
+zephix-frontend/src/App.tsx:9:import { RouteLogger } from "@/components/routing/RouteLogger";
+zephix-frontend/src/App.tsx:57:import FeaturesRoute from "@/routes/FeaturesRoute";
+zephix-frontend/src/App.tsx:83:      <Router>
+zephix-frontend/src/App.tsx:84:        <RouteLogger />
+zephix-frontend/src/App.tsx:85:        <Routes>
+zephix-frontend/src/App.tsx:87:          <Route path="/" element={<LandingPage />} />
+zephix-frontend/src/App.tsx:88:          <Route path="/login" element={<LoginPage />} />
+zephix-frontend/src/App.tsx:89:          <Route path="/signup" element={<SignupPage />} />
+zephix-frontend/src/App.tsx:90:          <Route path="/verify-email" element={<VerifyEmailPage />} />
+zephix-frontend/src/App.tsx:91:          <Route path="/invites/accept" element={<InviteAcceptPage />} />
+zephix-frontend/src/App.tsx:92:          <Route path="/invite" element={<InvitePage />} />
+zephix-frontend/src/App.tsx:93:          <Route path="/join/workspace" element={<JoinWorkspacePage />} />
+zephix-frontend/src/App.tsx:95:          <Route path="/w/:slug" element={<WorkspaceSlugRedirect />} />
+zephix-frontend/src/App.tsx:97:          <Route path="/w/:slug/home" element={<WorkspaceHomeBySlug />} />
+zephix-frontend/src/App.tsx:100:          <Route element={<ProtectedRoute />}>
+zephix-frontend/src/App.tsx:102:            <Route path="/onboarding" element={<OnboardingPage />} />
+zephix-frontend/src/App.tsx:105:            <Route element={
+zephix-frontend/src/App.tsx:110:              <Route path="/home" element={<HomeView />} />
+zephix-frontend/src/App.tsx:111:              <Route path="/dashboards" element={<DashboardsIndex />} />
+zephix-frontend/src/App.tsx:112:              <Route path="/dashboards/:id" element={<DashboardView />} />
+zephix-frontend/src/App.tsx:113:              <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
+zephix-frontend/src/App.tsx:114:              <Route path="/projects" element={<div>Projects Page</div>} />
+zephix-frontend/src/App.tsx:115:              <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
+zephix-frontend/src/App.tsx:116:              <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
+zephix-frontend/src/App.tsx:117:              <Route path="/workspaces" element={<WorkspacesIndexPage />} />
+zephix-frontend/src/App.tsx:118:              <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
+zephix-frontend/src/App.tsx:119:              <Route path="/workspaces/:id" element={<WorkspaceView />} />
+zephix-frontend/src/App.tsx:120:              <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
+zephix-frontend/src/App.tsx:121:              <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
+zephix-frontend/src/App.tsx:122:              <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
+zephix-frontend/src/App.tsx:124:              <Route element={<FeaturesRoute feature="programsPortfolios" />}>
+zephix-frontend/src/App.tsx:125:                <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
+zephix-frontend/src/App.tsx:126:                <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
+zephix-frontend/src/App.tsx:127:                <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
+zephix-frontend/src/App.tsx:128:                <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+zephix-frontend/src/App.tsx:129:              </Route>
+zephix-frontend/src/App.tsx:130:              <Route path="/templates" element={<TemplateCenterPage />} />
+zephix-frontend/src/App.tsx:131:              <Route path="/docs/:docId" element={<DocsPage />} />
+zephix-frontend/src/App.tsx:132:              <Route path="/forms/:formId/edit" element={<FormsPage />} />
+zephix-frontend/src/App.tsx:133:              <Route path="/resources" element={<ResourcesPage />} />
+zephix-frontend/src/App.tsx:134:              <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
+zephix-frontend/src/App.tsx:135:              <Route path="/analytics" element={<AnalyticsPage />} />
+zephix-frontend/src/App.tsx:136:              <Route path="/settings" element={<SettingsPage />} />
+zephix-frontend/src/App.tsx:138:              <Route element={<PaidRoute />}>
+zephix-frontend/src/App.tsx:139:                <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
+zephix-frontend/src/App.tsx:140:                <Route path="/settings/security" element={<SecuritySettingsPage />} />

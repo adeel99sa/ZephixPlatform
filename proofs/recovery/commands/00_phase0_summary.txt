@@ -1,0 +1,56 @@
+## 00_phase0_summary
+Time: 2026-01-18 13:36:42 CST
+Cmd: Phase 0 baseline proof capture summary
+
+## Git State
+- Commit: b9b0c2100e9e62fb12da8fdb24b36ad94c860fc0
+- Branch: recovery/workspace-mvp
+- Modified files: 11 (backend auth, docs, forms, home, workspaces; frontend navigation, layout, workspace selection)
+- Untracked files: 11 (including external architecture docs: .docx, .xlsx files)
+
+## File Counts
+- Controllers: 78 (found via find, not 48 as previously reported)
+- Entities: 98
+- Services: 151 (found via find, not 94 as previously reported)
+- Modules: 35
+- Frontend pages (TSX files in src/pages/): 137
+- Frontend routes (Route elements in App.tsx): 60 path attributes, 69 Route elements
+
+## Tenant Isolation Evidence
+- TenantAwareRepository: Found in multiple files
+  - Primary implementation: zephix-backend/src/modules/tenancy/tenant-aware.repository.ts
+  - Used in: workspace-access, home modules
+  - Pattern: Extends TenantAwareRepository, automatically scopes by organizationId
+
+## Database Triggers/RLS Evidence
+- RLS found on: brds table (ENABLE ROW LEVEL SECURITY, CREATE POLICY)
+- Triggers found: 
+  - update_brd_search_vector_trigger (brds table)
+  - update_brds_updated_at (brds table)
+  - trg_protect_demo_users (ProtectDemoUsers migration)
+- Note: RLS only found on brds table, not all tables. Primary enforcement is application-level via TenantAwareRepository.
+
+## Template Creation Paths Evidence
+- Template instantiation endpoint: POST /api/templates/:templateId/instantiate-v5_1
+- Direct project creation endpoint: POST /api/projects
+  - templateId is OPTIONAL in CreateProjectDto (line 102-104)
+  - createWithTemplateSnapshotV1 accepts optional templateId (line 809)
+  - If no templateId, creates project without template (line 829-845)
+- Conclusion: Template Center is NOT the single path. Direct creation without template is possible.
+
+## Frontend Router Evidence
+- Router file: zephix-frontend/src/App.tsx
+- Uses: BrowserRouter, Routes, Route from react-router-dom
+- Total Route elements: 69
+- Total path attributes: 60
+- Router entry point: App.tsx lines 83-191
+
+## Missing Commands/Directories
+- All commands executed successfully
+- All expected directories exist
+- Note: rg (ripgrep) not available, used grep instead
+
+## Next Steps
+- Phase 1: Create inventory generator scripts
+- Phase 2: Replace legacy markdown docs
+- Phase 3: Add tests for tenant isolation and template creation enforcement

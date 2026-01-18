@@ -1,0 +1,33 @@
+## 00_phase0_database_triggers_rls
+Time: 2026-01-18 13:37:02 CST
+Cmd: grep -rn "ENABLE ROW LEVEL SECURITY\|CREATE POLICY\|CREATE TRIGGER" zephix-backend/src zephix-backend/src/migrations 2>/dev/null | head -30
+
+zephix-backend/src/pm/database/migrations/1700000000004-CreateBRDTable.ts:108:      CREATE TRIGGER brd_search_vector_trigger
+zephix-backend/src/pm/database/migrations/1700000000004-CreateBRDTable.ts.bak:108:      CREATE TRIGGER brd_search_vector_trigger
+zephix-backend/src/migrations/1762200000000-ProtectDemoUsers.ts:27:      CREATE TRIGGER trg_protect_demo_users
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup2:105:      CREATE TRIGGER update_brd_search_vector_trigger
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup2:123:      CREATE TRIGGER update_brds_updated_at
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup2:131:      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup2:136:      CREATE POLICY brds_tenant_isolation ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup2:143:      CREATE POLICY brds_admin_access ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup5:105:      CREATE TRIGGER update_brd_search_vector_trigger
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup5:123:      CREATE TRIGGER update_brds_updated_at
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup5:131:      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup5:136:      CREATE POLICY brds_tenant_isolation ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup5:143:      CREATE POLICY brds_admin_access ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup4:105:      CREATE TRIGGER update_brd_search_vector_trigger
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup4:123:      CREATE TRIGGER update_brds_updated_at
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup4:131:      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup4:136:      CREATE POLICY brds_tenant_isolation ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup4:143:      CREATE POLICY brds_admin_access ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup3:105:      CREATE TRIGGER update_brd_search_vector_trigger
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup3:123:      CREATE TRIGGER update_brds_updated_at
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup3:131:      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup3:136:      CREATE POLICY brds_tenant_isolation ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts.backup3:143:      CREATE POLICY brds_admin_access ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts:105:      CREATE TRIGGER update_brd_search_vector_trigger
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts:123:      CREATE TRIGGER update_brds_updated_at
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts:131:      ALTER TABLE brds ENABLE ROW LEVEL SECURITY;
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts:136:      CREATE POLICY brds_tenant_isolation ON brds
+zephix-backend/src/brd/database/migrations/1704467100000-CreateBRDTable.ts:143:      CREATE POLICY brds_admin_access ON brds
+zephix-backend/src/migrations/1762200000000-ProtectDemoUsers.ts:27:      CREATE TRIGGER trg_protect_demo_users

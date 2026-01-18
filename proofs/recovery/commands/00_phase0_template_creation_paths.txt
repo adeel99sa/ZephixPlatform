@@ -1,0 +1,54 @@
+## 00_phase0_template_creation_paths
+Time: 2026-01-18 13:37:03 CST
+Cmd: grep -rn "createWithTemplateSnapshot\|templateId\|instantiate" zephix-backend/src 2>/dev/null | head -50
+
+zephix-backend/src/pm/dto/workflow-template.dto.ts:325:  templateId: string;
+zephix-backend/src/pm/controllers/workflow-template.controller.ts.bak:162:    @Param('id') templateId: string,
+zephix-backend/src/pm/controllers/workflow-template.controller.ts.bak:165:    return this.templateService.findInstances(orgId, { ...query, templateId });
+zephix-backend/src/pm/controllers/workflow-template.controller.ts.bak:175:    @Param('id') templateId: string,
+zephix-backend/src/pm/controllers/workflow-template.controller.ts.bak:180:      { ...createDto, templateId },
+zephix-backend/src/pm/controllers/workflow-template.controller.ts:162:    @Param('id') templateId: string,
+zephix-backend/src/pm/controllers/workflow-template.controller.ts:165:    return this.templateService.findInstances(orgId, { ...query, templateId });
+zephix-backend/src/pm/controllers/workflow-template.controller.ts:175:    @Param('id') templateId: string,
+zephix-backend/src/pm/controllers/workflow-template.controller.ts:180:      { ...createDto, templateId },
+zephix-backend/src/pm/services/workflow-template.service.ts:91:    templateId: string,
+zephix-backend/src/pm/services/workflow-template.service.ts:94:      where: { id: templateId, organizationId },
+zephix-backend/src/pm/services/workflow-template.service.ts:134:    templateId: string,
+zephix-backend/src/pm/services/workflow-template.service.ts:138:    const template = await this.findById(organizationId, templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:165:    templateId: string,
+zephix-backend/src/pm/services/workflow-template.service.ts:169:    const originalTemplate = await this.findById(organizationId, templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:193:    templateId: string,
+zephix-backend/src/pm/services/workflow-template.service.ts:195:    const template = await this.findById(organizationId, templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:203:    templateId: string,
+zephix-backend/src/pm/services/workflow-template.service.ts:205:    const template = await this.findById(organizationId, templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:210:        templateId,
+zephix-backend/src/pm/services/workflow-template.service.ts:226:  async delete(organizationId: string, templateId: string): Promise<void> {
+zephix-backend/src/pm/services/workflow-template.service.ts:227:    const template = await this.findById(organizationId, templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:231:      where: { templateId, organizationId },
+zephix-backend/src/pm/services/workflow-template.service.ts:256:    const template = await this.findById(organizationId, createDto.templateId);
+zephix-backend/src/pm/services/workflow-template.service.ts:292:      templateId,
+zephix-backend/src/pm/services/workflow-template.service.ts:312:    if (templateId) {
+zephix-backend/src/pm/services/workflow-template.service.ts:313:      where.templateId = templateId;
+zephix-backend/src/pm/services/workflow-template.service.ts:378:    const template = await this.findById(organizationId, instance.templateId);
+zephix-backend/src/pm/services/intake-form.service.ts:349:            templateId: processDto.workflowTemplateId,
+zephix-backend/src/pm/services/intake-form.service.ts:680:          templateId: form.targetWorkflowId,
+zephix-backend/src/pm/services/zephix-ai-intelligence.service.ts:580:        templateId: 'template_1',
+zephix-backend/src/pm/services/integration.service.ts:425:      templateId: '{{templateId}}',
+zephix-backend/src/pm/entities/workflow-instance.entity.ts:63:  @JoinColumn({ name: 'templateId' })
+zephix-backend/src/pm/entities/workflow-instance.entity.ts:67:  templateId: string;
+zephix-backend/src/pm/interfaces/project-intelligence.interface.ts:163:  templateId: string;
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:308:    const templateId = 'template-123';
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:312:      const mockTemplate = { id: templateId, name: 'Test Template' };
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:317:      const result = await service.getWorkflowTemplateById(templateId, organizationId);
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:320:      expect(result.id).toBe(templateId);
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:327:        service.getWorkflowTemplateById(templateId, organizationId)
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:333:    const templateId = 'template-123';
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:343:        id: templateId,
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:354:        templateId,
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:371:        id: templateId,
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:378:        service.updateWorkflowTemplate(templateId, updateDto, organizationId, userId)
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:384:    const templateId = 'template-123';
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:389:        id: templateId,
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:397:      await service.deleteWorkflowTemplate(templateId, organizationId);
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:400:        { id: templateId },
+zephix-backend/src/workflows/__tests__/workflow-templates.service.spec.ts:407:        id: templateId,
