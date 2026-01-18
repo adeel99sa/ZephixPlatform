@@ -1,0 +1,10 @@
+# Auth Flow Artifacts
+
+Place HAR files, screenshots, and console logs here.
+
+Required files:
+- auth_flow.har
+- 01_landing.png
+- 02_login.png
+- 03_after_login.png
+- console.txt (if errors occur)

@@ -1,0 +1,8 @@
+# Workspace Selection Flow Artifacts
+
+Place HAR files and screenshots here.
+
+Required files:
+- workspace_flow.har
+- 01_picker.png (if workspace picker shown)
+- 02_workspace_home.png
