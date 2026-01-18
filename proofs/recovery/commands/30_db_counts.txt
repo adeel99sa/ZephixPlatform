@@ -1,52 +1,8 @@
-      86
-      98
-total 1008
-drwxr-xr-x  88 malikadeel  staff   2816 Jan 15 16:52 .
-drwxr-xr-x  43 malikadeel  staff   1376 Jan 14 16:16 ..
--rw-r--r--   1 malikadeel  staff    527 Oct  1 16:58 001-create-roles-table.sql
--rw-r--r--   1 malikadeel  staff  19610 Dec 31 00:51 1000000000000-InitCoreSchema.ts
--rw-r--r--   1 malikadeel  staff    270 Dec 31 00:51 1756696874831-ProductionBaseline2025.ts
--rw-r--r--@  1 malikadeel  staff   2984 Jan 13 13:42 1757000000000-EnsureProjectsTableExists.ts
--rw-r--r--   1 malikadeel  staff   2877 Dec 31 00:51 1757227595839-AddProjectPhases.ts
--rw-r--r--   1 malikadeel  staff   5771 Dec 31 00:51 1757227595840-CreateResourceManagementSystem.ts
--rw-r--r--   1 malikadeel  staff   2080 Dec 31 00:51 1757227595841-CreateAuditAndIndexes.ts
--rw-r--r--   1 malikadeel  staff   4889 Dec 31 00:51 1757254542149-AddTaskManagementSystem.ts
--rw-r--r--   1 malikadeel  staff   1292 Dec 31 00:51 1757255630596-CreateUsersTable.ts
--rw-r--r--   1 malikadeel  staff   1379 Dec 31 00:51 1757255630597-FixUsersTableSchema.ts
--rw-r--r--   1 malikadeel  staff   3335 Dec 31 00:51 1757255630598-EnsureSnakeCaseColumns.ts
--rw-r--r--   1 malikadeel  staff   1743 Dec 31 00:51 1757255642228-FixTaskUserReferences.ts
--rw-r--r--   1 malikadeel  staff   3608 Dec 31 00:51 1757826448476-fix-auth-mvp.ts
--rw-r--r--   1 malikadeel  staff   2558 Dec 31 00:51 1761436371432-CreateWorkspacesTable.ts
--rw-r--r--   1 malikadeel  staff   1384 Dec 31 00:51 1761437995601-AddSoftDeletedAtColumn.ts
--rw-r--r--   1 malikadeel  staff   2321 Dec 31 00:51 1762000000000-AddWorkspaceIdToProjects.ts
--rw-r--r--   1 malikadeel  staff   1433 Dec 31 00:51 1762200000000-EnsureDemoUser.ts
--rw-r--r--   1 malikadeel  staff   1524 Dec 31 00:51 1762200000000-ProtectDemoUsers.ts
--rw-r--r--   1 malikadeel  staff   3214 Dec 31 00:51 1763000000000-CreateProjectTemplateTable.ts
--rw-r--r--   1 malikadeel  staff   4526 Dec 31 00:51 1763000000001-UpdateProjectTemplateColumns.ts
--rw-r--r--   1 malikadeel  staff   1912 Dec 31 00:51 1764000000000-AddIsActiveToProjectTemplates.ts
--rw-r--r--   1 malikadeel  staff   7130 Dec 31 00:51 1764000000001-CreateBillingTables.ts
--rw-r--r--   1 malikadeel  staff   1263 Dec 31 00:51 1765000000001-AddOwnerIdToWorkspaces.ts
--rw-r--r--   1 malikadeel  staff   2350 Dec 31 00:51 1765000000002-CreateWorkspaceMembers.ts
--rw-r--r--   1 malikadeel  staff   2761 Dec 31 00:51 1765000000003-MakeProjectWorkspaceIdRequired.ts
--rw-r--r--@  1 malikadeel  staff   1360 Jan 13 13:42 1765000000004-AddAdminRoleToWorkspaceMembers.ts
--rw-r--r--@  1 malikadeel  staff   2153 Jan 13 13:42 1765000000005-AddPermissionsConfigToWorkspaces.ts
--rw-r--r--   1 malikadeel  staff      0 Dec 31 00:51 1765000000006-ExtendTemplateEntitiesForPhase4.ts
--rw-r--r--@  1 malikadeel  staff    988 Jan 13 13:42 1765000000007-AddRiskAndKpiPresetsToTemplates.ts
--rw-r--r--@  1 malikadeel  staff   2335 Jan 13 13:42 1765000000008-UpdateWorkspaceMemberRoles.ts
--rw-r--r--@  1 malikadeel  staff   3789 Jan 13 13:42 1766000000001-CreatePhase8AnalyticsTables.ts
--rw-r--r--@  1 malikadeel  staff   3502 Jan 13 13:42 1766000000002-CreateSignalsAndRagTables.ts
--rw-r--r--@  1 malikadeel  staff   3193 Jan 16 16:55 1767000000001-AddResourceIntelligenceFields.ts
--rw-r--r--@  1 malikadeel  staff   4626 Jan 16 16:55 1767000000001-CreateTeamsTables.ts
--rw-r--r--@  1 malikadeel  staff   4404 Jan 16 16:55 1767000000002-CreateResourceDailyLoadTable.ts
--rw-r--r--@  1 malikadeel  staff   2586 Dec 31 00:40 1767159662041-FixWorkspacesDeletedAt.ts
--rw-r--r--@  1 malikadeel  staff   2596 Jan 11 16:51 1767376476696-AddConflictLifecycleFields.ts
--rw-r--r--@  1 malikadeel  staff  11663 Jan 13 13:42 1767485030157-Phase4PortfoliosPrograms.ts
--rw-r--r--@  1 malikadeel  staff  24054 Jan 11 16:51 1767550031000-Phase4DashboardStudio.ts
--rw-r--r--@  1 malikadeel  staff   1668 Jan 11 16:51 1767590539000-AddDashboardSharing.ts
--rw-r--r--@  1 malikadeel  staff  18225 Jan 11 16:51 1767637754000-Phase5WorkManagementCore.ts
--rw-r--r--@  1 malikadeel  staff   9832 Jan 11 16:51 1767752663000-AddWorkPhaseAndPhaseIdToTasks.ts
--rw-r--r--@  1 malikadeel  staff   2343 Jan 13 13:42 1767753000000-AddProjectStateAndStructureLocking.ts
--rw-r--r--@  1 malikadeel  staff   1977 Jan 13 13:42 1767767013714-AddProjectHealthFields.ts
--rw-r--r--@  1 malikadeel  staff   7566 Jan 13 13:42 1768000000000-AddSprint4TemplateRecommendationFields.ts
--rw-r--r--@  1 malikadeel  staff    744 Jan 13 13:42 1768000000001-AddInternalManagedToOrganizations.ts
--rw-r--r--@  1 malikadeel  staff   3532 Jan 16 16:55 1769000000001-CreateWorkspaceModuleConfigs.ts
+## 30_db_counts
+Time: 2026-01-18 11:14:49 CST
+Cmd: cd zephix-backend &&    echo 'migrations:' && find src/migrations -type f | wc -l | tr -d ' ' &&    echo 'entities:' && find src -type f -name '*.entity.ts' | wc -l | tr -d ' '
+
+migrations:
+86
+entities:
+98
