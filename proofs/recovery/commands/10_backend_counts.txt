@@ -1,0 +1,42 @@
+     868
+     812
+     134
+src/modules
+src/modules/ai
+src/modules/ai-orchestrator
+src/modules/analytics
+src/modules/auth
+src/modules/cache
+src/modules/commands
+src/modules/custom-fields
+src/modules/dashboards
+src/modules/demo-requests
+src/modules/docs
+src/modules/domain-events
+src/modules/forms
+src/modules/home
+src/modules/integrations
+src/modules/knowledge-index
+src/modules/kpi
+src/modules/notifications
+src/modules/portfolios
+src/modules/programs
+src/modules/projects
+src/modules/resources
+src/modules/risks
+src/modules/rollups
+src/modules/shared
+src/modules/signals
+src/modules/tasks
+src/modules/teams
+src/modules/templates
+src/modules/tenancy
+src/modules/users
+src/modules/work-items
+src/modules/work-management
+src/modules/workspace-access
+src/modules/workspaces
+      48
+      94
+      62
+      52
