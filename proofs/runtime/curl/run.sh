@@ -27,8 +27,8 @@ LOGIN_RESPONSE=$(curl -s -X POST "$API_BASE/auth/login" \
 echo "$LOGIN_RESPONSE" > "$OUT_DIR/01_login_response.txt"
 echo "$LOGIN_RESPONSE" | jq '.' 2>/dev/null || echo "$LOGIN_RESPONSE"
 
-# Extract access token
-ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.accessToken // .token // empty' 2>/dev/null || echo "")
+# Extract access token (handle both wrapped and unwrapped responses)
+ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.accessToken // .data.accessToken // .token // .data.token // empty' 2>/dev/null || echo "")
 
 if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
   echo "ERROR: Failed to extract access token from login response"
@@ -49,9 +49,9 @@ ME_RESPONSE=$(curl -s -X GET "$API_BASE/auth/me" \
 echo "$ME_RESPONSE" > "$OUT_DIR/02_me_response.txt"
 echo "$ME_RESPONSE" | jq '.' 2>/dev/null || echo "$ME_RESPONSE"
 
-# Extract user ID and organization ID
-USER_ID=$(echo "$ME_RESPONSE" | jq -r '.user.id // .id // empty' 2>/dev/null || echo "")
-ORG_ID=$(echo "$ME_RESPONSE" | jq -r '.user.organizationId // .organizationId // empty' 2>/dev/null || echo "")
+# Extract user ID and organization ID (handle wrapped responses)
+USER_ID=$(echo "$ME_RESPONSE" | jq -r '.user.id // .data.user.id // .data.id // .id // empty' 2>/dev/null || echo "")
+ORG_ID=$(echo "$ME_RESPONSE" | jq -r '.user.organizationId // .data.user.organizationId // .data.organizationId // .organizationId // empty' 2>/dev/null || echo "")
 
 echo ""
 echo "User ID: $USER_ID"
