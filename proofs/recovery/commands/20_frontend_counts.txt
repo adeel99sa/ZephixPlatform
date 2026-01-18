@@ -1,7 +1,18 @@
-     667
-     168
-     467
-     137
-     213
-     132
-      42
+## 20_frontend_counts
+Time: 2026-01-18 11:14:49 CST
+Cmd: cd zephix-frontend &&    echo 'files_total:' && find src -type f | wc -l | tr -d ' ' &&    echo 'ts_files:' && find src -type f -name '*.ts' | wc -l | tr -d ' ' &&    echo 'tsx_files:' && find src -type f -name '*.tsx' | wc -l | tr -d ' ' &&    echo 'pages_tsx:' && find src/pages -type f -name '*.tsx' | wc -l | tr -d ' ' &&    echo 'components_files:' && find src/components -type f | wc -l | tr -d ' ' &&    echo 'features_files:' && find src/features -type f | wc -l | tr -d ' ' &&    echo 'test_files:' && find src -type f \( -name '*.test.ts' -o -name '*.test.tsx' \) | wc -l | tr -d ' '
+
+files_total:
+667
+ts_files:
+168
+tsx_files:
+467
+pages_tsx:
+137
+components_files:
+213
+features_files:
+132
+test_files:
+42
