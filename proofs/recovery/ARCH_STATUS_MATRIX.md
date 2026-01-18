@@ -8,7 +8,7 @@
 
 ## RULES
 
-1. **Working** = Has proof artifact in `proofs/recovery/commands/` or runtime evidence (HAR + screenshots)
+1. **Working** = Has proof artifact in `proofs/recovery/commands/` OR runtime evidence in `proofs/runtime/` (HAR + screenshots OR curl outputs with 200 responses)
 2. **Partial** = Code exists (controller/page) but no runtime proof
 3. **Not Working** = Code missing or build fails
 
@@ -26,8 +26,8 @@
 | **Route Counts** | ✅ **Working** | `commands/42_route_counts.txt` | Counts extracted from proof |
 | **Backend Tests** | ⚠️ **Partial** | `commands/10_backend_counts.txt` | 52 test files exist, no test run output |
 | **Frontend Tests** | ⚠️ **Partial** | `commands/20_frontend_counts.txt` | 42 test files exist, no test run output |
-| **Auth Flow** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
-| **Workspace Selection** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
+| **Auth Flow** | ⚠️ **Partial** | Controllers exist | Runtime proof: `proofs/runtime/auth/` or `proofs/runtime/curl/01_login_response.txt` |
+| **Workspace Selection** | ⚠️ **Partial** | Controllers exist | Runtime proof: `proofs/runtime/workspaces/` or `proofs/runtime/curl/04_workspace_home_response.txt` |
 | **Project Create** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
 | **Template Instantiate** | ⚠️ **Partial** | Controllers exist | No runtime proof (HAR + screenshots) |
 | **Docs Flow** | ⚠️ **Partial** | Controller exists | No runtime proof (HAR + screenshots) |
