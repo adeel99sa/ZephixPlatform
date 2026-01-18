@@ -82,7 +82,7 @@ ZephixApp/
 - **POST endpoints:** 78
 - **PATCH endpoints:** 37
 - **DELETE endpoints:** 18
-- **Total endpoints:** 42
+- **Total endpoints:** 251
 
 ---
 
@@ -117,7 +117,7 @@ ZephixApp/
 | **POST Endpoints** | 78 | `42_route_counts.txt` |
 | **PATCH Endpoints** | 37 | `42_route_counts.txt` |
 | **DELETE Endpoints** | 18 | `42_route_counts.txt` |
-| **Total Endpoints** | 42 | `42_route_counts.txt` |
+| **Total Endpoints** | 251 | `42_route_counts.txt` |
 | **Migrations** | 86 | `30_db_counts.txt` |
 | **Entities (DB)** | 98 | `30_db_counts.txt` |
 | **Frontend Files** | 667 | `20_frontend_counts.txt` |

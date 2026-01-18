@@ -77,12 +77,18 @@ const frontendTests = pickNumber(f, "test_files");
 const migrations = pickNumber(db, "migrations");
 const entities = pickNumber(db, "entities");
 
-const endpointTotal = extractRouteTotal(routes);
 const getCount = routes.match(/get_count=(\d+)/)?.[1] || "unknown";
 const postCount = routes.match(/post_count=(\d+)/)?.[1] || "unknown";
 const patchCount = routes.match(/patch_count=(\d+)/)?.[1] || "unknown";
 const deleteCount = routes.match(/delete_count=(\d+)/)?.[1] || "unknown";
 
+// Calculate total from individual counts
+let endpointTotal = "unknown";
+if (getCount !== "unknown" && postCount !== "unknown" && patchCount !== "unknown" && deleteCount !== "unknown") {
+  endpointTotal = (parseInt(getCount) + parseInt(postCount) + parseInt(patchCount) + parseInt(deleteCount)).toString();
+}
+
+// Use actual date from proof file timestamps or current date
 const now = new Date().toISOString().split('T')[0];
 
 const tree = `# ZEPHIX PLATFORM ARCHITECTURE TREE
