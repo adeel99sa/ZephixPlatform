@@ -1,0 +1,8 @@
+## 40_backend_build
+Time: 2026-01-18 11:14:49 CST
+Cmd: cd zephix-backend && npm run build 2>&1 | head -n 50
+
+
+> zephix-backend@1.0.0 build
+> nest build --config tsconfig.build.json
+
