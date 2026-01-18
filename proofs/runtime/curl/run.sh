@@ -1,98 +1,144 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runtime proof capture script for Auth and Workspace flows
-# Usage: ./run.sh [email] [password]
-# If email/password not provided, uses defaults from .env or prompts
+BASE_URL="${BASE_URL:-http://localhost:3000}"
+EMAIL="${1:-}"
+PASSWORD="${2:-}"
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-OUT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Defaults (should be overridden by args or .env)
-EMAIL="${1:-${TEST_EMAIL:-admin@zephix.ai}}"
-PASSWORD="${2:-${TEST_PASSWORD:-test123}}"
-API_BASE="${API_BASE:-http://localhost:3000/api}"
-
-echo "=== Runtime Proof Capture ==="
-echo "Email: $EMAIL"
-echo "API Base: $API_BASE"
-echo ""
-
-# Step 1: Login
-echo "Step 1: Login"
-LOGIN_RESPONSE=$(curl -s -X POST "$API_BASE/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
-
-echo "$LOGIN_RESPONSE" > "$OUT_DIR/01_login_response.txt"
-echo "$LOGIN_RESPONSE" | jq '.' 2>/dev/null || echo "$LOGIN_RESPONSE"
-
-# Extract access token (handle both wrapped and unwrapped responses)
-ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.accessToken // .data.accessToken // .token // .data.token // empty' 2>/dev/null || echo "")
-
-if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-  echo "ERROR: Failed to extract access token from login response"
-  echo "Response: $LOGIN_RESPONSE"
+if [[ -z "${EMAIL}" || -z "${PASSWORD}" ]]; then
+  echo "Usage: ./run.sh <email> <password>"
+  echo "Optional: BASE_URL=http://localhost:3000 ./run.sh <email> <password>"
   exit 1
 fi
 
-echo ""
-echo "Access Token: ${ACCESS_TOKEN:0:20}..."
-echo ""
+OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$OUT_DIR"
 
-# Step 2: Get current user
-echo "Step 2: Get current user (/api/auth/me)"
-ME_RESPONSE=$(curl -s -X GET "$API_BASE/auth/me" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json")
+req() {
+  local method="$1"
+  local url="$2"
+  local body="${3:-}"
+  local out="$4"
 
-echo "$ME_RESPONSE" > "$OUT_DIR/02_me_response.txt"
-echo "$ME_RESPONSE" | jq '.' 2>/dev/null || echo "$ME_RESPONSE"
+  if [[ -n "$body" ]]; then
+    curl -sS -D "${out}.headers.txt" -o "${out}.body.json" \
+      -H "Content-Type: application/json" \
+      -X "$method" "$url" \
+      --data "$body"
+  else
+    curl -sS -D "${out}.headers.txt" -o "${out}.body.json" \
+      -X "$method" "$url"
+  fi
+}
 
-# Extract user ID and organization ID (handle wrapped responses)
-USER_ID=$(echo "$ME_RESPONSE" | jq -r '.user.id // .data.user.id // .data.id // .id // empty' 2>/dev/null || echo "")
-ORG_ID=$(echo "$ME_RESPONSE" | jq -r '.user.organizationId // .data.user.organizationId // .data.organizationId // .organizationId // empty' 2>/dev/null || echo "")
+req_auth() {
+  local method="$1"
+  local url="$2"
+  local token="$3"
+  local out="$4"
 
-echo ""
-echo "User ID: $USER_ID"
-echo "Organization ID: $ORG_ID"
-echo ""
+  curl -sS -D "${out}.headers.txt" -o "${out}.body.json" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    -X "$method" "$url"
+}
 
-# Step 3: List workspaces
-echo "Step 3: List workspaces (/api/workspaces)"
-WORKSPACES_RESPONSE=$(curl -s -X GET "$API_BASE/workspaces" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json")
+http_status() {
+  awk 'BEGIN{code=0} /^HTTP\//{code=$2} END{print code}' "$1"
+}
 
-echo "$WORKSPACES_RESPONSE" > "$OUT_DIR/03_workspaces_response.txt"
-echo "$WORKSPACES_RESPONSE" | jq '.' 2>/dev/null || echo "$WORKSPACES_RESPONSE"
+extract_token() {
+  local file="$1"
+  node - <<'NODE' "$file"
+const fs = require("fs");
+const p = process.argv[1];
+const raw = fs.readFileSync(p, "utf8");
+let j;
+try { j = JSON.parse(raw); } catch { process.exit(2); }
 
-# Extract first workspace slug
-WORKSPACE_SLUG=$(echo "$WORKSPACES_RESPONSE" | jq -r '.data[0].slug // .data[0].id // .[0].slug // .[0].id // empty' 2>/dev/null || echo "")
+function pick(o) {
+  if (!o || typeof o !== "object") return null;
+  return o.accessToken || o.token || o?.data?.accessToken || o?.data?.token || null;
+}
 
-if [ -z "$WORKSPACE_SLUG" ]; then
-  echo "WARNING: No workspace found. Cannot test workspace home endpoint."
-else
-  echo ""
-  echo "Workspace Slug: $WORKSPACE_SLUG"
-  echo ""
-  
-  # Step 4: Get workspace home by slug
-  echo "Step 4: Get workspace home by slug (/api/workspaces/slug/$WORKSPACE_SLUG/home)"
-  WORKSPACE_HOME_RESPONSE=$(curl -s -X GET "$API_BASE/workspaces/slug/$WORKSPACE_SLUG/home" \
-    -H "Authorization: Bearer $ACCESS_TOKEN" \
-    -H "Content-Type: application/json")
-  
-  echo "$WORKSPACE_HOME_RESPONSE" > "$OUT_DIR/04_workspace_home_response.txt"
-  echo "$WORKSPACE_HOME_RESPONSE" | jq '.' 2>/dev/null || echo "$WORKSPACE_HOME_RESPONSE"
+const t = pick(j);
+if (!t) process.exit(3);
+process.stdout.write(t);
+NODE
+}
+
+extract_first_workspace_slug_or_id() {
+  local file="$1"
+  node - <<'NODE' "$file"
+const fs = require("fs");
+const p = process.argv[1];
+const raw = fs.readFileSync(p, "utf8");
+let j;
+try { j = JSON.parse(raw); } catch { process.exit(2); }
+
+const arr =
+  Array.isArray(j) ? j :
+  Array.isArray(j?.data) ? j.data :
+  Array.isArray(j?.items) ? j.items :
+  Array.isArray(j?.data?.items) ? j.data.items :
+  null;
+
+if (!arr || arr.length === 0) process.exit(3);
+
+const w = arr[0];
+const slug = w.slug || w.workspaceSlug || null;
+const id = w.id || w.workspaceId || null;
+
+if (slug) { process.stdout.write(`slug:${slug}`); process.exit(0); }
+if (id)   { process.stdout.write(`id:${id}`); process.exit(0); }
+process.exit(4);
+NODE
+}
+
+login_body="$(node -e 'console.log(JSON.stringify({email: process.argv[1], password: process.argv[2]}))' "$EMAIL" "$PASSWORD")"
+
+rm -f ./*.headers.txt ./*.body.json ./*.txt 2>/dev/null || true
+
+req "POST" "${BASE_URL}/api/auth/login" "$login_body" "01_login"
+echo "HTTP $(http_status 01_login.headers.txt) ${BASE_URL}/api/auth/login" > 01_login_response.txt
+cat 01_login.body.json >> 01_login_response.txt
+
+AT="$(extract_token 01_login.body.json || true)"
+if [[ -z "${AT}" ]]; then
+  echo "" >> 01_login_response.txt
+  echo "Token extraction failed. Check 01_login.body.json" >> 01_login_response.txt
+  exit 4
 fi
 
-echo ""
-echo "=== Proof Capture Complete ==="
-echo "Outputs saved to: $OUT_DIR/"
-echo "- 01_login_response.txt"
-echo "- 02_me_response.txt"
-echo "- 03_workspaces_response.txt"
-if [ -n "$WORKSPACE_SLUG" ]; then
-  echo "- 04_workspace_home_response.txt"
+req_auth "GET" "${BASE_URL}/api/auth/me" "$AT" "02_me"
+echo "HTTP $(http_status 02_me.headers.txt) ${BASE_URL}/api/auth/me" > 02_me_response.txt
+cat 02_me.body.json >> 02_me_response.txt
+
+req_auth "GET" "${BASE_URL}/api/workspaces" "$AT" "03_workspaces"
+echo "HTTP $(http_status 03_workspaces.headers.txt) ${BASE_URL}/api/workspaces" > 03_workspaces_response.txt
+cat 03_workspaces.body.json >> 03_workspaces_response.txt
+
+WSEL="$(extract_first_workspace_slug_or_id 03_workspaces.body.json || true)"
+if [[ -z "${WSEL}" ]]; then
+  echo "No workspaces returned. Skipping workspace home proof." > 04_workspace_home_response.txt
+  exit 0
 fi
+
+if [[ "$WSEL" == slug:* ]]; then
+  SLUG="${WSEL#slug:}"
+  req_auth "GET" "${BASE_URL}/api/workspaces/slug/${SLUG}/home" "$AT" "04_workspace_home"
+  echo "HTTP $(http_status 04_workspace_home.headers.txt) ${BASE_URL}/api/workspaces/slug/${SLUG}/home" > 04_workspace_home_response.txt
+  cat 04_workspace_home.body.json >> 04_workspace_home_response.txt
+  exit 0
+fi
+
+if [[ "$WSEL" == id:* ]]; then
+  ID="${WSEL#id:}"
+  req_auth "GET" "${BASE_URL}/api/workspaces/${ID}/summary" "$AT" "04_workspace_home"
+  echo "HTTP $(http_status 04_workspace_home.headers.txt) ${BASE_URL}/api/workspaces/${ID}/summary" > 04_workspace_home_response.txt
+  cat 04_workspace_home.body.json >> 04_workspace_home_response.txt
+  exit 0
+fi
+
+echo "Workspace selector extraction failed." > 04_workspace_home_response.txt
+exit 5
