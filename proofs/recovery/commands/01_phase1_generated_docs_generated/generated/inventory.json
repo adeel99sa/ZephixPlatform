@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-01-18T19:48:23Z",
+  "gitSha": "ed55fe1a636bfab8d38b95b217a8c4db7cb8f15c",
+  "counts": {
+    "backend": {
+      "modules": 34,
+      "controllers": 78,
+      "services": 151,
+      "endpoints": 480,
+      "entities": 98,
+      "migrations": 97
+    },
+    "frontend": {
+      "pageFiles": 137,
+      "routes": 60,
+      "routesAmbiguous": 6
+    }
+  },
+  "sources": {
+    "backendRoutes": "docs/generated/backend_routes.json",
+    "frontendRoutes": "docs/generated/frontend_routes.json"
+  }
+}

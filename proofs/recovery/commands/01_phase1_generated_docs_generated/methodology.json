@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-01-18T19:48:23Z",
+  "gitSha": "ed55fe1a636bfab8d38b95b217a8c4db7cb8f15c",
+  "definitions": {
+    "apiEndpoint": "One Nest controller method with @Get, @Post, @Patch, or @Delete decorator",
+    "backendModule": "One top-level directory under zephix-backend/src/modules",
+    "entity": "One file ending with .entity.ts under zephix-backend/src",
+    "migration": "One .ts file under any directory path containing migrations under zephix-backend/src",
+    "frontendPageFile": "One .tsx file under zephix-frontend/src/pages",
+    "frontendRoute": "One <Route> element in the router entry file used by the app. Ambiguous routes are tracked separately"
+  },
+  "tools": {
+    "shell": "bash",
+    "backendSearch": "grep",
+    "frontendParser": "node",
+    "jsonWriter": "node"
+  },
+  "limitations": [
+    "Frontend routes parser is conservative. It flags ambiguous routes when path is not a string literal.",
+    "Backend routes scan extracts decorator parameters only when they are string literals."
+  ]
+}
