@@ -13,12 +13,21 @@ export class OutboxProcessorService {
   private readonly logger = new Logger(OutboxProcessorService.name);
   private isProcessing = false;
   private isDisabled = false; // Disable if table missing
+  private hasLoggedDisabled = false; // Track if we've logged the disabled message
 
   constructor(
     @InjectRepository(AuthOutbox)
     private outboxRepository: Repository<AuthOutbox>,
     private emailService: EmailService,
-  ) {}
+  ) {
+    // Log once on boot if worker is disabled
+    if (process.env.OUTBOX_PROCESSOR_ENABLED !== 'true') {
+      this.logger.log(
+        'OutboxProcessorService disabled: OUTBOX_PROCESSOR_ENABLED is not set to "true"',
+      );
+      this.hasLoggedDisabled = true;
+    }
+  }
 
   /**
    * Process outbox events every minute
@@ -32,6 +41,18 @@ export class OutboxProcessorService {
     if (process.env.NODE_ENV === 'test') {
       return;
     }
+
+    // Gate: Only run if explicitly enabled
+    if (process.env.OUTBOX_PROCESSOR_ENABLED !== 'true') {
+      if (!this.hasLoggedDisabled) {
+        this.logger.log(
+          'OutboxProcessorService disabled: OUTBOX_PROCESSOR_ENABLED is not set to "true"',
+        );
+        this.hasLoggedDisabled = true;
+      }
+      return;
+    }
+
     if (this.isProcessing) {
       return; // Prevent concurrent processing within same instance
     }
@@ -149,10 +170,21 @@ export class OutboxProcessorService {
    */
   private async processEvent(event: AuthOutbox): Promise<void> {
     try {
-      // Mark as processing
-      await this.outboxRepository.update(event.id, {
-        status: 'processing',
-      });
+      // Mark as processing - only if still in pending/processing state (race protection)
+      const updateResult = await this.outboxRepository.update(
+        { id: event.id, status: In(['pending', 'processing']) },
+        {
+          status: 'processing',
+        },
+      );
+
+      // If no rows updated, another replica already processed it
+      if (updateResult.affected === 0) {
+        this.logger.warn(
+          `Outbox event ${event.id} was already processed by another replica`,
+        );
+        return;
+      }
 
       // Process based on event type
       switch (event.type) {
@@ -164,19 +196,32 @@ export class OutboxProcessorService {
           break;
         default:
           this.logger.warn(`Unknown event type: ${event.type}`);
-          await this.outboxRepository.update(event.id, {
-            status: 'failed',
-            errorMessage: `Unknown event type: ${event.type}`,
-          });
+          await this.outboxRepository.update(
+            { id: event.id, status: 'processing' },
+            {
+              status: 'failed',
+              errorMessage: `Unknown event type: ${event.type}`,
+            },
+          );
           return;
       }
 
-      // Mark as completed (sent)
-      await this.outboxRepository.update(event.id, {
-        status: 'completed',
-        processedAt: new Date(),
-        sentAt: new Date(),
-      });
+      // Mark as completed (sent) - only if still in processing state (race protection)
+      const completeResult = await this.outboxRepository.update(
+        { id: event.id, status: 'processing' },
+        {
+          status: 'completed',
+          processedAt: new Date(),
+          sentAt: new Date(),
+        },
+      );
+
+      if (completeResult.affected === 0) {
+        this.logger.warn(
+          `Outbox event ${event.id} status changed during processing`,
+        );
+        return;
+      }
 
       this.logger.log(`Processed outbox event: ${event.type} (${event.id})`);
     } catch (error: any) {
@@ -189,13 +234,17 @@ export class OutboxProcessorService {
             )
           : null;
 
-      await this.outboxRepository.update(event.id, {
-        status: attempts >= MAX_ATTEMPTS ? 'failed' : 'pending',
-        attempts,
-        nextAttemptAt,
-        lastError: error.message || 'Unknown error',
-        errorMessage: error.message || 'Unknown error',
-      });
+      // Update with status check - only if still in processing state (race protection)
+      await this.outboxRepository.update(
+        { id: event.id, status: 'processing' },
+        {
+          status: attempts >= MAX_ATTEMPTS ? 'failed' : 'pending',
+          attempts,
+          nextAttemptAt,
+          lastError: error.message || 'Unknown error',
+          errorMessage: error.message || 'Unknown error',
+        },
+      );
 
       this.logger.error(
         `Failed to process outbox event: ${event.type} (${event.id}), attempt ${attempts}`,
