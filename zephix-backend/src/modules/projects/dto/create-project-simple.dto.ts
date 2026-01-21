@@ -1,5 +1,4 @@
 import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import type { ProjectType } from '../entities/project.entity';
 
 export class CreateProjectSimpleDto {
   @IsString()
@@ -9,5 +8,5 @@ export class CreateProjectSimpleDto {
 
   @IsOptional()
   @IsIn(['delivery', 'operations', 'intake'])
-  projectType?: ProjectType;
+  projectType?: string;
 }

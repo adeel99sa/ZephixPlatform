@@ -72,7 +72,7 @@ export class AdminWorkspaceMembersService {
     await this.assertWorkspaceInOrg(workspaceId, orgId);
 
     const rows = await this.memberRepo
-      .qb(orgId, 'm')
+      .qb('m')
       .innerJoin('users', 'u', 'u.id = m.user_id')
       .select([
         'm.id AS id',
@@ -115,7 +115,7 @@ export class AdminWorkspaceMembersService {
 
     const workspaceRole = mapToWorkspaceRole(role);
     const created = await this.memberRepo.save(
-      this.memberRepo.create(orgId, { workspaceId, userId, role: workspaceRole }),
+      this.memberRepo.create({ workspaceId, userId, role: workspaceRole }),
     );
 
     return { id: created.id };
@@ -132,7 +132,7 @@ export class AdminWorkspaceMembersService {
     if (!member) throw new NotFoundException('Member not found.');
 
     const workspaceRole = mapToWorkspaceRole(role);
-    await this.memberRepo.update(orgId, { id: memberId, workspaceId } as any, { role: workspaceRole } as any);
+    await this.memberRepo.update({ id: memberId, workspaceId } as any, { role: workspaceRole } as any);
     return { success: true as const };
   }
 
@@ -146,7 +146,7 @@ export class AdminWorkspaceMembersService {
     });
     if (!member) throw new NotFoundException('Member not found.');
 
-    await this.memberRepo.delete(orgId, { id: memberId, workspaceId } as any);
+    await this.memberRepo.delete({ id: memberId, workspaceId } as any);
     return { success: true as const };
   }
 }

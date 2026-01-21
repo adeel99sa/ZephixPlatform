@@ -42,11 +42,11 @@ export class WorkItemDependency {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @ManyToOne(() => WorkItem, (wi) => wi.blockingDependencies, { onDelete: 'CASCADE' })
+  @ManyToOne(() => WorkItem, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'predecessor_id' })
   predecessor?: WorkItem;
 
-  @ManyToOne(() => WorkItem, (wi) => wi.blockedByDependencies, { onDelete: 'CASCADE' })
+  @ManyToOne(() => WorkItem, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'successor_id' })
   successor?: WorkItem;
 }
