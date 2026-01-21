@@ -3,10 +3,11 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { loginAndGetToken, authHeader } from '../utils/e2e-auth';
+import { seedWorkspaceMvp } from '../utils/e2e-seed';
 
 describe('Auth Smoke Tests (e2e)', () => {
   let app: INestApplication;
-  let accessToken: string;
+  let seeded: Awaited<ReturnType<typeof seedWorkspaceMvp>>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -16,6 +17,9 @@ describe('Auth Smoke Tests (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+
+    // Seed test data
+    seeded = await seedWorkspaceMvp(app);
   });
 
   afterAll(async () => {
@@ -26,8 +30,8 @@ describe('Auth Smoke Tests (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({
-        email: 'demo@zephix.ai',
-        password: 'demo123456',
+        email: seeded.email,
+        password: seeded.password,
       })
       .expect(201);
 
@@ -35,22 +39,12 @@ describe('Auth Smoke Tests (e2e)', () => {
     expect(response.body.data).toHaveProperty('accessToken');
     expect(typeof response.body.data.accessToken).toBe('string');
     expect(response.body.data.accessToken.length).toBeGreaterThan(0);
-
-    accessToken = response.body.data.accessToken;
   });
 
   it('GET /api/auth/me should return user and organization', async () => {
-    if (!accessToken) {
-      accessToken = await loginAndGetToken(
-        app,
-        'demo@zephix.ai',
-        'demo123456',
-      );
-    }
-
     const response = await request(app.getHttpServer())
       .get('/api/auth/me')
-      .set(authHeader(accessToken))
+      .set(authHeader(seeded.token))
       .expect(200);
 
     expect(response.body).toHaveProperty('data');
@@ -59,6 +53,7 @@ describe('Auth Smoke Tests (e2e)', () => {
     expect(data).toHaveProperty('email');
     expect(data).toHaveProperty('organizationId');
     expect(typeof data.organizationId).toBe('string');
+    expect(data.organizationId).toBe(seeded.orgId);
     expect(data.organizationId.length).toBeGreaterThan(0);
   });
 });

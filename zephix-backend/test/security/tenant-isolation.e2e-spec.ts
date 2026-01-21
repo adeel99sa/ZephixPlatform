@@ -3,11 +3,12 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import * as jwt from 'jsonwebtoken';
 import { AppModule } from '../../src/app.module';
-import { loginAndGetToken, authHeader } from '../utils/e2e-auth';
+import { authHeader } from '../utils/e2e-auth';
+import { seedWorkspaceMvp } from '../utils/e2e-seed';
 
 describe('Tenant Isolation Security Tests (e2e)', () => {
   let app: INestApplication;
-  let validToken: string;
+  let seeded: Awaited<ReturnType<typeof seedWorkspaceMvp>>;
   let validTokenPayload: any;
 
   beforeAll(async () => {
@@ -19,9 +20,9 @@ describe('Tenant Isolation Security Tests (e2e)', () => {
     app.setGlobalPrefix('api');
     await app.init();
 
-    // Get a valid token to extract payload
-    validToken = await loginAndGetToken(app, 'demo@zephix.ai', 'demo123456');
-    validTokenPayload = jwt.decode(validToken) as any;
+    // Seed test data
+    seeded = await seedWorkspaceMvp(app);
+    validTokenPayload = jwt.decode(seeded.token) as any;
   });
 
   afterAll(async () => {
@@ -56,7 +57,7 @@ describe('Tenant Isolation Security Tests (e2e)', () => {
     // Get workspaces for the authenticated user
     const workspacesResponse = await request(app.getHttpServer())
       .get('/api/workspaces')
-      .set(authHeader(validToken))
+      .set(authHeader(seeded.token))
       .expect(200);
 
     const userWorkspaces = workspacesResponse.body.data;
@@ -65,7 +66,7 @@ describe('Tenant Isolation Security Tests (e2e)', () => {
       return;
     }
 
-    const userOrgId = validTokenPayload.organizationId;
+    const userOrgId = seeded.orgId;
     const userWorkspace = userWorkspaces[0];
 
     // Verify workspace belongs to user's org
