@@ -4,6 +4,7 @@ import 'reflect-metadata';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 import { EnvelopeInterceptor } from './shared/interceptors/envelope.interceptor';
 import { ApiErrorFilter } from './shared/filters/api-error.filter';
+import { RequestContextLoggerInterceptor } from './common/interceptors/request-context-logger.interceptor';
 
 // CRITICAL: Never disable TLS verification in production
 // Railway PostgreSQL uses proper SSL certificates - use SSL mode 'require' in connection string
@@ -125,6 +126,7 @@ async function bootstrap() {
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
+        excludeExtraneousValues: false, // Allow properties with decorators
       },
       exceptionFactory: (errors) => {
         // Build standardized validation error
@@ -144,7 +146,10 @@ async function bootstrap() {
 
   // Add global envelope interceptor for standardized responses
   console.log('📦 Configuring global envelope interceptor...');
-  app.useGlobalInterceptors(new EnvelopeInterceptor());
+  app.useGlobalInterceptors(
+    new RequestContextLoggerInterceptor(),
+    new EnvelopeInterceptor(),
+  );
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new ApiErrorFilter());
@@ -173,16 +178,15 @@ async function bootstrap() {
   console.log('✅ Application is running on:', `http://localhost:${port}`);
   console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
 
-  // Post-startup router verification
+  // Post-startup router verification (Express only)
   const httpServer = app.getHttpServer();
-  if (httpServer._router && httpServer._router.stack) {
+  if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
     const routes = httpServer._router.stack.filter((layer) => layer.route);
     console.log(
       `🎯 Router verification: ${routes.length} routes registered in Express stack`,
     );
-  } else {
-    console.log('⚠️ Warning: Router stack not found after startup');
   }
+  // Skip router check for Fastify or other adapters
 }
 
 bootstrap().catch((err) => {
