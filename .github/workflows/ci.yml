@@ -26,6 +26,18 @@ jobs:
         working-directory: zephix-backend
         run: |
           npm run lint:tenancy-guard-full || exit 1
+      - name: Check TenantAwareRepository calls use explicit orgId
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-tenant-repo-calls.sh || exit 1
+      - name: Check for bad rewrites to regular Repository calls
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-bad-rewrites.sh || exit 1
+      - name: Run smoke tests
+        working-directory: zephix-backend
+        run: |
+          npm test -- --config test/jest-e2e.json --testPathPattern="smoke" || exit 1
       - name: Lint changed files (merge gate)
         working-directory: zephix-backend
         run: |
