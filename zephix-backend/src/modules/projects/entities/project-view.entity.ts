@@ -20,7 +20,7 @@ export class ProjectView {
   @Column({ type: 'uuid' })
   projectId!: string;
 
-  @ManyToOne(() => Project, (p) => p.views, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   project!: Project;
 
   @Column({ type: 'varchar', length: 40 })

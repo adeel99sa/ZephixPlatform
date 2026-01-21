@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { slugify } from '../../../shared/utils/slugify';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { Project } from '../entities/project.entity';
 import { ProjectView } from '../entities/project-view.entity';
 import { CreateProjectSimpleDto } from '../dto/create-project-simple.dto';
@@ -9,25 +9,25 @@ import { CreateProjectSimpleDto } from '../dto/create-project-simple.dto';
 @Injectable()
 export class ProjectsViewService {
   constructor(
-    @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
-    @InjectRepository(ProjectView) private readonly viewRepo: Repository<ProjectView>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private readonly projectRepo: TenantAwareRepository<Project>,
+    @Inject(getTenantAwareRepositoryToken(ProjectView))
+    private readonly viewRepo: TenantAwareRepository<ProjectView>,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async create(workspaceId: string, organizationId: string, dto: CreateProjectSimpleDto) {
-    const slug = slugify(dto.name);
+    const orgId = this.tenantContextService.assertOrganizationId();
 
     const project = this.projectRepo.create({
       workspaceId,
-      organizationId,
+      organizationId: orgId,
       name: dto.name,
-      slug,
-      projectType: dto.projectType ?? 'delivery',
-      isActive: true,
     });
 
     const saved = await this.projectRepo.save(project);
 
-    await this.viewRepo.save([
+    const views = [
       this.viewRepo.create({ projectId: saved.id, type: 'list', label: 'List', sortOrder: 0, isEnabled: true }),
       this.viewRepo.create({ projectId: saved.id, type: 'board', label: 'Board', sortOrder: 1, isEnabled: false }),
       this.viewRepo.create({ projectId: saved.id, type: 'calendar', label: 'Calendar', sortOrder: 2, isEnabled: false }),
@@ -35,7 +35,9 @@ export class ProjectsViewService {
       this.viewRepo.create({ projectId: saved.id, type: 'team', label: 'Team', sortOrder: 4, isEnabled: false }),
       this.viewRepo.create({ projectId: saved.id, type: 'doc', label: 'Docs', sortOrder: 5, isEnabled: true }),
       this.viewRepo.create({ projectId: saved.id, type: 'dashboard', label: 'Dashboard', sortOrder: 6, isEnabled: false }),
-    ]);
+    ];
+
+    await this.viewRepo.saveMany(views);
 
     return saved;
   }

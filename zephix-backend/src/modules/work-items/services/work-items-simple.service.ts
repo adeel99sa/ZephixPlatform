@@ -20,10 +20,12 @@ export class WorkItemsSimpleService {
 
     const item = this.repo.create({
       organizationId,
+      workspaceId,
       projectId,
       parentId: dto.parentId ?? null,
 
-      key: nextKey,
+      // TODO: Add key column to WorkItem entity
+      // key: nextKey,
       title: dto.title.trim(),
       description: dto.description?.trim() || null,
 
@@ -45,9 +47,8 @@ export class WorkItemsSimpleService {
     const byId = await this.repo.findOne({ where: { workspaceId, id: idOrKey } });
     if (byId) return byId;
 
-    const byKey = await this.repo.findOne({ where: { workspaceId, key: idOrKey } });
-    if (byKey) return byKey;
-
+    // TODO: Add key column to WorkItem entity to support key-based lookup
+    // For now, only ID lookup is supported
     throw new NotFoundException('Work item not found');
   }
 
