@@ -95,4 +95,3 @@ export class UnitsTypeValidator implements ValidatorConstraintInterface {
     return 'Invalid unitsType validation';
   }
 }
-

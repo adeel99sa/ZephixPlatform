@@ -1,19 +1,34 @@
 /**
  * ROLE MAPPING SUMMARY:
  * - Uses isAdminUser(user) helper which checks permissions.isAdmin first
- * - Redirects non-admins to /403 (not /home)
+ * - Redirects non-admins to /home (not /403)
  * - Logs evaluation in development mode
  */
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { isAdminUser } from "@/types/roles";
+import { PHASE_5_1_UAT_MODE } from "@/config/phase5_1";
 
 /**
  * AdminRoute - Protects admin routes and ensures user has admin role
+ *
+ * Patch 3: During Phase 5.1 UAT, redirects /admin routes away except /admin/workspaces
+ * Option 2: Allow /admin/workspaces during UAT so Admin can create workspaces
  */
 export default function AdminRoute() {
   const { user, loading } = useAuth();
   const location = useLocation();
+
+  // Option 2: During UAT mode, allow only /admin/workspaces
+  if (PHASE_5_1_UAT_MODE) {
+    // Allow /admin/workspaces during UAT (Admin needs to create workspaces)
+    if (location.pathname.startsWith('/admin/workspaces')) {
+      // Continue to role check below
+    } else {
+      // Redirect all other admin routes to /home during UAT
+      return <Navigate to="/home" replace />;
+    }
+  }
 
   // Always log the current state
   console.log('[AdminRoute] Component render:', {
@@ -68,8 +83,8 @@ export default function AdminRoute() {
     });
 
   if (!isAdmin) {
-    // Log the redirect reason - ALWAYS log this critical failure
-    console.error('[AdminRoute] ❌ ACCESS DENIED - Redirecting to /403', {
+    // PROMPT 4: Redirect non-admins to /home (not /403)
+    console.error('[AdminRoute] ❌ ACCESS DENIED - Redirecting to /home', {
       email: user.email,
       role: user.role,
       platformRole: user.platformRole,
@@ -78,8 +93,7 @@ export default function AdminRoute() {
       isAdminUserResult: isAdmin,
       path: location.pathname,
     });
-    // Redirect to 403 page, not home
-    return <Navigate to="/403" replace state={{ from: location }} />;
+    return <Navigate to="/home" replace state={{ from: location }} />;
   }
 
   // Success - log that we're allowing access

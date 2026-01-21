@@ -1,0 +1,5 @@
+## 00_phase0_entities_count
+Time: 2026-01-18 13:36:42 CST
+Cmd: find zephix-backend/src -type f -name "*.entity.ts" | wc -l
+
+      98

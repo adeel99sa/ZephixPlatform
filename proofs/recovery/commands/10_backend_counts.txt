@@ -1,0 +1,18 @@
+## 10_backend_counts
+Time: 2026-01-18 11:14:49 CST
+Cmd: cd zephix-backend &&    echo 'files_total:' && find src -type f | wc -l | tr -d ' ' &&    echo 'ts_files:' && find src -type f -name '*.ts' | wc -l | tr -d ' ' &&    echo 'modules:' && find src/modules -maxdepth 1 -type d -print | wc -l | tr -d ' ' &&    echo 'controllers:' && find src/modules -type f -name '*.controller.ts' | wc -l | tr -d ' ' &&    echo 'services:' && find src/modules -type f -name '*.service.ts' | wc -l | tr -d ' ' &&    echo 'entities:' && find src -type f -name '*.entity.ts' | wc -l | tr -d ' ' &&    echo 'spec_files:' && find src -type f -name '*.spec.ts' | wc -l | tr -d ' '
+
+files_total:
+868
+ts_files:
+812
+modules:
+35
+controllers:
+48
+services:
+94
+entities:
+98
+spec_files:
+52

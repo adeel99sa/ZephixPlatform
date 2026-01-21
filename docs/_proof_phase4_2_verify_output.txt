@@ -1,0 +1,69 @@
+[0;32m🚀 Phase 4.2 Dashboard Studio Verification Runner[0m
+==============================================
+
+[1;33m📋 Step 1: Discovering Organization ID[0m
+[0;32m✅ Organization ID: 01c1569d-be97-48a4-b9cf-25ea8ec4f9a3[0m
+[1;33m📋 Step 2: Discovering Workspace ID[0m
+[0;32m✅ Workspace ID: 6da7520e-3f3f-4405-8e79-00b16c990c04[0m
+
+[0;32m✅ ID Discovery Complete[0m
+   ORG_ID: 01c1569d-be97-48a4-b9cf-25ea8ec4f9a3
+   WORKSPACE_ID: 6da7520e-3f3f-4405-8e79-00b16c990c04
+
+[1;33m📋 Step 3: Running Phase 4.2 Dashboard Studio Verification[0m
+
+[0;32m🚀 Phase 4.2 Dashboard Studio Verification[0m
+==============================================
+
+[1;33m📋 Step 1: Preflight Check[0m
+Checking /api/version for commitShaTrusted...
+[0;32m✅ Preflight passed[0m
+   Commit SHA: f64646d837fab2213e3de1356f9bf8b99bb6b7e8
+   Commit SHA Trusted: true
+
+[1;33m📋 Step 2: ID Discovery[0m
+✅ ORG_ID: 01c1569d-be97-48a4-b9cf-25ea8ec4f9a3 (from env)
+✅ WORKSPACE_ID: 6da7520e-3f3f-4405-8e79-00b16c990c04 (from env)
+
+[1;33m📋 Step 3: Dashboard Template Tests[0m
+3.1: Listing templates...
+[0;31m❌ HTTP 500[0m
+[1;33mRequestId: 3af6d37c-5e10-4c19-a90a-0a76cc8838ac[0m
+[0;31m❌ ERROR: Failed to list templates ({
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "invalid input syntax for type uuid: \"templates\"",
+    "timestamp": "2026-01-05T01:18:53.174Z",
+    "requestId": "3af6d37c-5e10-4c19-a90a-0a76cc8838ac",
+    "path": "/api/dashboards/templates"
+  }
+}
+500)[0m
+RequestId: {
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "invalid input syntax for type uuid: \"templates\"",
+    "timestamp": "2026-01-05T01:18:53.174Z",
+    "requestId": "3af6d37c-5e10-4c19-a90a-0a76cc8838ac",
+    "path": "/api/dashboards/templates"
+  }
+}
+3af6d37c-5e10-4c19-a90a-0a76cc8838ac
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "invalid input syntax for type uuid: \"templates\"",
+    "timestamp": "2026-01-05T01:18:53.174Z",
+    "requestId": "3af6d37c-5e10-4c19-a90a-0a76cc8838ac",
+    "path": "/api/dashboards/templates"
+  }
+}
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "invalid input syntax for type uuid: \"templates\"",
+    "timestamp": "2026-01-05T01:18:53.174Z",
+    "requestId": "3af6d37c-5e10-4c19-a90a-0a76cc8838ac",
+    "path": "/api/dashboards/templates"
+  }
+}

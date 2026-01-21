@@ -4,7 +4,7 @@ import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { Task } from '../modules/projects/entities/task.entity';
-import { TaskDependency } from '../modules/projects/entities/task-dependency.entity';
+import { TaskDependency as LegacyTaskDependency } from '../modules/projects/entities/task-dependency.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { ProjectTemplate } from '../modules/templates/entities/project-template.entity';
@@ -15,9 +15,26 @@ import { Dashboard } from '../modules/dashboards/entities/dashboard.entity';
 import { DashboardWidget } from '../modules/dashboards/entities/dashboard-widget.entity';
 import { DashboardTemplate } from '../modules/dashboards/entities/dashboard-template.entity';
 import { MetricDefinition } from '../modules/dashboards/entities/metric-definition.entity';
+import { WorkTask } from '../modules/work-management/entities/work-task.entity';
+import { WorkPhase } from '../modules/work-management/entities/work-phase.entity';
+import { WorkTaskDependency } from '../modules/work-management/entities/task-dependency.entity';
+import { TaskComment } from '../modules/work-management/entities/task-comment.entity';
+import { TaskActivity } from '../modules/work-management/entities/task-activity.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
+
+// Log migration database connection details (redact password)
+const migrationDbUrl = process.env.DATABASE_URL || '';
+const migrationDbUrlMasked = migrationDbUrl.replace(/:[^:@]+@/, ':****@');
+const migrationDbUrlObj = migrationDbUrl ? new URL(migrationDbUrl) : null;
+console.log('🔍 Migration DataSource Config:', {
+  host: migrationDbUrlObj?.hostname || 'N/A',
+  port: migrationDbUrlObj?.port || 'N/A',
+  database: migrationDbUrlObj?.pathname?.replace('/', '') || 'N/A',
+  username: migrationDbUrlObj?.username || 'N/A',
+  url: migrationDbUrlMasked,
+});
 
 const AppDataSource = new DataSource({
   type: 'postgres',
@@ -37,7 +54,7 @@ const AppDataSource = new DataSource({
     UserOrganization,
     Project,
     Task,
-    TaskDependency,
+    LegacyTaskDependency,
     Workspace,
     WorkspaceMember,
     ProjectTemplate,
@@ -48,6 +65,11 @@ const AppDataSource = new DataSource({
     DashboardWidget,
     DashboardTemplate,
     MetricDefinition,
+    WorkTask,
+    WorkPhase,
+    WorkTaskDependency,
+    TaskComment,
+    TaskActivity,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

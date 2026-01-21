@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
   registerUser,
@@ -468,4 +468,5 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
     });
   });
 });
+
 

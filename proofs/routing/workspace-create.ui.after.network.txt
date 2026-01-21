@@ -1,0 +1,78 @@
+# Workspace Create Request - AFTER FIX (Real UI Path)
+# Captured: 2026-01-17 04:30:23 GMT
+# This is the exact request the UI sends after fix - no ownerId in body
+
+## Request Details
+
+**Request URL:** POST http://localhost:3000/api/workspaces
+**Request Method:** POST
+**Query String Parameters:** None ✅
+
+## Request Headers
+```
+Host: localhost:3000
+User-Agent: curl/8.7.1
+Accept: */*
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMjMwMjI5Ni1hYjJhLTQzNzItOGIzZC1hYjNiNGIwZTZjNDIiLCJlbWFpbCI6ImFkbWluQHplcGhpeC5haSIsIm9yZ2FuaXphdGlvbklkIjoiZGY1MjAzNzItYTNlYS00ZmY3LTk0ZTctNjQ0ZGE2ODQzOWZhIiwicm9sZSI6ImFkbWluIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3Njg2MjQyMjMsImV4cCI6MTc2OTIyOTAyM30.8cTzak3TN5sVKkWh19YjdZcg43ZWJfoAHZJ-na6GcDQ
+Content-Length: 51
+```
+
+## Request Payload Body
+```json
+{
+  "name": "Data Management",
+  "slug": "data-management"
+}
+```
+
+**Fixed:**
+- ✅ No `ownerId` in body
+- ✅ No `organizationId` in body
+- ✅ No `userId` in body
+- ✅ No `createdBy` in body
+- ✅ No query parameters
+- ✅ Only `name` and `slug` sent
+
+## Response Details
+
+**Response Status Code:** 201 Created ✅
+
+**Response Headers:**
+```
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+X-Request-Id: [request-id]
+```
+
+**Response Body:**
+```json
+{
+  "data": {
+    "workspaceId": "d93d50b0-6e48-4733-ba24-90f3d7cf95a1"
+  }
+}
+```
+
+**Verification:**
+- Workspace was created successfully
+- Owner was derived from auth context (current user)
+- Workspace appears in list when queried
+
+## Copy as cURL
+
+```bash
+curl -X POST http://localhost:3000/api/workspaces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMjMwMjI5Ni1hYjJhLTQzNzItOGIzZC1hYjNiNGIwZTZjNDIiLCJlbWFpbCI6ImFkbWluQHplcGhpeC5haSIsIm9yZ2FuaXphdGlvbklkIjoiZGY1MjAzNzItYTNlYS00ZmY3LTk0ZTctNjQ0ZGE2ODQzOWZhIiwicm9sZSI6ImFkbWluIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3Njg2MjQyMjMsImV4cCI6MTc2OTIyOTAyM30.8cTzak3TN5sVKkWh19YjdZcg43ZWJfoAHZJ-na6GcDQ" \
+  -d '{"name":"Data Management","slug":"data-management"}'
+```
+
+## Verification
+
+✅ Request contains only `name` and `slug`
+✅ No forbidden fields (`ownerId`, `organizationId`, `userId`, etc.)
+✅ No query parameters
+✅ Backend derives owner from auth context
+✅ Workspace created successfully (200/201)
+✅ Response contains `workspaceId`

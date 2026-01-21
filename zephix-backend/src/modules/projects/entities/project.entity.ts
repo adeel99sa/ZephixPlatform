@@ -16,6 +16,7 @@ import { Organization } from '../../../organizations/entities/organization.entit
 import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceScoped } from '../../tenancy/workspace-scoped.decorator';
 import { Program } from '../../programs/entities/program.entity';
+import { Portfolio } from '../../portfolios/entities/portfolio.entity';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -23,6 +24,18 @@ export enum ProjectStatus {
   ON_HOLD = 'on-hold',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+}
+
+export enum ProjectState {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum ProjectHealth {
+  HEALTHY = 'HEALTHY',
+  AT_RISK = 'AT_RISK',
+  BLOCKED = 'BLOCKED',
 }
 
 export enum ProjectPriority {
@@ -122,9 +135,13 @@ export class Project {
   @JoinColumn({ name: 'project_manager_id' })
   projectManager: User;
 
-  // Phase 4.1: Program assignment
-  // Decision: Add programId directly to Project for simplicity and performance
-  // Projects reach portfolio through program (program.portfolioId -> portfolio.id)
+  // PHASE 6: Portfolio and Program assignment
+  // Project can link to portfolio and/or program
+  // If programId provided, portfolioId can be derived from program.portfolioId
+  // Both must belong to same workspace as project
+  @Column({ name: 'portfolio_id', type: 'uuid', nullable: true })
+  portfolioId: string;
+
   @Column({ name: 'program_id', type: 'uuid', nullable: true })
   programId: string;
 
@@ -148,7 +165,11 @@ export class Project {
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 
-  // Phase 4.1: Program relation
+  // PHASE 6: Portfolio and Program relations
+  @ManyToOne(() => Portfolio, { nullable: true })
+  @JoinColumn({ name: 'portfolio_id' })
+  portfolio?: Portfolio;
+
   @ManyToOne(() => Program, (program) => program.projects, { nullable: true })
   @JoinColumn({ name: 'program_id' })
   program?: Program;
@@ -176,4 +197,62 @@ export class Project {
       locked: boolean;
     }>;
   };
+
+  // Sprint 2: Work state and structure locking
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: ProjectState.DRAFT,
+    nullable: true,
+  })
+  state: ProjectState;
+
+  @Column({ name: 'started_at', type: 'timestamp', nullable: true })
+  startedAt: Date | null;
+
+  @Column({ name: 'structure_locked', type: 'boolean', default: false })
+  structureLocked: boolean;
+
+  @Column({ name: 'structure_snapshot', type: 'jsonb', nullable: true })
+  structureSnapshot: {
+    containerType: 'PROJECT' | 'PROGRAM';
+    containerId: string;
+    templateId: string | null;
+    templateVersion: number | null;
+    phases: Array<{
+      phaseId: string;
+      reportingKey: string;
+      name: string;
+      sortOrder: number;
+    }>;
+    lockedAt: string;
+    lockedByUserId: string;
+  } | null;
+
+  // Sprint 3: Health tracking
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: ProjectHealth.HEALTHY,
+    nullable: true,
+  })
+  health: ProjectHealth;
+
+  @Column({ name: 'behind_target_days', type: 'integer', nullable: true })
+  behindTargetDays: number | null;
+
+  @Column({ name: 'health_updated_at', type: 'timestamp', nullable: true })
+  healthUpdatedAt: Date | null;
+
+  // Sprint 6: Delivery owner for work management
+  @Column({ name: 'delivery_owner_user_id', type: 'uuid', nullable: true })
+  deliveryOwnerUserId: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'delivery_owner_user_id' })
+  deliveryOwner?: User;
+
+  // Phase 7.5: KPI activation state - array of KPI IDs that are active for this project
+  @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
+  activeKpiIds: string[];
 }

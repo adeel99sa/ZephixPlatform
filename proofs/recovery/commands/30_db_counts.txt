@@ -1,0 +1,8 @@
+## 30_db_counts
+Time: 2026-01-18 11:14:49 CST
+Cmd: cd zephix-backend &&    echo 'migrations:' && find src/migrations -type f | wc -l | tr -d ' ' &&    echo 'entities:' && find src -type f -name '*.entity.ts' | wc -l | tr -d ' '
+
+migrations:
+86
+entities:
+98

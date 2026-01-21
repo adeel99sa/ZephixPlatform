@@ -1,0 +1,29 @@
+# Bug Reproduction Notes
+
+## Workspace Create Bug
+**Status:** Fixed
+**Issue:** UI was sending `ownerId` in request body
+**Fix:** Removed `ownerId` from WorkspaceCreateModal, backend derives from auth context
+**Error Message:** Was showing "Query parameter 'ownerId' is not allowed" (misleading - was in body)
+**Fix Applied:** Error message now says "property 'ownerId' should not exist"
+
+## /home Failed to Load Bug
+**Status:** Fixed
+**Issue:** Home page showed "Failed to load home data" without retry option
+**Root Cause:** Error handling didn't provide retry, and no empty state when no workspace selected
+**Fix Applied:**
+- Added empty state when `activeWorkspaceId` is null
+- Empty state shows "Select Workspace" and "Create Project" buttons
+- Error state now shows retry button
+- Uses toast for error messages instead of console.error only
+
+## Endpoints Called
+- POST `/api/workspaces` - Workspace creation (org-scoped, no workspace required)
+- GET `/api/home` - Home data (org-scoped, no workspace required)
+- POST `/api/templates/:id/instantiate-v5_1` - Template instantiation (requires workspace header)
+
+## Status Codes Observed
+- 400 Bad Request - When ownerId sent in workspace create body
+- 201 Created - Successful workspace create
+- 200 OK - Successful home load
+- 201 Created - Successful template instantiate

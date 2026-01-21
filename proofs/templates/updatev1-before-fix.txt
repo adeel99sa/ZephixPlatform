@@ -1,0 +1,47 @@
+* Host localhost:3000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:3000...
+* connect to ::1 port 3000 from ::1 port 58843 failed: Connection refused
+*   Trying 127.0.0.1:3000...
+* Connected to localhost (127.0.0.1) port 3000
+> PATCH /api/templates/3a059191-5ca7-4b1d-954e-660a57714edd HTTP/1.1
+> Host: localhost:3000
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NzMyMGVkMy01OGJhLTRkNDItODg2Ny03ZmZjNTJiMzk5MjUiLCJlbWFpbCI6ImFkbWluQHRlbXBsYXRlLXByb29mcy50ZXN0Iiwib3JnYW5pemF0aW9uSWQiOiI2ZjIyNTRhMC03N2U4LTRkZGMtODNiMi0yYjJhMDc1MTFiNjQiLCJyb2xlIjoiYWRtaW4iLCJwbGF0Zm9ybVJvbGUiOiJBRE1JTiIsImlhdCI6MTc2ODU4MjkyMSwiZXhwIjoxNzY4NTg2NTIxfQ.Yn39P9ZvVV8nPTYxzN2wTM5NUECbeuFG6iZr4DuAOzw
+> Content-Type: application/json
+> Content-Length: 217
+> 
+} [217 bytes data]
+* upload completely sent off: 217 bytes
+< HTTP/1.1 500 Internal Server Error
+< Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+< Cross-Origin-Opener-Policy: same-origin
+< Cross-Origin-Resource-Policy: same-origin
+< Origin-Agent-Cluster: ?1
+< Referrer-Policy: no-referrer
+< Strict-Transport-Security: max-age=15552000; includeSubDomains
+< X-Content-Type-Options: nosniff
+< X-DNS-Prefetch-Control: off
+< X-Download-Options: noopen
+< X-Frame-Options: SAMEORIGIN
+< X-Permitted-Cross-Domain-Policies: none
+< X-XSS-Protection: 0
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Access-Control-Expose-Headers: X-Request-Id
+< X-Request-Id: 8703dafe-0d04-41e4-8d8f-4d851cb22cc9
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 165
+< ETag: W/"a5-Q82HOog8TydPJqvbl+mDY6DfGaE"
+< Date: Fri, 16 Jan 2026 17:02:17 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< 
+{ [165 bytes data]
+100   382  100   165  100   217  69974  92027 --:--:-- --:--:-- --:--:--  186k
+* Connection #0 to host localhost left intact
+{"code":"INTERNAL_ERROR","message":"Tenant context missing: organizationId is required. Ensure request is authenticated and TenantContextInterceptor is registered."}

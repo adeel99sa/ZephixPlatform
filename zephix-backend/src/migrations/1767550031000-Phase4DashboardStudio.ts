@@ -19,9 +19,7 @@ import {
  * - Enums: dashboard_visibility, dashboard_persona, dashboard_methodology, metric_unit, metric_grain
  * - Indexes and foreign keys
  */
-export class Phase4DashboardStudio1767550031000
-  implements MigrationInterface
-{
+export class Phase4DashboardStudio1767550031000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enums
     await queryRunner.query(`
@@ -808,9 +806,8 @@ export class Phase4DashboardStudio1767550031000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign keys first
-    const metricDefinitionsTable = await queryRunner.getTable(
-      'metric_definitions',
-    );
+    const metricDefinitionsTable =
+      await queryRunner.getTable('metric_definitions');
     if (metricDefinitionsTable) {
       const foreignKeys = metricDefinitionsTable.foreignKeys;
       for (const fk of foreignKeys) {
@@ -828,9 +825,8 @@ export class Phase4DashboardStudio1767550031000
       }
     }
 
-    const dashboardWidgetsTable = await queryRunner.getTable(
-      'dashboard_widgets',
-    );
+    const dashboardWidgetsTable =
+      await queryRunner.getTable('dashboard_widgets');
     if (dashboardWidgetsTable) {
       const foreignKeys = dashboardWidgetsTable.foreignKeys;
       for (const fk of foreignKeys) {
@@ -860,4 +856,3 @@ export class Phase4DashboardStudio1767550031000
     await queryRunner.query(`DROP TYPE IF EXISTS dashboard_visibility`);
   }
 }
-

@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PortfoliosService } from './services/portfolios.service';
+import { PortfoliosRollupService } from './services/portfolios-rollup.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 import { AddProjectsToPortfolioDto } from './dto/add-projects-to-portfolio.dto';
@@ -33,92 +34,46 @@ import { getAuthContext } from '../../common/http/get-auth-context';
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkspaceScopeHelper } from '../resources/helpers/workspace-scope.helper';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
+import { RequireWorkspaceAccessGuard } from '../workspaces/guards/require-workspace-access.guard';
+import { SetMetadata } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
+import {
+  normalizePlatformRole,
+  isAdminRole,
+  PlatformRole,
+} from '../../shared/enums/platform-roles.enum';
 
-@Controller('portfolios')
+/**
+ * PHASE 6: Workspace-Scoped Portfolios Controller
+ * Routes: /api/workspaces/:workspaceId/portfolios
+ */
+@Controller('workspaces/:workspaceId/portfolios')
 @ApiTags('portfolios')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PortfoliosController {
   constructor(
     private readonly portfoliosService: PortfoliosService,
+    private readonly portfoliosRollupService: PortfoliosRollupService,
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
-  // 1. GET /api/portfolios
+  // PHASE 6: GET /api/workspaces/:workspaceId/portfolios
   @Get()
-  @ApiOperation({ summary: 'List all portfolios' })
-  @ApiResponse({ status: 200, description: 'Portfolios retrieved successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  async list(@Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    const portfolios = await this.portfoliosService.list(organizationId);
-    return this.responseService.success(portfolios);
-  }
-
-  // 2. POST /api/portfolios
-  @Post()
-  @ApiOperation({ summary: 'Create a new portfolio' })
-  @ApiResponse({ status: 201, description: 'Portfolio created successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(
-    @Body() createDto: CreatePortfolioDto,
-    @Req() req: AuthRequest,
-  ) {
-    const { organizationId, userId } = getAuthContext(req);
-
-    if (!organizationId || !userId) {
-      throw new BadRequestException('Organization ID and User ID are required');
-    }
-
-    const portfolio = await this.portfoliosService.create(
-      createDto,
-      organizationId,
-      userId,
-    );
-
-    return this.responseService.success(portfolio);
-  }
-
-  // 3. GET /api/portfolios/:id/summary (static route before :id)
-  @Get(':id/summary')
-  @ApiOperation({ summary: 'Get portfolio summary with rollup metrics' })
-  @ApiParam({ name: 'id', description: 'Portfolio ID', type: String })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: true, example: '2025-01-01' })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: true, example: '2025-01-31' })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'read')
+  @ApiOperation({ summary: 'List portfolios in workspace' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
   @ApiResponse({
     status: 200,
-    description: 'Portfolio summary retrieved successfully',
+    description: 'Portfolios retrieved successfully',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - missing startDate or endDate',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Workspace ID required or access denied',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Portfolio not found',
-  })
-  async getSummary(
-    @Param('id') id: string,
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async list(
+    @Param('workspaceId') workspaceId: string,
     @Req() req: AuthRequest,
   ) {
     const { organizationId, userId, platformRole } = getAuthContext(req);
@@ -127,140 +82,262 @@ export class PortfoliosController {
       throw new BadRequestException('Organization ID is required');
     }
 
-    if (!startDate || !endDate) {
-      throw new BadRequestException('startDate and endDate are required');
-    }
-
-    // Require x-workspace-id header - wrap 400 errors as 403 for workspace header failures
-    try {
-      const workspaceId = await WorkspaceScopeHelper.getValidatedWorkspaceId(
-        this.tenantContextService,
-        this.workspaceAccessService,
-        organizationId,
-        userId,
-        platformRole,
-        true, // Required
-      );
-
-      const summary = await this.portfoliosService.getPortfolioSummary(
-        id,
-        workspaceId,
-        startDate,
-        endDate,
-        organizationId,
-      );
-
-      return this.responseService.success(summary);
-    } catch (error) {
-      // Wrap workspace header validation errors as 403
-      if (error instanceof ForbiddenException) {
-        throw error;
-      }
-      // If helper throws BadRequestException for missing workspace, convert to 403
-      if (error instanceof BadRequestException && error.message.includes('workspace')) {
-        throw new ForbiddenException('Workspace ID is required. Include x-workspace-id header.');
-      }
-      throw error;
-    }
-  }
-
-  // 4. POST /api/portfolios/:id/projects
-  @Post(':id/projects')
-  @ApiOperation({ summary: 'Add projects to portfolio' })
-  @ApiParam({ name: 'id', description: 'Portfolio ID', type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'Projects added to portfolio successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Portfolio not found' })
-  async addProjects(
-    @Param('id') id: string,
-    @Body() dto: AddProjectsToPortfolioDto,
-    @Req() req: AuthRequest,
-  ) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    await this.portfoliosService.addProjects(id, dto, organizationId);
-    return this.responseService.success({ success: true });
-  }
-
-  // 5. DELETE /api/portfolios/:id/projects
-  @Delete(':id/projects')
-  @ApiOperation({ summary: 'Remove projects from portfolio' })
-  @ApiParam({ name: 'id', description: 'Portfolio ID', type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'Projects removed from portfolio successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Portfolio not found' })
-  async removeProjects(
-    @Param('id') id: string,
-    @Body() dto: RemoveProjectsFromPortfolioDto,
-    @Req() req: AuthRequest,
-  ) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    await this.portfoliosService.removeProjects(id, dto, organizationId);
-    return this.responseService.success({ success: true });
-  }
-
-  // 6. GET /api/portfolios/:id (dynamic route after static routes)
-  @Get(':id')
-  @ApiOperation({ summary: 'Get portfolio by ID' })
-  @ApiParam({ name: 'id', description: 'Portfolio ID', type: String })
-  @ApiResponse({ status: 200, description: 'Portfolio retrieved successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Portfolio not found' })
-  async getById(@Param('id') id: string, @Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    const portfolio = await this.portfoliosService.getById(id, organizationId);
-    return this.responseService.success(portfolio);
-  }
-
-  // 7. PATCH /api/portfolios/:id
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update portfolio' })
-  @ApiParam({ name: 'id', description: 'Portfolio ID', type: String })
-  @ApiResponse({ status: 200, description: 'Portfolio updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Portfolio not found' })
-  async update(
-    @Param('id') id: string,
-    @Body() updateDto: UpdatePortfolioDto,
-    @Req() req: AuthRequest,
-  ) {
-    const { organizationId } = getAuthContext(req);
-
-    if (!organizationId) {
-      throw new BadRequestException('Organization ID is required');
-    }
-
-    const portfolio = await this.portfoliosService.update(
-      id,
-      updateDto,
+    // Verify workspace access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
       organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const portfolios = await this.portfoliosService.listByWorkspace(
+      organizationId,
+      workspaceId,
+    );
+    return this.responseService.success(portfolios);
+  }
+
+  // PHASE 6: POST /api/workspaces/:workspaceId/portfolios
+  @Post()
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'write')
+  @ApiOperation({ summary: 'Create a new portfolio in workspace' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiResponse({ status: 201, description: 'Portfolio created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Workspace not found' })
+  async create(
+    @Param('workspaceId') workspaceId: string,
+    @Body() createDto: CreatePortfolioDto,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+
+    if (!organizationId || !userId) {
+      throw new BadRequestException('Organization ID and User ID are required');
+    }
+
+    // Verify workspace access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // Check if user is Admin (only Admin can create)
+    const userRole = normalizePlatformRole(platformRole);
+    const isAdmin = isAdminRole(userRole);
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    const portfolio = await this.portfoliosService.create(
+      createDto,
+      organizationId,
+      workspaceId,
+      userId,
     );
 
     return this.responseService.success(portfolio);
   }
-}
 
+  // PHASE 6: GET /api/workspaces/:workspaceId/portfolios/:portfolioId
+  @Get(':portfolioId')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'read')
+  @ApiOperation({ summary: 'Get portfolio by ID' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
+  @ApiResponse({ status: 200, description: 'Portfolio retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
+  async getById(
+    @Param('workspaceId') workspaceId: string,
+    @Param('portfolioId') portfolioId: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    // Verify workspace access - return 404 if no access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const portfolio = await this.portfoliosService.getById(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
+
+    if (!portfolio) {
+      throw new NotFoundException('Portfolio not found');
+    }
+
+    return this.responseService.success(portfolio);
+  }
+
+  // PHASE 6: PATCH /api/workspaces/:workspaceId/portfolios/:portfolioId
+  @Patch(':portfolioId')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'write')
+  @ApiOperation({ summary: 'Update portfolio' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
+  @ApiResponse({ status: 200, description: 'Portfolio updated successfully' })
+  @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
+  async update(
+    @Param('workspaceId') workspaceId: string,
+    @Param('portfolioId') portfolioId: string,
+    @Body() updateDto: UpdatePortfolioDto,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+
+    if (!organizationId || !userId) {
+      throw new BadRequestException('Organization ID and User ID are required');
+    }
+
+    // Verify workspace access - return 404 if no access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // Check if user is Admin (only Admin can edit)
+    const userRole = normalizePlatformRole(platformRole);
+    const isAdmin = isAdminRole(userRole);
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    const portfolio = await this.portfoliosService.update(
+      portfolioId,
+      updateDto,
+      organizationId,
+      workspaceId,
+    );
+
+    return this.responseService.success(portfolio);
+  }
+
+  // PHASE 6: POST /api/workspaces/:workspaceId/portfolios/:portfolioId/archive
+  @Post(':portfolioId/archive')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'write')
+  @ApiOperation({ summary: 'Archive portfolio' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
+  @ApiResponse({ status: 200, description: 'Portfolio archived successfully' })
+  @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
+  async archive(
+    @Param('workspaceId') workspaceId: string,
+    @Param('portfolioId') portfolioId: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+
+    if (!organizationId || !userId) {
+      throw new BadRequestException('Organization ID and User ID are required');
+    }
+
+    // Verify workspace access - return 404 if no access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // Check if user is Admin (only Admin can archive)
+    const userRole = normalizePlatformRole(platformRole);
+    const isAdmin = isAdminRole(userRole);
+
+    if (!isAdmin) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    const portfolio = await this.portfoliosService.archive(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
+
+    return this.responseService.success(portfolio);
+  }
+
+  // PHASE 6: GET /api/workspaces/:workspaceId/portfolios/:portfolioId/rollup
+  @Get(':portfolioId/rollup')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'read')
+  @ApiOperation({ summary: 'Get portfolio rollup' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Portfolio rollup retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
+  async getRollup(
+    @Param('workspaceId') workspaceId: string,
+    @Param('portfolioId') portfolioId: string,
+    @Req() req: AuthRequest,
+  ) {
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    // Verify workspace access - return 404 if no access
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const rollup = await this.portfoliosRollupService.getRollup(
+      portfolioId,
+      organizationId,
+      workspaceId,
+    );
+
+    return this.responseService.success(rollup);
+  }
+}

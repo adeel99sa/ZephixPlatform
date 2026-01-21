@@ -39,4 +39,3 @@ export class CreatePortfolioDto {
   @IsEnum(PortfolioStatus)
   status?: PortfolioStatus;
 }
-

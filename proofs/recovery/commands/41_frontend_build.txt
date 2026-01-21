@@ -1,0 +1,41 @@
+## 41_frontend_build
+Time: 2026-01-18 11:14:52 CST
+Cmd: cd zephix-frontend && npm run build 2>&1 | head -n 50
+
+
+> zephix-frontend@0.1.0 prebuild
+> rm -rf dist/*
+
+
+> zephix-frontend@0.1.0 build
+> tsc && vite build
+
+vite v7.1.6 building for production...
+transforming...
+✓ 2076 modules transformed.
+[plugin vite:reporter] 
+(!) /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/lib/api/client.ts is dynamically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/onboarding/OnboardingPage.tsx but also statically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/admin/teams/api/teamsApi.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/projects/ProjectCreateModal.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/resources/api/useResources.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/work-management/api/phases.api.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/admin/AdminCustomFieldsPage.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/admin/AdminTemplatesPage.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/admin/AdminTrashPage.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/services/adminApi.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/services/billingApi.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/services/onboardingApi.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/utils/workspace.ts is dynamically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/services/api.ts but also statically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/templates/templates.api.ts, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/templates/CreateTemplateModal.tsx, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/docs/api.ts is dynamically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/workspaces/SidebarWorkspaces.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/workspaces/WorkspaceHomePage.tsx but also statically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/docs/DocsPage.tsx, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/forms/api.ts is dynamically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/features/workspaces/SidebarWorkspaces.tsx, /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/workspaces/WorkspaceHomePage.tsx but also statically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/forms/FormsPage.tsx, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/services/onboardingApi.ts is dynamically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/auth/LoginPage.tsx but also statically imported by /Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/pages/onboarding/OnboardingPage.tsx, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+dist/index.html                     3.35 kB │ gzip:   1.11 kB
+dist/assets/index-Bs-yOBre.css    117.58 kB │ gzip:  17.65 kB
+dist/assets/index-wdMgmNqq.js   1,003.59 kB │ gzip: 250.65 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.12s

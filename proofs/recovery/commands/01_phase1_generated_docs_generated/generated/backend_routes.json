@@ -1,0 +1,4808 @@
+{
+  "generatedAt": null,
+  "gitSha": null,
+  "sourceRoot": "zephix-backend/src",
+  "controllerFiles": 78,
+  "routes": [
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 69,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'stats'",
+      "path": "/admin/stats",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 107,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'health'",
+      "path": "/admin/health",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 146,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'org/summary'",
+      "path": "/admin/org/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 184,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'users/summary'",
+      "path": "/admin/users/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 224,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces/summary'",
+      "path": "/admin/workspaces/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 267,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'risk/summary'",
+      "path": "/admin/risk/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 302,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'users'",
+      "path": "/admin/users",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 368,
+      "method": "POST",
+      "controllerBase": "admin",
+      "decoratorArg": "'users'",
+      "path": "/admin/users",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 387,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'users/:userId'",
+      "path": "/admin/users/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 420,
+      "method": "PATCH",
+      "controllerBase": "admin",
+      "decoratorArg": "'users/:userId'",
+      "path": "/admin/users/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 453,
+      "method": "DELETE",
+      "controllerBase": "admin",
+      "decoratorArg": "'users/:userId'",
+      "path": "/admin/users/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 477,
+      "method": "PATCH",
+      "controllerBase": "admin",
+      "decoratorArg": "'users/:userId/role'",
+      "path": "/admin/users/:userId/role",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 501,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces'",
+      "path": "/admin/workspaces",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 579,
+      "method": "POST",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces'",
+      "path": "/admin/workspaces",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 614,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces/:id'",
+      "path": "/admin/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 696,
+      "method": "PATCH",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces/:id'",
+      "path": "/admin/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 754,
+      "method": "DELETE",
+      "controllerBase": "admin",
+      "decoratorArg": "'workspaces/:id'",
+      "path": "/admin/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 768,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'groups'",
+      "path": "/admin/groups",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 776,
+      "method": "POST",
+      "controllerBase": "admin",
+      "decoratorArg": "'groups'",
+      "path": "/admin/groups",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 789,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'groups/:id'",
+      "path": "/admin/groups/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 797,
+      "method": "PATCH",
+      "controllerBase": "admin",
+      "decoratorArg": "'groups/:id'",
+      "path": "/admin/groups/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 809,
+      "method": "DELETE",
+      "controllerBase": "admin",
+      "decoratorArg": "'groups/:id'",
+      "path": "/admin/groups/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 824,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'teams'",
+      "path": "/admin/teams",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 859,
+      "method": "GET",
+      "controllerBase": "admin",
+      "decoratorArg": "'teams/:id'",
+      "path": "/admin/teams/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 905,
+      "method": "POST",
+      "controllerBase": "admin",
+      "decoratorArg": "'teams'",
+      "path": "/admin/teams",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 961,
+      "method": "PATCH",
+      "controllerBase": "admin",
+      "decoratorArg": "'teams/:id'",
+      "path": "/admin/teams/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/admin.controller.ts",
+      "line": 1021,
+      "method": "DELETE",
+      "controllerBase": "admin",
+      "decoratorArg": "'teams/:id'",
+      "path": "/admin/teams/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/modules/organization/organization.controller.ts",
+      "line": 45,
+      "method": "GET",
+      "controllerBase": "admin/organization",
+      "decoratorArg": "'overview'",
+      "path": "/admin/organization/overview",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/modules/organization/organization.controller.ts",
+      "line": 90,
+      "method": "GET",
+      "controllerBase": "admin/organization",
+      "decoratorArg": "'users'",
+      "path": "/admin/organization/users",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/modules/organization/organization.controller.ts",
+      "line": 136,
+      "method": "POST",
+      "controllerBase": "admin/organization",
+      "decoratorArg": "'users/invite'",
+      "path": "/admin/organization/users/invite",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/modules/organization/organization.controller.ts",
+      "line": 166,
+      "method": "GET",
+      "controllerBase": "admin/organization",
+      "decoratorArg": "'roles'",
+      "path": "/admin/organization/roles",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/admin/modules/organization/organization.controller.ts",
+      "line": 212,
+      "method": "POST",
+      "controllerBase": "admin/organization",
+      "decoratorArg": "'roles'",
+      "path": "/admin/organization/roles",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-mapping.controller.ts",
+      "line": 49,
+      "method": "POST",
+      "controllerBase": "ai/mapping",
+      "decoratorArg": "'analyze'",
+      "path": "/ai/mapping/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-mapping.controller.ts",
+      "line": 161,
+      "method": "GET",
+      "controllerBase": "ai/mapping",
+      "decoratorArg": "':id'",
+      "path": "/ai/mapping/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-mapping.controller.ts",
+      "line": 189,
+      "method": "GET",
+      "controllerBase": "ai/mapping",
+      "decoratorArg": "':id/status'",
+      "path": "/ai/mapping/:id/status",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-mapping.controller.ts",
+      "line": 213,
+      "method": "GET",
+      "controllerBase": "ai/mapping",
+      "decoratorArg": "",
+      "path": "/ai/mapping",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-suggestions.controller.ts",
+      "line": 44,
+      "method": "GET",
+      "controllerBase": "ai/suggestions",
+      "decoratorArg": "",
+      "path": "/ai/suggestions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-suggestions.controller.ts",
+      "line": 124,
+      "method": "POST",
+      "controllerBase": "ai/suggestions",
+      "decoratorArg": "'generate'",
+      "path": "/ai/suggestions/generate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/ai-suggestions.controller.ts",
+      "line": 204,
+      "method": "GET",
+      "controllerBase": "ai/suggestions",
+      "decoratorArg": "':id'",
+      "path": "/ai/suggestions/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/document-upload.controller.ts",
+      "line": 63,
+      "method": "POST",
+      "controllerBase": "v1/documents",
+      "decoratorArg": "'upload'",
+      "path": "/v1/documents/upload",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/document-upload.controller.ts",
+      "line": 191,
+      "method": "GET",
+      "controllerBase": "v1/documents",
+      "decoratorArg": "'status/:documentId'",
+      "path": "/v1/documents/status/:documentId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/document-upload.controller.ts",
+      "line": 215,
+      "method": "GET",
+      "controllerBase": "v1/documents",
+      "decoratorArg": "'results/:documentId'",
+      "path": "/v1/documents/results/:documentId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/document-upload.controller.ts",
+      "line": 238,
+      "method": "GET",
+      "controllerBase": "v1/documents",
+      "decoratorArg": "'list'",
+      "path": "/v1/documents/list",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/document-upload.controller.ts",
+      "line": 270,
+      "method": "GET",
+      "controllerBase": "v1/documents",
+      "decoratorArg": "'stats'",
+      "path": "/v1/documents/stats",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/project-generation.controller.ts",
+      "line": 48,
+      "method": "POST",
+      "controllerBase": "ai/project-generation",
+      "decoratorArg": "'generate-from-brd/:documentId'",
+      "path": "/ai/project-generation/generate-from-brd/:documentId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/ai/project-generation.controller.ts",
+      "line": 88,
+      "method": "GET",
+      "controllerBase": "ai/project-generation",
+      "decoratorArg": "'generation-status/:projectId'",
+      "path": "/ai/project-generation/generation-status/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/app.controller.ts",
+      "line": 8,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "",
+      "path": "",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/app.controller.ts",
+      "line": 13,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "'ping'",
+      "path": "/ping",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/architecture/architecture.controller.ts",
+      "line": 52,
+      "method": "POST",
+      "controllerBase": "architecture",
+      "decoratorArg": "'derive'",
+      "path": "/architecture/derive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/architecture/architecture.controller.ts",
+      "line": 140,
+      "method": "GET",
+      "controllerBase": "architecture",
+      "decoratorArg": "':id/bundle'",
+      "path": "/architecture/:id/bundle",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/architecture/architecture.controller.ts",
+      "line": 229,
+      "method": "POST",
+      "controllerBase": "architecture",
+      "decoratorArg": "':id/review'",
+      "path": "/architecture/:id/review",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/architecture/architecture.controller.ts",
+      "line": 323,
+      "method": "POST",
+      "controllerBase": "architecture",
+      "decoratorArg": "':id/publish'",
+      "path": "/architecture/:id/publish",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 39,
+      "method": "GET",
+      "controllerBase": "billing",
+      "decoratorArg": "'plans'",
+      "path": "/billing/plans",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 63,
+      "method": "GET",
+      "controllerBase": "billing",
+      "decoratorArg": "'subscription'",
+      "path": "/billing/subscription",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 92,
+      "method": "GET",
+      "controllerBase": "billing",
+      "decoratorArg": "'current-plan'",
+      "path": "/billing/current-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 123,
+      "method": "POST",
+      "controllerBase": "billing",
+      "decoratorArg": "'subscribe'",
+      "path": "/billing/subscribe",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 156,
+      "method": "PATCH",
+      "controllerBase": "billing",
+      "decoratorArg": "'subscription'",
+      "path": "/billing/subscription",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 189,
+      "method": "POST",
+      "controllerBase": "billing",
+      "decoratorArg": "'cancel'",
+      "path": "/billing/cancel",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/billing/controllers/billing.controller.ts",
+      "line": 219,
+      "method": "GET",
+      "controllerBase": "billing",
+      "decoratorArg": "'usage'",
+      "path": "/billing/usage",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 45,
+      "method": "POST",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "':brdId/analyze'",
+      "path": "/pm/brd/project-planning/:brdId/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 73,
+      "method": "POST",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "':brdId/generate-plan'",
+      "path": "/pm/brd/project-planning/:brdId/generate-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 108,
+      "method": "GET",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "':brdId/analysis'",
+      "path": "/pm/brd/project-planning/:brdId/analysis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 130,
+      "method": "GET",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "':brdId/plans'",
+      "path": "/pm/brd/project-planning/:brdId/plans",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 152,
+      "method": "POST",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "'plans/:planId/refine'",
+      "path": "/pm/brd/project-planning/plans/:planId/refine",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd-project-planning.controller.ts",
+      "line": 191,
+      "method": "POST",
+      "controllerBase": "pm/brd/project-planning",
+      "decoratorArg": "'plans/:planId/create-project'",
+      "path": "/pm/brd/project-planning/plans/:planId/create-project",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 58,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "",
+      "path": "/pm/brds",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 95,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "",
+      "path": "/pm/brds",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 175,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'search'",
+      "path": "/pm/brds/search",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 209,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'statistics'",
+      "path": "/pm/brds/statistics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 224,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id'",
+      "path": "/pm/brds/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 284,
+      "method": "DELETE",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id'",
+      "path": "/pm/brds/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 310,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/submit'",
+      "path": "/pm/brds/:id/submit",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 336,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/approve'",
+      "path": "/pm/brds/:id/approve",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 357,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/publish'",
+      "path": "/pm/brds/:id/publish",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 379,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/duplicate'",
+      "path": "/pm/brds/:id/duplicate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 409,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/validation'",
+      "path": "/pm/brds/:id/validation",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 428,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'project/:projectId'",
+      "path": "/pm/brds/project/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 453,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/analyze'",
+      "path": "/pm/brds/:id/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 485,
+      "method": "POST",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'analysis/:analysisId/generate-plan'",
+      "path": "/pm/brds/analysis/:analysisId/generate-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 532,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'analysis/:analysisId'",
+      "path": "/pm/brds/analysis/:analysisId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 564,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'analysis/:analysisId/project-plans'",
+      "path": "/pm/brds/analysis/:analysisId/project-plans",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 599,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "':id/analyses'",
+      "path": "/pm/brds/:id/analyses",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/brd/controllers/brd.controller.ts",
+      "line": 629,
+      "method": "GET",
+      "controllerBase": "pm/brds",
+      "decoratorArg": "'project-plans/:planId'",
+      "path": "/pm/brds/project-plans/:planId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/dashboard/dashboard.controller.ts",
+      "line": 13,
+      "method": "GET",
+      "controllerBase": "dashboard",
+      "decoratorArg": "",
+      "path": "/dashboard",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/feedback/controllers/feedback.controller.ts",
+      "line": 29,
+      "method": "POST",
+      "controllerBase": "feedback",
+      "decoratorArg": "",
+      "path": "/feedback",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/feedback/controllers/feedback.controller.ts",
+      "line": 44,
+      "method": "GET",
+      "controllerBase": "feedback",
+      "decoratorArg": "'statistics'",
+      "path": "/feedback/statistics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/feedback/controllers/feedback.controller.ts",
+      "line": 54,
+      "method": "GET",
+      "controllerBase": "feedback",
+      "decoratorArg": "",
+      "path": "/feedback",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/health/health.controller.ts",
+      "line": 36,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "['health', 'api/health']",
+      "path": "",
+      "ambiguous": true,
+      "ambiguousReason": "Decorator arg is not a string literal"
+    },
+    {
+      "file": "zephix-backend/src/health/health.controller.ts",
+      "line": 82,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "['ready', 'api/health/ready']",
+      "path": "",
+      "ambiguous": true,
+      "ambiguousReason": "Decorator arg is not a string literal"
+    },
+    {
+      "file": "zephix-backend/src/health/health.controller.ts",
+      "line": 103,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "['version', 'api/version']",
+      "path": "",
+      "ambiguous": true,
+      "ambiguousReason": "Decorator arg is not a string literal"
+    },
+    {
+      "file": "zephix-backend/src/health/health.controller.ts",
+      "line": 130,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "['live', 'api/health/live']",
+      "path": "",
+      "ambiguous": true,
+      "ambiguousReason": "Decorator arg is not a string literal"
+    },
+    {
+      "file": "zephix-backend/src/intelligence/intelligence.controller.ts",
+      "line": 7,
+      "method": "GET",
+      "controllerBase": "intelligence",
+      "decoratorArg": "",
+      "path": "/intelligence",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/intelligence/intelligence.controller.ts",
+      "line": 108,
+      "method": "GET",
+      "controllerBase": "intelligence",
+      "decoratorArg": "'health'",
+      "path": "/intelligence/health",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/analytics/controllers/analytics.controller.ts",
+      "line": 12,
+      "method": "GET",
+      "controllerBase": "analytics",
+      "decoratorArg": "'portfolio'",
+      "path": "/analytics/portfolio",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 68,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'register'",
+      "path": "/auth/register",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 69,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'signup'",
+      "path": "/auth/signup",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 128,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'resend-verification'",
+      "path": "/auth/resend-verification",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 172,
+      "method": "GET",
+      "controllerBase": "auth",
+      "decoratorArg": "'verify-email'",
+      "path": "/auth/verify-email",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 198,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'login'",
+      "path": "/auth/login",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 210,
+      "method": "GET",
+      "controllerBase": "auth",
+      "decoratorArg": "'me'",
+      "path": "/auth/me",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 249,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'logout'",
+      "path": "/auth/logout",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/auth.controller.ts",
+      "line": 260,
+      "method": "POST",
+      "controllerBase": "auth",
+      "decoratorArg": "'refresh'",
+      "path": "/auth/refresh",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/org-invites.controller.ts",
+      "line": 40,
+      "method": "POST",
+      "controllerBase": "orgs",
+      "decoratorArg": "':orgId/invites'",
+      "path": "/orgs/:orgId/invites",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/org-invites.controller.ts",
+      "line": 92,
+      "method": "POST",
+      "controllerBase": "orgs",
+      "decoratorArg": "'accept'",
+      "path": "/orgs/accept",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/organization-signup.controller.ts",
+      "line": 21,
+      "method": "POST",
+      "controllerBase": "auth/organization",
+      "decoratorArg": "'signup'",
+      "path": "/auth/organization/signup",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/organization-signup.controller.ts",
+      "line": 61,
+      "method": "GET",
+      "controllerBase": "auth/organization",
+      "decoratorArg": "'check-slug'",
+      "path": "/auth/organization/check-slug",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/sessions.controller.ts",
+      "line": 29,
+      "method": "GET",
+      "controllerBase": "auth/sessions",
+      "decoratorArg": "",
+      "path": "/auth/sessions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/sessions.controller.ts",
+      "line": 56,
+      "method": "POST",
+      "controllerBase": "auth/sessions",
+      "decoratorArg": "':id/revoke'",
+      "path": "/auth/sessions/:id/revoke",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/auth/controllers/sessions.controller.ts",
+      "line": 86,
+      "method": "POST",
+      "controllerBase": "auth/sessions",
+      "decoratorArg": "'revoke-others'",
+      "path": "/auth/sessions/revoke-others",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/commands/controllers/command.controller.ts",
+      "line": 12,
+      "method": "GET",
+      "controllerBase": "commands",
+      "decoratorArg": "'search'",
+      "path": "/commands/search",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/custom-fields/custom-fields.controller.ts",
+      "line": 39,
+      "method": "GET",
+      "controllerBase": "admin/custom-fields",
+      "decoratorArg": "",
+      "path": "/admin/custom-fields",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/custom-fields/custom-fields.controller.ts",
+      "line": 49,
+      "method": "GET",
+      "controllerBase": "admin/custom-fields",
+      "decoratorArg": "':id'",
+      "path": "/admin/custom-fields/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/custom-fields/custom-fields.controller.ts",
+      "line": 59,
+      "method": "POST",
+      "controllerBase": "admin/custom-fields",
+      "decoratorArg": "",
+      "path": "/admin/custom-fields",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/custom-fields/custom-fields.controller.ts",
+      "line": 72,
+      "method": "PATCH",
+      "controllerBase": "admin/custom-fields",
+      "decoratorArg": "':id'",
+      "path": "/admin/custom-fields/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/custom-fields/custom-fields.controller.ts",
+      "line": 86,
+      "method": "DELETE",
+      "controllerBase": "admin/custom-fields",
+      "decoratorArg": "':id'",
+      "path": "/admin/custom-fields/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/ai-dashboard.controller.ts",
+      "line": 83,
+      "method": "POST",
+      "controllerBase": "ai/dashboards",
+      "decoratorArg": "'suggest'",
+      "path": "/ai/dashboards/suggest",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/ai-dashboard.controller.ts",
+      "line": 191,
+      "method": "POST",
+      "controllerBase": "ai/dashboards",
+      "decoratorArg": "'generate'",
+      "path": "/ai/dashboards/generate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 55,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'project-health'",
+      "path": "/analytics/widgets/project-health",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 144,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'sprint-metrics'",
+      "path": "/analytics/widgets/sprint-metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 195,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'resource-utilization'",
+      "path": "/analytics/widgets/resource-utilization",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 257,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'conflict-trends'",
+      "path": "/analytics/widgets/conflict-trends",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 340,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'portfolio-summary'",
+      "path": "/analytics/widgets/portfolio-summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/analytics-widgets.controller.ts",
+      "line": 411,
+      "method": "GET",
+      "controllerBase": "analytics/widgets",
+      "decoratorArg": "'program-summary'",
+      "path": "/analytics/widgets/program-summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboard-templates.controller.ts",
+      "line": 37,
+      "method": "GET",
+      "controllerBase": "dashboards",
+      "decoratorArg": "'templates'",
+      "path": "/dashboards/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboard-templates.controller.ts",
+      "line": 53,
+      "method": "POST",
+      "controllerBase": "dashboards",
+      "decoratorArg": "'activate-template'",
+      "path": "/dashboards/activate-template",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 48,
+      "method": "GET",
+      "controllerBase": "dashboards",
+      "decoratorArg": "",
+      "path": "/dashboards",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 81,
+      "method": "POST",
+      "controllerBase": "dashboards",
+      "decoratorArg": "",
+      "path": "/dashboards",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 119,
+      "method": "POST",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id/share-enable'",
+      "path": "/dashboards/:id/share-enable",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 155,
+      "method": "POST",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id/share-disable'",
+      "path": "/dashboards/:id/share-disable",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 185,
+      "method": "GET",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id'",
+      "path": "/dashboards/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 250,
+      "method": "PATCH",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id'",
+      "path": "/dashboards/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 290,
+      "method": "DELETE",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id'",
+      "path": "/dashboards/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 329,
+      "method": "POST",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id/widgets'",
+      "path": "/dashboards/:id/widgets",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 369,
+      "method": "PATCH",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id/widgets/:widgetId'",
+      "path": "/dashboards/:id/widgets/:widgetId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/dashboards.controller.ts",
+      "line": 412,
+      "method": "DELETE",
+      "controllerBase": "dashboards",
+      "decoratorArg": "':id/widgets/:widgetId'",
+      "path": "/dashboards/:id/widgets/:widgetId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/metrics.controller.ts",
+      "line": 47,
+      "method": "GET",
+      "controllerBase": "metrics",
+      "decoratorArg": "",
+      "path": "/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/metrics.controller.ts",
+      "line": 93,
+      "method": "POST",
+      "controllerBase": "metrics",
+      "decoratorArg": "",
+      "path": "/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/metrics.controller.ts",
+      "line": 136,
+      "method": "GET",
+      "controllerBase": "metrics",
+      "decoratorArg": "':id'",
+      "path": "/metrics/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/metrics.controller.ts",
+      "line": 176,
+      "method": "PATCH",
+      "controllerBase": "metrics",
+      "decoratorArg": "':id'",
+      "path": "/metrics/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/metrics.controller.ts",
+      "line": 250,
+      "method": "DELETE",
+      "controllerBase": "metrics",
+      "decoratorArg": "':id'",
+      "path": "/metrics/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/project-dashboard.controller.ts",
+      "line": 61,
+      "method": "GET",
+      "controllerBase": "dashboards/project",
+      "decoratorArg": "':projectId/summary'",
+      "path": "/dashboards/project/:projectId/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/project-dashboard.controller.ts",
+      "line": 101,
+      "method": "GET",
+      "controllerBase": "dashboards/project",
+      "decoratorArg": "':projectId/kpis'",
+      "path": "/dashboards/project/:projectId/kpis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/dashboards/controllers/project-dashboard.controller.ts",
+      "line": 141,
+      "method": "GET",
+      "controllerBase": "dashboards/project",
+      "decoratorArg": "':projectId/work'",
+      "path": "/dashboards/project/:projectId/work",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/demo-requests/demo-request.controller.ts",
+      "line": 22,
+      "method": "POST",
+      "controllerBase": "demo-requests",
+      "decoratorArg": "",
+      "path": "/demo-requests",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/docs/docs.controller.ts",
+      "line": 24,
+      "method": "POST",
+      "controllerBase": "",
+      "decoratorArg": "'workspaces/:workspaceId/docs'",
+      "path": "/workspaces/:workspaceId/docs",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/docs/docs.controller.ts",
+      "line": 42,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "'docs/:docId'",
+      "path": "/docs/:docId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/docs/docs.controller.ts",
+      "line": 63,
+      "method": "PATCH",
+      "controllerBase": "",
+      "decoratorArg": "'docs/:docId'",
+      "path": "/docs/:docId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/forms/forms.controller.ts",
+      "line": 24,
+      "method": "POST",
+      "controllerBase": "",
+      "decoratorArg": "'workspaces/:workspaceId/forms'",
+      "path": "/workspaces/:workspaceId/forms",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/forms/forms.controller.ts",
+      "line": 42,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "'forms/:formId'",
+      "path": "/forms/:formId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/forms/forms.controller.ts",
+      "line": 63,
+      "method": "PATCH",
+      "controllerBase": "",
+      "decoratorArg": "'forms/:formId'",
+      "path": "/forms/:formId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/home/home.controller.ts",
+      "line": 29,
+      "method": "GET",
+      "controllerBase": "home",
+      "decoratorArg": "",
+      "path": "/home",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/external-user-mappings.controller.ts",
+      "line": 23,
+      "method": "POST",
+      "controllerBase": "integrations/external-users/mappings",
+      "decoratorArg": "",
+      "path": "/integrations/external-users/mappings",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/external-user-mappings.controller.ts",
+      "line": 42,
+      "method": "GET",
+      "controllerBase": "integrations/external-users/mappings",
+      "decoratorArg": "",
+      "path": "/integrations/external-users/mappings",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/integrations-webhook.controller.ts",
+      "line": 36,
+      "method": "POST",
+      "controllerBase": "integrations/jira/webhook",
+      "decoratorArg": "':connectionId'",
+      "path": "/integrations/jira/webhook/:connectionId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/integrations.controller.ts",
+      "line": 32,
+      "method": "POST",
+      "controllerBase": "integrations",
+      "decoratorArg": "",
+      "path": "/integrations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/integrations.controller.ts",
+      "line": 54,
+      "method": "GET",
+      "controllerBase": "integrations",
+      "decoratorArg": "",
+      "path": "/integrations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/integrations.controller.ts",
+      "line": 73,
+      "method": "POST",
+      "controllerBase": "integrations",
+      "decoratorArg": "':id/test'",
+      "path": "/integrations/:id/test",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/integrations/integrations.controller.ts",
+      "line": 104,
+      "method": "POST",
+      "controllerBase": "integrations",
+      "decoratorArg": "':id/sync-now'",
+      "path": "/integrations/:id/sync-now",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/kpi/kpi.controller.ts",
+      "line": 12,
+      "method": "GET",
+      "controllerBase": "kpi",
+      "decoratorArg": "'project/:id'",
+      "path": "/kpi/project/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/kpi/kpi.controller.ts",
+      "line": 17,
+      "method": "GET",
+      "controllerBase": "kpi",
+      "decoratorArg": "'portfolio'",
+      "path": "/kpi/portfolio",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/notifications/notifications.controller.ts",
+      "line": 27,
+      "method": "GET",
+      "controllerBase": "notifications",
+      "decoratorArg": "",
+      "path": "/notifications",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/notifications/notifications.controller.ts",
+      "line": 59,
+      "method": "GET",
+      "controllerBase": "notifications",
+      "decoratorArg": "'unread-count'",
+      "path": "/notifications/unread-count",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/notifications/notifications.controller.ts",
+      "line": 81,
+      "method": "POST",
+      "controllerBase": "notifications",
+      "decoratorArg": "':id/read'",
+      "path": "/notifications/:id/read",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/notifications/notifications.controller.ts",
+      "line": 107,
+      "method": "POST",
+      "controllerBase": "notifications",
+      "decoratorArg": "'read-all'",
+      "path": "/notifications/read-all",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 64,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "",
+      "path": "/workspaces/:workspaceId/portfolios",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 105,
+      "method": "POST",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "",
+      "path": "/workspaces/:workspaceId/portfolios",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 156,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "':portfolioId'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 201,
+      "method": "PATCH",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "':portfolioId'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 252,
+      "method": "POST",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "':portfolioId/archive'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/portfolios/portfolios.controller.ts",
+      "line": 301,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId/portfolios",
+      "decoratorArg": "':portfolioId/rollup'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId/rollup",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 56,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'programs'",
+      "path": "/workspaces/:workspaceId/programs",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 94,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'portfolios/:portfolioId/programs'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId/programs",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 135,
+      "method": "POST",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'portfolios/:portfolioId/programs'",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId/programs",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 186,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'programs/:programId'",
+      "path": "/workspaces/:workspaceId/programs/:programId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 231,
+      "method": "PATCH",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'programs/:programId'",
+      "path": "/workspaces/:workspaceId/programs/:programId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 282,
+      "method": "POST",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'programs/:programId/archive'",
+      "path": "/workspaces/:workspaceId/programs/:programId/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/programs/programs.controller.ts",
+      "line": 331,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId",
+      "decoratorArg": "'programs/:programId/rollup'",
+      "path": "/workspaces/:workspaceId/programs/:programId/rollup",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/controllers/task.controller.ts",
+      "line": 25,
+      "method": "POST",
+      "controllerBase": "projects/:projectId/tasks",
+      "decoratorArg": "",
+      "path": "/projects/:projectId/tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/controllers/task.controller.ts",
+      "line": 39,
+      "method": "GET",
+      "controllerBase": "projects/:projectId/tasks",
+      "decoratorArg": "",
+      "path": "/projects/:projectId/tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/controllers/task.controller.ts",
+      "line": 50,
+      "method": "GET",
+      "controllerBase": "projects/:projectId/tasks",
+      "decoratorArg": "':id'",
+      "path": "/projects/:projectId/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/controllers/task.controller.ts",
+      "line": 60,
+      "method": "PATCH",
+      "controllerBase": "projects/:projectId/tasks",
+      "decoratorArg": "':taskId'",
+      "path": "/projects/:projectId/tasks/:taskId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/controllers/task.controller.ts",
+      "line": 76,
+      "method": "DELETE",
+      "controllerBase": "projects/:projectId/tasks",
+      "decoratorArg": "':id'",
+      "path": "/projects/:projectId/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 54,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "'test'",
+      "path": "/projects/test",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 59,
+      "method": "POST",
+      "controllerBase": "projects",
+      "decoratorArg": "",
+      "path": "/projects",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 142,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "",
+      "path": "/projects",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 194,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "'stats'",
+      "path": "/projects/stats",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 228,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "'stats/by-workspace/:workspaceId'",
+      "path": "/projects/stats/by-workspace/:workspaceId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 246,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "':id'",
+      "path": "/projects/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 281,
+      "method": "PATCH",
+      "controllerBase": "projects",
+      "decoratorArg": "':id'",
+      "path": "/projects/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 351,
+      "method": "PATCH",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/settings'",
+      "path": "/projects/:id/settings",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 374,
+      "method": "POST",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/archive'",
+      "path": "/projects/:id/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 386,
+      "method": "DELETE",
+      "controllerBase": "projects",
+      "decoratorArg": "':id'",
+      "path": "/projects/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 398,
+      "method": "POST",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/assign'",
+      "path": "/projects/:id/assign",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 411,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/assignments'",
+      "path": "/projects/:id/assignments",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 423,
+      "method": "DELETE",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/assign/:userId'",
+      "path": "/projects/:id/assign/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 436,
+      "method": "PATCH",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/assign/:userId/role'",
+      "path": "/projects/:id/assign/:userId/role",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 454,
+      "method": "GET",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/kpis'",
+      "path": "/projects/:id/kpis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/projects.controller.ts",
+      "line": 475,
+      "method": "PATCH",
+      "controllerBase": "projects",
+      "decoratorArg": "':id/kpis'",
+      "path": "/projects/:id/kpis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/projects/workspace-projects.controller.ts",
+      "line": 45,
+      "method": "PATCH",
+      "controllerBase": "workspaces/:workspaceId/projects",
+      "decoratorArg": "':projectId/link'",
+      "path": "/workspaces/:workspaceId/projects/:projectId/link",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/controllers/resource-seed.controller.ts",
+      "line": 35,
+      "method": "POST",
+      "controllerBase": "resources",
+      "decoratorArg": "'seed'",
+      "path": "/resources/seed",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 40,
+      "method": "POST",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "",
+      "path": "/resource-allocations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 70,
+      "method": "GET",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "",
+      "path": "/resource-allocations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 101,
+      "method": "GET",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "':id'",
+      "path": "/resource-allocations/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 125,
+      "method": "PATCH",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "':id'",
+      "path": "/resource-allocations/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 161,
+      "method": "DELETE",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "':id'",
+      "path": "/resource-allocations/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 185,
+      "method": "GET",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "'resource/:resourceId'",
+      "path": "/resource-allocations/resource/:resourceId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resource-allocation.controller.ts",
+      "line": 211,
+      "method": "GET",
+      "controllerBase": "resource-allocations",
+      "decoratorArg": "'project/:projectId'",
+      "path": "/resource-allocations/project/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 59,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'heat-map'",
+      "path": "/resources/heat-map",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 78,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "",
+      "path": "/resources",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 151,
+      "method": "POST",
+      "controllerBase": "resources",
+      "decoratorArg": "",
+      "path": "/resources",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 199,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'conflicts'",
+      "path": "/resources/conflicts",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 237,
+      "method": "PATCH",
+      "controllerBase": "resources",
+      "decoratorArg": "'conflicts/:id/resolve'",
+      "path": "/resources/conflicts/:id/resolve",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 267,
+      "method": "PATCH",
+      "controllerBase": "resources",
+      "decoratorArg": "'conflicts/:id/reopen'",
+      "path": "/resources/conflicts/:id/reopen",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 288,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'capacity/resources'",
+      "path": "/resources/capacity/resources",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 329,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "':id'",
+      "path": "/resources/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 356,
+      "method": "PATCH",
+      "controllerBase": "resources",
+      "decoratorArg": "':id'",
+      "path": "/resources/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 405,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "':id/capacity-breakdown'",
+      "path": "/resources/:id/capacity-breakdown",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 446,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "':id/allocation'",
+      "path": "/resources/:id/allocation",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 479,
+      "method": "POST",
+      "controllerBase": "resources",
+      "decoratorArg": "'detect-conflicts'",
+      "path": "/resources/detect-conflicts",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 492,
+      "method": "POST",
+      "controllerBase": "resources",
+      "decoratorArg": "'allocations'",
+      "path": "/resources/allocations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 569,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'task-heat-map'",
+      "path": "/resources/task-heat-map",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 576,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'my-capacity'",
+      "path": "/resources/my-capacity",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 599,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'capacity-summary'",
+      "path": "/resources/capacity-summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 634,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'skills'",
+      "path": "/resources/skills",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 662,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'test'",
+      "path": "/resources/test",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 669,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "':id/risk-score'",
+      "path": "/resources/:id/risk-score",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 722,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "':id/timeline'",
+      "path": "/resources/:id/timeline",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/resources/resources.controller.ts",
+      "line": 775,
+      "method": "GET",
+      "controllerBase": "resources",
+      "decoratorArg": "'heatmap/timeline'",
+      "path": "/resources/heatmap/timeline",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/signals/controllers/signals.controller.ts",
+      "line": 16,
+      "method": "GET",
+      "controllerBase": "signals",
+      "decoratorArg": "'report/latest'",
+      "path": "/signals/report/latest",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 24,
+      "method": "POST",
+      "controllerBase": "tasks",
+      "decoratorArg": "",
+      "path": "/tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 30,
+      "method": "GET",
+      "controllerBase": "tasks",
+      "decoratorArg": "'project/:projectId'",
+      "path": "/tasks/project/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 36,
+      "method": "GET",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id'",
+      "path": "/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 42,
+      "method": "PATCH",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id'",
+      "path": "/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 52,
+      "method": "DELETE",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id'",
+      "path": "/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 58,
+      "method": "PATCH",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id/progress'",
+      "path": "/tasks/:id/progress",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 68,
+      "method": "GET",
+      "controllerBase": "tasks",
+      "decoratorArg": "'my-tasks'",
+      "path": "/tasks/my-tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 74,
+      "method": "POST",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id/dependencies'",
+      "path": "/tasks/:id/dependencies",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 88,
+      "method": "DELETE",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id/dependencies/:depId'",
+      "path": "/tasks/:id/dependencies/:depId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/tasks/tasks.controller.ts",
+      "line": 102,
+      "method": "GET",
+      "controllerBase": "tasks",
+      "decoratorArg": "':id/dependencies'",
+      "path": "/tasks/:id/dependencies",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/lego-blocks.controller.ts",
+      "line": 11,
+      "method": "GET",
+      "controllerBase": "lego-blocks",
+      "decoratorArg": "",
+      "path": "/lego-blocks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-actions.controller.ts",
+      "line": 16,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/clone'",
+      "path": "/templates/:id/clone",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-actions.controller.ts",
+      "line": 25,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/default'",
+      "path": "/templates/:id/default",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-actions.controller.ts",
+      "line": 32,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/lock'",
+      "path": "/templates/:id/lock",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-actions.controller.ts",
+      "line": 39,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/unlock'",
+      "path": "/templates/:id/unlock",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-actions.controller.ts",
+      "line": 46,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/archive'",
+      "path": "/templates/:id/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-blocks.controller.ts",
+      "line": 28,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/blocks'",
+      "path": "/templates/:id/blocks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-blocks.controller.ts",
+      "line": 38,
+      "method": "PATCH",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/blocks/reorder'",
+      "path": "/templates/:id/blocks/reorder",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-blocks.controller.ts",
+      "line": 50,
+      "method": "PATCH",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/blocks/:blockId/config'",
+      "path": "/templates/:id/blocks/:blockId/config",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template-blocks.controller.ts",
+      "line": 63,
+      "method": "DELETE",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/blocks/:blockId'",
+      "path": "/templates/:id/blocks/:blockId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 22,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 28,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 33,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "'blocks/all'",
+      "path": "/templates/blocks/all",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 39,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "'blocks/type/:type'",
+      "path": "/templates/blocks/type/:type",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 48,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "'create-project'",
+      "path": "/templates/create-project",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/template.controller.ts",
+      "line": 61,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "'projects/:projectId/blocks/:blockId'",
+      "path": "/templates/projects/:projectId/blocks/:blockId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 131,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 209,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 245,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 247,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "'recommendations'",
+      "path": "/templates/recommendations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 341,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 343,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':templateId/preview-v5_1'",
+      "path": "/templates/:templateId/preview-v5_1",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 404,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 491,
+      "method": "PATCH",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 564,
+      "method": "DELETE",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 576,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/publish'",
+      "path": "/templates/:id/publish",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 588,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/instantiate'",
+      "path": "/templates/:id/instantiate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 590,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':templateId/instantiate-v5_1'",
+      "path": "/templates/:templateId/instantiate-v5_1",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 687,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/instantiate'",
+      "path": "/templates/:id/instantiate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 826,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 836,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 846,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 865,
+      "method": "PATCH",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 905,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/apply'",
+      "path": "/templates/:id/apply",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/controllers/templates.controller.ts",
+      "line": 1001,
+      "method": "DELETE",
+      "controllerBase": "templates",
+      "decoratorArg": "':id'",
+      "path": "/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/template.controller.ts",
+      "line": 20,
+      "method": "GET",
+      "controllerBase": "templates",
+      "decoratorArg": "",
+      "path": "/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/templates/template.controller.ts",
+      "line": 26,
+      "method": "POST",
+      "controllerBase": "templates",
+      "decoratorArg": "':id/activate'",
+      "path": "/templates/:id/activate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/users/controllers/users.controller.ts",
+      "line": 19,
+      "method": "GET",
+      "controllerBase": "users",
+      "decoratorArg": "'available'",
+      "path": "/users/available",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/users/controllers/users.controller.ts",
+      "line": 24,
+      "method": "GET",
+      "controllerBase": "users",
+      "decoratorArg": "'me/notification-preferences'",
+      "path": "/users/me/notification-preferences",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/my-work.controller.ts",
+      "line": 33,
+      "method": "GET",
+      "controllerBase": "my-work",
+      "decoratorArg": "",
+      "path": "/my-work",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 72,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "",
+      "path": "/work-items",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 93,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "'project/:projectId'",
+      "path": "/work-items/project/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 106,
+      "method": "POST",
+      "controllerBase": "work-items",
+      "decoratorArg": "",
+      "path": "/work-items",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 122,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id'",
+      "path": "/work-items/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 127,
+      "method": "PATCH",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id'",
+      "path": "/work-items/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 166,
+      "method": "PATCH",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id/status'",
+      "path": "/work-items/:id/status",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 205,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "'stats/completed-ratio/by-project/:projectId'",
+      "path": "/work-items/stats/completed-ratio/by-project/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 216,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "'stats/completed-ratio/by-workspace/:workspaceId'",
+      "path": "/work-items/stats/completed-ratio/by-workspace/:workspaceId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 227,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "'stats/completed-ratio/by-organization'",
+      "path": "/work-items/stats/completed-ratio/by-organization",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 235,
+      "method": "POST",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id/comments'",
+      "path": "/work-items/:id/comments",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 272,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id/comments'",
+      "path": "/work-items/:id/comments",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 305,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "':id/activities'",
+      "path": "/work-items/:id/activities",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 339,
+      "method": "GET",
+      "controllerBase": "work-items",
+      "decoratorArg": "'my-work'",
+      "path": "/work-items/my-work",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 356,
+      "method": "POST",
+      "controllerBase": "work-items",
+      "decoratorArg": "'bulk/update'",
+      "path": "/work-items/bulk/update",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-items/work-item.controller.ts",
+      "line": 383,
+      "method": "POST",
+      "controllerBase": "work-items",
+      "decoratorArg": "'bulk/delete'",
+      "path": "/work-items/bulk/delete",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-phases.controller.ts",
+      "line": 38,
+      "method": "PATCH",
+      "controllerBase": "work/phases",
+      "decoratorArg": "':phaseId'",
+      "path": "/work/phases/:phaseId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 64,
+      "method": "GET",
+      "controllerBase": "work",
+      "decoratorArg": "'projects/:projectId/plan'",
+      "path": "/work/projects/:projectId/plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 110,
+      "method": "GET",
+      "controllerBase": "work",
+      "decoratorArg": "'programs/:programId/plan'",
+      "path": "/work/programs/:programId/plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 158,
+      "method": "GET",
+      "controllerBase": "work",
+      "decoratorArg": "'projects/:projectId/overview'",
+      "path": "/work/projects/:projectId/overview",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 209,
+      "method": "GET",
+      "controllerBase": "work",
+      "decoratorArg": "'programs/:programId/overview'",
+      "path": "/work/programs/:programId/overview",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 260,
+      "method": "POST",
+      "controllerBase": "work",
+      "decoratorArg": "'projects/:projectId/start'",
+      "path": "/work/projects/:projectId/start",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-plan.controller.ts",
+      "line": 310,
+      "method": "PATCH",
+      "controllerBase": "work",
+      "decoratorArg": "'projects/:projectId/delivery-owner'",
+      "path": "/work/projects/:projectId/delivery-owner",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 79,
+      "method": "GET",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "",
+      "path": "/work/tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 130,
+      "method": "POST",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "",
+      "path": "/work/tasks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 171,
+      "method": "PATCH",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "'bulk'",
+      "path": "/work/tasks/bulk",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 214,
+      "method": "POST",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id/dependencies'",
+      "path": "/work/tasks/:id/dependencies",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 272,
+      "method": "DELETE",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id/dependencies'",
+      "path": "/work/tasks/:id/dependencies",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 318,
+      "method": "POST",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id/comments'",
+      "path": "/work/tasks/:id/comments",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 364,
+      "method": "GET",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id/comments'",
+      "path": "/work/tasks/:id/comments",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 403,
+      "method": "GET",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id/activity'",
+      "path": "/work/tasks/:id/activity",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 445,
+      "method": "GET",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id'",
+      "path": "/work/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 483,
+      "method": "PATCH",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id'",
+      "path": "/work/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/work-management/controllers/work-tasks.controller.ts",
+      "line": 536,
+      "method": "DELETE",
+      "controllerBase": "work/tasks",
+      "decoratorArg": "':id'",
+      "path": "/work/tasks/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/admin-trash.controller.ts",
+      "line": 22,
+      "method": "GET",
+      "controllerBase": "admin/trash",
+      "decoratorArg": "",
+      "path": "/admin/trash",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/admin-trash.controller.ts",
+      "line": 33,
+      "method": "POST",
+      "controllerBase": "admin/trash",
+      "decoratorArg": "'purge'",
+      "path": "/admin/trash/purge",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspace-modules.controller.ts",
+      "line": 26,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId/modules",
+      "decoratorArg": "",
+      "path": "/workspaces/:workspaceId/modules",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspace-modules.controller.ts",
+      "line": 33,
+      "method": "GET",
+      "controllerBase": "workspaces/:workspaceId/modules",
+      "decoratorArg": "':moduleKey'",
+      "path": "/workspaces/:workspaceId/modules/:moduleKey",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspace-modules.controller.ts",
+      "line": 45,
+      "method": "PATCH",
+      "controllerBase": "workspaces/:workspaceId/modules",
+      "decoratorArg": "':moduleKey'",
+      "path": "/workspaces/:workspaceId/modules/:moduleKey",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 93,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "'resolve/:slug'",
+      "path": "/workspaces/resolve/:slug",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 125,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "'slug/:slug/home'",
+      "path": "/workspaces/slug/:slug/home",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 145,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "",
+      "path": "/workspaces",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 171,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id'",
+      "path": "/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 228,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "",
+      "path": "/workspaces",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 383,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id'",
+      "path": "/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 437,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/settings'",
+      "path": "/workspaces/:id/settings",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 479,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/settings'",
+      "path": "/workspaces/:id/settings",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 517,
+      "method": "DELETE",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id'",
+      "path": "/workspaces/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 526,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/archive'",
+      "path": "/workspaces/:id/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 538,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/restore'",
+      "path": "/workspaces/:id/restore",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 545,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':workspaceId/role'",
+      "path": "/workspaces/:workspaceId/role",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 568,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':workspaceId/summary'",
+      "path": "/workspaces/:workspaceId/summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 604,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members'",
+      "path": "/workspaces/:id/members",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 627,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members'",
+      "path": "/workspaces/:id/members",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 644,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members/:userId'",
+      "path": "/workspaces/:id/members/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 657,
+      "method": "DELETE",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members/:userId'",
+      "path": "/workspaces/:id/members/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 674,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members/:memberId/suspend'",
+      "path": "/workspaces/:id/members/:memberId/suspend",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 706,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members/:memberId/reinstate'",
+      "path": "/workspaces/:id/members/:memberId/reinstate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 732,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/change-owner'",
+      "path": "/workspaces/:id/change-owner",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 763,
+      "method": "PATCH",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/owners'",
+      "path": "/workspaces/:id/owners",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 819,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/invite-link'",
+      "path": "/workspaces/:id/invite-link",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 864,
+      "method": "DELETE",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/invite-link/:linkId'",
+      "path": "/workspaces/:id/invite-link/:linkId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 890,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/invite-link'",
+      "path": "/workspaces/:id/invite-link",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 917,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "'join'",
+      "path": "/workspaces/join",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 957,
+      "method": "POST",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/members/invite'",
+      "path": "/workspaces/:id/members/invite",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/modules/workspaces/workspaces.controller.ts",
+      "line": 974,
+      "method": "GET",
+      "controllerBase": "workspaces",
+      "decoratorArg": "':id/resource-risk-summary'",
+      "path": "/workspaces/:id/resource-risk-summary",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/observability/metrics.controller.ts",
+      "line": 15,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "'metrics'",
+      "path": "/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/observability/metrics.controller.ts",
+      "line": 45,
+      "method": "GET",
+      "controllerBase": "",
+      "decoratorArg": "'health/metrics'",
+      "path": "/health/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/invitation-acceptance.controller.ts",
+      "line": 28,
+      "method": "GET",
+      "controllerBase": "invitations",
+      "decoratorArg": "':token'",
+      "path": "/invitations/:token",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/invitation-acceptance.controller.ts",
+      "line": 94,
+      "method": "POST",
+      "controllerBase": "invitations",
+      "decoratorArg": "':token/accept'",
+      "path": "/invitations/:token/accept",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/invitation-acceptance.controller.ts",
+      "line": 129,
+      "method": "POST",
+      "controllerBase": "invitations",
+      "decoratorArg": "':token/accept-anonymous'",
+      "path": "/invitations/:token/accept-anonymous",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 45,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "",
+      "path": "/organizations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 59,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "",
+      "path": "/organizations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 70,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "':id'",
+      "path": "/organizations/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 81,
+      "method": "PATCH",
+      "controllerBase": "organizations",
+      "decoratorArg": "':id'",
+      "path": "/organizations/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 98,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "':id/invite'",
+      "path": "/organizations/:id/invite",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 112,
+      "method": "DELETE",
+      "controllerBase": "organizations",
+      "decoratorArg": "':organizationId/users/:userId'",
+      "path": "/organizations/:organizationId/users/:userId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 131,
+      "method": "PATCH",
+      "controllerBase": "organizations",
+      "decoratorArg": "':organizationId/users/:userId/role'",
+      "path": "/organizations/:organizationId/users/:userId/role",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 152,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "':id/switch'",
+      "path": "/organizations/:id/switch",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 166,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "'admin/users'",
+      "path": "/organizations/admin/users",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 185,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "'users'",
+      "path": "/organizations/users",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 209,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "'onboarding/status'",
+      "path": "/organizations/onboarding/status",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 220,
+      "method": "GET",
+      "controllerBase": "organizations",
+      "decoratorArg": "'onboarding/progress'",
+      "path": "/organizations/onboarding/progress",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 231,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "'onboarding/complete-step'",
+      "path": "/organizations/onboarding/complete-step",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 248,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "'onboarding/complete'",
+      "path": "/organizations/onboarding/complete",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/organizations.controller.ts",
+      "line": 259,
+      "method": "POST",
+      "controllerBase": "organizations",
+      "decoratorArg": "'onboarding/skip'",
+      "path": "/organizations/onboarding/skip",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 43,
+      "method": "GET",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'members'",
+      "path": "/organizations/:organizationId/team/members",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 57,
+      "method": "POST",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'invite'",
+      "path": "/organizations/:organizationId/team/invite",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 83,
+      "method": "GET",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'invitations'",
+      "path": "/organizations/:organizationId/team/invitations",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 100,
+      "method": "POST",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'invitations/:invitationId/resend'",
+      "path": "/organizations/:organizationId/team/invitations/:invitationId/resend",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 119,
+      "method": "DELETE",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'invitations/:invitationId'",
+      "path": "/organizations/:organizationId/team/invitations/:invitationId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 159,
+      "method": "DELETE",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'members/:memberId'",
+      "path": "/organizations/:organizationId/team/members/:memberId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 183,
+      "method": "POST",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'leave'",
+      "path": "/organizations/:organizationId/team/leave",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/organizations/controllers/team-management.controller.ts",
+      "line": 205,
+      "method": "POST",
+      "controllerBase": "organizations/:organizationId/team",
+      "decoratorArg": "'transfer-ownership/:newOwnerUserId'",
+      "path": "/organizations/:organizationId/team/transfer-ownership/:newOwnerUserId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 45,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'send-message'",
+      "path": "/ai-chat/send-message",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 59,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'analyze-project'",
+      "path": "/ai-chat/analyze-project",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 82,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'create-project'",
+      "path": "/ai-chat/create-project",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 106,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'optimize-resources'",
+      "path": "/ai-chat/optimize-resources",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 124,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'assess-risks'",
+      "path": "/ai-chat/assess-risks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 147,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'plan-communication'",
+      "path": "/ai-chat/plan-communication",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 165,
+      "method": "POST",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'monitor-health'",
+      "path": "/ai-chat/monitor-health",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 186,
+      "method": "GET",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'capabilities'",
+      "path": "/ai-chat/capabilities",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 238,
+      "method": "GET",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'quick-actions'",
+      "path": "/ai-chat/quick-actions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 320,
+      "method": "GET",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'project-suggestions/:projectId'",
+      "path": "/ai-chat/project-suggestions/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-chat.controller.ts",
+      "line": 379,
+      "method": "GET",
+      "controllerBase": "ai-chat",
+      "decoratorArg": "'ai-insights/:projectId'",
+      "path": "/ai-chat/ai-insights/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 63,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'analyze-project-context'",
+      "path": "/ai-intelligence/analyze-project-context",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 74,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'process-documents'",
+      "path": "/ai-intelligence/process-documents",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 81,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'create-adaptive-plan'",
+      "path": "/ai-intelligence/create-adaptive-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 92,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'optimize-resources'",
+      "path": "/ai-intelligence/optimize-resources",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 103,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'monitor-project-health'",
+      "path": "/ai-intelligence/monitor-project-health",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 110,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'generate-intelligent-communication'",
+      "path": "/ai-intelligence/generate-intelligent-communication",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 121,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'learn-from-outcomes'",
+      "path": "/ai-intelligence/learn-from-outcomes",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 132,
+      "method": "POST",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'comprehensive-project-analysis'",
+      "path": "/ai-intelligence/comprehensive-project-analysis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 212,
+      "method": "GET",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'project-insights/:projectId'",
+      "path": "/ai-intelligence/project-insights/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 274,
+      "method": "GET",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'ai-capabilities'",
+      "path": "/ai-intelligence/ai-capabilities",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-intelligence.controller.ts",
+      "line": 312,
+      "method": "GET",
+      "controllerBase": "ai-intelligence",
+      "decoratorArg": "'ai-value-propositions'",
+      "path": "/ai-intelligence/ai-value-propositions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 83,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'ask'",
+      "path": "/ai-pm-assistant/ask",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 94,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'analyze-project'",
+      "path": "/ai-pm-assistant/analyze-project",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 107,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'generate-plan'",
+      "path": "/ai-pm-assistant/generate-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 124,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'optimize-portfolio'",
+      "path": "/ai-pm-assistant/optimize-portfolio",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 137,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'risk-analysis'",
+      "path": "/ai-pm-assistant/risk-analysis",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 147,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'stakeholder-plan'",
+      "path": "/ai-pm-assistant/stakeholder-plan",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 160,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'progress-report'",
+      "path": "/ai-pm-assistant/progress-report",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 177,
+      "method": "POST",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'next-actions'",
+      "path": "/ai-pm-assistant/next-actions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 195,
+      "method": "GET",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'knowledge/:domain'",
+      "path": "/ai-pm-assistant/knowledge/:domain",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 213,
+      "method": "GET",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'test-ai-chat'",
+      "path": "/ai-pm-assistant/test-ai-chat",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/ai-pm-assistant.controller.ts",
+      "line": 230,
+      "method": "GET",
+      "controllerBase": "ai-pm-assistant",
+      "decoratorArg": "'templates/:type'",
+      "path": "/ai-pm-assistant/templates/:type",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 48,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'generate'",
+      "path": "/pm/intake-designer/generate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 85,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'conversation'",
+      "path": "/pm/intake-designer/conversation",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 180,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "':formId/refine'",
+      "path": "/pm/intake-designer/:formId/refine",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 203,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "':formId/preview'",
+      "path": "/pm/intake-designer/:formId/preview",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 233,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "':formId/deploy'",
+      "path": "/pm/intake-designer/:formId/deploy",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 280,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'analyze'",
+      "path": "/pm/intake-designer/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 300,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'bulk-generate'",
+      "path": "/pm/intake-designer/bulk-generate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 346,
+      "method": "POST",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'feedback'",
+      "path": "/pm/intake-designer/feedback",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-designer.controller.ts",
+      "line": 372,
+      "method": "GET",
+      "controllerBase": "pm/intake-designer",
+      "decoratorArg": "'templates'",
+      "path": "/pm/intake-designer/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 46,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms'",
+      "path": "/pm/intake/forms",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 54,
+      "method": "POST",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms'",
+      "path": "/pm/intake/forms",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 68,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms/:id'",
+      "path": "/pm/intake/forms/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 77,
+      "method": "PATCH",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms/:id'",
+      "path": "/pm/intake/forms/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 91,
+      "method": "DELETE",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms/:id'",
+      "path": "/pm/intake/forms/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 107,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'submissions'",
+      "path": "/pm/intake/submissions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 121,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'submissions/:id'",
+      "path": "/pm/intake/submissions/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 133,
+      "method": "POST",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'submissions/:id/process'",
+      "path": "/pm/intake/submissions/:id/process",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 159,
+      "method": "POST",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'submissions/bulk-action'",
+      "path": "/pm/intake/submissions/bulk-action",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 172,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "'forms/:id/analytics'",
+      "path": "/pm/intake/forms/:id/analytics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 251,
+      "method": "GET",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "':slug'",
+      "path": "/pm/intake/:slug",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/intake-form.controller.ts",
+      "line": 271,
+      "method": "POST",
+      "controllerBase": "pm/intake",
+      "decoratorArg": "':slug/submit'",
+      "path": "/pm/intake/:slug/submit",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 61,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/metrics'",
+      "path": "/pm/status-reporting/projects/:projectId/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 87,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/trends'",
+      "path": "/pm/status-reporting/projects/:projectId/trends",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 114,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/risks'",
+      "path": "/pm/status-reporting/projects/:projectId/risks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 143,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/stakeholder-views'",
+      "path": "/pm/status-reporting/projects/:projectId/stakeholder-views",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 170,
+      "method": "POST",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'generate-report'",
+      "path": "/pm/status-reporting/generate-report",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 213,
+      "method": "POST",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'export-report'",
+      "path": "/pm/status-reporting/export-report",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 238,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/reports'",
+      "path": "/pm/status-reporting/projects/:projectId/reports",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 271,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'reports/:reportId'",
+      "path": "/pm/status-reporting/reports/:reportId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 292,
+      "method": "POST",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'alerts/configure'",
+      "path": "/pm/status-reporting/alerts/configure",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 317,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/alerts'",
+      "path": "/pm/status-reporting/projects/:projectId/alerts",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 371,
+      "method": "DELETE",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'alerts/:alertId'",
+      "path": "/pm/status-reporting/alerts/:alertId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 392,
+      "method": "POST",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/manual-updates'",
+      "path": "/pm/status-reporting/projects/:projectId/manual-updates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 428,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/manual-updates'",
+      "path": "/pm/status-reporting/projects/:projectId/manual-updates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/status-reporting.controller.ts",
+      "line": 462,
+      "method": "GET",
+      "controllerBase": "pm/status-reporting",
+      "decoratorArg": "'projects/:projectId/overview'",
+      "path": "/pm/status-reporting/projects/:projectId/overview",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 44,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "",
+      "path": "/pm/workflow-templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 54,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "'defaults'",
+      "path": "/pm/workflow-templates/defaults",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 64,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id'",
+      "path": "/pm/workflow-templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 72,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "",
+      "path": "/pm/workflow-templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 86,
+      "method": "PATCH",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id'",
+      "path": "/pm/workflow-templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 101,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/clone'",
+      "path": "/pm/workflow-templates/:id/clone",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 114,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/activate'",
+      "path": "/pm/workflow-templates/:id/activate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 124,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/deactivate'",
+      "path": "/pm/workflow-templates/:id/deactivate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 141,
+      "method": "DELETE",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id'",
+      "path": "/pm/workflow-templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 157,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/instances'",
+      "path": "/pm/workflow-templates/:id/instances",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 168,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/instances'",
+      "path": "/pm/workflow-templates/:id/instances",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 193,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "",
+      "path": "/pm/workflow-templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 200,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id'",
+      "path": "/pm/workflow-templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 208,
+      "method": "PATCH",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id'",
+      "path": "/pm/workflow-templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 220,
+      "method": "POST",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/actions'",
+      "path": "/pm/workflow-templates/:id/actions",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 234,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/history'",
+      "path": "/pm/workflow-templates/:id/history",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/controllers/workflow-template.controller.ts",
+      "line": 249,
+      "method": "GET",
+      "controllerBase": "pm/workflow-templates",
+      "decoratorArg": "':id/metrics'",
+      "path": "/pm/workflow-templates/:id/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 33,
+      "method": "POST",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "'analyze'",
+      "path": "/pm/project-initiation/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 87,
+      "method": "GET",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId'",
+      "path": "/pm/project-initiation/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 141,
+      "method": "GET",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId/dashboard/metrics'",
+      "path": "/pm/project-initiation/:projectId/dashboard/metrics",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 173,
+      "method": "POST",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId/export'",
+      "path": "/pm/project-initiation/:projectId/export",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 203,
+      "method": "GET",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId/stakeholders'",
+      "path": "/pm/project-initiation/:projectId/stakeholders",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 237,
+      "method": "GET",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId/risks'",
+      "path": "/pm/project-initiation/:projectId/risks",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/project-initiation/project-initiation.controller.ts",
+      "line": 266,
+      "method": "GET",
+      "controllerBase": "pm/project-initiation",
+      "decoratorArg": "':projectId/wbs'",
+      "path": "/pm/project-initiation/:projectId/wbs",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/risk-management/risk-management.controller.ts",
+      "line": 33,
+      "method": "POST",
+      "controllerBase": "pm/risk-management",
+      "decoratorArg": "'analyze'",
+      "path": "/pm/risk-management/analyze",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/risk-management/risk-management.controller.ts",
+      "line": 53,
+      "method": "GET",
+      "controllerBase": "pm/risk-management",
+      "decoratorArg": "'register/:projectId'",
+      "path": "/pm/risk-management/register/:projectId",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/pm/risk-management/risk-management.controller.ts",
+      "line": 102,
+      "method": "POST",
+      "controllerBase": "pm/risk-management",
+      "decoratorArg": "'risk/:riskId/monitoring'",
+      "path": "/pm/risk-management/risk/:riskId/monitoring",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/waitlist/waitlist.controller.ts",
+      "line": 23,
+      "method": "POST",
+      "controllerBase": "waitlist",
+      "decoratorArg": "",
+      "path": "/waitlist",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/waitlist/waitlist.controller.ts",
+      "line": 32,
+      "method": "GET",
+      "controllerBase": "waitlist",
+      "decoratorArg": "'admin/list'",
+      "path": "/waitlist/admin/list",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/waitlist/waitlist.controller.ts",
+      "line": 39,
+      "method": "GET",
+      "controllerBase": "waitlist",
+      "decoratorArg": "'admin/stats'",
+      "path": "/waitlist/admin/stats",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/waitlist/waitlist.controller.ts",
+      "line": 46,
+      "method": "GET",
+      "controllerBase": "waitlist",
+      "decoratorArg": "'admin/export'",
+      "path": "/waitlist/admin/export",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 53,
+      "method": "POST",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "",
+      "path": "/workflows/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 105,
+      "method": "GET",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "",
+      "path": "/workflows/templates",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 141,
+      "method": "GET",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "'default'",
+      "path": "/workflows/templates/default",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 175,
+      "method": "GET",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id'",
+      "path": "/workflows/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 241,
+      "method": "DELETE",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id'",
+      "path": "/workflows/templates/:id",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 265,
+      "method": "POST",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id/clone'",
+      "path": "/workflows/templates/:id/clone",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 286,
+      "method": "PATCH",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id/activate'",
+      "path": "/workflows/templates/:id/activate",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 311,
+      "method": "PATCH",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id/archive'",
+      "path": "/workflows/templates/:id/archive",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "zephix-backend/src/workflows/controllers/workflow-templates.controller.ts",
+      "line": 336,
+      "method": "PATCH",
+      "controllerBase": "workflows/templates",
+      "decoratorArg": "':id/set-default'",
+      "path": "/workflows/templates/:id/set-default",
+      "ambiguous": false,
+      "ambiguousReason": ""
+    }
+  ]
+}

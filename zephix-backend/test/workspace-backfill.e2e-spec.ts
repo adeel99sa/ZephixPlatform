@@ -120,7 +120,7 @@ describe('Workspace Backfill (E2E)', () => {
         where: { workspaceId: workspace1.id, userId: orgAdmin.id },
       });
       expect(member).toBeDefined();
-      expect(member?.role).toBe('owner');
+      expect(member?.role).toBe('workspace_owner');
     });
   });
 
@@ -166,12 +166,12 @@ describe('Workspace Backfill (E2E)', () => {
         where: { workspaceId: workspace2.id, userId: orgAdmin.id },
       });
       expect(member).toBeDefined();
-      expect(member?.role).toBe('owner');
+      expect(member?.role).toBe('workspace_owner');
     });
 
     it('Should update existing member to owner role if different', async () => {
-      // Create member with 'member' role
-      await createWorkspaceMember(workspace2.id, orgAdmin.id, 'member');
+      // Create member with 'workspace_member' role
+      await createWorkspaceMember(workspace2.id, orgAdmin.id, 'workspace_member');
 
       const result = await backfillService.backfillForOrg(org1.id, {
         dryRun: false,
@@ -183,7 +183,7 @@ describe('Workspace Backfill (E2E)', () => {
       const member = await dataSource.getRepository(WorkspaceMember).findOne({
         where: { workspaceId: workspace2.id, userId: orgAdmin.id },
       });
-      expect(member?.role).toBe('owner');
+      expect(member?.role).toBe('workspace_owner');
     });
   });
 
@@ -256,7 +256,7 @@ describe('Workspace Backfill (E2E)', () => {
         where: { workspaceId: workspaceNoAdmin.id, userId: earliestUser.id },
       });
       expect(member).toBeDefined();
-      expect(member?.role).toBe('owner');
+      expect(member?.role).toBe('workspace_owner');
     });
   });
 
@@ -469,7 +469,7 @@ describe('Workspace Backfill (E2E)', () => {
   async function createWorkspaceMember(
     workspaceId: string,
     userId: string,
-    role: 'owner' | 'member' | 'viewer',
+    role: 'workspace_owner' | 'workspace_member' | 'workspace_viewer' | 'delivery_owner' | 'stakeholder',
   ): Promise<WorkspaceMember> {
     const memberRepo = dataSource.getRepository(WorkspaceMember);
     const member = memberRepo.create({

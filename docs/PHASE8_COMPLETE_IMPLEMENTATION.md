@@ -198,3 +198,4 @@ Domain Event → Analytics Subscriber → Metrics Recalculation → Materialized
 
 
 
+

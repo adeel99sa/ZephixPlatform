@@ -19,12 +19,14 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { AuthSession } from './entities/auth-session.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import {
   PlatformRole,
   normalizePlatformRole,
 } from '../../shared/enums/platform-roles.enum';
+import { TokenHashUtil } from '../../common/security/token-hash.util';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +37,8 @@ export class AuthService {
     private organizationRepository: Repository<Organization>,
     @InjectRepository(UserOrganization)
     private userOrgRepository: Repository<UserOrganization>,
+    @InjectRepository(AuthSession)
+    private authSessionRepository: Repository<AuthSession>,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -88,7 +92,30 @@ export class AuthService {
 
       // Generate JWT tokens
       const accessToken = await this.generateToken(savedUser);
-      const refreshToken = await this.generateRefreshToken(savedUser);
+
+      // Create session first to get sessionId for refresh token
+      const refreshTokenHash = TokenHashUtil.hashRefreshToken('temp'); // Will be updated after token generation
+      const refreshExpiresAt = new Date();
+      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+
+      const session = manager.create(AuthSession, {
+        userId: savedUser.id,
+        organizationId: savedOrg.id,
+        userAgent: null, // Signup doesn't have IP/userAgent yet
+        ipAddress: null,
+        currentRefreshTokenHash: null, // Will be set after token generation
+        refreshExpiresAt,
+      });
+      const savedSession = await manager.save(session);
+
+      const refreshToken = await this.generateRefreshToken(
+        savedUser,
+        savedSession.id,
+      );
+      const finalRefreshTokenHash =
+        TokenHashUtil.hashRefreshToken(refreshToken);
+      savedSession.currentRefreshTokenHash = finalRefreshTokenHash;
+      await manager.save(savedSession);
 
       // Create UserOrganization record for the first user (admin)
       const userOrg = manager.create(UserOrganization, {
@@ -101,7 +128,8 @@ export class AuthService {
 
       // Build complete user response with permissions
       // Pass the org role explicitly
-      const userResponse = this.buildUserResponse(savedUser, 'admin');
+      // savedOrg is already available in the transaction scope
+      const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
 
       return {
         user: userResponse,
@@ -113,7 +141,7 @@ export class AuthService {
     });
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
     const { email, password } = loginDto;
 
     // Find user with organization
@@ -143,10 +171,30 @@ export class AuthService {
 
     // Generate JWT tokens
     const accessToken = await this.generateToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
+
+    // Feature 2B: Create auth session first to get sessionId
+    const refreshExpiresAt = new Date();
+    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+
+    const session = this.authSessionRepository.create({
+      userId: user.id,
+      organizationId: user.organizationId || '',
+      userAgent: userAgent || null,
+      ipAddress: ip || null,
+      currentRefreshTokenHash: null, // Will be set after token generation
+      refreshExpiresAt,
+    });
+    const savedSession = await this.authSessionRepository.save(session);
+
+    // Generate refresh token with sessionId in payload
+    const refreshToken = await this.generateRefreshToken(user, savedSession.id);
+    const refreshTokenHash = TokenHashUtil.hashRefreshToken(refreshToken);
+    savedSession.currentRefreshTokenHash = refreshTokenHash;
+    await this.authSessionRepository.save(savedSession);
 
     // Get UserOrganization role if available
     let orgRole: string | null = null;
+    let organization: Organization | null = null;
     if (user.organizationId) {
       const userOrg = await this.userOrgRepository.findOne({
         where: {
@@ -158,16 +206,22 @@ export class AuthService {
       if (userOrg) {
         orgRole = userOrg.role;
       }
+
+      // Load organization to get features
+      organization = await this.organizationRepository.findOne({
+        where: { id: user.organizationId },
+      });
     }
 
     // Build complete user response with permissions
-    // Pass the org role explicitly
-    const userResponse = this.buildUserResponse(user, orgRole);
+    // Pass the org role and organization explicitly
+    const userResponse = this.buildUserResponse(user, orgRole, organization);
 
     return {
       user: userResponse,
       accessToken,
       refreshToken,
+      sessionId: savedSession.id, // Feature 2B: Return sessionId
       organizationId: user.organizationId,
       expiresIn: 900, // 15 minutes in seconds
     };
@@ -211,13 +265,21 @@ export class AuthService {
       platformRole: platformRole, // Normalized platform role
     };
 
+    // Use config service for expiration, with dev-friendly default
+    const expiresIn = process.env.NODE_ENV === 'development' 
+      ? (process.env.JWT_EXPIRES_IN || '7d')  // 7 days for dev testing
+      : (process.env.JWT_EXPIRES_IN || '15m'); // 15 minutes for production
+    
     return this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn: '15m',
+      expiresIn,
     });
   }
 
-  private async generateRefreshToken(user: User): Promise<string> {
+  private async generateRefreshToken(
+    user: User,
+    sessionId?: string,
+  ): Promise<string> {
     // Get platform role from UserOrganization if available, otherwise normalize user.role
     let platformRole: PlatformRole = normalizePlatformRole(user.role);
 
@@ -240,6 +302,7 @@ export class AuthService {
       organizationId: user.organizationId,
       role: user.role, // Keep for backward compatibility
       platformRole: platformRole, // Normalized platform role
+      sid: sessionId, // Session ID for binding
     };
 
     return this.jwtService.sign(payload, {
@@ -264,6 +327,7 @@ export class AuthService {
   public buildUserResponse(
     user: User,
     orgRoleFromUserOrg?: string | null,
+    organization?: Organization | null,
   ): any {
     // Resolve platform role:
     // 1. If orgRoleFromUserOrg provided, use it (from UserOrganization)
@@ -323,6 +387,12 @@ export class AuthService {
     // Sanitize user (remove password)
     const sanitized = this.sanitizeUser(user);
 
+    // Extract organization features from settings
+    // Default to empty object if no organization or no features in settings
+    const features = organization?.settings && typeof organization.settings === 'object'
+      ? (organization.settings as any).features || {}
+      : {};
+
     // Return consistent structure
     return {
       ...sanitized,
@@ -331,6 +401,12 @@ export class AuthService {
       permissions,
       organizationId: user.organizationId,
       emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
+      organization: organization ? {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        features, // Organization feature flags (e.g., enableProgramsPortfolios)
+      } : null,
     };
   }
 
@@ -359,11 +435,14 @@ export class AuthService {
     }
   }
 
-  async refreshToken(refreshToken: string, ip: string, userAgent: string) {
-    // For MVP, we'll just validate the current token and issue a new one
-    // In production, you'd validate against a stored refresh token
+  async refreshToken(
+    refreshToken: string,
+    sessionId: string | null,
+    ip: string,
+    userAgent: string,
+  ) {
     try {
-      // Decode the refresh token to get user ID
+      // Decode the refresh token to get user ID and sessionId
       const decoded = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
       });
@@ -373,55 +452,112 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      // Get platform role from UserOrganization if available
-      let platformRole: PlatformRole = normalizePlatformRole(user.role);
-      if (user.organizationId) {
-        const userOrg = await this.userOrgRepository.findOne({
-          where: {
-            userId: user.id,
-            organizationId: user.organizationId,
-            isActive: true,
-          },
-        });
-        if (userOrg) {
-          platformRole = normalizePlatformRole(userOrg.role);
-        }
+      // Extract sid from token payload (preferred) or use provided sessionId
+      const tokenSessionId = decoded.sid || sessionId;
+
+      if (!tokenSessionId) {
+        throw new UnauthorizedException('Session ID required');
       }
 
-      const payload = {
-        sub: user.id,
-        email: user.email,
-        organizationId: user.organizationId,
-        role: user.role, // Keep for backward compatibility
-        platformRole: platformRole, // Normalized platform role
-      };
+      // Load session by sid from token
+      const session = await this.authSessionRepository.findOne({
+        where: { id: tokenSessionId, userId: user.id },
+      });
 
-      const accessToken = this.jwtService.sign(payload, {
-        secret: process.env.JWT_SECRET || 'fallback-secret-key',
-        expiresIn: '15m',
-      });
-      const newRefreshToken = this.jwtService.sign(payload, {
-        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-        expiresIn: '7d',
-      });
+      if (!session) {
+        throw new UnauthorizedException('Session not found');
+      }
+
+      if (session.isRevoked()) {
+        throw new UnauthorizedException('Session has been revoked');
+      }
+
+      if (session.isExpired()) {
+        throw new UnauthorizedException('Session has expired');
+      }
+
+      // Verify refresh token hash matches
+      if (
+        session.currentRefreshTokenHash &&
+        !TokenHashUtil.verifyRefreshToken(
+          refreshToken,
+          session.currentRefreshTokenHash,
+        )
+      ) {
+        throw new UnauthorizedException('Invalid refresh token for session');
+      }
+
+      // Rotate refresh token (always rotate on refresh)
+      const newRefreshToken = await this.generateRefreshToken(user, session.id);
+      const newRefreshTokenHash =
+        TokenHashUtil.hashRefreshToken(newRefreshToken);
+      const refreshExpiresAt = new Date();
+      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+
+      // Update session with new token hash and last seen
+      // Throttle last_seen updates (only update if > 5 minutes since last update)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const shouldUpdateLastSeen = session.lastSeenAt < fiveMinutesAgo;
+
+      session.currentRefreshTokenHash = newRefreshTokenHash;
+      session.refreshExpiresAt = refreshExpiresAt;
+      if (shouldUpdateLastSeen) {
+        session.lastSeenAt = new Date();
+      }
+      await this.authSessionRepository.save(session);
+
+      // Generate new access token
+      const accessToken = await this.generateToken(user);
 
       return {
         accessToken,
         refreshToken: newRefreshToken,
+        sessionId: session.id,
         expiresIn: 900, // 15 minutes in seconds
       };
+
+      // No fallback path - sessionId is required
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  async logout(userId: string): Promise<void> {
-    // For MVP, logout is handled client-side by removing the token
-    // In production, you might want to blacklist the token or track logout events
-    console.log(`User ${userId} logged out`);
+  async logout(
+    userId: string,
+    sessionId?: string,
+    refreshToken?: string,
+  ): Promise<void> {
+    // Feature 2B: Revoke session server-side
+    let targetSessionId = sessionId;
 
-    // Add audit log if you have audit service
-    // await this.auditService.log('USER_LOGOUT', userId);
+    // If no sessionId provided, try to extract from refresh token
+    if (!targetSessionId && refreshToken) {
+      try {
+        const decoded = this.jwtService.verify(refreshToken, {
+          secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        });
+        targetSessionId = decoded.sid;
+      } catch (error) {
+        // Invalid token - can't extract sessionId
+        console.log(`User ${userId} logged out (invalid refresh token)`);
+      }
+    }
+
+    if (targetSessionId) {
+      const session = await this.authSessionRepository.findOne({
+        where: { id: targetSessionId, userId },
+      });
+
+      if (session && !session.isRevoked()) {
+        session.revokedAt = new Date();
+        session.revokeReason = 'user_logout';
+        session.currentRefreshTokenHash = null; // Clear token hash to prevent reuse
+        await this.authSessionRepository.save(session);
+      }
+    } else {
+      // If no sessionId, log for audit but don't fail
+      console.log(`User ${userId} logged out (no sessionId provided)`);
+    }
 
     return;
   }

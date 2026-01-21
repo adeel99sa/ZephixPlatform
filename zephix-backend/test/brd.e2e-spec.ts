@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BRDModule } from '../src/brd/brd.module';
@@ -26,6 +26,17 @@ describe('BRD (e2e)', () => {
     })
       .overrideProvider(getRepositoryToken(BRD))
       .useClass(Repository)
+      .overrideProvider('ConfigService')
+      .useValue({
+        get: (key: string) => {
+          // Safe fallback for e2e tests
+          const defaults: Record<string, any> = {
+            environment: 'test',
+            LOG_LEVEL: 'info',
+          };
+          return defaults[key] || process.env[key];
+        },
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();

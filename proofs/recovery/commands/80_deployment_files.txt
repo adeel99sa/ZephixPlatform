@@ -1,0 +1,15 @@
+-rw-r--r--@ 1 malikadeel  staff  88 Aug 14 20:28 railway.toml
+
+.github/workflows/:
+total 88
+drwxr-xr-x@ 5 malikadeel  staff    160 Dec 31 00:51 .
+drwxr-xr-x@ 3 malikadeel  staff     96 Nov 20 13:12 ..
+-rw-r--r--@ 1 malikadeel  staff  25384 Jan 16 01:01 ci.yml
+-rw-r--r--@ 1 malikadeel  staff   9662 Jan 16 01:01 enterprise-ci.yml
+-rw-r--r--  1 malikadeel  staff   2029 Dec 31 00:51 release.yml
+
+.nixpacks/:
+total 8
+drwxr-xr-x@   3 malikadeel  staff     96 Aug 14 20:03 .
+drwxr-xr-x@ 318 malikadeel  staff  10176 Jan 18 01:05 ..
+-rw-r--r--@   1 malikadeel  staff    711 Aug 14 20:06 config.toml

@@ -1,0 +1,5 @@
+## 00_phase0_migrations_count
+Time: 2026-01-18 13:37:31 CST
+Cmd: find zephix-backend/src/migrations -type f -name "*.ts" 2>/dev/null | wc -l
+
+      78

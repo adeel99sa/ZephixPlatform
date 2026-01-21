@@ -36,4 +36,3 @@ export class CreateDashboardDto {
   @IsEnum(DashboardVisibility)
   visibility: DashboardVisibility;
 }
-

@@ -100,9 +100,20 @@ jobs:
         run: |
           npm run guard:deploy || exit 1
 
-      - name: Run linting
+      - name: Lint changed files (merge gate)
         working-directory: zephix-backend
-        run: npm run lint:new
+        run: npm run lint:changed || exit 1
+      - name: Run full lint (informational)
+        working-directory: zephix-backend
+        continue-on-error: true
+        run: |
+          echo "Running full lint scan (informational only)..."
+          npm run lint 2>&1 | tee lint-full-output.txt || true
+          echo ""
+          echo "=== Top 20 lint errors ==="
+          grep -E "error|✖" lint-full-output.txt | head -20 || echo "No errors found"
+          echo ""
+          echo "Full lint summary saved to lint-full-output.txt"
 
       - name: Run type checking
         working-directory: zephix-backend

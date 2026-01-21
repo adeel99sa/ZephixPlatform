@@ -183,3 +183,4 @@ All steps pass when:
 - ✅ Duplicate registrations return 200 with neutral message
 - ✅ No database errors exposed to clients
 
+

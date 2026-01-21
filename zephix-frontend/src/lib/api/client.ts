@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 import { ApiResponse, StandardError, ApiClientConfig } from './types';
 
@@ -71,9 +72,47 @@ class ApiClient {
           config.headers['x-organization-id'] = orgId;
         }
 
-        // Add workspace context (future-proofing)
-        const workspaceId = this.getWorkspaceId();
-        config.headers['x-workspace-id'] = workspaceId || 'default';
+        // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
+        // These endpoints should not require workspace context
+        const url = config.url || '';
+        const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
+        const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+        const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
+        const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
+
+        if (!shouldSkipWorkspaceHeader) {
+          // STEP D: Read activeWorkspaceId from Zustand store directly
+          // This ensures we always have the latest value, not stale localStorage
+          const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+          // STEP D: If activeWorkspaceId is null, delete headers to prevent stale context
+          if (!wsId) {
+            delete config.headers?.['X-Workspace-Id'];
+            delete config.headers?.['x-workspace-id'];
+            
+            // Development log for debugging
+            if (import.meta.env.MODE === 'development') {
+              console.log('[API] Workspace header removed - activeWorkspaceId is null', {
+                url: config.url,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } else {
+            // STEP D: Set header only when activeWorkspaceId exists
+            config.headers = config.headers || {};
+            config.headers['X-Workspace-Id'] = wsId;
+            config.headers['x-workspace-id'] = wsId; // Support both cases
+            
+            // Development log for debugging
+            if (import.meta.env.MODE === 'development') {
+              console.log('[API] Workspace header injected', {
+                workspaceId: wsId,
+                url: config.url,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+        }
 
         return config;
       },
@@ -173,12 +212,12 @@ class ApiClient {
   }
 
   private getWorkspaceId(): string | null {
-    // Get workspace ID from UI store
+    // Get workspace ID from workspace store (workspace-storage)
     try {
-      const uiStorage = localStorage.getItem('zephix-ui-storage');
-      if (uiStorage) {
-        const { state } = JSON.parse(uiStorage);
-        return state?.workspaceId || null;
+      const workspaceStorage = localStorage.getItem('workspace-storage');
+      if (workspaceStorage) {
+        const { state } = JSON.parse(workspaceStorage);
+        return state?.activeWorkspaceId || null;
       }
     } catch (error) {
       console.warn('Failed to get workspace ID from storage:', error);

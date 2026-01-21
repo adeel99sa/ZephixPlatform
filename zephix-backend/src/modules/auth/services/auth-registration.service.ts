@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -65,7 +70,8 @@ export class AuthRegistrationService {
   async registerSelfServe(
     input: RegisterSelfServeInput,
   ): Promise<RegisterSelfServeResponse> {
-    const { email, password, fullName, orgName, orgSlug, ip, userAgent } = input;
+    const { email, password, fullName, orgName, orgSlug, ip, userAgent } =
+      input;
     const normalizedEmail = email.toLowerCase().trim();
     const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -104,151 +110,151 @@ export class AuthRegistrationService {
     // Use transaction for atomicity
     try {
       return await this.dataSource.transaction(async (manager) => {
-      const userRepo = manager.getRepository(User);
-      const orgRepo = manager.getRepository(Organization);
-      const userOrgRepo = manager.getRepository(UserOrganization);
-      const workspaceRepo = manager.getRepository(Workspace);
-      const workspaceMemberRepo = manager.getRepository(WorkspaceMember);
-      const tokenRepo = manager.getRepository(EmailVerificationToken);
-      const outboxRepo = manager.getRepository(AuthOutbox);
+        const userRepo = manager.getRepository(User);
+        const orgRepo = manager.getRepository(Organization);
+        const userOrgRepo = manager.getRepository(UserOrganization);
+        const workspaceRepo = manager.getRepository(Workspace);
+        const workspaceMemberRepo = manager.getRepository(WorkspaceMember);
+        const tokenRepo = manager.getRepository(EmailVerificationToken);
+        const outboxRepo = manager.getRepository(AuthOutbox);
 
-      // Check if user exists (but don't reveal in error)
-      const existingUser = await userRepo.findOne({
-        where: { email: normalizedEmail },
-      });
+        // Check if user exists (but don't reveal in error)
+        const existingUser = await userRepo.findOne({
+          where: { email: normalizedEmail },
+        });
 
-      if (existingUser) {
-        // Idempotency: if user exists, return neutral response
-        // This prevents account enumeration
-        this.logger.warn(
-          `Registration attempt for existing email: ${normalizedEmail}, requestId: ${requestId}`,
+        if (existingUser) {
+          // Idempotency: if user exists, return neutral response
+          // This prevents account enumeration
+          this.logger.warn(
+            `Registration attempt for existing email: ${normalizedEmail}, requestId: ${requestId}`,
+          );
+          return {
+            message:
+              'If an account with this email exists, you will receive a verification email.',
+          };
+        }
+
+        // Generate available slug with deterministic suffix retry
+        const checkSlugExists = async (slug: string): Promise<boolean> => {
+          const existing = await orgRepo.findOne({ where: { slug } });
+          return !!existing;
+        };
+
+        const availableSlug = await generateAvailableSlug(
+          finalSlug,
+          checkSlugExists,
+          10, // max attempts
         );
+
+        // Create organization with the available slug
+        const organization = orgRepo.create({
+          name: orgName.trim(),
+          slug: availableSlug,
+          status: 'trial',
+          settings: {
+            resourceManagement: {
+              maxAllocationPercentage: 150,
+              warningThreshold: 80,
+              criticalThreshold: 100,
+            },
+          },
+        });
+        const savedOrg = await orgRepo.save(organization);
+
+        // Hash password (OWASP: bcrypt with 12 rounds minimum)
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Parse fullName into firstName and lastName
+        const nameParts = fullName.trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Create user (email not verified yet)
+        const user = userRepo.create({
+          email: normalizedEmail,
+          password: hashedPassword,
+          firstName,
+          lastName,
+          organizationId: savedOrg.id,
+          isEmailVerified: false,
+          emailVerifiedAt: null,
+          role: 'admin', // First user is admin
+          isActive: true,
+        });
+        const savedUser = await userRepo.save(user);
+
+        // Create UserOrganization record (org_owner role)
+        const userOrg = userOrgRepo.create({
+          userId: savedUser.id,
+          organizationId: savedOrg.id,
+          role: 'owner', // First user becomes org_owner
+          isActive: true,
+          joinedAt: new Date(),
+        });
+        await userOrgRepo.save(userOrg);
+
+        // Create default workspace
+        const workspace = workspaceRepo.create({
+          name: 'Default Workspace',
+          slug: 'default',
+          organizationId: savedOrg.id,
+          createdBy: savedUser.id,
+          ownerId: savedUser.id,
+          isPrivate: false,
+        });
+        const savedWorkspace = await workspaceRepo.save(workspace);
+
+        // Create workspace membership
+        const workspaceMember = workspaceMemberRepo.create({
+          workspaceId: savedWorkspace.id,
+          userId: savedUser.id,
+          role: 'workspace_owner',
+          createdBy: savedUser.id,
+        });
+        await workspaceMemberRepo.save(workspaceMember);
+
+        // Generate and hash verification token (deterministic HMAC-SHA256)
+        const rawToken = TokenHashUtil.generateRawToken();
+        const tokenHash = TokenHashUtil.hashToken(rawToken);
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
+
+        // Create verification token record (hash only)
+        const verificationToken = tokenRepo.create({
+          userId: savedUser.id,
+          tokenHash,
+          expiresAt,
+          ip: ip || null,
+          userAgent: userAgent || null,
+        });
+        await tokenRepo.save(verificationToken);
+
+        // Create outbox event for email delivery
+        const outboxEvent = outboxRepo.create({
+          type: 'auth.email_verification.requested',
+          payloadJson: {
+            userId: savedUser.id,
+            email: normalizedEmail,
+            token: rawToken, // Only in outbox, never in DB
+            fullName,
+            orgName,
+          },
+          status: 'pending',
+          attempts: 0,
+        });
+        await outboxRepo.save(outboxEvent);
+
+        // Audit log
+        this.logger.log(
+          `User registered: ${normalizedEmail}, org: ${savedOrg.id}, workspace: ${savedWorkspace.id}`,
+        );
+
+        // Always return neutral response (no account enumeration)
         return {
           message:
             'If an account with this email exists, you will receive a verification email.',
         };
-      }
-
-      // Generate available slug with deterministic suffix retry
-      const checkSlugExists = async (slug: string): Promise<boolean> => {
-        const existing = await orgRepo.findOne({ where: { slug } });
-        return !!existing;
-      };
-
-      const availableSlug = await generateAvailableSlug(
-        finalSlug,
-        checkSlugExists,
-        10, // max attempts
-      );
-
-      // Create organization with the available slug
-      const organization = orgRepo.create({
-        name: orgName.trim(),
-        slug: availableSlug,
-        status: 'trial',
-        settings: {
-          resourceManagement: {
-            maxAllocationPercentage: 150,
-            warningThreshold: 80,
-            criticalThreshold: 100,
-          },
-        },
-      });
-      const savedOrg = await orgRepo.save(organization);
-
-      // Hash password (OWASP: bcrypt with 12 rounds minimum)
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      // Parse fullName into firstName and lastName
-      const nameParts = fullName.trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Create user (email not verified yet)
-      const user = userRepo.create({
-        email: normalizedEmail,
-        password: hashedPassword,
-        firstName,
-        lastName,
-        organizationId: savedOrg.id,
-        isEmailVerified: false,
-        emailVerifiedAt: null,
-        role: 'admin', // First user is admin
-        isActive: true,
-      });
-      const savedUser = await userRepo.save(user);
-
-      // Create UserOrganization record (org_owner role)
-      const userOrg = userOrgRepo.create({
-        userId: savedUser.id,
-        organizationId: savedOrg.id,
-        role: 'owner', // First user becomes org_owner
-        isActive: true,
-        joinedAt: new Date(),
-      });
-      await userOrgRepo.save(userOrg);
-
-      // Create default workspace
-      const workspace = workspaceRepo.create({
-        name: 'Default Workspace',
-        slug: 'default',
-        organizationId: savedOrg.id,
-        createdBy: savedUser.id,
-        ownerId: savedUser.id,
-        isPrivate: false,
-      });
-      const savedWorkspace = await workspaceRepo.save(workspace);
-
-      // Create workspace membership
-      const workspaceMember = workspaceMemberRepo.create({
-        workspaceId: savedWorkspace.id,
-        userId: savedUser.id,
-        role: 'workspace_owner',
-        createdBy: savedUser.id,
-      });
-      await workspaceMemberRepo.save(workspaceMember);
-
-      // Generate and hash verification token (deterministic HMAC-SHA256)
-      const rawToken = TokenHashUtil.generateRawToken();
-      const tokenHash = TokenHashUtil.hashToken(rawToken);
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
-
-      // Create verification token record (hash only)
-      const verificationToken = tokenRepo.create({
-        userId: savedUser.id,
-        tokenHash,
-        expiresAt,
-        ip: ip || null,
-        userAgent: userAgent || null,
-      });
-      await tokenRepo.save(verificationToken);
-
-      // Create outbox event for email delivery
-      const outboxEvent = outboxRepo.create({
-        type: 'auth.email_verification.requested',
-        payloadJson: {
-          userId: savedUser.id,
-          email: normalizedEmail,
-          token: rawToken, // Only in outbox, never in DB
-          fullName,
-          orgName,
-        },
-        status: 'pending',
-        attempts: 0,
-      });
-      await outboxRepo.save(outboxEvent);
-
-      // Audit log
-      this.logger.log(
-        `User registered: ${normalizedEmail}, org: ${savedOrg.id}, workspace: ${savedWorkspace.id}`,
-      );
-
-      // Always return neutral response (no account enumeration)
-      return {
-        message:
-          'If an account with this email exists, you will receive a verification email.',
-      };
       });
     } catch (error: any) {
       // Handle Postgres unique constraint violation (race condition)
@@ -259,7 +265,8 @@ export class AuthRegistrationService {
       const isUniqueViolation = errorCode === '23505' || errorCode === 23505;
 
       // Log full error structure for debugging
-      const errorRequestId = (error as any)?.requestId || requestId || `req-${Date.now()}`;
+      const errorRequestId =
+        error?.requestId || requestId || `req-${Date.now()}`;
       this.logger.error(
         `Registration error caught - requestId: ${errorRequestId}, error.name: ${error?.name || 'unknown'}, error.code: ${error?.code || 'unknown'}, driverError.code: ${error?.driverError?.code || 'unknown'}, driverError.table: ${error?.driverError?.table || 'unknown'}, driverError.constraint: ${error?.driverError?.constraint || 'unknown'}, driverError.detail: ${error?.driverError?.detail || 'unknown'}`,
       );
@@ -270,8 +277,16 @@ export class AuthRegistrationService {
         const pgError = error?.driverError || error;
         const constraintName = pgError?.constraint || error?.constraint || '';
         const tableName = pgError?.table || error?.table || '';
-        const errorMessage = (pgError?.message || error?.message || '').toLowerCase();
-        const errorDetail = (pgError?.detail || error?.detail || '').toLowerCase();
+        const errorMessage = (
+          pgError?.message ||
+          error?.message ||
+          ''
+        ).toLowerCase();
+        const errorDetail = (
+          pgError?.detail ||
+          error?.detail ||
+          ''
+        ).toLowerCase();
 
         // Extract table and column information
         const tableNameLower = tableName.toLowerCase();
@@ -321,11 +336,11 @@ export class AuthRegistrationService {
         // Check for slug/name mentions in detail (most reliable)
         // PostgreSQL detail format: "Key (slug)=(value) already exists."
         const mentionsSlug =
-          errorDetailLower.includes('(slug)') ||  // Most specific - PostgreSQL format
+          errorDetailLower.includes('(slug)') || // Most specific - PostgreSQL format
           errorDetailLower.includes('slug') ||
           constraintNameLower.includes('slug');
         const mentionsName =
-          errorDetailLower.includes('(name)') ||  // Most specific - PostgreSQL format
+          errorDetailLower.includes('(name)') || // Most specific - PostgreSQL format
           errorDetailLower.includes('name') ||
           constraintNameLower.includes('name');
 
@@ -336,7 +351,10 @@ export class AuthRegistrationService {
 
         // If we detect org/workspace table AND slug/name, throw 409
         // Also handle case where table name is missing but we see slug in detail (registration context)
-        if ((isOrgTable || isWorkspaceTable) && (mentionsSlug || mentionsName)) {
+        if (
+          (isOrgTable || isWorkspaceTable) &&
+          (mentionsSlug || mentionsName)
+        ) {
           const entityType = isOrgTable ? 'organization' : 'workspace';
           const fieldType = mentionsSlug ? 'slug' : 'name';
           this.logger.warn(

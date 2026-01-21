@@ -1,0 +1,47 @@
+* Host localhost:3000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:3000...
+* connect to ::1 port 3000 from ::1 port 59188 failed: Connection refused
+*   Trying 127.0.0.1:3000...
+* Connected to localhost (127.0.0.1) port 3000
+> PATCH /api/templates/a0427360-0ab6-4801-8ad0-bedf9f5a1498 HTTP/1.1
+> Host: localhost:3000
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NzMyMGVkMy01OGJhLTRkNDItODg2Ny03ZmZjNTJiMzk5MjUiLCJlbWFpbCI6ImFkbWluQHRlbXBsYXRlLXByb29mcy50ZXN0Iiwib3JnYW5pemF0aW9uSWQiOiI2ZjIyNTRhMC03N2U4LTRkZGMtODNiMi0yYjJhMDc1MTFiNjQiLCJyb2xlIjoiYWRtaW4iLCJwbGF0Zm9ybVJvbGUiOiJBRE1JTiIsImlhdCI6MTc2ODU4MjkyMSwiZXhwIjoxNzY4NTg2NTIxfQ.Yn39P9ZvVV8nPTYxzN2wTM5NUECbeuFG6iZr4DuAOzw
+> Content-Type: application/json
+> Content-Length: 277
+> 
+} [277 bytes data]
+* upload completely sent off: 277 bytes
+< HTTP/1.1 200 OK
+< Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+< Cross-Origin-Opener-Policy: same-origin
+< Cross-Origin-Resource-Policy: same-origin
+< Origin-Agent-Cluster: ?1
+< Referrer-Policy: no-referrer
+< Strict-Transport-Security: max-age=15552000; includeSubDomains
+< X-Content-Type-Options: nosniff
+< X-DNS-Prefetch-Control: off
+< X-Download-Options: noopen
+< X-Frame-Options: SAMEORIGIN
+< X-Permitted-Cross-Domain-Policies: none
+< X-XSS-Protection: 0
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Access-Control-Expose-Headers: X-Request-Id
+< X-Request-Id: 7cc24e81-d554-4b9f-9446-b5e39f7c8ac0
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 1104
+< ETag: W/"450-W5fexg9BgpRPdoUyiaDvaN0p36E"
+< Date: Fri, 16 Jan 2026 17:12:52 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< 
+{ [1104 bytes data]
+100  1381  100  1104  100   277   3694    926 --:--:-- --:--:-- --:--:--  4634
+* Connection #0 to host localhost left intact
+{"data":{"id":"a0427360-0ab6-4801-8ad0-bedf9f5a1498","name":"Proof ORG Template for Update","description":null,"category":null,"kind":"project","icon":null,"isActive":true,"isSystem":false,"organizationId":"6f2254a0-77e8-4ddc-83b2-2b2a07511b64","templateScope":"ORG","workspaceId":null,"isDefault":false,"lockState":"UNLOCKED","createdById":"67320ed3-58ba-4d42-8867-7ffc52b39925","updatedById":"67320ed3-58ba-4d42-8867-7ffc52b39925","publishedAt":null,"archivedAt":null,"metadata":null,"methodology":null,"structure":{"phases":[{"name":"Phase 1 Updated","reportingKey":"PLAN","sortOrder":1,"tasks":[{"title":"Task 1 Updated","status":"TODO","sortOrder":1},{"title":"Task 2 New","status":"IN_PROGRESS","sortOrder":2}]}]},"metrics":[],"version":1,"defaultEnabledKPIs":["schedule_variance","budget_variance"],"workTypeTags":[],"scopeTags":[],"complexityBucket":null,"durationMinDays":null,"durationMaxDays":null,"setupTimeBucket":"SHORT","structureSummary":null,"lockPolicy":null,"createdAt":"2026-01-16T23:12:52.499Z","updatedAt":"2026-01-16T23:12:52.723Z"},"meta":{"timestamp":"2026-01-16T17:12:52.799Z"}}

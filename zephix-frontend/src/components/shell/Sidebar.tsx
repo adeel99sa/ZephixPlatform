@@ -12,6 +12,19 @@ import { deleteWorkspace } from "@/features/workspaces/api";
 import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/state/AuthContext";
 import { isAdminRole } from "@/types/roles";
+import { isPaidUser } from "@/utils/roles";
+import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
+import { useProgramsPortfoliosEnabled } from "@/lib/features";
+
+function InboxBadge() {
+  const { unreadCount } = useUnreadNotifications();
+  if (unreadCount === 0) return null;
+  return (
+    <span className="px-2 py-0.5 bg-red-600 text-white text-xs rounded-full">
+      {unreadCount > 99 ? "99+" : unreadCount}
+    </span>
+  );
+}
 
 export function Sidebar() {
   const { user } = useAuth();
@@ -22,6 +35,7 @@ export function Sidebar() {
   const { addToast } = useUIStore();
   const workspaceMenuRef = useRef<HTMLDivElement>(null);
   const workspaceButtonRef = useRef<HTMLButtonElement>(null);
+  const enableProgramsPortfolios = useProgramsPortfoliosEnabled();
 
   // Close workspace menu when clicking outside
   useEffect(() => {
@@ -132,6 +146,36 @@ export function Sidebar() {
         >
           Home
         </NavLink>
+
+        {/* PHASE 7 MODULE 7.2: My Work - Paid users only */}
+        {isPaidUser(user) && (
+          <NavLink
+            to="/my-work"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`
+            }
+          >
+            <span>My Work</span>
+          </NavLink>
+        )}
+
+        {/* Inbox - Paid users only */}
+        {isPaidUser(user) && (
+          <NavLink
+            data-testid="nav-inbox"
+            to="/inbox"
+            className={({ isActive }) =>
+              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"} flex items-center justify-between`
+            }
+          >
+            <span>Inbox</span>
+            <InboxBadge />
+          </NavLink>
+        )}
 
         <div className="relative">
           <div className="flex items-center justify-between w-full rounded px-3 py-2 text-sm hover:bg-gray-50 group">
@@ -271,8 +315,8 @@ export function Sidebar() {
           <SidebarWorkspaces />
         </div>
 
-        {/* Phase 7: Nested workspace navigation - shows when workspace is active */}
-        {activeWorkspaceId && (
+        {/* PROMPT 4: Nested workspace navigation - shows when workspace is active */}
+        {activeWorkspaceId ? (
           <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
             <NavLink
               data-testid="ws-nav-overview"
@@ -292,33 +336,30 @@ export function Sidebar() {
             >
               Projects
             </NavLink>
-            <NavLink
-              data-testid="ws-nav-boards"
-              to={`/workspaces/${activeWorkspaceId}/boards`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Boards
-            </NavLink>
-            <NavLink
-              data-testid="ws-nav-documents"
-              to={`/workspaces/${activeWorkspaceId}/documents`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Documents
-            </NavLink>
-            <NavLink
-              data-testid="ws-nav-forms"
-              to={`/workspaces/${activeWorkspaceId}/forms`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Forms
-            </NavLink>
+            {/* PHASE 6 MODULE 6: Portfolios and Programs navigation - Hidden by default for MVP */}
+            {enableProgramsPortfolios && (
+              <>
+                <NavLink
+                  data-testid="ws-nav-portfolios"
+                  to={`/workspaces/${activeWorkspaceId}/portfolios`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Portfolios
+                </NavLink>
+                <NavLink
+                  data-testid="ws-nav-programs"
+                  to={`/workspaces/${activeWorkspaceId}/programs`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Programs
+                </NavLink>
+              </>
+            )}
+            {/* Phase 5.1: Hide out-of-scope items - Boards, Documents, Forms */}
             <NavLink
               data-testid="ws-nav-members"
               to={`/workspaces/${activeWorkspaceId}/members`}
@@ -328,6 +369,45 @@ export function Sidebar() {
             >
               Members
             </NavLink>
+          </div>
+        ) : (
+          // PROMPT 4: If no active workspace, clicking Overview/Members/Projects routes to /workspaces
+          <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
+            <button
+              onClick={() => navigate('/workspaces')}
+              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => navigate('/workspaces')}
+              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+            >
+              Projects
+            </button>
+            {/* Portfolios and Programs hidden by default for MVP */}
+            {enableProgramsPortfolios && (
+              <>
+                <button
+                  onClick={() => navigate('/workspaces')}
+                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+                >
+                  Portfolios
+                </button>
+                <button
+                  onClick={() => navigate('/workspaces')}
+                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+                >
+                  Programs
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => navigate('/workspaces')}
+              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+            >
+              Members
+            </button>
           </div>
         )}
 
@@ -341,25 +421,7 @@ export function Sidebar() {
           Template Center
         </NavLink>
 
-        <NavLink
-          data-testid="nav-resources"
-          to="/resources"
-          className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-          }
-        >
-          Resources
-        </NavLink>
-
-        <NavLink
-          data-testid="nav-analytics"
-          to="/analytics"
-          className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-          }
-        >
-          Analytics
-        </NavLink>
+        {/* Phase 5.1: Hide out-of-scope items - Resources, Analytics */}
 
         <NavLink
           data-testid="nav-settings"

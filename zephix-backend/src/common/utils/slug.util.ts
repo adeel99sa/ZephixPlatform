@@ -136,7 +136,10 @@ export async function generateAvailableSlug(
     // Validate candidate (length check)
     if (candidate.length > 48) {
       // If candidate is too long, truncate base slug
-      const truncatedBase = baseSlug.substring(0, 48 - (i.toString().length + 1));
+      const truncatedBase = baseSlug.substring(
+        0,
+        48 - (i.toString().length + 1),
+      );
       const truncatedCandidate = `${truncatedBase}-${i}`;
       const exists = await checkExists(truncatedCandidate);
       if (!exists) {
@@ -155,4 +158,3 @@ export async function generateAvailableSlug(
     `Could not generate available slug after ${maxAttempts} attempts for base: ${baseSlug}`,
   );
 }
-
