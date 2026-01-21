@@ -2,11 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { loginAndGetToken, authHeader } from '../utils/e2e-auth';
+import { authHeader } from '../utils/e2e-auth';
+import { seedWorkspaceMvp } from '../utils/e2e-seed';
 
 describe('My Work Smoke Tests (e2e)', () => {
   let app: INestApplication;
-  let accessToken: string;
+  let seeded: Awaited<ReturnType<typeof seedWorkspaceMvp>>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,7 +18,8 @@ describe('My Work Smoke Tests (e2e)', () => {
     app.setGlobalPrefix('api');
     await app.init();
 
-    accessToken = await loginAndGetToken(app, 'demo@zephix.ai', 'demo123456');
+    // Seed test data
+    seeded = await seedWorkspaceMvp(app);
   });
 
   afterAll(async () => {
@@ -27,7 +29,7 @@ describe('My Work Smoke Tests (e2e)', () => {
   it('GET /api/my-work should return schema with version, counts, and items', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/my-work')
-      .set(authHeader(accessToken))
+      .set(authHeader(seeded.token))
       .expect(200);
 
     expect(response.body).toHaveProperty('data');

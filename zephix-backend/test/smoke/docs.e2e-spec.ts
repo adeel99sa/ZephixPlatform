@@ -2,12 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { loginAndGetToken, authHeader } from '../utils/e2e-auth';
+import { authHeader } from '../utils/e2e-auth';
+import { seedWorkspaceMvp } from '../utils/e2e-seed';
 
 describe('Docs Smoke Tests (e2e)', () => {
   let app: INestApplication;
-  let accessToken: string;
-  let workspaceId: string;
+  let seeded: Awaited<ReturnType<typeof seedWorkspaceMvp>>;
   let createdDocId: string;
 
   beforeAll(async () => {
@@ -19,19 +19,8 @@ describe('Docs Smoke Tests (e2e)', () => {
     app.setGlobalPrefix('api');
     await app.init();
 
-    accessToken = await loginAndGetToken(app, 'demo@zephix.ai', 'demo123456');
-
-    // Get first workspace
-    const workspacesResponse = await request(app.getHttpServer())
-      .get('/api/workspaces')
-      .set(authHeader(accessToken))
-      .expect(200);
-
-    if (workspacesResponse.body.data.length === 0) {
-      throw new Error('No workspaces found for test user');
-    }
-
-    workspaceId = workspacesResponse.body.data[0].id;
+    // Seed test data
+    seeded = await seedWorkspaceMvp(app);
   });
 
   afterAll(async () => {
@@ -41,9 +30,9 @@ describe('Docs Smoke Tests (e2e)', () => {
   it('should create a doc and retrieve it', async () => {
     // Create doc
     const createResponse = await request(app.getHttpServer())
-      .post(`/api/workspaces/${workspaceId}/docs`)
-      .set(authHeader(accessToken))
-      .set('x-workspace-id', workspaceId)
+      .post(`/api/workspaces/${seeded.workspaceId}/docs`)
+      .set(authHeader(seeded.token))
+      .set('x-workspace-id', seeded.workspaceId)
       .send({
         title: 'Smoke Doc tenant-repo',
       })
@@ -55,9 +44,9 @@ describe('Docs Smoke Tests (e2e)', () => {
 
     // Get the created doc
     const getResponse = await request(app.getHttpServer())
-      .get(`/api/workspaces/${workspaceId}/docs/${createdDocId}`)
-      .set(authHeader(accessToken))
-      .set('x-workspace-id', workspaceId)
+      .get(`/api/workspaces/${seeded.workspaceId}/docs/${createdDocId}`)
+      .set(authHeader(seeded.token))
+      .set('x-workspace-id', seeded.workspaceId)
       .expect(200);
 
     expect(getResponse.body).toHaveProperty('data');
@@ -65,7 +54,7 @@ describe('Docs Smoke Tests (e2e)', () => {
     expect(doc).toHaveProperty('id');
     expect(doc.id).toBe(createdDocId);
     expect(doc).toHaveProperty('workspaceId');
-    expect(doc.workspaceId).toBe(workspaceId);
+    expect(doc.workspaceId).toBe(seeded.workspaceId);
     expect(doc).toHaveProperty('title');
     expect(doc.title).toBe('Smoke Doc tenant-repo');
   });
