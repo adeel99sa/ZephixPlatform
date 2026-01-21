@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { WorkspaceAccessService } from './workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 

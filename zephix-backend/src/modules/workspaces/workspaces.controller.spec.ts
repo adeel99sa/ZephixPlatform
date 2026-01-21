@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { WorkspacesController } from './workspaces.controller';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
-import { WorkspaceAccessService } from './services/workspace-access.service';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { WorkspacePolicy } from './workspace.policy';
 import { ResourceRiskScoreService } from '../resources/services/resource-risk-score.service';
 import { ResponseService } from '../../shared/services/response.service';
