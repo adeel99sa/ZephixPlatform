@@ -2,6 +2,7 @@
 
 export interface UserJwt {
   sub: string;
+  id: string; // Alias for sub, used by controllers
   email: string;
   organizationId: string;
   role: string;
