@@ -200,9 +200,9 @@ export class WorkspacesService {
           canWrite: true,
           isReadOnly: false,
         };
-      } else if (membership.role === 'workspace_owner' || membership.role === 'workspace_member') {
+      } else if (membership.role === 'workspace_member') {
         return {
-          role: membership.role === 'workspace_owner' ? 'ADMIN' : 'MEMBER',
+          role: 'MEMBER',
           canWrite: true,
           isReadOnly: false,
         };
