@@ -220,9 +220,11 @@ export class WorkspaceAccessService {
     }
 
     const roleHierarchy: Record<WorkspaceRole, number> = {
-      workspace_owner: 3,
+      workspace_owner: 4,
+      delivery_owner: 3,
       workspace_member: 2,
       workspace_viewer: 1,
+      stakeholder: 1,
     };
 
     const actualLevel = roleHierarchy[actualRole] || 0;
@@ -231,4 +233,3 @@ export class WorkspaceAccessService {
     return actualLevel >= requiredLevel;
   }
 }
-

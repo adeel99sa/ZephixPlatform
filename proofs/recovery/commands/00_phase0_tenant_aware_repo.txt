@@ -1,0 +1,24 @@
+## 00_phase0_tenant_aware_repo
+Time: 2026-01-18 13:36:42 CST
+Cmd: grep -rn "TenantAwareRepository" zephix-backend/src 2>/dev/null | head -20
+
+zephix-backend/src/common/decorators/tenant.decorator.ts:44:export abstract class TenantAwareRepository<T> {
+zephix-backend/src/modules/workspace-access/workspace-role-guard.service.ts:4:  TenantAwareRepository,
+zephix-backend/src/modules/workspace-access/workspace-role-guard.service.ts:5:  getTenantAwareRepositoryToken,
+zephix-backend/src/modules/workspace-access/workspace-role-guard.service.ts:18:    @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
+zephix-backend/src/modules/workspace-access/workspace-role-guard.service.ts:19:    private readonly memberRepo: TenantAwareRepository<WorkspaceMember>,
+zephix-backend/src/modules/workspace-access/workspace-access.service.ts:10:import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
+zephix-backend/src/modules/workspace-access/workspace-access.service.ts:11:import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+zephix-backend/src/modules/workspace-access/workspace-access.service.ts:21:    @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
+zephix-backend/src/modules/workspace-access/workspace-access.service.ts:22:    private memberRepo: TenantAwareRepository<WorkspaceMember>,
+zephix-backend/src/modules/workspace-access/workspace-access.service.ts:60:    // TenantAwareRepository automatically scopes by organizationId
+zephix-backend/src/modules/workspace-access/workspace-access.module.ts:10:  createTenantAwareRepositoryProvider,
+zephix-backend/src/modules/workspace-access/workspace-access.module.ts:20: * - TenancyModule: For TenantAwareRepository
+zephix-backend/src/modules/workspace-access/workspace-access.module.ts:30:    TenancyModule, // Required for TenantAwareRepository
+zephix-backend/src/modules/workspace-access/workspace-access.module.ts:35:    // Provide TenantAwareRepository for WorkspaceMember
+zephix-backend/src/modules/workspace-access/workspace-access.module.ts:36:    createTenantAwareRepositoryProvider(WorkspaceMember),
+zephix-backend/src/modules/home/home.module.ts:12:  createTenantAwareRepositoryProvider,
+zephix-backend/src/modules/home/home.module.ts:29:    createTenantAwareRepositoryProvider(Workspace),
+zephix-backend/src/modules/home/home.module.ts:30:    createTenantAwareRepositoryProvider(Project),
+zephix-backend/src/modules/home/home.module.ts:31:    createTenantAwareRepositoryProvider(WorkItem),
+zephix-backend/src/modules/home/home.module.ts:32:    createTenantAwareRepositoryProvider(WorkspaceMember),

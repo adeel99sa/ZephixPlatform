@@ -2,14 +2,22 @@
 # Developer Auth Login Helper
 #
 # Usage (MUST use 'source' to export TOKEN to current shell):
+#
+# Interactive mode (prompts for email and password):
 #   export BASE="https://zephix-backend-production.up.railway.app"
 #   source scripts/auth-login.sh
 #
-# Or with env vars:
+# Non-interactive mode (reads EMAIL and PASSWORD from env):
 #   export BASE="https://zephix-backend-production.up.railway.app"
 #   export EMAIL="your-email@example.com"
 #   export PASSWORD="your-password"
 #   source scripts/auth-login.sh
+#
+# Security notes:
+#   - Password is never echoed to console
+#   - Token is masked in output (first 6 and last 6 chars shown)
+#   - Token is never written to disk
+#   - Token is only exported to current shell environment
 #
 # This script is for engineers only. Customers never use this.
 # Dev and staging environments only.
@@ -53,14 +61,14 @@ if ! command -v jq &> /dev/null; then
   exit_or_return 1
 fi
 
-# Get email
+# Get email (non-interactive if EMAIL env var is set)
 EMAIL="${EMAIL:-}"
 if [ -z "$EMAIL" ]; then
   echo -n "Email: "
   read -r EMAIL
 fi
 
-# Get password
+# Get password (non-interactive if PASSWORD env var is set)
 PASSWORD="${PASSWORD:-}"
 if [ -z "$PASSWORD" ]; then
   echo -n "Password: "
@@ -83,8 +91,8 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/auth/login" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-# Check for errors
-if [ "$HTTP_CODE" != "200" ]; then
+# Check for errors (accept both 200 and 201 as success)
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
   echo -e "${RED}❌ ERROR: Login failed (HTTP $HTTP_CODE)${NC}"
   echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
   exit_or_return 1

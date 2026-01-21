@@ -227,10 +227,32 @@ The service includes:
 4. Add tests
 5. Submit a pull request
 
+### Verification Authentication Model
+
+Verification scripts require a short-lived access token.
+
+**Token Management:**
+- Tokens are obtained via `auth-login.sh` using a UAT user
+- Scripts must be **sourced**, not executed: `source scripts/auth-login.sh` (not `bash scripts/auth-login.sh`)
+- Tokens expire in 900 seconds (15 minutes)
+- Each terminal run is a separate process - `TOKEN` must be in the current shell
+
+**Workflow Scope:**
+- This workflow is **for engineers only**
+- Customers never interact with these scripts
+- Normal customers use the web app which handles login and token refresh automatically
+
+**For customer API access later:**
+- Personal access tokens with scoped permissions and rotation
+- OAuth2 for third-party apps
+- Service accounts for automated systems
+
+See `docs/STEP8_RUNBOOK.md` for detailed verification instructions.
+
 ## 📄 License
 
 This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-For support, please contact the development team or create an issue in the repository. 
+For support, please contact the development team or create an issue in the repository.

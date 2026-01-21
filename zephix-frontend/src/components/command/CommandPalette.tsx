@@ -6,6 +6,7 @@ import { registerWorkspaceSettingsAction } from '@/features/workspaces/Workspace
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminRole } from '@/types/roles';
+import { listWorkspaces } from '@/features/workspaces/api';
 
 type Command = {
   id: string;
@@ -23,9 +24,10 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { user } = useAuth();
   const isAdmin = user?.role ? isAdminRole(user.role) : false;
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug?: string }>>([]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -87,6 +89,40 @@ export function CommandPalette() {
       setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.settings'));
     }
   }, [activeWorkspaceId, navigate, close]);
+
+  // PROMPT 10: Load workspaces for switcher
+  useEffect(() => {
+    if (open && user) {
+      listWorkspaces()
+        .then(ws => setWorkspaces(ws))
+        .catch(err => console.error('Failed to load workspaces:', err));
+    }
+  }, [open, user]);
+
+  // PROMPT 10: Add workspace switch commands
+  useEffect(() => {
+    if (workspaces.length > 0) {
+      setCommands(prev => {
+        // Remove existing workspace switch commands
+        const filtered = prev.filter(cmd => !cmd.id.startsWith('workspace.switch-'));
+        // Add switch commands for each workspace
+        const switchCommands: Command[] = workspaces.map(ws => ({
+          id: `workspace.switch-${ws.id}`,
+          label: `Switch to ${ws.name}`,
+          hint: ws.slug ? `/w/${ws.slug}/home` : `/workspaces/${ws.id}`,
+          run: () => {
+            setActiveWorkspace(ws.id);
+            navigate(ws.slug ? `/w/${ws.slug}/home` : `/workspaces/${ws.id}`, { replace: true });
+            close();
+          }
+        }));
+        return [...filtered, ...switchCommands];
+      });
+    } else {
+      // Remove workspace switch commands if no workspaces
+      setCommands(prev => prev.filter(cmd => !cmd.id.startsWith('workspace.switch-')));
+    }
+  }, [workspaces, navigate, setActiveWorkspace, close]);
 
   // Add Admin commands if user is admin
   useEffect(() => {

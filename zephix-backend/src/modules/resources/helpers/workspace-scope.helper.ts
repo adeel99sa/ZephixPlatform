@@ -75,9 +75,7 @@ export class WorkspaceScopeHelper {
   ): void {
     // If workspace is required but resource has no workspace, that's an error
     if (required && !resourceWorkspaceId) {
-      throw new NotFoundException(
-        'Resource not found in workspace',
-      );
+      throw new NotFoundException('Resource not found in workspace');
     }
 
     // If both have workspaceId, they must match
@@ -90,4 +88,3 @@ export class WorkspaceScopeHelper {
     }
   }
 }
-

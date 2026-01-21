@@ -13,15 +13,16 @@ import { Organization } from '../../../organizations/entities/organization.entit
 import { User } from '../../users/entities/user.entity';
 import { Program } from '../../programs/entities/program.entity';
 import { PortfolioProject } from './portfolio-project.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 /**
- * Phase 4.1: Portfolio Entity
+ * PHASE 6: Portfolio Entity - Workspace-Scoped
  *
- * Data Model Decisions (locked in code comments):
- * - Portfolio belongs to organizationId (org-level, not workspace-scoped)
+ * Data Model Decisions:
+ * - Portfolio belongs to workspaceId and organizationId (workspace-scoped)
  * - Optional name, description, status
  * - CreatedBy (createdById), timestamps
- * - Unique constraint: (organizationId, name) for uniqueness within org
+ * - Unique constraint: (workspaceId, name) for uniqueness within workspace (case-insensitive)
  * - Status enum: ACTIVE, ARCHIVED
  */
 export enum PortfolioStatus {
@@ -30,7 +31,7 @@ export enum PortfolioStatus {
 }
 
 @Entity('portfolios')
-@Index('idx_portfolio_org_name', ['organizationId', 'name'], { unique: true })
+@Index('idx_portfolio_org_workspace', ['organizationId', 'workspaceId'])
 export class Portfolio {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +43,13 @@ export class Portfolio {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @Column({ name: 'workspace_id', type: 'uuid' })
+  workspaceId: string;
+
+  @ManyToOne(() => Workspace)
+  @JoinColumn({ name: 'workspace_id' })
+  workspace: Workspace;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

@@ -3,7 +3,7 @@
  * Typed API client for all project-related endpoints
  */
 
-import { api } from '@/lib/api';
+import api from '../../services/api';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
 
 export interface ProjectSummary {
@@ -143,10 +143,11 @@ export const projectsApi = {
 
   /**
    * Get project tasks
+   * PART 1 Step 2: Use /work/tasks endpoint with projectId query param
    */
   async getProjectTasks(id: string): Promise<Task[]> {
-    const response = await api.get(`/projects/${id}/tasks`);
-    return response.data;
+    const response = await api.get(`/work/tasks?projectId=${id}`);
+    return response.data?.data || response.data || [];
   },
 
   /**
@@ -158,11 +159,60 @@ export const projectsApi = {
   },
 
   /**
-   * Get project KPIs
+   * Get project KPIs (legacy - returns KPI metrics)
    */
   async getProjectKPIs(id: string): Promise<KPI[]> {
     const response = await api.get(`/projects/${id}/kpis`);
     return response.data;
+  },
+
+  /**
+   * Get project KPI settings (available KPIs and active KPI IDs)
+   */
+  async getProjectKpiSettings(id: string): Promise<{
+    availableKPIs: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      type?: string;
+      calculationMethod?: string;
+      unit?: string;
+      [key: string]: any;
+    }>;
+    activeKpiIds: string[];
+  }> {
+    const response = await api.get(`/projects/${id}/kpis`);
+    // Backend ResponseService returns { success: true, data: {...} }
+    const data = response.data?.data || response.data;
+    return {
+      availableKPIs: data?.availableKPIs || [],
+      activeKpiIds: data?.activeKpiIds || [],
+    };
+  },
+
+  /**
+   * Update project KPI activation state
+   */
+  async updateProjectKpiSettings(
+    id: string,
+    activeKpiIds: string[],
+  ): Promise<{
+    availableKPIs: Array<{
+      id: string;
+      name: string;
+      [key: string]: any;
+    }>;
+    activeKpiIds: string[];
+  }> {
+    const response = await api.patch(`/projects/${id}/kpis`, {
+      activeKpiIds,
+    });
+    // Backend ResponseService returns { success: true, data: {...} }
+    const data = response.data?.data || response.data;
+    return {
+      availableKPIs: data?.availableKPIs || [],
+      activeKpiIds: data?.activeKpiIds || [],
+    };
   },
 
   /**

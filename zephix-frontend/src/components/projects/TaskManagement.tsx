@@ -59,6 +59,7 @@ interface TaskManagementProps {
 }
 
 export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phases }) => {
+  const { isReadOnly } = useWorkspaceStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -86,8 +87,10 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const data = await api.get(`/projects/${projectId}/tasks`);
-      setTasks(data);
+      const response = await api.get(`/work/tasks?projectId=${projectId}`);
+      // Backend ResponseService returns { success: true, data: [...] }
+      const data = response.data?.data || response.data || [];
+      setTasks(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
@@ -125,10 +128,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${taskId}`, {
-        method: 'PUT',
-        body: { status }
-      });
+      await api.patch(`/work/tasks/${taskId}`, { status });
       fetchTasks();
     } catch (error) {
       console.error('Failed to update task:', error);
@@ -137,10 +137,9 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskProgress = async (taskId: string, progress: number) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${taskId}/progress`, {
-        method: 'PUT',
-        body: { progress }
-      });
+      // Note: WorkTask entity doesn't have progress field - removed for now
+      // If needed, add progress to WorkTask entity first
+      console.warn('Progress update not supported for WorkTask entity');
       fetchTasks();
     } catch (error) {
       console.error('Failed to update progress:', error);
@@ -149,10 +148,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      await api.get(`/projects/${projectId}/tasks/${updatedTask.id}`, {
-        method: 'PATCH',
-        body: updatedTask
-      });
+      await api.patch(`/work/tasks/${updatedTask.id}`, updatedTask);
       fetchTasks(); // Refresh list
       setEditModalOpen(false);
       setEditingTask(null);
@@ -192,18 +188,20 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
                 />
               </div>
               <span className="text-sm font-medium">{phase.progressPercentage}%</span>
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPhaseId(phase.id);
-                  setShowCreateTask(true);
-                }}
-                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 inline mr-1" />
-                Add Task
-              </button>
+
+              {!isReadOnly && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPhaseId(phase.id);
+                    setShowCreateTask(true);
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 inline mr-1" />
+                  Add Task
+                </button>
+              )}
             </div>
           </div>
 
@@ -225,7 +223,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
                     }}
                   />
                 ))}
-              
+
               {tasks.filter(task => task.phaseId === phase.id).length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   No tasks in this phase yet
@@ -292,7 +290,7 @@ const TaskRow: React.FC<{
   onEdit: (task: Task) => void;
 }> = ({ task, onStatusChange, onProgressChange, onSelect, onEdit }) => {
   return (
-    <div className={`flex items-center justify-between p-3 border rounded hover:bg-gray-50 
+    <div className={`flex items-center justify-between p-3 border rounded hover:bg-gray-50
       ${task.assignmentType === 'vendor' ? 'border-purple-200 bg-purple-50' : ''}`}>
       <div className="flex items-center space-x-3">
         {/* Status Checkbox */}
@@ -302,7 +300,7 @@ const TaskRow: React.FC<{
           onChange={(e) => onStatusChange(task.id, e.target.checked ? 'completed' : 'in_progress')}
           className="h-4 w-4"
         />
-        
+
         {/* Task Info */}
         <div className="flex-1">
           <div className="flex items-center space-x-2">
@@ -321,7 +319,7 @@ const TaskRow: React.FC<{
       <div className="flex items-center space-x-4">
         {/* Priority */}
         {getPriorityIcon(task.priority)}
-        
+
         {/* Assignee */}
         {task.assignmentType === 'vendor' ? (
           <div className="flex items-center space-x-1">
@@ -340,7 +338,7 @@ const TaskRow: React.FC<{
         ) : (
           <span className="text-sm text-gray-400">Unassigned</span>
         )}
-        
+
         {/* Progress */}
         <div className="flex items-center space-x-2">
           <input
@@ -353,7 +351,7 @@ const TaskRow: React.FC<{
           />
           <span className="text-sm">{task.progressPercentage}%</span>
         </div>
-        
+
         {/* Dependencies */}
         {task.dependencies && task.dependencies.length > 0 && (
           <div className="flex items-center space-x-2">
@@ -368,7 +366,7 @@ const TaskRow: React.FC<{
             </span>
           </div>
         )}
-        
+
         {/* Edit Button */}
         <button
           onClick={() => onEdit(task)}
@@ -376,7 +374,7 @@ const TaskRow: React.FC<{
         >
           Edit
         </button>
-        
+
         {/* Status Badge */}
         <span className={`px-2 py-1 rounded text-xs ${getStatusColor(task.status)}`}>
           {task.status.replace('_', ' ')}
@@ -413,7 +411,7 @@ const CreateTaskModal: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const payload = {
       ...formData,
       // Convert empty strings to null for optional fields
@@ -424,14 +422,11 @@ const CreateTaskModal: React.FC<{
       vendorName: formData.vendorName || null,
       dependencies: dependencies, // Pass as array of strings
     };
-    
+
     console.log('Sending task data:', payload);
-    
+
     try {
-      await api.get(`/projects/${projectId}/tasks`, {
-        method: 'POST',
-        body: payload
-      });
+      await api.post('/work/tasks', payload);
       onSuccess();
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -442,7 +437,7 @@ const CreateTaskModal: React.FC<{
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
         <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Task Title *</label>
@@ -502,7 +497,7 @@ const CreateTaskModal: React.FC<{
               onChange={(e) => {
                 const newAssignmentType = e.target.value;
                 setFormData({
-                  ...formData, 
+                  ...formData,
                   assignmentType: newAssignmentType,
                   // Only clear the opposite field, preserve the current one
                   assignedTo: newAssignmentType === 'vendor' ? '' : formData.assignedTo,
@@ -580,7 +575,7 @@ const CreateTaskModal: React.FC<{
 
           <div>
             <label className="block text-sm font-medium mb-1">Dependencies</label>
-            
+
             {/* Input for adding dependencies */}
             <div className="flex gap-2 mb-2">
               <input
@@ -612,7 +607,7 @@ const CreateTaskModal: React.FC<{
                 Add
               </button>
             </div>
-            
+
             {/* List of added dependencies */}
             {dependencies.length > 0 && (
               <div className="border rounded p-2 bg-gray-50 max-h-32 overflow-y-auto">
@@ -630,7 +625,7 @@ const CreateTaskModal: React.FC<{
                 ))}
               </div>
             )}
-            
+
             <p className="text-xs text-gray-500 mt-1">
               Add any dependencies: approvals, vendor deliverables, other tasks, or external requirements
             </p>
@@ -779,8 +774,8 @@ const EditTaskModal: React.FC<{
             <label className="block text-sm font-medium mb-1">Assignment Type</label>
             <select
               value={formData.assignmentType}
-              onChange={(e) => setFormData({ 
-                ...formData, 
+              onChange={(e) => setFormData({
+                ...formData,
                 assignmentType: e.target.value,
                 assignedTo: e.target.value === 'vendor' ? '' : formData.assignedTo,
                 vendorName: e.target.value === 'internal' ? '' : formData.vendorName
@@ -915,19 +910,19 @@ const TaskDetailPanel: React.FC<{
           <h2 className="text-xl font-semibold">{task.title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">×</button>
         </div>
-        
+
         {/* Task details implementation here */}
         <div className="space-y-4">
           <div>
             <label className="text-sm text-gray-500">Status</label>
             <p className="font-medium">{task.status}</p>
           </div>
-          
+
           <div>
             <label className="text-sm text-gray-500">Progress</label>
             <p className="font-medium">{task.progressPercentage}%</p>
           </div>
-          
+
           {/* Add more task details as needed */}
         </div>
       </div>

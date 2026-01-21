@@ -177,3 +177,4 @@ npm run test:e2e -- billing-tenant-isolation 2>&1 | tee ../docs/smoke-proof-arti
 - ✅ Subscription reads and writes rely on `TenantAwareRepository` only, no manual filters, no orgId params in queries
 
 
+

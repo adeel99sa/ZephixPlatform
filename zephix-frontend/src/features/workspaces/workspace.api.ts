@@ -18,6 +18,7 @@ type Member = {
   email?: string;
   name?: string;
   role?: string;
+  status?: 'active' | 'suspended';
   user?: { email?: string; role?: string };
 };
 
@@ -57,8 +58,13 @@ export async function getMembers(id: string): Promise<Member[]> {
 // New member management functions per Phase 3
 export async function listOrgUsers(): Promise<any[]> {
   try {
-    const response = await api.get(`/organizations/users`);
-    return Array.isArray(response) ? response : response.data || [];
+    const response = await api.get<{ users: any[]; total: number }>(`/organizations/users`);
+    // Backend returns { users: [...], total: number }
+    if (response?.data?.users) {
+      return response.data.users;
+    }
+    // Fallback to old format
+    return Array.isArray(response?.data) ? response.data : [];
   } catch (error) {
     console.error('Failed to list org users:', error);
     return [];
@@ -66,13 +72,24 @@ export async function listOrgUsers(): Promise<any[]> {
 }
 
 export async function listWorkspaceMembers(workspaceId: string): Promise<Member[]> {
-  return getMembers(workspaceId);
+  try {
+    const response = await api.get<{ data: Member[] }>(`/workspaces/${workspaceId}/members`);
+    // Backend returns { data: Member[] }
+    if (response?.data?.data) {
+      return response.data.data;
+    }
+    // Fallback to old format
+    return Array.isArray(response?.data) ? response.data : [];
+  } catch (error) {
+    console.error('Failed to fetch workspace members:', error);
+    return [];
+  }
 }
 
 export async function addWorkspaceMember(
   workspaceId: string,
   userId: string,
-  role: 'member' | 'viewer'
+  role: 'workspace_owner' | 'workspace_member' | 'workspace_viewer'
 ): Promise<any> {
   try {
     return api.post(`/workspaces/${workspaceId}/members`, { userId, role });
@@ -85,7 +102,7 @@ export async function addWorkspaceMember(
 export async function changeWorkspaceRole(
   workspaceId: string,
   userId: string,
-  role: 'member' | 'viewer' | 'owner'
+  role: 'workspace_owner' | 'workspace_member' | 'workspace_viewer'
 ): Promise<any> {
   try {
     return api.patch(`/workspaces/${workspaceId}/members/${userId}`, { role });
@@ -100,6 +117,44 @@ export async function removeWorkspaceMember(workspaceId: string, userId: string)
     return api.delete(`/workspaces/${workspaceId}/members/${userId}`);
   } catch (error) {
     console.error('Failed to remove workspace member:', error);
+    throw error;
+  }
+}
+
+/**
+ * PROMPT 8: Suspend workspace member
+ */
+export async function suspendWorkspaceMember(
+  workspaceId: string,
+  memberId: string
+): Promise<{ memberId: string; status: 'suspended' }> {
+  try {
+    const response = await api.patch<{ data: { memberId: string; status: 'suspended' } }>(
+      `/workspaces/${workspaceId}/members/${memberId}/suspend`,
+      {}
+    );
+    return response.data.data || { memberId, status: 'suspended' };
+  } catch (error) {
+    console.error('Failed to suspend member:', error);
+    throw error;
+  }
+}
+
+/**
+ * PROMPT 8: Reinstate workspace member
+ */
+export async function reinstateWorkspaceMember(
+  workspaceId: string,
+  memberId: string
+): Promise<{ memberId: string; status: 'active' }> {
+  try {
+    const response = await api.patch<{ data: { memberId: string; status: 'active' } }>(
+      `/workspaces/${workspaceId}/members/${memberId}/reinstate`,
+      {}
+    );
+    return response.data.data || { memberId, status: 'active' };
+  } catch (error) {
+    console.error('Failed to reinstate member:', error);
     throw error;
   }
 }

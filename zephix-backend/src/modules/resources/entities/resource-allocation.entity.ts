@@ -17,8 +17,18 @@ import { UnitsType } from '../enums/units-type.enum';
 @Entity('resource_allocations')
 @Index('idx_ra_dates', ['startDate', 'endDate'])
 @Index('idx_ra_org_resource', ['organizationId', 'resourceId'])
-@Index('idx_ra_org_resource_dates', ['organizationId', 'resourceId', 'startDate', 'endDate'])
-@Index('idx_ra_org_project_dates', ['organizationId', 'projectId', 'startDate', 'endDate'])
+@Index('idx_ra_org_resource_dates', [
+  'organizationId',
+  'resourceId',
+  'startDate',
+  'endDate',
+])
+@Index('idx_ra_org_project_dates', [
+  'organizationId',
+  'projectId',
+  'startDate',
+  'endDate',
+])
 export class ResourceAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;

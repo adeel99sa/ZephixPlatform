@@ -92,7 +92,7 @@ describe('Workspace Membership Filtering (E2E)', () => {
     workspace3 = await createTestWorkspace('Workspace 3', org2.id, adminUser.id);
 
     // Add memberUser to workspace1 only (if workspace_members table exists)
-    const memberRecord = await createWorkspaceMember(workspace1.id, memberUser.id, 'member');
+    const memberRecord = await createWorkspaceMember(workspace1.id, memberUser.id, 'workspace_member');
     if (!memberRecord) {
       console.warn('⚠️  Skipping workspace member creation - table does not exist');
     }
@@ -412,13 +412,18 @@ describe('Workspace Membership Filtering (E2E)', () => {
       ownerId,
       isPrivate: false,
     });
-    return wsRepo.save(workspace);
+    return one(await wsRepo.save(workspace));
+  }
+
+  // Helper to normalize TypeORM save results (T | T[] -> T)
+  function one<T>(saved: T | T[]): T {
+    return Array.isArray(saved) ? saved[0] : saved;
   }
 
   async function createWorkspaceMember(
     workspaceId: string,
     userId: string,
-    role: 'owner' | 'member' | 'viewer',
+    role: 'workspace_owner' | 'workspace_member' | 'workspace_viewer' | 'delivery_owner' | 'stakeholder',
   ): Promise<WorkspaceMember | null> {
     try {
       const memberRepo = dataSource.getRepository(WorkspaceMember);
@@ -427,7 +432,9 @@ describe('Workspace Membership Filtering (E2E)', () => {
         userId,
         role,
       });
-      return await memberRepo.save(member);
+      const saved = await memberRepo.save(member);
+      const savedMember = Array.isArray(saved) ? saved[0] : saved;
+      return savedMember;
     } catch (error) {
       // If workspace_members table doesn't exist, return null
       // This allows tests to run even if the table hasn't been created yet

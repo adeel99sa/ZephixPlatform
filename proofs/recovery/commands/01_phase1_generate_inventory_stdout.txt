@@ -1,0 +1,11 @@
+Generating architecture inventory
+gitSha=ed55fe1a636bfab8d38b95b217a8c4db7cb8f15c
+generatedAt=2026-01-18T19:48:23Z
+outDir=docs/generated
+Wrote docs/generated/inventory.json
+Wrote docs/generated/methodology.json
+Done
+inventory=docs/generated/inventory.json
+backendRoutes=docs/generated/backend_routes.json
+frontendRoutes=docs/generated/frontend_routes.json
+methodology=docs/generated/methodology.json

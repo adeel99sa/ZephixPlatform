@@ -52,4 +52,3 @@ export class CreateMetricDto {
   @IsOptional()
   defaultFilters?: Record<string, any>;
 }
-

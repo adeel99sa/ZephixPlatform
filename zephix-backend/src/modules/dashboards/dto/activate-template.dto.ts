@@ -1,4 +1,10 @@
-import { IsString, IsUUID, IsOptional, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ActivateTemplateDto {
@@ -15,4 +21,3 @@ export class ActivateTemplateDto {
   @IsOptional()
   workspaceId?: string;
 }
-

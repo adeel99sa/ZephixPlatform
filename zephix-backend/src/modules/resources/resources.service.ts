@@ -921,14 +921,18 @@ export class ResourcesService {
     try {
       // If workspaceId is provided, validate access
       if (workspaceId) {
-        const accessibleWorkspaceIds = await this.workspaceAccessService.getAccessibleWorkspaceIds(
-          organizationId,
-          userId,
-          userRole,
-        );
+        const accessibleWorkspaceIds =
+          await this.workspaceAccessService.getAccessibleWorkspaceIds(
+            organizationId,
+            userId,
+            userRole,
+          );
 
         // If workspace membership is enforced and user has no accessible workspaces
-        if (accessibleWorkspaceIds !== null && !accessibleWorkspaceIds.includes(workspaceId)) {
+        if (
+          accessibleWorkspaceIds !== null &&
+          !accessibleWorkspaceIds.includes(workspaceId)
+        ) {
           throw new ForbiddenException('Workspace access denied');
         }
       }
@@ -976,10 +980,21 @@ export class ResourcesService {
         // We'll use a JSONB query to check if any affected project ID matches
         const conflicts = await this.conflictRepository
           .createQueryBuilder('conflict')
-          .where('conflict.organizationId = :organizationId', { organizationId })
-          .andWhere(resourceId ? 'conflict.resourceId = :resourceId' : '1=1', resourceId ? { resourceId } : {})
-          .andWhere(severity ? 'conflict.severity = :severity' : '1=1', severity ? { severity } : {})
-          .andWhere(resolved !== undefined ? 'conflict.resolved = :resolved' : '1=1', resolved !== undefined ? { resolved } : {})
+          .where('conflict.organizationId = :organizationId', {
+            organizationId,
+          })
+          .andWhere(
+            resourceId ? 'conflict.resourceId = :resourceId' : '1=1',
+            resourceId ? { resourceId } : {},
+          )
+          .andWhere(
+            severity ? 'conflict.severity = :severity' : '1=1',
+            severity ? { severity } : {},
+          )
+          .andWhere(
+            resolved !== undefined ? 'conflict.resolved = :resolved' : '1=1',
+            resolved !== undefined ? { resolved } : {},
+          )
           .andWhere(
             startDate && endDate
               ? 'conflict.conflictDate BETWEEN :startDate AND :endDate'
@@ -988,9 +1003,7 @@ export class ResourcesService {
                 : endDate
                   ? 'conflict.conflictDate <= :endDate'
                   : '1=1',
-            startDate || endDate
-              ? { startDate, endDate }
-              : {},
+            startDate || endDate ? { startDate, endDate } : {},
           )
           .andWhere(
             // Check if affectedProjects JSONB array contains any project ID from the workspace
@@ -1056,10 +1069,15 @@ export class ResourcesService {
       const saved = await this.conflictRepository.save(conflict);
 
       // Create audit outbox event (async, non-blocking)
-      this.createConflictAuditEvent('resolve', conflictId, organizationId, userId, resolutionNote)
-        .catch((err) => {
-          console.error('Failed to create conflict resolve audit event:', err);
-        });
+      this.createConflictAuditEvent(
+        'resolve',
+        conflictId,
+        organizationId,
+        userId,
+        resolutionNote,
+      ).catch((err) => {
+        console.error('Failed to create conflict resolve audit event:', err);
+      });
 
       return { data: saved };
     } catch (error) {
@@ -1101,10 +1119,14 @@ export class ResourcesService {
       const saved = await this.conflictRepository.save(conflict);
 
       // Create audit outbox event (async, non-blocking)
-      this.createConflictAuditEvent('reopen', conflictId, organizationId, userId)
-        .catch((err) => {
-          console.error('Failed to create conflict reopen audit event:', err);
-        });
+      this.createConflictAuditEvent(
+        'reopen',
+        conflictId,
+        organizationId,
+        userId,
+      ).catch((err) => {
+        console.error('Failed to create conflict reopen audit event:', err);
+      });
 
       return { data: saved };
     } catch (error) {
@@ -1239,7 +1261,10 @@ export class ResourcesService {
             // Check if allocation overlaps with this week
             if (allocStart <= weekEnd && allocEnd >= currentWeekStart) {
               // Use helper to normalize (handles both PERCENT and HOURS)
-              const percentage = CapacityMathHelper.toPercentOfWeek(alloc, resource);
+              const percentage = CapacityMathHelper.toPercentOfWeek(
+                alloc,
+                resource,
+              );
               if (alloc.type === AllocationType.HARD) {
                 totalHard += percentage;
               } else if (alloc.type === AllocationType.SOFT) {

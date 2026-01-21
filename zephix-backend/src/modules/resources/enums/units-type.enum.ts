@@ -9,4 +9,3 @@ export enum UnitsType {
   PERCENT = 'PERCENT',
   HOURS = 'HOURS',
 }
-

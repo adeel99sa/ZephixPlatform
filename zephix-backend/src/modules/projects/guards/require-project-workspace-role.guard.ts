@@ -17,6 +17,7 @@ import {
 } from '../../workspaces/decorators/require-workspace-role.decorator';
 import { WorkspaceRole } from '../../workspaces/entities/workspace.entity';
 import { Project } from '../entities/project.entity';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 
 @Injectable()
 export class RequireProjectWorkspaceRoleGuard implements CanActivate {
@@ -24,6 +25,7 @@ export class RequireProjectWorkspaceRoleGuard implements CanActivate {
     private reflector: Reflector,
     private accessService: WorkspaceAccessService,
     private configService: ConfigService,
+    private tenantContextService: TenantContextService,
     @InjectRepository(Project)
     private projectRepo: Repository<Project>,
   ) {}
@@ -108,12 +110,21 @@ export class RequireProjectWorkspaceRoleGuard implements CanActivate {
       throw new ForbiddenException('Workspace ID required');
     }
 
-    // Get user's workspace role
-    const actualRole = await this.accessService.getUserWorkspaceRole(
-      organizationId,
-      workspaceId,
-      userId,
-      userRole,
+    // Set tenant context before calling access service (guards run before interceptors)
+    // The access service uses TenantAwareRepository which requires tenant context
+    const actualRole = await this.tenantContextService.runWithTenant(
+      {
+        organizationId,
+        workspaceId,
+      },
+      async () => {
+        return this.accessService.getUserWorkspaceRole(
+          organizationId,
+          workspaceId,
+          userId,
+          userRole,
+        );
+      },
     );
 
     // If no membership and not admin, deny

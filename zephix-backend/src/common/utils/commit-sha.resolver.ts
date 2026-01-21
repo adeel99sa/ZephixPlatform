@@ -3,7 +3,11 @@ import { Logger } from '@nestjs/common';
 export interface CommitShaResult {
   commitSha: string;
   commitShaTrusted: boolean;
-  source: 'RAILWAY_GIT_COMMIT_SHA' | 'GIT_COMMIT_SHA' | 'APP_COMMIT_SHA' | 'unknown';
+  source:
+    | 'RAILWAY_GIT_COMMIT_SHA'
+    | 'GIT_COMMIT_SHA'
+    | 'APP_COMMIT_SHA'
+    | 'unknown';
 }
 
 /**
@@ -61,13 +65,11 @@ export function resolveCommitSha(): CommitShaResult {
  */
 export function logCommitSha(logger: Logger): void {
   const result = resolveCommitSha();
-  const sourceLabel = result.source === 'unknown'
-    ? 'none (using fallback)'
-    : result.source;
+  const sourceLabel =
+    result.source === 'unknown' ? 'none (using fallback)' : result.source;
   const trustedLabel = result.commitShaTrusted ? '✅ trusted' : '⚠️  untrusted';
 
   logger.log(
     `📦 Application Commit SHA: ${result.commitSha} (source: ${sourceLabel}, ${trustedLabel})`,
   );
 }
-

@@ -21,6 +21,7 @@ import { ActivateTemplateDto } from '../dto/activate-template.dto';
 import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
+import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Controller('dashboards')
 @ApiTags('dashboard-templates')
@@ -50,31 +51,35 @@ export class DashboardTemplatesController {
 
   // POST /api/dashboards/activate-template (static route before :id)
   @Post('activate-template')
-  @ApiOperation({ summary: 'Activate a dashboard template' })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required for WORKSPACE templates)', required: false })
+  @ApiOperation({
+    summary:
+      'Activate a dashboard template. Use DTO workspaceId, header x-workspace-id is ignored.',
+  })
   @ApiResponse({ status: 201, description: 'Template activated successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - workspace access denied' })
+  @ApiResponse({
+    status: 404,
+    description: 'Template not found or workspace access denied',
+  })
   async activateTemplate(
     @Body() activateDto: ActivateTemplateDto,
     @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
     }
 
+    // Service validates workspace access using DTO workspaceId, not header
     const dashboard = await this.templatesService.activateTemplate(
       activateDto,
       organizationId,
       userId,
-      workspaceId,
+      normalizePlatformRole(platformRole),
     );
 
     return this.responseService.success(dashboard);
   }
 }
-

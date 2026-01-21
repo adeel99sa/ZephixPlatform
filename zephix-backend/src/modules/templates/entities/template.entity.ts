@@ -42,14 +42,27 @@ export class Template {
   @Column({ length: 50, nullable: true })
   icon?: string; // Icon name or color key
 
-  @Column({ name: 'isActive', default: true })
+  @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'isSystem', default: false })
+  @Column({ name: 'is_system', default: false })
   isSystem: boolean;
 
   @Column({ name: 'organization_id', nullable: true })
-  organizationId: string;
+  organizationId: string | null;
+
+  // Template scope: SYSTEM, ORG, WORKSPACE
+  @Column({
+    name: 'template_scope',
+    type: 'enum',
+    enum: ['SYSTEM', 'ORG', 'WORKSPACE'],
+    default: 'ORG',
+  })
+  templateScope: 'SYSTEM' | 'ORG' | 'WORKSPACE';
+
+  // Workspace ID - required only for WORKSPACE scope
+  @Column({ name: 'workspace_id', type: 'uuid', nullable: true })
+  workspaceId: string | null;
 
   // Template Center v1 fields
   @Column({ name: 'is_default', default: false })
@@ -96,9 +109,53 @@ export class Template {
   @Column({ default: 1 })
   version: number;
 
-  @CreateDateColumn({ name: 'createdAt' })
+  // KPI defaults for template instantiation
+  @Column({
+    name: 'default_enabled_kpis',
+    type: 'text',
+    array: true,
+    default: [],
+  })
+  defaultEnabledKPIs: string[]; // KPI IDs enabled by default
+
+  // Sprint 4: Template recommendation fields
+  @Column({ name: 'work_type_tags', type: 'text', array: true, default: [] })
+  workTypeTags: string[];
+
+  @Column({ name: 'scope_tags', type: 'text', array: true, default: [] })
+  scopeTags: string[];
+
+  @Column({
+    name: 'complexity_bucket',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  complexityBucket?: string;
+
+  @Column({ name: 'duration_min_days', type: 'integer', nullable: true })
+  durationMinDays?: number;
+
+  @Column({ name: 'duration_max_days', type: 'integer', nullable: true })
+  durationMaxDays?: number;
+
+  @Column({
+    name: 'setup_time_bucket',
+    type: 'varchar',
+    length: 20,
+    default: 'SHORT',
+  })
+  setupTimeBucket: string;
+
+  @Column({ name: 'structure_summary', type: 'jsonb', nullable: true })
+  structureSummary?: Record<string, any>;
+
+  @Column({ name: 'lock_policy', type: 'jsonb', nullable: true })
+  lockPolicy?: Record<string, any>;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updatedAt' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
