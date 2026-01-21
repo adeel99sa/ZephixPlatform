@@ -13,6 +13,7 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { Project } from '../projects/entities/project.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
