@@ -1,0 +1,51 @@
+Workspace Key Audit - Forbidden Keys Search Results
+Generated: 2025-01-27
+
+Search Pattern: workspace-storage|zephix.lastWorkspaceId|localStorage.getItem("activeWorkspaceId"|localStorage.setItem("activeWorkspaceId"|setActiveWorkspace(
+
+RESULTS (13 matches found):
+
+1. zephix-frontend/src/lib/api/client.ts:217-219
+   - References: workspace-storage
+   - Line 217: // Get workspace ID from workspace store (workspace-storage)
+   - Line 219: const workspaceStorage = localStorage.getItem('workspace-storage');
+
+2. zephix-frontend/src/views/workspaces/WorkspaceView.tsx:71
+   - References: setActiveWorkspace(
+   - Line 71: setActiveWorkspace(workspaceId);
+
+3. zephix-frontend/src/components/command/CommandPalette.tsx:115
+   - References: setActiveWorkspace(
+   - Line 115: setActiveWorkspace(ws.id);
+
+4. zephix-frontend/src/views/workspaces/WorkspaceHomeBySlug.tsx:83
+   - References: setActiveWorkspace(
+   - Line 83: setActiveWorkspace(data.workspace.id);
+
+5. zephix-frontend/src/views/workspaces/WorkspacesIndexPage.tsx:69,78,140,211
+   - References: setActiveWorkspace(
+   - Multiple occurrences
+
+6. zephix-frontend/src/services/api.ts:151
+   - References: workspace-storage
+   - Line 151: const workspaceStorage = localStorage.getItem('workspace-storage');
+
+7. zephix-frontend/src/views/workspaces/JoinWorkspacePage.tsx:51
+   - References: setActiveWorkspace(
+   - Line 51: setActiveWorkspace(result.workspaceId);
+
+8. zephix-frontend/src/features/admin/workspaces/WorkspacesListPage.tsx:54
+   - References: setActiveWorkspace(
+   - Line 54: setActiveWorkspace(workspaceId);
+
+9. zephix-frontend/src/features/templates/intent.ts:19
+   - References: setActiveWorkspace(
+   - Line 19: useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+
+TOTAL FILES TO FIX: 9 files
+TOTAL MATCHES: 13
+
+ACTION REQUIRED:
+- Replace all setActiveWorkspace( calls with setActiveWorkspaceId(
+- Remove all workspace-storage localStorage reads
+- Ensure all workspace header injection is centralized

@@ -47,6 +47,10 @@ jobs:
         working-directory: zephix-backend
         run: |
           ./scripts/check-bad-rewrites.sh || exit 1
+      - name: Check WorkspaceAccessService imports use canonical path
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-workspace-access-imports.sh || exit 1
       - name: Run smoke tests
         working-directory: zephix-backend
         env:
