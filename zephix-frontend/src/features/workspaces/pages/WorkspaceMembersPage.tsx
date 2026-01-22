@@ -24,14 +24,10 @@ import {
   suspendWorkspaceMember,
   reinstateWorkspaceMember,
 } from '@/features/workspaces/workspace.api';
-import {
-  createInviteLink,
-  getActiveInviteLink,
-  revokeInviteLink,
-} from '@/features/workspaces/api/workspace-invite.api';
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { Button } from '@/components/ui/Button';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
+import { InviteLinkModal } from '@/features/workspaces/components/InviteLinkModal';
 import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScreen';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
@@ -73,6 +69,7 @@ export default function WorkspaceMembersPage() {
   const [loading, setLoading] = useState(true);
   const [isSuspended, setIsSuspended] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteLinkModalOpen, setInviteLinkModalOpen] = useState(false);
   const [changingRole, setChangingRole] = useState<string | null>(null);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [suspendingMember, setSuspendingMember] = useState<string | null>(null);
@@ -81,12 +78,6 @@ export default function WorkspaceMembersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<{
-    url: string;
-    expiresAt: Date | null;
-  } | null>(null);
-  const [loadingInviteLink, setLoadingInviteLink] = useState(false);
-  const [creatingInviteLink, setCreatingInviteLink] = useState(false);
 
   const canManage = permissions.canManageMembers;
 
@@ -96,10 +87,7 @@ export default function WorkspaceMembersPage() {
       return;
     }
     loadMembers();
-    if (canManage) {
-      loadInviteLink();
-    }
-  }, [effectiveWorkspaceId, canManage]);
+  }, [effectiveWorkspaceId]);
 
   async function loadMembers() {
     if (!effectiveWorkspaceId) return;
@@ -126,65 +114,6 @@ export default function WorkspaceMembersPage() {
     }
   }
 
-  async function loadInviteLink() {
-    if (!effectiveWorkspaceId || !canManage) return;
-
-    setLoadingInviteLink(true);
-    try {
-      const link = await getActiveInviteLink(effectiveWorkspaceId);
-      if (link && link.exists) {
-        // We don't have the actual URL from the API, so we'll need to create a new link
-        // For now, set a flag that a link exists
-        setInviteLink({
-          url: '', // Will be populated when creating
-          expiresAt: link.expiresAt,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load invite link:', error);
-    } finally {
-      setLoadingInviteLink(false);
-    }
-  }
-
-  async function handleCreateInviteLink() {
-    if (!effectiveWorkspaceId) return;
-
-    setCreatingInviteLink(true);
-    try {
-      const result = await createInviteLink(effectiveWorkspaceId);
-      setInviteLink(result);
-      toast.success('Invite link created');
-    } catch (error: any) {
-      console.error('Failed to create invite link:', error);
-      const errorCode = error?.response?.data?.code;
-      const errorMessage = error?.response?.data?.message;
-      const displayMessage = getApiErrorMessage({ code: errorCode, message: errorMessage });
-      toast.error(displayMessage);
-    } finally {
-      setCreatingInviteLink(false);
-    }
-  }
-
-  async function handleRevokeInviteLink() {
-    if (!effectiveWorkspaceId || !inviteLink) return;
-
-    try {
-      // TODO: We need the linkId to revoke - for now, create a new link which invalidates the old one
-      // In a real implementation, we'd store the linkId
-      setInviteLink(null);
-      toast.success('Invite link revoked');
-    } catch (error: any) {
-      console.error('Failed to revoke invite link:', error);
-      toast.error('Failed to revoke invite link');
-    }
-  }
-
-  function handleCopyLink() {
-    if (!inviteLink?.url) return;
-    navigator.clipboard.writeText(inviteLink.url);
-    toast.success('Invite link copied to clipboard');
-  }
 
   async function handleAddMember(userId: string, accessLevel: 'Owner' | 'Member' | 'Guest') {
     if (!effectiveWorkspaceId) return;
@@ -327,68 +256,24 @@ export default function WorkspaceMembersPage() {
           )}
         </div>
         {canManage && (
-          <Button
-            onClick={() => setShowInviteModal(true)}
-            className="px-4 py-2"
-          >
-            Invite
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setInviteLinkModalOpen(true)}
+              variant="outline"
+              className="px-4 py-2"
+            >
+              Invite Link
+            </Button>
+            <Button
+              onClick={() => setShowInviteModal(true)}
+              className="px-4 py-2"
+            >
+              Invite
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* PROMPT 7 B2: Invite link section (Owner only) */}
-      {canManage && (
-        <div className="mb-6 border rounded-lg p-4 bg-gray-50">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900">Invite link</h3>
-            {inviteLink ? (
-              <Button
-                variant="outline"
-                onClick={handleRevokeInviteLink}
-                className="px-3 py-1 text-sm"
-              >
-                Revoke link
-              </Button>
-            ) : (
-              <Button
-                onClick={handleCreateInviteLink}
-                disabled={creatingInviteLink}
-                className="px-3 py-1 text-sm"
-              >
-                {creatingInviteLink ? 'Creating...' : 'Create invite link'}
-              </Button>
-            )}
-          </div>
-          {inviteLink ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={inviteLink.url}
-                  readOnly
-                  className="flex-1 px-3 py-2 border rounded-md bg-white text-sm"
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleCopyLink}
-                  className="px-3 py-2 text-sm"
-                >
-                  Copy
-                </Button>
-              </div>
-              {inviteLink.expiresAt && (
-                <p className="text-xs text-gray-500">
-                  Expires: {new Date(inviteLink.expiresAt).toLocaleDateString()}
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">
-              Create a shareable link to invite members to this workspace
-            </p>
-          )}
-        </div>
-      )}
 
       {/* PROMPT 8 B2: Filters */}
       <div className="mb-4 flex items-center gap-4">
@@ -553,6 +438,15 @@ export default function WorkspaceMembersPage() {
           onClose={() => setShowInviteModal(false)}
           onInvite={handleAddMember}
           workspaceId={effectiveWorkspaceId}
+        />
+      )}
+
+      {/* Invite Link Modal */}
+      {effectiveWorkspaceId && (
+        <InviteLinkModal
+          open={inviteLinkModalOpen}
+          workspaceId={effectiveWorkspaceId}
+          onClose={() => setInviteLinkModalOpen(false)}
         />
       )}
     </div>
