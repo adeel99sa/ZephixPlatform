@@ -14,6 +14,21 @@ const RETRY_DELAYS = [5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000]; // 5mi
  */
 const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
 
+/**
+ * OutboxProcessorService - Background worker for email/invite processing
+ *
+ * ⚠️ SAFETY GUARD: API Service Configuration
+ * ===========================================
+ * The zephix-backend API service MUST have OUTBOX_PROCESSOR_ENABLED=false.
+ * This service is API-only and should never process outbox events.
+ *
+ * To enable email delivery:
+ * 1. Create a separate Railway service: zephix-worker
+ * 2. Set OUTBOX_PROCESSOR_ENABLED=true ONLY on the worker service
+ * 3. Keep OUTBOX_PROCESSOR_ENABLED=false on zephix-backend forever
+ *
+ * See: docs/WORKER_SERVICE_SETUP.md
+ */
 @Injectable()
 export class OutboxProcessorService {
   private readonly logger = new Logger(OutboxProcessorService.name);
