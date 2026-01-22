@@ -133,7 +133,7 @@ export class CreateProjectViewsAndWorkItemKeys1794000000000 implements Migration
         'work_items',
         new TableIndex({
           name: 'IDX_work_items_workspace_key',
-          columnNames: ['workspaceId', 'key'],
+          columnNames: ['workspace_id', 'key'],
           isUnique: true,
           where: 'deleted_at IS NULL',
         }),
@@ -179,7 +179,7 @@ export class CreateProjectViewsAndWorkItemKeys1794000000000 implements Migration
         'projects',
         new TableIndex({
           name: 'IDX_projects_workspace_slug',
-          columnNames: ['workspaceId', 'slug'],
+          columnNames: ['workspace_id', 'slug'],
           isUnique: true,
           where: 'deleted_at IS NULL',
         }),
