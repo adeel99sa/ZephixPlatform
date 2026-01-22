@@ -14,6 +14,8 @@ import * as crypto from 'crypto';
  */
 export class TokenHashUtil {
   private static readonly TOKEN_HASH_SECRET = process.env.TOKEN_HASH_SECRET;
+  private static readonly REFRESH_TOKEN_PEPPER =
+    process.env.REFRESH_TOKEN_PEPPER;
 
   /**
    * Generate a secure random token (base64url encoded)
@@ -46,6 +48,33 @@ export class TokenHashUtil {
   }
 
   /**
+   * Hash a refresh token using HMAC-SHA256 with pepper
+   * Input = refreshToken + REFRESH_TOKEN_PEPPER
+   *
+   * @param rawRefreshToken - The raw refresh token string
+   * @returns Hex-encoded hash (64 characters)
+   */
+  static hashRefreshToken(rawRefreshToken: string): string {
+    if (!this.REFRESH_TOKEN_PEPPER) {
+      throw new Error(
+        'REFRESH_TOKEN_PEPPER environment variable is required for refresh token hashing',
+      );
+    }
+
+    if (this.REFRESH_TOKEN_PEPPER.length < 32) {
+      throw new Error(
+        'REFRESH_TOKEN_PEPPER must be at least 32 characters long',
+      );
+    }
+
+    // Hash input = refreshToken + REFRESH_TOKEN_PEPPER
+    const input = rawRefreshToken + this.REFRESH_TOKEN_PEPPER;
+    const hmac = crypto.createHmac('sha256', this.TOKEN_HASH_SECRET || '');
+    hmac.update(input);
+    return hmac.digest('hex'); // 64 character hex string
+  }
+
+  /**
    * Verify a token against a hash
    *
    * @param rawToken - The raw token to verify
@@ -54,6 +83,18 @@ export class TokenHashUtil {
    */
   static verifyToken(rawToken: string, hash: string): boolean {
     const computedHash = this.hashToken(rawToken);
+    return this.constantTimeEqual(computedHash, hash);
+  }
+
+  /**
+   * Verify a refresh token against a hash
+   *
+   * @param rawRefreshToken - The raw refresh token to verify
+   * @param hash - The stored hash (hex string)
+   * @returns true if token matches hash
+   */
+  static verifyRefreshToken(rawRefreshToken: string, hash: string): boolean {
+    const computedHash = this.hashRefreshToken(rawRefreshToken);
     return this.constantTimeEqual(computedHash, hash);
   }
 

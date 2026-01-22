@@ -1,5 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { getAuthContext } from './get-auth-context';
+import { getAuthContext, getAuthContextOptional } from './get-auth-context';
 import { AuthRequest } from './auth-request';
 
 describe('getAuthContext', () => {
@@ -72,3 +72,54 @@ describe('getAuthContext', () => {
   });
 });
 
+describe('getAuthContextOptional', () => {
+  it('should return nulls when user is missing', () => {
+    const req = {} as AuthRequest;
+
+    const context = getAuthContextOptional(req);
+
+    expect(context.userId).toBeNull();
+    expect(context.organizationId).toBeNull();
+    expect(context.workspaceId).toBeNull();
+    expect(context.email).toBeNull();
+    expect(context.platformRole).toBeNull();
+    expect(context.roles).toEqual([]);
+  });
+
+  it('should return values when user is present', () => {
+    const req = {
+      user: {
+        id: 'user-123',
+        email: 'test@example.com',
+        organizationId: 'org-456',
+        workspaceId: 'workspace-789',
+        role: 'admin',
+        platformRole: 'ADMIN',
+        roles: ['admin', 'member'],
+      },
+    } as AuthRequest;
+
+    const context = getAuthContextOptional(req);
+
+    expect(context.userId).toBe('user-123');
+    expect(context.organizationId).toBe('org-456');
+    expect(context.workspaceId).toBe('workspace-789');
+    expect(context.email).toBe('test@example.com');
+    expect(context.platformRole).toBe('ADMIN');
+    expect(context.roles).toEqual(['admin', 'member']);
+  });
+
+  it('should fallback to role when platformRole is not provided', () => {
+    const req = {
+      user: {
+        id: 'user-123',
+        email: 'test@example.com',
+        role: 'admin',
+      },
+    } as AuthRequest;
+
+    const context = getAuthContextOptional(req);
+
+    expect(context.platformRole).toBe('admin');
+  });
+});

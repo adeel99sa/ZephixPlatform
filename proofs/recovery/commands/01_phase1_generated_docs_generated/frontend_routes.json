@@ -1,0 +1,667 @@
+{
+  "generatedAt": null,
+  "gitSha": null,
+  "routerEntry": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+  "routes": [
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 87,
+      "raw": "<Route path=\"/\" element={<LandingPage />",
+      "path": "/",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 88,
+      "raw": "<Route path=\"/login\" element={<LoginPage />",
+      "path": "/login",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 89,
+      "raw": "<Route path=\"/signup\" element={<SignupPage />",
+      "path": "/signup",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 90,
+      "raw": "<Route path=\"/verify-email\" element={<VerifyEmailPage />",
+      "path": "/verify-email",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 91,
+      "raw": "<Route path=\"/invites/accept\" element={<InviteAcceptPage />",
+      "path": "/invites/accept",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 92,
+      "raw": "<Route path=\"/invite\" element={<InvitePage />",
+      "path": "/invite",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 93,
+      "raw": "<Route path=\"/join/workspace\" element={<JoinWorkspacePage />",
+      "path": "/join/workspace",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 95,
+      "raw": "<Route path=\"/w/:slug\" element={<WorkspaceSlugRedirect />",
+      "path": "/w/:slug",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 97,
+      "raw": "<Route path=\"/w/:slug/home\" element={<WorkspaceHomeBySlug />",
+      "path": "/w/:slug/home",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 100,
+      "raw": "<Route element={<ProtectedRoute />",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 102,
+      "raw": "<Route path=\"/onboarding\" element={<OnboardingPage />",
+      "path": "/onboarding",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 105,
+      "raw": "<Route element={\n              <ErrorBoundary>",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 110,
+      "raw": "<Route path=\"/home\" element={<HomeView />",
+      "path": "/home",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 111,
+      "raw": "<Route path=\"/dashboards\" element={<DashboardsIndex />",
+      "path": "/dashboards",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 112,
+      "raw": "<Route path=\"/dashboards/:id\" element={<DashboardView />",
+      "path": "/dashboards/:id",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 113,
+      "raw": "<Route path=\"/dashboards/:id/edit\" element={<DashboardBuilder />",
+      "path": "/dashboards/:id/edit",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 114,
+      "raw": "<Route path=\"/projects\" element={<div>",
+      "path": "/projects",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 115,
+      "raw": "<Route path=\"/projects/:projectId\" element={<ProjectOverviewPage />",
+      "path": "/projects/:projectId",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 116,
+      "raw": "<Route path=\"/work/projects/:projectId/plan\" element={<ProjectPlanView />",
+      "path": "/work/projects/:projectId/plan",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 117,
+      "raw": "<Route path=\"/workspaces\" element={<WorkspacesIndexPage />",
+      "path": "/workspaces",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 118,
+      "raw": "<Route path=\"/workspaces/:workspaceId/home\" element={<WorkspaceHomePage />",
+      "path": "/workspaces/:workspaceId/home",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 119,
+      "raw": "<Route path=\"/workspaces/:id\" element={<WorkspaceView />",
+      "path": "/workspaces/:id",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 120,
+      "raw": "<Route path=\"/workspaces/:id/members\" element={<WorkspaceMembersPage />",
+      "path": "/workspaces/:id/members",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 121,
+      "raw": "<Route path=\"/workspaces/:id/settings\" element={<div>",
+      "path": "/workspaces/:id/settings",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 122,
+      "raw": "<Route path=\"/workspaces/:id/heatmap\" element={<ResourceHeatmapPage />",
+      "path": "/workspaces/:id/heatmap",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 124,
+      "raw": "<Route element={<FeaturesRoute feature=\"programsPortfolios\" />",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 125,
+      "raw": "<Route path=\"/workspaces/:workspaceId/programs\" element={<ProgramsListPage />",
+      "path": "/workspaces/:workspaceId/programs",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 126,
+      "raw": "<Route path=\"/workspaces/:workspaceId/programs/:programId\" element={<ProgramDetailPage />",
+      "path": "/workspaces/:workspaceId/programs/:programId",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 127,
+      "raw": "<Route path=\"/workspaces/:workspaceId/portfolios\" element={<PortfoliosListPage />",
+      "path": "/workspaces/:workspaceId/portfolios",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 128,
+      "raw": "<Route path=\"/workspaces/:workspaceId/portfolios/:portfolioId\" element={<PortfolioDetailPage />",
+      "path": "/workspaces/:workspaceId/portfolios/:portfolioId",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 130,
+      "raw": "<Route path=\"/templates\" element={<TemplateCenterPage />",
+      "path": "/templates",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 131,
+      "raw": "<Route path=\"/docs/:docId\" element={<DocsPage />",
+      "path": "/docs/:docId",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 132,
+      "raw": "<Route path=\"/forms/:formId/edit\" element={<FormsPage />",
+      "path": "/forms/:formId/edit",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 133,
+      "raw": "<Route path=\"/resources\" element={<ResourcesPage />",
+      "path": "/resources",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 134,
+      "raw": "<Route path=\"/resources/:id/timeline\" element={<ResourceTimelinePage />",
+      "path": "/resources/:id/timeline",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 135,
+      "raw": "<Route path=\"/analytics\" element={<AnalyticsPage />",
+      "path": "/analytics",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 136,
+      "raw": "<Route path=\"/settings\" element={<SettingsPage />",
+      "path": "/settings",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 138,
+      "raw": "<Route element={<PaidRoute />",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 139,
+      "raw": "<Route path=\"/settings/notifications\" element={<NotificationsSettingsPage />",
+      "path": "/settings/notifications",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 140,
+      "raw": "<Route path=\"/settings/security\" element={<SecuritySettingsPage />",
+      "path": "/settings/security",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 141,
+      "raw": "<Route path=\"/inbox\" element={<InboxPage />",
+      "path": "/inbox",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 143,
+      "raw": "<Route path=\"/my-work\" element={<MyWorkPage />",
+      "path": "/my-work",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 145,
+      "raw": "<Route path=\"/billing\" element={<BillingPage />",
+      "path": "/billing",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 146,
+      "raw": "<Route path=\"/403\" element={<Forbidden />",
+      "path": "/403",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 147,
+      "raw": "<Route path=\"/404\" element={<NotFound />",
+      "path": "/404",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 151,
+      "raw": "<Route element={<AdminRoute />",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 152,
+      "raw": "<Route element={\n                <ErrorBoundary>",
+      "path": null,
+      "index": false,
+      "element": null,
+      "ambiguous": true,
+      "ambiguousReason": "missing path and not index route"
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 157,
+      "raw": "<Route path=\"/admin\" element={<AdminDashboardPage />",
+      "path": "/admin",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 158,
+      "raw": "<Route path=\"/admin/overview\" element={<AdminOverviewPage />",
+      "path": "/admin/overview",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 161,
+      "raw": "<Route path=\"/admin/org\" element={<AdminOrganizationPage />",
+      "path": "/admin/org",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 162,
+      "raw": "<Route path=\"/admin/users\" element={<AdminUsersPage />",
+      "path": "/admin/users",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 163,
+      "raw": "<Route path=\"/admin/teams\" element={<AdminTeamsPage />",
+      "path": "/admin/teams",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 164,
+      "raw": "<Route path=\"/admin/roles\" element={<AdminRolesPage />",
+      "path": "/admin/roles",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 165,
+      "raw": "<Route path=\"/admin/invite\" element={<AdminInvitePage />",
+      "path": "/admin/invite",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 166,
+      "raw": "<Route path=\"/admin/usage\" element={<AdminUsagePage />",
+      "path": "/admin/usage",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 167,
+      "raw": "<Route path=\"/admin/billing\" element={<AdminBillingPage />",
+      "path": "/admin/billing",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 168,
+      "raw": "<Route path=\"/admin/security\" element={<AdminSecurityPage />",
+      "path": "/admin/security",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 171,
+      "raw": "<Route path=\"/admin/templates\" element={<AdminTemplatesPage />",
+      "path": "/admin/templates",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 172,
+      "raw": "<Route path=\"/admin/templates/builder\" element={<AdminTemplateBuilderPage />",
+      "path": "/admin/templates/builder",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 173,
+      "raw": "<Route path=\"/admin/templates/custom-fields\" element={<AdminCustomFieldsPage />",
+      "path": "/admin/templates/custom-fields",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 176,
+      "raw": "<Route path=\"/admin/workspaces\" element={<AdminWorkspacesPage />",
+      "path": "/admin/workspaces",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 177,
+      "raw": "<Route path=\"/admin/projects\" element={<AdminProjectsPage />",
+      "path": "/admin/projects",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 178,
+      "raw": "<Route path=\"/admin/archive\" element={<AdminArchivePage />",
+      "path": "/admin/archive",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 179,
+      "raw": "<Route path=\"/admin/trash\" element={<AdminTrashPage />",
+      "path": "/admin/trash",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 185,
+      "raw": "<Route path=\"/dashboard\" element={<Navigate to=\"/dashboards\" replace />",
+      "path": "/dashboard",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    },
+    {
+      "file": "/Users/malikadeel/Downloads/ZephixApp/zephix-frontend/src/App.tsx",
+      "line": 186,
+      "raw": "<Route path=\"*\" element={<Navigate to=\"/404\" replace />",
+      "path": "*",
+      "index": false,
+      "element": null,
+      "ambiguous": false,
+      "ambiguousReason": ""
+    }
+  ]
+}

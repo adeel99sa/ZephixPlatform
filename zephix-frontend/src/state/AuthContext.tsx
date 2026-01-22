@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { api, setTokens, clearTokens, loadTokensFromStorage } from "@/lib/api";
+import { api, setTokens, clearTokens, loadTokensFromStorage, getSessionId } from "@/lib/api";
 
 type User = {
   id: string;
@@ -16,11 +16,23 @@ type User = {
     canViewAnalytics?: boolean;
   };
   organizationId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+    features?: {
+      enableProgramsPortfolios?: boolean;
+    };
+  } | null;
   name?: string; // computed field
 };
+const ACTIVE_WORKSPACE_KEY = "activeWorkspaceId";
+
 type AuthCtx = {
   user: User | null;
   loading: boolean;
+  activeWorkspaceId: string | null;
+  setActiveWorkspaceId: (id: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -34,6 +46,19 @@ let hydrationPromise: Promise<void> | null = null;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeWorkspaceId, _setActiveWorkspaceId] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_WORKSPACE_KEY)
+  );
+
+  const setActiveWorkspaceId = (id: string | null) => {
+    if (!id) {
+      localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+      _setActiveWorkspaceId(null);
+      return;
+    }
+    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
+    _setActiveWorkspaceId(id);
+  };
 
   async function hydrate() {
     // Prevent concurrent hydration calls
@@ -99,7 +124,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     const response = await api.post("/auth/login", { email, password });
     // API interceptor unwraps the response, so tokens are at the top level
-    setTokens(response.accessToken, response.refreshToken);
+    
+    // CRITICAL: Write token to storage IMMEDIATELY before any other operations
+    // This ensures token is available for subsequent requests even if state update fails
+    setTokens(response.accessToken, response.refreshToken, response.sessionId);
+    
+    // Verify token was written (defensive check)
+    const writtenToken = localStorage.getItem('zephix.at');
+    if (!writtenToken || writtenToken !== response.accessToken) {
+      console.error('[AuthContext] Token write failed! Expected:', response.accessToken?.substring(0, 20), 'Got:', writtenToken?.substring(0, 20));
+      throw new Error('Failed to store authentication token');
+    }
+    
     // Add computed name field
     const userWithName = {
       ...response.user,
@@ -115,16 +151,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platformRole: userWithName.platformRole,
         permissions: userWithName.permissions,
       });
+      console.log('[AuthContext] Token stored in zephix.at:', !!writtenToken);
     }
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch {}
+    try {
+      const sid = getSessionId();
+      await api.post("/auth/logout", { sessionId: sid });
+    } catch {}
     clearTokens();
     setUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, activeWorkspaceId, setActiveWorkspaceId, login, logout }}>{children}</Ctx.Provider>;
 };
 
 export const useAuth = () => {

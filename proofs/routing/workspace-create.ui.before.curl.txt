@@ -1,0 +1,1 @@
+{"code":"VALIDATION_ERROR","message":"Query parameter 'ownerId' is not allowed"}

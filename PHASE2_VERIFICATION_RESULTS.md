@@ -172,3 +172,4 @@ POST /api/resource-allocations (resourceId: <org-a-resource-id>)
 - ⚠️ E2E tests blocked by test infrastructure (circular dependency)
 - ✅ Ready for production deployment with manual verification
 
+

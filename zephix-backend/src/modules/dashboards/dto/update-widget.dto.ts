@@ -41,7 +41,10 @@ class LayoutDto {
 }
 
 export class UpdateWidgetDto {
-  @ApiPropertyOptional({ description: 'Widget key (must be in allowlist)', maxLength: 120 })
+  @ApiPropertyOptional({
+    description: 'Widget key (must be in allowlist)',
+    maxLength: 120,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(120)
@@ -66,4 +69,3 @@ export class UpdateWidgetDto {
   @IsOptional()
   layout?: LayoutDto;
 }
-

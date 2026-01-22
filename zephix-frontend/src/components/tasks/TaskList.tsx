@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { CreateTaskForm } from './CreateTaskForm';
 import { AssignResourceModal } from '../resources/AssignResourceModal';
 import { EditTaskModal } from './EditTaskModal';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface Task {
   id: string;
@@ -19,6 +20,7 @@ interface TaskListProps {
 }
 
 export function TaskList({ projectId }: TaskListProps) {
+  const { isReadOnly } = useWorkspaceStore();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,16 +38,16 @@ export function TaskList({ projectId }: TaskListProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(`/projects/${projectId}/tasks`);
-      
-      // Handle both interceptor-wrapped and direct responses
+      const response = await api.get(`/work/tasks?projectId=${projectId}`);
+
+      // Backend ResponseService returns { success: true, data: [...] }
       const responseData = response.data?.data || response.data;
-      
+
       // Ensure we always have an array
-      const tasksArray = Array.isArray(responseData) ? responseData : 
-                        Array.isArray(responseData?.tasks) ? responseData.tasks : 
+      const tasksArray = Array.isArray(responseData) ? responseData :
+                        Array.isArray(responseData?.tasks) ? responseData.tasks :
                         Array.isArray(responseData?.data) ? responseData.data : [];
-      
+
       setTasks(tasksArray);
     } catch (error: any) {
       console.error('Failed to load tasks:', error);
@@ -92,18 +94,20 @@ export function TaskList({ projectId }: TaskListProps) {
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
         <p className="text-gray-500 mb-4">Get started by creating your first task for this project.</p>
-        <button 
-          onClick={() => setShowCreateForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add first task
-        </button>
-        
+        {!isReadOnly && (
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add first task
+          </button>
+        )}
+
         {showCreateForm && (
-          <CreateTaskForm 
+          <CreateTaskForm
             projectId={projectId}
             onSuccess={(task) => {
               setTasks([...tasks, task]);
@@ -120,14 +124,16 @@ export function TaskList({ projectId }: TaskListProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Tasks ({tasks.length})</h3>
-        <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-          <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Task
-        </button>
+        {!isReadOnly && (
+          <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Task
+          </button>
+        )}
       </div>
-      
+
       <div className="space-y-3">
         {tasks.map(task => (
           <div key={task.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -170,30 +176,32 @@ export function TaskList({ projectId }: TaskListProps) {
                   )}
                 </div>
               </div>
-              <div className="ml-4 flex-shrink-0 flex items-center gap-2">
-                <button
-                  onClick={() => handleEditTask(task)}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleAssignResource(task.id)}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  Assign Resource
-                </button>
-                <button className="text-gray-400 hover:text-gray-600">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div className="ml-4 flex-shrink-0 flex items-center gap-2">
+                  <button
+                    onClick={() => handleEditTask(task)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleAssignResource(task.id)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Assign Resource
+                  </button>
+                  <button className="text-gray-400 hover:text-gray-600">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
-      
+
       {/* Resource Assignment Modal */}
       {showAssignModal && (
         <AssignResourceModal

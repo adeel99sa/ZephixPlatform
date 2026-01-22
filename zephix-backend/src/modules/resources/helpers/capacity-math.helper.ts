@@ -37,8 +37,13 @@ export class CapacityMathHelper {
     const unitsType = allocation.unitsType;
 
     if (unitsType === UnitsType.PERCENT) {
-      if (allocation.allocationPercentage === null || allocation.allocationPercentage === undefined) {
-        throw new Error('allocationPercentage is required for PERCENT unitsType');
+      if (
+        allocation.allocationPercentage === null ||
+        allocation.allocationPercentage === undefined
+      ) {
+        throw new Error(
+          'allocationPercentage is required for PERCENT unitsType',
+        );
       }
       return Math.round(allocation.allocationPercentage * 100) / 100;
     }
@@ -52,16 +57,20 @@ export class CapacityMathHelper {
         hours = hoursPerWeek;
       } else if (hoursPerDay !== null && hoursPerDay !== undefined) {
         hours = hoursPerDay * 5; // Assume 5 days/week
-      } else if (allocation.allocationPercentage !== null && allocation.allocationPercentage !== undefined) {
+      } else if (
+        allocation.allocationPercentage !== null &&
+        allocation.allocationPercentage !== undefined
+      ) {
         // Already converted and stored - use it directly
         return Math.round(allocation.allocationPercentage * 100) / 100;
       } else {
-        throw new Error('hoursPerWeek, hoursPerDay, or allocationPercentage is required for HOURS unitsType');
+        throw new Error(
+          'hoursPerWeek, hoursPerDay, or allocationPercentage is required for HOURS unitsType',
+        );
       }
 
       const capacityHoursPerWeek =
-        resource?.capacityHoursPerWeek ||
-        this.DEFAULT_CAPACITY_HOURS_PER_WEEK;
+        resource?.capacityHoursPerWeek || this.DEFAULT_CAPACITY_HOURS_PER_WEEK;
 
       // Convert: percent = (hoursPerWeek / capacityHoursPerWeek) * 100
       const percent = (hours / capacityHoursPerWeek) * 100;
@@ -75,7 +84,8 @@ export class CapacityMathHelper {
    * Get capacity hours per week for a resource (with fallback)
    */
   static getCapacityHoursPerWeek(resource?: Resource | null): number {
-    return resource?.capacityHoursPerWeek || this.DEFAULT_CAPACITY_HOURS_PER_WEEK;
+    return (
+      resource?.capacityHoursPerWeek || this.DEFAULT_CAPACITY_HOURS_PER_WEEK
+    );
   }
 }
-

@@ -1,0 +1,48 @@
+* Host localhost:3000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:3000...
+* connect to ::1 port 3000 from ::1 port 59195 failed: Connection refused
+*   Trying 127.0.0.1:3000...
+* Connected to localhost (127.0.0.1) port 3000
+> PATCH /api/templates/6107054f-a987-44cc-8bfd-5b6e417db105 HTTP/1.1
+> Host: localhost:3000
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkMWRiMTUxNi1mNjQ0LTRhMTQtODBiNi1mMDA1NjAyMGNmOTciLCJlbWFpbCI6Im93bmVyQHRlbXBsYXRlLXByb29mcy50ZXN0Iiwib3JnYW5pemF0aW9uSWQiOiI2ZjIyNTRhMC03N2U4LTRkZGMtODNiMi0yYjJhMDc1MTFiNjQiLCJyb2xlIjoicG0iLCJwbGF0Zm9ybVJvbGUiOiJNRU1CRVIiLCJpYXQiOjE3Njg1ODI5MjEsImV4cCI6MTc2ODU4NjUyMX0.Smenu9v0ZinjbHg1eCI5353QzZVJZ8bDAUdw8b2Ewfo
+> x-workspace-id: ad81dadf-af55-42ed-9b00-903aab7ce0ec
+> Content-Type: application/json
+> Content-Length: 85
+> 
+} [85 bytes data]
+* upload completely sent off: 85 bytes
+< HTTP/1.1 200 OK
+< Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+< Cross-Origin-Opener-Policy: same-origin
+< Cross-Origin-Resource-Policy: same-origin
+< Origin-Agent-Cluster: ?1
+< Referrer-Policy: no-referrer
+< Strict-Transport-Security: max-age=15552000; includeSubDomains
+< X-Content-Type-Options: nosniff
+< X-DNS-Prefetch-Control: off
+< X-Download-Options: noopen
+< X-Frame-Options: SAMEORIGIN
+< X-Permitted-Cross-Domain-Policies: none
+< X-XSS-Protection: 0
+< Vary: Origin
+< Access-Control-Allow-Credentials: true
+< Access-Control-Expose-Headers: X-Request-Id
+< X-Request-Id: a21296e3-ba96-43f8-90ca-0f6586d414f7
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 1097
+< ETag: W/"449-xtF/G3iM8aum7Neig21SvDbx924"
+< Date: Fri, 16 Jan 2026 17:13:00 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< 
+{ [1097 bytes data]
+100  1182  100  1097  100    85   2738    212 --:--:-- --:--:-- --:--:--  2947100  1182  100  1097  100    85   2738    212 --:--:-- --:--:-- --:--:--  2947
+* Connection #0 to host localhost left intact
+{"data":{"id":"6107054f-a987-44cc-8bfd-5b6e417db105","name":"Proof WORKSPACE Template for Update","description":null,"category":null,"kind":"project","icon":null,"isActive":true,"isSystem":false,"organizationId":"6f2254a0-77e8-4ddc-83b2-2b2a07511b64","templateScope":"WORKSPACE","workspaceId":"ad81dadf-af55-42ed-9b00-903aab7ce0ec","isDefault":false,"lockState":"UNLOCKED","createdById":"d1db1516-f644-4a14-80b6-f0056020cf97","updatedById":"d1db1516-f644-4a14-80b6-f0056020cf97","publishedAt":null,"archivedAt":null,"metadata":null,"methodology":null,"structure":{"phases":[{"name":"Phase 1","tasks":[{"title":"Task 1","status":"TODO","sortOrder":1}],"sortOrder":1,"reportingKey":"PLAN"}]},"metrics":[],"version":1,"defaultEnabledKPIs":["schedule_variance","budget_variance","resource_utilization"],"workTypeTags":[],"scopeTags":[],"complexityBucket":null,"durationMinDays":null,"durationMaxDays":null,"setupTimeBucket":"SHORT","structureSummary":null,"lockPolicy":null,"createdAt":"2026-01-16T23:13:00.480Z","updatedAt":"2026-01-16T23:13:00.802Z"},"meta":{"timestamp":"2026-01-16T17:13:00.896Z"}}

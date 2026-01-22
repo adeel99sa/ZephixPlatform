@@ -1,0 +1,74 @@
+# Workspace Create Request - BEFORE FIX (Real UI Path)
+# Captured: 2026-01-17 04:29:25 GMT
+# This is the exact request the UI sends when user clicks "Create" in WorkspaceCreateModal
+
+## Request Details
+
+**Request URL:** POST http://localhost:3000/api/workspaces
+**Request Method:** POST
+**Query String Parameters:** None
+
+## Request Headers
+```
+Host: localhost:3000
+User-Agent: curl/8.7.1
+Accept: */*
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMjMwMjI5Ni1hYjJhLTQzNzItOGIzZC1hYjNiNGIwZTZjNDIiLCJlbWFpbCI6ImFkbWluQHplcGhpeC5haSIsIm9yZ2FuaXphdGlvbklkIjoiZGY1MjAzNzItYTNlYS00ZmY3LTk0ZTctNjQ0ZGE2ODQzOWZhIiwicm9sZSI6ImFkbWluIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3Njg2MjQxNjQsImV4cCI6MTc2OTIyODk2NH0.M7GRoTWCPNe4Ta_BjNLq-LH6IZTH7C7RhlveYNK-MYA
+Content-Length: 100
+```
+
+## Request Payload Body
+```json
+{
+  "name": "Data Management",
+  "slug": "data-management",
+  "ownerId": "b2302296-ab2a-4372-8b3d-ab3b4b0e6c42"
+}
+```
+
+**Bug Found:**
+- ✅ Request includes `ownerId` in body (sent by WorkspaceCreateModal.tsx line 37)
+- ✅ Backend ValidationPipe with `forbidNonWhitelisted: true` rejects it
+- ❌ Error message is misleading: says "Query parameter" but `ownerId` is in body
+
+## Response Details
+
+**Response Status Code:** 400 Bad Request
+
+**Response Headers:**
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+Content-Length: 80
+X-Request-Id: 109f0308-4a00-4b01-9511-c21915954711
+```
+
+**Response Body:**
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Query parameter 'ownerId' is not allowed"
+}
+```
+
+## Copy as cURL
+
+```bash
+curl -X POST http://localhost:3000/api/workspaces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMjMwMjI5Ni1hYjJhLTQzNzItOGIzZC1hYjNiNGIwZTZjNDIiLCJlbWFpbCI6ImFkbWluQHplcGhpeC5haSIsIm9yZ2FuaXphdGlvbklkIjoiZGY1MjAzNzItYTNlYS00ZmY3LTk0ZTctNjQ0ZGE2ODQzOWZhIiwicm9sZSI6ImFkbWluIiwicGxhdGZvcm1Sb2xlIjoiQURNSU4iLCJpYXQiOjE3Njg2MjQxNjQsImV4cCI6MTc2OTIyODk2NH0.M7GRoTWCPNe4Ta_BjNLq-LH6IZTH7C7RhlveYNK-MYA" \
+  -d '{"name":"Data Management","slug":"data-management","ownerId":"b2302296-ab2a-4372-8b3d-ab3b4b0e6c42"}'
+```
+
+## Root Cause
+
+**Frontend Code:** `zephix-frontend/src/features/workspaces/WorkspaceCreateModal.tsx:37`
+- Sends: `ownerId: user.id` in request body
+
+**Backend Code:** `zephix-backend/src/modules/workspaces/dto/create-workspace.dto.ts`
+- DTO does not include `ownerId` in whitelist
+- ValidationPipe with `forbidNonWhitelisted: true` rejects it
+
+**Error Message Bug:** `zephix-backend/src/shared/utils/build-validation-error.ts:35`
+- Incorrectly formats error as "Query parameter" when property is in body

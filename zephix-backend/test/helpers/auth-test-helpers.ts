@@ -1,6 +1,6 @@
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import * as request from 'supertest';
+import request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { Organization } from '../../src/organizations/entities/organization.entity';

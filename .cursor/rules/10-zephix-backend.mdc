@@ -1,0 +1,19 @@
+---
+description: Zephix backend rules for NestJS and TypeORM
+globs:
+  - zephix-backend/**/*
+---
+
+Backend standards
+- NestJS modules stay cohesive. Do not create cross module imports without a clear boundary.
+- TypeORM queries must include organizationId in where clauses.
+- Workspace scoped modules must include workspaceId in where clauses and unique constraints.
+
+Security standards
+- All endpoints behind JwtAuthGuard unless explicitly public.
+- Return 404 for workspace access denial to avoid existence leaks when this is already the platform pattern.
+- Validate workspaceId consistency when linking entities.
+
+Testing
+- Add at least one integration test for each new endpoint.
+- Add negative tests for access denial and scoping.

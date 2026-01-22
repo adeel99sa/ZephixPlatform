@@ -1,0 +1,3 @@
+METHOD: POST
+URL: http://localhost:3000/api/templates/a390f0d0-ac0a-40fa-8e02-0b83e16c40be/publish
+Authorization: Bearer <redacted>

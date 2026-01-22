@@ -2,7 +2,9 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  ConflictException,
   Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { Workspace } from '../entities/workspace.entity';
@@ -21,6 +23,7 @@ import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.reposi
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotificationDispatchService } from '../../notifications/notification-dispatch.service';
 
 @Injectable()
 export class WorkspaceMembersService {
@@ -36,6 +39,8 @@ export class WorkspaceMembersService {
     private events: EventsService,
     private accessService: WorkspaceAccessService,
     private readonly tenantContextService: TenantContextService,
+    @Inject(forwardRef(() => NotificationDispatchService))
+    private notificationDispatch: NotificationDispatchService,
   ) {}
 
   async list(
@@ -67,6 +72,14 @@ export class WorkspaceMembersService {
       .getMany();
   }
 
+  /**
+   * PHASE 5.1: Add existing organization user to workspace
+   *
+   * Constraints enforced:
+   * - Only workspace_owner or platform ADMIN can add members
+   * - Guest users (PlatformRole.VIEWER) ALWAYS map to workspace_viewer (enforced)
+   * - Project-scoped roles (delivery_owner, stakeholder) are NOT workspace roles
+   */
   async addExisting(
     workspaceId: string,
     userId: string,
@@ -116,6 +129,22 @@ export class WorkspaceMembersService {
       );
     }
 
+    // PHASE 5.1 ENFORCEMENT: Guest users (PlatformRole.VIEWER) ALWAYS map to workspace_viewer
+    // This is a locked product model constraint - Guests cannot be workspace owner or member
+    const targetUserPlatformRole = normalizePlatformRole(userOrg.role);
+    if (targetUserPlatformRole === PlatformRole.VIEWER) {
+      // Force workspace_viewer for all Guest users
+      role = 'workspace_viewer';
+    }
+
+    // PHASE 5.1 ENFORCEMENT: Project-scoped roles cannot be assigned at workspace level
+    // delivery_owner and stakeholder are project-scoped, not workspace-scoped
+    if (role === 'delivery_owner' || role === 'stakeholder') {
+      throw new ForbiddenException(
+        'delivery_owner and stakeholder are project-scoped roles, not workspace roles. Use workspace_owner, workspace_member, or workspace_viewer for workspace membership.',
+      );
+    }
+
     // Check if already a member (idempotent)
     const exists = await this.wmRepo.findOne({
       where: { workspaceId, userId },
@@ -155,6 +184,25 @@ export class WorkspaceMembersService {
       newRole: role,
       timestamp: new Date().toISOString(),
     });
+
+    // Dispatch notification for workspace membership (at member creation, not invite)
+    try {
+      await this.notificationDispatch.dispatch(
+        userId,
+        ws.organizationId,
+        workspaceId,
+        'workspace.member.added',
+        `You've been added to "${ws.name}"`,
+        `You've been added to workspace "${ws.name}" with ${role} access.`,
+        {
+          workspaceId,
+          workspaceName: ws.name,
+          role,
+        },
+      );
+    } catch (error) {
+      console.error('Failed to send workspace addition notification:', error);
+    }
 
     return saved;
   }
@@ -200,9 +248,10 @@ export class WorkspaceMembersService {
       });
 
       if (ownerCount === 1) {
-        throw new ForbiddenException(
-          'Cannot remove the last workspace owner. This workspace needs at least one owner.',
-        );
+        throw new ConflictException({
+          code: 'LAST_OWNER_REQUIRED',
+          message: 'At least one owner is required',
+        });
       }
     }
 
@@ -231,6 +280,16 @@ export class WorkspaceMembersService {
     return { ok: true };
   }
 
+  /**
+   * PHASE 5.1: Change workspace member access level
+   *
+   * Constraints enforced:
+   * - Only workspace_owner or platform ADMIN can change access levels
+   * - Guest users (PlatformRole.VIEWER) CANNOT be set to workspace_owner or workspace_member
+   * - Guests are forced to workspace_viewer (enforced)
+   * - Last owner protection: Cannot demote last workspace owner
+   * - Project-scoped roles cannot be assigned at workspace level
+   */
   async changeRole(
     workspaceId: string,
     userId: string,
@@ -266,7 +325,41 @@ export class WorkspaceMembersService {
     });
     if (!member) throw new NotFoundException('Member not found');
 
-    // Business rule: Cannot demote workspace owner if it's the last owner
+    // Get target user's platform role to enforce Guest restrictions
+    const userOrg = await this.userOrgRepo.findOne({
+      where: {
+        userId,
+        organizationId: ws.organizationId,
+        isActive: true,
+      },
+    });
+
+    if (userOrg) {
+      const targetUserPlatformRole = normalizePlatformRole(userOrg.role);
+
+      // MICRO PATCH: Guest users (PlatformRole.VIEWER) ALWAYS map to workspace_viewer
+      // If attempting to set workspace_owner for a Guest, return 409 ROLE_NOT_ALLOWED
+      if (targetUserPlatformRole === PlatformRole.VIEWER) {
+        if (role === 'workspace_owner' || role === 'workspace_member') {
+          // Return 409 ConflictException with ROLE_NOT_ALLOWED code
+          throw new ConflictException({
+            code: 'ROLE_NOT_ALLOWED',
+            message: 'Guest users are read only',
+          });
+        }
+        // Force workspace_viewer for Guests and return 200 with that role
+        role = 'workspace_viewer';
+      }
+    }
+
+    // PHASE 5.1 ENFORCEMENT: Project-scoped roles cannot be assigned at workspace level
+    if (role === 'delivery_owner' || role === 'stakeholder') {
+      throw new ForbiddenException(
+        'delivery_owner and stakeholder are project-scoped roles, not workspace roles. Use workspace_owner, workspace_member, or workspace_viewer for workspace membership.',
+      );
+    }
+
+    // PROMPT 6: Last owner protection - return 409 CONFLICT
     if (member.role === 'workspace_owner' && role !== 'workspace_owner') {
       // Count how many workspace_owner members exist for this workspace
       const ownerCount = await this.wmRepo.count({
@@ -277,9 +370,10 @@ export class WorkspaceMembersService {
       });
 
       if (ownerCount === 1) {
-        throw new ForbiddenException(
-          'Cannot demote the last workspace owner. This workspace needs at least one owner.',
-        );
+        throw new ConflictException({
+          code: 'LAST_OWNER_REQUIRED',
+          message: 'At least one owner is required',
+        });
       }
     }
 
@@ -306,8 +400,31 @@ export class WorkspaceMembersService {
       oldRole,
       newRole: role,
       isLastOwner,
-      timestamp: new Date().toISOString(),
     });
+
+    // Feature 1D: Dispatch notification for role change
+    try {
+      const targetUser = await this.userRepo.findOne({ where: { id: userId } });
+      if (targetUser) {
+        await this.notificationDispatch.dispatch(
+          userId,
+          ws.organizationId,
+          workspaceId,
+          'workspace.member.role.changed',
+          `Your workspace access has been updated`,
+          `Your access level in "${ws.name}" has been changed from ${oldRole} to ${role}`,
+          {
+            workspaceId,
+            workspaceName: ws.name,
+            oldRole,
+            newRole: role,
+          },
+        );
+      }
+    } catch (error) {
+      // Don't fail the role change if notification fails
+      console.error('Failed to send role change notification:', error);
+    }
 
     return { ok: true };
   }
@@ -393,5 +510,146 @@ export class WorkspaceMembersService {
       where: { workspaceId, userId },
     });
     return member?.role || null;
+  }
+
+  /**
+   * PROMPT 8: Suspend workspace member
+   * Blocks access immediately, maintains audit trail
+   */
+  async suspend(workspaceId: string, memberId: string, actor: Actor) {
+    const ws = await this.wsRepo.findOneBy({ id: workspaceId });
+    if (!ws) throw new NotFoundException('Workspace not found');
+
+    const platformRole = normalizePlatformRole(actor.orgRole);
+    const effectiveRole = await this.accessService.getEffectiveWorkspaceRole({
+      userId: actor.id,
+      orgId: ws.organizationId,
+      platformRole,
+      workspaceId,
+    });
+
+    if (
+      effectiveRole !== 'workspace_owner' &&
+      platformRole !== PlatformRole.ADMIN
+    ) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Insufficient permissions to suspend members.',
+      });
+    }
+
+    const member = await this.wmRepo.findOne({
+      where: { id: memberId, workspaceId },
+    });
+    if (!member) throw new NotFoundException('Member not found');
+
+    if (member.status === 'suspended') {
+      return { memberId, status: 'suspended' }; // Already suspended
+    }
+
+    // Last owner protection
+    if (member.role === 'workspace_owner') {
+      const ownerCount = await this.wmRepo.count({
+        where: {
+          workspaceId,
+          role: 'workspace_owner',
+          status: 'active', // Only count active owners
+        },
+      });
+      if (ownerCount === 1 && member.id === memberId) {
+        throw new ConflictException({
+          code: 'LAST_OWNER_PROTECTION',
+          message: 'Cannot suspend the last active workspace owner.',
+        });
+      }
+    }
+
+    member.status = 'suspended';
+    member.suspendedAt = new Date();
+    member.suspendedByUserId = actor.id;
+    member.updatedBy = actor.id;
+    await this.wmRepo.save(member);
+
+    await this.events.track('workspace.member.suspended', {
+      organizationId: ws.organizationId,
+      workspaceId,
+      actorUserId: actor.id,
+      targetMemberId: memberId,
+      targetUserId: member.userId,
+      timestamp: new Date().toISOString(),
+    });
+
+    return { memberId, status: 'suspended' };
+  }
+
+  /**
+   * PROMPT 8: Reinstate workspace member
+   * Restores access, maintains audit trail
+   */
+  async reinstate(workspaceId: string, memberId: string, actor: Actor) {
+    const ws = await this.wsRepo.findOneBy({ id: workspaceId });
+    if (!ws) throw new NotFoundException('Workspace not found');
+
+    const platformRole = normalizePlatformRole(actor.orgRole);
+    const effectiveRole = await this.accessService.getEffectiveWorkspaceRole({
+      userId: actor.id,
+      orgId: ws.organizationId,
+      platformRole,
+      workspaceId,
+    });
+
+    if (
+      effectiveRole !== 'workspace_owner' &&
+      platformRole !== PlatformRole.ADMIN
+    ) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Insufficient permissions to reinstate members.',
+      });
+    }
+
+    const member = await this.wmRepo.findOne({
+      where: { id: memberId, workspaceId },
+    });
+    if (!member) throw new NotFoundException('Member not found');
+
+    if (member.status === 'active') {
+      return { memberId, status: 'active' }; // Already active
+    }
+
+    member.status = 'active';
+    member.reinstatedAt = new Date();
+    member.reinstatedByUserId = actor.id;
+    member.updatedBy = actor.id;
+    await this.wmRepo.save(member);
+
+    await this.events.track('workspace.member.reinstated', {
+      organizationId: ws.organizationId,
+      workspaceId,
+      actorUserId: actor.id,
+      targetMemberId: memberId,
+      targetUserId: member.userId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Feature 1D: Dispatch notification for reinstatement
+    try {
+      await this.notificationDispatch.dispatch(
+        member.userId,
+        ws.organizationId,
+        workspaceId,
+        'workspace.member.reinstated',
+        `Access restored in "${ws.name}"`,
+        `Your access to workspace "${ws.name}" has been restored.`,
+        {
+          workspaceId,
+          workspaceName: ws.name,
+        },
+      );
+    } catch (error) {
+      console.error('Failed to send reinstatement notification:', error);
+    }
+
+    return { memberId, status: 'active' };
   }
 }

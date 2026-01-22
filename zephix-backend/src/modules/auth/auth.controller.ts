@@ -33,6 +33,7 @@ import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { normalizePlatformRole } from '../../shared/enums/platform-roles.enum';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
@@ -50,6 +51,8 @@ export class AuthController {
     private userOrgRepository: Repository<UserOrganization>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
   ) {}
 
   /**
@@ -193,8 +196,14 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Request() req: Request) {
+    // Extract IP and userAgent with x-forwarded-for support
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      (req as any).ip ||
+      'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    return this.authService.login(loginDto, ip as string, userAgent);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -209,6 +218,7 @@ export class AuthController {
 
     // Load UserOrganization record for the current user and organization
     let orgRole: string | null = null;
+    let organization: Organization | null = null;
     if (user.organizationId) {
       const userOrg = await this.userOrgRepository.findOne({
         where: {
@@ -224,25 +234,45 @@ export class AuthController {
           `[AuthController] No UserOrganization record found for user ${user.email} in org ${user.organizationId}. Falling back to user.role`,
         );
       }
+
+      // Load organization to get features
+      organization = await this.organizationRepository.findOne({
+        where: { id: user.organizationId },
+      });
     }
 
     // Use the same helper as login to ensure consistent structure
-    // Pass the org role explicitly
-    return this.authService.buildUserResponse(user, orgRole);
+    // Pass the org role and organization explicitly
+    return this.authService.buildUserResponse(user, orgRole, organization);
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  async logout(@Request() req: AuthRequest) {
+  async logout(
+    @Request() req: AuthRequest,
+    @Body() body?: { sessionId?: string; refreshToken?: string },
+  ) {
     const { userId } = getAuthContext(req);
-    await this.authService.logout(userId);
+    await this.authService.logout(userId, body?.sessionId, body?.refreshToken);
     return { message: 'Logged out successfully' };
   }
 
   @Post('refresh')
-  async refreshToken(@Request() req, @Body() body: { refreshToken: string }) {
-    const ip = req.ip || 'unknown';
+  async refreshToken(
+    @Request() req,
+    @Body() body: { refreshToken: string; sessionId?: string },
+  ) {
+    // Extract IP and userAgent with x-forwarded-for support
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip ||
+      'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.refreshToken(body.refreshToken, ip, userAgent);
+    return this.authService.refreshToken(
+      body.refreshToken,
+      body.sessionId || null,
+      ip,
+      userAgent,
+    );
   }
 }

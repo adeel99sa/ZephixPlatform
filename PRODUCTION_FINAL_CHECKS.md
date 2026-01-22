@@ -175,3 +175,4 @@ GET /api/auth/me → 401 (expected, not logged in)
 3. Complete guardrails verification (manual)
 4. Retest full auth flow once signup is available
 
+

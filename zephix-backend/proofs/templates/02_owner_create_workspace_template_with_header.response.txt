@@ -1,0 +1,25 @@
+HTTP/1.1 201 Created
+Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=15552000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: X-Request-Id
+X-Request-Id: faea6415-ac38-432f-b2e7-cc2b32cf4cb8
+Content-Type: application/json; charset=utf-8
+Content-Length: 1026
+ETag: W/"402-ND3ukwqI2NIEfaozrny9p7Rz7bo"
+Date: Fri, 16 Jan 2026 02:38:10 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"data":{"name":"Proof WORKSPACE Template 1768531089","kind":"project","isActive":true,"isSystem":false,"organizationId":"6f2254a0-77e8-4ddc-83b2-2b2a07511b64","templateScope":"WORKSPACE","workspaceId":"ad81dadf-af55-42ed-9b00-903aab7ce0ec","isDefault":false,"lockState":"UNLOCKED","createdById":"d1db1516-f644-4a14-80b6-f0056020cf97","updatedById":"d1db1516-f644-4a14-80b6-f0056020cf97","metadata":null,"structure":{"phases":[{"name":"Phase 1","order":0,"tasks":[{"name":"Task 1","description":"First task"}]}]},"version":1,"defaultEnabledKPIs":["schedule_variance"],"description":null,"category":null,"icon":null,"publishedAt":null,"archivedAt":null,"methodology":null,"complexityBucket":null,"durationMinDays":null,"durationMaxDays":null,"structureSummary":null,"lockPolicy":null,"id":"c8c988ab-4b4c-4f8c-b7f6-949785dfd2d5","metrics":[],"workTypeTags":[],"scopeTags":[],"setupTimeBucket":"SHORT","createdAt":"2026-01-16T08:38:10.018Z","updatedAt":"2026-01-16T08:38:10.018Z"},"meta":{"timestamp":"2026-01-16T02:38:10.058Z"}}

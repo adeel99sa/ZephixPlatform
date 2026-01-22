@@ -23,31 +23,31 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       setError('Task name is required');
       return;
     }
-    
+
     setSaving(true);
     setError(null);
-    
+
     try {
       console.log('Creating task with data:', { ...formData, projectId });
-      
-      const response = await api.post('/tasks', {
+
+      const response = await api.post('/work/tasks', {
         ...formData,
         projectId,
         estimatedHours: parseInt(formData.estimatedHours.toString()) || 0
       });
-      
+
       console.log('Task created successfully:', response.data);
       onSuccess(response.data);
-      
+
     } catch (err: any) {
       console.error('Task creation error:', err);
-      const errorMessage = typeof err.response?.data?.message === 'string' 
-        ? err.response.data.message 
+      const errorMessage = typeof err.response?.data?.message === 'string'
+        ? err.response.data.message
         : typeof err.response?.data?.error === 'string'
         ? err.response.data.error
         : 'Failed to create task';
@@ -60,7 +60,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
   return (
     <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded-lg bg-white">
       <h3 className="text-lg font-semibold mb-4">Create New Task</h3>
-      
+
       {/* Task Name */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">
@@ -75,7 +75,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
           disabled={saving}
         />
       </div>
-      
+
       {/* Description */}
       <div className="mb-4">
         <label className="block text-sm font-medium mb-1">Description</label>
@@ -88,7 +88,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
           disabled={saving}
         />
       </div>
-      
+
       {/* Estimated Hours and Priority */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
@@ -103,7 +103,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
             disabled={saving}
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium mb-1">Priority</label>
           <select
@@ -132,7 +132,7 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">
                 End Date *
@@ -163,14 +163,14 @@ export function CreateTaskForm({ projectId, onSuccess, onCancel }: CreateTaskFor
             />
           </div>        </div>
       </div>
-      
+
       {/* Error Display */}
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
           {error}
         </div>
       )}
-      
+
       {/* Action Buttons */}
       <div className="flex gap-2">
         <button

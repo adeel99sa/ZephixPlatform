@@ -13,9 +13,8 @@ export const WIDGET_ALLOWLIST = [
   'program_summary',
 ] as const;
 
-export type WidgetKey = typeof WIDGET_ALLOWLIST[number];
+export type WidgetKey = (typeof WIDGET_ALLOWLIST)[number];
 
 export function isWidgetKeyAllowed(key: string): boolean {
   return (WIDGET_ALLOWLIST as readonly string[]).includes(key);
 }
-

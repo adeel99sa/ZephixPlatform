@@ -1,0 +1,15 @@
+---
+description: Zephix security and tenancy rules
+alwaysApply: true
+---
+
+Tenancy
+- organizationId is mandatory for data access.
+- MEMBER and VIEWER responses must be filtered to accessibleWorkspaceIds for any cross workspace aggregate.
+
+Auth
+- Use platformRole as source of truth.
+- Refresh and sessions stay server tracked. No stateless refresh fallback.
+
+Auditing
+- Prefer structured exceptions. No throwing raw Error for request validation.

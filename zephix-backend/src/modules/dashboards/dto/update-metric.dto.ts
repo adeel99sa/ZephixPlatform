@@ -50,4 +50,3 @@ export class UpdateMetricDto {
   @IsOptional()
   defaultFilters?: Record<string, any>;
 }
-

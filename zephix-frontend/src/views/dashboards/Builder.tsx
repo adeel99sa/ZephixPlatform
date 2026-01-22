@@ -1,156 +1,243 @@
-import { useState, useEffect } from "react";
+// Phase 4.3: Dashboard Builder with react-grid-layout
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  Save,
-  Plus,
-  Filter,
-  MoreHorizontal,
-  BarChart3,
-  TrendingUp,
-  Table,
-  FileText,
-  X,
-  Copy,
-  Trash2
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { duplicateDashboard, deleteDashboard, fetchDashboard } from "@/features/dashboards/api";
+import { Save, Plus, Eye, Undo2, Redo2, X, Copy, Trash2, MoreHorizontal, Sparkles } from "lucide-react";
+import GridLayout, { Layout } from "react-grid-layout";
+import "react-grid-layout/css/styles.css";
+import { fetchDashboard, patchDashboard, duplicateDashboard, deleteDashboard } from "@/features/dashboards/api";
+import { DashboardEntitySchema, WorkspaceRequiredError } from "@/features/dashboards/schemas";
+import type { DashboardEntity, DashboardWidget } from "@/features/dashboards/types";
+import { createWidget, getWidgetsByCategory, widgetRegistry } from "@/features/dashboards/widget-registry";
+import type { WidgetType } from "@/features/dashboards/types";
 import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
-import { useAutosave } from "@/features/dashboards/useAutosave";
+import { AICopilotPanel } from "@/features/dashboards/AICopilotPanel";
 import { track } from "@/lib/telemetry";
 import { hasFlag } from "@/lib/flags";
-
-interface Widget {
-  id: string;
-  type: 'kpi' | 'trend' | 'table' | 'note';
-  title: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  data?: any;
-}
-
-interface Dashboard {
-  id: string;
-  name: string;
-  widgets: Widget[];
-}
+import { useAuth } from "@/state/AuthContext";
+import { useWorkspaceStore } from "@/state/workspace.store";
 
 export function DashboardBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "ADMIN";
+  const { activeWorkspaceId } = useWorkspaceStore();
+
+  // State
+  const [dashboard, setDashboard] = useState<DashboardEntity | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showWidgetLibrary, setShowWidgetLibrary] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState(false);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+  const [showWidgetLibrary, setShowWidgetLibrary] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showCopilot, setShowCopilot] = useState(false);
 
-  // Autosave integration
-  const { save: autosave, status: autosaveStatus, setEtag } = useAutosave(dashboard?.id || '');
+  // Dirty tracking
+  const [isDirty, setIsDirty] = useState(false);
+  const [history, setHistory] = useState<DashboardEntity[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const initialDashboardRef = useRef<DashboardEntity | null>(null);
 
-  useEffect(() => {
-    if (dashboard) {
-      autosave(dashboard); // Trigger autosave when dashboard changes
-    }
-  }, [dashboard?.widgets, dashboard?.filters, autosave]);
-
-  useEffect(() => {
-    if (id) {
-      loadDashboard();
-    }
-  }, [id]);
-
-  const loadDashboard = async (forceReload = false) => {
+  // Load dashboard
+  const loadDashboard = useCallback(async () => {
+    if (!id) return;
     try {
       setLoading(true);
-      const item = await fetchDashboard(id!);
-      setDashboard(item || { id: id!, name: "New Dashboard", widgets: [] });
-      // Set ETag from response headers if available
-      // setEtag(response.headers?.etag);
+      setError(null);
+      setWorkspaceError(false);
+      const data = await fetchDashboard(id);
+      // Validate with zod
+      const validated = DashboardEntitySchema.parse(data);
+      setDashboard(validated);
+      initialDashboardRef.current = JSON.parse(JSON.stringify(validated)); // Deep clone
+      setHistory([validated]);
+      setHistoryIndex(0);
+      setIsDirty(false);
+      setSelectedWidgetId(null);
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to load dashboard");
+      if (err instanceof WorkspaceRequiredError) {
+        setWorkspaceError(true);
+        setError("Please select a workspace to edit this dashboard.");
+      } else {
+        const requestId = err?.response?.headers?.['x-request-id'];
+        setError(err?.response?.data?.message || `Failed to load dashboard${requestId ? ` (RequestId: ${requestId})` : ''}`);
+      }
     } finally {
       setLoading(false);
     }
+  }, [id]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  // Mark dirty on any change
+  const markDirty = useCallback(() => {
+    setIsDirty(true);
+  }, []);
+
+  // Update dashboard and track history
+  const updateDashboard = useCallback((updater: (prev: DashboardEntity) => DashboardEntity) => {
+    setDashboard((prev) => {
+      if (!prev) return prev;
+      const updated = updater(prev);
+      // Add to history
+      setHistory((h) => {
+        const newHistory = h.slice(0, historyIndex + 1);
+        newHistory.push(updated);
+        return newHistory;
+      });
+      setHistoryIndex((i) => i + 1);
+      markDirty();
+      return updated;
+    });
+  }, [historyIndex, markDirty]);
+
+  // Undo/Redo
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const handleUndo = () => {
+    if (canUndo) {
+      setHistoryIndex((i) => i - 1);
+      setDashboard(history[historyIndex - 1]);
+      markDirty();
+    }
   };
 
-  const reloadFromServer = async () => {
-    await loadDashboard(true);
+  const handleRedo = () => {
+    if (canRedo) {
+      setHistoryIndex((i) => i + 1);
+      setDashboard(history[historyIndex + 1]);
+      markDirty();
+    }
   };
 
-  const saveDashboard = async () => {
-    if (!dashboard) return;
+  // Save dashboard
+  const handleSave = async () => {
+    if (!dashboard || !id || !isDirty) return;
 
     try {
       setSaving(true);
-      await api.patch(`/api/dashboards/${id}`, {
+      setError(null);
+      await patchDashboard(id, {
         name: dashboard.name,
+        description: dashboard.description,
+        visibility: dashboard.visibility,
         widgets: dashboard.widgets,
-      }, {
-        headers: {
-          "Idempotency-Key": crypto.randomUUID(),
-        },
       });
-      // Show success toast (placeholder)
-      console.log("Dashboard saved successfully");
+      setIsDirty(false);
+      initialDashboardRef.current = JSON.parse(JSON.stringify(dashboard));
+      track("ui.db.save.success", { id });
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to save dashboard");
+      if (err instanceof WorkspaceRequiredError) {
+        setWorkspaceError(true);
+        setError("Please select a workspace to save this dashboard.");
+      } else {
+        const requestId = err?.response?.headers?.['x-request-id'];
+        setError(err?.response?.data?.message || `Failed to save dashboard${requestId ? ` (RequestId: ${requestId})` : ''}`);
+      }
+      track("ui.db.save.error", { id, error: err?.message });
     } finally {
       setSaving(false);
     }
   };
 
-  const addWidget = (type: Widget['type']) => {
+  // Preview - block if dirty
+  const handlePreview = () => {
+    if (isDirty) {
+      if (!window.confirm("You have unsaved changes. Save first?")) {
+        return;
+      }
+      handleSave().then(() => {
+        if (!isDirty && id) {
+          navigate(`/dashboards/${id}`);
+        }
+      });
+    } else if (id) {
+      navigate(`/dashboards/${id}`);
+    }
+  };
+
+  // Add widget
+  const handleAddWidget = (type: WidgetType) => {
     if (!dashboard) return;
 
-    const newWidget: Widget = {
-      id: crypto.randomUUID(),
-      type,
-      title: getWidgetTitle(type),
-      x: 0,
-      y: dashboard.widgets.length * 2,
-      width: type === 'kpi' ? 1 : 2,
-      height: type === 'kpi' ? 1 : 2,
-    };
+    // Find next available position
+    const maxY = dashboard.widgets.reduce((max, w) => Math.max(max, (w.layout.y || 0) + (w.layout.h || 3)), 0);
+    const newWidget = createWidget(type, { x: 0, y: maxY });
 
-    setDashboard({
-      ...dashboard,
-      widgets: [...dashboard.widgets, newWidget],
-    });
+    updateDashboard((prev) => ({
+      ...prev,
+      widgets: [...prev.widgets, newWidget],
+    }));
+
+    setSelectedWidgetId(newWidget.id);
     setShowWidgetLibrary(false);
+    track("ui.db.widget.add", { type, dashboardId: id });
   };
 
-  const removeWidget = (widgetId: string) => {
+  // Remove widget
+  const handleRemoveWidget = (widgetId: string) => {
     if (!dashboard) return;
 
-    setDashboard({
-      ...dashboard,
-      widgets: dashboard.widgets.filter(w => w.id !== widgetId),
-    });
-  };
+    updateDashboard((prev) => ({
+      ...prev,
+      widgets: prev.widgets.filter((w) => w.id !== widgetId),
+    }));
 
-  const getWidgetTitle = (type: Widget['type']): string => {
-    switch (type) {
-      case 'kpi': return 'KPI Widget';
-      case 'trend': return 'Trend Chart';
-      case 'table': return 'Data Table';
-      case 'note': return 'Note';
-      default: return 'Widget';
+    if (selectedWidgetId === widgetId) {
+      setSelectedWidgetId(null);
     }
+    track("ui.db.widget.remove", { widgetId, dashboardId: id });
   };
 
-  const getWidgetIcon = (type: Widget['type']) => {
-    switch (type) {
-      case 'kpi': return <BarChart3 className="w-4 h-4" />;
-      case 'trend': return <TrendingUp className="w-4 h-4" />;
-      case 'table': return <Table className="w-4 h-4" />;
-      case 'note': return <FileText className="w-4 h-4" />;
-      default: return <BarChart3 className="w-4 h-4" />;
-    }
+  // Layout change handler
+  const handleLayoutChange = (layout: Layout[]) => {
+    if (!dashboard) return;
+
+    updateDashboard((prev) => ({
+      ...prev,
+      widgets: prev.widgets.map((widget) => {
+        const layoutItem = layout.find((item) => item.i === widget.id);
+        if (layoutItem) {
+          return {
+            ...widget,
+            layout: {
+              x: layoutItem.x,
+              y: layoutItem.y,
+              w: layoutItem.w,
+              h: layoutItem.h,
+            },
+          };
+        }
+        return widget;
+      }),
+    }));
   };
 
+  // Update widget config
+  const updateWidgetConfig = (widgetId: string, config: Partial<DashboardWidget>) => {
+    updateDashboard((prev) => ({
+      ...prev,
+      widgets: prev.widgets.map((w) =>
+        w.id === widgetId ? { ...w, ...config } : w
+      ),
+    }));
+  };
+
+  // Update dashboard settings
+  const updateDashboardSettings = (settings: Partial<Pick<DashboardEntity, "name" | "description" | "visibility">>) => {
+    updateDashboard((prev) => ({
+      ...prev,
+      ...settings,
+    }));
+  };
+
+  // Duplicate
   const handleDuplicate = async () => {
     if (!dashboard?.id) return;
     try {
@@ -163,6 +250,7 @@ export function DashboardBuilder() {
     }
   };
 
+  // Delete
   const handleDelete = async () => {
     if (!dashboard?.id) return;
     setShowDeleteConfirm(true);
@@ -173,16 +261,39 @@ export function DashboardBuilder() {
     try {
       await deleteDashboard(dashboard.id);
       track("ui.db.delete.success", { id: dashboard.id });
-      // toast.success("Dashboard moved to trash.");
       navigate("/dashboards");
     } catch (error) {
       track("ui.db.delete.error", { id: dashboard.id });
-      // toast.error("Delete failed. Try again.");
       console.error('Failed to delete dashboard:', error);
     } finally {
       setShowDeleteConfirm(false);
     }
   };
+
+  // Convert widgets to grid layout format
+  const layoutItems: Layout[] = dashboard?.widgets.map((w) => ({
+    i: w.id,
+    x: w.layout.x,
+    y: w.layout.y,
+    w: w.layout.w,
+    h: w.layout.h,
+    minW: 2,
+    minH: 2,
+  })) || [];
+
+  const selectedWidget = dashboard?.widgets.find((w) => w.id === selectedWidgetId);
+
+  // Workspace error
+  if (workspaceError) {
+    return (
+      <div className="p-6" data-testid="dashboard-builder">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <p className="text-yellow-800 font-medium">Select a workspace.</p>
+          <p className="text-yellow-700 text-sm mt-1">Please select a workspace from the sidebar to edit this dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -194,7 +305,7 @@ export function DashboardBuilder() {
     );
   }
 
-  if (error) {
+  if (error && !dashboard) {
     return (
       <div className="p-6" data-testid="dashboard-builder">
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -204,68 +315,96 @@ export function DashboardBuilder() {
     );
   }
 
+  if (!dashboard) {
+    return (
+      <div className="p-6" data-testid="dashboard-builder">
+        <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+          <p className="text-gray-800">Dashboard not found.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const widgetsByCategory = getWidgetsByCategory();
+
   return (
-    <div className="p-6" data-testid="dashboard-builder">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-6" data-testid="builder-toolbar">
-        <div className="flex items-center space-x-4">
+    <div className="h-screen flex flex-col" data-testid="dashboard-builder">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-white" data-testid="builder-toolbar">
+        <div className="flex items-center space-x-3">
           <button
-            data-testid="dashboard-toolbar-edit"
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            onClick={handleSave}
+            disabled={!isDirty || saving}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="dashboard-toolbar-save"
           >
-            Edit Mode
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Saving..." : "Save"}
           </button>
 
           <button
-            data-testid="dashboard-toolbar-add"
+            onClick={handlePreview}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            data-testid="dashboard-toolbar-preview"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Preview
+          </button>
+
+          <div className="flex items-center border border-gray-300 rounded-md">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="p-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="dashboard-toolbar-undo"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className="p-2 border-l border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="dashboard-toolbar-redo"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button
             onClick={() => setShowWidgetLibrary(true)}
             className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
+            data-testid="dashboard-toolbar-add"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Widget
           </button>
 
           <button
-            data-testid="dashboard-toolbar-filters"
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            onClick={() => setShowCopilot(!showCopilot)}
+            className={`inline-flex items-center px-3 py-2 text-sm font-medium border rounded-md ${
+              showCopilot
+                ? "text-white bg-indigo-600 border-indigo-600 hover:bg-indigo-700"
+                : "text-gray-700 bg-white border-gray-300 hover:bg-gray-50"
+            }`}
+            data-testid="dashboard-toolbar-copilot"
           >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
+            <Sparkles className="w-4 h-4 mr-2" />
+            Copilot
           </button>
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* Autosave status */}
-          <div className="text-sm text-gray-500">
-            {autosaveStatus === "saving" ? "Saving…" :
-             autosaveStatus === "saved" ? "All changes saved" :
-             autosaveStatus === "conflict" ? (
-               hasFlag("FF_AUTOSAVE_CONFLICT_UI") ? (
-                 <span className="text-amber-600" data-testid="autosave-conflict">
-                   Update conflict. <button className="underline" onClick={reloadFromServer}>Reload</button>
-                 </span>
-               ) : (
-                 <span className="text-amber-600">Update conflict</span>
-               )
-             ) :
-             autosaveStatus === "error" ? "Save failed" : "All changes saved"}
-          </div>
-
-          <button
-            data-testid="dashboard-toolbar-save"
-            onClick={saveDashboard}
-            disabled={autosaveStatus === "saving"}
-            className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {autosaveStatus === "saving" ? "Saving..." : "Save"}
-          </button>
+          {isDirty && (
+            <span className="text-sm text-amber-600" data-testid="dirty-indicator">
+              Unsaved changes
+            </span>
+          )}
 
           <div className="relative">
             <button
-              data-testid="dashboard-toolbar-more"
               onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              data-testid="dashboard-toolbar-more"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
@@ -300,13 +439,208 @@ export function DashboardBuilder() {
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="px-6 py-2 bg-red-50 border-b border-red-200">
+          <p className="text-red-800 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Main Content: Left Canvas + Right Panel (Inspector or Copilot) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Grid Canvas */}
+        <div className={`overflow-auto bg-gray-50 p-4 ${showCopilot ? "flex-1" : "flex-1"}`}>
+          {dashboard.widgets.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-gray-500 mb-4">No widgets yet. Add a widget to get started.</p>
+                <button
+                  onClick={() => setShowWidgetLibrary(true)}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Widget
+                </button>
+              </div>
+            </div>
+          ) : (
+            <GridLayout
+              className="layout"
+              layout={layoutItems}
+              cols={12}
+              rowHeight={60}
+              width={1200}
+              onLayoutChange={handleLayoutChange}
+              isDraggable={true}
+              isResizable={true}
+              draggableHandle=".widget-drag-handle"
+            >
+              {dashboard.widgets.map((widget) => {
+                const isSelected = selectedWidgetId === widget.id;
+                return (
+                  <div
+                    key={widget.id}
+                    className={`bg-white border-2 rounded-lg p-4 ${
+                      isSelected ? "border-indigo-500 shadow-lg" : "border-gray-200"
+                    }`}
+                    onClick={() => setSelectedWidgetId(widget.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="widget-drag-handle cursor-move text-gray-400 hover:text-gray-600">
+                          ⋮⋮
+                        </div>
+                        <h4 className="font-medium text-gray-900">{widget.title}</h4>
+                        <span className="text-xs text-gray-500">({widget.type})</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveWidget(widget.id);
+                        }}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <WidgetRenderer
+                        widget={widget}
+                        data={undefined}
+                        filters={{
+                          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default: 30 days ago
+                          endDate: new Date().toISOString().split('T')[0], // Default: today
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </GridLayout>
+          )}
+        </div>
+
+        {/* Right: Inspector Panel or Copilot Panel */}
+        <div className="w-80 border-l bg-white overflow-hidden flex flex-col">
+          {showCopilot ? (
+            <AICopilotPanel
+              dashboard={dashboard}
+              workspaceId={activeWorkspaceId}
+              startDate={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+              endDate={new Date().toISOString().split('T')[0]}
+              onApplyWidgets={(widgets) => {
+                updateDashboard((prev) => ({ ...prev, widgets }));
+                markDirty();
+              }}
+              onApplyDashboard={(dash) => {
+                updateDashboard((prev) => ({ ...prev, ...dash }));
+                markDirty();
+              }}
+            />
+          ) : (
+            <div className="overflow-y-auto">
+              {selectedWidget ? (
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Widget Settings</h3>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={selectedWidget.title}
+                        onChange={(e) => updateWidgetConfig(selectedWidget.id, { title: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                      <input
+                        type="text"
+                        value={selectedWidget.type}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Config (JSON)</label>
+                      <textarea
+                        value={JSON.stringify(selectedWidget.config, null, 2)}
+                        onChange={(e) => {
+                          try {
+                            const config = JSON.parse(e.target.value);
+                            updateWidgetConfig(selectedWidget.id, { config });
+                          } catch {
+                            // Invalid JSON, ignore
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-xs"
+                        rows={6}
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => handleRemoveWidget(selectedWidget.id)}
+                      className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                    >
+                      Remove Widget
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Settings</h3>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={dashboard.name}
+                        onChange={(e) => updateDashboardSettings({ name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={dashboard.description || ""}
+                        onChange={(e) => updateDashboardSettings({ description: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                      <select
+                        value={dashboard.visibility}
+                        onChange={(e) => updateDashboardSettings({ visibility: e.target.value as any })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="WORKSPACE">Workspace</option>
+                        <option value="PRIVATE">Private</option>
+                        {isAdmin && <option value="ORG">Organization</option>}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Widget Library Modal */}
       {showWidgetLibrary && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-black bg-opacity-25" onClick={() => setShowWidgetLibrary(false)} />
 
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Add Widget</h3>
                 <button
@@ -317,115 +651,33 @@ export function DashboardBuilder() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  data-testid="builder-add-widget-kpi"
-                  onClick={() => addWidget('kpi')}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 text-left"
-                >
-                  <BarChart3 className="w-6 h-6 text-indigo-600 mb-2" />
-                  <div className="font-medium text-gray-900">KPI</div>
-                  <div className="text-sm text-gray-600">Key performance indicators</div>
-                </button>
-
-                <button
-                  data-testid="builder-add-widget-trend"
-                  onClick={() => addWidget('trend')}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 text-left"
-                >
-                  <TrendingUp className="w-6 h-6 text-indigo-600 mb-2" />
-                  <div className="font-medium text-gray-900">Trend Chart</div>
-                  <div className="text-sm text-gray-600">Time series visualization</div>
-                </button>
-
-                <button
-                  data-testid="builder-add-widget-table"
-                  onClick={() => addWidget('table')}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 text-left"
-                >
-                  <Table className="w-6 h-6 text-indigo-600 mb-2" />
-                  <div className="font-medium text-gray-900">Table</div>
-                  <div className="text-sm text-gray-600">Data table view</div>
-                </button>
-
-                <button
-                  data-testid="builder-add-widget-note"
-                  onClick={() => addWidget('note')}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 text-left"
-                >
-                  <FileText className="w-6 h-6 text-indigo-600 mb-2" />
-                  <div className="font-medium text-gray-900">Note</div>
-                  <div className="text-sm text-gray-600">Text and annotations</div>
-                </button>
+              <div className="space-y-6">
+                {Object.entries(widgetsByCategory).map(([category, types]) => (
+                  <div key={category}>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">{category}</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {types.map((type) => {
+                        const registry = widgetRegistry[type];
+                        return (
+                          <button
+                            key={type}
+                            onClick={() => handleAddWidget(type)}
+                            className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 text-left transition-colors"
+                            data-testid={`builder-add-widget-${type}`}
+                          >
+                            <div className="font-medium text-gray-900">{registry.displayName}</div>
+                            <div className="text-sm text-gray-600 mt-1">{registry.description}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Dashboard Grid */}
-      <div className="grid grid-cols-12 gap-4" style={{ minHeight: '600px' }}>
-        {dashboard?.widgets.map((widget) => (
-          <div
-            key={widget.id}
-            className={`bg-white border border-gray-200 rounded-lg p-4 relative group ${
-              widget.width === 1 ? 'col-span-3' :
-              widget.width === 2 ? 'col-span-6' :
-              'col-span-12'
-            } ${widget.height === 1 ? 'h-32' : 'h-64'}`}
-          >
-            {/* Widget Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                {getWidgetIcon(widget.type)}
-                <h4 className="font-medium text-gray-900">{widget.title}</h4>
-              </div>
-              <button
-                onClick={() => removeWidget(widget.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Widget Content */}
-            <div className="text-sm text-gray-600">
-              <WidgetRenderer
-                widget={{
-                  id: widget.id,
-                  type: widget.type,
-                  label: widget.config?.label || widget.title,
-                  value: '—', // Default value, actual data comes from data prop
-                  trend: 'flat',
-                  text: widget.config?.text || '',
-                  columns: widget.config?.columns || [],
-                  rows: [],
-                }}
-                data={widget.data}
-              />
-            </div>
-          </div>
-        ))}
-
-        {dashboard?.widgets.length === 0 && (
-          <div className="col-span-12 text-center py-12">
-            <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-              <BarChart3 className="w-full h-full" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No widgets yet</h3>
-            <p className="text-gray-600 mb-6">
-              Add widgets to start building your dashboard.
-            </p>
-            <button
-              onClick={() => setShowWidgetLibrary(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Widget
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

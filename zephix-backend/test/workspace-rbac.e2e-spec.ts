@@ -81,9 +81,9 @@ describe('Workspace RBAC (E2E)', () => {
     workspace1 = await createTestWorkspace('RBAC Test Workspace', org1.id, userOwner.id);
 
     // Add workspace members with different roles
-    await createWorkspaceMember(workspace1.id, userOwner.id, 'owner');
-    await createWorkspaceMember(workspace1.id, userMember.id, 'member');
-    await createWorkspaceMember(workspace1.id, userViewer.id, 'viewer');
+    await createWorkspaceMember(workspace1.id, userOwner.id, 'workspace_owner');
+    await createWorkspaceMember(workspace1.id, userMember.id, 'workspace_member');
+    await createWorkspaceMember(workspace1.id, userViewer.id, 'workspace_viewer');
 
     // Create test project
     project1 = await createTestProject('RBAC Test Project', org1.id, workspace1.id);
@@ -136,7 +136,7 @@ describe('Workspace RBAC (E2E)', () => {
       it('Org admin can delete workspace', async () => {
         // Create a workspace for deletion test
         const testWs = await createTestWorkspace('Delete Test WS', org1.id, userOwner.id);
-        await createWorkspaceMember(testWs.id, userOwner.id, 'owner');
+        await createWorkspaceMember(testWs.id, userOwner.id, 'workspace_owner');
 
         await request(app.getHttpServer())
           .delete(`/api/workspaces/${testWs.id}`)
@@ -147,7 +147,7 @@ describe('Workspace RBAC (E2E)', () => {
       it('Workspace owner can delete workspace', async () => {
         // Create a workspace for deletion test
         const testWs = await createTestWorkspace('Owner Delete Test WS', org1.id, userOwner.id);
-        await createWorkspaceMember(testWs.id, userOwner.id, 'owner');
+        await createWorkspaceMember(testWs.id, userOwner.id, 'workspace_owner');
 
         await request(app.getHttpServer())
           .delete(`/api/workspaces/${testWs.id}`)
@@ -187,7 +187,7 @@ describe('Workspace RBAC (E2E)', () => {
         const response = await request(app.getHttpServer())
           .post(`/api/workspaces/${workspace1.id}/members`)
           .set('Authorization', `Bearer ${ownerToken}`)
-          .send({ userId: testUser.id, role: 'member' })
+          .send({ userId: testUser.id, role: 'workspace_member' })
           .expect(201);
 
         expect(response.body).toBeDefined();
@@ -199,7 +199,7 @@ describe('Workspace RBAC (E2E)', () => {
         await request(app.getHttpServer())
           .post(`/api/workspaces/${workspace1.id}/members`)
           .set('Authorization', `Bearer ${memberToken}`)
-          .send({ userId: newUser.id, role: 'member' })
+          .send({ userId: newUser.id, role: 'workspace_member' })
           .expect(403);
       });
 
@@ -209,7 +209,7 @@ describe('Workspace RBAC (E2E)', () => {
         await request(app.getHttpServer())
           .post(`/api/workspaces/${workspace1.id}/members`)
           .set('Authorization', `Bearer ${viewerToken}`)
-          .send({ userId: newUser.id, role: 'member' })
+          .send({ userId: newUser.id, role: 'workspace_member' })
           .expect(403);
       });
 
@@ -220,30 +220,31 @@ describe('Workspace RBAC (E2E)', () => {
         });
 
         if (!member) {
-          await createWorkspaceMember(workspace1.id, testUser.id, 'member');
+          await createWorkspaceMember(workspace1.id, testUser.id, 'workspace_member');
         }
 
         const response = await request(app.getHttpServer())
           .patch(`/api/workspaces/${workspace1.id}/members/${testUser.id}`)
           .set('Authorization', `Bearer ${ownerToken}`)
-          .send({ role: 'viewer' })
+          .send({ role: 'workspace_viewer' })
           .expect(200);
 
-        // changeRole returns { ok: true }, verify by checking the member directly
-        expect(response.body.ok).toBe(true);
+        // changeRole returns { data: { ok: true } }, verify by checking the member directly
+        expect(response.body.data).toBeDefined();
+        expect(response.body.data.ok).toBe(true);
 
         // Verify the role was actually changed
         const updatedMember = await dataSource.getRepository(WorkspaceMember).findOne({
           where: { workspaceId: workspace1.id, userId: testUser.id },
         });
-        expect(updatedMember?.role).toBe('viewer');
+        expect(updatedMember?.role).toBe('workspace_viewer');
       });
 
       it('Workspace member cannot change roles (403)', async () => {
         await request(app.getHttpServer())
           .patch(`/api/workspaces/${workspace1.id}/members/${testUser.id}`)
           .set('Authorization', `Bearer ${memberToken}`)
-          .send({ role: 'member' })
+          .send({ role: 'workspace_member' })
           .expect(403);
       });
 
@@ -251,14 +252,14 @@ describe('Workspace RBAC (E2E)', () => {
         await request(app.getHttpServer())
           .patch(`/api/workspaces/${workspace1.id}/members/${testUser.id}`)
           .set('Authorization', `Bearer ${viewerToken}`)
-          .send({ role: 'member' })
+          .send({ role: 'workspace_member' })
           .expect(403);
       });
 
       it('Workspace owner can remove members', async () => {
         // Add a user to remove
         const removeUser = await createTestUser(`remove-${Date.now()}@rbac-test.com`, 'Remove', 'User', org1.id, 'member');
-        await createWorkspaceMember(workspace1.id, removeUser.id, 'member');
+        await createWorkspaceMember(workspace1.id, removeUser.id, 'workspace_member');
 
         await request(app.getHttpServer())
           .delete(`/api/workspaces/${workspace1.id}/members/${removeUser.id}`)
@@ -272,7 +273,7 @@ describe('Workspace RBAC (E2E)', () => {
         const newOwner = await createTestUser(`newowner-${Date.now()}@rbac-test.com`, 'New', 'Owner', org1.id, 'member');
         // Create UserOrganization entry for newOwner
         await createUserOrganization(newOwner.id, org1.id, 'pm');
-        await createWorkspaceMember(workspace1.id, newOwner.id, 'member');
+        await createWorkspaceMember(workspace1.id, newOwner.id, 'workspace_member');
 
         const response = await request(app.getHttpServer())
           .post(`/api/workspaces/${workspace1.id}/change-owner`)
@@ -334,7 +335,8 @@ describe('Workspace RBAC (E2E)', () => {
         .expect(201);
 
       expect(response.body).toBeDefined();
-      expect(response.body.name).toBe('Member Created Project');
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.name).toBe('Member Created Project');
     });
 
     it('Workspace viewer cannot create project (403)', async () => {
@@ -358,7 +360,8 @@ describe('Workspace RBAC (E2E)', () => {
         .send({ name: 'Updated by Member' })
         .expect(200);
 
-      expect(response.body.name).toBe('Updated by Member');
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.name).toBe('Updated by Member');
     });
 
     it('Workspace viewer cannot update project (403)', async () => {
@@ -430,15 +433,18 @@ describe('Workspace RBAC (E2E)', () => {
         .expect(201);
 
       expect(response.body).toBeDefined();
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.id).toBeDefined();
 
       // Update project
       const updateResponse = await request(app.getHttpServer())
-        .patch(`/api/projects/${response.body.id}`)
+        .patch(`/api/projects/${response.body.data.id}`)
         .set('Authorization', `Bearer ${orgAdminToken}`)
         .send({ name: 'Admin Updated Project' })
         .expect(200);
 
-      expect(updateResponse.body.name).toBe('Admin Updated Project');
+      expect(updateResponse.body.data).toBeDefined();
+      expect(updateResponse.body.data.name).toBe('Admin Updated Project');
     });
   });
 
@@ -465,17 +471,18 @@ describe('Workspace RBAC (E2E)', () => {
         .send({
           name: workspaceName,
           slug: `trans-test-ws-${timestamp}`,
-          ownerId: testUser.id,
+          ownerUserIds: [testUser.id], // DTO requires array of owner user IDs
         })
         .expect(201);
 
       expect(response.body).toBeDefined();
-      expect(response.body.name).toBe(workspaceName);
+      expect(response.body.data).toBeDefined();
+      expect(response.body.data.workspaceId).toBeDefined();
 
-      // Verify workspace exists
+      // Verify workspace exists using workspaceId from response
       const workspaceRepo = dataSource.getRepository(Workspace);
       const workspace = await workspaceRepo.findOne({
-        where: { id: response.body.id },
+        where: { id: response.body.data.workspaceId },
       });
       expect(workspace).toBeDefined();
       expect(workspace?.name).toBe(workspaceName);
@@ -486,7 +493,7 @@ describe('Workspace RBAC (E2E)', () => {
         where: { workspaceId: response.body.id, userId: testUser.id },
       });
       expect(member).toBeDefined();
-      expect(member?.role).toBe('owner');
+      expect(member?.role).toBe('workspace_owner');
     });
 
     it('Should rollback workspace creation if member creation fails', async () => {
@@ -505,7 +512,7 @@ describe('Workspace RBAC (E2E)', () => {
         .send({
           name: workspaceName,
           slug: workspaceSlug,
-          ownerId: invalidUserId,
+          ownerUserIds: [invalidUserId], // DTO requires array
         });
 
       // Should fail (either 400, 404, or 500 depending on validation)
@@ -549,7 +556,7 @@ describe('Workspace RBAC (E2E)', () => {
         .send({
           name: workspaceName,
           slug: workspaceSlug,
-          ownerId: otherOrgUser.id,
+          ownerUserIds: [otherOrgUser.id], // DTO requires array
         });
 
       // Should fail because user is not in the organization
@@ -680,7 +687,7 @@ describe('Workspace RBAC (E2E)', () => {
   async function createWorkspaceMember(
     workspaceId: string,
     userId: string,
-    role: 'owner' | 'member' | 'viewer',
+    role: 'workspace_owner' | 'workspace_member' | 'workspace_viewer' | 'delivery_owner' | 'stakeholder',
   ): Promise<WorkspaceMember | null> {
     try {
       const memberRepo = dataSource.getRepository(WorkspaceMember);
@@ -689,7 +696,8 @@ describe('Workspace RBAC (E2E)', () => {
         userId,
         role,
       });
-      return await memberRepo.save(member);
+      const saved = await memberRepo.save(member);
+      return Array.isArray(saved) ? saved[0] : saved;
     } catch (error) {
       if (error.message?.includes('does not exist') || error.message?.includes('relation')) {
         console.warn('⚠️  workspace_members table does not exist. Skipping member creation.');

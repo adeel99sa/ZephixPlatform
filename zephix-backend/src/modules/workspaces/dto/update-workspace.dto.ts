@@ -41,4 +41,9 @@ export class UpdateWorkspaceDto {
   @IsObject()
   @IsOptional()
   permissionsConfig?: Record<string, string[]>;
+
+  // PHASE 5.1: Workspace notes for Workspace Home page
+  @IsString()
+  @IsOptional()
+  homeNotes?: string;
 }

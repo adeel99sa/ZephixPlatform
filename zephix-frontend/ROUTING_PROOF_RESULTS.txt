@@ -1,0 +1,159 @@
+ROUTING LOCKDOWN - PROOF RESULTS
+================================
+
+Code Verification:
+-------------------
+✅ ALLOWED_GLOBAL_PREFIXES:
+   - Contains: /template-center
+   - Does NOT contain: /templates
+   
+✅ Runtime Invariant Guard:
+   - Triggers only on /w/* paths (verified: pathname.startsWith("/w/"))
+   - Triggers only when activeWorkspaceId is empty (verified: if (activeWorkspaceId) return)
+
+Code Changes Applied:
+---------------------
+✅ A) Allowed prefixes fixed
+   - File: zephix-frontend/src/components/routing/WorkspaceContextGuard.tsx
+   - Removed "/templates" from ALLOWED_GLOBAL_PREFIXES
+   - Only "/template-center" remains
+
+✅ B) Automated guard added
+   - File: zephix-frontend/src/components/routing/WorkspaceContextGuard.tsx
+   - Added runtime invariant: warns in dev if /w/:slug/* has no activeWorkspaceId
+   - Code: useEffect with import.meta.env.MODE !== "development" check
+
+✅ Build Status
+   - Frontend build: PASSING
+   - TypeScript: No errors
+
+Manual Proof Steps - Results:
+------------------------------
+
+Step 1. Admin login landing
+Expected:
+- URL is /admin/overview
+- No workspace page loads
+- activeWorkspaceId is null
+- /api/auth/me request headers: Authorization present, x-workspace-id absent
+
+Observed:
+- URL: [FILL IN AFTER MANUAL TEST]
+- Page loaded: [YES/NO]
+- activeWorkspaceId: [null/workspace-id]
+- /api/auth/me Authorization header: [PRESENT/ABSENT]
+- /api/auth/me x-workspace-id header: [PRESENT/ABSENT]
+
+Files captured:
+- step-1-admin-landing.png
+- step-1-auth-me-headers.txt
+
+---
+
+Step 2. Member login landing
+Expected:
+- URL is /home
+- activeWorkspaceId is null
+- /api/auth/me request headers: Authorization present, x-workspace-id absent
+
+Observed:
+- URL: [FILL IN AFTER MANUAL TEST]
+- activeWorkspaceId: [null/workspace-id]
+- /api/auth/me Authorization header: [PRESENT/ABSENT]
+- /api/auth/me x-workspace-id header: [PRESENT/ABSENT]
+
+Files captured:
+- step-2-member-landing.png
+- step-2-auth-me-headers.txt
+
+---
+
+Step 3. Deep link unauthenticated
+Expected:
+- Redirect URL: /login?redirect=%2Fw%2F<slug>%2Fhome
+- After login: /w/<slug>/home
+
+Observed:
+- Redirect URL: [FILL IN AFTER MANUAL TEST]
+- Final URL after login: [FILL IN AFTER MANUAL TEST]
+
+Files captured:
+- step-3a-redirect-to-login.png
+- step-3b-post-login-workspace-home.png
+
+---
+
+Step 4. Legacy redirect with query and subpath
+Expected:
+- One request to GET /api/workspaces/<uuid>/resolve-slug
+- Final URL: /w/<slug>/members?x=1
+
+Observed:
+- resolve-slug requests: [FILL IN COUNT]
+- Final URL: [FILL IN AFTER MANUAL TEST]
+- Query param preserved: [YES/NO]
+
+Files captured:
+- step-4-final-url.png
+- step-4-resolve-slug-response.txt
+
+---
+
+Step 5. Sidebar selection
+Expected:
+- URL: /w/<slug>/home
+
+Observed:
+- URL: [FILL IN AFTER MANUAL TEST]
+
+Files captured:
+- step-5-sidebar-select.png
+
+---
+
+Step 6. Context clearing
+Expected:
+- activeWorkspaceId clears when leaving workspace routes
+- Non-workspace API calls do NOT include x-workspace-id header
+
+Observed:
+- Route navigated to: [FILL IN ROUTE]
+- activeWorkspaceId after navigation: [null/workspace-id]
+- /api/auth/me x-workspace-id header: [PRESENT/ABSENT]
+
+Files captured:
+- step-6-after-context-clear.png
+- step-6-non-workspace-headers.txt
+
+---
+
+Summary of Observed URLs:
+--------------------------
+Step 1 Final URL: [FILL IN]
+Step 2 Final URL: [FILL IN]
+Step 3 Redirect URL: [FILL IN]
+Step 3 Final URL: [FILL IN]
+Step 4 Final URL: [FILL IN]
+Step 5 Final URL: [FILL IN]
+Step 6 Route: [FILL IN]
+
+Header Checks:
+--------------
+Step 1 /api/auth/me x-workspace-id: [PRESENT/ABSENT]
+Step 2 /api/auth/me x-workspace-id: [PRESENT/ABSENT]
+Step 6 /api/auth/me x-workspace-id: [PRESENT/ABSENT]
+
+Console Warnings:
+-----------------
+Runtime guard warnings: [LIST ANY WARNINGS FROM [routing] /w/* without activeWorkspaceId]
+Other warnings: [LIST ANY OTHER RELEVANT WARNINGS]
+
+---
+
+Instructions:
+-------------
+1. Run manual tests with backend and frontend servers running
+2. Fill in all [FILL IN] sections above with actual observed values
+3. Capture all 11 artifacts listed
+4. Update this file with observed values
+5. Commit this file along with documentation

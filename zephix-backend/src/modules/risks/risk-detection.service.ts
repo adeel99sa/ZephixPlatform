@@ -33,6 +33,10 @@ export class RiskDetectionService {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async runDailyRiskScan() {
+    // Skip in test mode
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
     console.log('🔍 Running daily risk scan...');
 
     // Get all organizations using DataSource (infra-level access is allowed)

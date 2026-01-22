@@ -12,8 +12,15 @@ import { TemplateService } from './services/template.service';
 // import { TemplateController } from './controllers/template.controller';
 import { TemplatesService } from './services/templates.service';
 import { TemplatesInstantiateService } from './services/templates-instantiate.service';
+import { TemplatesInstantiateV51Service } from './services/templates-instantiate-v51.service';
+import { TemplatesRecommendationService } from './services/templates-recommendation.service';
+import { TemplatesPreviewV51Service } from './services/templates-preview-v51.service';
 import { TemplateBlocksService } from './services/template-blocks.service';
 import { LegoBlocksService } from './services/lego-blocks.service';
+import { WorkPhase } from '../work-management/entities/work-phase.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import {
   TemplatesController,
   AdminTemplatesController,
@@ -44,9 +51,13 @@ import {
       Workspace,
       Risk, // Phase 5: For risk instantiation
       ProjectMetrics, // Phase 5: For KPI instantiation
+      WorkPhase, // Sprint 2.5: For v5.1 template instantiation
+      WorkTask, // Sprint 2.5: For v5.1 template instantiation
     ]),
     TenancyModule, // Required for TenantAwareRepository
     WorkspacesModule, // Phase 4: Import for WorkspacePermissionService
+    WorkspaceAccessModule, // Sprint 2.5: Import for WorkspaceAccessService
+    WorkManagementModule, // Sprint 2.5: Import for ProjectStructureGuardService
   ],
   controllers: [
     // TemplateController removed - route collision with TemplatesController
@@ -66,6 +77,9 @@ import {
     TemplateService,
     TemplatesService,
     TemplatesInstantiateService,
+    TemplatesInstantiateV51Service,
+    TemplatesRecommendationService,
+    TemplatesPreviewV51Service,
     TemplateBlocksService,
     LegoBlocksService,
     TemplateLockGuard,
@@ -77,6 +91,9 @@ import {
     TemplateService,
     TemplatesService,
     TemplatesInstantiateService,
+    TemplatesInstantiateV51Service,
+    TemplatesRecommendationService,
+    TemplatesPreviewV51Service,
     TemplateBlocksService,
     LegoBlocksService,
   ],

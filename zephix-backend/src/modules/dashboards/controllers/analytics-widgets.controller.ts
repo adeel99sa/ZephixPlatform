@@ -54,11 +54,29 @@ export class AnalyticsWidgetsController {
 
   @Get('project-health')
   @ApiOperation({ summary: 'Get project health widget data' })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: false })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: false })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Project health data retrieved successfully' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Project health data retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getProjectHealth(
     @Req() req: AuthRequest,
     @Query('startDate') startDate?: string,
@@ -87,21 +105,26 @@ export class AnalyticsWidgetsController {
 
     // Count conflicts by project
     const projectIds = projects.map((p) => p.id);
-    const conflicts = projectIds.length > 0
-      ? await this.conflictRepository.find({
-          where: {
-            organizationId,
-          },
-        })
-      : [];
+    const conflicts =
+      projectIds.length > 0
+        ? await this.conflictRepository.find({
+            where: {
+              organizationId,
+            },
+          })
+        : [];
 
     // Extract project IDs from affectedProjects JSONB array
     const conflictCounts: Record<string, number> = {};
     conflicts.forEach((conflict) => {
-      if (conflict.affectedProjects && Array.isArray(conflict.affectedProjects)) {
+      if (
+        conflict.affectedProjects &&
+        Array.isArray(conflict.affectedProjects)
+      ) {
         conflict.affectedProjects.forEach((ap: any) => {
           if (ap.projectId && projectIds.includes(ap.projectId)) {
-            conflictCounts[ap.projectId] = (conflictCounts[ap.projectId] || 0) + 1;
+            conflictCounts[ap.projectId] =
+              (conflictCounts[ap.projectId] || 0) + 1;
           }
         });
       }
@@ -120,12 +143,30 @@ export class AnalyticsWidgetsController {
 
   @Get('sprint-metrics')
   @ApiOperation({ summary: 'Get sprint metrics widget data' })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: false })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: false })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Sprint metrics data retrieved successfully' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: false,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sprint metrics data retrieved successfully',
+  })
   @ApiResponse({ status: 501, description: 'Sprint data not configured' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getSprintMetrics(
     @Req() req: AuthRequest,
     @Query('startDate') startDate?: string,
@@ -153,11 +194,29 @@ export class AnalyticsWidgetsController {
 
   @Get('resource-utilization')
   @ApiOperation({ summary: 'Get resource utilization widget data' })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: true })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: true })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Resource utilization data retrieved successfully' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resource utilization data retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getResourceUtilization(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
@@ -197,11 +256,29 @@ export class AnalyticsWidgetsController {
 
   @Get('conflict-trends')
   @ApiOperation({ summary: 'Get conflict trends widget data' })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: true })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: true })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Conflict trends data retrieved successfully' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Conflict trends data retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getConflictTrends(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
@@ -231,8 +308,12 @@ export class AnalyticsWidgetsController {
     const conflicts = await this.conflictRepository
       .createQueryBuilder('conflict')
       .where('conflict.organizationId = :organizationId', { organizationId })
-      .andWhere('conflict.detectedAt >= :startDate', { startDate: new Date(startDate) })
-      .andWhere('conflict.detectedAt <= :endDate', { endDate: new Date(endDate) })
+      .andWhere('conflict.detectedAt >= :startDate', {
+        startDate: new Date(startDate),
+      })
+      .andWhere('conflict.detectedAt <= :endDate', {
+        endDate: new Date(endDate),
+      })
       .getMany();
 
     // Filter by workspace via affectedProjects (conflicts don't have direct workspaceId)
@@ -258,12 +339,34 @@ export class AnalyticsWidgetsController {
 
   @Get('portfolio-summary')
   @ApiOperation({ summary: 'Get portfolio summary widget data' })
-  @ApiQuery({ name: 'portfolioId', description: 'Portfolio ID', required: true })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: true })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: true })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Portfolio summary data retrieved successfully' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiQuery({
+    name: 'portfolioId',
+    description: 'Portfolio ID',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Portfolio summary data retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getPortfolioSummary(
     @Query('portfolioId') portfolioId: string,
     @Query('startDate') startDate: string,
@@ -308,11 +411,29 @@ export class AnalyticsWidgetsController {
   @Get('program-summary')
   @ApiOperation({ summary: 'Get program summary widget data' })
   @ApiQuery({ name: 'programId', description: 'Program ID', required: true })
-  @ApiQuery({ name: 'startDate', description: 'Start date (YYYY-MM-DD)', required: true })
-  @ApiQuery({ name: 'endDate', description: 'End date (YYYY-MM-DD)', required: true })
-  @ApiHeader({ name: 'x-workspace-id', description: 'Workspace ID (required)', required: true })
-  @ApiResponse({ status: 200, description: 'Program summary data retrieved successfully' })
-  @ApiResponse({ status: 403, description: 'Workspace ID required or access denied' })
+  @ApiQuery({
+    name: 'startDate',
+    description: 'Start date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'endDate',
+    description: 'End date (YYYY-MM-DD)',
+    required: true,
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Program summary data retrieved successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Workspace ID required or access denied',
+  })
   async getProgramSummary(
     @Query('programId') programId: string,
     @Query('startDate') startDate: string,
@@ -354,4 +475,3 @@ export class AnalyticsWidgetsController {
     return this.responseService.success(summary);
   }
 }
-
