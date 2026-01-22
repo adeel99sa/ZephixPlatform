@@ -6,6 +6,12 @@ import { EnvelopeInterceptor } from './shared/interceptors/envelope.interceptor'
 import { ApiErrorFilter } from './shared/filters/api-error.filter';
 import { RequestContextLoggerInterceptor } from './common/interceptors/request-context-logger.interceptor';
 
+/**
+ * Helper to parse environment variable as boolean
+ * Returns true only if value is explicitly "true" (case-insensitive)
+ */
+const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
+
 // CRITICAL: Never disable TLS verification in production
 // Railway PostgreSQL uses proper SSL certificates - use SSL mode 'require' in connection string
 // Do NOT set NODE_TLS_REJECT_UNAUTHORIZED=0 - it disables all TLS verification
@@ -146,10 +152,24 @@ async function bootstrap() {
 
   // Add global envelope interceptor for standardized responses
   console.log('📦 Configuring global envelope interceptor...');
-  app.useGlobalInterceptors(
-    new RequestContextLoggerInterceptor(),
-    new EnvelopeInterceptor(),
+  const interceptors = [new EnvelopeInterceptor()];
+
+  // Conditionally add request context logger
+  const requestLoggerEnabled = isTrue(process.env.REQUEST_CONTEXT_LOGGER_ENABLED);
+  console.log(
+    `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
   );
+  console.log(
+    `REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`,
+  );
+  if (requestLoggerEnabled) {
+    interceptors.unshift(new RequestContextLoggerInterceptor());
+    console.log('✅ RequestContextLoggerInterceptor enabled');
+  } else {
+    console.log('⚠️  RequestContextLoggerInterceptor disabled');
+  }
+
+  app.useGlobalInterceptors(...interceptors);
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new ApiErrorFilter());

@@ -37,14 +37,19 @@ export const databaseConfig: TypeOrmModuleOptions = {
   retryAttempts: 5, // Increased retry attempts
   retryDelay: 5000, // Increased retry delay
   logging: (() => {
+    /**
+     * Helper to parse environment variable as boolean
+     * Returns true only if value is explicitly "true" (case-insensitive)
+     */
+    const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
+
     // Respect TYPEORM_LOGGING env override if set
     if (process.env.TYPEORM_LOGGING !== undefined) {
-      if (process.env.TYPEORM_LOGGING === 'false') {
-        return false;
-      }
-      if (process.env.TYPEORM_LOGGING === 'true') {
+      if (isTrue(process.env.TYPEORM_LOGGING)) {
         return ['error', 'warn', 'query', 'schema'];
       }
+      // Any other value (including "false") disables logging
+      return false;
     }
     // Default behavior: disable in test, minimal in production, full in development
     if (process.env.NODE_ENV === 'test') {
