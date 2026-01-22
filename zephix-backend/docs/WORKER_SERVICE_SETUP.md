@@ -30,7 +30,7 @@ The Zephix backend includes background workers (e.g., `OutboxProcessorService`) 
 
 **Root Directory:** `zephix-backend` (same as API service)
 
-**Start Command:** 
+**Start Command:**
 ```
 npm run start:railway
 ```
@@ -52,7 +52,7 @@ npm run start:railway
 
 **Required (Worker-specific):**
 ```
-OUTBOX_PROCESSOR_ENABLED=true
+OUTBOX_PROCESSOR_ENABLED=true          ⚠️ ONLY on worker service
 ```
 
 **Required (Same as API service):**
@@ -68,6 +68,8 @@ INTEGRATION_ENCRYPTION_KEY=<same as API service>
 - All database connection vars
 - All auth/secrets
 - All feature flags (except `OUTBOX_PROCESSOR_ENABLED`)
+
+**⚠️ Important:** Keep `OUTBOX_PROCESSOR_ENABLED=false` on the API service (`zephix-backend`) forever. Only set it to `true` on the worker service.
 
 **Service Configuration:**
 - **Replicas:** 1 (only one worker instance needed)
