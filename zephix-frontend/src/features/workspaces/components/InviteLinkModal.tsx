@@ -1,205 +1,163 @@
-/**
- * Invite Link Modal Component
- *
- * State machine:
- * - idle: Initial state
- * - loading-meta: Loading active link metadata
- * - ready: Metadata loaded, can create link
- * - creating: Creating new link
- * - error: Error state
- *
- * Behavior:
- * - GET /workspaces/:id/invite-link returns metadata only (no URL)
- * - POST /workspaces/:id/invite-link returns URL only at creation
- * - URL stored in component state (memory only, not localStorage)
- * - Revoke not available in Sprint 1 (requires linkId from backend)
- */
-import { useEffect, useState } from 'react';
-import {
-  getActiveInviteLink,
-  createInviteLink,
-  type InviteLinkMeta,
-  type CreateInviteLinkResult,
-  type ApiError,
-} from '../api/workspace-invite.api';
-import { Button } from '@/components/ui/Button';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/Button';
+import { workspaceInvitesApi, type ApiError, type CreateInviteLinkResult, type InviteLinkMeta } from '@/features/workspaces/api/workspace-invite.api';
 
-type InviteLinkModalState =
-  | { status: 'idle'; meta: InviteLinkMeta | null; createdLink: null; error: null }
-  | { status: 'loading-meta'; meta: InviteLinkMeta | null; createdLink: null; error: null }
-  | { status: 'ready'; meta: InviteLinkMeta | null; createdLink: CreateInviteLinkResult | null; error: null }
-  | { status: 'creating'; meta: InviteLinkMeta | null; createdLink: CreateInviteLinkResult | null; error: null }
-  | { status: 'error'; meta: InviteLinkMeta | null; createdLink: CreateInviteLinkResult | null; error: ApiError };
-
-interface InviteLinkModalProps {
+type Props = {
   open: boolean;
   workspaceId: string;
   onClose: () => void;
+};
+
+type State =
+  | { status: 'idle'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
+  | { status: 'loading'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
+  | { status: 'ready'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
+  | { status: 'creating'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
+  | { status: 'error'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError };
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return 'No expiry';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'No expiry';
+  return d.toLocaleString();
 }
 
-export function InviteLinkModal({ open, workspaceId, onClose }: InviteLinkModalProps) {
-  const [state, setState] = useState<InviteLinkModalState>({
+export default function InviteLinkModal({ open, workspaceId, onClose }: Props) {
+  const [expiresInDays, setExpiresInDays] = useState<number>(30);
+  const [state, setState] = useState<State>({
     status: 'idle',
     meta: null,
-    createdLink: null,
+    created: null,
     error: null,
   });
 
-  // Load metadata when modal opens
+  const showUrl = useMemo(() => {
+    return state.created?.url ?? null;
+  }, [state.created]);
+
   useEffect(() => {
-    if (open && workspaceId) {
-      loadMeta();
-    } else {
-      // Reset state when modal closes
-      setState({
-        status: 'idle',
-        meta: null,
-        createdLink: null,
-        error: null,
-      });
-    }
+    if (!open) return;
+
+    let alive = true;
+
+    (async () => {
+      setState((s) => ({ ...s, status: 'loading', error: null }));
+      try {
+        const meta = await workspaceInvitesApi.getActiveInviteLink(workspaceId);
+        if (!alive) return;
+        setState((s) => ({ ...s, status: 'ready', meta, error: null }));
+      } catch (e) {
+        if (!alive) return;
+        setState((s) => ({ ...s, status: 'error', error: e as ApiError }));
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [open, workspaceId]);
 
-  async function loadMeta() {
-    setState((prev) => ({ ...prev, status: 'loading-meta' }));
+  async function onCreate() {
+    setState((s) => ({ ...s, status: 'creating', error: null }));
     try {
-      const meta = await getActiveInviteLink(workspaceId);
-      setState({
-        status: 'ready',
-        meta,
-        createdLink: null,
-        error: null,
-      });
-    } catch (error: any) {
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: error as ApiError,
-      }));
-      toast.error('Failed to load invite link');
-    }
-  }
-
-  async function handleCreateLink(expiresInDays?: number) {
-    setState((prev) => ({ ...prev, status: 'creating' }));
-    try {
-      const result = await createInviteLink(workspaceId, { expiresInDays });
-      setState((prev) => ({
-        status: 'ready',
-        meta: prev.meta || { exists: true, expiresAt: result.expiresAt, createdAt: new Date().toISOString() },
-        createdLink: result,
-        error: null,
-      }));
+      const created = await workspaceInvitesApi.createInviteLink(workspaceId, { expiresInDays });
+      setState((s) => ({ ...s, status: 'ready', created, error: null }));
       toast.success('Invite link created');
-    } catch (error: any) {
-      const apiError = error as ApiError;
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: apiError,
-      }));
-      toast.error(apiError.message || 'Failed to create invite link');
+    } catch (e) {
+      const err = e as ApiError;
+      setState((s) => ({ ...s, status: 'error', error: err }));
+      toast.error(err.message || 'Failed to create invite link');
     }
   }
 
-  function handleCopyUrl() {
-    if (!state.createdLink?.url) return;
-    navigator.clipboard.writeText(state.createdLink.url);
-    toast.success('Link copied to clipboard');
+  async function onCopy() {
+    if (!state.created?.url) return;
+    try {
+      await navigator.clipboard.writeText(state.created.url);
+      toast.success('Copied');
+    } catch {
+      toast.error('Copy failed');
+    }
   }
 
   if (!open) return null;
 
+  const disabled = state.status === 'loading' || state.status === 'creating';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Invite Link</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            ×
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-lg">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-semibold">Invite link</div>
+            <div className="text-sm text-slate-600">Create a link. Copy it once. It is only shown after creation.</div>
+          </div>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
         </div>
 
-        {state.status === 'loading-meta' && (
-          <div className="text-center py-8">
-            <div className="text-gray-500">Loading...</div>
-          </div>
-        )}
-
-        {state.status === 'error' && (
-          <div className="text-center py-8">
-            <div className="text-red-600 mb-4">
-              {state.error?.message || 'An error occurred'}
+        <div className="mt-4 space-y-3">
+          {state.meta?.exists ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+              <div className="font-medium">An active link already exists</div>
+              <div className="text-slate-600">You will not see its URL. Create a new one to get a new URL.</div>
+              <div className="mt-2 text-slate-600">Expires: {formatDate(state.meta.expiresAt)}</div>
+              <div className="text-slate-600">Created: {formatDate(state.meta.createdAt)}</div>
             </div>
-            <Button onClick={loadMeta} variant="outline">
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {state.status === 'ready' && (
-          <div className="space-y-4">
-            {state.meta && !state.createdLink && (
-              <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                <p className="text-sm text-blue-800">
-                  An active link exists. For security, the URL is only shown when you create a new link.
-                </p>
-                {state.meta.expiresAt && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    Expires: {new Date(state.meta.expiresAt).toLocaleString()}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {state.createdLink && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Invite Link URL
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={state.createdLink.url}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
-                    />
-                    <Button onClick={handleCopyUrl} size="sm">
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-
-                {state.createdLink.expiresAt && (
-                  <p className="text-xs text-gray-500">
-                    Expires: {new Date(state.createdLink.expiresAt).toLocaleString()}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {!state.createdLink && (
-              <div className="text-center text-gray-500 py-4">
-                <p className="text-sm mb-4">No active link</p>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <Button onClick={onClose} variant="outline">
-                Close
-              </Button>
-              <Button onClick={() => handleCreateLink(30)}>
-                {state.meta ? 'Create New Link' : 'Create Link'}
-              </Button>
+          ) : (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              No active invite link found.
             </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-slate-700">Expiry (days)</label>
+            <input
+              className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm"
+              type="number"
+              min={1}
+              max={365}
+              value={expiresInDays}
+              onChange={(e) => setExpiresInDays(Number(e.target.value || 30))}
+              disabled={disabled}
+            />
+            <div className="text-xs text-slate-500">1 to 365</div>
           </div>
-        )}
+
+          {showUrl ? (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">New link</div>
+              <div className="flex gap-2">
+                <input
+                  className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+                  value={showUrl}
+                  readOnly
+                />
+                <Button variant="outline" onClick={onCopy}>
+                  Copy
+                </Button>
+              </div>
+              <div className="text-xs text-slate-600">Expires: {formatDate(state.created?.expiresAt ?? null)}</div>
+            </div>
+          ) : null}
+
+          {state.status === 'error' && state.error ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+              {state.error.message || 'Something went wrong'}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={disabled}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={onCreate} disabled={disabled}>
+            {state.status === 'creating' ? 'Creating...' : 'Create link'}
+          </Button>
+        </div>
       </div>
     </div>
   );

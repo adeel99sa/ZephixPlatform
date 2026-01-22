@@ -1,32 +1,27 @@
-/**
- * Workspace Invite API
- *
- * Matches backend behavior exactly:
- * - GET /workspaces/:id/invite-link returns metadata only (no URL)
- * - POST /workspaces/:id/invite-link returns URL only at creation
- * - POST /workspaces/join requires auth (returns 401 if not logged in)
- *
- * Envelope handling:
- * - src/lib/api.ts interceptor already unwraps { data: T } to T
- * - So response is already the inner data, no need to unwrap again
- */
+import type { AxiosError } from 'axios';
 import { api } from '@/lib/api';
-import { AxiosError } from 'axios';
 
-// Types matching backend exactly
-export type InviteLinkMeta = {
-  exists: true;
-  expiresAt: string | null;   // ISO string
-  createdAt: string;           // ISO string
+export type ApiError = {
+  code?: string;
+  message?: string;
+  statusCode?: number;
 };
 
+export type InviteLinkMeta =
+  | {
+      exists: true;
+      expiresAt: string | null;
+      createdAt: string;
+    }
+  | null;
+
 export type CreateInviteLinkRequest = {
-  expiresInDays?: number;     // optional, 1-365
+  expiresInDays?: number;
 };
 
 export type CreateInviteLinkResult = {
-  url: string;                // full URL with token
-  expiresAt: string | null;   // ISO string or null
+  url: string;
+  expiresAt: string | null;
 };
 
 export type JoinWorkspaceRequest = {
@@ -37,104 +32,64 @@ export type JoinWorkspaceResult = {
   workspaceId: string;
 };
 
-export type ApiError = {
-  code?: string;
-  message?: string;
-  statusCode?: number;
-};
+function toApiError(err: unknown): ApiError {
+  const e = err as AxiosError<any>;
+  const statusCode = e?.response?.status;
+  const data = e?.response?.data;
 
-// Error helper - extracts structured error from axios error
-function toApiError(e: unknown): ApiError {
-  const err = e as AxiosError<any>;
-  const data = err?.response?.data;
-  if (data?.code || data?.message) {
-    return { ...data, statusCode: err.response?.status };
+  if (data && (data.code || data.message)) {
+    return {
+      code: data.code,
+      message: data.message,
+      statusCode: data.statusCode ?? statusCode,
+    };
   }
+
   return {
     code: 'UNKNOWN',
     message: 'Request failed',
-    statusCode: err.response?.status,
+    statusCode,
   };
 }
 
-/**
- * Get active invite link metadata
- * GET /api/workspaces/:id/invite-link
- *
- * Returns metadata only (exists, expiresAt, createdAt)
- * Does NOT return URL or token for security
- *
- * Response: null or { exists: true, expiresAt: string | null, createdAt: string }
- */
-export async function getActiveInviteLink(
-  workspaceId: string
-): Promise<InviteLinkMeta | null> {
-  try {
-    // API interceptor already unwraps { data: T } to T
-    // So response is directly InviteLinkMeta | null
-    const response = await api.get<InviteLinkMeta | null>(
-      `/workspaces/${workspaceId}/invite-link`
-    );
-    return response ?? null;
-  } catch (e) {
-    throw toApiError(e);
-  }
-}
-
-/**
- * Create invite link
- * POST /api/workspaces/:id/invite-link
- *
- * Returns URL and expiresAt only at creation time
- * Store URL in component state (memory only)
- *
- * Response: { url: string, expiresAt: string | null }
- */
-export async function createInviteLink(
-  workspaceId: string,
-  body: CreateInviteLinkRequest = {}
-): Promise<CreateInviteLinkResult> {
-  try {
-    // API interceptor already unwraps { data: T } to T
-    // So response is directly CreateInviteLinkResult
-    const response = await api.post<CreateInviteLinkResult>(
-      `/workspaces/${workspaceId}/invite-link`,
-      body
-    );
-    if (!response?.url) {
-      throw new Error('Create invite link returned no URL');
+export const workspaceInvitesApi = {
+  async getActiveInviteLink(workspaceId: string): Promise<InviteLinkMeta> {
+    try {
+      // Your api.ts interceptor unwraps { data: T } into T.
+      // Controller returns formatResponse(payload), so we receive payload directly.
+      const res = await api.get(`/workspaces/${workspaceId}/invite-link`);
+      return (res as unknown as InviteLinkMeta) ?? null;
+    } catch (err) {
+      throw toApiError(err);
     }
-    return response;
-  } catch (e) {
-    throw toApiError(e);
-  }
-}
+  },
 
-/**
- * Join workspace
- * POST /api/workspaces/join
- *
- * Requires authentication
- * Returns 401 UNAUTHENTICATED if not logged in
- *
- * Response: { workspaceId: string }
- */
-export async function joinWorkspace(
-  body: JoinWorkspaceRequest
-): Promise<JoinWorkspaceResult> {
-  try {
-    // API interceptor already unwraps { data: T } to T
-    // So response is directly JoinWorkspaceResult
-    const response = await api.post<JoinWorkspaceResult>(
-      '/workspaces/join',
-      body
-    );
-    if (!response?.workspaceId) {
-      throw new Error('Join workspace returned no workspaceId');
+  async createInviteLink(
+    workspaceId: string,
+    body: CreateInviteLinkRequest = {},
+  ): Promise<CreateInviteLinkResult> {
+    try {
+      const res = await api.post(`/workspaces/${workspaceId}/invite-link`, body);
+      const data = res as unknown as CreateInviteLinkResult;
+      if (!data?.url) {
+        throw { code: 'INVALID_RESPONSE', message: 'Missing invite url', statusCode: 500 } satisfies ApiError;
+      }
+      return data;
+    } catch (err) {
+      throw toApiError(err);
     }
-    return response;
-  } catch (e) {
-    // Re-throw with structured error for UI handling
-    throw toApiError(e);
-  }
-}
+  },
+
+  async joinWorkspace(body: JoinWorkspaceRequest): Promise<JoinWorkspaceResult> {
+    try {
+      const res = await api.post('/workspaces/join', body);
+      const data = res as unknown as JoinWorkspaceResult;
+      if (!data?.workspaceId) {
+        throw { code: 'INVALID_RESPONSE', message: 'Missing workspaceId', statusCode: 500 } satisfies ApiError;
+      }
+      return data;
+    } catch (err) {
+      throw toApiError(err);
+    }
+  },
+};

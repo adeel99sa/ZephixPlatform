@@ -3,16 +3,25 @@
  * Implements OWASP ASVS Level 1 compliance for authentication
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, Eye, EyeOff, CheckCircle2, AlertCircle, Shield, Lock } from 'lucide-react';
 import { useAuth } from '../../state/AuthContext';
 import { usePostLoginRedirect } from '@/hooks/usePostLoginRedirect';
 
+function readReturnUrl(search: string): string | null {
+  const qs = new URLSearchParams(search);
+  const r = qs.get('returnUrl');
+  if (r && r.trim().length > 0) return r;
+  const stored = localStorage.getItem('zephix.returnUrl');
+  return stored && stored.trim().length > 0 ? stored : null;
+}
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, user, loading } = useAuth();
+  const returnUrl = useMemo(() => readReturnUrl(location.search), [location.search]);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -50,6 +59,9 @@ export const LoginPage: React.FC = () => {
     try {
       await login(formData.email, formData.password);
 
+      // Clear returnUrl from localStorage after successful login
+      localStorage.removeItem('zephix.returnUrl');
+
       // Check onboarding status after login
       try {
         const { onboardingApi } = await import('@/services/onboardingApi');
@@ -59,13 +71,15 @@ export const LoginPage: React.FC = () => {
           // Redirect to onboarding if not completed
           navigate('/onboarding', { replace: true });
         } else {
-          // Always redirect to /home after login (HomeView will handle workspace redirect)
-          navigate('/home', { replace: true });
+          // Use returnUrl if available, otherwise default to /home
+          const target = returnUrl || '/home';
+          navigate(target, { replace: true });
         }
       } catch (onboardingError) {
         console.error('Failed to check onboarding:', onboardingError);
-        // Fallback: Always redirect to /home
-        navigate('/home', { replace: true });
+        // Fallback: Use returnUrl if available, otherwise /home
+        const target = returnUrl || '/home';
+        navigate(target, { replace: true });
       }
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");

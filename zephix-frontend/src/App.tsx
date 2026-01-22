@@ -47,7 +47,7 @@ import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
 import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
 import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
-import { JoinWorkspacePage } from "@/views/workspaces/JoinWorkspacePage";
+import JoinWorkspacePage from "@/views/workspaces/JoinWorkspacePage";
 import WorkspaceSlugRedirect from "@/views/workspaces/WorkspaceSlugRedirect";
 import WorkspaceHomeBySlug from "@/views/workspaces/WorkspaceHomeBySlug";
 // PHASE 6 MODULE 3-4: Program and Portfolio pages
