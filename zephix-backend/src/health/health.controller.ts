@@ -59,7 +59,7 @@ export class HealthController {
     return res.status(HttpStatus.OK).json(response);
   }
 
-  @Get(['detailed', 'api/health/detailed'])
+  @Get(['health/detailed', 'api/health/detailed'])
   @ApiOperation({ summary: 'Detailed health check endpoint with full checks' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
