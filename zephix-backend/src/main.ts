@@ -175,20 +175,23 @@ async function bootstrap() {
   app.useGlobalFilters(new ApiErrorFilter());
 
   // DEBUG: list all registered routes (Express)
-  const server = app.getHttpServer();
-  const router = server._events?.request?._router;
-  if (router?.stack) {
-    console.log(
-      '[ROUTES]',
-      router.stack
-        .filter((l) => l.route)
-        .map((l) => {
-          const methods = Object.keys(l.route.methods)
-            .filter((m) => l.route.methods[m])
-            .join(',');
-          return `${methods.toUpperCase()} ${l.route.path}`;
-        }),
-    );
+  // Only log in development to avoid Railway log rate limits
+  if (process.env.NODE_ENV !== 'production') {
+    const server = app.getHttpServer();
+    const router = server._events?.request?._router;
+    if (router?.stack) {
+      console.log(
+        '[ROUTES]',
+        router.stack
+          .filter((l) => l.route)
+          .map((l) => {
+            const methods = Object.keys(l.route.methods)
+              .filter((m) => l.route.methods[m])
+              .join(',');
+            return `${methods.toUpperCase()} ${l.route.path}`;
+          }),
+      );
+    }
   }
 
   const port = process.env.PORT || 3000;
@@ -199,12 +202,15 @@ async function bootstrap() {
   console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
 
   // Post-startup router verification (Express only)
-  const httpServer = app.getHttpServer();
-  if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
-    const routes = httpServer._router.stack.filter((layer) => layer.route);
-    console.log(
-      `🎯 Router verification: ${routes.length} routes registered in Express stack`,
-    );
+  // Only log in development to avoid Railway log rate limits
+  if (process.env.NODE_ENV !== 'production') {
+    const httpServer = app.getHttpServer();
+    if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
+      const routes = httpServer._router.stack.filter((layer) => layer.route);
+      console.log(
+        `🎯 Router verification: ${routes.length} routes registered in Express stack`,
+      );
+    }
   }
   // Skip router check for Fastify or other adapters
 }
