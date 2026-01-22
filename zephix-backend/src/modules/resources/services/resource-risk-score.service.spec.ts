@@ -8,7 +8,7 @@ import { ResourceConflict } from '../entities/resource-conflict.entity';
 import { UserDailyCapacity } from '../entities/user-daily-capacity.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 
 describe('ResourceRiskScoreService - computeRiskScore', () => {
   let service: ResourceRiskScoreService;

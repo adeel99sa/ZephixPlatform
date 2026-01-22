@@ -13,6 +13,7 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { Project, ProjectStatus, ProjectState } from '../projects/entities/project.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
@@ -22,7 +23,6 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 import { TaskStatus } from '../work-management/enums/task.enums';
-import { ProjectStatus, ProjectState } from '../projects/entities/project.entity';
 import { In } from 'typeorm';
 // Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
 // Import it from the module, not the local service
@@ -199,9 +199,9 @@ export class WorkspacesService {
           canWrite: true,
           isReadOnly: false,
         };
-      } else if (membership.role === 'workspace_admin' || membership.role === 'workspace_member') {
+      } else if (membership.role === 'workspace_member') {
         return {
-          role: membership.role === 'workspace_admin' ? 'ADMIN' : 'MEMBER',
+          role: 'MEMBER',
           canWrite: true,
           isReadOnly: false,
         };

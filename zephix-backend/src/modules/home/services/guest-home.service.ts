@@ -6,7 +6,7 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { IsNull } from 'typeorm';
-import { WorkspaceAccessService } from '../../workspaces/services/workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 @Injectable()

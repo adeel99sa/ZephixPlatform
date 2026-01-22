@@ -458,6 +458,17 @@ export class TemplatesController {
           );
         }
       }
+      if (!isAdminRole(platformRole)) {
+        const workspaceRole = await this.workspaceRoleGuard.getWorkspaceRole(
+          template.workspaceId,
+          auth.userId,
+        );
+        if (workspaceRole !== 'workspace_owner') {
+          throw new ForbiddenException(
+            'Only workspace owners can update WORKSPACE templates',
+          );
+        }
+      }
     }
     if (template.templateScope === 'SYSTEM') {
       throw new ForbiddenException('Cannot update SYSTEM templates');
