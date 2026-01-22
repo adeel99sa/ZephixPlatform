@@ -6,7 +6,7 @@ import DemoBanner from '@/components/shell/DemoBanner';
 import { useAuth } from '@/state/AuthContext';
 import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import { WorkspaceSelectionScreen } from '@/components/workspace/WorkspaceSelectionScreen';
+import WorkspaceSelectionScreen from '@/components/workspace/WorkspaceSelectionScreen';
 
 // Patch 1: Routes that require workspace selection
 // Note: /workspaces does NOT require workspace selection - it IS the workspace selection page
