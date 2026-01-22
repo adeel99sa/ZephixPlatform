@@ -10,7 +10,7 @@
  * - Last owner protection
  * - Guest users forced to Viewer
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
@@ -27,7 +27,7 @@ import {
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { Button } from '@/components/ui/Button';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
-import { InviteLinkModal } from '@/features/workspaces/components/InviteLinkModal';
+import InviteLinkModal from '@/features/workspaces/components/InviteLinkModal';
 import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScreen';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
@@ -80,6 +80,31 @@ export default function WorkspaceMembersPage() {
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
   const canManage = permissions.canManageMembers;
+
+  const filteredMembers = useMemo(() => {
+    const list = Array.isArray(members) ? members : [];
+    const q = (searchQuery || '').trim().toLowerCase();
+    const status = statusFilter;
+    
+    let filtered = list;
+    
+    if (q) {
+      filtered = filtered.filter((m) => {
+        const email = (m?.user?.email || m?.email || '').toLowerCase();
+        const name = getMemberName(m).toLowerCase();
+        return email.includes(q) || name.includes(q);
+      });
+    }
+    
+    if (status !== 'all') {
+      filtered = filtered.filter((m) => {
+        const memberStatus = m.status || 'active';
+        return memberStatus === status;
+      });
+    }
+    
+    return filtered;
+  }, [members, searchQuery, statusFilter]);
 
   useEffect(() => {
     if (!effectiveWorkspaceId) {
