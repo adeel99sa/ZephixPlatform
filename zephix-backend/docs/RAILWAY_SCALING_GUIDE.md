@@ -14,6 +14,54 @@ REQUEST_CONTEXT_LOGGER_ENABLED=false
 TYPEORM_LOGGING=false
 ```
 
+### Running Migrations
+
+Railway doesn't provide an interactive terminal in the UI. Use one of these options:
+
+#### Option 1: Pre-Deploy Command (Recommended)
+
+Set migrations to run automatically on every deploy:
+
+1. Railway Dashboard → `zephix-backend` → Settings
+2. Find "Pre-Deploy Command" section
+3. Add command:
+   ```bash
+   npm run migration:run
+   ```
+4. Railway runs this after build and before deploy
+5. If migration fails, the deploy fails (prevents broken deployments)
+
+**Benefits:**
+- Migrations run automatically on every deploy
+- Failed migrations block deployment (safety)
+- No manual intervention needed
+
+#### Option 2: Railway CLI (Manual)
+
+Run migrations manually from your machine:
+
+1. Get Railway project token:
+   - Railway Dashboard → Project Settings → Tokens
+   - Create new token or use existing
+
+2. Run migration:
+   ```bash
+   RAILWAY_TOKEN=YOUR_TOKEN railway run --service zephix-backend npm run migration:run
+   ```
+
+   Or if already linked:
+   ```bash
+   cd zephix-backend
+   railway run npm run migration:run
+   ```
+
+**Benefits:**
+- Full control over when migrations run
+- Can run migrations independently of deployments
+- Useful for testing migrations before deploying
+
+**Reference:** [Railway Docs - Integrations](https://docs.railway.app/deploy/integrations)
+
 ### Scaling Verification Checklist
 
 After scaling to 2+ replicas, verify:
@@ -50,6 +98,11 @@ After scaling to 2+ replicas, verify:
 - ✅ No duplicate cron jobs
 - ✅ Load balanced across replicas
 - ✅ Health checks pass for all replicas
+
+**Boot Logs:**
+- You will see one "OutboxProcessorService disabled" log per replica on boot
+- You will NOT see outbox processing logs (OUTBOX_PROCESSOR_ENABLED=false)
+- Each replica logs independently, so you'll see duplicate boot messages (expected)
 
 ## Worker Service Setup (zephix-worker)
 
