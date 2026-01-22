@@ -6,7 +6,7 @@ import { Workspace } from '../entities/workspace.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { IsNull, LessThan, Not } from 'typeorm';
-import { WorkspaceAccessService } from './workspace-access.service';
+import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import {
   PlatformRole,
   normalizePlatformRole,

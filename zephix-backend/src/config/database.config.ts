@@ -36,10 +36,31 @@ export const databaseConfig: TypeOrmModuleOptions = {
   },
   retryAttempts: 5, // Increased retry attempts
   retryDelay: 5000, // Increased retry delay
-  logging:
-    process.env.NODE_ENV === 'test'
-      ? false
-      : ['error', 'warn', 'query', 'schema'], // Disable logging in test mode
+  logging: (() => {
+    /**
+     * Helper to parse environment variable as boolean
+     * Returns true only if value is explicitly "true" (case-insensitive)
+     */
+    const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
+
+    // Respect TYPEORM_LOGGING env override if set
+    if (process.env.TYPEORM_LOGGING !== undefined) {
+      if (isTrue(process.env.TYPEORM_LOGGING)) {
+        return ['error', 'warn', 'query', 'schema'];
+      }
+      // Any other value (including "false") disables logging
+      return false;
+    }
+    // Default behavior: disable in test, minimal in production, full in development
+    if (process.env.NODE_ENV === 'test') {
+      return false;
+    }
+    if (process.env.NODE_ENV === 'production') {
+      return false; // Disable query logging in production by default
+    }
+    // Development: full logging
+    return ['error', 'warn', 'query', 'schema'];
+  })(),
   // Add connection health check
   keepConnectionAlive: true,
   // Add connection pool settings

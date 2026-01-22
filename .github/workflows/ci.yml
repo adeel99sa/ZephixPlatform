@@ -5,7 +5,20 @@ jobs:
     name: Contract Tests Gate
     runs-on: ubuntu-latest
     # Run on every PR - this is the gate that prevents regressions
-    # Note: Contract tests are unit tests that mock the database - no Postgres service needed
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,6 +39,30 @@ jobs:
         working-directory: zephix-backend
         run: |
           npm run lint:tenancy-guard-full || exit 1
+      - name: Check TenantAwareRepository calls use explicit orgId
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-tenant-repo-calls.sh || exit 1
+      - name: Check for bad rewrites to regular Repository calls
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-bad-rewrites.sh || exit 1
+      - name: Check WorkspaceAccessService imports use canonical path
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-workspace-access-imports.sh || exit 1
+      - name: Check environment variable truthy checks
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-env-var-truthy-checks.sh || exit 1
+      - name: Run smoke tests
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          JWT_SECRET: test-secret-key
+          NODE_ENV: test
+        run: |
+          npm test -- --config test/jest-e2e.json --testPathPattern="smoke" || exit 1
       - name: Lint changed files (merge gate)
         working-directory: zephix-backend
         run: |

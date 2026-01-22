@@ -15,6 +15,7 @@ import { TemplateBlock } from '../templates/entities/template-block.entity';
 
 // Import all entities
 import { Project } from './entities/project.entity';
+import { ProjectView } from './entities/project-view.entity';
 // import { ProjectAssignment } from './entities/project-assignment.entity';
 // import { ProjectPhase } from './entities/project-phase.entity';
 import { Task } from './entities/task.entity';
@@ -45,6 +46,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
   imports: [
     TypeOrmModule.forFeature([
       Project,
+      ProjectView,
       // ProjectAssignment,
       // ProjectPhase,
       Task,
@@ -69,8 +71,9 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
     WorkspaceProjectsController,
   ], // PHASE 6: Added WorkspaceProjectsController
   providers: [
-    // Provide TenantAwareRepository for Project, Task, Template, TemplateBlock
+    // Provide TenantAwareRepository for Project, ProjectView, Task, Template, TemplateBlock
     createTenantAwareRepositoryProvider(Project),
+    createTenantAwareRepositoryProvider(ProjectView),
     createTenantAwareRepositoryProvider(Task),
     createTenantAwareRepositoryProvider(Template),
     createTenantAwareRepositoryProvider(TemplateBlock),

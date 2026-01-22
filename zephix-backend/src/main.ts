@@ -4,6 +4,13 @@ import 'reflect-metadata';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 import { EnvelopeInterceptor } from './shared/interceptors/envelope.interceptor';
 import { ApiErrorFilter } from './shared/filters/api-error.filter';
+import { RequestContextLoggerInterceptor } from './common/interceptors/request-context-logger.interceptor';
+
+/**
+ * Helper to parse environment variable as boolean
+ * Returns true only if value is explicitly "true" (case-insensitive)
+ */
+const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
 
 // CRITICAL: Never disable TLS verification in production
 // Railway PostgreSQL uses proper SSL certificates - use SSL mode 'require' in connection string
@@ -125,6 +132,7 @@ async function bootstrap() {
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
+        excludeExtraneousValues: false, // Allow properties with decorators
       },
       exceptionFactory: (errors) => {
         // Build standardized validation error
@@ -144,26 +152,46 @@ async function bootstrap() {
 
   // Add global envelope interceptor for standardized responses
   console.log('📦 Configuring global envelope interceptor...');
-  app.useGlobalInterceptors(new EnvelopeInterceptor());
+  const interceptors = [new EnvelopeInterceptor()];
+
+  // Conditionally add request context logger
+  const requestLoggerEnabled = isTrue(process.env.REQUEST_CONTEXT_LOGGER_ENABLED);
+  console.log(
+    `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
+  );
+  console.log(
+    `REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`,
+  );
+  if (requestLoggerEnabled) {
+    interceptors.unshift(new RequestContextLoggerInterceptor());
+    console.log('✅ RequestContextLoggerInterceptor enabled');
+  } else {
+    console.log('⚠️  RequestContextLoggerInterceptor disabled');
+  }
+
+  app.useGlobalInterceptors(...interceptors);
 
   console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new ApiErrorFilter());
 
   // DEBUG: list all registered routes (Express)
-  const server = app.getHttpServer();
-  const router = server._events?.request?._router;
-  if (router?.stack) {
-    console.log(
-      '[ROUTES]',
-      router.stack
-        .filter((l) => l.route)
-        .map((l) => {
-          const methods = Object.keys(l.route.methods)
-            .filter((m) => l.route.methods[m])
-            .join(',');
-          return `${methods.toUpperCase()} ${l.route.path}`;
-        }),
-    );
+  // Only log in development to avoid Railway log rate limits
+  if (process.env.NODE_ENV !== 'production') {
+    const server = app.getHttpServer();
+    const router = server._events?.request?._router;
+    if (router?.stack) {
+      console.log(
+        '[ROUTES]',
+        router.stack
+          .filter((l) => l.route)
+          .map((l) => {
+            const methods = Object.keys(l.route.methods)
+              .filter((m) => l.route.methods[m])
+              .join(',');
+            return `${methods.toUpperCase()} ${l.route.path}`;
+          }),
+      );
+    }
   }
 
   const port = process.env.PORT || 3000;
@@ -173,16 +201,18 @@ async function bootstrap() {
   console.log('✅ Application is running on:', `http://localhost:${port}`);
   console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
 
-  // Post-startup router verification
-  const httpServer = app.getHttpServer();
-  if (httpServer._router && httpServer._router.stack) {
-    const routes = httpServer._router.stack.filter((layer) => layer.route);
-    console.log(
-      `🎯 Router verification: ${routes.length} routes registered in Express stack`,
-    );
-  } else {
-    console.log('⚠️ Warning: Router stack not found after startup');
+  // Post-startup router verification (Express only)
+  // Only log in development to avoid Railway log rate limits
+  if (process.env.NODE_ENV !== 'production') {
+    const httpServer = app.getHttpServer();
+    if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
+      const routes = httpServer._router.stack.filter((layer) => layer.route);
+      console.log(
+        `🎯 Router verification: ${routes.length} routes registered in Express stack`,
+      );
+    }
   }
+  // Skip router check for Fastify or other adapters
 }
 
 bootstrap().catch((err) => {

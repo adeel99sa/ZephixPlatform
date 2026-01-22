@@ -1,0 +1,95 @@
+
+> zephix-backend@1.0.0 test
+> jest --config test/jest-e2e.json --testPathPattern=smoke
+
+FAIL test/smoke/workspaces.e2e-spec.ts
+  ● Test suite failed to run
+
+    [96mtest/smoke/workspaces.e2e-spec.ts[0m:[93m27[0m:[93m28[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m27[0m     const response = await request(app.getHttpServer())
+    [7m  [0m [91m                           ~~~~~~~[0m
+
+      [96mtest/smoke/workspaces.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+FAIL test/smoke/my-work.e2e-spec.ts
+  ● Test suite failed to run
+
+    [96mtest/smoke/my-work.e2e-spec.ts[0m:[93m27[0m:[93m28[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m27[0m     const response = await request(app.getHttpServer())
+    [7m  [0m [91m                           ~~~~~~~[0m
+
+      [96mtest/smoke/my-work.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+FAIL test/smoke/auth.e2e-spec.ts
+  ● Test suite failed to run
+
+    [96mtest/smoke/auth.e2e-spec.ts[0m:[93m25[0m:[93m28[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m25[0m     const response = await request(app.getHttpServer())
+    [7m  [0m [91m                           ~~~~~~~[0m
+
+      [96mtest/smoke/auth.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+    [96mtest/smoke/auth.e2e-spec.ts[0m:[93m50[0m:[93m28[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m50[0m     const response = await request(app.getHttpServer())
+    [7m  [0m [91m                           ~~~~~~~[0m
+
+      [96mtest/smoke/auth.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+FAIL test/smoke/docs.e2e-spec.ts
+  ● Test suite failed to run
+
+    [96mtest/smoke/docs.e2e-spec.ts[0m:[93m24[0m:[93m38[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m24[0m     const workspacesResponse = await request(app.getHttpServer())
+    [7m  [0m [91m                                     ~~~~~~~[0m
+
+      [96mtest/smoke/docs.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+    [96mtest/smoke/docs.e2e-spec.ts[0m:[93m42[0m:[93m34[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m42[0m     const createResponse = await request(app.getHttpServer())
+    [7m  [0m [91m                                 ~~~~~~~[0m
+
+      [96mtest/smoke/docs.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+    [96mtest/smoke/docs.e2e-spec.ts[0m:[93m56[0m:[93m31[0m - [91merror[0m[90m TS2349: [0mThis expression is not callable.
+      Type '{ default: SuperTestStatic; Test: typeof Test; agent: typeof TestAgent & ((app?: App, options?: AgentOptions) => TestAgent<Test>); }' has no call signatures.
+
+    [7m56[0m     const getResponse = await request(app.getHttpServer())
+    [7m  [0m [91m                              ~~~~~~~[0m
+
+      [96mtest/smoke/docs.e2e-spec.ts[0m:[93m3[0m:[93m1[0m
+        [7m3[0m import * as request from 'supertest';
+        [7m [0m [96m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+        Type originates at this import. A namespace-style import cannot be called or constructed, and will cause a failure at runtime. Consider using a default import or import require here instead.
+
+Test Suites: 4 failed, 4 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        2 s
+Ran all test suites matching /smoke/i.

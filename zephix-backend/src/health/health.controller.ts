@@ -39,6 +39,32 @@ export class HealthController {
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
   async check(@Res() res: Response) {
     const startTime = Date.now();
+    
+    // Fast health check for Railway - return immediately if app is running
+    // Full health checks are available at /api/health/detailed
+    const response = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: process.env.npm_package_version || '0.0.1',
+      message: 'Service is running',
+    };
+
+    const responseTime = Date.now() - startTime;
+    this.logger.log(
+      `Health check completed in ${responseTime}ms - Status: ${response.status}`,
+    );
+
+    return res.status(HttpStatus.OK).json(response);
+  }
+
+  @Get(['health/detailed', 'api/health/detailed'])
+  @ApiOperation({ summary: 'Detailed health check endpoint with full checks' })
+  @ApiResponse({ status: 200, description: 'Service is healthy' })
+  @ApiResponse({ status: 503, description: 'Service is unhealthy' })
+  async detailedCheck(@Res() res: Response) {
+    const startTime = Date.now();
     const healthChecks = await this.performHealthChecks();
     const responseTime = Date.now() - startTime;
 
@@ -73,7 +99,7 @@ export class HealthController {
     };
 
     this.logger.log(
-      `Health check completed in ${responseTime}ms - Status: ${response.status}`,
+      `Detailed health check completed in ${responseTime}ms - Status: ${response.status}`,
     );
 
     return res.status(statusCode).json(response);
