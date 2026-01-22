@@ -37,7 +37,10 @@ class LayoutDto {
 }
 
 export class CreateWidgetDto {
-  @ApiProperty({ description: 'Widget key (must be in allowlist)', maxLength: 120 })
+  @ApiProperty({
+    description: 'Widget key (must be in allowlist)',
+    maxLength: 120,
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(120)
@@ -58,4 +61,3 @@ export class CreateWidgetDto {
   @Type(() => LayoutDto)
   layout: LayoutDto;
 }
-

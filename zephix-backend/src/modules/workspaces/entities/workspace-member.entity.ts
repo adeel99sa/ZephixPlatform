@@ -49,4 +49,28 @@ export class WorkspaceMember {
 
   @Column({ type: 'uuid', name: 'updated_by', nullable: true })
   updatedBy?: string | null;
+
+  // PROMPT 8: Member status
+  @Column({ type: 'text', default: 'active' })
+  status: 'active' | 'suspended';
+
+  @Column({ type: 'timestamptz', name: 'suspended_at', nullable: true })
+  suspendedAt?: Date | null;
+
+  @Column({ type: 'uuid', name: 'suspended_by_user_id', nullable: true })
+  suspendedByUserId?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'suspended_by_user_id' })
+  suspendedBy?: User;
+
+  @Column({ type: 'timestamptz', name: 'reinstated_at', nullable: true })
+  reinstatedAt?: Date | null;
+
+  @Column({ type: 'uuid', name: 'reinstated_by_user_id', nullable: true })
+  reinstatedByUserId?: string | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'reinstated_by_user_id' })
+  reinstatedBy?: User;
 }

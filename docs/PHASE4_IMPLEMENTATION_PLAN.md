@@ -203,3 +203,4 @@ The verification script stops on:
 - `zephix-backend/src/app.module.ts` (removed ProgramsModule import)
 - `zephix-backend/src/config/data-source.ts` (added new entities)
 
+

@@ -88,7 +88,7 @@ export class TenantContextInterceptor implements NestInterceptor {
       // But log a warning if it looks like it should be authenticated
       if (
         request.path.startsWith('/api/') &&
-        !this.tenancyBypassPaths.some(path => request.path.includes(path))
+        !this.tenancyBypassPaths.some((path) => request.path.includes(path))
       ) {
         this.logger.warn(
           `Request to ${request.path} missing organizationId in user context`,

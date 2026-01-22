@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { useAuth } from '@/state/AuthContext';
 import { telemetry } from '@/lib/telemetry';
@@ -15,7 +17,8 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [busy, setBusy] = useState(false);
-  const { user } = useAuth();
+  const { user, setActiveWorkspaceId } = useAuth();
+  const navigate = useNavigate();
 
   if (!open) return null;
   if (!user?.organizationId) {
@@ -25,24 +28,22 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
 
   async function submit() {
     if (!name.trim()) return;
-    if (!user?.id) {
-      alert('User ID is required to create workspace.');
-      return;
-    }
     setBusy(true);
     try {
-      const ws = await createWorkspace({
+      const workspaceId = await createWorkspace({
         name,
         slug: slug || undefined,
-        ownerId: user.id, // Backend requires ownerId when workspace membership feature is enabled
       });
-      telemetry.track('ui.workspace.create.success', { workspaceId: ws.id });
-      onCreated(ws.id);
+      telemetry.track('ui.workspace.create.success', { workspaceId });
+      // Fix: Close modal first, then set workspace, then navigate (exact order required)
       onClose();
+      setActiveWorkspaceId(workspaceId);
+      navigate(`/workspaces/${workspaceId}/home`, { replace: true });
+      onCreated(workspaceId);
     } catch (e) {
       telemetry.track('ui.workspace.create.error', { message: (e as Error).message });
       const errorMessage = (e as any)?.response?.data?.message || (e as Error).message || 'Failed to create workspace.';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setBusy(false);
     }

@@ -1,5 +1,14 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { AuditService } from '../services/audit.service';
+import {
+  normalizePlatformRole,
+  isAdminRole,
+} from '../enums/platform-roles.enum';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -9,11 +18,15 @@ export class AdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) return false;
+    if (!user) {
+      throw new ForbiddenException('Forbidden');
+    }
 
-    const isAdmin = user.role === 'admin' || user.role === 'owner';
+    // Normalize role once - prefer platformRole over legacy role
+    const role = normalizePlatformRole(user.platformRole || user.role);
 
-    if (!isAdmin) {
+    // Use shared helper to check admin status
+    if (!isAdminRole(role)) {
       // Log unauthorized attempt
       this.auditService.logAction('admin.unauthorized', {
         userId: user.id,
@@ -21,8 +34,10 @@ export class AdminGuard implements CanActivate {
         path: request.path,
         timestamp: new Date(),
       });
+
+      throw new ForbiddenException('Forbidden');
     }
 
-    return isAdmin;
+    return true;
   }
 }

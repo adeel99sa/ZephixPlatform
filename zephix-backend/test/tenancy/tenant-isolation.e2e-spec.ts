@@ -264,22 +264,24 @@ describe('Tenant Isolation (E2E)', () => {
   });
 
   describe('Workspace cross-tenant negative test', () => {
-    let workspaceA: any;
-    let workspaceB: any;
+    let workspaceA: Workspace;
+    let workspaceB: Workspace;
 
     beforeAll(async () => {
       // Create workspaces for each org
       const workspaceRepo = dataSource.getRepository(Workspace);
-      workspaceA = await workspaceRepo.save({
+      const savedA = await workspaceRepo.save({
         name: 'Workspace A',
         organizationId: orgA.id,
         createdBy: userA.id,
       });
-      workspaceB = await workspaceRepo.save({
+      const savedB = await workspaceRepo.save({
         name: 'Workspace B',
         organizationId: orgB.id,
         createdBy: userB.id,
       });
+      workspaceA = Array.isArray(savedA) ? savedA[0] : savedA;
+      workspaceB = Array.isArray(savedB) ? savedB[0] : savedB;
     });
 
     it('User from Org A cannot access Org B workspace via route param', async () => {
@@ -311,16 +313,18 @@ describe('Tenant Isolation (E2E)', () => {
     it('Parallel requests with different orgs do not bleed context', async () => {
       // Create projects for each org to test read isolation
       const projectRepo = dataSource.getRepository(Project);
-      const projectA = await projectRepo.save({
+      const savedA = await projectRepo.save({
         name: 'Project A',
         organizationId: orgA.id,
         status: 'active',
       });
-      const projectB = await projectRepo.save({
+      const savedB = await projectRepo.save({
         name: 'Project B',
         organizationId: orgB.id,
         status: 'active',
       });
+      const projectA = Array.isArray(savedA) ? savedA[0] : savedA;
+      const projectB = Array.isArray(savedB) ? savedB[0] : savedB;
 
       // Simulate two parallel requests reading projects
       const [responseA, responseB] = await Promise.all([
@@ -411,5 +415,6 @@ describe('Tenant Isolation (E2E)', () => {
 
 // Import In for cleanup
 import { In } from 'typeorm';
+
 
 

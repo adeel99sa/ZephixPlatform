@@ -48,7 +48,8 @@ const ProjectDetailPage = () => {
 
   const loadTasks = async () => {
     try {
-      const response = await api.get(`/projects/${id}/tasks`);
+      const response = await api.get(`/work/tasks?projectId=${id}`);
+      // Backend ResponseService returns { success: true, data: [...] }
       const responseData = response.data?.data || response.data;
       const tasksArray = Array.isArray(responseData) ? responseData : [];
       setTasks(tasksArray);
@@ -60,11 +61,11 @@ const ProjectDetailPage = () => {
 
   const handleTaskUpdate = async (taskId: string, updates: any) => {
     try {
-      await api.patch(`/tasks/${taskId}`, updates);
+      await api.patch(`/work/tasks/${taskId}`, updates);
       // Refresh tasks list
       await loadTasks();
-      // Trigger KPI recalculation
-      await api.post(`/kpi/project/${id}/refresh`);
+      // TODO: KPI recalculation - pause until KPI system is rebuilt (Commit 4)
+      // await api.post(`/kpi/project/${id}/refresh`);
     } catch (error) {
       console.error('Failed to update task:', error);
     }

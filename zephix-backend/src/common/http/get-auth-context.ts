@@ -15,3 +15,15 @@ export function getAuthContext(req: AuthRequest) {
     platformRole: user.platformRole || user.role,
   };
 }
+
+export function getAuthContextOptional(req: AuthRequest) {
+  const user = req.user;
+  return {
+    userId: user?.id ?? null,
+    organizationId: user?.organizationId ?? null,
+    workspaceId: user?.workspaceId ?? null,
+    roles: user?.roles ?? [],
+    email: user?.email ?? null,
+    platformRole: user?.platformRole || user?.role || null,
+  };
+}

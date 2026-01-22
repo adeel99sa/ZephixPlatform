@@ -1,0 +1,13 @@
+## 42_route_counts
+Time: 2026-01-18 11:14:56 CST
+Cmd: bash proofs/recovery/scripts/count_routes.sh &&    echo '' &&    echo 'Total endpoints:' &&    bash -c 'source <(grep -E "^(get_count|post_count|patch_count|delete_count)=" proofs/recovery/commands/42_route_counts.txt | sed "s/=/=$((/; s/$/))/") && echo $((get_count + post_count + patch_count + delete_count))'
+
+controller_files=48
+get_count=118
+post_count=78
+patch_count=37
+delete_count=18
+
+Total endpoints:
+0
+bash: /; s/$/: syntax error: operand expected (error token is "/; s/$/")

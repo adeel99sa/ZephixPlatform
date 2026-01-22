@@ -168,7 +168,7 @@ export class ResourceAllocationService {
         createAllocationDto.resourceId,
         new Date(createAllocationDto.startDate),
         new Date(createAllocationDto.endDate),
-        allocationPercentage!,
+        allocationPercentage,
         undefined, // No existing allocation ID for create
       );
 
@@ -193,7 +193,7 @@ export class ResourceAllocationService {
       createAllocationDto.resourceId,
       new Date(createAllocationDto.startDate),
       new Date(createAllocationDto.endDate),
-      allocationPercentage!,
+      allocationPercentage,
       type,
       createAllocationDto.justification,
       undefined, // No existing allocation ID for create
@@ -225,7 +225,7 @@ export class ResourceAllocationService {
         createAllocationDto.resourceId,
         new Date(createAllocationDto.startDate),
         new Date(createAllocationDto.endDate),
-        allocationPercentage!,
+        allocationPercentage,
         saved.id,
         createAllocationDto.projectId,
       );
@@ -352,7 +352,8 @@ export class ResourceAllocationService {
       ? new Date(updateAllocationDto.endDate)
       : allocation.endDate;
     const finalPercentage =
-      updateAllocationDto.allocationPercentage ?? allocation.allocationPercentage;
+      updateAllocationDto.allocationPercentage ??
+      allocation.allocationPercentage;
 
     // Check if type is HARD and would breach
     if (finalType === AllocationType.HARD) {
@@ -361,7 +362,7 @@ export class ResourceAllocationService {
         allocation.resourceId,
         finalStartDate,
         finalEndDate,
-        finalPercentage!,
+        finalPercentage,
         id, // Exclude this allocation
       );
 
@@ -392,16 +393,10 @@ export class ResourceAllocationService {
     // Phase 3: Recompute conflicts for impacted window
     // Window must cover both old range and new range
     const recomputeStart = new Date(
-      Math.min(
-        oldStartDate.getTime(),
-        saved.startDate.getTime(),
-      ),
+      Math.min(oldStartDate.getTime(), saved.startDate.getTime()),
     );
     const recomputeEnd = new Date(
-      Math.max(
-        oldEndDate.getTime(),
-        saved.endDate.getTime(),
-      ),
+      Math.max(oldEndDate.getTime(), saved.endDate.getTime()),
     );
 
     this.recomputeConflicts(
@@ -735,12 +730,18 @@ export class ResourceAllocationService {
     // Compute currentHardLoad: sum of HARD allocations using CapacityMathHelper
     const currentHardLoad = existingAllocations
       .filter((a) => a.type === AllocationType.HARD)
-      .reduce((sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource), 0);
+      .reduce(
+        (sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource),
+        0,
+      );
 
     // Compute currentSoftLoad: sum of SOFT allocations using CapacityMathHelper
     const currentSoftLoad = existingAllocations
       .filter((a) => a.type === AllocationType.SOFT)
-      .reduce((sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource), 0);
+      .reduce(
+        (sum, a) => sum + CapacityMathHelper.toPercentOfWeek(a, resource),
+        0,
+      );
 
     // Compute projectedTotal using helper for new allocation
     // Only include new allocation if it's HARD or SOFT (exclude GHOST)
@@ -827,7 +828,9 @@ export class ResourceAllocationService {
     // Get existing allocations that overlap with the date range
     const queryBuilder = this.allocationRepository
       .qb('allocation')
-      .andWhere('allocation.organizationId = :organizationId', { organizationId })
+      .andWhere('allocation.organizationId = :organizationId', {
+        organizationId,
+      })
       .andWhere('allocation.resourceId = :resourceId', { resourceId })
       .andWhere('allocation.type != :ghostType', {
         ghostType: AllocationType.GHOST,
@@ -992,7 +995,7 @@ export class ResourceAllocationService {
         // Get project names for affected projects
         const projectIds = allocations
           .map((a) => a.projectId)
-          .filter((id) => id) as string[];
+          .filter((id) => id);
 
         let projectMap = new Map<string, string>();
         if (projectIds.length > 0) {
@@ -1124,7 +1127,7 @@ export class ResourceAllocationService {
         // Upsert conflict
         const projectIds = dayAllocations
           .map((a) => a.projectId)
-          .filter((id) => id) as string[];
+          .filter((id) => id);
 
         let projectMap = new Map<string, string>();
         if (projectIds.length > 0) {

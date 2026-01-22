@@ -104,6 +104,14 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
       where: { workspaceId, userId: user.id },
     });
 
+    // PROMPT 8 A2: Block suspended members
+    if (member && member.status === 'suspended') {
+      throw new ForbiddenException({
+        code: 'SUSPENDED',
+        message: 'Access suspended',
+      });
+    }
+
     const wsRole: WorkspaceRole | null = member?.role || null;
 
     // Attach workspace role to request
@@ -111,7 +119,7 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
 
     // Check access based on mode
     if (mode === 'viewer') {
-      // All roles can view
+      // All roles can view (if not suspended)
       return true;
     }
 

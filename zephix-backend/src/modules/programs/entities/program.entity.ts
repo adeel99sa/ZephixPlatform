@@ -13,17 +13,18 @@ import { Portfolio } from '../../portfolios/entities/portfolio.entity';
 import { Project } from '../../projects/entities/project.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { User } from '../../users/entities/user.entity';
+import { Workspace } from '../../workspaces/entities/workspace.entity';
 
 /**
- * Phase 4.1: Program Entity
+ * PHASE 6: Program Entity - Workspace-Scoped
  *
- * Data Model Decisions (locked in code comments):
- * - Program belongs to organizationId and portfolioId
+ * Data Model Decisions:
+ * - Program belongs to organizationId, workspaceId, and portfolioId
  * - Optional name, description, status
  * - CreatedBy (createdById), timestamps
- * - Unique constraint: (organizationId, portfolioId, name) for uniqueness within portfolio
+ * - Unique constraint: (portfolioId, name) for uniqueness within portfolio (case-insensitive)
  * - Status enum: ACTIVE, ARCHIVED
- * - Projects reach portfolio through program (program.portfolioId -> portfolio.id)
+ * - Program must belong to same workspace as its portfolio
  */
 export enum ProgramStatus {
   ACTIVE = 'active',
@@ -31,10 +32,12 @@ export enum ProgramStatus {
 }
 
 @Entity('programs')
-@Index('idx_program_org_portfolio', ['organizationId', 'portfolioId'])
-@Index('idx_program_org_portfolio_name', ['organizationId', 'portfolioId', 'name'], {
-  unique: true,
-})
+@Index('idx_program_org_workspace', ['organizationId', 'workspaceId'])
+@Index('idx_program_org_workspace_portfolio', [
+  'organizationId',
+  'workspaceId',
+  'portfolioId',
+])
 export class Program {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -46,6 +49,13 @@ export class Program {
   @ManyToOne(() => Organization)
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @Column({ name: 'workspace_id', type: 'uuid' })
+  workspaceId: string;
+
+  @ManyToOne(() => Workspace)
+  @JoinColumn({ name: 'workspace_id' })
+  workspace: Workspace;
 
   @Column({ name: 'portfolio_id', type: 'uuid' })
   portfolioId: string;

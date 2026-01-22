@@ -11,7 +11,11 @@ import { Resource } from './resource.entity';
 @Entity('resource_conflicts')
 @Index(['resourceId', 'conflictDate'])
 @Index(['severity'])
-@Index('idx_conflicts_org_resource_date', ['organizationId', 'resourceId', 'conflictDate'])
+@Index('idx_conflicts_org_resource_date', [
+  'organizationId',
+  'resourceId',
+  'conflictDate',
+])
 export class ResourceConflict {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -47,7 +51,11 @@ export class ResourceConflict {
   @Column({ default: false })
   resolved: boolean;
 
-  @Column({ name: 'detected_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    name: 'detected_at',
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   detectedAt: Date;
 
   @Column({ name: 'resolved_at', type: 'timestamp', nullable: true })

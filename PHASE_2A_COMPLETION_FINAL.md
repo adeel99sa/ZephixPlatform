@@ -304,3 +304,4 @@ The test database setup script runs automatically before `test:e2e`, so no manua
 The DI wiring fix is complete and verified. E2E tests now bypass `DemoBootstrapService` during initialization, the circular dependency is resolved, and CI guardrails prevent future issues. Test database setup is fully automated.
 
 
+

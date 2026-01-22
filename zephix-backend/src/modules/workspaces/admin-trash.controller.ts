@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminOnlyGuard } from '../../shared/guards/admin-only.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspacePolicy } from './workspace.policy';
@@ -11,7 +12,7 @@ type UserJwt = {
 };
 
 @Controller('admin/trash')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AdminOnlyGuard)
 export class AdminTrashController {
   constructor(
     private readonly workspacesService: WorkspacesService,
@@ -27,12 +28,6 @@ export class AdminTrashController {
     });
     this.policy.enforceDelete(u.role);
     return this.workspacesService.listTrash(u.organizationId, type);
-  }
-
-  @Get('test')
-  test() {
-    console.log('AdminTrashController.test called');
-    return { message: 'Admin trash test endpoint working' };
   }
 
   @Post('purge')

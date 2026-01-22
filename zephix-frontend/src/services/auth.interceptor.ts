@@ -7,7 +7,7 @@ class AuthInterceptor {
 
   constructor() {
     this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+      baseURL: '', // Use relative paths - Vite proxy handles /api -> localhost:3001
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -22,11 +22,11 @@ class AuthInterceptor {
     this.api.interceptors.request.use(
       (config: AxiosRequestConfig) => {
         const token = localStorage.getItem('accessToken');
-        
+
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-        
+
         return config;
       },
       (error: AxiosError) => {
@@ -58,7 +58,7 @@ class AuthInterceptor {
           return new Promise((resolve, reject) => {
             // Try to refresh token or redirect to login
             const refreshToken = localStorage.getItem('refreshToken');
-            
+
             if (!refreshToken) {
               this.redirectToLogin();
               reject(error);
@@ -90,7 +90,7 @@ class AuthInterceptor {
         prom.resolve(token);
       }
     });
-    
+
     this.failedQueue = [];
   }
 

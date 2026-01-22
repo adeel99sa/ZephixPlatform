@@ -20,13 +20,31 @@ fi
 echo "   ✅ Build passed"
 echo ""
 
-# 2. Lint Check
-echo "2️⃣  Running lint check..."
+# 2. Debug/Schema Exposure Guard
+echo "2️⃣  Checking for debug/schema exposure controllers..."
+DEBUG_MATCHES=$(grep -R "@Controller('debug'\\|\"debug\"\\|`debug`)" src -n || true)
+INTERNAL_MATCHES=$(grep -R "@Controller('internal'\\|\"internal\"\\|`internal`)" src -n || true)
+DIAG_MATCHES=$(grep -R "@Controller('diag'\\|\"diag\"\\|`diag`)" src -n || true)
+SCHEMA_ROUTE_MATCHES=$(grep -R "@Get('schema'\\|\"schema\"\\|`schema`\\|'health/schema'\\|\"health/schema\"\\|`health/schema`)" src -n || true)
+
+if [ -n "$DEBUG_MATCHES" ] || [ -n "$INTERNAL_MATCHES" ] || [ -n "$DIAG_MATCHES" ] || [ -n "$SCHEMA_ROUTE_MATCHES" ]; then
+  echo "❌ Debug/schema exposure routes detected in runtime build:"
+  [ -n "$DEBUG_MATCHES" ] && echo "$DEBUG_MATCHES"
+  [ -n "$INTERNAL_MATCHES" ] && echo "$INTERNAL_MATCHES"
+  [ -n "$DIAG_MATCHES" ] && echo "$DIAG_MATCHES"
+  [ -n "$SCHEMA_ROUTE_MATCHES" ] && echo "$SCHEMA_ROUTE_MATCHES"
+  exit 1
+fi
+echo "   ✅ Debug/schema exposure check passed"
+echo ""
+
+# 3. Lint Check
+echo "3️⃣  Running lint check..."
 npm run lint:new || npm run lint 2>/dev/null || echo "   ⚠️  Lint check skipped (no lint script)"
 echo ""
 
-# 3. Smoke Test - Nest App Boot
-echo "3️⃣  Running Nest app boot smoke test..."
+# 4. Smoke Test - Nest App Boot
+echo "4️⃣  Running Nest app boot smoke test..."
 npm run test:smoke
 if [ $? -ne 0 ]; then
   echo "❌ Smoke test failed - fix DI errors before deploying"

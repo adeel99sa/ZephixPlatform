@@ -124,7 +124,7 @@ describe('Resource Timeline and Heatmap (E2E)', () => {
     // Create a test allocation to populate timeline
     const allocationRepo = dataSource.getRepository(ResourceAllocation);
     await allocationRepo.save({
-      resourceId: testResource.id,
+      resource: { id: testResource.id },
       projectId: testProject.id,
       organizationId: testOrg.id,
       userId: testUser.id,
@@ -228,6 +228,7 @@ describe('Resource Timeline and Heatmap (E2E)', () => {
     });
   });
 });
+
 
 
 

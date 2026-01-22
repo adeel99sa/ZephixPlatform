@@ -26,6 +26,10 @@ jobs:
         working-directory: zephix-backend
         run: |
           npm run lint:tenancy-guard-full || exit 1
+      - name: Lint changed files (merge gate)
+        working-directory: zephix-backend
+        run: |
+          npm run lint:changed || exit 1
       - name: Check for circular dependencies (module-level only)
         working-directory: zephix-backend
         run: |
@@ -81,40 +85,196 @@ jobs:
           echo "Checking route order to prevent regressions..."
           # Check that static routes are defined before :id routes in controllers
           # This prevents routes like /api/dashboards/templates from matching :id handler
-          
-          # Dashboards: templates and activate-template must come before :id
-          DASHBOARDS_TEMPLATES_BEFORE_ID=$(grep -n "@Get('templates')" src/modules/dashboards/controllers/dashboards.controller.ts src/modules/dashboards/controllers/dashboard-templates.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-          DASHBOARDS_ID_AFTER_TEMPLATES=$(grep -n "@Get(':id')" src/modules/dashboards/controllers/dashboards.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-          
-          if [ "$DASHBOARDS_TEMPLATES_BEFORE_ID" != "0" ] && [ "$DASHBOARDS_ID_AFTER_TEMPLATES" != "9999" ]; then
-            if [ "$DASHBOARDS_TEMPLATES_BEFORE_ID" -gt "$DASHBOARDS_ID_AFTER_TEMPLATES" ]; then
-              echo "❌ Route order violation: @Get(':id') comes before @Get('templates') in dashboards controller"
+
+          # Dashboards: Check that @Get('templates') and @Post('activate-template') come before @Get(':id')
+          # These routes are in dashboard-templates.controller.ts, but we need to ensure dashboards.controller.ts
+          # doesn't have :id routes that would conflict
+          DASHBOARDS_TEMPLATES_LINE=$(grep -n "@Get('templates')" src/modules/dashboards/controllers/dashboard-templates.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          DASHBOARDS_ACTIVATE_LINE=$(grep -n "@Post('activate-template')" src/modules/dashboards/controllers/dashboard-templates.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          DASHBOARDS_ID_LINE=$(grep -n "@Get(':id')" src/modules/dashboards/controllers/dashboards.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+
+          # Verify templates controller exists and has static routes
+          if [ "$DASHBOARDS_TEMPLATES_LINE" = "0" ]; then
+            echo "❌ Route order violation: @Get('templates') not found in dashboard-templates.controller.ts"
+            exit 1
+          fi
+
+          if [ "$DASHBOARDS_ACTIVATE_LINE" = "0" ]; then
+            echo "❌ Route order violation: @Post('activate-template') not found in dashboard-templates.controller.ts"
+            exit 1
+          fi
+
+          # Verify dashboards.controller.ts has :id route after static routes (templates are in separate controller, so this is OK)
+          # But we must ensure no static routes in dashboards.controller.ts come after :id
+          DASHBOARDS_STATIC_AFTER_ID=$(grep -n "@Get('templates')\|@Post('activate-template')" src/modules/dashboards/controllers/dashboards.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+          if [ "$DASHBOARDS_STATIC_AFTER_ID" != "0" ] && [ "$DASHBOARDS_ID_LINE" != "9999" ]; then
+            if [ "$DASHBOARDS_STATIC_AFTER_ID" -gt "$DASHBOARDS_ID_LINE" ]; then
+              echo "❌ Route order violation: Static routes (@Get('templates') or @Post('activate-template')) come after @Get(':id') in dashboards.controller.ts"
               exit 1
             fi
           fi
-          
+
+          # CRITICAL: Fail if any controller has @Get(':id') before known static routes
+          # This prevents route shadowing bugs like the one we fixed in Phase 4.2
+          for controller_file in src/modules/dashboards/controllers/*.controller.ts; do
+            if [ ! -f "$controller_file" ]; then
+              continue
+            fi
+            CONTROLLER_NAME=$(basename "$controller_file" .controller.ts)
+            ID_ROUTE_LINE=$(grep -n "@Get(':id')\|@Post(':id')\|@Patch(':id')\|@Delete(':id')" "$controller_file" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+
+            # Check for static routes that must come before :id
+            STATIC_ROUTES=("templates" "activate-template" "project-health" "resource-utilization" "conflict-trends" "sprint-metrics" "portfolio-summary" "program-summary" "suggest" "generate")
+            for static_route in "${STATIC_ROUTES[@]}"; do
+              STATIC_ROUTE_LINE=$(grep -n "@Get('$static_route')\|@Post('$static_route')\|@Patch('$static_route')\|@Delete('$static_route')" "$controller_file" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+              if [ "$STATIC_ROUTE_LINE" != "0" ] && [ "$ID_ROUTE_LINE" != "9999" ]; then
+                if [ "$STATIC_ROUTE_LINE" -gt "$ID_ROUTE_LINE" ]; then
+                  echo "❌ Route order violation in $CONTROLLER_NAME: @Get(':id') (line $ID_ROUTE_LINE) comes before static route '$static_route' (line $STATIC_ROUTE_LINE)"
+                  echo "   Static routes must be defined before :id routes to prevent route shadowing"
+                  exit 1
+                fi
+              fi
+            done
+          done
+
+          # Verify analytics-widgets.controller.ts has no :id routes (all should be static)
+          ANALYTICS_ID_ROUTE=$(grep -n "@Get(':id')\|@Post(':id')\|@Patch(':id')\|@Delete(':id')" src/modules/dashboards/controllers/analytics-widgets.controller.ts 2>/dev/null | head -1 || echo "")
+          if [ -n "$ANALYTICS_ID_ROUTE" ]; then
+            echo "⚠️  Warning: analytics-widgets.controller.ts has :id routes (should be static only)"
+          fi
+
+          # Verify ai-dashboard.controller.ts has no :id routes (all should be static)
+          AI_ID_ROUTE=$(grep -n "@Get(':id')\|@Post(':id')\|@Patch(':id')\|@Delete(':id')" src/modules/dashboards/controllers/ai-dashboard.controller.ts 2>/dev/null | head -1 || echo "")
+          if [ -n "$AI_ID_ROUTE" ]; then
+            echo "⚠️  Warning: ai-dashboard.controller.ts has :id routes (should be static only)"
+          fi
+
           # Portfolios: :id/summary must come before :id
           PORTFOLIOS_SUMMARY_BEFORE_ID=$(grep -n "@Get(':id/summary')" src/modules/portfolios/portfolios.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
           PORTFOLIOS_ID_AFTER_SUMMARY=$(grep -n "@Get(':id')" src/modules/portfolios/portfolios.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-          
+
           if [ "$PORTFOLIOS_SUMMARY_BEFORE_ID" != "0" ] && [ "$PORTFOLIOS_ID_AFTER_SUMMARY" != "9999" ]; then
             if [ "$PORTFOLIOS_SUMMARY_BEFORE_ID" -gt "$PORTFOLIOS_ID_AFTER_SUMMARY" ]; then
               echo "❌ Route order violation: @Get(':id') comes before @Get(':id/summary') in portfolios controller"
               exit 1
             fi
           fi
-          
+
           # Programs: :id/summary must come before :id
           PROGRAMS_SUMMARY_BEFORE_ID=$(grep -n "@Get(':id/summary')" src/modules/programs/programs.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
           PROGRAMS_ID_AFTER_SUMMARY=$(grep -n "@Get(':id')" src/modules/programs/programs.controller.ts 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
-          
+
           if [ "$PROGRAMS_SUMMARY_BEFORE_ID" != "0" ] && [ "$PROGRAMS_ID_AFTER_SUMMARY" != "9999" ]; then
             if [ "$PROGRAMS_SUMMARY_BEFORE_ID" -gt "$PROGRAMS_ID_AFTER_SUMMARY" ]; then
               echo "❌ Route order violation: @Get(':id') comes before @Get(':id/summary') in programs controller"
               exit 1
             fi
           fi
-          
+
+          # Work Tasks Controller: Check route order (Phase 5.1)
+          WORK_TASKS_CONTROLLER="src/modules/work-management/controllers/work-tasks.controller.ts"
+          if [ -f "$WORK_TASKS_CONTROLLER" ]; then
+            echo "Checking work-tasks controller route order..."
+
+            # Static routes that must come before @Get(':id')
+            WORK_TASKS_BULK_LINE=$(grep -n "@Patch('bulk')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            WORK_TASKS_COMMENTS_GET_LINE=$(grep -n "@Get(':id/comments')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            WORK_TASKS_COMMENTS_POST_LINE=$(grep -n "@Post(':id/comments')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            WORK_TASKS_ACTIVITY_LINE=$(grep -n "@Get(':id/activity')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            WORK_TASKS_DEPS_POST_LINE=$(grep -n "@Post(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            WORK_TASKS_DEPS_DELETE_LINE=$(grep -n "@Delete(':id/dependencies')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+
+            WORK_TASKS_ID_GET_LINE=$(grep -n "@Get(':id')" "$WORK_TASKS_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+
+            # Check each static route is before @Get(':id')
+            for route_name in "bulk" "comments (GET)" "comments (POST)" "activity" "dependencies (POST)" "dependencies (DELETE)"; do
+              case "$route_name" in
+                "bulk")
+                  ROUTE_LINE="$WORK_TASKS_BULK_LINE"
+                  ;;
+                "comments (GET)")
+                  ROUTE_LINE="$WORK_TASKS_COMMENTS_GET_LINE"
+                  ;;
+                "comments (POST)")
+                  ROUTE_LINE="$WORK_TASKS_COMMENTS_POST_LINE"
+                  ;;
+                "activity")
+                  ROUTE_LINE="$WORK_TASKS_ACTIVITY_LINE"
+                  ;;
+                "dependencies (POST)")
+                  ROUTE_LINE="$WORK_TASKS_DEPS_POST_LINE"
+                  ;;
+                "dependencies (DELETE)")
+                  ROUTE_LINE="$WORK_TASKS_DEPS_DELETE_LINE"
+                  ;;
+              esac
+
+              if [ "$ROUTE_LINE" != "0" ] && [ "$WORK_TASKS_ID_GET_LINE" != "9999" ]; then
+                if [ "$ROUTE_LINE" -gt "$WORK_TASKS_ID_GET_LINE" ]; then
+                  echo "❌ Route order violation in work-tasks.controller.ts: @Get(':id') (line $WORK_TASKS_ID_GET_LINE) comes before '$route_name' route (line $ROUTE_LINE)"
+                  echo "   Static routes must be defined before :id routes to prevent route shadowing"
+                  exit 1
+                fi
+              fi
+            done
+
+            echo "✅ Work-tasks controller route order check passed"
+          fi
+
+          # Templates Controller: Check route order (Sprint 2.5)
+          TEMPLATES_CONTROLLER="src/modules/templates/controllers/templates.controller.ts"
+          if [ -f "$TEMPLATES_CONTROLLER" ]; then
+            echo "Checking templates controller route order..."
+
+            # instantiate-v5_1 route must appear before legacy instantiate route
+            TEMPLATES_V51_LINE=$(grep -n "@Post(':templateId/instantiate-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            TEMPLATES_LEGACY_INSTANTIATE_LINE=$(grep -n "@Post(':id/instantiate')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+
+            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_LEGACY_INSTANTIATE_LINE" != "0" ]; then
+              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_LEGACY_INSTANTIATE_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Post(':id/instantiate') (line $TEMPLATES_LEGACY_INSTANTIATE_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
+                echo "   instantiate-v5_1 route must be defined before legacy instantiate route to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Any :id catch-all must be last
+            TEMPLATES_ID_GET_LINE=$(grep -n "@Get(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+            TEMPLATES_ID_PATCH_LINE=$(grep -n "@Patch(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+            TEMPLATES_ID_DELETE_LINE=$(grep -n "@Delete(':id')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "9999")
+
+            # Check that instantiate-v5_1 comes before any :id route
+            if [ "$TEMPLATES_V51_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_V51_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Post(':templateId/instantiate-v5_1') (line $TEMPLATES_V51_LINE)"
+                echo "   instantiate-v5_1 route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Sprint 4: Check recommendations route comes before :id
+            TEMPLATES_RECOMMENDATIONS_LINE=$(grep -n "@Get('recommendations')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            if [ "$TEMPLATES_RECOMMENDATIONS_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_RECOMMENDATIONS_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get('recommendations') (line $TEMPLATES_RECOMMENDATIONS_LINE)"
+                echo "   recommendations route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            # Sprint 4: Check preview-v5_1 route comes before :id
+            TEMPLATES_PREVIEW_LINE=$(grep -n "@Get(':templateId/preview-v5_1')" "$TEMPLATES_CONTROLLER" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+            if [ "$TEMPLATES_PREVIEW_LINE" != "0" ] && [ "$TEMPLATES_ID_GET_LINE" != "9999" ]; then
+              if [ "$TEMPLATES_PREVIEW_LINE" -gt "$TEMPLATES_ID_GET_LINE" ]; then
+                echo "❌ Route order violation in templates.controller.ts: @Get(':id') (line $TEMPLATES_ID_GET_LINE) comes before @Get(':templateId/preview-v5_1') (line $TEMPLATES_PREVIEW_LINE)"
+                echo "   preview-v5_1 route must be defined before :id routes to prevent route shadowing"
+                exit 1
+              fi
+            fi
+
+            echo "✅ Templates controller route order check passed"
+          fi
+
           echo "✅ Route order checks passed"
       - name: Run all contract tests
         working-directory: zephix-backend

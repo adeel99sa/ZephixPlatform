@@ -24,6 +24,11 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import {
+  PlatformRole,
+  normalizePlatformRole,
+  isAdminRole,
+} from '../../../shared/enums/platform-roles.enum';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -43,6 +48,10 @@ type CreateV1Dto = {
   icon?: string;
   isDefault?: boolean;
   metadata?: any;
+  templateScope?: 'SYSTEM' | 'ORG' | 'WORKSPACE';
+  workspaceId?: string; // Optional, will be set from x-workspace-id header for WORKSPACE scope
+  structure?: Record<string, any>;
+  defaultEnabledKPIs?: string[];
 };
 
 @Injectable()
@@ -55,6 +64,51 @@ export class TemplatesService {
     private readonly dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
   ) {}
+
+  /**
+   * Validate template scope rules
+   * SYSTEM: organizationId must be null, workspaceId must be null
+   * ORG: organizationId required, workspaceId must be null
+   * WORKSPACE: organizationId required, workspaceId required
+   */
+  private validateTemplateScope(
+    templateScope: 'SYSTEM' | 'ORG' | 'WORKSPACE',
+    organizationId: string | null,
+    workspaceId: string | null,
+  ): void {
+    if (templateScope === 'SYSTEM') {
+      if (organizationId !== null) {
+        throw new BadRequestException(
+          'SYSTEM templates must have organizationId = null',
+        );
+      }
+      if (workspaceId !== null) {
+        throw new BadRequestException(
+          'SYSTEM templates must have workspaceId = null',
+        );
+      }
+    } else if (templateScope === 'ORG') {
+      if (!organizationId) {
+        throw new BadRequestException('ORG templates must have organizationId');
+      }
+      if (workspaceId !== null) {
+        throw new BadRequestException(
+          'ORG templates must have workspaceId = null',
+        );
+      }
+    } else if (templateScope === 'WORKSPACE') {
+      if (!organizationId) {
+        throw new BadRequestException(
+          'WORKSPACE templates must have organizationId',
+        );
+      }
+      if (!workspaceId) {
+        throw new BadRequestException(
+          'WORKSPACE templates must have workspaceId',
+        );
+      }
+    }
+  }
 
   /**
    * Create a new template
@@ -511,17 +565,32 @@ export class TemplatesService {
     return user?.id;
   }
 
-  async listV1(req: Request, params: ListV1Params = {}) {
+  async listV1(
+    req: Request,
+    params: ListV1Params = {},
+    workspaceId: string | null = null,
+  ) {
     const orgId = this.getOrgId(req);
 
-    const qb = this.templateRepo
-      .createQueryBuilder('t')
-      .where(
-        '(t.isSystem = true AND t.organizationId IS NULL) OR t.organizationId = :orgId',
-        {
-          orgId,
-        },
-      );
+    // workspaceId is now passed from controller (already validated)
+
+    const qb = this.templateRepo.createQueryBuilder('t').where(
+      // SYSTEM templates: organizationId is null
+      '(t.templateScope = :systemScope AND t.organizationId IS NULL) OR ' +
+        // ORG templates: organizationId matches
+        '(t.templateScope = :orgScope AND t.organizationId = :orgId) OR ' +
+        // WORKSPACE templates: organizationId matches AND workspaceId matches (if header present)
+        (workspaceId
+          ? '(t.templateScope = :workspaceScope AND t.organizationId = :orgId AND t.workspaceId = :workspaceId)'
+          : '1=0'), // If no workspace header, exclude WORKSPACE templates
+      {
+        systemScope: 'SYSTEM',
+        orgScope: 'ORG',
+        workspaceScope: 'WORKSPACE',
+        orgId,
+        workspaceId,
+      },
+    );
 
     if (!params.includeArchived) {
       qb.andWhere('t.archivedAt IS NULL');
@@ -687,6 +756,22 @@ export class TemplatesService {
           .execute();
       }
 
+      // Determine templateScope: default to ORG, or use provided value
+      const templateScope = dto.templateScope || 'ORG';
+
+      // For WORKSPACE scope, workspaceId should come from x-workspace-id header (handled in controller)
+      // For ORG scope, workspaceId must be null
+      // For SYSTEM scope, both organizationId and workspaceId must be null (only via admin super path)
+      const workspaceId =
+        templateScope === 'WORKSPACE' ? dto.workspaceId || null : null;
+
+      // Validate scope rules
+      this.validateTemplateScope(
+        templateScope,
+        templateScope === 'SYSTEM' ? null : orgId,
+        workspaceId,
+      );
+
       const entity = manager.getRepository(Template).create({
         name: dto.name.trim(),
         description: dto.description,
@@ -694,18 +779,201 @@ export class TemplatesService {
         kind: dto.kind || 'project',
         icon: dto.icon,
         isActive: true,
-        isSystem: false,
-        organizationId: orgId,
+        isSystem: templateScope === 'SYSTEM',
+        organizationId: templateScope === 'SYSTEM' ? null : orgId,
+        templateScope,
+        workspaceId,
         createdById: userId,
         updatedById: userId,
         isDefault: isDefaultRequested,
         lockState: 'UNLOCKED',
         version: 1,
         metadata: dto.metadata ?? null,
+        structure: dto.structure ?? null,
+        defaultEnabledKPIs: dto.defaultEnabledKPIs ?? [],
       } as any);
 
       const saved = await manager.getRepository(Template).save(entity);
       return saved;
+    });
+  }
+
+  /**
+   * Update template V1
+   * Supports updating: name, description, category, icon, methodology, metadata, structure, defaultEnabledKPIs
+   * Does NOT allow changing templateScope or workspaceId
+   *
+   * @param templateId - Template ID to update
+   * @param dto - Update data
+   * @param ctx - Tenant context (organizationId, userId, platformRole, workspaceId)
+   */
+  async updateV1(
+    templateId: string,
+    dto: {
+      name?: string;
+      description?: string;
+      category?: string;
+      icon?: string;
+      methodology?: string;
+      metadata?: any;
+      structure?: Record<string, any>;
+      defaultEnabledKPIs?: string[];
+    },
+    ctx: {
+      organizationId: string | null;
+      userId: string;
+      platformRole?: string;
+      workspaceId?: string | null;
+    },
+  ): Promise<Template> {
+    // Wrap in tenant context to ensure repository operations work
+    // runWithTenant requires organizationId, so use a placeholder for SYSTEM templates
+    const tenantOrgId = ctx.organizationId || 'system-templates';
+
+    return this.tenantContextService.runWithTenant(
+      {
+        organizationId: tenantOrgId,
+        workspaceId: ctx.workspaceId || undefined,
+      },
+      async () => {
+        return this.dataSource.transaction(async (manager) => {
+      // Load template by id first
+      const template = await manager.getRepository(Template).findOne({
+        where: { id: templateId },
+      });
+
+      if (!template) {
+        throw new NotFoundException('Template not found');
+      }
+
+      // Apply scope checks using ctx
+      if (template.templateScope === 'ORG') {
+        // Require ctx.organizationId equals template.organizationId
+        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
+          throw new ForbiddenException(
+            'Cannot update template from different organization',
+          );
+        }
+        // Admin role required
+        const platformRole = ctx.platformRole
+          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+          : null;
+        if (!isAdminRole(platformRole)) {
+          throw new ForbiddenException(
+            'Only organization admins can update ORG templates',
+          );
+        }
+      } else if (template.templateScope === 'WORKSPACE') {
+        // Require ctx.organizationId equals template.organizationId
+        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
+          throw new ForbiddenException(
+            'Cannot update template from different organization',
+          );
+        }
+        // Require ctx.workspaceId equals template.workspaceId
+        if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
+          throw new ForbiddenException(
+            'Cannot update template from different workspace',
+          );
+        }
+        // Allow admin, or workspace_owner with write access
+        // For non-admin, workspace role check is done in controller
+      } else if (template.templateScope === 'SYSTEM') {
+        // Allow only admin
+        const platformRole = ctx.platformRole
+          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+          : null;
+        if (!isAdminRole(platformRole)) {
+          throw new ForbiddenException('Cannot update SYSTEM templates');
+        }
+      }
+
+      // Update allowed fields only
+      if (dto.name !== undefined) {
+        template.name = dto.name.trim();
+      }
+      if (dto.description !== undefined) {
+        template.description = dto.description;
+      }
+      if (dto.category !== undefined) {
+        template.category = dto.category;
+      }
+      if (dto.icon !== undefined) {
+        template.icon = dto.icon;
+      }
+      if (dto.methodology !== undefined) {
+        template.methodology = dto.methodology as any;
+      }
+      if (dto.metadata !== undefined) {
+        template.metadata = dto.metadata;
+      }
+      if (dto.structure !== undefined) {
+        template.structure = dto.structure;
+      }
+      if (dto.defaultEnabledKPIs !== undefined) {
+        template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
+      }
+
+      template.updatedById = ctx.userId;
+
+      // Persist via repository save
+      // Use manager.getRepository which doesn't require tenant context
+      const saved = await manager.getRepository(Template).save(template);
+      return saved;
+        });
+      },
+    );
+  }
+
+  async publishV1(req: Request, templateId: string): Promise<Template> {
+    const orgId = this.getOrgId(req);
+    const userId = this.getUserId(req);
+
+    return this.dataSource.transaction(async (manager) => {
+      // First check template exists and is not archived
+      const template = await manager.getRepository(Template).findOne({
+        where: [
+          { id: templateId, organizationId: orgId },
+          { id: templateId, isSystem: true, organizationId: null },
+        ],
+      });
+
+      if (!template) {
+        throw new NotFoundException('Template not found');
+      }
+
+      if (template.archivedAt) {
+        throw new BadRequestException('Cannot publish archived template');
+      }
+
+      // Atomic version increment using SQL update
+      // Note: TypeORM doesn't support returning() for all databases, so we update then re-read
+      await manager
+        .getRepository(Template)
+        .createQueryBuilder()
+        .update(Template)
+        .set({
+          version: () => 'version + 1',
+          publishedAt: () => 'CURRENT_TIMESTAMP',
+          updatedById: userId,
+        })
+        .where('id = :id', { id: templateId })
+        .andWhere(
+          '(organizationId = :orgId OR (isSystem = true AND organizationId IS NULL))',
+          { orgId },
+        )
+        .execute();
+
+      // Re-read the updated template to return full entity
+      const updatedTemplate = await manager
+        .getRepository(Template)
+        .findOne({ where: { id: templateId } });
+
+      if (!updatedTemplate) {
+        throw new NotFoundException('Template not found after update');
+      }
+
+      return updatedTemplate;
     });
   }
 

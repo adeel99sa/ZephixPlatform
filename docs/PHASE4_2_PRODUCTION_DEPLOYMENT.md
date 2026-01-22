@@ -2,27 +2,62 @@
 
 ## Deployment Status
 
-✅ **Code Deployed**: Commit SHA `215ba84b7b5cf477ca5014f1da41765030d5c78f`  
-✅ **commitShaTrusted**: `true` (verified via `/api/version`)  
-⏳ **Migration**: Pending manual execution  
+✅ **Code Deployed**: Commit SHA `f64646d837fab2213e3de1356f9bf8b99bb6b7e8`
+✅ **commitShaTrusted**: `true` (verified via `/api/version`)
+⏳ **Migration**: Pending manual execution
 ⏳ **Verification**: Pending migration completion
 
 ## Step 1: Run Migration
+
+### Method A: Railway Dashboard Shell (Recommended - No CLI Auth Required)
+
+1. Open Railway Dashboard: https://railway.app
+2. Navigate to your project → `zephix-backend` service
+3. Click on **"Shell"** tab (or **"Deployments"** → select latest deployment → **"Shell"**)
+4. In the shell, run:
+   ```bash
+   cd zephix-backend
+   npm run migration:run
+   ```
+5. Verify migration executed:
+   ```bash
+   psql $DATABASE_URL -c "SELECT * FROM migrations ORDER BY id DESC LIMIT 10;"
+   ```
+   Look for `Phase4DashboardStudio1767550031000` in the results.
+
+6. Verify templates were seeded:
+   ```bash
+   psql $DATABASE_URL -c "SELECT key, COUNT(*) FROM dashboard_templates GROUP BY key ORDER BY key;"
+   ```
+   Should show 5 template keys: `exec_overview`, `pmo_delivery_health`, `program_rollup`, `pm_agile_sprint`, `resource_utilization_conflicts`
+
+### Method B: Railway CLI (If Logged In)
+
+**Prerequisites**: Railway CLI installed and authenticated (`railway login`)
 
 **Command**:
 ```bash
 railway run --service zephix-backend -- sh -lc "cd zephix-backend && npm run migration:run"
 ```
 
+**Verification** (after migration):
+```bash
+railway run --service zephix-backend -- sh -lc "psql \$DATABASE_URL -c \"SELECT * FROM migrations ORDER BY id DESC LIMIT 10;\""
+railway run --service zephix-backend -- sh -lc "psql \$DATABASE_URL -c \"SELECT key, COUNT(*) FROM dashboard_templates GROUP BY key ORDER BY key;\""
+```
+
 **Expected Output**:
 - Migration `Phase4DashboardStudio1767550031000` should appear in executed migrations
 - 5 dashboard templates should be seeded (one per organization)
 
-**Verification Query**:
+**Verification Query** (via Railway Shell):
 ```sql
--- Check templates were seeded
-SELECT key, name, persona FROM dashboard_templates WHERE organization_id = '<your-org-id>';
+-- Check migration executed
+SELECT * FROM migrations ORDER BY id DESC LIMIT 10;
+-- Should show Phase4DashboardStudio1767550031000
 
+-- Check templates were seeded
+SELECT key, COUNT(*) FROM dashboard_templates GROUP BY key ORDER BY key;
 -- Should return 5 rows:
 -- exec_overview, pmo_delivery_health, program_rollup, pm_agile_sprint, resource_utilization_conflicts
 ```

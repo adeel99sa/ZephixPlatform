@@ -13,6 +13,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { CacheService } from '../cache/cache.service';
 import { ResourceAllocationController } from './resource-allocation.controller';
 import { ResourcesController } from './resources.controller';
+import { ResourceSeedController } from './controllers/resource-seed.controller';
 import { Task } from '../tasks/entities/task.entity';
 import { ResponseService } from '../../shared/services/response.service';
 import { Project } from '../projects/entities/project.entity';
@@ -60,7 +61,11 @@ import { createTenantAwareRepositoryProvider } from '../tenancy/tenant-aware-rep
     CacheService,
     // ResponseService removed - use from @Global() SharedModule
   ],
-  controllers: [ResourceAllocationController, ResourcesController],
+  controllers: [
+    ResourceAllocationController,
+    ResourcesController,
+    ResourceSeedController,
+  ],
   exports: [
     ResourceAllocationService,
     ResourcesService,

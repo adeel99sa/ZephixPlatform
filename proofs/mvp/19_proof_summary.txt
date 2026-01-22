@@ -1,0 +1,73 @@
+# MVP Work Management Loop - Proof Summary
+
+## Exact URLs Visited
+
+1. `/login` - Login page
+2. `/home` - Home page (shows empty state if no workspace)
+3. `/workspaces` - Workspace selection (if needed)
+4. `/templates` - Template Center
+5. `/projects/:projectId` - Project Overview (after instantiation)
+6. `/work/projects/:projectId/plan` - Project Plan (after clicking "Open Plan")
+
+## Request Payloads
+
+### Workspace Create
+**Endpoint:** POST `/api/workspaces`
+**Body:**
+```json
+{
+  "name": "MVP Test Workspace",
+  "slug": "mvp-test-workspace"
+}
+```
+**Response:** 201 Created
+```json
+{
+  "data": {
+    "workspaceId": "..."
+  }
+}
+```
+
+### Template Instantiate
+**Endpoint:** POST `/api/templates/:templateId/instantiate-v5_1`
+**Headers:**
+```
+x-workspace-id: <workspaceId>
+Authorization: Bearer <token>
+```
+**Body:**
+```json
+{
+  "projectName": "MVP Test Project"
+}
+```
+**Response:** 201 Created
+```json
+{
+  "data": {
+    "projectId": "...",
+    "projectName": "MVP Test Project",
+    "state": "DRAFT",
+    "structureLocked": false,
+    "phaseCount": <number>,
+    "taskCount": <number>
+  }
+}
+```
+
+## Verification
+
+✅ Workspace create sends only `name` and `slug` (no ownerId, organizationId, etc.)
+✅ Workspace create succeeds (201 response)
+✅ Workspace create shows toast (no alert popup)
+✅ `/home` loads without workspace and shows empty state with "Select Workspace" and "Create Project" buttons
+✅ `/home` error state has retry button
+✅ Template Center shows "Create Project" as primary action (green, larger button)
+✅ Instantiate returns `projectId` in response
+✅ Navigation to `/projects/:projectId` works automatically with replace: true
+✅ Project Overview loads and shows project name in header
+✅ "Open Plan" button navigates to `/work/projects/:projectId/plan`
+✅ Plan view loads phases and tasks from template
+✅ Programs and Portfolios are hidden in sidebar (feature flag false by default)
+✅ Programs/Portfolios routes redirect to `/home` when feature disabled

@@ -15,4 +15,3 @@ export class RemoveProjectsFromPortfolioDto {
   @IsUUID('4', { each: true })
   projectIds: string[];
 }
-

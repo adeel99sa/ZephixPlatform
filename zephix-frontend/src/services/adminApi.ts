@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import { unwrapData, unwrapArray } from '@/lib/api/unwrapData';
+import { normalizePlatformRole } from '@/utils/roles';
 
 /**
  * Comprehensive Admin API Service
@@ -41,8 +42,10 @@ class AdminApiService {
   }
 
   async updateUserRole(_organizationId: string, userId: string, role: 'admin' | 'pm' | 'viewer' | 'member') {
-    // Map 'pm' to 'member' for backend compatibility
-    const backendRole = role === 'pm' ? 'member' : role;
+    // Use normalizePlatformRole to handle all legacy role mappings consistently
+    const normalizedRole = normalizePlatformRole(role);
+    // Backend expects lowercase: 'admin', 'member', 'viewer'
+    const backendRole = normalizedRole.toLowerCase();
     const { data } = await apiClient.patch(
       `/admin/users/${userId}/role`,
       { role: backendRole }
@@ -84,8 +87,18 @@ class AdminApiService {
     return data;
   }
 
-  async inviteUsers(invite: { emails: string[]; role: string; message?: string }) {
-    const { data } = await apiClient.post('/admin/organization/users/invite', invite);
+  /**
+   * PROMPT 9: Admin invite with workspace assignments
+   */
+  async inviteUsers(invite: {
+    emails: string[];
+    platformRole: 'Member' | 'Guest';
+    workspaceAssignments?: Array<{ workspaceId: string; accessLevel: 'Member' | 'Guest' }>;
+  }) {
+    const { data } = await apiClient.post<{ data: { results: Array<{ email: string; status: 'success' | 'error'; message?: string }> } }>(
+      '/admin/organization/users/invite',
+      invite
+    );
     return data;
   }
 
