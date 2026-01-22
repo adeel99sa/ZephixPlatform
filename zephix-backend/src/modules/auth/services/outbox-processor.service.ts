@@ -8,6 +8,12 @@ import { EmailService } from '../../../shared/services/email.service';
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAYS = [5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000]; // 5min, 30min, 2h
 
+/**
+ * Helper to parse environment variable as boolean
+ * Returns true only if value is explicitly "true" (case-insensitive)
+ */
+const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
+
 @Injectable()
 export class OutboxProcessorService {
   private readonly logger = new Logger(OutboxProcessorService.name);
@@ -21,7 +27,7 @@ export class OutboxProcessorService {
     private emailService: EmailService,
   ) {
     // Log once on boot if worker is disabled
-    if (process.env.OUTBOX_PROCESSOR_ENABLED !== 'true') {
+    if (!isTrue(process.env.OUTBOX_PROCESSOR_ENABLED)) {
       this.logger.log(
         'OutboxProcessorService disabled: OUTBOX_PROCESSOR_ENABLED is not set to "true"',
       );
