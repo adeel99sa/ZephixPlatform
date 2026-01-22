@@ -29,20 +29,32 @@ The Zephix backend includes background workers (e.g., `OutboxProcessorService`) 
 **Root Directory:** `zephix-backend` (same as API service)
 
 **Start Command:** 
-- Option A (same app, worker enabled):
-  ```
-  npm run start:railway
-  ```
-- Option B (dedicated worker entry point, if created):
-  ```
-  node dist/src/worker.js
-  ```
+```
+npm run start:railway
+```
+
+**Important:** The worker service will still start the HTTP server, but Railway will treat it as a web service. Choose one approach:
+
+**Option A (Recommended):** Disable public networking
+- Railway → Worker Service → Settings
+- Disable "Public Domain" or set "Public Networking" to off
+- Set replicas to 1 (only one worker instance needed)
+- Worker runs background jobs, HTTP server is not exposed
+
+**Option B:** Create dedicated worker entry point (future enhancement)
+- Create `src/worker.ts` that boots NestJS without `app.listen()`
+- Update start command to: `node dist/src/worker.js`
+- This prevents HTTP server from starting
 
 ### 3. Set Environment Variables
 
-**Required:**
+**Required (Worker-specific):**
 ```
 OUTBOX_PROCESSOR_ENABLED=true
+```
+
+**Required (Same as API service):**
+```
 TYPEORM_LOGGING=false
 REQUEST_CONTEXT_LOGGER_ENABLED=false
 DATABASE_URL=<same as API service>
@@ -53,10 +65,11 @@ INTEGRATION_ENCRYPTION_KEY=<same as API service>
 **Copy from API service:**
 - All database connection vars
 - All auth/secrets
-- All feature flags
+- All feature flags (except `OUTBOX_PROCESSOR_ENABLED`)
 
-**Worker-specific:**
-- `OUTBOX_PROCESSOR_ENABLED=true` (only difference from API service)
+**Service Configuration:**
+- **Replicas:** 1 (only one worker instance needed)
+- **Public Domain:** Disabled (worker doesn't need HTTP access)
 
 ### 4. Verify Worker is Running
 
