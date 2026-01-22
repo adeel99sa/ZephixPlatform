@@ -51,6 +51,10 @@ jobs:
         working-directory: zephix-backend
         run: |
           ./scripts/check-workspace-access-imports.sh || exit 1
+      - name: Check environment variable truthy checks
+        working-directory: zephix-backend
+        run: |
+          ./scripts/check-env-var-truthy-checks.sh || exit 1
       - name: Run smoke tests
         working-directory: zephix-backend
         env:
