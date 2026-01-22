@@ -11,9 +11,11 @@ The Zephix backend includes background workers (e.g., `OutboxProcessorService`) 
 ## Current Configuration
 
 **API Service (zephix-backend):**
-- `OUTBOX_PROCESSOR_ENABLED=false` - Worker disabled
+- `OUTBOX_PROCESSOR_ENABLED=false` - Worker disabled ⚠️ **MUST STAY FALSE FOREVER**
 - `REQUEST_CONTEXT_LOGGER_ENABLED=false` - Minimal logging
 - `TYPEORM_LOGGING=false` - No query logging
+
+⚠️ **SAFETY GUARD:** The `zephix-backend` service is API-only. Never set `OUTBOX_PROCESSOR_ENABLED=true` on this service. Use a dedicated worker service instead.
 
 ## Setting Up a Dedicated Worker Service
 
