@@ -181,7 +181,6 @@ export class CreateProjectViewsAndWorkItemKeys1794000000000 implements Migration
           name: 'IDX_projects_workspace_slug',
           columnNames: ['workspace_id', 'slug'],
           isUnique: true,
-          where: 'deleted_at IS NULL',
         }),
       );
     }
