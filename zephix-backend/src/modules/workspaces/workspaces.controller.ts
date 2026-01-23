@@ -910,7 +910,7 @@ export class WorkspacesController {
   }
 
   /**
-   * Revoke active invite link
+   * Revoke active invite link without needing linkId
    * DELETE /api/workspaces/:id/invite-link/active
    */
   @Delete(':id/invite-link/active')
@@ -921,24 +921,19 @@ export class WorkspacesController {
     @CurrentUser() u: UserJwt,
     @Req() req: Request,
   ) {
-    const requestId = (req as any).id || 'unknown';
-    const logger = new Logger(WorkspacesController.name);
+    const requestId = req.headers['x-request-id'] || 'unknown';
 
     try {
-      await this.inviteService.revokeActiveInviteLink(id, u.id);
-      logger.log('Active invite link revoked', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-      });
+      await this.inviteService.revokeActiveInviteLink(id, u.id, String(requestId));
       return formatResponse({ ok: true });
     } catch (error) {
-      logger.error('Failed to revoke active invite link', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
       throw new BadRequestException({
         code: 'INVITE_LINK_REVOKE_FAILED',
         message: 'Failed to revoke invite link',
