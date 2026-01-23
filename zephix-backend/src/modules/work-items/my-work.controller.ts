@@ -45,13 +45,9 @@ export class MyWorkController {
     const ctx = getAuthContext(req);
     const { platformRole, organizationId, userId } = ctx;
 
-    // PHASE 7 MODULE 7.2: Block Guest (VIEWER)
     const userRole = normalizePlatformRole(platformRole);
-    if (userRole === PlatformRole.VIEWER) {
-      throw new ForbiddenException('Forbidden');
-    }
-
     const isAdmin = userRole === PlatformRole.ADMIN;
+    const isViewer = userRole === PlatformRole.VIEWER;
 
     // If workspaceId provided, verify access
     if (query.workspaceId) {
@@ -67,18 +63,29 @@ export class MyWorkController {
           message: 'Access denied to workspace',
         });
       }
-    } else {
-      // Org-wide query: enforce scoping rules
-      if (!isAdmin) {
-        // Non-admin cannot use assignee=any without workspaceId
-        if (query.assignee && query.assignee !== 'me') {
-          throw new ForbiddenException({
-            code: 'FORBIDDEN',
-            message: 'Non-admin users cannot view all assignees without workspace scope',
-          });
-        }
+    }
+
+    // Enforce assignee=me for VIEWER (view-only access)
+    if (isViewer) {
+      if (query.assignee && query.assignee !== 'me') {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Viewers can only view their own assigned work',
+        });
       }
-      // Note: VIEWER is already blocked at the top of the method
+      // Force assignee=me for VIEWER
+      query.assignee = 'me';
+    }
+
+    // Org-wide query: enforce scoping rules
+    if (!query.workspaceId && !isAdmin) {
+      // Non-admin cannot use assignee=any without workspaceId
+      if (query.assignee && query.assignee !== 'me') {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Non-admin users cannot view all assignees without workspace scope',
+        });
+      }
     }
 
     return this.myWorkService.getMyWork(ctx, query);

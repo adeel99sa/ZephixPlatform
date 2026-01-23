@@ -65,31 +65,44 @@ export class MyWorkService {
       };
     }
 
-    // Build QueryBuilder
+    // Build QueryBuilder (TypeORM uses entity property names, not DB column names)
     const qb = this.workTaskRepository
       .createQueryBuilder('wt')
       .leftJoinAndSelect('wt.project', 'project')
       .leftJoinAndSelect('project.workspace', 'workspace')
       .where('wt.organizationId = :orgId', { orgId: organizationId });
 
-    // Workspace filter
+    // Workspace filter - ALWAYS enforce accessible workspaces when workspaceId missing
     if (query.workspaceId) {
       qb.andWhere('wt.workspaceId = :workspaceId', {
         workspaceId: query.workspaceId,
       });
-    } else if (accessibleWorkspaceIds !== null) {
-      // Scope to accessible workspaces
-      qb.andWhere('wt.workspaceId IN (:...workspaceIds)', {
-        workspaceIds: accessibleWorkspaceIds,
-      });
+    } else {
+      // Org-wide query: MUST scope to accessible workspaces to prevent data leakage
+      if (accessibleWorkspaceIds === null) {
+        // Admin can see all workspaces - no filter needed
+      } else if (accessibleWorkspaceIds.length === 0) {
+        // No accessible workspaces - return empty (already handled above)
+        return {
+          version: 1,
+          counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
+          items: [],
+        };
+      } else {
+        // Scope to accessible workspaces
+        qb.andWhere('wt.workspaceId IN (:...workspaceIds)', {
+          workspaceIds: accessibleWorkspaceIds,
+        });
+      }
     }
 
     // Assignee filter
+    // Default: workspaceId present -> 'any', no workspaceId -> 'me' (unless admin)
     const assignee = query.assignee || (query.workspaceId ? 'any' : isAdmin ? 'any' : 'me');
     if (assignee === 'me') {
       qb.andWhere('wt.assigneeUserId = :userId', { userId });
     }
-    // If assignee === 'any', no filter (show all assignees)
+    // If assignee === 'any', no filter (show all assignees in scope)
 
     // Status filter
     const status = query.status || 'active';
@@ -103,10 +116,10 @@ export class MyWorkService {
       } else if (status === 'blocked') {
         qb.andWhere('wt.status = :blocked', { blocked: TaskStatus.BLOCKED });
       } else if (status === 'at_risk') {
-        // At risk: overdue tasks (computed in post-processing for now)
-        // This will be enhanced when health field is added
+        // At risk: overdue tasks with 1 day grace period for timezone drift
         const now = new Date();
-        qb.andWhere('wt.dueDate < :now', { now });
+        const gracePeriod = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day
+        qb.andWhere('wt.dueDate < :gracePeriod', { gracePeriod });
         qb.andWhere('wt.status NOT IN (:...done)', {
           done: [TaskStatus.DONE, TaskStatus.CANCELED],
         });
@@ -134,9 +147,11 @@ export class MyWorkService {
         qb.setParameter('blockedStatus', TaskStatus.BLOCKED);
       }
       if (wantRisk) {
+        // At risk: overdue with 1 day grace period
         const now = new Date();
-        clauses.push('(wt.dueDate < :riskNow AND wt.status NOT IN (:...riskDone))');
-        qb.setParameter('riskNow', now);
+        const gracePeriod = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day
+        clauses.push('(wt.dueDate < :riskGracePeriod AND wt.status NOT IN (:...riskDone))');
+        qb.setParameter('riskGracePeriod', gracePeriod);
         qb.setParameter('riskDone', [TaskStatus.DONE, TaskStatus.CANCELED]);
       }
       if (wantOnTrack) {
