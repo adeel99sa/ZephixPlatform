@@ -22,6 +22,8 @@ export type InviteLinkStatus = 'active' | 'revoked';
 @Index('IDX_workspace_invite_links_workspace', ['workspaceId'])
 @Index('IDX_workspace_invite_links_token_hash', ['tokenHash'], { unique: true })
 @Index('IDX_workspace_invite_links_status', ['status'])
+@Index('IDX_workspace_invite_links_revoked_at', ['revokedAt'])
+@Index('IDX_workspace_invite_links_expires_at', ['expiresAt'])
 export class WorkspaceInviteLink {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -57,4 +59,11 @@ export class WorkspaceInviteLink {
 
   @Column({ type: 'timestamptz', name: 'revoked_at', nullable: true })
   revokedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'revoked_by_user_id', nullable: true })
+  revokedByUserId: string | null;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'revoked_by_user_id' })
+  revokedBy: User | null;
 }

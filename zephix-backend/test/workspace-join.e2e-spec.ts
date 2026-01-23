@@ -322,5 +322,81 @@ describe('Workspace Join (e2e)', () => {
       expect(joinResponse.status).toBe(409);
       expect(joinResponse.body).toHaveProperty('code', 'INVITE_LINK_EXPIRED');
     });
+
+    it('6. Join endpoint without auth returns 401 UNAUTHENTICATED', async () => {
+      const createResponse = await request(app.getHttpServer())
+        .post(`/workspaces/${workspaceId}/invite-link`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({});
+
+      const url = createResponse.body.data.url;
+      const tokenMatch = url.match(/token=([^&]+)/);
+      const token = tokenMatch ? tokenMatch[1] : '';
+
+      // Try to join without auth token
+      const joinResponse = await request(app.getHttpServer())
+        .post('/workspaces/join')
+        .send({
+          token,
+        });
+
+      expect(joinResponse.status).toBe(401);
+      expect(joinResponse.body).toHaveProperty('code', 'UNAUTHENTICATED');
+      expect(joinResponse.body).toHaveProperty('message', 'Sign in to join this workspace');
+    });
+  });
+
+  describe('DELETE /api/workspaces/:id/invite-link/active', () => {
+    it('1. Create invite link then revoke active then GET returns null', async () => {
+      // Create invite link
+      const createResponse = await request(app.getHttpServer())
+        .post(`/workspaces/${workspaceId}/invite-link`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({});
+
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body.data).toHaveProperty('url');
+
+      // Verify GET returns metadata
+      const getResponse = await request(app.getHttpServer())
+        .get(`/workspaces/${workspaceId}/invite-link`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(getResponse.status).toBe(200);
+      expect(getResponse.body.data).toHaveProperty('exists', true);
+
+      // Revoke active link
+      const revokeResponse = await request(app.getHttpServer())
+        .delete(`/workspaces/${workspaceId}/invite-link/active`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(revokeResponse.status).toBe(200);
+      expect(revokeResponse.body.data).toHaveProperty('ok', true);
+
+      // Verify GET now returns null
+      const getAfterRevokeResponse = await request(app.getHttpServer())
+        .get(`/workspaces/${workspaceId}/invite-link`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(getAfterRevokeResponse.status).toBe(200);
+      expect(getAfterRevokeResponse.body.data).toBeNull();
+    });
+
+    it('2. Revoke active when none exists returns ok true', async () => {
+      // Ensure no active link exists
+      const inviteLinkRepo = dataSource.getRepository(WorkspaceInviteLink);
+      await inviteLinkRepo.update(
+        { workspaceId },
+        { status: 'revoked' },
+      );
+
+      // Revoke active link (should be idempotent)
+      const revokeResponse = await request(app.getHttpServer())
+        .delete(`/workspaces/${workspaceId}/invite-link/active`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(revokeResponse.status).toBe(200);
+      expect(revokeResponse.body.data).toHaveProperty('ok', true);
+    });
   });
 });

@@ -92,4 +92,12 @@ export const workspaceInvitesApi = {
       throw toApiError(err);
     }
   },
+
+  async revokeActiveInviteLink(workspaceId: string): Promise<void> {
+    try {
+      await api.delete(`/workspaces/${workspaceId}/invite-link/active`);
+    } catch (err) {
+      throw toApiError(err);
+    }
+  },
 };
