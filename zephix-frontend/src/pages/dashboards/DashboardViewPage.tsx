@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { orgDashboardsApi, OrgDashboard } from '@/features/dashboards/org-dashboards.api';
 import { workspaceDashboardsApi, WorkspaceDashboard } from '@/features/dashboards/workspace-dashboards.api';
 import DashboardSharePanel from './components/DashboardSharePanel';
@@ -41,6 +41,7 @@ type Dashboard = OrgDashboard | WorkspaceDashboard;
 
 export default function DashboardViewPage() {
   const { dashboardId, workspaceId } = useParams<{ dashboardId: string; workspaceId?: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { role: workspaceRole } = useWorkspaceRole(workspaceId || null);
   const [item, setItem] = useState<Dashboard | null>(null);
@@ -121,6 +122,17 @@ export default function DashboardViewPage() {
     (isAdmin && mode === 'ORG') ||
     (isWorkspaceOwner && mode === 'WORKSPACE');
 
+  // Drilldown: Open work items list with same scope
+  const handleOpenAsList = () => {
+    if (mode === 'WORKSPACE' && workspaceId) {
+      // Workspace-scoped: filter by workspace
+      navigate(`/my-work?workspaceId=${workspaceId}`);
+    } else {
+      // Org-scoped: show all work items (no filter)
+      navigate('/my-work');
+    }
+  };
+
   return (
     <div style={{ padding: 16, display: 'grid', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -130,36 +142,51 @@ export default function DashboardViewPage() {
             <div style={{ opacity: 0.7, fontSize: 14, marginTop: 4 }}>{item.description}</div>
           )}
         </div>
-        {exportAllowed && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => handleExport(dashboardId, 'PDF', workspaceId)}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                fontSize: 14,
-              }}
-            >
-              Export PDF
-            </button>
-            <button
-              onClick={() => handleExport(dashboardId, 'XLSX', workspaceId)}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                fontSize: 14,
-              }}
-            >
-              Export Excel
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleOpenAsList}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
+            Open as List
+          </button>
+          {exportAllowed && (
+            <>
+              <button
+                onClick={() => handleExport(dashboardId, 'PDF', workspaceId)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+              >
+                Export PDF
+              </button>
+              <button
+                onClick={() => handleExport(dashboardId, 'XLSX', workspaceId)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                }}
+              >
+                Export Excel
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div
