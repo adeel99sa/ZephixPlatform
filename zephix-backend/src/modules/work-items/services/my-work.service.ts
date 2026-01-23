@@ -16,6 +16,8 @@ import {
   normalizePlatformRole,
   PlatformRole,
 } from '../../../shared/enums/platform-roles.enum';
+import { MyWorkQueryDto, resolveDateRange } from '../dto/my-work-query.dto';
+import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Injectable()
 export class MyWorkService {
@@ -27,12 +29,16 @@ export class MyWorkService {
   ) {}
 
   async getMyWork(
-    userId: string,
-    userRole: string | null | undefined,
+    ctx: any,
+    query: MyWorkQueryDto,
   ): Promise<MyWorkResponseDto> {
     const organizationId = this.tenantContextService.assertOrganizationId();
+    const userId = ctx.userId;
+    const userRole = ctx.platformRole;
+    const normalizedRole = normalizePlatformRole(userRole);
+    const isAdmin = normalizedRole === PlatformRole.ADMIN;
 
-    // Get accessible workspace IDs
+    // Get accessible workspace IDs (for scoping if no workspaceId in query)
     const accessibleWorkspaceIds =
       await this.workspaceAccessService.getAccessibleWorkspaceIds(
         organizationId,
@@ -59,23 +65,99 @@ export class MyWorkService {
       };
     }
 
-    // Build where clause
-    const where: any = {
-      organizationId,
-      assigneeUserId: userId,
-    };
+    // Build QueryBuilder
+    const qb = this.workTaskRepository
+      .createQueryBuilder('wt')
+      .leftJoinAndSelect('wt.project', 'project')
+      .leftJoinAndSelect('project.workspace', 'workspace')
+      .where('wt.organizationId = :orgId', { orgId: organizationId });
 
-    // Scope by accessible workspaces
-    if (accessibleWorkspaceIds !== null) {
-      where.workspaceId = In(accessibleWorkspaceIds);
+    // Workspace filter
+    if (query.workspaceId) {
+      qb.andWhere('wt.workspaceId = :workspaceId', {
+        workspaceId: query.workspaceId,
+      });
+    } else if (accessibleWorkspaceIds !== null) {
+      // Scope to accessible workspaces
+      qb.andWhere('wt.workspaceId IN (:...workspaceIds)', {
+        workspaceIds: accessibleWorkspaceIds,
+      });
     }
 
-    // Get all work tasks for user
-    const workTasks = await this.workTaskRepository.find({
-      where,
-      relations: ['project', 'project.workspace'],
-      take: 200, // Default limit
-    });
+    // Assignee filter
+    const assignee = query.assignee || (query.workspaceId ? 'any' : isAdmin ? 'any' : 'me');
+    if (assignee === 'me') {
+      qb.andWhere('wt.assigneeUserId = :userId', { userId });
+    }
+    // If assignee === 'any', no filter (show all assignees)
+
+    // Status filter
+    const status = query.status || 'active';
+    if (status !== 'all') {
+      if (status === 'active') {
+        qb.andWhere('wt.status NOT IN (:...done)', {
+          done: [TaskStatus.DONE, TaskStatus.CANCELED],
+        });
+      } else if (status === 'completed') {
+        qb.andWhere('wt.status = :done', { done: TaskStatus.DONE });
+      } else if (status === 'blocked') {
+        qb.andWhere('wt.status = :blocked', { blocked: TaskStatus.BLOCKED });
+      } else if (status === 'at_risk') {
+        // At risk: overdue tasks (computed in post-processing for now)
+        // This will be enhanced when health field is added
+        const now = new Date();
+        qb.andWhere('wt.dueDate < :now', { now });
+        qb.andWhere('wt.status NOT IN (:...done)', {
+          done: [TaskStatus.DONE, TaskStatus.CANCELED],
+        });
+      }
+    }
+
+    // Date range filter
+    const { from, to } = resolveDateRange(query.dateRange);
+    if (from) {
+      qb.andWhere('wt.updatedAt >= :from', { from });
+    }
+    if (to) {
+      qb.andWhere('wt.updatedAt <= :to', { to });
+    }
+
+    // Health filter (using status and dueDate heuristics until health field exists)
+    if (query.health && query.health.length > 0) {
+      const wantBlocked = query.health.includes('blocked');
+      const wantRisk = query.health.includes('at_risk');
+      const wantOnTrack = query.health.includes('on_track');
+
+      const clauses: string[] = [];
+      if (wantBlocked) {
+        clauses.push('wt.status = :blockedStatus');
+        qb.setParameter('blockedStatus', TaskStatus.BLOCKED);
+      }
+      if (wantRisk) {
+        const now = new Date();
+        clauses.push('(wt.dueDate < :riskNow AND wt.status NOT IN (:...riskDone))');
+        qb.setParameter('riskNow', now);
+        qb.setParameter('riskDone', [TaskStatus.DONE, TaskStatus.CANCELED]);
+      }
+      if (wantOnTrack) {
+        // On track: not blocked, not overdue
+        const now = new Date();
+        clauses.push(
+          '(wt.status != :onTrackBlocked AND (wt.dueDate IS NULL OR wt.dueDate >= :onTrackNow))',
+        );
+        qb.setParameter('onTrackBlocked', TaskStatus.BLOCKED);
+        qb.setParameter('onTrackNow', now);
+      }
+
+      if (clauses.length > 0) {
+        qb.andWhere(`(${clauses.join(' OR ')})`);
+      }
+    }
+
+    // Order and limit
+    qb.orderBy('wt.updatedAt', 'DESC').take(200);
+
+    const workTasks = await qb.getMany();
 
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

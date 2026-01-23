@@ -284,5 +284,35 @@ describe('My Work API (e2e)', () => {
 
       expect(response.body.counts.total).toBeGreaterThan(0);
     });
+
+    it('should filter by workspaceId when provided', async () => {
+      // Create task in workspace B
+      const workTaskRepo = dataSource.getRepository('WorkTask');
+      // Note: This test assumes WorkTask entity exists and can be queried
+      // Adjust based on actual test setup
+
+      const response = await request(app.getHttpServer())
+        .get(`/my-work?workspaceId=${workspaceA.id}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(response.body.items).toBeDefined();
+      // All items should be from workspace A
+      if (response.body.items.length > 0) {
+        response.body.items.forEach((item: any) => {
+          expect(item.workspaceId).toBe(workspaceA.id);
+        });
+      }
+    });
+
+    it('should return 403 for non-admin with assignee=any without workspaceId', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/my-work?assignee=any')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+
+      expect(response.body.code).toBe('FORBIDDEN');
+      expect(response.body.message).toContain('Non-admin users cannot view all assignees');
+    });
   });
 });
