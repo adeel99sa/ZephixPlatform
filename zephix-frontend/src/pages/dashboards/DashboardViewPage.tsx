@@ -6,6 +6,7 @@ import DashboardSharePanel from './components/DashboardSharePanel';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { normalizePlatformRole } from '@/utils/roles';
+import { buildWorkItemSearch, WorkItemFilters } from '@/features/work/items/workItemFilters';
 
 // TODO: Phase 6.4 - Implement export job creation and status polling
 async function handleExport(dashboardId: string, format: 'PDF' | 'XLSX', workspaceId?: string) {
