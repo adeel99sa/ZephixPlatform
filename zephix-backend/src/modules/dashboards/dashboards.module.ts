@@ -4,11 +4,16 @@ import { Dashboard } from './entities/dashboard.entity';
 import { DashboardWidget } from './entities/dashboard-widget.entity';
 import { DashboardTemplate } from './entities/dashboard-template.entity';
 import { MetricDefinition } from './entities/metric-definition.entity';
+import { DashboardShare } from './entities/dashboard-share.entity';
+import { DashboardExportJob } from './entities/dashboard-export-job.entity';
 import { SharedModule } from '../../shared/shared.module';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { DashboardsService } from './services/dashboards.service';
 import { TemplatesService } from './services/templates.service';
+import { DashboardAccessService } from './services/dashboard-access.service';
 import { DashboardsController } from './controllers/dashboards.controller';
+import { OrgDashboardsController } from './controllers/org-dashboards.controller';
+import { WorkspaceDashboardsController } from './controllers/workspace-dashboards.controller';
 import { DashboardTemplatesController } from './controllers/dashboard-templates.controller';
 import { MetricsController } from './controllers/metrics.controller';
 import { AnalyticsWidgetsController } from './controllers/analytics-widgets.controller';
@@ -25,6 +30,7 @@ import { WorkPhase } from '../work-management/entities/work-phase.entity';
 import { WorkManagementModule } from '../work-management/work-management.module';
 import { ProjectDashboardService } from './services/project-dashboard.service';
 import { ProjectDashboardController } from './controllers/project-dashboard.controller';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -33,6 +39,9 @@ import { ProjectDashboardController } from './controllers/project-dashboard.cont
       DashboardWidget,
       DashboardTemplate,
       MetricDefinition,
+      DashboardShare, // Phase 6.1: Invite-only shares
+      DashboardExportJob, // Phase 6.1: Export jobs
+      User, // Phase 6.1: For share management
       ResourceConflict,
       Project,
       WorkTask, // Phase 7.5: For project dashboard
@@ -47,17 +56,24 @@ import { ProjectDashboardController } from './controllers/project-dashboard.cont
     ProjectsModule, // Provides ProjectsService
     WorkManagementModule, // Phase 7.5: Provides ProjectHealthService
   ],
-  providers: [DashboardsService, TemplatesService, ProjectDashboardService],
+  providers: [
+    DashboardsService,
+    TemplatesService,
+    ProjectDashboardService,
+    DashboardAccessService, // Phase 6.1: Access resolution service
+  ],
   controllers: [
     // Register DashboardTemplatesController FIRST so static routes (templates, activate-template)
     // are matched before dynamic :id routes in DashboardsController
     DashboardTemplatesController,
     DashboardsController,
+    OrgDashboardsController, // Phase 6.1: Org dashboard routes
+    WorkspaceDashboardsController, // Phase 6.1: Workspace dashboard routes
     MetricsController,
     AnalyticsWidgetsController,
     AiDashboardController,
     ProjectDashboardController, // Phase 7.5: Project dashboard endpoints
   ],
-  exports: [DashboardsService], // For analytics use
+  exports: [DashboardsService, DashboardAccessService], // For analytics use
 })
 export class DashboardsModule {}
