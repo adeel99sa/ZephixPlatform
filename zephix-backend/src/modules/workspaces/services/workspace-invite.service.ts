@@ -115,7 +115,31 @@ export class WorkspaceInviteService {
 
     link.status = 'revoked';
     link.revokedAt = new Date();
+    link.revokedByUserId = revokedByUserId;
     await this.inviteLinkRepo.save(link);
+  }
+
+  /**
+   * Revoke active invite link for workspace
+   * Idempotent: returns ok if no active link exists
+   */
+  async revokeActiveInviteLink(
+    workspaceId: string,
+    actorUserId: string,
+  ): Promise<{ ok: true }> {
+    const link = await this.getActiveInviteLink(workspaceId);
+
+    if (!link) {
+      // Idempotent: no active link to revoke
+      return { ok: true };
+    }
+
+    link.status = 'revoked';
+    link.revokedAt = new Date();
+    link.revokedByUserId = actorUserId;
+    await this.inviteLinkRepo.save(link);
+
+    return { ok: true };
   }
 
   /**

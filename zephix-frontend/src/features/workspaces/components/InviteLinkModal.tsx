@@ -14,6 +14,7 @@ type State =
   | { status: 'loading'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
   | { status: 'ready'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
   | { status: 'creating'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
+  | { status: 'revoking'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError | null }
   | { status: 'error'; meta: InviteLinkMeta; created: CreateInviteLinkResult | null; error: ApiError };
 
 function formatDate(iso: string | null | undefined) {
@@ -58,6 +59,26 @@ export default function InviteLinkModal({ open, workspaceId, onClose }: Props) {
     };
   }, [open, workspaceId]);
 
+  async function onRevoke() {
+    setState((s) => ({ ...s, status: 'revoking', error: null }));
+    try {
+      await workspaceInvitesApi.revokeActiveInviteLink(workspaceId);
+      toast.success('Invite link revoked');
+      // Refresh metadata - should become null after revoke
+      const meta = await workspaceInvitesApi.getActiveInviteLink(workspaceId);
+      setState((s) => ({
+        status: 'ready',
+        meta,
+        created: null, // Clear any created link URL
+        error: null,
+      }));
+    } catch (e) {
+      const err = e as ApiError;
+      setState((s) => ({ ...s, status: 'error', error: err }));
+      toast.error(err.message || 'Failed to revoke invite link');
+    }
+  }
+
   async function onCreate() {
     setState((s) => ({ ...s, status: 'creating', error: null }));
     try {
@@ -83,7 +104,7 @@ export default function InviteLinkModal({ open, workspaceId, onClose }: Props) {
 
   if (!open) return null;
 
-  const disabled = state.status === 'loading' || state.status === 'creating';
+  const disabled = state.status === 'loading' || state.status === 'creating' || state.status === 'revoking';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -154,8 +175,13 @@ export default function InviteLinkModal({ open, workspaceId, onClose }: Props) {
           <Button variant="secondary" onClick={onClose} disabled={disabled}>
             Cancel
           </Button>
+          {state.meta?.exists && !showUrl ? (
+            <Button variant="outline" onClick={onRevoke} disabled={disabled}>
+              {state.status === 'revoking' ? 'Revoking...' : 'Revoke link'}
+            </Button>
+          ) : null}
           <Button variant="primary" onClick={onCreate} disabled={disabled}>
-            {state.status === 'creating' ? 'Creating...' : 'Create link'}
+            {state.status === 'creating' ? 'Creating...' : 'Create new link'}
           </Button>
         </div>
       </div>
