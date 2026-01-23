@@ -22,6 +22,15 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   const { login, user, loading } = useAuth();
   const returnUrl = useMemo(() => readReturnUrl(location.search), [location.search]);
+  
+  // Store returnUrl from query param into localStorage
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const returnUrlFromQuery = params.get('returnUrl');
+    if (returnUrlFromQuery) {
+      localStorage.setItem('zephix.returnUrl', returnUrlFromQuery);
+    }
+  }, [location.search]);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -59,9 +68,6 @@ export const LoginPage: React.FC = () => {
     try {
       await login(formData.email, formData.password);
 
-      // Clear returnUrl from localStorage after successful login
-      localStorage.removeItem('zephix.returnUrl');
-
       // Check onboarding status after login
       try {
         const { onboardingApi } = await import('@/services/onboardingApi');
@@ -70,17 +76,21 @@ export const LoginPage: React.FC = () => {
         if (!status.completed) {
           // Redirect to onboarding if not completed
           navigate('/onboarding', { replace: true });
-        } else {
-          // Use returnUrl if available, otherwise default to /home
-          const target = returnUrl || '/home';
-          navigate(target, { replace: true });
+          return;
         }
       } catch (onboardingError) {
         console.error('Failed to check onboarding:', onboardingError);
-        // Fallback: Use returnUrl if available, otherwise /home
-        const target = returnUrl || '/home';
-        navigate(target, { replace: true });
       }
+
+      // Redirect after login: use returnUrl if available, otherwise /home
+      const stored = localStorage.getItem('zephix.returnUrl');
+      if (stored) {
+        localStorage.removeItem('zephix.returnUrl');
+        // Use window.location.href for external URLs (like join URLs)
+        window.location.href = stored;
+        return;
+      }
+      navigate('/home', { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");
     } finally {
