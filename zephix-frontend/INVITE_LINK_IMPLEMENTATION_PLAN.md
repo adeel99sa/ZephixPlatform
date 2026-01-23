@@ -39,7 +39,7 @@
 ```typescript
 /**
  * Workspace Invite API
- * 
+ *
  * Matches backend behavior:
  * - GET /workspaces/:id/invite-link returns metadata only (no URL)
  * - POST /workspaces/:id/invite-link returns URL only at creation
@@ -92,10 +92,10 @@ function toApiError(e: unknown): ApiError {
   if (data?.code || data?.message) {
     return { ...data, statusCode: err.response?.status };
   }
-  return { 
-    code: 'UNKNOWN', 
-    message: 'Request failed', 
-    statusCode: err.response?.status 
+  return {
+    code: 'UNKNOWN',
+    message: 'Request failed',
+    statusCode: err.response?.status
   };
 }
 
@@ -104,7 +104,7 @@ export const workspaceInvitesApi = {
   /**
    * Get active invite link metadata
    * GET /api/workspaces/:id/invite-link
-   * 
+   *
    * Returns metadata only (exists, expiresAt, createdAt)
    * Does NOT return URL or token for security
    */
@@ -123,7 +123,7 @@ export const workspaceInvitesApi = {
   /**
    * Create invite link
    * POST /api/workspaces/:id/invite-link
-   * 
+   *
    * Returns URL and expiresAt only at creation time
    * Store URL in component state (memory only)
    */
@@ -146,7 +146,7 @@ export const workspaceInvitesApi = {
   /**
    * Join workspace
    * POST /api/workspaces/join
-   * 
+   *
    * Requires authentication
    * Returns 401 UNAUTHENTICATED if not logged in
    */
@@ -233,7 +233,7 @@ type JoinState =
 2. **missing-token**: Show error if token missing
 3. **joining**: Call `POST /workspaces/join { token }`
 4. **401 UNAUTHENTICATED**: Redirect to `/login?returnUrl=<current-url>`
-5. **success**: 
+5. **success**:
    - Refresh user session (`GET /api/auth/me`)
    - Navigate to `/workspaces/:workspaceId/home`
 6. **error**: Show error message based on error code
