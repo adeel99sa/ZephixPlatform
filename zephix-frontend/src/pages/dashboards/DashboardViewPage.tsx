@@ -124,13 +124,23 @@ export default function DashboardViewPage() {
 
   // Drilldown: Open work items list with same scope
   const handleOpenAsList = () => {
+    const basePath = '/my-work';
+
+    let f: WorkItemFilters = {
+      status: 'active',
+      dateRange: 'last_30_days',
+    };
+
     if (mode === 'WORKSPACE' && workspaceId) {
       // Workspace-scoped: filter by workspace
-      navigate(`/my-work?workspaceId=${workspaceId}`);
+      f = { ...f, workspaceId };
     } else {
-      // Org-scoped: show all work items (no filter)
-      navigate('/my-work');
+      // Org-scoped: show at-risk and blocked items
+      f = { ...f, health: ['at_risk', 'blocked'] };
     }
+
+    const search = buildWorkItemSearch(f);
+    navigate(`${basePath}${search}`);
   };
 
   return (
