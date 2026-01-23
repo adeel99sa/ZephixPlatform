@@ -213,7 +213,14 @@ export class DashboardsController {
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
     // Share token access (read-only, no JWT required)
+    // Phase 6.1: Disable public share tokens unless explicitly enabled
     if (shareToken) {
+      if (process.env.DASHBOARD_PUBLIC_SHARE_ENABLED !== 'true') {
+        throw new BadRequestException({
+          code: 'PUBLIC_SHARE_DISABLED',
+          message: 'Public share is disabled. Dashboard access requires authentication.',
+        });
+      }
       // Use service method that returns sanitized SharedDashboardDto
       const sharedDashboard = await this.dashboardsService.getSharedDashboard(
         id,
