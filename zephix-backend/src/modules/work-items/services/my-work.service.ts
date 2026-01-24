@@ -3,8 +3,7 @@
  * Returns assigned work tasks for the current user across accessible workspaces
  * Updated to use WorkTask entity instead of WorkItem
  */
-import { Injectable, Inject } from '@nestjs/common';
-import { In } from 'typeorm';
+import { Injectable, Inject, ForbiddenException } from '@nestjs/common';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
@@ -17,7 +16,6 @@ import {
   PlatformRole,
 } from '../../../shared/enums/platform-roles.enum';
 import { MyWorkQueryDto, resolveDateRange } from '../dto/my-work-query.dto';
-import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Injectable()
 export class MyWorkService {
@@ -34,77 +32,95 @@ export class MyWorkService {
   ): Promise<MyWorkResponseDto> {
     const organizationId = this.tenantContextService.assertOrganizationId();
     const userId = ctx.userId;
-    const userRole = ctx.platformRole;
-    const normalizedRole = normalizePlatformRole(userRole);
-    const isAdmin = normalizedRole === PlatformRole.ADMIN;
 
-    // Get accessible workspace IDs (for scoping if no workspaceId in query)
+    const normalizedRole = normalizePlatformRole(ctx.platformRole);
+    const isAdmin = normalizedRole === PlatformRole.ADMIN;
+    const isViewer = normalizedRole === PlatformRole.VIEWER;
+
     const accessibleWorkspaceIds =
       await this.workspaceAccessService.getAccessibleWorkspaceIds(
         organizationId,
         userId,
-        userRole,
+        ctx.platformRole,
       );
 
-    // If no accessible workspaces, return empty
-    if (
-      accessibleWorkspaceIds !== null &&
-      accessibleWorkspaceIds.length === 0
-    ) {
+    if (accessibleWorkspaceIds !== null && accessibleWorkspaceIds.length === 0) {
       return {
         version: 1,
-        counts: {
-          total: 0,
-          overdue: 0,
-          dueSoon7Days: 0,
-          inProgress: 0,
-          todo: 0,
-          done: 0,
-        },
+        counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
         items: [],
       };
     }
 
-    // Build QueryBuilder (TypeORM uses entity property names, not DB column names)
-    const qb = this.workTaskRepository
-      .createQueryBuilder('wt')
-      .leftJoinAndSelect('wt.project', 'project')
-      .leftJoinAndSelect('project.workspace', 'workspace')
-      .where('wt.organizationId = :orgId', { orgId: organizationId });
-
-    // Workspace filter - ALWAYS enforce accessible workspaces when workspaceId missing
-    if (query.workspaceId) {
-      qb.andWhere('wt.workspaceId = :workspaceId', {
-        workspaceId: query.workspaceId,
+    // Viewer second-line defense: hard fail if assignee=any is explicitly requested
+    if (isViewer && query.assignee && query.assignee !== 'me') {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Viewers can only view their own assigned work',
       });
-    } else {
-      // Org-wide query: MUST scope to accessible workspaces to prevent data leakage
-      if (accessibleWorkspaceIds === null) {
-        // Admin can see all workspaces - no filter needed
-      } else if (accessibleWorkspaceIds.length === 0) {
-        // No accessible workspaces - return empty (already handled above)
-        return {
-          version: 1,
-          counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
-          items: [],
-        };
-      } else {
-        // Scope to accessible workspaces
-        qb.andWhere('wt.workspaceId IN (:...workspaceIds)', {
-          workspaceIds: accessibleWorkspaceIds,
+    }
+
+    // Second-line defense
+    const effectiveAssignee =
+      (isViewer ? 'me' : query.assignee) ||
+      (query.workspaceId ? (isAdmin ? 'any' : 'me') : isAdmin ? 'any' : 'me');
+
+    // Critical security gap: service-side enforcement for org-wide assignee=any
+    if (!isAdmin && !query.workspaceId && effectiveAssignee === 'any') {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Non-admin users cannot view all assignees without workspace scope',
+      });
+    }
+
+    if (!isAdmin && query.workspaceId && effectiveAssignee === 'any') {
+      const effectiveRole =
+        await this.workspaceAccessService.getEffectiveWorkspaceRole({
+          userId,
+          orgId: organizationId,
+          platformRole: normalizedRole,
+          workspaceId: query.workspaceId,
+        });
+      if (effectiveRole !== 'workspace_owner') {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Only workspace owners can view all assignees in My Work',
         });
       }
     }
 
-    // Assignee filter
-    // Default: workspaceId present -> 'any', no workspaceId -> 'me' (unless admin)
-    const assignee = query.assignee || (query.workspaceId ? 'any' : isAdmin ? 'any' : 'me');
-    if (assignee === 'me') {
+    // Validate workspaceId in service
+    if (query.workspaceId && !isAdmin && accessibleWorkspaceIds !== null) {
+      if (!accessibleWorkspaceIds.includes(query.workspaceId)) {
+        throw new ForbiddenException({
+          code: 'WORKSPACE_ACCESS_DENIED',
+          message: 'Access denied to workspace',
+        });
+      }
+    }
+
+    const qb = this.workTaskRepository
+      .createQueryBuilder('wt')
+      .leftJoin('wt.project', 'project')
+      .leftJoin('project.workspace', 'workspace')
+      .addSelect(['project.id', 'project.name'])
+      .addSelect(['workspace.id', 'workspace.name'])
+      .where('wt.organizationId = :orgId', { orgId: organizationId })
+      // Soft delete safety: exclude soft-deleted workspaces
+      .andWhere('(workspace.deletedAt IS NULL OR workspace.id IS NULL)');
+
+    if (query.workspaceId) {
+      qb.andWhere('wt.workspaceId = :workspaceId', { workspaceId: query.workspaceId });
+    } else {
+      if (accessibleWorkspaceIds !== null) {
+        qb.andWhere('wt.workspaceId IN (:...workspaceIds)', { workspaceIds: accessibleWorkspaceIds });
+      }
+    }
+
+    if (effectiveAssignee === 'me') {
       qb.andWhere('wt.assigneeUserId = :userId', { userId });
     }
-    // If assignee === 'any', no filter (show all assignees in scope)
 
-    // Status filter
     const status = query.status || 'active';
     if (status !== 'all') {
       if (status === 'active') {
@@ -112,14 +128,17 @@ export class MyWorkService {
           done: [TaskStatus.DONE, TaskStatus.CANCELED],
         });
       } else if (status === 'completed') {
-        qb.andWhere('wt.status = :done', { done: TaskStatus.DONE });
+        qb.andWhere('wt.status IN (:...done)', {
+          done: [TaskStatus.DONE, TaskStatus.CANCELED],
+        });
       } else if (status === 'blocked') {
         qb.andWhere('wt.status = :blocked', { blocked: TaskStatus.BLOCKED });
       } else if (status === 'at_risk') {
-        // At risk: overdue tasks with 1 day grace period for timezone drift
         const now = new Date();
-        const gracePeriod = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day
-        qb.andWhere('wt.dueDate < :gracePeriod', { gracePeriod });
+        const graceMs = 24 * 60 * 60 * 1000;
+        const overdueCutoff = new Date(now.getTime() - graceMs);
+        qb.andWhere('wt.dueDate IS NOT NULL');
+        qb.andWhere('wt.dueDate < :overdueCutoff', { overdueCutoff });
         qb.andWhere('wt.status NOT IN (:...done)', {
           done: [TaskStatus.DONE, TaskStatus.CANCELED],
         });
@@ -147,20 +166,20 @@ export class MyWorkService {
         qb.setParameter('blockedStatus', TaskStatus.BLOCKED);
       }
       if (wantRisk) {
-        // At risk: overdue with 1 day grace period
         const now = new Date();
-        const gracePeriod = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 day
-        clauses.push('(wt.dueDate < :riskGracePeriod AND wt.status NOT IN (:...riskDone))');
-        qb.setParameter('riskGracePeriod', gracePeriod);
+        const graceMs = 24 * 60 * 60 * 1000;
+        const overdueCutoff = new Date(now.getTime() - graceMs);
+        clauses.push('(wt.dueDate IS NOT NULL AND wt.dueDate < :riskCutoff AND wt.status NOT IN (:...riskDone))');
+        qb.setParameter('riskCutoff', overdueCutoff);
         qb.setParameter('riskDone', [TaskStatus.DONE, TaskStatus.CANCELED]);
       }
       if (wantOnTrack) {
-        // On track: not blocked, not overdue
         const now = new Date();
         clauses.push(
-          '(wt.status != :onTrackBlocked AND (wt.dueDate IS NULL OR wt.dueDate >= :onTrackNow))',
+          '(wt.status != :onTrackBlocked AND wt.status NOT IN (:...onTrackDone) AND (wt.dueDate IS NULL OR wt.dueDate >= :onTrackNow))',
         );
         qb.setParameter('onTrackBlocked', TaskStatus.BLOCKED);
+        qb.setParameter('onTrackDone', [TaskStatus.DONE, TaskStatus.CANCELED]);
         qb.setParameter('onTrackNow', now);
       }
 
@@ -169,8 +188,26 @@ export class MyWorkService {
       }
     }
 
-    // Order and limit
-    qb.orderBy('wt.updatedAt', 'DESC').take(200);
+    // Order in SQL to match UI sort: overdue first, then dueDate asc (nulls last), then updatedAt desc
+    // This ensures overdue tasks are not cut off by take(200) before sorting
+    const nowForOrder = new Date();
+    // Use string enum values to avoid driver enum casting edge cases
+    const doneStatusesForOrder = ['DONE', 'CANCELED'];
+    qb.orderBy(
+      `CASE 
+        WHEN wt.dueDate IS NOT NULL 
+          AND wt.dueDate < :nowForOrder 
+          AND wt.status NOT IN (:...doneStatusesForOrder) 
+        THEN 0 
+        ELSE 1 
+      END`,
+      'ASC',
+    )
+      .setParameter('nowForOrder', nowForOrder)
+      .setParameter('doneStatusesForOrder', doneStatusesForOrder)
+      .addOrderBy('wt.dueDate', 'ASC', 'NULLS LAST')
+      .addOrderBy('wt.updatedAt', 'DESC')
+      .take(200);
 
     const workTasks = await qb.getMany();
 
@@ -221,6 +258,9 @@ export class MyWorkService {
       }
 
       // Check overdue (dueDate < now AND status != DONE)
+      // Note: This uses a stricter cutoff than at_risk filter (which uses now - 1 day grace).
+      // This means some overdue tasks from the last 24 hours will count as overdue
+      // but will not appear in at_risk filter results.
       const isOverdue =
         task.dueDate &&
         new Date(task.dueDate) < now &&
@@ -254,28 +294,8 @@ export class MyWorkService {
       });
     }
 
-    // Sort: overdue first, then dueDate asc, then updatedAt desc
-    items.sort((a, b) => {
-      const aDue = a.dueDate ? new Date(a.dueDate) : null;
-      const bDue = b.dueDate ? new Date(b.dueDate) : null;
-
-      const aOverdue = aDue && aDue < now && a.status !== 'done';
-      const bOverdue = bDue && bDue < now && b.status !== 'done';
-
-      // Overdue items first
-      if (aOverdue && !bOverdue) return -1;
-      if (!aOverdue && bOverdue) return 1;
-
-      // Then by dueDate (ascending, nulls last)
-      if (aDue && bDue) {
-        return aDue.getTime() - bDue.getTime();
-      }
-      if (aDue && !bDue) return -1;
-      if (!aDue && bDue) return 1;
-
-      // Finally by updatedAt (descending)
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
+    // Items are already sorted in SQL (overdue first, then dueDate asc, then updatedAt desc)
+    // No need for in-memory sorting
 
     return {
       version: 1,

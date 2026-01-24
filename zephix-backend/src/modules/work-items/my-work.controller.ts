@@ -11,7 +11,6 @@ import {
   Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { MyWorkService } from './services/my-work.service';
 import {
   normalizePlatformRole,
@@ -22,12 +21,6 @@ import { getAuthContext } from '../../common/http/get-auth-context';
 import { MyWorkQueryDto } from './dto/my-work-query.dto';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 
-type UserJwt = {
-  id: string;
-  organizationId: string;
-  role: 'admin' | 'member' | 'guest';
-};
-
 @Controller('my-work')
 @UseGuards(JwtAuthGuard)
 export class MyWorkController {
@@ -37,11 +30,7 @@ export class MyWorkController {
   ) {}
 
   @Get()
-  async getMyWork(
-    @CurrentUser() user: UserJwt,
-    @Req() req: AuthRequest,
-    @Query() query: MyWorkQueryDto,
-  ) {
+  async getMyWork(@Req() req: AuthRequest, @Query() query: MyWorkQueryDto) {
     const ctx = getAuthContext(req);
     const { platformRole, organizationId, userId } = ctx;
 
@@ -49,10 +38,11 @@ export class MyWorkController {
     const isAdmin = userRole === PlatformRole.ADMIN;
     const isViewer = userRole === PlatformRole.VIEWER;
 
-    // If workspaceId provided, verify access
-    if (query.workspaceId) {
+    const effectiveQuery: MyWorkQueryDto = { ...query };
+
+    if (effectiveQuery.workspaceId) {
       const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
-        query.workspaceId,
+        effectiveQuery.workspaceId,
         organizationId,
         userId,
         platformRole,
@@ -65,29 +55,44 @@ export class MyWorkController {
       }
     }
 
-    // Enforce assignee=me for VIEWER (view-only access)
     if (isViewer) {
-      if (query.assignee && query.assignee !== 'me') {
+      if (effectiveQuery.assignee && effectiveQuery.assignee !== 'me') {
         throw new ForbiddenException({
           code: 'FORBIDDEN',
           message: 'Viewers can only view their own assigned work',
         });
       }
-      // Force assignee=me for VIEWER
-      query.assignee = 'me';
+      effectiveQuery.assignee = 'me';
     }
 
-    // Org-wide query: enforce scoping rules
-    if (!query.workspaceId && !isAdmin) {
-      // Non-admin cannot use assignee=any without workspaceId
-      if (query.assignee && query.assignee !== 'me') {
+    if (!effectiveQuery.workspaceId && !isAdmin) {
+      if (effectiveQuery.assignee && effectiveQuery.assignee !== 'me') {
         throw new ForbiddenException({
           code: 'FORBIDDEN',
-          message: 'Non-admin users cannot view all assignees without workspace scope',
+          message:
+            'Non-admin users cannot view all assignees without workspace scope',
         });
       }
     }
 
-    return this.myWorkService.getMyWork(ctx, query);
+    if (effectiveQuery.workspaceId && !isAdmin) {
+      if (effectiveQuery.assignee === 'any') {
+        const effectiveRole =
+          await this.workspaceAccessService.getEffectiveWorkspaceRole({
+            userId,
+            orgId: organizationId,
+            platformRole: userRole,
+            workspaceId: effectiveQuery.workspaceId,
+          });
+        if (effectiveRole !== 'workspace_owner') {
+          throw new ForbiddenException({
+            code: 'FORBIDDEN',
+            message: 'Only workspace owners can view all assignees in My Work',
+          });
+        }
+      }
+    }
+
+    return this.myWorkService.getMyWork(ctx, effectiveQuery);
   }
 }

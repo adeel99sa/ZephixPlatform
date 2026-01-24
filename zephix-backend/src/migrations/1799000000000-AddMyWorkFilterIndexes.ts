@@ -49,9 +49,29 @@ export class AddMyWorkFilterIndexes1799000000000
         columnNames: ['organization_id', 'due_date'],
       }),
     );
+
+    // Index for workspace drilldowns and overdue queries (supports sorting by dueDate)
+    await queryRunner.createIndex(
+      'work_tasks',
+      new TableIndex({
+        name: 'idx_work_tasks_org_workspace_due_date',
+        columnNames: ['organization_id', 'workspace_id', 'due_date'],
+      }),
+    );
+
+    // Index for assignee + dueDate (helps My Work default path with future dueDate range filters)
+    await queryRunner.createIndex(
+      'work_tasks',
+      new TableIndex({
+        name: 'idx_work_tasks_org_assignee_due_date',
+        columnNames: ['organization_id', 'assignee_user_id', 'due_date'],
+      }),
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_assignee_due_date');
+    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_workspace_due_date');
     await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_due_date');
     await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_status_updated');
     await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_assignee_updated');
