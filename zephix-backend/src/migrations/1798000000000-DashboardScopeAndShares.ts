@@ -21,35 +21,62 @@ export class DashboardScopeAndShares1798000000000
   name = 'DashboardScopeAndShares1798000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create enum type for dashboard scope
+    // Create enum type for dashboard scope (handle both possible enum names)
     await queryRunner.query(`
-      DO $$ BEGIN
-        CREATE TYPE dashboard_scope AS ENUM ('ORG', 'WORKSPACE');
-      EXCEPTION
-        WHEN duplicate_object THEN null;
+      DO $$
+      BEGIN
+        -- Create dashboard_scope enum if it doesn't exist
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'dashboard_scope') THEN
+          CREATE TYPE dashboard_scope AS ENUM ('ORG', 'WORKSPACE');
+        END IF;
       END $$;
     `);
 
-    // Add scope column to dashboards table
-    await queryRunner.addColumn(
-      'dashboards',
-      new TableColumn({
-        name: 'scope',
-        type: 'enum',
-        enum: ['ORG', 'WORKSPACE'],
-        isNullable: false,
-        default: `'WORKSPACE'`,
-      }),
-    );
+    // Check if scope column already exists
+    const dashboardsTable = await queryRunner.getTable('dashboards');
+    const scopeColumnExists = dashboardsTable?.findColumnByName('scope');
+
+    if (!scopeColumnExists) {
+      // Add scope column to dashboards table
+      await queryRunner.addColumn(
+        'dashboards',
+        new TableColumn({
+          name: 'scope',
+          type: 'enum',
+          enum: ['ORG', 'WORKSPACE'],
+          isNullable: false,
+          default: `'WORKSPACE'`,
+        }),
+      );
+    }
 
     // Backfill scope based on visibility
+    // Handle both possible enum type names (dashboard_scope or dashboards_scope_enum)
     await queryRunner.query(`
-      UPDATE dashboards
-      SET scope = CASE
-        WHEN visibility = 'ORG' THEN 'ORG'::dashboard_scope
-        ELSE 'WORKSPACE'::dashboard_scope
-      END
-      WHERE scope IS NULL;
+      DO $$
+      DECLARE
+        enum_type_name text;
+        column_type_name text;
+      BEGIN
+        -- Get the actual enum type name used by the scope column
+        SELECT udt_name INTO column_type_name
+        FROM information_schema.columns
+        WHERE table_name = 'dashboards' AND column_name = 'scope';
+        
+        -- Use the column's actual enum type for the cast
+        IF column_type_name IS NOT NULL THEN
+          -- Update scope based on visibility using the correct enum type
+          EXECUTE format('
+            UPDATE dashboards
+            SET scope = CASE
+              WHEN visibility = ''ORG'' THEN ''ORG''::%I
+              ELSE ''WORKSPACE''::%I
+            END
+            WHERE scope IS NULL',
+            column_type_name, column_type_name
+          );
+        END IF;
+      END $$;
     `);
 
     // Create dashboard_shares table
