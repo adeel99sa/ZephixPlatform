@@ -85,7 +85,7 @@ export class CreateOrgInvitesTable1800000000000 implements MigrationInterface {
       table = await queryRunner.getTable('org_invites');
     } else {
       // Table exists - add missing columns if any
-      const existingColumns = table!.columns.map((col) => col.name);
+      const existingColumns = table.columns.map((col) => col.name);
       const requiredColumns = [
         'id',
         'organization_id',
@@ -197,7 +197,7 @@ export class CreateOrgInvitesTable1800000000000 implements MigrationInterface {
     }
 
     // Add foreign keys only if they don't exist
-    const existingForeignKeys = table!.foreignKeys || [];
+    const existingForeignKeys = table.foreignKeys || [];
     const hasOrgFk = existingForeignKeys.some(
       (fk) =>
         fk.columnNames.includes('organization_id') &&
@@ -233,7 +233,7 @@ export class CreateOrgInvitesTable1800000000000 implements MigrationInterface {
     }
 
     // Add indexes only if they don't exist
-    const existingIndices = table!.indices || [];
+    const existingIndices = table.indices || [];
     const indexNames = existingIndices.map((idx) => idx.name);
 
     if (!indexNames.includes('idx_org_invites_org_email')) {
@@ -284,7 +284,14 @@ export class CreateOrgInvitesTable1800000000000 implements MigrationInterface {
     if (table) {
       const indices = table.indices || [];
       for (const index of indices) {
-        if (['ux_org_invites_token_hash', 'idx_org_invites_org_created', 'idx_org_invites_token_hash', 'idx_org_invites_org_email'].includes(index.name)) {
+        if (
+          [
+            'ux_org_invites_token_hash',
+            'idx_org_invites_org_created',
+            'idx_org_invites_token_hash',
+            'idx_org_invites_org_email',
+          ].includes(index.name)
+        ) {
           await queryRunner.dropIndex('org_invites', index);
         }
       }

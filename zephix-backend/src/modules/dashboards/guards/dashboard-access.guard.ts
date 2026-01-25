@@ -15,7 +15,9 @@ export class DashboardAccessGuard implements CanActivate {
   constructor(private readonly accessService: DashboardAccessService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<Request & AuthRequest & any>();
+    const req = context
+      .switchToHttp()
+      .getRequest<Request & AuthRequest & any>();
     const auth = getAuthContext(req);
 
     const dashboardId = req.params.dashboardId || req.params.id;
@@ -28,7 +30,8 @@ export class DashboardAccessGuard implements CanActivate {
       dashboardId,
     );
 
-    const workspaceId = req.params.workspaceId || req.headers['x-workspace-id'] || null;
+    const workspaceId =
+      req.params.workspaceId || req.headers['x-workspace-id'] || null;
 
     const access = await this.accessService.resolveAccess({
       organizationId: auth.organizationId,
@@ -57,7 +60,9 @@ export class DashboardAccessGuard implements CanActivate {
 export function requireDashboardEdit(req: any): void {
   const access = req.dashboardAccess;
   if (!access) {
-    throw new Error('DashboardAccessGuard must run before requireDashboardEdit');
+    throw new Error(
+      'DashboardAccessGuard must run before requireDashboardEdit',
+    );
   }
   if (access.level !== 'EDIT' && access.level !== 'OWNER') {
     throw new ForbiddenException({
@@ -70,7 +75,9 @@ export function requireDashboardEdit(req: any): void {
 export function requireDashboardExport(req: any): void {
   const access = req.dashboardAccess;
   if (!access) {
-    throw new Error('DashboardAccessGuard must run before requireDashboardExport');
+    throw new Error(
+      'DashboardAccessGuard must run before requireDashboardExport',
+    );
   }
   if (!access.exportAllowed && access.level !== 'OWNER') {
     throw new ForbiddenException({

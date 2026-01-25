@@ -4,7 +4,10 @@ import { Form } from './entities/form.entity';
 import { FormsService } from './forms.service';
 import { FormsController } from './forms.controller';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
-import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
+import {
+  TenancyModule,
+  createTenantAwareRepositoryProvider,
+} from '../tenancy/tenancy.module';
 
 @Module({
   imports: [
@@ -13,10 +16,7 @@ import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/t
     TenancyModule,
   ],
   controllers: [FormsController],
-  providers: [
-    FormsService,
-    createTenantAwareRepositoryProvider(Form),
-  ],
+  providers: [FormsService, createTenantAwareRepositoryProvider(Form)],
   exports: [FormsService],
 })
 export class FormsModule {}

@@ -218,7 +218,8 @@ export class DashboardsController {
       if (process.env.DASHBOARD_PUBLIC_SHARE_ENABLED !== 'true') {
         throw new BadRequestException({
           code: 'PUBLIC_SHARE_DISABLED',
-          message: 'Public share is disabled. Dashboard access requires authentication.',
+          message:
+            'Public share is disabled. Dashboard access requires authentication.',
         });
       }
       // Use service method that returns sanitized SharedDashboardDto

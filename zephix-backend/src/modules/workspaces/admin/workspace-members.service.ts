@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 
@@ -21,7 +25,9 @@ type MemberRow = {
 };
 
 // Map simple role names to WorkspaceRole
-function mapToWorkspaceRole(role: 'owner' | 'member' | 'viewer'): WorkspaceRole {
+function mapToWorkspaceRole(
+  role: 'owner' | 'member' | 'viewer',
+): WorkspaceRole {
   switch (role) {
     case 'owner':
       return 'workspace_owner';
@@ -35,7 +41,9 @@ function mapToWorkspaceRole(role: 'owner' | 'member' | 'viewer'): WorkspaceRole 
 }
 
 // Map WorkspaceRole back to simple role names
-function mapFromWorkspaceRole(role: WorkspaceRole): 'owner' | 'member' | 'viewer' {
+function mapFromWorkspaceRole(
+  role: WorkspaceRole,
+): 'owner' | 'member' | 'viewer' {
   if (role === 'workspace_owner') return 'owner';
   if (role === 'workspace_member') return 'member';
   if (role === 'workspace_viewer') return 'viewer';
@@ -91,17 +99,27 @@ export class AdminWorkspaceMembersService {
       id: r.id,
       userId: r.userId,
       email: r.email || '',
-      name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email || 'Unknown',
+      name:
+        `${r.firstName || ''} ${r.lastName || ''}`.trim() ||
+        r.email ||
+        'Unknown',
       role: mapFromWorkspaceRole(r.role as WorkspaceRole),
       createdAt: r.createdAt,
     }));
   }
 
-  async add(workspaceId: string, userId: string, role: 'owner' | 'member' | 'viewer') {
+  async add(
+    workspaceId: string,
+    userId: string,
+    role: 'owner' | 'member' | 'viewer',
+  ) {
     const orgId = this.tenantContext.assertOrganizationId();
     await this.assertWorkspaceInOrg(workspaceId, orgId);
 
-    const user = await this.userRepo.findOne({ where: { id: userId } as any, select: ['id', 'organizationId'] });
+    const user = await this.userRepo.findOne({
+      where: { id: userId } as any,
+      select: ['id', 'organizationId'],
+    });
     if (!user) throw new BadRequestException('User not found.');
     if (user.organizationId !== orgId) {
       throw new BadRequestException('User not found.');
@@ -121,7 +139,11 @@ export class AdminWorkspaceMembersService {
     return { id: created.id };
   }
 
-  async updateRole(workspaceId: string, memberId: string, role: 'owner' | 'member' | 'viewer') {
+  async updateRole(
+    workspaceId: string,
+    memberId: string,
+    role: 'owner' | 'member' | 'viewer',
+  ) {
     const orgId = this.tenantContext.assertOrganizationId();
     await this.assertWorkspaceInOrg(workspaceId, orgId);
 
@@ -132,7 +154,10 @@ export class AdminWorkspaceMembersService {
     if (!member) throw new NotFoundException('Member not found.');
 
     const workspaceRole = mapToWorkspaceRole(role);
-    await this.memberRepo.update({ id: memberId, workspaceId } as any, { role: workspaceRole } as any);
+    await this.memberRepo.update(
+      { id: memberId, workspaceId } as any,
+      { role: workspaceRole } as any,
+    );
     return { success: true as const };
   }
 

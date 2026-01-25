@@ -652,7 +652,7 @@ describe('WorkflowTemplatesController (Integration)', () => {
         user: { id: 'user-123' },
       };
 
-      jest.spyOn(service, 'getWorkflowTemplates').mockRejectedValue(
+      jest.spyOn(service as any, 'getWorkflowTemplates').mockRejectedValue(
         new Error('Database connection failed')
       );
 

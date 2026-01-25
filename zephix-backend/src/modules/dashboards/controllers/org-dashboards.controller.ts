@@ -13,10 +13,17 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ResponseService } from '../../../shared/services/response.service';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { AuthRequest } from '../../../common/http/auth-request';
-import { DashboardAccessGuard, requireDashboardEdit, requireDashboardExport } from '../guards/dashboard-access.guard';
+import {
+  DashboardAccessGuard,
+  requireDashboardEdit,
+  requireDashboardExport,
+} from '../guards/dashboard-access.guard';
 import { DashboardAccessService } from '../services/dashboard-access.service';
 import { DashboardsService } from '../services/dashboards.service';
-import { CreateDashboardShareDto, UpdateDashboardShareDto } from '../dto/dashboard-share.dto';
+import {
+  CreateDashboardShareDto,
+  UpdateDashboardShareDto,
+} from '../dto/dashboard-share.dto';
 
 @Controller('/api/org/dashboards')
 @UseGuards(JwtAuthGuard)
@@ -35,9 +42,15 @@ export class OrgDashboardsController {
   }
 
   @Post()
-  async create(@Req() req: AuthRequest, @Body() body: { name: string; description?: string }) {
+  async create(
+    @Req() req: AuthRequest,
+    @Body() body: { name: string; description?: string },
+  ) {
     const auth = getAuthContext(req);
-    const dashboard = await this.dashboardsService.createOrgDashboard(auth, body);
+    const dashboard = await this.dashboardsService.createOrgDashboard(
+      auth,
+      body,
+    );
     return this.responseService.success(dashboard);
   }
 
@@ -107,9 +120,15 @@ export class OrgDashboardsController {
 
   // Phase 6.1: Share management routes
   @Get(':dashboardId/shares')
-  async listShares(@Req() req: AuthRequest, @Param('dashboardId') dashboardId: string) {
+  async listShares(
+    @Req() req: AuthRequest,
+    @Param('dashboardId') dashboardId: string,
+  ) {
     const auth = getAuthContext(req);
-    const shares = await this.dashboardsService.listOrgDashboardShares(auth, dashboardId);
+    const shares = await this.dashboardsService.listOrgDashboardShares(
+      auth,
+      dashboardId,
+    );
     return this.responseService.success(shares);
   }
 
@@ -120,7 +139,11 @@ export class OrgDashboardsController {
     @Body() dto: CreateDashboardShareDto,
   ) {
     const auth = getAuthContext(req);
-    const share = await this.dashboardsService.createOrgDashboardShare(auth, dashboardId, dto);
+    const share = await this.dashboardsService.createOrgDashboardShare(
+      auth,
+      dashboardId,
+      dto,
+    );
     return this.responseService.success(share);
   }
 
@@ -132,7 +155,12 @@ export class OrgDashboardsController {
     @Body() dto: UpdateDashboardShareDto,
   ) {
     const auth = getAuthContext(req);
-    const share = await this.dashboardsService.updateOrgDashboardShare(auth, dashboardId, shareId, dto);
+    const share = await this.dashboardsService.updateOrgDashboardShare(
+      auth,
+      dashboardId,
+      shareId,
+      dto,
+    );
     return this.responseService.success(share);
   }
 
@@ -143,7 +171,11 @@ export class OrgDashboardsController {
     @Param('shareId') shareId: string,
   ) {
     const auth = getAuthContext(req);
-    await this.dashboardsService.deleteOrgDashboardShare(auth, dashboardId, shareId);
+    await this.dashboardsService.deleteOrgDashboardShare(
+      auth,
+      dashboardId,
+      shareId,
+    );
     return this.responseService.success({ message: 'Share revoked' });
   }
 }

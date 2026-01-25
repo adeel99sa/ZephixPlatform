@@ -1,6 +1,14 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
-export class CreateProjectViewsAndWorkItemKeys1794000000000 implements MigrationInterface {
+export class CreateProjectViewsAndWorkItemKeys1794000000000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create project_views table
     await queryRunner.createTable(
@@ -201,7 +209,9 @@ export class CreateProjectViewsAndWorkItemKeys1794000000000 implements Migration
       await queryRunner.query(`ALTER TABLE "projects" DROP COLUMN "slug"`);
     }
     if (projectsTable?.findColumnByName('projectType')) {
-      await queryRunner.query(`ALTER TABLE "projects" DROP COLUMN "projectType"`);
+      await queryRunner.query(
+        `ALTER TABLE "projects" DROP COLUMN "projectType"`,
+      );
     }
     if (projectsTable?.findColumnByName('isActive')) {
       await queryRunner.query(`ALTER TABLE "projects" DROP COLUMN "isActive"`);

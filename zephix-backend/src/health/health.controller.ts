@@ -39,7 +39,7 @@ export class HealthController {
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
   async check(@Res() res: Response) {
     const startTime = Date.now();
-    
+
     // Fast health check for Railway - return immediately if app is running
     // Full health checks are available at /api/health/detailed
     const response = {

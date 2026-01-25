@@ -26,10 +26,7 @@ export class MyWorkService {
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
-  async getMyWork(
-    ctx: any,
-    query: MyWorkQueryDto,
-  ): Promise<MyWorkResponseDto> {
+  async getMyWork(ctx: any, query: MyWorkQueryDto): Promise<MyWorkResponseDto> {
     const organizationId = this.tenantContextService.assertOrganizationId();
     const userId = ctx.userId;
 
@@ -44,10 +41,20 @@ export class MyWorkService {
         ctx.platformRole,
       );
 
-    if (accessibleWorkspaceIds !== null && accessibleWorkspaceIds.length === 0) {
+    if (
+      accessibleWorkspaceIds !== null &&
+      accessibleWorkspaceIds.length === 0
+    ) {
       return {
         version: 1,
-        counts: { total: 0, overdue: 0, dueSoon7Days: 0, inProgress: 0, todo: 0, done: 0 },
+        counts: {
+          total: 0,
+          overdue: 0,
+          dueSoon7Days: 0,
+          inProgress: 0,
+          todo: 0,
+          done: 0,
+        },
         items: [],
       };
     }
@@ -69,7 +76,8 @@ export class MyWorkService {
     if (!isAdmin && !query.workspaceId && effectiveAssignee === 'any') {
       throw new ForbiddenException({
         code: 'FORBIDDEN',
-        message: 'Non-admin users cannot view all assignees without workspace scope',
+        message:
+          'Non-admin users cannot view all assignees without workspace scope',
       });
     }
 
@@ -110,10 +118,14 @@ export class MyWorkService {
       .andWhere('(workspace.deletedAt IS NULL OR workspace.id IS NULL)');
 
     if (query.workspaceId) {
-      qb.andWhere('wt.workspaceId = :workspaceId', { workspaceId: query.workspaceId });
+      qb.andWhere('wt.workspaceId = :workspaceId', {
+        workspaceId: query.workspaceId,
+      });
     } else {
       if (accessibleWorkspaceIds !== null) {
-        qb.andWhere('wt.workspaceId IN (:...workspaceIds)', { workspaceIds: accessibleWorkspaceIds });
+        qb.andWhere('wt.workspaceId IN (:...workspaceIds)', {
+          workspaceIds: accessibleWorkspaceIds,
+        });
       }
     }
 
@@ -169,7 +181,9 @@ export class MyWorkService {
         const now = new Date();
         const graceMs = 24 * 60 * 60 * 1000;
         const overdueCutoff = new Date(now.getTime() - graceMs);
-        clauses.push('(wt.dueDate IS NOT NULL AND wt.dueDate < :riskCutoff AND wt.status NOT IN (:...riskDone))');
+        clauses.push(
+          '(wt.dueDate IS NOT NULL AND wt.dueDate < :riskCutoff AND wt.status NOT IN (:...riskDone))',
+        );
         qb.setParameter('riskCutoff', overdueCutoff);
         qb.setParameter('riskDone', [TaskStatus.DONE, TaskStatus.CANCELED]);
       }

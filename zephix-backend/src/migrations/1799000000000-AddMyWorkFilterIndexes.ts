@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner, TableIndex } from 'typeorm';
  * - assigneeUserId + updatedAt
  * - status + updatedAt (for blocked/at_risk filtering)
  */
-export class AddMyWorkFilterIndexes1799000000000
-  implements MigrationInterface
-{
+export class AddMyWorkFilterIndexes1799000000000 implements MigrationInterface {
   name = 'AddMyWorkFilterIndexes1799000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -70,11 +68,26 @@ export class AddMyWorkFilterIndexes1799000000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_assignee_due_date');
-    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_workspace_due_date');
+    await queryRunner.dropIndex(
+      'work_tasks',
+      'idx_work_tasks_org_assignee_due_date',
+    );
+    await queryRunner.dropIndex(
+      'work_tasks',
+      'idx_work_tasks_org_workspace_due_date',
+    );
     await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_due_date');
-    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_status_updated');
-    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_assignee_updated');
-    await queryRunner.dropIndex('work_tasks', 'idx_work_tasks_org_workspace_updated');
+    await queryRunner.dropIndex(
+      'work_tasks',
+      'idx_work_tasks_org_status_updated',
+    );
+    await queryRunner.dropIndex(
+      'work_tasks',
+      'idx_work_tasks_org_assignee_updated',
+    );
+    await queryRunner.dropIndex(
+      'work_tasks',
+      'idx_work_tasks_org_workspace_updated',
+    );
   }
 }

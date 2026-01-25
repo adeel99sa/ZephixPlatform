@@ -9,7 +9,11 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Dashboard } from './dashboard.entity';
-import { DashboardExportFormat, DashboardExportStatus, DashboardScope } from '../domain/dashboard.enums';
+import {
+  DashboardExportFormat,
+  DashboardExportStatus,
+  DashboardScope,
+} from '../domain/dashboard.enums';
 
 @Entity('dashboard_export_jobs')
 @Index('idx_dashboard_export_jobs_org', ['organizationId'])

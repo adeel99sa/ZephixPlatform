@@ -3,13 +3,19 @@ import { Transform } from 'class-transformer';
 
 const STATUS = ['active', 'at_risk', 'blocked', 'completed', 'all'] as const;
 const ASSIGNEE = ['me', 'any'] as const;
-const DATE_RANGE = ['last_7_days', 'last_30_days', 'this_month', 'this_quarter', 'all_time'] as const;
+const DATE_RANGE = [
+  'last_7_days',
+  'last_30_days',
+  'this_month',
+  'this_quarter',
+  'all_time',
+] as const;
 const HEALTH = ['on_track', 'at_risk', 'blocked'] as const;
 
-export type MyWorkStatus = typeof STATUS[number];
-export type MyWorkAssignee = typeof ASSIGNEE[number];
-export type MyWorkDateRange = typeof DATE_RANGE[number];
-export type MyWorkHealth = typeof HEALTH[number];
+export type MyWorkStatus = (typeof STATUS)[number];
+export type MyWorkAssignee = (typeof ASSIGNEE)[number];
+export type MyWorkDateRange = (typeof DATE_RANGE)[number];
+export type MyWorkHealth = (typeof HEALTH)[number];
 
 export class MyWorkQueryDto {
   @IsOptional()
@@ -31,11 +37,16 @@ export class MyWorkQueryDto {
   @IsOptional()
   @IsArray()
   @IsIn(HEALTH as unknown as string[], { each: true })
-  @Transform(({ value }) => (Array.isArray(value) ? value : value ? [value] : []))
+  @Transform(({ value }) =>
+    Array.isArray(value) ? value : value ? [value] : [],
+  )
   health?: MyWorkHealth[];
 }
 
-export function resolveDateRange(dateRange?: MyWorkDateRange): { from?: Date; to?: Date } {
+export function resolveDateRange(dateRange?: MyWorkDateRange): {
+  from?: Date;
+  to?: Date;
+} {
   if (!dateRange || dateRange === 'all_time') return {};
 
   const now = new Date();

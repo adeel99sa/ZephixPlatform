@@ -1,4 +1,10 @@
-import { IsEmail, IsEnum, IsOptional, IsUUID, IsBoolean } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsUUID,
+  IsBoolean,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DashboardShareAccess } from '../domain/dashboard.enums';
 

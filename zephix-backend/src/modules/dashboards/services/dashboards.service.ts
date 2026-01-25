@@ -12,9 +12,15 @@ import { Dashboard } from '../entities/dashboard.entity';
 import { DashboardWidget } from '../entities/dashboard-widget.entity';
 import { DashboardShare } from '../entities/dashboard-share.entity';
 import { DashboardVisibility } from '../entities/dashboard.entity';
-import { DashboardScope, DashboardShareAccess } from '../domain/dashboard.enums';
+import {
+  DashboardScope,
+  DashboardShareAccess,
+} from '../domain/dashboard.enums';
 import { User } from '../../users/entities/user.entity';
-import { CreateDashboardShareDto, UpdateDashboardShareDto } from '../dto/dashboard-share.dto';
+import {
+  CreateDashboardShareDto,
+  UpdateDashboardShareDto,
+} from '../dto/dashboard-share.dto';
 import { CreateDashboardDto } from '../dto/create-dashboard.dto';
 import { UpdateDashboardDto } from '../dto/update-dashboard.dto';
 import { CreateWidgetDto } from '../dto/create-widget.dto';
@@ -22,7 +28,10 @@ import { UpdateWidgetDto } from '../dto/update-widget.dto';
 import { SharedDashboardDto } from '../dto/shared-dashboard.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
-import { normalizePlatformRole, PlatformRole } from '../../../shared/enums/platform-roles.enum';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
 import { isWidgetKeyAllowed, WidgetKey } from '../widgets/widget-allowlist';
 
 type WidgetConfigSchema = {
@@ -922,12 +931,13 @@ export class DashboardsService {
 
     if (normalizedRole !== PlatformRole.ADMIN) {
       // Check if user is workspace owner
-      const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-        userId: auth.userId,
-        orgId: auth.organizationId,
-        platformRole: normalizedRole,
-        workspaceId,
-      });
+      const effectiveRole =
+        await this.workspaceAccessService.getEffectiveWorkspaceRole({
+          userId: auth.userId,
+          orgId: auth.organizationId,
+          platformRole: normalizedRole,
+          workspaceId,
+        });
 
       if (effectiveRole !== 'workspace_owner') {
         // Non-owner: filter by share records
@@ -938,9 +948,12 @@ export class DashboardsService {
             'share.dashboardId = dashboard.id AND share.invitedUserId = :userId AND share.revokedAt IS NULL',
             { userId: auth.userId },
           )
-          .andWhere('(dashboard.ownerUserId = :userId OR share.id IS NOT NULL)', {
-            userId: auth.userId,
-          });
+          .andWhere(
+            '(dashboard.ownerUserId = :userId OR share.id IS NOT NULL)',
+            {
+              userId: auth.userId,
+            },
+          );
       }
     }
 
@@ -970,17 +983,22 @@ export class DashboardsService {
     const normalizedRole = normalizePlatformRole(auth.platformRole);
 
     // Check if user is workspace owner or admin
-    const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-      userId: auth.userId,
-      orgId: auth.organizationId,
-      platformRole: normalizedRole,
-      workspaceId,
-    });
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
 
-    if (normalizedRole !== PlatformRole.ADMIN && effectiveRole !== 'workspace_owner') {
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
       throw new ForbiddenException({
         code: 'WORKSPACE_DASHBOARD_CREATE_FORBIDDEN',
-        message: 'Only workspace owners and organization administrators can create workspace dashboards',
+        message:
+          'Only workspace owners and organization administrators can create workspace dashboards',
       });
     }
 
@@ -1043,7 +1061,11 @@ export class DashboardsService {
     }
 
     const dashboard = await this.dashboardRepository.findOne({
-      where: { id: dashboardId, organizationId: auth.organizationId, scope: DashboardScope.ORG },
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        scope: DashboardScope.ORG,
+      },
     });
 
     if (!dashboard) {
@@ -1051,7 +1073,11 @@ export class DashboardsService {
     }
 
     const shares = await this.shareRepository.find({
-      where: { dashboardId, organizationId: auth.organizationId, revokedAt: IsNull() },
+      where: {
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
       relations: ['dashboard'],
       order: { createdAt: 'DESC' },
     });
@@ -1067,7 +1093,8 @@ export class DashboardsService {
           ...share,
           invitedUserEmail: user?.email || null,
           invitedUserName: user
-            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+              user.email
             : null,
         };
       }),
@@ -1092,7 +1119,11 @@ export class DashboardsService {
     }
 
     const dashboard = await this.dashboardRepository.findOne({
-      where: { id: dashboardId, organizationId: auth.organizationId, scope: DashboardScope.ORG },
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        scope: DashboardScope.ORG,
+      },
     });
 
     if (!dashboard) {
@@ -1101,7 +1132,11 @@ export class DashboardsService {
 
     // Find user by email in the same organization
     const user = await this.userRepository.findOne({
-      where: { email: dto.email.toLowerCase(), organizationId: auth.organizationId, isActive: true },
+      where: {
+        email: dto.email.toLowerCase(),
+        organizationId: auth.organizationId,
+        isActive: true,
+      },
     });
 
     if (!user) {
@@ -1228,17 +1263,22 @@ export class DashboardsService {
     const normalizedRole = normalizePlatformRole(auth.platformRole);
 
     // Check if user is workspace owner or admin
-    const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-      userId: auth.userId,
-      orgId: auth.organizationId,
-      platformRole: normalizedRole,
-      workspaceId,
-    });
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
 
-    if (normalizedRole !== PlatformRole.ADMIN && effectiveRole !== 'workspace_owner') {
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
       throw new ForbiddenException({
         code: 'WORKSPACE_DASHBOARD_SHARE_MANAGE_FORBIDDEN',
-        message: 'Only workspace owners and organization administrators can manage dashboard shares',
+        message:
+          'Only workspace owners and organization administrators can manage dashboard shares',
       });
     }
 
@@ -1256,7 +1296,11 @@ export class DashboardsService {
     }
 
     const shares = await this.shareRepository.find({
-      where: { dashboardId, organizationId: auth.organizationId, revokedAt: IsNull() },
+      where: {
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
       relations: ['dashboard'],
       order: { createdAt: 'DESC' },
     });
@@ -1272,7 +1316,8 @@ export class DashboardsService {
           ...share,
           invitedUserEmail: user?.email || null,
           invitedUserName: user
-            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+              user.email
             : null,
         };
       }),
@@ -1301,17 +1346,22 @@ export class DashboardsService {
     const normalizedRole = normalizePlatformRole(auth.platformRole);
 
     // Check if user is workspace owner or admin
-    const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-      userId: auth.userId,
-      orgId: auth.organizationId,
-      platformRole: normalizedRole,
-      workspaceId,
-    });
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
 
-    if (normalizedRole !== PlatformRole.ADMIN && effectiveRole !== 'workspace_owner') {
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
       throw new ForbiddenException({
         code: 'WORKSPACE_DASHBOARD_SHARE_CREATE_FORBIDDEN',
-        message: 'Only workspace owners and organization administrators can create dashboard shares',
+        message:
+          'Only workspace owners and organization administrators can create dashboard shares',
       });
     }
 
@@ -1330,7 +1380,11 @@ export class DashboardsService {
 
     // Find user by email in the same organization
     const user = await this.userRepository.findOne({
-      where: { email: dto.email.toLowerCase(), organizationId: auth.organizationId, isActive: true },
+      where: {
+        email: dto.email.toLowerCase(),
+        organizationId: auth.organizationId,
+        isActive: true,
+      },
     });
 
     if (!user) {
@@ -1389,17 +1443,22 @@ export class DashboardsService {
     const normalizedRole = normalizePlatformRole(auth.platformRole);
 
     // Check if user is workspace owner or admin
-    const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-      userId: auth.userId,
-      orgId: auth.organizationId,
-      platformRole: normalizedRole,
-      workspaceId,
-    });
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
 
-    if (normalizedRole !== PlatformRole.ADMIN && effectiveRole !== 'workspace_owner') {
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
       throw new ForbiddenException({
         code: 'WORKSPACE_DASHBOARD_SHARE_UPDATE_FORBIDDEN',
-        message: 'Only workspace owners and organization administrators can update dashboard shares',
+        message:
+          'Only workspace owners and organization administrators can update dashboard shares',
       });
     }
 
@@ -1444,17 +1503,22 @@ export class DashboardsService {
     const normalizedRole = normalizePlatformRole(auth.platformRole);
 
     // Check if user is workspace owner or admin
-    const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-      userId: auth.userId,
-      orgId: auth.organizationId,
-      platformRole: normalizedRole,
-      workspaceId,
-    });
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
 
-    if (normalizedRole !== PlatformRole.ADMIN && effectiveRole !== 'workspace_owner') {
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
       throw new ForbiddenException({
         code: 'WORKSPACE_DASHBOARD_SHARE_DELETE_FORBIDDEN',
-        message: 'Only workspace owners and organization administrators can delete dashboard shares',
+        message:
+          'Only workspace owners and organization administrators can delete dashboard shares',
       });
     }
 
