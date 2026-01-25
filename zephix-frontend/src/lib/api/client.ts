@@ -1,12 +1,14 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+
+import type { ApiResponse, StandardError, ApiClientConfig } from './types';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 
-import { ApiResponse, StandardError, ApiClientConfig } from './types';
 
 // Helper: normalize to exactly one "/api" prefix (same-origin)
-const isAbsoluteHttp = (u?: string) => !!u && /^https?:\/\//i.test(u);
+const isAbsoluteHttp = (u?: string): boolean => !!u && /^https?:\/\//i.test(u);
 
-const normalizeApiPath = (u?: string) => {
+const normalizeApiPath = (u?: string): string | undefined => {
   if (!u) return u;
   if (isAbsoluteHttp(u)) return u;                  // leave full URLs alone
   let url = u.trim();
@@ -137,11 +139,11 @@ class ApiClient {
         }
         return response;
       },
-      async (error: AxiosError) => {
+      async (error: AxiosError): Promise<AxiosResponse | never> => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
         // Handle 401 - try to refresh token (but not on auth routes)
-        const isAuthRoute = (url: string) =>
+        const isAuthRoute = (url: string): boolean =>
           url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout');
 
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute(originalRequest.url ?? '')) {
@@ -233,7 +235,7 @@ class ApiClient {
     return `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private sendTelemetryMetric(metricName: string, data: Record<string, any>): void {
+  private sendTelemetryMetric(metricName: string, data: Record<string, unknown>): void {
     // In production, send to your monitoring service
     if (import.meta.env.PROD) {
       // TODO: Replace with your actual telemetry service
@@ -299,7 +301,7 @@ class ApiClient {
         };
         localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
       }
-    } catch (error) {
+    } catch {
       // Ignore errors updating legacy storage
     }
   }

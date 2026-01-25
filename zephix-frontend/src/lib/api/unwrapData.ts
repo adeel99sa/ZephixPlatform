@@ -15,7 +15,7 @@
  *   - null/undefined (safe defaults)
  */
 
-export function unwrapData<T>(response: any): T | null {
+export function unwrapData<T>(response: unknown): T | null {
   if (response === null || response === undefined) {
     return null;
   }
@@ -37,7 +37,7 @@ export function unwrapData<T>(response: any): T | null {
 /**
  * Unwrap data with default value
  */
-export function unwrapDataWithDefault<T>(response: any, defaultValue: T): T {
+export function unwrapDataWithDefault<T>(response: unknown, defaultValue: T): T {
   const data = unwrapData<T>(response);
   return data !== null ? data : defaultValue;
 }
@@ -45,7 +45,7 @@ export function unwrapDataWithDefault<T>(response: any, defaultValue: T): T {
 /**
  * Unwrap array data with empty array default
  */
-export function unwrapArray<T>(response: any): T[] {
+export function unwrapArray<T>(response: unknown): T[] {
   const data = unwrapData<T[]>(response);
   if (Array.isArray(data)) {
     return data;
@@ -56,13 +56,13 @@ export function unwrapArray<T>(response: any): T[] {
 /**
  * Unwrap paginated data with safe defaults
  */
-export function unwrapPaginated<T>(response: any): {
+export function unwrapPaginated<T>(response: unknown): {
   items: T[];
   total: number;
   page: number;
   totalPages: number;
 } {
-  const data = unwrapData<{ projects?: T[]; items?: T[]; data?: T[]; total: number; page: number; totalPages: number }>(response);
+  const data = unwrapData<{ projects?: T[]; items?: T[]; data?: T[]; total?: number; page?: number; totalPages?: number }>(response);
 
   if (data && typeof data === 'object') {
     const items = data.projects || data.items || data.data || [];

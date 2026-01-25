@@ -13,7 +13,7 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
       
       // Retry configuration
-      retry: (failureCount, error: any) => {
+      retry: (failureCount: number, error: unknown): boolean => {
         // Don't retry on 4xx errors (client errors)
         if (error?.status >= 400 && error?.status < 500) {
           return false;
