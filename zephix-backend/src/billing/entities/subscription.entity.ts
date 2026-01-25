@@ -57,6 +57,12 @@ export class Subscription {
   @Column({ default: true })
   autoRenew: boolean;
 
+  @Column({ type: 'boolean', default: false, name: 'cancel_at_period_end' })
+  cancelAtPeriodEnd: boolean;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'canceled_at' })
+  canceledAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

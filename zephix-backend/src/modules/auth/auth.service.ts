@@ -11,8 +11,12 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -29,7 +33,14 @@ import {
 import { TokenHashUtil } from '../../common/security/token-hash.util';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
+  private accessTokenExpiresInMs: number;
+  private refreshTokenExpiresInMs: number;
+  private accessTokenExpiresInStr: string;
+  private refreshTokenExpiresInStr: string;
+  private jwtSecret: string;
+  private jwtRefreshSecret: string;
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -40,8 +51,55 @@ export class AuthService {
     @InjectRepository(AuthSession)
     private authSessionRepository: Repository<AuthSession>,
     private jwtService: JwtService,
+    private configService: ConfigService,
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * Validate JWT config at startup - fail fast if missing or invalid
+   */
+  onModuleInit() {
+    // Validate and store access token expiration
+    const expiresIn = this.configService.get<string>('jwt.expiresIn');
+    if (!expiresIn) {
+      throw new Error(
+        'jwt.expiresIn is required in config (config key: jwt.expiresIn, env var: JWT_EXPIRES_IN) but was not found.',
+      );
+    }
+    this.validateDurationFormat(expiresIn, 'jwt.expiresIn');
+    this.accessTokenExpiresInStr = expiresIn.trim();
+    this.accessTokenExpiresInMs = this.parseDurationToMs(expiresIn);
+
+    // Validate and store refresh token expiration
+    const refreshExpiresIn = this.configService.get<string>(
+      'jwt.refreshExpiresIn',
+    );
+    if (!refreshExpiresIn) {
+      throw new Error(
+        'jwt.refreshExpiresIn is required in config (config key: jwt.refreshExpiresIn, env var: JWT_REFRESH_EXPIRES_IN) but was not found.',
+      );
+    }
+    this.validateDurationFormat(refreshExpiresIn, 'jwt.refreshExpiresIn');
+    this.refreshTokenExpiresInStr = refreshExpiresIn.trim();
+    this.refreshTokenExpiresInMs = this.parseDurationToMs(refreshExpiresIn);
+
+    // Validate and store JWT secrets
+    const secret = this.configService.get<string>('jwt.secret');
+    if (!secret || secret.trim().length === 0) {
+      throw new Error(
+        'jwt.secret is required in config (config key: jwt.secret, env var: JWT_SECRET) but was not found or empty.',
+      );
+    }
+    this.jwtSecret = secret;
+
+    const refreshSecret = this.configService.get<string>('jwt.refreshSecret');
+    if (!refreshSecret || refreshSecret.trim().length === 0) {
+      throw new Error(
+        'jwt.refreshSecret is required in config (config key: jwt.refreshSecret, env var: JWT_REFRESH_SECRET) but was not found or empty.',
+      );
+    }
+    this.jwtRefreshSecret = refreshSecret;
+  }
 
   async signup(signupDto: SignupDto) {
     const { email, password, firstName, lastName, organizationName } =
@@ -95,8 +153,10 @@ export class AuthService {
 
       // Create session first to get sessionId for refresh token
       const refreshTokenHash = TokenHashUtil.hashRefreshToken('temp'); // Will be updated after token generation
-      const refreshExpiresAt = new Date();
-      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+      const now = new Date();
+      const refreshExpiresAt = new Date(
+        now.getTime() + this.refreshTokenExpiresInMs,
+      );
 
       const session = manager.create(AuthSession, {
         userId: savedUser.id,
@@ -131,12 +191,15 @@ export class AuthService {
       // savedOrg is already available in the transaction scope
       const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
 
+      // Calculate expiresIn in seconds from validated config
+      const expiresInSeconds = Math.floor(this.accessTokenExpiresInMs / 1000);
+
       return {
         user: userResponse,
         accessToken,
         refreshToken,
         organizationId: savedOrg.id,
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: expiresInSeconds,
       };
     });
   }
@@ -169,29 +232,6 @@ export class AuthService {
       lastLoginAt: new Date(),
     });
 
-    // Generate JWT tokens
-    const accessToken = await this.generateToken(user);
-
-    // Feature 2B: Create auth session first to get sessionId
-    const refreshExpiresAt = new Date();
-    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
-
-    const session = this.authSessionRepository.create({
-      userId: user.id,
-      organizationId: user.organizationId || '',
-      userAgent: userAgent || null,
-      ipAddress: ip || null,
-      currentRefreshTokenHash: null, // Will be set after token generation
-      refreshExpiresAt,
-    });
-    const savedSession = await this.authSessionRepository.save(session);
-
-    // Generate refresh token with sessionId in payload
-    const refreshToken = await this.generateRefreshToken(user, savedSession.id);
-    const refreshTokenHash = TokenHashUtil.hashRefreshToken(refreshToken);
-    savedSession.currentRefreshTokenHash = refreshTokenHash;
-    await this.authSessionRepository.save(savedSession);
-
     // Get UserOrganization role if available
     let orgRole: string | null = null;
     let organization: Organization | null = null;
@@ -213,6 +253,13 @@ export class AuthService {
       });
     }
 
+    // Create session and tokens using shared method
+    const { accessToken, refreshToken, sessionId, expiresIn } =
+      await this.createSessionAndTokens(user, user.organizationId || '', {
+        userAgent: userAgent || null,
+        ipAddress: ip || null,
+      });
+
     // Build complete user response with permissions
     // Pass the org role and organization explicitly
     const userResponse = this.buildUserResponse(user, orgRole, organization);
@@ -221,9 +268,203 @@ export class AuthService {
       user: userResponse,
       accessToken,
       refreshToken,
-      sessionId: savedSession.id, // Feature 2B: Return sessionId
+      sessionId,
       organizationId: user.organizationId,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn,
+    };
+  }
+
+  /**
+   * Validate duration format with strict regex
+   * Must match exactly: ^[1-9][0-9]*[dhms]$
+   * Rejects decimals, trailing chars, leading zeros
+   */
+  private validateDurationFormat(value: string, configKey: string): void {
+    const trimmed = value.trim();
+    // Strict regex: starts with 1-9, followed by 0-9 digits, ends with d/h/m/s
+    const durationRegex = /^[1-9][0-9]*[dhms]$/;
+    if (!durationRegex.test(trimmed)) {
+      throw new Error(
+        `${configKey} must match format: ^[1-9][0-9]*[dhms]$ (e.g., '15m', '7d', '90s'). Got: ${value}. Decimals and trailing characters are not allowed.`,
+      );
+    }
+  }
+
+  /**
+   * Parse validated duration string to milliseconds
+   * Assumes format has already been validated
+   */
+  private parseDurationToMs(value: string): number {
+    const trimmed = value.trim();
+    let multiplier: number;
+    let numericPart: string;
+
+    if (trimmed.endsWith('d')) {
+      multiplier = 24 * 60 * 60 * 1000; // days to ms
+      numericPart = trimmed.slice(0, -1);
+    } else if (trimmed.endsWith('h')) {
+      multiplier = 60 * 60 * 1000; // hours to ms
+      numericPart = trimmed.slice(0, -1);
+    } else if (trimmed.endsWith('m')) {
+      multiplier = 60 * 1000; // minutes to ms
+      numericPart = trimmed.slice(0, -1);
+    } else {
+      // Must be 's' since format was validated
+      multiplier = 1000; // seconds to ms
+      numericPart = trimmed.slice(0, -1);
+    }
+
+    const num = parseInt(numericPart, 10);
+    // No need to check NaN or <= 0 since regex ensures valid positive integer
+    return num * multiplier;
+  }
+
+  /**
+   * Shared method for creating auth session and tokens
+   * Used by both login() and issueLoginForUser() to ensure consistency
+   */
+  private async createSessionAndTokens(
+    user: User,
+    organizationId: string,
+    opts: { userAgent?: string | null; ipAddress?: string | null },
+  ): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    sessionId: string;
+    expiresIn: number;
+  }> {
+    // Generate JWT tokens
+    const accessToken = await this.generateToken(user);
+
+    // Calculate refresh expiration using validated config (single source of truth)
+    const now = new Date();
+    const refreshExpiresAt = new Date(
+      now.getTime() + this.refreshTokenExpiresInMs,
+    );
+
+    const session = this.authSessionRepository.create({
+      userId: user.id,
+      organizationId: organizationId,
+      userAgent: opts.userAgent || null,
+      ipAddress: opts.ipAddress || null,
+      currentRefreshTokenHash: null, // Will be set after token generation
+      refreshExpiresAt,
+    });
+    const savedSession = await this.authSessionRepository.save(session);
+
+    // Generate refresh token with sessionId in payload
+    const refreshToken = await this.generateRefreshToken(user, savedSession.id);
+    const refreshTokenHash = TokenHashUtil.hashRefreshToken(refreshToken);
+    savedSession.currentRefreshTokenHash = refreshTokenHash;
+    await this.authSessionRepository.save(savedSession);
+
+    // Calculate expiresIn in seconds from validated config
+    const expiresInSeconds = Math.floor(this.accessTokenExpiresInMs / 1000);
+
+    return {
+      accessToken,
+      refreshToken,
+      sessionId: savedSession.id,
+      expiresIn: expiresInSeconds,
+    };
+  }
+
+  /**
+   * Issue login tokens for a user after invite acceptance
+   * Reuses the same token and session creation logic as login()
+   *
+   * @param userId - User ID to issue tokens for
+   * @param organizationId - Organization ID (must match user's organizationId)
+   * @param opts - Optional request metadata (userAgent, ipAddress)
+   * @returns Auth payload identical to login response
+   */
+  async issueLoginForUser(
+    userId: string,
+    organizationId: string,
+    opts?: { userAgent?: string | null; ipAddress?: string | null },
+  ): Promise<{
+    user: any;
+    accessToken: string;
+    refreshToken: string;
+    sessionId: string;
+    organizationId: string;
+    expiresIn: number;
+  }> {
+    // Load user by id
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException({
+        code: 'AUTH_USER_NOT_FOUND',
+        message: 'User not found',
+      });
+    }
+
+    // Validate user is active
+    if (!user.isActive) {
+      throw new ForbiddenException({
+        code: 'AUTH_USER_INACTIVE',
+        message: 'User account is inactive',
+      });
+    }
+
+    // Validate organizationId matches (treat mismatch as user not found for safety)
+    if (user.organizationId !== organizationId) {
+      throw new NotFoundException({
+        code: 'AUTH_USER_NOT_FOUND',
+        message: 'User not found',
+      });
+    }
+
+    // Load organization
+    const organization = await this.organizationRepository.findOne({
+      where: { id: organizationId },
+    });
+
+    if (!organization) {
+      throw new NotFoundException({
+        code: 'AUTH_ORG_NOT_FOUND',
+        message: 'Organization not found',
+      });
+    }
+
+    // Resolve org role from UserOrganization (source of truth) - strict check
+    const userOrg = await this.userOrgRepository.findOne({
+      where: {
+        userId: user.id,
+        organizationId: organizationId,
+        isActive: true,
+      },
+    });
+
+    if (!userOrg) {
+      throw new ForbiddenException({
+        code: 'AUTH_ROLE_NOT_FOUND',
+        message: 'User organization role not found',
+      });
+    }
+
+    const orgRole = userOrg.role;
+
+    // Create session and tokens using shared method
+    const { accessToken, refreshToken, sessionId, expiresIn } =
+      await this.createSessionAndTokens(user, organizationId, {
+        userAgent: opts?.userAgent || null,
+        ipAddress: opts?.ipAddress || null,
+      });
+
+    // Build complete user response with permissions (reuse existing helper)
+    const userResponse = this.buildUserResponse(user, orgRole, organization);
+
+    return {
+      user: userResponse,
+      accessToken,
+      refreshToken,
+      sessionId,
+      organizationId: organizationId,
+      expiresIn,
     };
   }
 
@@ -265,14 +506,10 @@ export class AuthService {
       platformRole: platformRole, // Normalized platform role
     };
 
-    // Use config service for expiration, with dev-friendly default
-    const expiresIn = process.env.NODE_ENV === 'development' 
-      ? (process.env.JWT_EXPIRES_IN || '7d')  // 7 days for dev testing
-      : (process.env.JWT_EXPIRES_IN || '15m'); // 15 minutes for production
-    
+    // Use validated config string directly (no conversion needed)
     return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn,
+      secret: this.jwtSecret,
+      expiresIn: this.accessTokenExpiresInStr,
     });
   }
 
@@ -305,9 +542,10 @@ export class AuthService {
       sid: sessionId, // Session ID for binding
     };
 
+    // Use validated config string directly (no conversion needed)
     return this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-      expiresIn: '7d',
+      secret: this.jwtRefreshSecret,
+      expiresIn: this.refreshTokenExpiresInStr,
     });
   }
 
@@ -389,9 +627,10 @@ export class AuthService {
 
     // Extract organization features from settings
     // Default to empty object if no organization or no features in settings
-    const features = organization?.settings && typeof organization.settings === 'object'
-      ? (organization.settings as any).features || {}
-      : {};
+    const features =
+      organization?.settings && typeof organization.settings === 'object'
+        ? (organization.settings as any).features || {}
+        : {};
 
     // Return consistent structure
     return {
@@ -401,12 +640,14 @@ export class AuthService {
       permissions,
       organizationId: user.organizationId,
       emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
-      organization: organization ? {
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-        features, // Organization feature flags (e.g., enableProgramsPortfolios)
-      } : null,
+      organization: organization
+        ? {
+            id: organization.id,
+            name: organization.name,
+            slug: organization.slug,
+            features, // Organization feature flags (e.g., enableProgramsPortfolios)
+          }
+        : null,
     };
   }
 
@@ -444,7 +685,7 @@ export class AuthService {
     try {
       // Decode the refresh token to get user ID and sessionId
       const decoded = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        secret: this.jwtRefreshSecret,
       });
       const user = await this.getUserById(decoded.sub);
 
@@ -491,8 +732,10 @@ export class AuthService {
       const newRefreshToken = await this.generateRefreshToken(user, session.id);
       const newRefreshTokenHash =
         TokenHashUtil.hashRefreshToken(newRefreshToken);
-      const refreshExpiresAt = new Date();
-      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
+      const now = new Date();
+      const refreshExpiresAt = new Date(
+        now.getTime() + this.refreshTokenExpiresInMs,
+      );
 
       // Update session with new token hash and last seen
       // Throttle last_seen updates (only update if > 5 minutes since last update)
@@ -509,11 +752,14 @@ export class AuthService {
       // Generate new access token
       const accessToken = await this.generateToken(user);
 
+      // Calculate expiresIn in seconds from validated config
+      const expiresInSeconds = Math.floor(this.accessTokenExpiresInMs / 1000);
+
       return {
         accessToken,
         refreshToken: newRefreshToken,
         sessionId: session.id,
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: expiresInSeconds,
       };
 
       // No fallback path - sessionId is required
@@ -534,7 +780,7 @@ export class AuthService {
     if (!targetSessionId && refreshToken) {
       try {
         const decoded = this.jwtService.verify(refreshToken, {
-          secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+          secret: this.jwtRefreshSecret,
         });
         targetSessionId = decoded.sid;
       } catch (error) {

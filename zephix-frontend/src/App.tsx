@@ -15,6 +15,7 @@ import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
+import { AcceptInvitePage } from "@/pages/auth/AcceptInvitePage";
 
 // System pages
 import { NotFound } from "@/pages/system/NotFound";
@@ -94,6 +95,8 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
+          <Route path="/org-invites/accept" element={<AcceptInvitePage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/join/workspace" element={<JoinWorkspacePage />} />
           {/* PROMPT 10: Workspace slug route - redirects to /w/:slug/home */}

@@ -13,7 +13,11 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { Project, ProjectStatus, ProjectState } from '../projects/entities/project.entity';
+import {
+  Project,
+  ProjectStatus,
+  ProjectState,
+} from '../projects/entities/project.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
@@ -159,7 +163,11 @@ export class WorkspacesService {
     }
   }
 
-  async getUserRole(workspaceId: string, userId: string, organizationId: string): Promise<{
+  async getUserRole(
+    workspaceId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<{
     role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
     canWrite: boolean;
     isReadOnly: boolean;
@@ -587,7 +595,11 @@ export class WorkspacesService {
   /**
    * Get workspace summary with counts
    */
-  async getSummary(workspaceId: string, organizationId: string, userId: string) {
+  async getSummary(
+    workspaceId: string,
+    organizationId: string,
+    userId: string,
+  ) {
     // Verify workspace access (service method handles access check)
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workspaceId,
@@ -624,7 +636,10 @@ export class WorkspacesService {
     });
 
     // Use the higher count (some projects might have status != ACTIVE but state == ACTIVE)
-    const projectsInProgressCount = Math.max(projectsInProgress, projectsInProgressByState);
+    const projectsInProgressCount = Math.max(
+      projectsInProgress,
+      projectsInProgressByState,
+    );
 
     // Count tasks
     const tasksTotal = await this.taskRepo.count({

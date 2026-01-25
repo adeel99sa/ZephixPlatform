@@ -80,6 +80,18 @@ async function bootstrap() {
   console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule);
 
+  // Trust proxy for production behind load balancer (enables req.ip to work correctly)
+  if (process.env.NODE_ENV === 'production') {
+    const httpAdapter = app.getHttpAdapter();
+    if (httpAdapter && typeof httpAdapter.getInstance === 'function') {
+      const expressApp = httpAdapter.getInstance();
+      if (expressApp && typeof expressApp.set === 'function') {
+        expressApp.set('trust proxy', 1);
+        console.log('🔒 Trust proxy enabled for production');
+      }
+    }
+  }
+
   console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
 
@@ -155,13 +167,13 @@ async function bootstrap() {
   const interceptors = [new EnvelopeInterceptor()];
 
   // Conditionally add request context logger
-  const requestLoggerEnabled = isTrue(process.env.REQUEST_CONTEXT_LOGGER_ENABLED);
+  const requestLoggerEnabled = isTrue(
+    process.env.REQUEST_CONTEXT_LOGGER_ENABLED,
+  );
   console.log(
     `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
   );
-  console.log(
-    `REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`,
-  );
+  console.log(`REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`);
   if (requestLoggerEnabled) {
     interceptors.unshift(new RequestContextLoggerInterceptor());
     console.log('✅ RequestContextLoggerInterceptor enabled');
@@ -205,7 +217,11 @@ async function bootstrap() {
   // Only log in development to avoid Railway log rate limits
   if (process.env.NODE_ENV !== 'production') {
     const httpServer = app.getHttpServer();
-    if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
+    if (
+      httpServer &&
+      typeof httpServer._router !== 'undefined' &&
+      httpServer._router?.stack
+    ) {
       const routes = httpServer._router.stack.filter((layer) => layer.route);
       console.log(
         `🎯 Router verification: ${routes.length} routes registered in Express stack`,

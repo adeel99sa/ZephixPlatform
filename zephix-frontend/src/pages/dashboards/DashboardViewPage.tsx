@@ -7,6 +7,7 @@ import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { normalizePlatformRole } from '@/utils/roles';
 import { buildWorkItemSearch, WorkItemFilters } from '@/features/work/items/workItemFilters';
+import { apiClient } from '@/lib/api/client';
 
 // TODO: Phase 6.4 - Implement export job creation and status polling
 async function handleExport(dashboardId: string, format: 'PDF' | 'XLSX', workspaceId?: string) {
@@ -15,22 +16,7 @@ async function handleExport(dashboardId: string, format: 'PDF' | 'XLSX', workspa
       ? `/workspaces/${workspaceId}/dashboards/${dashboardId}/exports`
       : `/org/dashboards/${dashboardId}/exports`;
     
-    const response = await fetch(`/api${url}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('zephix.at')}`,
-      },
-      credentials: 'include',
-      body: JSON.stringify({ format }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Export failed' }));
-      throw new Error(error.message || 'Export failed');
-    }
-
-    const result = await response.json();
+    const result = await apiClient.post(url, { format });
     alert(`Export job queued. Job ID: ${result.data?.jobId || 'N/A'}. Status will be available in Phase 6.4.`);
   } catch (e: any) {
     alert(`Export failed: ${e?.message || 'Unknown error'}`);

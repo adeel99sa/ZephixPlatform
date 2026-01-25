@@ -262,9 +262,10 @@ export class WorkspacesController {
 
     // Derive owner from auth context if not provided in request
     // Frontend should never send ownerId - backend derives it from @CurrentUser()
-    const ownerUserIds = dto.ownerUserIds && dto.ownerUserIds.length > 0
-      ? dto.ownerUserIds
-      : [u.id]; // Default to current user as owner
+    const ownerUserIds =
+      dto.ownerUserIds && dto.ownerUserIds.length > 0
+        ? dto.ownerUserIds
+        : [u.id]; // Default to current user as owner
 
     // Validate at least one owner exists (should always be true after derivation)
     if (!ownerUserIds || ownerUserIds.length === 0) {
@@ -550,7 +551,11 @@ export class WorkspacesController {
     @Req() req: Request,
   ) {
     try {
-      const roleData = await this.svc.getUserRole(workspaceId, u.id, u.organizationId);
+      const roleData = await this.svc.getUserRole(
+        workspaceId,
+        u.id,
+        u.organizationId,
+      );
       return formatResponse(roleData);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
@@ -585,7 +590,11 @@ export class WorkspacesController {
         throw new ForbiddenException('Workspace access denied');
       }
 
-      const summary = await this.svc.getSummary(workspaceId, u.organizationId, u.id);
+      const summary = await this.svc.getSummary(
+        workspaceId,
+        u.organizationId,
+        u.id,
+      );
       return formatResponse(summary);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
@@ -924,7 +933,11 @@ export class WorkspacesController {
     const requestId = req.headers['x-request-id'] || 'unknown';
 
     try {
-      await this.inviteService.revokeActiveInviteLink(id, u.id, String(requestId));
+      await this.inviteService.revokeActiveInviteLink(
+        id,
+        u.id,
+        String(requestId),
+      );
       return formatResponse({ ok: true });
     } catch (error) {
       if (

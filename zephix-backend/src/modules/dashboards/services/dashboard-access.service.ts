@@ -7,8 +7,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, MoreThan } from 'typeorm';
 import { Dashboard } from '../entities/dashboard.entity';
 import { DashboardShare } from '../entities/dashboard-share.entity';
-import { DashboardShareAccess, DashboardScope } from '../domain/dashboard.enums';
-import { normalizePlatformRole, PlatformRole } from '../../../shared/enums/platform-roles.enum';
+import {
+  DashboardShareAccess,
+  DashboardScope,
+} from '../domain/dashboard.enums';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 
 export type ResolvedDashboardAccess = {
@@ -53,12 +59,13 @@ export class DashboardAccessService {
     // Determine if user is workspace owner
     let isWorkspaceOwner = false;
     if (dashboard.scope === DashboardScope.WORKSPACE && dashboard.workspaceId) {
-      const effectiveRole = await this.workspaceAccessService.getEffectiveWorkspaceRole({
-        userId,
-        orgId: dashboard.organizationId,
-        platformRole: normalizedRole,
-        workspaceId: dashboard.workspaceId,
-      });
+      const effectiveRole =
+        await this.workspaceAccessService.getEffectiveWorkspaceRole({
+          userId,
+          orgId: dashboard.organizationId,
+          platformRole: normalizedRole,
+          workspaceId: dashboard.workspaceId,
+        });
       isWorkspaceOwner = effectiveRole === 'workspace_owner';
     }
 

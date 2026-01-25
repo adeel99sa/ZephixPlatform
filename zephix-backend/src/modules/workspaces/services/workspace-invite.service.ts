@@ -142,7 +142,8 @@ export class WorkspaceInviteService {
     });
 
     // Check if link exists and is not expired
-    const activeLink = link && (!link.expiresAt || link.expiresAt > now) ? link : null;
+    const activeLink =
+      link && (!link.expiresAt || link.expiresAt > now) ? link : null;
 
     if (!activeLink) {
       this.logger.log('No active invite link found. Revoke skipped', {

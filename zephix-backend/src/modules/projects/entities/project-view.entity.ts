@@ -9,7 +9,14 @@ import {
 } from 'typeorm';
 import { Project } from './project.entity';
 
-export type ProjectViewType = 'list' | 'board' | 'calendar' | 'gantt' | 'team' | 'doc' | 'dashboard';
+export type ProjectViewType =
+  | 'list'
+  | 'board'
+  | 'calendar'
+  | 'gantt'
+  | 'team'
+  | 'doc'
+  | 'dashboard';
 
 @Entity({ name: 'project_views' })
 @Index(['projectId', 'type'], { unique: true })

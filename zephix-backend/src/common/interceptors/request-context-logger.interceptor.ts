@@ -12,14 +12,14 @@ import * as crypto from 'crypto';
 
 /**
  * Request context logger interceptor
- * 
+ *
  * Logs request start and end with context:
  * - method, path
  * - requestId (from X-Request-Id header or generated)
  * - userId (from req.user.sub or req.user.id)
  * - orgId (from req.user.organizationId)
  * - statusCode, durationMs
- * 
+ *
  * No body logging for security.
  */
 @Injectable()

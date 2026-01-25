@@ -229,7 +229,9 @@ async function devSeed() {
 
       // Use 7 days for dev testing (longer than production 15m)
       const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-      
+
+      // DEV ONLY: Fallback secret for local development seeding
+      // Production code uses ConfigService with strict validation (no fallbacks)
       return jwtService.sign(payload, {
         secret: process.env.JWT_SECRET || 'fallback-secret-key',
         expiresIn,

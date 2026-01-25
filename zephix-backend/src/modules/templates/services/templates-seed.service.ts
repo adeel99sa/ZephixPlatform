@@ -70,7 +70,7 @@ export class TemplatesSeedService {
         isSystem: true,
         templateScope: 'ORG',
         structure: s.config ?? {},
-        methodology: s.config?.methodology as any ?? null,
+        methodology: s.config?.methodology ?? null,
         createdById: createdById,
         updatedById: createdById,
       };
@@ -80,7 +80,7 @@ export class TemplatesSeedService {
 
     const saved = await this.templateRepo.save(entities);
 
-    return { created: saved.length, templates: saved as Template[] };
+    return { created: saved.length, templates: saved };
   }
 
   private getDefaultSeeds(): SeedTemplate[] {

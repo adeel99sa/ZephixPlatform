@@ -13,6 +13,10 @@ import { User } from '../../users/entities/user.entity';
 /**
  * OrgInvite Entity
  *
+ * ⚠️ DEPRECATED for Phase 0A. Use modules/org-invites instead.
+ * This entity exists for backward compatibility with existing invite flows.
+ * New invite functionality should use the org-invites module.
+ *
  * Stores organization invitation tokens (hashed only).
  * Links an email address to an organization with a specific role.
  * Tokens expire and are single-use.

@@ -13,10 +13,17 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ResponseService } from '../../../shared/services/response.service';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { AuthRequest } from '../../../common/http/auth-request';
-import { DashboardAccessGuard, requireDashboardEdit, requireDashboardExport } from '../guards/dashboard-access.guard';
+import {
+  DashboardAccessGuard,
+  requireDashboardEdit,
+  requireDashboardExport,
+} from '../guards/dashboard-access.guard';
 import { DashboardAccessService } from '../services/dashboard-access.service';
 import { DashboardsService } from '../services/dashboards.service';
-import { CreateDashboardShareDto, UpdateDashboardShareDto } from '../dto/dashboard-share.dto';
+import {
+  CreateDashboardShareDto,
+  UpdateDashboardShareDto,
+} from '../dto/dashboard-share.dto';
 
 @Controller('/api/workspaces/:workspaceId/dashboards')
 @UseGuards(JwtAuthGuard)
@@ -28,9 +35,15 @@ export class WorkspaceDashboardsController {
   ) {}
 
   @Get()
-  async list(@Req() req: AuthRequest & any, @Param('workspaceId') workspaceId: string) {
+  async list(
+    @Req() req: AuthRequest & any,
+    @Param('workspaceId') workspaceId: string,
+  ) {
     const auth = getAuthContext(req);
-    const dashboards = await this.dashboardsService.listWorkspaceDashboards(auth, workspaceId);
+    const dashboards = await this.dashboardsService.listWorkspaceDashboards(
+      auth,
+      workspaceId,
+    );
     return this.responseService.success(dashboards);
   }
 
@@ -41,7 +54,11 @@ export class WorkspaceDashboardsController {
     @Body() body: { name: string; description?: string },
   ) {
     const auth = getAuthContext(req);
-    const dashboard = await this.dashboardsService.createWorkspaceDashboard(auth, workspaceId, body);
+    const dashboard = await this.dashboardsService.createWorkspaceDashboard(
+      auth,
+      workspaceId,
+      body,
+    );
     return this.responseService.success(dashboard);
   }
 
@@ -117,7 +134,11 @@ export class WorkspaceDashboardsController {
     @Param('dashboardId') dashboardId: string,
   ) {
     const auth = getAuthContext(req);
-    const shares = await this.dashboardsService.listWorkspaceDashboardShares(auth, workspaceId, dashboardId);
+    const shares = await this.dashboardsService.listWorkspaceDashboardShares(
+      auth,
+      workspaceId,
+      dashboardId,
+    );
     return this.responseService.success(shares);
   }
 
@@ -129,7 +150,12 @@ export class WorkspaceDashboardsController {
     @Body() dto: CreateDashboardShareDto,
   ) {
     const auth = getAuthContext(req);
-    const share = await this.dashboardsService.createWorkspaceDashboardShare(auth, workspaceId, dashboardId, dto);
+    const share = await this.dashboardsService.createWorkspaceDashboardShare(
+      auth,
+      workspaceId,
+      dashboardId,
+      dto,
+    );
     return this.responseService.success(share);
   }
 
@@ -160,7 +186,12 @@ export class WorkspaceDashboardsController {
     @Param('shareId') shareId: string,
   ) {
     const auth = getAuthContext(req);
-    await this.dashboardsService.deleteWorkspaceDashboardShare(auth, workspaceId, dashboardId, shareId);
+    await this.dashboardsService.deleteWorkspaceDashboardShare(
+      auth,
+      workspaceId,
+      dashboardId,
+      shareId,
+    );
     return this.responseService.success({ message: 'Share revoked' });
   }
 }

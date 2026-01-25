@@ -54,6 +54,7 @@ import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { TenantContextInterceptor } from './modules/tenancy/tenant-context.interceptor';
 import { DocsModule } from './modules/docs/docs.module';
 import { FormsModule } from './modules/forms/forms.module';
+import { OrgInvitesModule } from './modules/org-invites/org-invites.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -72,7 +73,7 @@ if (!(global as any).crypto) {
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret'),
         signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn') || '15m',
+          expiresIn: configService.get<string>('jwt.expiresIn'), // No default - AuthService validates at startup
         },
       }),
       inject: [ConfigService],
@@ -97,6 +98,7 @@ if (!(global as any).crypto) {
     WorkspaceAccessModule, // Must be imported early - provides WorkspaceAccessService used by many modules
     AuthModule,
     OrganizationsModule,
+    OrgInvitesModule, // Phase 0A: Self-serve org invites and onboarding
     BillingModule,
     AdminModule,
     ...(process.env.SKIP_DATABASE !== 'true'

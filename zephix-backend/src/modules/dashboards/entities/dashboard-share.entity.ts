@@ -13,7 +13,11 @@ import { DashboardShareAccess } from '../domain/dashboard.enums';
 @Entity('dashboard_shares')
 @Index('idx_dashboard_shares_org', ['organizationId'])
 @Index('idx_dashboard_shares_dashboard', ['dashboardId'])
-@Index('uq_dashboard_shares_active', ['dashboardId', 'invitedUserId', 'revokedAt'])
+@Index('uq_dashboard_shares_active', [
+  'dashboardId',
+  'invitedUserId',
+  'revokedAt',
+])
 export class DashboardShare {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
