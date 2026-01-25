@@ -1,5 +1,36 @@
 # Phase 0A Slice 4: Org Invites Self-Serve Onboarding
 
+## Summary
+
+- **Self serve org invite accept page** with token validation and expiresAt display
+- **Auto login after accept**, payload matches `/api/auth/login`
+- **Strict JWT config validation at startup**, no fallbacks
+- **Safe post login redirect**, blocks open redirect
+
+## Risk and Rollout
+
+- **Requires 4 env vars in Railway**: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`
+- **Deploy will fail fast if missing** (application startup validation)
+- **Post deploy checks**: `/api/health`, create invite then accept, refresh token
+
+## CI Status
+
+- **Lint and unit test failures match main** at commit `a4844937`
+- **This PR adds no new lint or unit test failures versus main**
+- **Logs**: `/tmp/main-lint-output.txt`, `/tmp/main-unit-output.txt`
+
+## Reviewer Focus
+
+- **Backend**: `AuthService` startup validation, `issueLoginForUser` flow, conditional migration DDL
+- **Frontend**: `safeNavigateToReturnUrl` allowlist, `AcceptInvitePage` token handling, shared `completeLoginRedirect`
+
+## Merge Steps
+
+- Merge after approval
+- Immediately run post merge checks
+
+---
+
 ## What Shipped
 
 ### Org Invites Accept Flow with Auto Login
@@ -23,21 +54,21 @@
 ## Risk Controls
 
 ### No Token Logging
-- ✅ Removed all `console.log`/`console.error` statements that contained token material
-- ✅ Token values never appear in console, UI, or network logs (beyond query string)
-- ✅ Only user metadata (email, role, permissions) logged for debugging
+- Removed all `console.log`/`console.error` statements that contained token material
+- Token values never appear in console, UI, or network logs (beyond query string)
+- Only user metadata (email, role, permissions) logged for debugging
 
 ### Open Redirect Blocked
-- ✅ **Allowlist validation**: Only `/home`, `/onboarding`, `/workspaces`, `/projects`, `/w/`, `/admin` prefixes allowed
-- ✅ **Control char blocking**: Regex `/[^\x20-\x7E]/` blocks CRLF and non-printable ASCII
-- ✅ **Protocol blocking**: Blocks absolute URLs (http/https) and protocol-relative URLs (`//`)
-- ✅ **Backslash blocking**: Blocks Windows-style paths with backslashes
-- ✅ **Stale cleanup**: `zephix.returnUrl` cleared on invite validation failure
+- **Allowlist validation**: Only `/home`, `/onboarding`, `/workspaces`, `/projects`, `/w/`, `/admin` prefixes allowed
+- **Control char blocking**: Regex `/[^\x20-\x7E]/` blocks CRLF and non-printable ASCII
+- **Protocol blocking**: Blocks absolute URLs (http/https) and protocol-relative URLs (`//`)
+- **Backslash blocking**: Blocks Windows-style paths with backslashes
+- **Stale cleanup**: `zephix.returnUrl` cleared on invite validation failure
 
 ### E2E dropDatabase Safety Guard
-- ✅ **Database name check**: E2E tests verify database name contains `test` or `e2e` before dropping
-- ✅ **Fail-safe**: Throws `Error` if database name doesn't match safety criteria
-- ✅ **Prevents production drops**: Accidental production database drops are blocked
+- **Database name check**: E2E tests verify database name contains `test` or `e2e` before dropping
+- **Fail-safe**: Throws `Error` if database name doesn't match safety criteria
+- **Prevents production drops**: Accidental production database drops are blocked
 
 ## Config Keys Required
 
@@ -54,9 +85,9 @@
 - No fallback values in production code
 
 **Environment Coverage:**
-- ✅ Test environment (`.env.test`): All keys explicitly set
-- ⚠️ Production/Staging: Must be set via Railway environment variables
-- ⚠️ **Action Required**: Verify all 4 keys are set in Railway production and staging
+- Test environment (`.env.test`): All keys explicitly set
+- Production/Staging: Must be set via Railway environment variables
+- **Action required**: Confirm all four JWT env vars exist in Railway staging and production before merge
 
 ## Files Changed
 
@@ -77,14 +108,14 @@
 ## Testing
 
 ### Manual Test Checklist
-1. ✅ `/accept-invite?token=valid` - Loads details, accepts, redirects correctly
-2. ✅ `/accept-invite?token=expired` - Shows error, clears returnUrl
-3. ✅ `/accept-invite` (no token) - Shows error, clears returnUrl
-4. ✅ `/org-invites/accept` - Route alias works
-5. ✅ `/invites/accept` - Workspace invite flow intact
+1. `/accept-invite?token=valid` - Loads details, accepts, redirects correctly
+2. `/accept-invite?token=expired` - Shows error, clears returnUrl
+3. `/accept-invite` (no token) - Shows error, clears returnUrl
+4. `/org-invites/accept` - Route alias works
+5. `/invites/accept` - Workspace invite flow intact
 
 ### E2E Tests
-- ✅ `org-invites-accept.e2e-spec.ts` - Full integration test with safety guard
+- `org-invites-accept.e2e-spec.ts` - Full integration test with safety guard
 
 ## Post-Merge Checks
 
