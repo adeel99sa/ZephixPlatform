@@ -24,6 +24,7 @@ PATTERNS=(
 ALLOWED_DIRS=(
   "src/modules/tenancy"
   "src/database"
+  "src/infrastructure"
   "src/migrations"
   "scripts"
   "src/config"

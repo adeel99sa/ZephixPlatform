@@ -516,33 +516,30 @@ export class TemplatesService {
           },
         );
 
-        // Create and save tasks using raw query to handle organization_id
+        // Create and save tasks using repository.insert() with explicit organization_id
         // (Entity doesn't define organizationId but database requires it)
-        for (const taskData of tasksToCreate) {
-          await manager.query(
-            `INSERT INTO tasks (
-              project_id, title, description, estimated_hours, priority, status,
-              task_number, task_type, assignment_type, progress_percentage,
-              is_milestone, is_blocked, created_by, organization_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-            [
-              savedProject.id,
-              taskData.title,
-              taskData.description || null,
-              taskData.estimatedHours || 0,
-              taskData.priority || 'medium',
-              taskData.status || 'not_started',
-              taskData.taskNumber,
-              taskData.taskType || 'task',
-              taskData.assignmentType || 'internal',
-              taskData.progressPercentage || 0,
-              taskData.isMilestone || false,
-              taskData.isBlocked || false,
-              taskData.createdById || null,
-              savedProject.organizationId,
-            ],
-          );
-        }
+        // Use insert() which allows fields not in entity definition
+        const taskInserts = tasksToCreate.map((taskData) => ({
+          projectId: savedProject.id,
+          title: taskData.title,
+          description: taskData.description || null,
+          estimatedHours: taskData.estimatedHours || 0,
+          priority: taskData.priority || 'medium',
+          status: taskData.status || 'not_started',
+          taskNumber: taskData.taskNumber,
+          taskType: taskData.taskType || 'task',
+          assignmentType: taskData.assignmentType || 'internal',
+          progressPercentage: taskData.progressPercentage || 0,
+          isMilestone: taskData.isMilestone || false,
+          isBlocked: taskData.isBlocked || false,
+          createdById: taskData.createdById || null,
+          // Explicitly include organization_id even though entity doesn't define it
+          // TypeORM insert() will include this in the SQL
+          organization_id: savedProject.organizationId,
+        }));
+
+        // Use insert() instead of query() - requires tenant-safe transaction helper refactor
+        await taskRepo.insert(taskInserts);
       }
 
       // 5. Template usage tracking - skip if no usage entity exists

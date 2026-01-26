@@ -36,7 +36,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
   };
 
   const mockDataSource = {
-    createQueryRunner: jest.fn(),
+    transaction: jest.fn(),
   };
 
   beforeEach(async () => {

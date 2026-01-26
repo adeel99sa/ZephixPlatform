@@ -75,11 +75,7 @@ export class TemplatesService {
     }
 
     // Create dashboard and widgets in transaction
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
+    return this.dataSource.transaction(async (manager) => {
       // Create dashboard
       const dashboard = this.dashboardRepository.create({
         name: template.name,
@@ -92,7 +88,7 @@ export class TemplatesService {
         templateKey: template.key,
       });
 
-      const savedDashboard = await queryRunner.manager.save(dashboard);
+      const savedDashboard = await manager.save(dashboard);
 
       // Create widgets
       const widgets = template.definition.widgets.map((widgetDef) =>
@@ -106,21 +102,13 @@ export class TemplatesService {
         }),
       );
 
-      await queryRunner.manager.save(widgets);
+      await manager.save(widgets);
 
-      await queryRunner.commitTransaction();
-
-      // Return dashboard with widgets
+      // Return dashboard with widgets - need to reload with relations
       return await this.dashboardRepository.findOne({
         where: { id: savedDashboard.id },
         relations: ['widgets'],
       });
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error('Failed to activate template', error);
-      throw new BadRequestException('Failed to activate template');
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 }
