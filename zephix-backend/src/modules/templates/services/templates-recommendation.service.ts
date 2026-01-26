@@ -213,12 +213,11 @@ export class TemplatesRecommendationService {
       }
     }
 
-    // Map ProjectTemplate entities - ensure structure exists (prefer structure, fall back to phases)
+    // Map ProjectTemplate entities - ensure structure exists
+    // Note: template.phases (Phase[]) is incompatible with structure.phases (requires tasks array)
+    // So we only use structure if it exists, otherwise create empty structure
     const projectTemplatesMapped = projectTemplates.map((template) => {
-      // Ensure structure exists - use structure if present, otherwise build from phases
-      if (!template.structure && template.phases) {
-        template.structure = { phases: template.phases };
-      } else if (!template.structure) {
+      if (!template.structure) {
         template.structure = { phases: [] };
       }
       return template;

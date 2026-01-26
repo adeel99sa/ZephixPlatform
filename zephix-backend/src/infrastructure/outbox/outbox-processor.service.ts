@@ -158,25 +158,24 @@ export class OutboxProcessorService {
           await this.processEvent(event);
         }
       });
-      } catch (error: any) {
-        // Check if table is missing - disable processor and log once
-        if (
-          error?.message?.includes('relation "auth_outbox" does not exist') ||
-          error?.message?.includes('does not exist')
-        ) {
-          if (!this.isDisabled) {
-            this.isDisabled = true;
-            this.logger.error(
-              '❌ OutboxProcessorService DISABLED: auth_outbox table does not exist. Run migrations before enabling.',
-            );
-            this.logger.error(
-              '   Run: npm run migration:run or use Railway one-time command',
-            );
-          }
-          return; // Stop processing until migrations run
+    } catch (error: any) {
+      // Check if table is missing - disable processor and log once
+      if (
+        error?.message?.includes('relation "auth_outbox" does not exist') ||
+        error?.message?.includes('does not exist')
+      ) {
+        if (!this.isDisabled) {
+          this.isDisabled = true;
+          this.logger.error(
+            '❌ OutboxProcessorService DISABLED: auth_outbox table does not exist. Run migrations before enabling.',
+          );
+          this.logger.error(
+            '   Run: npm run migration:run or use Railway one-time command',
+          );
         }
-        this.logger.error('Error processing outbox', error);
+        return; // Stop processing until migrations run
       }
+      this.logger.error('Error processing outbox', error);
     } finally {
       this.isProcessing = false;
     }
