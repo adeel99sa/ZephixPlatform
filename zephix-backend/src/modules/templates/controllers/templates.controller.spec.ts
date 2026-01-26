@@ -1,11 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TemplatesController } from './templates.controller';
 import { TemplatesService } from '../services/templates.service';
+import { TemplatesInstantiateService } from '../services/templates-instantiate.service';
+import { TemplatesInstantiateV51Service } from '../services/templates-instantiate-v51.service';
+import { TemplatesRecommendationService } from '../services/templates-recommendation.service';
+import { TemplatesPreviewV51Service } from '../services/templates-preview-v51.service';
+import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
 import { ResponseService } from '../../../shared/services/response.service';
 import { GoneException } from '@nestjs/common';
 import { Request } from 'express';
 import { DataSource } from 'typeorm';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { Template } from '../entities/template.entity';
+import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 
 describe('TemplatesController - Contract Tests', () => {
   let controller: TemplatesController;
@@ -50,28 +57,42 @@ describe('TemplatesController - Contract Tests', () => {
         },
         // Mock other required dependencies
         {
-          provide: 'TemplatesInstantiateService',
-          useValue: {},
+          provide: TemplatesInstantiateService,
+          useValue: {
+            instantiate: jest.fn(),
+          },
         },
         {
-          provide: 'TemplatesInstantiateV51Service',
-          useValue: {},
+          provide: TemplatesInstantiateV51Service,
+          useValue: {
+            instantiateV51: jest.fn(),
+          },
         },
         {
-          provide: 'TemplatesRecommendationService',
-          useValue: {},
+          provide: TemplatesRecommendationService,
+          useValue: {
+            getRecommendations: jest.fn(),
+          },
         },
         {
-          provide: 'TemplatesPreviewV51Service',
-          useValue: {},
+          provide: TemplatesPreviewV51Service,
+          useValue: {
+            getPreview: jest.fn(),
+          },
         },
         {
-          provide: 'WorkspaceRoleGuardService',
-          useValue: {},
+          provide: WorkspaceRoleGuardService,
+          useValue: {
+            requireWorkspaceRead: jest.fn(),
+            requireWorkspaceWrite: jest.fn(),
+            getWorkspaceRole: jest.fn(),
+          },
         },
         {
-          provide: 'TenantAwareRepository',
-          useValue: {},
+          provide: getTenantAwareRepositoryToken(Template),
+          useValue: {
+            findOne: jest.fn(),
+          } as Partial<TenantAwareRepository<Template>>,
         },
         {
           provide: DataSource,
