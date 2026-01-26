@@ -558,11 +558,20 @@ describe('WorkflowTemplatesController (Integration)', () => {
     it('should activate workflow template successfully', async () => {
       const mockActivatedTemplate = {
         id: templateId,
+        name: 'Test Template',
+        description: 'Test description',
+        type: WorkflowType.AGILE,
         status: WorkflowStatus.ACTIVE,
+        isDefault: false,
+        isPublic: false,
+        version: 1,
+        usageCount: 0,
+        tags: [],
+        metadata: {},
         stages: [],
       };
 
-      jest.spyOn(service, 'updateWorkflowTemplate').mockResolvedValue(mockActivatedTemplate);
+      jest.spyOn(service as any, 'updateWorkflowTemplate').mockResolvedValue(mockActivatedTemplate);
 
       const result = await controller.activateWorkflowTemplate(templateId, mockRequest as any);
 
@@ -587,11 +596,20 @@ describe('WorkflowTemplatesController (Integration)', () => {
     it('should archive workflow template successfully', async () => {
       const mockArchivedTemplate = {
         id: templateId,
+        name: 'Test Template',
+        description: 'Test description',
+        type: WorkflowType.AGILE,
         status: WorkflowStatus.ARCHIVED,
+        isDefault: false,
+        isPublic: false,
+        version: 1,
+        usageCount: 0,
+        tags: [],
+        metadata: {},
         stages: [],
       };
 
-      jest.spyOn(service, 'updateWorkflowTemplate').mockResolvedValue(mockArchivedTemplate);
+      jest.spyOn(service as any, 'updateWorkflowTemplate').mockResolvedValue(mockArchivedTemplate);
 
       const result = await controller.archiveWorkflowTemplate(templateId, mockRequest as any);
 
@@ -616,13 +634,22 @@ describe('WorkflowTemplatesController (Integration)', () => {
     it('should set template as default successfully', async () => {
       const mockDefaultTemplate = {
         id: templateId,
+        name: 'Test Template',
+        description: 'Test description',
+        type: WorkflowType.AGILE,
+        status: WorkflowStatus.ACTIVE,
         isDefault: true,
+        isPublic: false,
+        version: 1,
+        usageCount: 0,
+        tags: [],
+        metadata: {},
         stages: [],
       };
 
-      jest.spyOn(service, 'updateWorkflowTemplate').mockResolvedValue(mockDefaultTemplate);
+      jest.spyOn(service as any, 'updateWorkflowTemplate').mockResolvedValue(mockDefaultTemplate);
 
-      const result = await controller.setAsDefaultTemplate(templateId, mockRequest as any);
+      const result = await controller.setDefaultWorkflowTemplate(templateId, mockRequest as any);
 
       expect(result).toBeDefined();
       expect(result.isDefault).toBe(true);
