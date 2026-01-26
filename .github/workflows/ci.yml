@@ -329,15 +329,87 @@ jobs:
 
   verify:
     runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: 'npm' }
-      - run: cd zephix-frontend && npm ci
-      - run: cd zephix-frontend && npm run build
-      - run: cd zephix-frontend && npm run test:guardrails
-      - run: cd zephix-frontend && npx playwright install --with-deps
-      - run: cd zephix-frontend && npm run test:smoke
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          npm run build
+      - name: Run database migrations
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          NODE_ENV: test
+        run: |
+          npm run migration:run || echo "Migrations may have already run"
+      - name: Start backend server
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          JWT_SECRET: test-jwt-secret-key-for-ci-playwright-tests-min-32-chars
+          JWT_EXPIRES_IN: 24h
+          JWT_REFRESH_SECRET: test-refresh-secret-key-for-ci-playwright-tests-min-32-chars
+          JWT_REFRESH_EXPIRES_IN: 7d
+          INTEGRATION_ENCRYPTION_KEY: test-integration-encryption-key-32-chars-minimum-required-length
+          PORT: 3000
+          NODE_ENV: test
+          FRONTEND_URL: http://localhost:5173
+          SKIP_DATABASE: false
+        run: |
+          npm run start:prod &
+          echo $! > /tmp/backend.pid
+          # Wait for backend to be ready (check health endpoint or root)
+          timeout=60
+          counter=0
+          while ! curl -f http://localhost:3000/api/health > /dev/null 2>&1 && ! curl -f http://localhost:3000/ > /dev/null 2>&1; do
+            if [ $counter -ge $timeout ]; then
+              echo "❌ Backend failed to start within $timeout seconds"
+              echo "Checking backend process..."
+              ps aux | grep node || true
+              echo "Checking port 3000..."
+              netstat -tuln | grep 3000 || true
+              exit 1
+            fi
+            echo "Waiting for backend to start... ($counter/$timeout)"
+            sleep 2
+            counter=$((counter + 2))
+          done
+          echo "✅ Backend server is ready on http://localhost:3000"
+      - name: Setup frontend
+        working-directory: zephix-frontend
+        run: |
+          npm ci
+          npm run build
+          npm run test:guardrails
+      - name: Install Playwright browsers
+        working-directory: zephix-frontend
+        run: npx playwright install --with-deps
+      - name: Run Playwright smoke tests
+        working-directory: zephix-frontend
+        run: npm run test:smoke
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) || true
+          fi
 
   rbac-tests:
     runs-on: ubuntu-latest
