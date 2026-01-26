@@ -21,9 +21,10 @@ import {
   GoneException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { Inject } from '@nestjs/common';
 import { Template } from '../entities/template.entity';
+import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TemplatesService } from '../services/templates.service';
 import { TemplatesInstantiateService } from '../services/templates-instantiate.service';
 import { TemplatesInstantiateV51Service } from '../services/templates-instantiate-v51.service';
@@ -117,8 +118,8 @@ export class TemplatesController {
     private readonly previewV51Service: TemplatesPreviewV51Service,
     private readonly responseService: ResponseService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
-    @InjectDataSource()
-    private readonly dataSource: DataSource,
+    @Inject(getTenantAwareRepositoryToken(Template))
+    private readonly templateRepo: TenantAwareRepository<Template>,
   ) {}
 
   /**
@@ -419,16 +420,13 @@ export class TemplatesController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
+    // Load template using service which handles SYSTEM templates (organizationId: null)
+    const templateDetail = await this.templatesService.getV1(req, id);
+    if (!templateDetail) {
       throw new NotFoundException('Template not found');
     }
+    // Convert DTO to entity for permission checks
+    const template = templateDetail as Template;
 
     // Role enforcement: same as create
     const platformRole = normalizePlatformRole(auth.platformRole);
@@ -506,16 +504,13 @@ export class TemplatesController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
+    // Load template using service which handles SYSTEM templates (organizationId: null)
+    const templateDetail = await this.templatesService.getV1(req, id);
+    if (!templateDetail) {
       throw new NotFoundException('Template not found');
     }
+    // Convert DTO to entity for permission checks
+    const template = templateDetail as Template;
 
     // Role enforcement: same as create
     const platformRole = normalizePlatformRole(auth.platformRole);
@@ -826,8 +821,8 @@ export class AdminTemplatesController {
 
   constructor(
     private readonly templatesService: TemplatesService,
-    @InjectDataSource()
-    private readonly dataSource: DataSource,
+    @Inject(getTenantAwareRepositoryToken(Template))
+    private readonly templateRepo: TenantAwareRepository<Template>,
   ) {}
 
   /**
@@ -881,16 +876,13 @@ export class AdminTemplatesController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
+    // Load template using service which handles SYSTEM templates (organizationId: null)
+    const templateDetail = await this.templatesService.getV1(req, id);
+    if (!templateDetail) {
       throw new NotFoundException('Template not found');
     }
+    // Convert DTO to entity for permission checks
+    const template = templateDetail as Template;
 
     // Admin controller - workspaceId validation not needed for admin
     // Build context for updateV1

@@ -328,7 +328,7 @@ jobs:
           echo "✅ All contract tests passed!"
 
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -336,7 +336,7 @@ jobs:
       - run: cd zephix-frontend && npm ci
       - run: cd zephix-frontend && npm run build
       - run: cd zephix-frontend && npm run test:guardrails
-      - uses: microsoft/playwright-github-action@v1
+      - run: cd zephix-frontend && npx playwright install --with-deps
       - run: cd zephix-frontend && npm run test:smoke
 
   rbac-tests:

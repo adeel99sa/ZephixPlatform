@@ -91,7 +91,7 @@ class ApiClient {
           if (!wsId) {
             delete config.headers?.['X-Workspace-Id'];
             delete config.headers?.['x-workspace-id'];
-            
+
             // Development log for debugging
             if (import.meta.env.MODE === 'development') {
               console.log('[API] Workspace header removed - activeWorkspaceId is null', {
@@ -104,7 +104,7 @@ class ApiClient {
             config.headers = config.headers || {};
             config.headers['X-Workspace-Id'] = wsId;
             config.headers['x-workspace-id'] = wsId; // Support both cases
-            
+
             // Development log for debugging
             if (import.meta.env.MODE === 'development') {
               console.log('[API] Workspace header injected', {
