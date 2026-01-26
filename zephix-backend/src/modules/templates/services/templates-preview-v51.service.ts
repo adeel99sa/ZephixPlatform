@@ -127,10 +127,10 @@ export class TemplatesPreviewV51Service {
           });
         }
 
-        // Ensure structure exists - prefer structure, fall back to phases
-        if (!template.structure && template.phases) {
-          template.structure = { phases: template.phases };
-        } else if (!template.structure) {
+        // Ensure structure exists - prefer structure, fall back to empty structure
+        // Note: template.phases (Phase[]) is incompatible with structure.phases (requires tasks array)
+        // So we only use structure if it exists, otherwise create empty structure
+        if (!template.structure) {
           template.structure = { phases: [] };
         }
 
