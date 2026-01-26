@@ -356,7 +356,7 @@ jobs:
         working-directory: zephix-backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
-          NODE_ENV: test
+          NODE_ENV: development
         run: |
           npm run migration:run || echo "Migrations may have already run"
       - name: Start backend server
@@ -369,7 +369,7 @@ jobs:
           JWT_REFRESH_EXPIRES_IN: 7d
           INTEGRATION_ENCRYPTION_KEY: test-integration-encryption-key-32-chars-minimum-required-length
           PORT: 3000
-          NODE_ENV: test
+          NODE_ENV: development
           FRONTEND_URL: http://localhost:5173
           SKIP_DATABASE: false
         run: |
