@@ -88,8 +88,13 @@ export class WorkspacesService {
   // Never throws - returns empty array on error or empty tables
   async listByOrg(organizationId: string, userId?: string, userRole?: string) {
     try {
-      // organizationId now comes from tenant context
-      const orgId = this.tenantContextService.assertOrganizationId();
+      // Handle users without organization - return empty array (onboarding required)
+      if (!organizationId) {
+        return [];
+      }
+
+      // Use provided organizationId directly (don't rely on tenant context which may not be set)
+      const orgId = organizationId;
 
       const featureEnabled =
         this.configService.get<string>('ZEPHIX_WS_MEMBERSHIP_V1') === '1';
@@ -97,9 +102,10 @@ export class WorkspacesService {
       // If feature flag disabled or user is platform ADMIN, return all org workspaces
       const normalizedRole = normalizePlatformRole(userRole);
       if (!featureEnabled || normalizedRole === PlatformRole.ADMIN) {
-        // TenantAwareRepository automatically scopes by organizationId
+        // Query directly with organizationId filter (bypass tenant context for onboarding case)
         const result = await this.repo
           .find({
+            where: { organizationId: orgId },
             order: { createdAt: 'DESC' },
           })
           .catch(() => []);
@@ -111,8 +117,7 @@ export class WorkspacesService {
         return []; // Non-admin without userId sees nothing
       }
 
-      // Get workspaces where user is a member
-      // TenantAwareRepository automatically scopes WorkspaceMember by organizationId
+      // Get workspaces where user is a member and workspace belongs to org
       const memberWorkspaces = await this.memberRepo
         .find({
           where: { userId },
@@ -120,7 +125,9 @@ export class WorkspacesService {
         })
         .catch(() => []);
 
+      // Filter to only workspaces in the user's organization
       const workspaceIds = memberWorkspaces
+        .filter((m) => m.workspace?.organizationId === orgId)
         .map((m) => m.workspace?.id)
         .filter((id): id is string => !!id);
 
@@ -128,9 +135,10 @@ export class WorkspacesService {
         return [];
       }
 
-      // Use tenant-aware query builder - organizationId filter is automatic
+      // Query directly with organizationId and workspaceIds filters
       const result = await this.repo
-        .qb('w')
+        .createQueryBuilder('w')
+        .where('w.organizationId = :orgId', { orgId })
         .andWhere('w.id IN (:...workspaceIds)', { workspaceIds })
         .andWhere('w.deletedAt IS NULL')
         .orderBy('w.createdAt', 'DESC')

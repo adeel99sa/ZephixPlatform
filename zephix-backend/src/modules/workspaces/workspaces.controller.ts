@@ -145,6 +145,11 @@ export class WorkspacesController {
   @Get()
   async findAll(@CurrentUser() u: UserJwt, @Req() req: Request) {
     try {
+      // Handle users without organization - return empty array (onboarding required)
+      if (!u.organizationId) {
+        return formatArrayResponse([]);
+      }
+
       const workspaces = await this.svc.listByOrg(
         u.organizationId,
         u.id,
@@ -551,6 +556,15 @@ export class WorkspacesController {
     @Req() req: Request,
   ) {
     try {
+      // Handle users without organization - return guest role (safe default)
+      if (!u.organizationId) {
+        return formatResponse({
+          role: 'GUEST',
+          canWrite: false,
+          isReadOnly: true,
+        });
+      }
+
       const roleData = await this.svc.getUserRole(
         workspaceId,
         u.id,
@@ -566,7 +580,12 @@ export class WorkspacesController {
         organizationId: u.organizationId,
         requestId,
       });
-      throw error;
+      // Return safe default instead of throwing
+      return formatResponse({
+        role: 'GUEST',
+        canWrite: false,
+        isReadOnly: true,
+      });
     }
   }
 

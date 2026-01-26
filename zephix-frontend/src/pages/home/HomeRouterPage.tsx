@@ -41,7 +41,10 @@ export default function HomeRouterPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [workspacesLoading, setWorkspacesLoading] = useState(true);
 
-  const { role: workspaceRole, loading: roleLoading } = useWorkspaceRole(activeWorkspaceId);
+  // Only fetch workspace role if workspace is selected (lazy loading)
+  const { role: workspaceRole, loading: roleLoading } = useWorkspaceRole(
+    activeWorkspaceId || undefined
+  );
 
   const lastWorkspaceId = useMemo(() => {
     try {
@@ -51,7 +54,7 @@ export default function HomeRouterPage() {
     }
   }, []);
 
-  // Fetch workspaces
+  // Check onboarding status first, then fetch workspaces
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticatedValue || !user) {
@@ -59,20 +62,45 @@ export default function HomeRouterPage() {
       return;
     }
 
-    const fetchWorkspaces = async () => {
+    const checkOnboardingAndFetchWorkspaces = async () => {
       try {
         setWorkspacesLoading(true);
+        
+        // First check onboarding status
+        const { onboardingApi } = await import('@/services/onboardingApi');
+        const onboardingStatus = await onboardingApi.getOnboardingStatus();
+        
+        // If user has no org or no workspace, route to onboarding
+        if (onboardingStatus.hasOrganization === false) {
+          navigate("/onboarding", { replace: true });
+          return;
+        }
+        
+        if (onboardingStatus.hasOrganization === true && onboardingStatus.hasWorkspace === false) {
+          navigate("/onboarding", { replace: true });
+          return;
+        }
+        
+        // User has org and workspace - fetch workspaces
         const list = await listWorkspaces();
         setWorkspaces(Array.isArray(list) ? list : []);
-      } catch (error) {
-        console.error("Failed to fetch workspaces:", error);
+      } catch (error: any) {
+        console.error("Failed to check onboarding or fetch workspaces:", error);
+        
+        // If 403 error, user likely has no org - route to onboarding
+        if (error?.response?.status === 403 || error?.message?.includes('403')) {
+          navigate("/onboarding", { replace: true });
+          return;
+        }
+        
+        // Other errors - set empty array and let routing logic handle it
         setWorkspaces([]);
       } finally {
         setWorkspacesLoading(false);
       }
     };
 
-    fetchWorkspaces();
+    checkOnboardingAndFetchWorkspaces();
   }, [authLoading, isAuthenticatedValue, user, navigate, location.pathname]);
 
   // Handle workspace resolution

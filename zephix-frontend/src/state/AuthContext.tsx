@@ -229,19 +229,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Complete login redirect logic (reused by both login and invite accept)
-   * Checks onboarding status, then safe returnUrl, then defaults to /home
+   * Checks onboarding status first, then safe returnUrl, then defaults to /home
    */
   const completeLoginRedirect = async (navigate: NavigateFunction) => {
     try {
       const { onboardingApi } = await import('@/services/onboardingApi');
       const status = await onboardingApi.getOnboardingStatus();
 
-      if (!status.completed) {
+      // New response format: hasOrganization, hasWorkspace, next
+      if (status.hasOrganization === false) {
+        // User has no organization - route to create org
         navigate('/onboarding', { replace: true });
         return;
       }
-    } catch {
-      // Keep default route if onboarding check fails
+
+      if (status.hasOrganization === true && status.hasWorkspace === false) {
+        // User has org but no workspace - route to create workspace
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+
+      // Legacy format fallback: check completed flag
+      if (status.completed === false) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+    } catch (error) {
+      // On error, check if it's a 403 (user has no org) - route to onboarding
+      if (error instanceof Error && error.message.includes('403')) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+      // Other errors - keep default route
     }
 
     if (safeNavigateToReturnUrl(navigate)) return;
