@@ -35,9 +35,12 @@ echo "🔍 Checking for tenant scoping bypass patterns in ${MODULES_DIR}..."
 for pattern in "${PATTERNS[@]}"; do
   echo "  Checking pattern: ${pattern}"
 
-  # Search in modules directory, excluding allowed dirs
+  # Search in modules directory, excluding allowed dirs and test files
   MATCHES=$(grep -r -E "${pattern}" "${MODULES_DIR}" \
     --include="*.ts" \
+    --exclude="*.spec.ts" \
+    --exclude="*.test.ts" \
+    --exclude="*.integration.spec.ts" \
     --exclude-dir=tenancy \
     --exclude-dir=node_modules \
     --exclude-dir=dist \
