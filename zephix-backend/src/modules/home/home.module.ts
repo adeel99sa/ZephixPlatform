@@ -19,7 +19,13 @@ import { Risk } from '../risks/entities/risk.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Workspace, Project, WorkItem, WorkspaceMember, Risk]),
+    TypeOrmModule.forFeature([
+      Workspace,
+      Project,
+      WorkItem,
+      WorkspaceMember,
+      Risk,
+    ]),
     WorkspacesModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService
     NotificationsModule,

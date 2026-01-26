@@ -381,6 +381,36 @@ export class OrganizationsService {
     };
   }
 
+  /**
+   * Check if user has any workspaces in the given organization
+   * Used for onboarding status to determine if user needs to create workspace
+   */
+  async userHasWorkspacesInOrg(
+    userId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    try {
+      // Query workspace_members through a raw query to avoid tenant context requirements
+      // This is safe because we're explicitly filtering by organizationId
+      const result = await this.organizationRepository.manager.query(
+        `
+        SELECT COUNT(*) as count
+        FROM workspace_members wm
+        INNER JOIN workspaces w ON w.id = wm.workspace_id
+        WHERE wm.user_id = $1
+          AND w.organization_id = $2
+          AND wm.status = 'active'
+          AND w.deleted_at IS NULL
+        `,
+        [userId, organizationId],
+      );
+      return parseInt(result[0]?.count || '0', 10) > 0;
+    } catch (error) {
+      // On error, assume no workspaces (safe default)
+      return false;
+    }
+  }
+
   async getOnboardingProgress(organizationId: string) {
     const status = await this.getOnboardingStatus(organizationId);
     const totalSteps = 6; // welcome, organization, team, workspace, project, complete

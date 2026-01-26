@@ -271,15 +271,12 @@ export class WorkspaceBackfillService {
       }
 
       // Step 3: Ensure workspace_members row exists for owner
-      const existingMember = await manager.findOne(
-        WorkspaceMember,
-        {
-          where: {
-            workspaceId: workspace.id,
-            userId: desiredOwnerId,
-          },
+      const existingMember = await manager.findOne(WorkspaceMember, {
+        where: {
+          workspaceId: workspace.id,
+          userId: desiredOwnerId,
         },
-      );
+      });
 
       if (!existingMember) {
         // Create new member record

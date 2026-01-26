@@ -113,7 +113,9 @@ export class WorkspaceHealthService {
       const riskQuery = this.riskRepo
         .qb('risk')
         .innerJoin('risk.project', 'project')
-        .where('project.workspaceId = :workspaceId', { workspaceId: workspace.id })
+        .where('project.workspaceId = :workspaceId', {
+          workspaceId: workspace.id,
+        })
         .andWhere('risk.status = :status', { status: 'active' })
         // Note: If severity/risk_level columns don't exist in entity, this will fail at runtime
         // That's acceptable - better to fail than bypass tenant scoping
