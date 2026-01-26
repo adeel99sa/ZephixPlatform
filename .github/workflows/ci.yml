@@ -375,23 +375,34 @@ jobs:
         run: |
           npm run start:prod &
           echo $! > /tmp/backend.pid
-          # Wait for backend to be ready (check health endpoint or root)
-          timeout=60
+          # Wait for backend to be ready (check health endpoint)
+          timeout=90
           counter=0
-          while ! curl -f http://localhost:3000/api/health > /dev/null 2>&1 && ! curl -f http://localhost:3000/ > /dev/null 2>&1; do
+          echo "Waiting for backend to start..."
+          while ! curl -f -s http://localhost:3000/api/health > /dev/null 2>&1; do
             if [ $counter -ge $timeout ]; then
               echo "❌ Backend failed to start within $timeout seconds"
               echo "Checking backend process..."
-              ps aux | grep node || true
+              ps aux | grep -E "node.*main.js" | grep -v grep || true
               echo "Checking port 3000..."
-              netstat -tuln | grep 3000 || true
+              netstat -tuln | grep 3000 || ss -tuln | grep 3000 || true
+              echo "Checking backend logs (last 50 lines)..."
+              if [ -f /tmp/backend.pid ]; then
+                echo "Backend PID: $(cat /tmp/backend.pid)"
+              fi
+              echo "Testing health endpoint directly..."
+              curl -v http://localhost:3000/api/health || true
               exit 1
             fi
-            echo "Waiting for backend to start... ($counter/$timeout)"
+            if [ $((counter % 10)) -eq 0 ]; then
+              echo "Waiting for backend to start... ($counter/$timeout seconds)"
+            fi
             sleep 2
             counter=$((counter + 2))
           done
           echo "✅ Backend server is ready on http://localhost:3000"
+          curl -s http://localhost:3000/api/health | head -c 200 || true
+          echo ""
       - name: Setup frontend
         working-directory: zephix-frontend
         run: |
