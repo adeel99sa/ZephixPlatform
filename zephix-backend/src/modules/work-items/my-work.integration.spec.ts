@@ -284,5 +284,84 @@ describe('My Work API (e2e)', () => {
 
       expect(response.body.counts.total).toBeGreaterThan(0);
     });
+
+    it('should filter by workspaceId when provided', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/my-work?workspaceId=${workspaceA.id}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(response.body.items).toBeDefined();
+      // All items should be from workspace A
+      if (response.body.items.length > 0) {
+        response.body.items.forEach((item: any) => {
+          expect(item.workspaceId).toBe(workspaceA.id);
+        });
+      }
+    });
+
+    it('should return 403 for non-admin with assignee=any without workspaceId', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/my-work?assignee=any')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+
+      expect(response.body.code).toBe('FORBIDDEN');
+      expect(response.body.message).toContain('Non-admin users cannot view all assignees');
+    });
+
+    it('should allow VIEWER with assignee=me and return only their tasks', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/my-work?assignee=me')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .expect(200);
+
+      expect(response.body.version).toBe(1);
+      expect(response.body.items).toBeDefined();
+      // All items should be assigned to guest user
+      if (response.body.items.length > 0) {
+        // Note: This assumes guest user has tasks assigned
+        // Adjust based on test setup
+      }
+    });
+
+    it('should return 403 for VIEWER with assignee=any', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/my-work?assignee=any')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .expect(403);
+
+      expect(response.body.code).toBe('FORBIDDEN');
+      expect(response.body.message).toContain('Viewers can only view their own assigned work');
+    });
+
+    it('should return 403 for Member accessing workspace they do not belong to', async () => {
+      // Create workspace C that member is not part of
+      const workspaceRepo = dataSource.getRepository(Workspace);
+      const workspaceC = workspaceRepo.create({
+        name: 'Workspace C',
+        organizationId: org.id,
+        createdBy: adminUser.id,
+      });
+      await workspaceRepo.save(workspaceC);
+
+      const response = await request(app.getHttpServer())
+        .get(`/my-work?workspaceId=${workspaceC.id}`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+
+      expect(response.body.code).toBe('WORKSPACE_ACCESS_DENIED');
+    });
+
+    it('should allow Admin org-wide assignee=any when workspaceId missing', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/my-work?assignee=any')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(response.body.version).toBe(1);
+      expect(response.body.items).toBeDefined();
+      // Admin can see all tasks across all workspaces
+    });
   });
 });

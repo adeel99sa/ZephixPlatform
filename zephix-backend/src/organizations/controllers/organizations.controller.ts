@@ -207,14 +207,57 @@ export class OrganizationsController {
 
   // Onboarding endpoints
   @Get('onboarding/status')
-  @ApiOperation({ summary: 'Get onboarding status for current organization' })
+  @ApiOperation({ summary: 'Get onboarding status for current user' })
   @ApiResponse({
     status: 200,
     description: 'Onboarding status retrieved successfully',
   })
   async getOnboardingStatus(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOnboardingStatus(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    
+    // Handle users without organization - return onboarding required state
+    if (!organizationId) {
+      return {
+        hasOrganization: false,
+        hasWorkspace: false,
+        next: 'CREATE_ORG',
+        completed: false,
+        currentStep: 'create_organization',
+        completedSteps: [],
+      };
+    }
+    
+    // User has organization - check onboarding status and workspaces
+    let status;
+    try {
+      status = await this.organizationsService.getOnboardingStatus(organizationId);
+    } catch (error) {
+      // Organization not found or error - treat as no org
+      return {
+        hasOrganization: false,
+        hasWorkspace: false,
+        next: 'CREATE_ORG',
+        completed: false,
+        currentStep: 'create_organization',
+        completedSteps: [],
+      };
+    }
+    
+    // Check if user has any workspaces in this organization
+    // Query workspace_members directly to avoid tenant context requirements
+    const hasWorkspace = await this.organizationsService.userHasWorkspacesInOrg(
+      userId,
+      organizationId,
+    );
+    
+    return {
+      hasOrganization: true,
+      hasWorkspace,
+      next: hasWorkspace ? 'SELECT_WORKSPACE' : 'CREATE_WORKSPACE',
+      completed: status.completed,
+      currentStep: status.currentStep,
+      completedSteps: status.completedSteps,
+    };
   }
 
   @Get('onboarding/progress')

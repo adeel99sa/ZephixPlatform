@@ -486,20 +486,17 @@ export class ResourcesService {
       userAgent?: string;
     },
   ): Promise<any> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
+    // Use transaction for atomicity
+    return this.dataSource.transaction(async (manager) => {
       // Create allocation
-      const allocation = queryRunner.manager.create(ResourceAllocation, {
+      const allocation = manager.create(ResourceAllocation, {
         ...dto,
         organizationId: auditData.organizationId,
       });
-      const savedAllocation = await queryRunner.manager.save(allocation);
+      const savedAllocation = await manager.save(allocation);
 
       // Create audit log in same transaction
-      const auditLog = queryRunner.manager.create(AuditLog, {
+      const auditLog = manager.create(AuditLog, {
         userId: auditData.userId,
         organizationId: auditData.organizationId,
         entityType: 'resource_allocation',
@@ -509,17 +506,10 @@ export class ResourcesService {
         ipAddress: auditData.ipAddress,
         userAgent: auditData.userAgent,
       });
-      await queryRunner.manager.save(auditLog);
+      await manager.save(auditLog);
 
-      // Commit transaction
-      await queryRunner.commitTransaction();
       return savedAllocation;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 
   async calculateUserCapacity(

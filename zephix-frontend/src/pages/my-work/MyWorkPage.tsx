@@ -2,11 +2,18 @@
  * PHASE 7 MODULE 7.2: My Work Page
  * Shows assigned work items across all accessible workspaces for Admin and Member
  */
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
+import {
+  WorkItemFilters,
+  WorkItemStatusFilter,
+  parseWorkItemFilters,
+  buildWorkItemSearch,
+  hasAnyFilterKey,
+  toMyWorkApiParams,
+} from '@/features/work/items/workItemFilters';
 
 type WorkItemStatus = 'todo' | 'in_progress' | 'done';
 
@@ -35,24 +42,50 @@ type MyWorkResponse = {
   items: MyWorkItem[];
 };
 
-type FilterType = 'all' | 'overdue' | 'dueSoon' | 'inProgress' | 'todo' | 'done';
+function defaultFilters(seed: WorkItemFilters): WorkItemFilters {
+  const workspaceScoped = !!seed.workspaceId;
+
+  return {
+    workspaceId: seed.workspaceId,
+    status: seed.status ?? 'active',
+    assignee: seed.assignee ?? (workspaceScoped ? 'any' : 'me'),
+    dateRange: seed.dateRange ?? 'last_30_days',
+    health: seed.health,
+  };
+}
 
 export default function MyWorkPage() {
+  const location = useLocation();
   const navigate = useNavigate();
+
+  const urlFilters = useMemo(() => parseWorkItemFilters(location.search), [location.search]);
+
+  const [filters, setFilters] = useState<WorkItemFilters>(() => urlFilters);
   const [data, setData] = useState<MyWorkResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   useEffect(() => {
-    loadMyWork();
-  }, []);
+    setFilters(urlFilters);
+  }, [urlFilters]);
 
-  async function loadMyWork() {
+  // Apply defaults if URL has no filter keys
+  useEffect(() => {
+    if (hasAnyFilterKey(location.search)) return;
+
+    const seeded = parseWorkItemFilters(location.search);
+    const next = defaultFilters(seeded);
+    const nextSearch = buildWorkItemSearch(next);
+
+    navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  const loadMyWork = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get<MyWorkResponse>('/my-work');
+      const params = toMyWorkApiParams(filters);
+      const response = await api.get<MyWorkResponse>('/my-work', { params });
       setData(response.data);
     } catch (err: any) {
       console.error('Failed to load my work:', err);
@@ -64,7 +97,20 @@ export default function MyWorkPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filters]);
+
+  useEffect(() => {
+    loadMyWork();
+  }, [loadMyWork]);
+
+  const setStatus = useCallback(
+    (status: WorkItemStatusFilter) => {
+      const next: WorkItemFilters = { ...filters, status };
+      const nextSearch = buildWorkItemSearch(next);
+      navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+    },
+    [filters, location.pathname, navigate],
+  );
 
   function getStatusColor(status: WorkItemStatus): string {
     switch (status) {
@@ -92,21 +138,39 @@ export default function MyWorkPage() {
     return due >= now && due <= sevenDaysFromNow;
   }
 
+  // Client-side filtering as fallback until backend supports all filters
   function filterItems(items: MyWorkItem[]): MyWorkItem[] {
-    switch (activeFilter) {
-      case 'overdue':
-        return items.filter(isOverdue);
-      case 'dueSoon':
-        return items.filter(isDueSoon);
-      case 'inProgress':
-        return items.filter((item) => item.status === 'in_progress');
-      case 'todo':
-        return items.filter((item) => item.status === 'todo');
-      case 'done':
-        return items.filter((item) => item.status === 'done');
-      default:
-        return items;
+    let filtered = items;
+
+    // Filter by workspace if specified
+    if (filters.workspaceId) {
+      filtered = filtered.filter((item) => item.workspaceId === filters.workspaceId);
     }
+
+    // Filter by status (map new status values to old ones for now)
+    if (filters.status) {
+      switch (filters.status) {
+        case 'active':
+          filtered = filtered.filter((item) => item.status === 'todo' || item.status === 'in_progress');
+          break;
+        case 'completed':
+          filtered = filtered.filter((item) => item.status === 'done');
+          break;
+        case 'at_risk':
+          // Fallback: show overdue items
+          filtered = filtered.filter(isOverdue);
+          break;
+        case 'blocked':
+          // No direct mapping yet, show all for now
+          break;
+        case 'all':
+        default:
+          // Show all
+          break;
+      }
+    }
+
+    return filtered;
   }
 
   function handleRowClick(item: MyWorkItem) {
@@ -187,25 +251,29 @@ export default function MyWorkPage() {
 
       {/* Filter Chips */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {(['all', 'overdue', 'dueSoon', 'inProgress', 'todo', 'done'] as FilterType[]).map((filter) => {
-          const label = filter === 'all' ? 'All' :
-                       filter === 'dueSoon' ? 'Due soon' :
-                       filter === 'inProgress' ? 'In progress' :
-                       filter.charAt(0).toUpperCase() + filter.slice(1);
+        {(['all', 'active', 'completed', 'at_risk', 'blocked'] as WorkItemStatusFilter[]).map((status) => {
+          const label =
+            status === 'all' ? 'All' :
+            status === 'active' ? 'Active' :
+            status === 'completed' ? 'Completed' :
+            status === 'at_risk' ? 'At Risk' :
+            status === 'blocked' ? 'Blocked' :
+            status;
 
-          const count = filter === 'all' ? data.counts.total :
-                       filter === 'overdue' ? data.counts.overdue :
-                       filter === 'dueSoon' ? data.counts.dueSoon7Days :
-                       filter === 'inProgress' ? data.counts.inProgress :
-                       filter === 'todo' ? data.counts.todo :
-                       data.counts.done;
+          // Map to old counts for now (until backend provides new counts)
+          const count =
+            status === 'all' ? data.counts.total :
+            status === 'active' ? data.counts.todo + data.counts.inProgress :
+            status === 'completed' ? data.counts.done :
+            status === 'at_risk' ? data.counts.overdue :
+            0;
 
           return (
             <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
+              key={status}
+              onClick={() => setStatus(status)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeFilter === filter
+                filters.status === status
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
@@ -221,8 +289,8 @@ export default function MyWorkPage() {
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <p className="text-gray-500 text-lg">No assigned work yet</p>
           <p className="text-sm text-gray-400 mt-2">
-            {activeFilter !== 'all'
-              ? `No tasks match the "${activeFilter}" filter`
+            {filters.status && filters.status !== 'all'
+              ? `No tasks match the "${filters.status}" filter`
               : 'Tasks assigned to you will appear here'}
           </p>
         </div>

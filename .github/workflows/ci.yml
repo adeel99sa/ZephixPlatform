@@ -328,16 +328,99 @@ jobs:
           echo "✅ All contract tests passed!"
 
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: 'npm' }
-      - run: cd zephix-frontend && npm ci
-      - run: cd zephix-frontend && npm run build
-      - run: cd zephix-frontend && npm run test:guardrails
-      - uses: microsoft/playwright-github-action@v1
-      - run: cd zephix-frontend && npm run test:smoke
+      - name: Setup backend
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          npm run build
+      - name: Run database migrations
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          NODE_ENV: development
+        run: |
+          npm run migration:run || echo "Migrations may have already run"
+      - name: Start backend server
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          JWT_SECRET: test-jwt-secret-key-for-ci-playwright-tests-min-32-chars
+          JWT_EXPIRES_IN: 24h
+          JWT_REFRESH_SECRET: test-refresh-secret-key-for-ci-playwright-tests-min-32-chars
+          JWT_REFRESH_EXPIRES_IN: 7d
+          INTEGRATION_ENCRYPTION_KEY: test-integration-encryption-key-32-chars-minimum-required-length
+          PORT: 3000
+          NODE_ENV: development
+          FRONTEND_URL: http://localhost:5173
+          SKIP_DATABASE: false
+        run: |
+          npm run start:prod &
+          echo $! > /tmp/backend.pid
+          # Wait for backend to be ready (check health endpoint)
+          timeout=90
+          counter=0
+          echo "Waiting for backend to start..."
+          while ! curl -f -s http://localhost:3000/api/health > /dev/null 2>&1; do
+            if [ $counter -ge $timeout ]; then
+              echo "❌ Backend failed to start within $timeout seconds"
+              echo "Checking backend process..."
+              ps aux | grep -E "node.*main.js" | grep -v grep || true
+              echo "Checking port 3000..."
+              netstat -tuln | grep 3000 || ss -tuln | grep 3000 || true
+              echo "Checking backend logs (last 50 lines)..."
+              if [ -f /tmp/backend.pid ]; then
+                echo "Backend PID: $(cat /tmp/backend.pid)"
+              fi
+              echo "Testing health endpoint directly..."
+              curl -v http://localhost:3000/api/health || true
+              exit 1
+            fi
+            if [ $((counter % 10)) -eq 0 ]; then
+              echo "Waiting for backend to start... ($counter/$timeout seconds)"
+            fi
+            sleep 2
+            counter=$((counter + 2))
+          done
+          echo "✅ Backend server is ready on http://localhost:3000"
+          curl -s http://localhost:3000/api/health | head -c 200 || true
+          echo ""
+      - name: Setup frontend
+        working-directory: zephix-frontend
+        run: |
+          npm ci
+          npm run build
+          npm run test:guardrails
+      - name: Install Playwright browsers
+        working-directory: zephix-frontend
+        run: npx playwright install --with-deps
+      - name: Run Playwright smoke tests
+        working-directory: zephix-frontend
+        run: npm run test:smoke
+      - name: Stop backend server
+        if: always()
+        run: |
+          if [ -f /tmp/backend.pid ]; then
+            kill $(cat /tmp/backend.pid) || true
+          fi
 
   rbac-tests:
     runs-on: ubuntu-latest
@@ -497,36 +580,4 @@ jobs:
         run: |
           echo "Note: Full smoke test requires running server with valid token"
           echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:templates"
-        continue-on-error: true
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: zephix_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
-      - name: Setup backend
-        working-directory: zephix-backend
-        run: |
-          npm ci
-      - name: Run billing contract tests
-        working-directory: zephix-backend
-        run: |
-          npm test -- billing.controller.spec.ts
-      - name: Run billing smoke test (requires running server)
-        working-directory: zephix-backend
-        run: |
-          echo "Note: Full smoke test requires running server with valid token"
-          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:admin"
         continue-on-error: true

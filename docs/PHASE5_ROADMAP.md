@@ -59,6 +59,8 @@ Phase 5 focuses on Work Management System implementation, enabling task tracking
 
 **Status**: Frozen for Phase 5.1
 
+Dashboards resume in Phase 6. See [Dashboard Master Plan](./DASHBOARD_MASTER_PLAN.md) Phase 6.
+
 See [Dashboard Master Plan](./DASHBOARD_MASTER_PLAN.md) for:
 - Current state
 - Dashboard Studio v1 scope

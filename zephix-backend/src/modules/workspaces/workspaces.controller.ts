@@ -145,6 +145,11 @@ export class WorkspacesController {
   @Get()
   async findAll(@CurrentUser() u: UserJwt, @Req() req: Request) {
     try {
+      // Handle users without organization - return empty array (onboarding required)
+      if (!u.organizationId) {
+        return formatArrayResponse([]);
+      }
+
       const workspaces = await this.svc.listByOrg(
         u.organizationId,
         u.id,
@@ -262,9 +267,10 @@ export class WorkspacesController {
 
     // Derive owner from auth context if not provided in request
     // Frontend should never send ownerId - backend derives it from @CurrentUser()
-    const ownerUserIds = dto.ownerUserIds && dto.ownerUserIds.length > 0
-      ? dto.ownerUserIds
-      : [u.id]; // Default to current user as owner
+    const ownerUserIds =
+      dto.ownerUserIds && dto.ownerUserIds.length > 0
+        ? dto.ownerUserIds
+        : [u.id]; // Default to current user as owner
 
     // Validate at least one owner exists (should always be true after derivation)
     if (!ownerUserIds || ownerUserIds.length === 0) {
@@ -550,7 +556,20 @@ export class WorkspacesController {
     @Req() req: Request,
   ) {
     try {
-      const roleData = await this.svc.getUserRole(workspaceId, u.id, u.organizationId);
+      // Handle users without organization - return guest role (safe default)
+      if (!u.organizationId) {
+        return formatResponse({
+          role: 'GUEST',
+          canWrite: false,
+          isReadOnly: true,
+        });
+      }
+
+      const roleData = await this.svc.getUserRole(
+        workspaceId,
+        u.id,
+        u.organizationId,
+      );
       return formatResponse(roleData);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
@@ -561,7 +580,12 @@ export class WorkspacesController {
         organizationId: u.organizationId,
         requestId,
       });
-      throw error;
+      // Return safe default instead of throwing
+      return formatResponse({
+        role: 'GUEST',
+        canWrite: false,
+        isReadOnly: true,
+      });
     }
   }
 
@@ -585,7 +609,11 @@ export class WorkspacesController {
         throw new ForbiddenException('Workspace access denied');
       }
 
-      const summary = await this.svc.getSummary(workspaceId, u.organizationId, u.id);
+      const summary = await this.svc.getSummary(
+        workspaceId,
+        u.organizationId,
+        u.id,
+      );
       return formatResponse(summary);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
@@ -910,7 +938,7 @@ export class WorkspacesController {
   }
 
   /**
-   * Revoke active invite link
+   * Revoke active invite link without needing linkId
    * DELETE /api/workspaces/:id/invite-link/active
    */
   @Delete(':id/invite-link/active')
@@ -921,24 +949,23 @@ export class WorkspacesController {
     @CurrentUser() u: UserJwt,
     @Req() req: Request,
   ) {
-    const requestId = (req as any).id || 'unknown';
-    const logger = new Logger(WorkspacesController.name);
+    const requestId = req.headers['x-request-id'] || 'unknown';
 
     try {
-      await this.inviteService.revokeActiveInviteLink(id, u.id);
-      logger.log('Active invite link revoked', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-      });
+      await this.inviteService.revokeActiveInviteLink(
+        id,
+        u.id,
+        String(requestId),
+      );
       return formatResponse({ ok: true });
     } catch (error) {
-      logger.error('Failed to revoke active invite link', {
-        workspaceId: id,
-        actorUserId: u.id,
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
       throw new BadRequestException({
         code: 'INVITE_LINK_REVOKE_FAILED',
         message: 'Failed to revoke invite link',

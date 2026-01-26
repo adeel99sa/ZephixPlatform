@@ -7,10 +7,20 @@ import {
 } from '@nestjs/common';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { Dashboard } from '../entities/dashboard.entity';
 import { DashboardWidget } from '../entities/dashboard-widget.entity';
+import { DashboardShare } from '../entities/dashboard-share.entity';
 import { DashboardVisibility } from '../entities/dashboard.entity';
+import {
+  DashboardScope,
+  DashboardShareAccess,
+} from '../domain/dashboard.enums';
+import { User } from '../../users/entities/user.entity';
+import {
+  CreateDashboardShareDto,
+  UpdateDashboardShareDto,
+} from '../dto/dashboard-share.dto';
 import { CreateDashboardDto } from '../dto/create-dashboard.dto';
 import { UpdateDashboardDto } from '../dto/update-dashboard.dto';
 import { CreateWidgetDto } from '../dto/create-widget.dto';
@@ -18,7 +28,10 @@ import { UpdateWidgetDto } from '../dto/update-widget.dto';
 import { SharedDashboardDto } from '../dto/shared-dashboard.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
-import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
+import {
+  normalizePlatformRole,
+  PlatformRole,
+} from '../../../shared/enums/platform-roles.enum';
 import { isWidgetKeyAllowed, WidgetKey } from '../widgets/widget-allowlist';
 
 type WidgetConfigSchema = {
@@ -65,6 +78,10 @@ export class DashboardsService {
     public readonly dashboardRepository: Repository<Dashboard>,
     @InjectRepository(DashboardWidget)
     private readonly widgetRepository: Repository<DashboardWidget>,
+    @InjectRepository(DashboardShare)
+    private readonly shareRepository: Repository<DashboardShare>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly tenantContext: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly dataSource: DataSource,
@@ -813,5 +830,712 @@ export class DashboardsService {
     dashboard.shareExpiresAt = null;
 
     await this.dashboardRepository.save(dashboard);
+  }
+
+  // Phase 6.1: Org dashboard methods
+  async listOrgDashboards(auth: {
+    organizationId: string;
+    userId: string;
+    platformRole: string;
+  }): Promise<Dashboard[]> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Admin sees all org dashboards
+    // Non-admin only sees dashboards they're invited to (handled by access service)
+    const queryBuilder = this.dashboardRepository
+      .createQueryBuilder('dashboard')
+      .where('dashboard.organizationId = :organizationId', {
+        organizationId: auth.organizationId,
+      })
+      .andWhere('dashboard.deletedAt IS NULL')
+      .andWhere('dashboard.scope = :scope', { scope: DashboardScope.ORG });
+
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      // Non-admin: filter by share records
+      queryBuilder
+        .leftJoin(
+          'dashboard_shares',
+          'share',
+          'share.dashboardId = dashboard.id AND share.invitedUserId = :userId AND share.revokedAt IS NULL',
+          { userId: auth.userId },
+        )
+        .andWhere('(dashboard.ownerUserId = :userId OR share.id IS NOT NULL)', {
+          userId: auth.userId,
+        });
+    }
+
+    return queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
+  }
+
+  async createOrgDashboard(
+    auth: {
+      organizationId: string;
+      userId: string;
+      platformRole: string;
+    },
+    dto: { name: string; description?: string },
+  ): Promise<Dashboard> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Only Admin can create org dashboards
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'ORG_DASHBOARD_CREATE_FORBIDDEN',
+        message: 'Only organization administrators can create org dashboards',
+      });
+    }
+
+    const dashboard = this.dashboardRepository.create({
+      name: dto.name,
+      description: dto.description || null,
+      organizationId: auth.organizationId,
+      ownerUserId: auth.userId,
+      scope: DashboardScope.ORG,
+      visibility: DashboardVisibility.ORG,
+      workspaceId: null,
+    });
+
+    return await this.dashboardRepository.save(dashboard);
+  }
+
+  // Phase 6.1: Workspace dashboard methods
+  async listWorkspaceDashboards(
+    auth: {
+      organizationId: string;
+      userId: string;
+      platformRole: string;
+    },
+    workspaceId: string,
+  ): Promise<Dashboard[]> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    const queryBuilder = this.dashboardRepository
+      .createQueryBuilder('dashboard')
+      .where('dashboard.organizationId = :organizationId', {
+        organizationId: auth.organizationId,
+      })
+      .andWhere('dashboard.deletedAt IS NULL')
+      .andWhere('dashboard.scope = :scope', { scope: DashboardScope.WORKSPACE })
+      .andWhere('dashboard.workspaceId = :workspaceId', { workspaceId });
+
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      // Check if user is workspace owner
+      const effectiveRole =
+        await this.workspaceAccessService.getEffectiveWorkspaceRole({
+          userId: auth.userId,
+          orgId: auth.organizationId,
+          platformRole: normalizedRole,
+          workspaceId,
+        });
+
+      if (effectiveRole !== 'workspace_owner') {
+        // Non-owner: filter by share records
+        queryBuilder
+          .leftJoin(
+            'dashboard_shares',
+            'share',
+            'share.dashboardId = dashboard.id AND share.invitedUserId = :userId AND share.revokedAt IS NULL',
+            { userId: auth.userId },
+          )
+          .andWhere(
+            '(dashboard.ownerUserId = :userId OR share.id IS NOT NULL)',
+            {
+              userId: auth.userId,
+            },
+          );
+      }
+    }
+
+    return queryBuilder.orderBy('dashboard.createdAt', 'DESC').getMany();
+  }
+
+  async createWorkspaceDashboard(
+    auth: {
+      organizationId: string;
+      userId: string;
+      platformRole: string;
+    },
+    workspaceId: string,
+    dto: { name: string; description?: string },
+  ): Promise<Dashboard> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Check if user is workspace owner or admin
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
+
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_DASHBOARD_CREATE_FORBIDDEN',
+        message:
+          'Only workspace owners and organization administrators can create workspace dashboards',
+      });
+    }
+
+    const dashboard = this.dashboardRepository.create({
+      name: dto.name,
+      description: dto.description || null,
+      organizationId: auth.organizationId,
+      ownerUserId: auth.userId,
+      scope: DashboardScope.WORKSPACE,
+      visibility: DashboardVisibility.WORKSPACE,
+      workspaceId,
+    });
+
+    return await this.dashboardRepository.save(dashboard);
+  }
+
+  async getDashboardById(
+    auth: {
+      organizationId: string;
+      userId: string;
+    },
+    id: string,
+  ): Promise<Dashboard> {
+    const dashboard = await this.dashboardRepository.findOne({
+      where: { id, organizationId: auth.organizationId, deletedAt: null },
+      relations: ['widgets'],
+    });
+
+    if (!dashboard) {
+      throw new NotFoundException(`Dashboard with ID ${id} not found`);
+    }
+
+    // Order widgets by layout
+    dashboard.widgets = dashboard.widgets.sort((a, b) => {
+      if (a.layout.y !== b.layout.y) {
+        return a.layout.y - b.layout.y;
+      }
+      if (a.layout.x !== b.layout.x) {
+        return a.layout.x - b.layout.x;
+      }
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+
+    return dashboard;
+  }
+
+  // Phase 6.1: Share management methods
+  async listOrgDashboardShares(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    dashboardId: string,
+  ): Promise<DashboardShare[]> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Only Admin can manage shares
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'ORG_DASHBOARD_SHARE_MANAGE_FORBIDDEN',
+        message: 'Only organization administrators can manage dashboard shares',
+      });
+    }
+
+    const dashboard = await this.dashboardRepository.findOne({
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        scope: DashboardScope.ORG,
+      },
+    });
+
+    if (!dashboard) {
+      throw new NotFoundException('Dashboard not found');
+    }
+
+    const shares = await this.shareRepository.find({
+      where: {
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+      relations: ['dashboard'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Join with User to get email and name
+    const sharesWithUser = await Promise.all(
+      shares.map(async (share) => {
+        const user = await this.userRepository.findOne({
+          where: { id: share.invitedUserId },
+          select: ['id', 'email', 'firstName', 'lastName'],
+        });
+        return {
+          ...share,
+          invitedUserEmail: user?.email || null,
+          invitedUserName: user
+            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+              user.email
+            : null,
+        };
+      }),
+    );
+
+    return sharesWithUser as any;
+  }
+
+  async createOrgDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    dashboardId: string,
+    dto: CreateDashboardShareDto,
+  ): Promise<DashboardShare> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Only Admin can create shares
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'ORG_DASHBOARD_SHARE_CREATE_FORBIDDEN',
+        message: 'Only organization administrators can create dashboard shares',
+      });
+    }
+
+    const dashboard = await this.dashboardRepository.findOne({
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        scope: DashboardScope.ORG,
+      },
+    });
+
+    if (!dashboard) {
+      throw new NotFoundException('Dashboard not found');
+    }
+
+    // Find user by email in the same organization
+    const user = await this.userRepository.findOne({
+      where: {
+        email: dto.email.toLowerCase(),
+        organizationId: auth.organizationId,
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException({
+        code: 'USER_NOT_FOUND',
+        message: 'User not found in organization',
+      });
+    }
+
+    // Check if share already exists
+    const existingShare = await this.shareRepository.findOne({
+      where: {
+        dashboardId,
+        invitedUserId: user.id,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (existingShare) {
+      throw new BadRequestException({
+        code: 'SHARE_ALREADY_EXISTS',
+        message: 'User already has access to this dashboard',
+      });
+    }
+
+    const share = this.shareRepository.create({
+      organizationId: auth.organizationId,
+      dashboardId: dashboard.id,
+      invitedUserId: user.id,
+      createdByUserId: auth.userId,
+      access: dto.accessLevel,
+      exportAllowed: dto.exportAllowed ?? false,
+    });
+
+    return await this.shareRepository.save(share);
+  }
+
+  async updateOrgDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    dashboardId: string,
+    shareId: string,
+    dto: UpdateDashboardShareDto,
+  ): Promise<DashboardShare> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Only Admin can update shares
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'ORG_DASHBOARD_SHARE_UPDATE_FORBIDDEN',
+        message: 'Only organization administrators can update dashboard shares',
+      });
+    }
+
+    const share = await this.shareRepository.findOne({
+      where: {
+        id: shareId,
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Share not found');
+    }
+
+    share.access = dto.accessLevel;
+    if (dto.exportAllowed !== undefined) {
+      share.exportAllowed = dto.exportAllowed;
+    }
+
+    return await this.shareRepository.save(share);
+  }
+
+  async deleteOrgDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    dashboardId: string,
+    shareId: string,
+  ): Promise<void> {
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Only Admin can delete shares
+    if (normalizedRole !== PlatformRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'ORG_DASHBOARD_SHARE_DELETE_FORBIDDEN',
+        message: 'Only organization administrators can delete dashboard shares',
+      });
+    }
+
+    const share = await this.shareRepository.findOne({
+      where: {
+        id: shareId,
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Share not found');
+    }
+
+    share.revokedAt = new Date();
+    await this.shareRepository.save(share);
+  }
+
+  // Workspace dashboard share methods (similar pattern)
+  async listWorkspaceDashboardShares(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    workspaceId: string,
+    dashboardId: string,
+  ): Promise<DashboardShare[]> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Check if user is workspace owner or admin
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
+
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_DASHBOARD_SHARE_MANAGE_FORBIDDEN',
+        message:
+          'Only workspace owners and organization administrators can manage dashboard shares',
+      });
+    }
+
+    const dashboard = await this.dashboardRepository.findOne({
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        workspaceId,
+        scope: DashboardScope.WORKSPACE,
+      },
+    });
+
+    if (!dashboard) {
+      throw new NotFoundException('Dashboard not found');
+    }
+
+    const shares = await this.shareRepository.find({
+      where: {
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+      relations: ['dashboard'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Join with User to get email and name
+    const sharesWithUser = await Promise.all(
+      shares.map(async (share) => {
+        const user = await this.userRepository.findOne({
+          where: { id: share.invitedUserId },
+          select: ['id', 'email', 'firstName', 'lastName'],
+        });
+        return {
+          ...share,
+          invitedUserEmail: user?.email || null,
+          invitedUserName: user
+            ? `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+              user.email
+            : null,
+        };
+      }),
+    );
+
+    return sharesWithUser as any;
+  }
+
+  async createWorkspaceDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    workspaceId: string,
+    dashboardId: string,
+    dto: CreateDashboardShareDto,
+  ): Promise<DashboardShare> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Check if user is workspace owner or admin
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
+
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_DASHBOARD_SHARE_CREATE_FORBIDDEN',
+        message:
+          'Only workspace owners and organization administrators can create dashboard shares',
+      });
+    }
+
+    const dashboard = await this.dashboardRepository.findOne({
+      where: {
+        id: dashboardId,
+        organizationId: auth.organizationId,
+        workspaceId,
+        scope: DashboardScope.WORKSPACE,
+      },
+    });
+
+    if (!dashboard) {
+      throw new NotFoundException('Dashboard not found');
+    }
+
+    // Find user by email in the same organization
+    const user = await this.userRepository.findOne({
+      where: {
+        email: dto.email.toLowerCase(),
+        organizationId: auth.organizationId,
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException({
+        code: 'USER_NOT_FOUND',
+        message: 'User not found in organization',
+      });
+    }
+
+    // Check if share already exists
+    const existingShare = await this.shareRepository.findOne({
+      where: {
+        dashboardId,
+        invitedUserId: user.id,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (existingShare) {
+      throw new BadRequestException({
+        code: 'SHARE_ALREADY_EXISTS',
+        message: 'User already has access to this dashboard',
+      });
+    }
+
+    const share = this.shareRepository.create({
+      organizationId: auth.organizationId,
+      dashboardId: dashboard.id,
+      invitedUserId: user.id,
+      createdByUserId: auth.userId,
+      access: dto.accessLevel,
+      exportAllowed: dto.exportAllowed ?? false,
+    });
+
+    return await this.shareRepository.save(share);
+  }
+
+  async updateWorkspaceDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    workspaceId: string,
+    dashboardId: string,
+    shareId: string,
+    dto: UpdateDashboardShareDto,
+  ): Promise<DashboardShare> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Check if user is workspace owner or admin
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
+
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_DASHBOARD_SHARE_UPDATE_FORBIDDEN',
+        message:
+          'Only workspace owners and organization administrators can update dashboard shares',
+      });
+    }
+
+    const share = await this.shareRepository.findOne({
+      where: {
+        id: shareId,
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Share not found');
+    }
+
+    share.access = dto.accessLevel;
+    if (dto.exportAllowed !== undefined) {
+      share.exportAllowed = dto.exportAllowed;
+    }
+
+    return await this.shareRepository.save(share);
+  }
+
+  async deleteWorkspaceDashboardShare(
+    auth: { organizationId: string; userId: string; platformRole: string },
+    workspaceId: string,
+    dashboardId: string,
+    shareId: string,
+  ): Promise<void> {
+    // Verify workspace access
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      auth.organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+    if (!hasAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const normalizedRole = normalizePlatformRole(auth.platformRole);
+
+    // Check if user is workspace owner or admin
+    const effectiveRole =
+      await this.workspaceAccessService.getEffectiveWorkspaceRole({
+        userId: auth.userId,
+        orgId: auth.organizationId,
+        platformRole: normalizedRole,
+        workspaceId,
+      });
+
+    if (
+      normalizedRole !== PlatformRole.ADMIN &&
+      effectiveRole !== 'workspace_owner'
+    ) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_DASHBOARD_SHARE_DELETE_FORBIDDEN',
+        message:
+          'Only workspace owners and organization administrators can delete dashboard shares',
+      });
+    }
+
+    const share = await this.shareRepository.findOne({
+      where: {
+        id: shareId,
+        dashboardId,
+        organizationId: auth.organizationId,
+        revokedAt: IsNull(),
+      },
+    });
+
+    if (!share) {
+      throw new NotFoundException('Share not found');
+    }
+
+    share.revokedAt = new Date();
+    await this.shareRepository.save(share);
   }
 }

@@ -1,11 +1,23 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequireWorkspaceAccessGuard } from '../../workspaces/guards/require-workspace-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { WorkItemsSimpleService } from '../services/work-items-simple.service';
 import { CreateWorkItemSimpleDto } from '../dto/create-work-item-simple.dto';
 import { UpdateWorkItemSimpleDto } from '../dto/update-work-item-simple.dto';
-import { formatResponse, formatArrayResponse } from '../../../shared/helpers/response.helper';
+import {
+  formatResponse,
+  formatArrayResponse,
+} from '../../../shared/helpers/response.helper';
 
 type UserJwt = {
   id: string;
@@ -25,18 +37,29 @@ export class WorkItemsSimpleController {
     @CurrentUser() u: UserJwt,
     @Body() dto: CreateWorkItemSimpleDto,
   ) {
-    const item = await this.svc.create(workspaceId, u.organizationId, projectId, dto);
+    const item = await this.svc.create(
+      workspaceId,
+      u.organizationId,
+      projectId,
+      dto,
+    );
     return formatResponse(item);
   }
 
   @Get()
-  async list(@Param('workspaceId') workspaceId: string, @Param('projectId') projectId: string) {
+  async list(
+    @Param('workspaceId') workspaceId: string,
+    @Param('projectId') projectId: string,
+  ) {
     const items = await this.svc.list(workspaceId, projectId);
     return formatArrayResponse(items);
   }
 
   @Get(':idOrKey')
-  async get(@Param('workspaceId') workspaceId: string, @Param('idOrKey') idOrKey: string) {
+  async get(
+    @Param('workspaceId') workspaceId: string,
+    @Param('idOrKey') idOrKey: string,
+  ) {
     const item = await this.svc.get(workspaceId, idOrKey);
     return formatResponse(item);
   }
@@ -52,7 +75,10 @@ export class WorkItemsSimpleController {
   }
 
   @Delete(':workItemId')
-  async remove(@Param('workspaceId') workspaceId: string, @Param('workItemId') workItemId: string) {
+  async remove(
+    @Param('workspaceId') workspaceId: string,
+    @Param('workItemId') workItemId: string,
+  ) {
     const result = await this.svc.remove(workspaceId, workItemId);
     return formatResponse(result);
   }

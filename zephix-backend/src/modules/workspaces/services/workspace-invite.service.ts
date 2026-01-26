@@ -8,6 +8,7 @@
  */
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -33,6 +34,8 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class WorkspaceInviteService {
+  private readonly logger = new Logger(WorkspaceInviteService.name);
+
   constructor(
     @InjectRepository(WorkspaceInviteLink)
     private inviteLinkRepo: Repository<WorkspaceInviteLink>,
@@ -126,20 +129,43 @@ export class WorkspaceInviteService {
   async revokeActiveInviteLink(
     workspaceId: string,
     actorUserId: string,
-  ): Promise<{ ok: true }> {
-    const link = await this.getActiveInviteLink(workspaceId);
+    requestId?: string,
+  ): Promise<void> {
+    const now = new Date();
+    const link = await this.inviteLinkRepo.findOne({
+      where: {
+        workspaceId,
+        status: 'active',
+        revokedAt: null,
+      },
+      order: { createdAt: 'DESC' },
+    });
 
-    if (!link) {
-      // Idempotent: no active link to revoke
-      return { ok: true };
+    // Check if link exists and is not expired
+    const activeLink =
+      link && (!link.expiresAt || link.expiresAt > now) ? link : null;
+
+    if (!activeLink) {
+      this.logger.log('No active invite link found. Revoke skipped', {
+        workspaceId,
+        actorUserId,
+        requestId,
+      });
+      return;
     }
 
-    link.status = 'revoked';
-    link.revokedAt = new Date();
-    link.revokedByUserId = actorUserId;
-    await this.inviteLinkRepo.save(link);
+    activeLink.status = 'revoked';
+    activeLink.revokedAt = new Date();
+    activeLink.revokedByUserId = actorUserId;
 
-    return { ok: true };
+    await this.inviteLinkRepo.save(activeLink);
+
+    this.logger.log('Invite link revoked', {
+      workspaceId,
+      actorUserId,
+      requestId,
+      inviteLinkId: activeLink.id,
+    });
   }
 
   /**

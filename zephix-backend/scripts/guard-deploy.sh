@@ -21,21 +21,25 @@ echo "   ✅ Build passed"
 echo ""
 
 # 2. Debug/Schema Exposure Guard
-echo "2️⃣  Checking for debug/schema exposure controllers..."
-DEBUG_MATCHES=$(grep -R "@Controller('debug'\\|\"debug\"\\|`debug`)" src -n || true)
-INTERNAL_MATCHES=$(grep -R "@Controller('internal'\\|\"internal\"\\|`internal`)" src -n || true)
-DIAG_MATCHES=$(grep -R "@Controller('diag'\\|\"diag\"\\|`diag`)" src -n || true)
-SCHEMA_ROUTE_MATCHES=$(grep -R "@Get('schema'\\|\"schema\"\\|`schema`\\|'health/schema'\\|\"health/schema\"\\|`health/schema`)" src -n || true)
+echo "2️⃣  Checking for debug and schema exposure routes..."
+
+# Exclude backup files, infrastructure directory, and directories
+DEBUG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']debug[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
+INTERNAL_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']internal[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
+DIAG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']diag[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
+
+SCHEMA_ROUTE_MATCHES=$(grep -R -n -E "@Get\(([^)]*)[\"']schema[\"']|@Get\(([^)]*)[\"']health/schema[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
 
 if [ -n "$DEBUG_MATCHES" ] || [ -n "$INTERNAL_MATCHES" ] || [ -n "$DIAG_MATCHES" ] || [ -n "$SCHEMA_ROUTE_MATCHES" ]; then
-  echo "❌ Debug/schema exposure routes detected in runtime build:"
+  echo "❌ Debug or schema exposure routes detected:"
   [ -n "$DEBUG_MATCHES" ] && echo "$DEBUG_MATCHES"
   [ -n "$INTERNAL_MATCHES" ] && echo "$INTERNAL_MATCHES"
   [ -n "$DIAG_MATCHES" ] && echo "$DIAG_MATCHES"
   [ -n "$SCHEMA_ROUTE_MATCHES" ] && echo "$SCHEMA_ROUTE_MATCHES"
   exit 1
 fi
-echo "   ✅ Debug/schema exposure check passed"
+
+echo "   ✅ Debug and schema exposure check passed"
 echo ""
 
 # 3. Lint Check

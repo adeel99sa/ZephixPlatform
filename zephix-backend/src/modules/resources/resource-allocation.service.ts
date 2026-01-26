@@ -539,11 +539,7 @@ export class ResourceAllocationService {
     }
 
     // Use transaction for atomicity
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
+    return this.dataSource.transaction(async (manager) => {
       // Create allocation with defaults
       const allocation = this.allocationRepository.create({
         organizationId,
@@ -556,11 +552,11 @@ export class ResourceAllocationService {
         bookingSource: BookingSource.MANUAL, // Default for internal method
       });
 
-      const savedAllocation = await queryRunner.manager.save(allocation);
+      const savedAllocation = await manager.save(allocation);
 
       // Update daily capacity with proper accumulation
       await this.updateDailyCapacity(
-        queryRunner.manager,
+        manager,
         organizationId,
         userId,
         startDate,
@@ -568,14 +564,8 @@ export class ResourceAllocationService {
         allocationPercentage,
       );
 
-      await queryRunner.commitTransaction();
       return savedAllocation;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 
   private async checkCapacityConflicts(

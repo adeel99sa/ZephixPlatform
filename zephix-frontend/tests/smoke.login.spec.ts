@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("login -> hub", async ({ page }) => {
-  await page.goto("http://localhost:5178/login");
+  await page.goto("/login");
   await page.getByLabel(/email/i).fill("demo@zephix.com");
   await page.getByLabel(/password/i).fill("Demo123!@#");
   const [resp] = await Promise.all([

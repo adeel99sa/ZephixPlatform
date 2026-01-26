@@ -94,243 +94,52 @@ export class TemplatesPreviewV51Service {
           });
         }
 
-        // Load template using raw SQL to avoid selecting columns that don't exist in test DB
-        // Try with structure column first, fall back to phases if structure doesn't exist
-        let templateRaw: any[];
+        // Load template using TenantAwareRepository - automatically scoped by organizationId
+        // TenantAwareRepository automatically adds organizationId filter
+        let template: ProjectTemplate | null;
         try {
-          templateRaw = await this.dataSource.query(
-            `
-            SELECT
-              pt.id,
-              pt.name,
-              pt.organization_id,
-              pt.is_active,
-              COALESCE(pt.structure, jsonb_build_object('phases', COALESCE(pt.phases, '[]'::jsonb))) as structure,
-              pt.phases as phases_raw,
-              pt.lock_policy
-            FROM project_templates pt
-            WHERE pt.id = $1
-              AND pt.organization_id = $2
-              AND pt.is_active = $3
-            `,
-            [templateId, organizationId, true],
-          );
+          template = await this.templateRepo
+            .qb('pt')
+            .where('pt.id = :templateId', { templateId })
+            .andWhere('pt.isActive = :isActive', { isActive: true })
+            .getOne();
         } catch (error: any) {
-          // If structure column doesn't exist, use phases directly
+          // If query fails (e.g., structure column doesn't exist), fall back to simpler query
           if (
             error.message &&
             error.message.includes('column') &&
             error.message.includes('structure')
           ) {
-            templateRaw = await this.dataSource.query(
-              `
-              SELECT
-                pt.id,
-                pt.name,
-                pt.organization_id,
-                pt.is_active,
-                CASE
-                  WHEN pt.phases IS NOT NULL AND jsonb_typeof(pt.phases) = 'array' THEN jsonb_build_object('phases', pt.phases)
-                  WHEN pt.phases IS NOT NULL AND jsonb_typeof(pt.phases) = 'object' AND (pt.phases ? 'phases') THEN pt.phases
-                  ELSE jsonb_build_object('phases', '[]'::jsonb)
-                END as structure,
-                pt.phases as phases_raw,
-                pt.lock_policy
-              FROM project_templates pt
-              WHERE pt.id = $1
-                AND pt.organization_id = $2
-                AND pt.is_active = $3
-              `,
-              [templateId, organizationId, true],
-            );
+            template = await this.templateRepo
+              .qb('pt')
+              .where('pt.id = :templateId', { templateId })
+              .andWhere('pt.isActive = :isActive', { isActive: true })
+              .getOne();
           } else {
             throw error;
           }
         }
 
-        if (!templateRaw || templateRaw.length === 0) {
+        if (!template) {
           throw new NotFoundException({
             code: 'NOT_FOUND',
             message: 'Template not found',
           });
         }
 
-        const row = templateRaw[0];
+        // Ensure structure exists - prefer structure, fall back to empty structure
+        // Note: template.phases (Phase[]) is incompatible with structure.phases (requires tasks array)
+        // So we only use structure if it exists, otherwise create empty structure
+        if (!template.structure) {
+          template.structure = { phases: [] };
+        }
+
+        // Template entity is already loaded - structure is ensured above
         if (process.env.E2E_DEBUG) {
           console.log(
-            `[TemplatesPreviewV51Service] Raw row keys: ${Object.keys(row).join(', ')}`,
+            `[TemplatesPreviewV51Service] Template loaded: ${template.id}, has structure: ${!!template.structure}`,
           );
-          console.log(
-            `[TemplatesPreviewV51Service] Raw row.structure type: ${typeof row.structure}, is null: ${row.structure === null}, is undefined: ${row.structure === undefined}`,
-          );
-          // Try to stringify the structure to see what's actually stored
-          try {
-            const structureStr = JSON.stringify(row.structure, null, 2);
-            console.log(
-              `[TemplatesPreviewV51Service] Raw row.structure JSON: ${structureStr.substring(0, 500)}`,
-            );
-          } catch (e) {
-            console.log(
-              `[TemplatesPreviewV51Service] Could not stringify structure: ${e}`,
-            );
-          }
-          if (row.structure && typeof row.structure === 'object') {
-            console.log(
-              `[TemplatesPreviewV51Service] Raw row.structure keys: ${Object.keys(row.structure).join(', ')}`,
-            );
-            if (row.structure.phases) {
-              console.log(
-                `[TemplatesPreviewV51Service] Raw row.structure.phases type: ${typeof row.structure.phases}, is array: ${Array.isArray(row.structure.phases)}, length: ${row.structure.phases?.length || 0}`,
-              );
-              // If it's an object with numeric keys (PostgreSQL JSONB array), show the keys
-              if (
-                typeof row.structure.phases === 'object' &&
-                !Array.isArray(row.structure.phases)
-              ) {
-                const keys = Object.keys(row.structure.phases);
-                console.log(
-                  `[TemplatesPreviewV51Service] Raw row.structure.phases object keys: ${keys.join(', ')}`,
-                );
-                if (keys.length > 0) {
-                  console.log(
-                    `[TemplatesPreviewV51Service] Raw row.structure.phases[0]: ${JSON.stringify(row.structure.phases[keys[0]])}`,
-                  );
-                }
-              }
-            }
-          }
-          if (row.phases_raw) {
-            console.log(
-              `[TemplatesPreviewV51Service] Raw row.phases_raw type: ${typeof row.phases_raw}, is array: ${Array.isArray(row.phases_raw)}, is null: ${row.phases_raw === null}`,
-            );
-            try {
-              const phasesStr = JSON.stringify(row.phases_raw, null, 2);
-              console.log(
-                `[TemplatesPreviewV51Service] Raw row.phases_raw JSON: ${phasesStr.substring(0, 500)}`,
-              );
-            } catch (e) {
-              console.log(
-                `[TemplatesPreviewV51Service] Could not stringify phases_raw: ${e}`,
-              );
-            }
-            if (
-              typeof row.phases_raw === 'object' &&
-              !Array.isArray(row.phases_raw) &&
-              row.phases_raw !== null
-            ) {
-              const keys = Object.keys(row.phases_raw);
-              console.log(
-                `[TemplatesPreviewV51Service] Raw row.phases_raw object keys: ${keys.join(', ')}`,
-              );
-            }
-          }
-        }
-        // PostgreSQL returns JSONB as objects, not strings, so we don't need to parse
-        // But be safe and handle both cases
-        let structureParsed = row.structure;
-        if (typeof structureParsed === 'string') {
-          try {
-            structureParsed = JSON.parse(structureParsed);
-          } catch (e) {
-            // If parsing fails, structureParsed remains as string
-          }
-        }
-
-        // Ensure structure has phases array - if structure.phases is empty but we have phases_raw, use it
-        // This handles the case where jsonb_build_object might return an empty array
-        // Note: PostgreSQL JSONB arrays are returned as objects with numeric keys, not true JavaScript arrays
-        if (structureParsed && typeof structureParsed === 'object') {
-          // Check if structure.phases is empty or missing
-          const hasEmptyPhases =
-            !structureParsed.phases ||
-            (Array.isArray(structureParsed.phases) &&
-              structureParsed.phases.length === 0) ||
-            (typeof structureParsed.phases === 'object' &&
-              Object.keys(structureParsed.phases).length === 0);
-
-          if (hasEmptyPhases && row.phases_raw) {
-            // If structure doesn't have phases or phases is empty, try to get it from the raw row
-            // Check if phases_raw is a valid array-like object
-            let phasesArray: any[] = [];
-            if (Array.isArray(row.phases_raw)) {
-              phasesArray = row.phases_raw;
-            } else if (
-              typeof row.phases_raw === 'object' &&
-              row.phases_raw !== null
-            ) {
-              // PostgreSQL JSONB arrays are returned as objects with numeric keys
-              // Convert to array
-              const numericKeys = Object.keys(row.phases_raw)
-                .filter((key) => /^\d+$/.test(key))
-                .sort((a, b) => parseInt(a) - parseInt(b));
-
-              if (numericKeys.length > 0) {
-                phasesArray = numericKeys.map((key) => row.phases_raw[key]);
-                if (process.env.E2E_DEBUG) {
-                  console.log(
-                    `[TemplatesPreviewV51Service] Converted phases_raw from object to array, length: ${phasesArray.length}`,
-                  );
-                }
-              }
-            }
-
-            if (phasesArray.length > 0) {
-              structureParsed = { ...structureParsed, phases: phasesArray };
-              if (process.env.E2E_DEBUG) {
-                console.log(
-                  `[TemplatesPreviewV51Service] Using phases_raw, converted to array length: ${phasesArray.length}`,
-                );
-              }
-            } else if (process.env.E2E_DEBUG) {
-              console.log(
-                `[TemplatesPreviewV51Service] phases_raw is also empty or invalid`,
-              );
-            }
-          }
-        }
-
-        const template: any = {
-          id: row.id,
-          name: row.name,
-          organizationId: row.organization_id,
-          isActive: row.is_active,
-          structure: structureParsed,
-          lockPolicy:
-            typeof row.lock_policy === 'string'
-              ? JSON.parse(row.lock_policy)
-              : row.lock_policy,
-        };
-
-        if (process.env.E2E_DEBUG) {
-          console.log(
-            `[TemplatesPreviewV51Service] Template found: ${!!template}, has structure: ${!!template?.structure}`,
-          );
-          console.log(
-            `[TemplatesPreviewV51Service] Structure type: ${typeof template.structure}, is object: ${typeof template.structure === 'object' && template.structure !== null}`,
-          );
-          console.log(
-            `[TemplatesPreviewV51Service] Raw row.structure type: ${typeof row.structure}, is object: ${typeof row.structure === 'object' && row.structure !== null}`,
-          );
-          console.log(
-            `[TemplatesPreviewV51Service] Raw row.phases_raw type: ${typeof row.phases_raw}, is array: ${Array.isArray(row.phases_raw)}, length: ${row.phases_raw?.length || 0}`,
-          );
-          if (row.structure && typeof row.structure === 'object') {
-            console.log(
-              `[TemplatesPreviewV51Service] Raw row.structure keys: ${Object.keys(row.structure).join(', ')}`,
-            );
-            console.log(
-              `[TemplatesPreviewV51Service] Raw row.structure.phases exists: ${!!row.structure.phases}, is array: ${Array.isArray(row.structure.phases)}, length: ${row.structure.phases?.length || 0}`,
-            );
-            if (row.structure.phases && Array.isArray(row.structure.phases)) {
-              console.log(
-                `[TemplatesPreviewV51Service] Raw row.structure.phases first item: ${JSON.stringify(row.structure.phases[0])}`,
-              );
-            }
-          }
           if (template.structure && typeof template.structure === 'object') {
-            console.log(
-              `[TemplatesPreviewV51Service] Structure keys: ${Object.keys(template.structure).join(', ')}`,
-            );
             console.log(
               `[TemplatesPreviewV51Service] Structure.phases exists: ${!!template.structure.phases}, is array: ${Array.isArray(template.structure.phases)}, length: ${template.structure.phases?.length || 0}`,
             );

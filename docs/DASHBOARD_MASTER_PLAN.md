@@ -276,12 +276,8 @@
 
 ### Future Phases
 
-**Phase 5.2+ (Post Work Management UAT):**
-- Resume widget library expansion
-- Implement analytics foundations
-- Add dashboard permissions
-- Enhance AI features
-- UX improvements
+**Phase 6: Dashboards, Reporting, and Analytics (Planned)**
+- See Phase 6 sections below for detailed roadmap
 
 ## Freeze Rationale
 
@@ -296,10 +292,152 @@
 - After Template Center is UAT-ready
 - With explicit approval from product/engineering leadership
 
+## Phase 6: Dashboards, Reporting, and Analytics
+
+**Status**: Planned
+**Dependencies**: Phase 5.1 UAT complete
+
+### Phase 6.0: Objectives
+
+1. Org and workspace dashboards as first-class entities
+2. Invite-only sharing model with explicit access control
+3. PDF and Excel exports with job queue
+4. Audit logs for view, export, and share events
+5. Performance baseline for rollups and aggregations
+
+### Phase 6.1: Foundations and Access Control
+
+**Status**: Planned
+**Target**: Dashboard access model and permission layer
+
+#### Deliverables
+
+1. **Dashboard Entities**
+   - Dashboard entity with scope (ORG, WORKSPACE)
+   - DashboardWidget entity with type and config
+   - DashboardShare entity for invite-only access
+   - DashboardExportJob entity for async exports
+
+2. **Scope Model**
+   - ORG dashboards for executive rollups
+   - WORKSPACE dashboards for delivery teams
+   - Scope-based permission checks
+
+3. **Permission Layer**
+   - Org permissions: `org_dashboards_view`, `org_dashboards_manage`, `org_dashboards_export`
+   - Workspace permissions: `workspace_dashboards_view`, `workspace_dashboards_manage`, `workspace_dashboards_export`
+
+4. **Invite-Only Enforcement**
+   - Non-admin users require share record for access
+   - Viewer share is always view-only
+   - Member share is view or edit based on explicit access level
+   - Admin and workspace owner bypass share requirement
+
+5. **API Skeleton**
+   - Org dashboards: CRUD, shares CRUD, export job create, export job status
+   - Workspace dashboards: CRUD, shares CRUD, export job create, export job status
+
+6. **E2E Tests for Access Model**
+   - Not invited returns 403
+   - Viewer invited returns 200 for GET, 403 for edit and export if not granted
+   - Member invited with edit returns 200 for PATCH
+   - Admin bypass returns 200
+
+### Phase 6.2: Org Rollups for Exec Reporting
+
+**Status**: Planned
+**Dependencies**: Phase 6.1 complete
+
+#### Deliverables
+
+1. **Org Rollup Services**
+   - Projects status rollup across all workspaces
+   - Resource capacity rollup across all workspaces
+   - Risk rollup across all workspaces
+
+2. **Materialized Rollups**
+   - Daily snapshots plus on-demand refresh for Admin
+
+3. **Widgets**
+   - Org portfolio health
+   - Cross-workspace delivery status
+   - Resource capacity heatmap
+   - Risk exposure summary
+
+4. **Exports**
+   - PDF: executive summary layout
+   - Excel: raw tables plus charts sheet
+
+### Phase 6.3: Workspace Dashboards for Delivery Teams
+
+**Status**: Planned
+**Dependencies**: Phase 6.2 complete
+
+#### Deliverables
+
+1. **Workspace Dashboard Templates**
+   - Delivery overview
+   - Risks and blockers
+   - Capacity and allocation
+
+2. **Widgets**
+   - Work items by status
+   - Burndown or burnup
+   - Blockers list
+   - Risks list and heatmap
+   - Upcoming milestones
+
+3. **Sharing**
+   - Admin and workspace owner create and invite
+   - Viewer is view-only
+   - Member view or edit by invite level
+
+### Phase 6.4: Export Engine and Report Packs
+
+**Status**: Planned
+**Dependencies**: Phase 6.3 complete
+
+#### Deliverables
+
+1. **Export Job Runner**
+   - Async job processing
+   - Status polling API
+   - Error handling and retries
+
+2. **PDF Packs**
+   - Org executive pack
+   - Workspace delivery pack
+
+3. **Excel Packs**
+   - Data sheets plus charts sheet
+
+4. **Audit Logs**
+   - Who exported, what, when, scope, filters
+
+### Phase 6.5: Insights and Drilldowns
+
+**Status**: Planned
+**Dependencies**: Phase 6.4 complete
+
+#### Deliverables
+
+1. **Insights Panel**
+   - Insights panel for dashboards
+   - Automated insights generation
+
+2. **Drilldowns**
+   - Drilldown from chart to filtered list views
+   - Saved filters per widget
+
+3. **Caching Strategy**
+   - Caching strategy and invalidation rules
+   - Performance optimization
+
 ## Related Documents
 
 - `docs/PHASE4_3_IMPLEMENTATION_SUMMARY.md` - Phase 4.3 implementation details
 - `docs/RELEASE_LOG_PHASE4.md` - Phase 4 release log
 - `docs/STEP8_RUNBOOK.md` - Share functionality runbook
 - `docs/PHASE5_1_IMPLEMENTATION_PLAN.md` - Phase 5.1 implementation plan
+- `docs/PHASE5_ROADMAP.md` - Phase 5 roadmap
 

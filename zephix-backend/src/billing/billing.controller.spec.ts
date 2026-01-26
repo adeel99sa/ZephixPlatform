@@ -44,6 +44,8 @@ describe('BillingController - Contract Tests', () => {
     stripeCustomerId: null,
     metadata: {},
     autoRenew: true,
+    cancelAtPeriodEnd: false,
+    canceledAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     plan: mockPlan,
@@ -68,6 +70,9 @@ describe('BillingController - Contract Tests', () => {
             checkUsageLimit: jest.fn(),
             checkInternalManaged: jest.fn(),
             getMockedFreePlan: jest.fn(),
+            subscribe: jest.fn(),
+            updateSubscription: jest.fn(),
+            cancelSubscription: jest.fn(),
           },
         },
       ],
@@ -82,7 +87,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Plan[] } format', async () => {
       jest.spyOn(plansService, 'findAll').mockResolvedValue([mockPlan]);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getPlans(req as any);
 
       expect(result).toHaveProperty('data');
@@ -97,7 +102,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: [] } on error (never throw 500)', async () => {
       jest.spyOn(plansService, 'findAll').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getPlans(req as any);
 
       expect(result).toHaveProperty('data');
@@ -110,7 +115,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Subscription | null } format', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockResolvedValue(mockSubscription);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -123,7 +128,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: null } when no subscription exists', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockResolvedValue(null);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -133,7 +138,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: null } on error (never throw 500)', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -145,7 +150,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: CurrentPlan } format', async () => {
       jest.spyOn(subscriptionsService, 'getCurrentPlan').mockResolvedValue(mockPlan);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getCurrentPlan(req as any);
 
       expect(result).toHaveProperty('data');
@@ -161,7 +166,7 @@ describe('BillingController - Contract Tests', () => {
       jest.spyOn(subscriptionsService, 'getCurrentPlan').mockRejectedValue(new Error('DB error'));
       jest.spyOn(subscriptionsService, 'getMockedFreePlan').mockReturnValue(mockPlan);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getCurrentPlan(req as any);
 
       expect(result).toHaveProperty('data');
@@ -173,7 +178,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Usage } format', async () => {
       jest.spyOn(subscriptionsService, 'checkUsageLimit').mockResolvedValue({ allowed: 10, used: 5 });
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getUsage(req as any);
 
       expect(result).toHaveProperty('data');
@@ -188,7 +193,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return safe defaults on error (never throw 500)', async () => {
       jest.spyOn(subscriptionsService, 'checkUsageLimit').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const result = await controller.getUsage(req as any);
 
       expect(result).toHaveProperty('data');
@@ -199,19 +204,26 @@ describe('BillingController - Contract Tests', () => {
 
   describe('POST /billing/subscribe', () => {
     it('should return 403 for internalManaged organizations', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
+      jest.spyOn(subscriptionsService, 'subscribe').mockRejectedValue(
+        new ForbiddenException({
+          code: 'ORG_ENTERPRISE_MANAGED',
+          message: 'Plan changes are not allowed for enterprise accounts. Please contact Zephix support to modify your plan.',
+        })
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
-      const dto = { planType: PlanType.PROFESSIONAL, annual: false };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
+      const dto = { planId: 'test-plan-id', planType: PlanType.PROFESSIONAL, annual: false };
 
       await expect(controller.subscribe(req as any, dto)).rejects.toThrow(ForbiddenException);
     });
 
     it('should return 501 if not implemented', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
+      jest.spyOn(subscriptionsService, 'subscribe').mockRejectedValue(
+        new NotImplementedException('Billing not yet implemented')
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
-      const dto = { planType: PlanType.PROFESSIONAL, annual: false };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
+      const dto = { planId: 'test-plan-id', planType: PlanType.PROFESSIONAL, annual: false };
 
       await expect(controller.subscribe(req as any, dto)).rejects.toThrow(NotImplementedException);
     });
@@ -219,18 +231,28 @@ describe('BillingController - Contract Tests', () => {
 
   describe('PATCH /billing/subscription', () => {
     it('should return 403 for internalManaged organizations when changing plan', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
+      jest.spyOn(plansService, 'findAll').mockResolvedValue([mockPlan]);
+      jest.spyOn(subscriptionsService, 'updateSubscription').mockRejectedValue(
+        new ForbiddenException({
+          code: 'ORG_ENTERPRISE_MANAGED',
+          message: 'Plan changes are not allowed for enterprise accounts. Please contact Zephix support to modify your plan.',
+        })
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const dto = { planType: PlanType.PROFESSIONAL };
 
       await expect(controller.updateSubscription(req as any, dto)).rejects.toThrow(ForbiddenException);
     });
 
     it('should return 501 if not implemented', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
+      const professionalPlan = { ...mockPlan, id: 'professional-plan-id', type: PlanType.PROFESSIONAL };
+      jest.spyOn(plansService, 'findAll').mockResolvedValue([professionalPlan]);
+      jest.spyOn(subscriptionsService, 'updateSubscription').mockRejectedValue(
+        new NotImplementedException('Billing not yet implemented')
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
       const dto = { planType: PlanType.PROFESSIONAL };
 
       await expect(controller.updateSubscription(req as any, dto)).rejects.toThrow(NotImplementedException);
@@ -239,19 +261,28 @@ describe('BillingController - Contract Tests', () => {
 
   describe('POST /billing/cancel', () => {
     it('should return 403 for internalManaged organizations', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
+      jest.spyOn(subscriptionsService, 'cancelSubscription').mockRejectedValue(
+        new ForbiddenException({
+          code: 'ORG_ENTERPRISE_MANAGED',
+          message: 'Plan changes are not allowed for enterprise accounts. Please contact Zephix support to modify your plan.',
+        })
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
+      const cancelDto = { cancelNow: false };
 
-      await expect(controller.cancelSubscription(req as any)).rejects.toThrow(ForbiddenException);
+      await expect(controller.cancelSubscription(req as any, cancelDto)).rejects.toThrow(ForbiddenException);
     });
 
     it('should return 501 if not implemented', async () => {
-      jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
+      jest.spyOn(subscriptionsService, 'cancelSubscription').mockRejectedValue(
+        new NotImplementedException('Billing not yet implemented')
+      );
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = { user: { id: 'test-user-id', organizationId: 'test-org-id' }, headers: {} };
+      const cancelDto = { cancelNow: false };
 
-      await expect(controller.cancelSubscription(req as any)).rejects.toThrow(NotImplementedException);
+      await expect(controller.cancelSubscription(req as any, cancelDto)).rejects.toThrow(NotImplementedException);
     });
   });
 });

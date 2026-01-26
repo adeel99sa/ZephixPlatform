@@ -349,7 +349,10 @@ export class WorkItemController {
       throw new ForbiddenException('Forbidden');
     }
 
-    return this.myWorkService.getMyWork(user.id, platformRole);
+    // Legacy alias - redirect to new controller
+    // Note: This endpoint should be removed in Phase 7.4 cleanup
+    const ctx = getAuthContext(req);
+    return this.myWorkService.getMyWork(ctx, {});
   }
 
   // PHASE 7 MODULE 7.4: Bulk update work items

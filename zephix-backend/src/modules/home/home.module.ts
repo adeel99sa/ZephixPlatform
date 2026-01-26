@@ -15,10 +15,17 @@ import { Workspace } from '../workspaces/entities/workspace.entity';
 import { Project } from '../projects/entities/project.entity';
 import { WorkItem } from '../work-items/entities/work-item.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
+import { Risk } from '../risks/entities/risk.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Workspace, Project, WorkItem, WorkspaceMember]),
+    TypeOrmModule.forFeature([
+      Workspace,
+      Project,
+      WorkItem,
+      WorkspaceMember,
+      Risk,
+    ]),
     WorkspacesModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService
     NotificationsModule,
@@ -30,6 +37,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     createTenantAwareRepositoryProvider(Project),
     createTenantAwareRepositoryProvider(WorkItem),
     createTenantAwareRepositoryProvider(WorkspaceMember),
+    createTenantAwareRepositoryProvider(Risk),
     AdminHomeService,
     MemberHomeService,
     GuestHomeService,

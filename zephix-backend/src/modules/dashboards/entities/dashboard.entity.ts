@@ -9,6 +9,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { DashboardWidget } from './dashboard-widget.entity';
+import { DashboardScope } from '../domain/dashboard.enums';
 
 export enum DashboardVisibility {
   PRIVATE = 'PRIVATE',
@@ -45,6 +46,13 @@ export class Dashboard {
     default: DashboardVisibility.PRIVATE,
   })
   visibility: DashboardVisibility;
+
+  @Column({
+    type: 'enum',
+    enum: DashboardScope,
+    default: DashboardScope.WORKSPACE,
+  })
+  scope!: DashboardScope;
 
   @Column({ type: 'boolean', name: 'is_template_instance', default: false })
   isTemplateInstance: boolean;

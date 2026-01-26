@@ -14,6 +14,12 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     css: true,
+    exclude: [
+      'tests/**',
+      'e2e/**',
+      'playwright-report/**',
+      '**/*.pw.spec.*'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

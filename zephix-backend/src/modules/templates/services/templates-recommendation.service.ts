@@ -184,137 +184,44 @@ export class TemplatesRecommendationService {
     organizationId: string,
     workspaceId?: string,
   ): Promise<(Template | ProjectTemplate)[]> {
-    // Load from ProjectTemplate entity (primary source for v5_1 templates)
-    // Use raw SQL query to avoid selecting columns that don't exist in test DB (e.g., default_workspace_visibility)
-    // ProjectTemplate has 'phases' column (not 'structure'), but E2E test may insert 'structure' JSONB
-    // Try to use structure if it exists, otherwise fall back to phases
-    let projectTemplatesRaw: any[];
+    // Load from ProjectTemplate entity using TenantAwareRepository
+    // TenantAwareRepository automatically scopes by organizationId
+    let projectTemplates: ProjectTemplate[];
     try {
-      // First try with structure column (if it exists in test DB)
-      projectTemplatesRaw = await this.dataSource.query(
-        `
-        SELECT
-          pt.id as pt_id,
-          pt.name as pt_name,
-          pt.organization_id as pt_organization_id,
-          pt.is_active as pt_is_active,
-          COALESCE(pt.structure, jsonb_build_object('phases', COALESCE(pt.phases, '[]'::jsonb))) as pt_structure,
-          pt.work_type_tags as pt_work_type_tags,
-          pt.scope_tags as pt_scope_tags,
-          pt.complexity_bucket as pt_complexity_bucket,
-          pt.duration_min_days as pt_duration_min_days,
-          pt.duration_max_days as pt_duration_max_days,
-          pt.setup_time_bucket as pt_setup_time_bucket,
-          pt.structure_summary as pt_structure_summary,
-          pt.lock_policy as pt_lock_policy
-        FROM project_templates pt
-        WHERE pt.organization_id = $1
-          AND pt.is_active = $2
-        `,
-        [organizationId, true],
-      );
+      // Use TenantAwareRepository query builder - automatically scoped by organizationId
+      // TenantAwareRepository automatically adds organizationId filter
+      const queryBuilder = this.projectTemplateRepo
+        .qb('pt')
+        .where('pt.isActive = :isActive', { isActive: true });
+
+      projectTemplates = await queryBuilder.getMany();
     } catch (error: any) {
-      // If structure column doesn't exist, use phases directly
+      // If query fails (e.g., structure column doesn't exist), fall back to simpler query
       if (
         error.message &&
         error.message.includes('column') &&
         error.message.includes('structure')
       ) {
-        projectTemplatesRaw = await this.dataSource.query(
-          `
-          SELECT
-            pt.id as pt_id,
-            pt.name as pt_name,
-            pt.organization_id as pt_organization_id,
-            pt.is_active as pt_is_active,
-            jsonb_build_object('phases', COALESCE(pt.phases, '[]'::jsonb)) as pt_structure,
-            pt.work_type_tags as pt_work_type_tags,
-            pt.scope_tags as pt_scope_tags,
-            pt.complexity_bucket as pt_complexity_bucket,
-            pt.duration_min_days as pt_duration_min_days,
-            pt.duration_max_days as pt_duration_max_days,
-            pt.setup_time_bucket as pt_setup_time_bucket,
-            pt.structure_summary as pt_structure_summary,
-            pt.lock_policy as pt_lock_policy
-          FROM project_templates pt
-          WHERE pt.organization_id = $1
-            AND pt.is_active = $2
-          `,
-          [organizationId, true],
-        );
+        const queryBuilder = this.projectTemplateRepo
+          .qb('pt')
+          .where('pt.isActive = :isActive', { isActive: true });
+
+        projectTemplates = await queryBuilder.getMany();
       } else {
         // Re-throw if it's a different error
         throw error;
       }
     }
 
-    // Map raw results to ProjectTemplate-like objects
-    // Raw results use snake_case keys like pt_id, pt_name, etc.
-    const projectTemplates = projectTemplatesRaw.map((row: any) => {
-      const template: any = {
-        id: row.pt_id,
-        name: row.pt_name,
-        organizationId: row.pt_organization_id,
-        isActive: row.pt_is_active,
-        structure:
-          typeof row.pt_structure === 'string'
-            ? JSON.parse(row.pt_structure)
-            : row.pt_structure,
-      };
-
-      // Only include fields that exist and parse JSONB fields
-      if (row.pt_work_type_tags !== undefined) {
-        template.workTypeTags = Array.isArray(row.pt_work_type_tags)
-          ? row.pt_work_type_tags
-          : [];
+    // Map ProjectTemplate entities - ensure structure exists
+    // Note: template.phases (Phase[]) is incompatible with structure.phases (requires tasks array)
+    // So we only use structure if it exists, otherwise create empty structure
+    const projectTemplatesMapped = projectTemplates.map((template) => {
+      if (!template.structure) {
+        template.structure = { phases: [] };
       }
-      if (row.pt_scope_tags !== undefined) {
-        template.scopeTags = Array.isArray(row.pt_scope_tags)
-          ? row.pt_scope_tags
-          : [];
-      }
-      if (
-        row.pt_complexity_bucket !== undefined &&
-        row.pt_complexity_bucket !== null
-      ) {
-        template.complexityBucket = row.pt_complexity_bucket;
-      }
-      if (
-        row.pt_duration_min_days !== undefined &&
-        row.pt_duration_min_days !== null
-      ) {
-        template.durationMinDays = row.pt_duration_min_days;
-      }
-      if (
-        row.pt_duration_max_days !== undefined &&
-        row.pt_duration_max_days !== null
-      ) {
-        template.durationMaxDays = row.pt_duration_max_days;
-      }
-      if (
-        row.pt_setup_time_bucket !== undefined &&
-        row.pt_setup_time_bucket !== null
-      ) {
-        template.setupTimeBucket = row.pt_setup_time_bucket;
-      }
-      if (
-        row.pt_structure_summary !== undefined &&
-        row.pt_structure_summary !== null
-      ) {
-        template.structureSummary =
-          typeof row.pt_structure_summary === 'string'
-            ? JSON.parse(row.pt_structure_summary)
-            : row.pt_structure_summary;
-      }
-      if (row.pt_lock_policy !== undefined && row.pt_lock_policy !== null) {
-        template.lockPolicy =
-          typeof row.pt_lock_policy === 'string'
-            ? JSON.parse(row.pt_lock_policy)
-            : row.pt_lock_policy;
-      }
-
       return template;
-    }) as ProjectTemplate[];
+    });
 
     // Also load from Template entity if needed
     // Skip Template entity for now - focus on ProjectTemplate which is the primary source for v5_1
@@ -330,7 +237,7 @@ export class TemplatesRecommendationService {
       }
     }
 
-    for (const template of projectTemplates) {
+    for (const template of projectTemplatesMapped) {
       if (this.isV51Compatible(template)) {
         compatible.push(template);
       }

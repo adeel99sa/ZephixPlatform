@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { AuthOutbox } from '../entities/auth-outbox.entity';
-import { EmailService } from '../../../shared/services/email.service';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { AuthOutbox } from '../../modules/auth/entities/auth-outbox.entity';
+import { EmailService } from '../../shared/services/email.service';
 
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAYS = [5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000]; // 5min, 30min, 2h
@@ -28,6 +30,12 @@ const isTrue = (v?: string): boolean => (v || '').toLowerCase() === 'true';
  * 3. Keep OUTBOX_PROCESSOR_ENABLED=false on zephix-backend forever
  *
  * See: docs/WORKER_SERVICE_SETUP.md
+ *
+ * ⚠️ INFRASTRUCTURE LAYER
+ * =======================
+ * This service is in src/infrastructure/outbox/ because it uses raw SQL
+ * with SKIP LOCKED for distributed work-stealing. This pattern is allowed
+ * only in the infrastructure layer, not in feature modules.
  */
 @Injectable()
 export class OutboxProcessorService {
@@ -39,6 +47,8 @@ export class OutboxProcessorService {
   constructor(
     @InjectRepository(AuthOutbox)
     private outboxRepository: Repository<AuthOutbox>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private emailService: EmailService,
   ) {
     // Log once on boot if worker is disabled
@@ -89,98 +99,83 @@ export class OutboxProcessorService {
 
       // Claim rows using SKIP LOCKED (safe for multiple replicas)
       // This query uses FOR UPDATE SKIP LOCKED to claim rows exclusively
-      const queryRunner =
-        this.outboxRepository.manager.connection.createQueryRunner();
+      // Raw SQL is allowed here because this is infrastructure-layer code
+      await this.dataSource.transaction(async (manager) => {
+        // Claim pending events ready for processing
+        const claimedEvents = await manager.query(
+          `
+          SELECT id FROM auth_outbox
+          WHERE status = 'pending'
+            AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
+          ORDER BY created_at ASC
+          LIMIT 25
+          FOR UPDATE SKIP LOCKED
+          `,
+          [now],
+        );
 
-      try {
-        await queryRunner.connect();
-        await queryRunner.startTransaction();
+        // Also claim failed events ready for retry
+        const retryEvents = await manager.query(
+          `
+          SELECT id FROM auth_outbox
+          WHERE status = 'failed'
+            AND next_attempt_at <= $1
+            AND attempts < $2
+          ORDER BY created_at ASC
+          LIMIT 25
+          FOR UPDATE SKIP LOCKED
+          `,
+          [now, MAX_ATTEMPTS],
+        );
 
-        try {
-          // Claim pending events ready for processing
-          const claimedEvents = await queryRunner.query(
-            `
-            SELECT id FROM auth_outbox
-            WHERE status = 'pending'
-              AND (next_attempt_at IS NULL OR next_attempt_at <= $1)
-            ORDER BY created_at ASC
-            LIMIT 25
-            FOR UPDATE SKIP LOCKED
-            `,
-            [now],
-          );
+        const allEventIds = [
+          ...claimedEvents.map((e: any) => e.id),
+          ...retryEvents.map((e: any) => e.id),
+        ];
 
-          // Also claim failed events ready for retry
-          const retryEvents = await queryRunner.query(
-            `
-            SELECT id FROM auth_outbox
-            WHERE status = 'failed'
-              AND next_attempt_at <= $1
-              AND attempts < $2
-            ORDER BY created_at ASC
-            LIMIT 25
-            FOR UPDATE SKIP LOCKED
-            `,
-            [now, MAX_ATTEMPTS],
-          );
-
-          const allEventIds = [
-            ...claimedEvents.map((e: any) => e.id),
-            ...retryEvents.map((e: any) => e.id),
-          ];
-
-          if (allEventIds.length === 0) {
-            await queryRunner.commitTransaction();
-            return;
-          }
-
-          // Mark as processing with claim timestamp
-          await queryRunner.query(
-            `
-            UPDATE auth_outbox
-            SET status = 'processing',
-                processing_started_at = $1,
-                claimed_at = $1
-            WHERE id = ANY($2::uuid[])
-            `,
-            [now, allEventIds],
-          );
-
-          await queryRunner.commitTransaction();
-
-          // Load full events and process them
-          const events = await this.outboxRepository.find({
-            where: { id: In(allEventIds) },
-          });
-
-          for (const event of events) {
-            await this.processEvent(event);
-          }
-        } catch (error) {
-          await queryRunner.rollbackTransaction();
-          throw error;
-        } finally {
-          await queryRunner.release();
+        if (allEventIds.length === 0) {
+          return;
         }
-      } catch (error: any) {
-        // Check if table is missing - disable processor and log once
-        if (
-          error?.message?.includes('relation "auth_outbox" does not exist') ||
-          error?.message?.includes('does not exist')
-        ) {
-          if (!this.isDisabled) {
-            this.isDisabled = true;
-            this.logger.error(
-              '❌ OutboxProcessorService DISABLED: auth_outbox table does not exist. Run migrations before enabling.',
-            );
-            this.logger.error(
-              '   Run: npm run migration:run or use Railway one-time command',
-            );
-          }
-          return; // Stop processing until migrations run
+
+        // Mark as processing with claim timestamp
+        await manager.query(
+          `
+          UPDATE auth_outbox
+          SET status = 'processing',
+              processing_started_at = $1,
+              claimed_at = $1
+          WHERE id = ANY($2::uuid[])
+          `,
+          [now, allEventIds],
+        );
+
+        // Load full events and process them (outside transaction for processing)
+        const events = await this.outboxRepository.find({
+          where: { id: In(allEventIds) },
+        });
+
+        for (const event of events) {
+          await this.processEvent(event);
         }
-        this.logger.error('Error processing outbox', error);
+      });
+    } catch (error: any) {
+      // Check if table is missing - disable processor and log once
+      if (
+        error?.message?.includes('relation "auth_outbox" does not exist') ||
+        error?.message?.includes('does not exist')
+      ) {
+        if (!this.isDisabled) {
+          this.isDisabled = true;
+          this.logger.error(
+            '❌ OutboxProcessorService DISABLED: auth_outbox table does not exist. Run migrations before enabling.',
+          );
+          this.logger.error(
+            '   Run: npm run migration:run or use Railway one-time command',
+          );
+        }
+        return; // Stop processing until migrations run
       }
+      this.logger.error('Error processing outbox', error);
     } finally {
       this.isProcessing = false;
     }

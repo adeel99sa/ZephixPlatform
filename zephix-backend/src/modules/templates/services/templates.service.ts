@@ -516,33 +516,30 @@ export class TemplatesService {
           },
         );
 
-        // Create and save tasks using raw query to handle organization_id
+        // Create and save tasks using repository.insert() with explicit organization_id
         // (Entity doesn't define organizationId but database requires it)
-        for (const taskData of tasksToCreate) {
-          await manager.query(
-            `INSERT INTO tasks (
-              project_id, title, description, estimated_hours, priority, status,
-              task_number, task_type, assignment_type, progress_percentage,
-              is_milestone, is_blocked, created_by, organization_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-            [
-              savedProject.id,
-              taskData.title,
-              taskData.description || null,
-              taskData.estimatedHours || 0,
-              taskData.priority || 'medium',
-              taskData.status || 'not_started',
-              taskData.taskNumber,
-              taskData.taskType || 'task',
-              taskData.assignmentType || 'internal',
-              taskData.progressPercentage || 0,
-              taskData.isMilestone || false,
-              taskData.isBlocked || false,
-              taskData.createdById || null,
-              savedProject.organizationId,
-            ],
-          );
-        }
+        // Use insert() which allows fields not in entity definition
+        const taskInserts = tasksToCreate.map((taskData) => ({
+          projectId: savedProject.id,
+          title: taskData.title,
+          description: taskData.description || null,
+          estimatedHours: taskData.estimatedHours || 0,
+          priority: taskData.priority || 'medium',
+          status: taskData.status || 'not_started',
+          taskNumber: taskData.taskNumber,
+          taskType: taskData.taskType || 'task',
+          assignmentType: taskData.assignmentType || 'internal',
+          progressPercentage: taskData.progressPercentage || 0,
+          isMilestone: taskData.isMilestone || false,
+          isBlocked: taskData.isBlocked || false,
+          createdById: taskData.createdById || null,
+          // Explicitly include organization_id even though entity doesn't define it
+          // TypeORM insert() will include this in the SQL
+          organization_id: savedProject.organizationId,
+        }));
+
+        // Use insert() instead of query() - requires tenant-safe transaction helper refactor
+        await taskRepo.insert(taskInserts);
       }
 
       // 5. Template usage tracking - skip if no usage entity exists
@@ -837,89 +834,95 @@ export class TemplatesService {
       },
       async () => {
         return this.dataSource.transaction(async (manager) => {
-      // Load template by id first
-      const template = await manager.getRepository(Template).findOne({
-        where: { id: templateId },
-      });
+          // Load template by id first
+          const template = await manager.getRepository(Template).findOne({
+            where: { id: templateId },
+          });
 
-      if (!template) {
-        throw new NotFoundException('Template not found');
-      }
+          if (!template) {
+            throw new NotFoundException('Template not found');
+          }
 
-      // Apply scope checks using ctx
-      if (template.templateScope === 'ORG') {
-        // Require ctx.organizationId equals template.organizationId
-        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
-          throw new ForbiddenException(
-            'Cannot update template from different organization',
-          );
-        }
-        // Admin role required
-        const platformRole = ctx.platformRole
-          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
-          : null;
-        if (!isAdminRole(platformRole)) {
-          throw new ForbiddenException(
-            'Only organization admins can update ORG templates',
-          );
-        }
-      } else if (template.templateScope === 'WORKSPACE') {
-        // Require ctx.organizationId equals template.organizationId
-        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
-          throw new ForbiddenException(
-            'Cannot update template from different organization',
-          );
-        }
-        // Require ctx.workspaceId equals template.workspaceId
-        if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
-          throw new ForbiddenException(
-            'Cannot update template from different workspace',
-          );
-        }
-        // Allow admin, or workspace_owner with write access
-        // For non-admin, workspace role check is done in controller
-      } else if (template.templateScope === 'SYSTEM') {
-        // Allow only admin
-        const platformRole = ctx.platformRole
-          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
-          : null;
-        if (!isAdminRole(platformRole)) {
-          throw new ForbiddenException('Cannot update SYSTEM templates');
-        }
-      }
+          // Apply scope checks using ctx
+          if (template.templateScope === 'ORG') {
+            // Require ctx.organizationId equals template.organizationId
+            if (
+              !ctx.organizationId ||
+              ctx.organizationId !== template.organizationId
+            ) {
+              throw new ForbiddenException(
+                'Cannot update template from different organization',
+              );
+            }
+            // Admin role required
+            const platformRole = ctx.platformRole
+              ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+              : null;
+            if (!isAdminRole(platformRole)) {
+              throw new ForbiddenException(
+                'Only organization admins can update ORG templates',
+              );
+            }
+          } else if (template.templateScope === 'WORKSPACE') {
+            // Require ctx.organizationId equals template.organizationId
+            if (
+              !ctx.organizationId ||
+              ctx.organizationId !== template.organizationId
+            ) {
+              throw new ForbiddenException(
+                'Cannot update template from different organization',
+              );
+            }
+            // Require ctx.workspaceId equals template.workspaceId
+            if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
+              throw new ForbiddenException(
+                'Cannot update template from different workspace',
+              );
+            }
+            // Allow admin, or workspace_owner with write access
+            // For non-admin, workspace role check is done in controller
+          } else if (template.templateScope === 'SYSTEM') {
+            // Allow only admin
+            const platformRole = ctx.platformRole
+              ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+              : null;
+            if (!isAdminRole(platformRole)) {
+              throw new ForbiddenException('Cannot update SYSTEM templates');
+            }
+          }
 
-      // Update allowed fields only
-      if (dto.name !== undefined) {
-        template.name = dto.name.trim();
-      }
-      if (dto.description !== undefined) {
-        template.description = dto.description;
-      }
-      if (dto.category !== undefined) {
-        template.category = dto.category;
-      }
-      if (dto.icon !== undefined) {
-        template.icon = dto.icon;
-      }
-      if (dto.methodology !== undefined) {
-        template.methodology = dto.methodology as any;
-      }
-      if (dto.metadata !== undefined) {
-        template.metadata = dto.metadata;
-      }
-      if (dto.structure !== undefined) {
-        template.structure = dto.structure;
-      }
-      if (dto.defaultEnabledKPIs !== undefined) {
-        template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
-      }
+          // Update allowed fields only
+          if (dto.name !== undefined) {
+            template.name = dto.name.trim();
+          }
+          if (dto.description !== undefined) {
+            template.description = dto.description;
+          }
+          if (dto.category !== undefined) {
+            template.category = dto.category;
+          }
+          if (dto.icon !== undefined) {
+            template.icon = dto.icon;
+          }
+          if (dto.methodology !== undefined) {
+            template.methodology = dto.methodology as any;
+          }
+          if (dto.metadata !== undefined) {
+            template.metadata = dto.metadata;
+          }
+          if (dto.structure !== undefined) {
+            template.structure = dto.structure;
+          }
+          if (dto.defaultEnabledKPIs !== undefined) {
+            template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
+          }
 
-      template.updatedById = ctx.userId;
+          template.updatedById = ctx.userId;
 
-      // Persist via repository save
-      // Use manager.getRepository which doesn't require tenant context
-      const saved = await manager.getRepository(Template).save(template);
-      return saved;
+          // Persist via repository save
+          // Use manager.getRepository which doesn't require tenant context
+          const saved = await manager.getRepository(Template).save(template);
+          return saved;
         });
       },
     );

@@ -15,6 +15,7 @@ import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
+import { AcceptInvitePage } from "@/pages/auth/AcceptInvitePage";
 
 // System pages
 import { NotFound } from "@/pages/system/NotFound";
@@ -50,6 +51,10 @@ import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
 import JoinWorkspacePage from "@/views/workspaces/JoinWorkspacePage";
 import WorkspaceSlugRedirect from "@/views/workspaces/WorkspaceSlugRedirect";
 import WorkspaceHomeBySlug from "@/views/workspaces/WorkspaceHomeBySlug";
+// Phase 6.1: Dashboard pages
+import OrgDashboardsListPage from "@/pages/dashboards/OrgDashboardsListPage";
+import WorkspaceDashboardsListPage from "@/pages/dashboards/WorkspaceDashboardsListPage";
+import DashboardViewPage from "@/pages/dashboards/DashboardViewPage";
 // PHASE 6 MODULE 3-4: Program and Portfolio pages
 import ProgramsListPage from "@/pages/programs/ProgramsListPage";
 import ProgramDetailPage from "@/pages/programs/ProgramDetailPage";
@@ -90,6 +95,8 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
+          <Route path="/org-invites/accept" element={<AcceptInvitePage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/join/workspace" element={<JoinWorkspacePage />} />
           {/* PROMPT 10: Workspace slug route - redirects to /w/:slug/home */}
@@ -114,6 +121,11 @@ export default function App() {
               <Route path="/dashboards" element={<DashboardsIndex />} />
               <Route path="/dashboards/:id" element={<DashboardView />} />
               <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
+              {/* Phase 6.1: Org and workspace dashboard routes */}
+              <Route path="/org/dashboards" element={<OrgDashboardsListPage />} />
+              <Route path="/org/dashboards/:dashboardId" element={<DashboardViewPage />} />
+              <Route path="/workspaces/:workspaceId/dashboards" element={<WorkspaceDashboardsListPage />} />
+              <Route path="/workspaces/:workspaceId/dashboards/:dashboardId" element={<DashboardViewPage />} />
               <Route path="/projects" element={<div>Projects Page</div>} />
               <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
               <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />

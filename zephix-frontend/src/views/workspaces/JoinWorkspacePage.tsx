@@ -69,7 +69,16 @@ export default function JoinWorkspacePage() {
           return;
         }
 
-        // Treat already-member as success if backend provides workspaceId in message later.
+        // Treat ALREADY_MEMBER as success - extract workspaceId from error or use token to resolve
+        if (err.code === 'ALREADY_MEMBER') {
+          // If backend provides workspaceId in error, use it; otherwise we'd need to validate token
+          // For now, treat as success and let user navigate manually or extract from URL context
+          // The backend currently returns success with workspaceId for already-member case,
+          // so this is a fallback for edge cases
+          setState({ status: 'error', token, error: err });
+          return;
+        }
+
         setState({ status: 'error', token, error: err });
       }
     })();

@@ -28,6 +28,8 @@ type User = {
 };
 const ACTIVE_WORKSPACE_KEY = "activeWorkspaceId";
 
+type NavigateFunction = (to: string, options?: { replace?: boolean }) => void;
+
 type AuthCtx = {
   user: User | null;
   loading: boolean;
@@ -35,6 +37,13 @@ type AuthCtx = {
   setActiveWorkspaceId: (id: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setAuthFromInvite: (authData: {
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+    sessionId: string;
+  }) => void;
+  completeLoginRedirect: (navigate: NavigateFunction) => Promise<void>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -129,13 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // This ensures token is available for subsequent requests even if state update fails
     setTokens(response.accessToken, response.refreshToken, response.sessionId);
     
-    // Verify token was written (defensive check)
-    const writtenToken = localStorage.getItem('zephix.at');
-    if (!writtenToken || writtenToken !== response.accessToken) {
-      console.error('[AuthContext] Token write failed! Expected:', response.accessToken?.substring(0, 20), 'Got:', writtenToken?.substring(0, 20));
-      throw new Error('Failed to store authentication token');
-    }
-    
     // Add computed name field
     const userWithName = {
       ...response.user,
@@ -143,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setUser(userWithName);
 
-    // Debug logging in development
+    // Debug logging in development (no token material)
     if (process.env.NODE_ENV === 'development') {
       console.log('[AuthContext] user loaded:', {
         email: userWithName.email,
@@ -151,7 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platformRole: userWithName.platformRole,
         permissions: userWithName.permissions,
       });
-      console.log('[AuthContext] Token stored in zephix.at:', !!writtenToken);
     }
   };
 
@@ -164,7 +165,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, activeWorkspaceId, setActiveWorkspaceId, login, logout }}>{children}</Ctx.Provider>;
+  /**
+   * Set auth state from invite accept (reuses same logic as login)
+   * Used by AcceptInvitePage to store tokens and user after accepting invite
+   */
+  const setAuthFromInvite = (authData: {
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+    sessionId: string;
+  }) => {
+    setTokens(authData.accessToken, authData.refreshToken, authData.sessionId);
+
+    const userWithName = {
+      ...authData.user,
+      name: `${authData.user.firstName || ''} ${authData.user.lastName || ''}`.trim(),
+    };
+
+    setUser(userWithName);
+  };
+
+  /**
+   * Safe returnUrl navigation helper
+   * Prevents open redirect attacks by only allowing same-origin relative paths
+   */
+  function safeNavigateToReturnUrl(navigate: NavigateFunction): boolean {
+    const stored = localStorage.getItem('zephix.returnUrl');
+    if (!stored) return false;
+
+    localStorage.removeItem('zephix.returnUrl');
+
+    const trimmed = stored.trim();
+
+    // Block newline and control characters (prevents CRLF and other odd payloads)
+    if (/[^\x20-\x7E]/.test(trimmed)) {
+      navigate('/home', { replace: true });
+      return true;
+    }
+
+    // Allow only same origin relative paths
+    if (!trimmed.startsWith('/')) {
+      navigate('/home', { replace: true });
+      return true;
+    }
+
+    // Block protocol relative and backslashes
+    if (trimmed.startsWith('//') || trimmed.includes('\\')) {
+      navigate('/home', { replace: true });
+      return true;
+    }
+
+    // Optional allowlist of prefixes (includes admin routes)
+    const allowedPrefixes = ['/home', '/onboarding', '/workspaces', '/projects', '/w/', '/admin'];
+    const allowed = allowedPrefixes.some((p) => trimmed.startsWith(p));
+    if (!allowed) {
+      navigate('/home', { replace: true });
+      return true;
+    }
+
+    navigate(trimmed, { replace: true });
+    return true;
+  }
+
+  /**
+   * Complete login redirect logic (reused by both login and invite accept)
+   * Checks onboarding status first, then safe returnUrl, then defaults to /home
+   */
+  const completeLoginRedirect = async (navigate: NavigateFunction) => {
+    try {
+      const { onboardingApi } = await import('@/services/onboardingApi');
+      const status = await onboardingApi.getOnboardingStatus();
+
+      // New response format: hasOrganization, hasWorkspace, next
+      if (status.hasOrganization === false) {
+        // User has no organization - route to create org
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+
+      if (status.hasOrganization === true && status.hasWorkspace === false) {
+        // User has org but no workspace - route to create workspace
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+
+      // Legacy format fallback: check completed flag
+      if (status.completed === false) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+    } catch (error) {
+      // On error, check if it's a 403 (user has no org) - route to onboarding
+      if (error instanceof Error && error.message.includes('403')) {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+      // Other errors - keep default route
+    }
+
+    if (safeNavigateToReturnUrl(navigate)) return;
+
+    navigate('/home', { replace: true });
+  };
+
+  return <Ctx.Provider value={{ user, loading, activeWorkspaceId, setActiveWorkspaceId, login, logout, setAuthFromInvite, completeLoginRedirect }}>{children}</Ctx.Provider>;
 };
 
 export const useAuth = () => {

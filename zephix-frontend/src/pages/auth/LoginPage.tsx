@@ -20,8 +20,30 @@ function readReturnUrl(search: string): string | null {
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user, loading } = useAuth();
+  const { login, user, loading, completeLoginRedirect } = useAuth();
   const returnUrl = useMemo(() => readReturnUrl(location.search), [location.search]);
+  
+  // Store returnUrl from query param into localStorage (validated)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const returnUrlFromQuery = params.get('returnUrl');
+    if (returnUrlFromQuery) {
+      const trimmed = returnUrlFromQuery.trim();
+      // Validate returnUrl before storing (same validation as safeNavigateToReturnUrl)
+      // Only allow same-origin relative paths
+      if (trimmed.startsWith('/') && 
+          !trimmed.startsWith('//') && 
+          !trimmed.includes('\\') &&
+          !/[^\x20-\x7E]/.test(trimmed)) {
+        // Check allowlist
+        const allowedPrefixes = ['/home', '/onboarding', '/workspaces', '/projects', '/w/', '/admin'];
+        const allowed = allowedPrefixes.some((p) => trimmed.startsWith(p));
+        if (allowed) {
+          localStorage.setItem('zephix.returnUrl', trimmed);
+        }
+      }
+    }
+  }, [location.search]);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -59,28 +81,8 @@ export const LoginPage: React.FC = () => {
     try {
       await login(formData.email, formData.password);
 
-      // Clear returnUrl from localStorage after successful login
-      localStorage.removeItem('zephix.returnUrl');
-
-      // Check onboarding status after login
-      try {
-        const { onboardingApi } = await import('@/services/onboardingApi');
-        const status = await onboardingApi.getOnboardingStatus();
-
-        if (!status.completed) {
-          // Redirect to onboarding if not completed
-          navigate('/onboarding', { replace: true });
-        } else {
-          // Use returnUrl if available, otherwise default to /home
-          const target = returnUrl || '/home';
-          navigate(target, { replace: true });
-        }
-      } catch (onboardingError) {
-        console.error('Failed to check onboarding:', onboardingError);
-        // Fallback: Use returnUrl if available, otherwise /home
-        const target = returnUrl || '/home';
-        navigate(target, { replace: true });
-      }
+      // Use shared post-login redirect logic (handles onboarding, returnUrl, default)
+      await completeLoginRedirect(navigate);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");
     } finally {
@@ -93,7 +95,11 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <button
-            onClick={() => navigate(user ? "/home" : "/")}
+            onClick={() => {
+              // Safe navigation - both paths are hardcoded, not user-controlled
+              const targetPath = user ? "/home" : "/";
+              navigate(targetPath);
+            }}
             className="flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
             data-testid="login-logo"
           >
