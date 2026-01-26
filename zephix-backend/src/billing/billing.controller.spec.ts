@@ -246,7 +246,8 @@ describe('BillingController - Contract Tests', () => {
     });
 
     it('should return 501 if not implemented', async () => {
-      jest.spyOn(plansService, 'findAll').mockResolvedValue([mockPlan]);
+      const professionalPlan = { ...mockPlan, id: 'professional-plan-id', type: PlanType.PROFESSIONAL };
+      jest.spyOn(plansService, 'findAll').mockResolvedValue([professionalPlan]);
       jest.spyOn(subscriptionsService, 'updateSubscription').mockRejectedValue(
         new NotImplementedException('Billing not yet implemented')
       );

@@ -62,8 +62,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: Template[] } format', async () => {
       jest.spyOn(templatesService, 'findAll').mockResolvedValue([mockTemplate as ProjectTemplate]);
 
-      const req = { headers: {} };
-      const result = await controller.findAll(undefined, undefined, undefined, undefined, undefined, undefined, mockUser, req);
+      const result = await controller.findAll(mockUser);
 
       expect(result).toHaveProperty('data');
       expect(Array.isArray(result.data)).toBe(true);
@@ -76,8 +75,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: [] } when no templates exist', async () => {
       jest.spyOn(templatesService, 'findAll').mockResolvedValue([]);
 
-      const req = { headers: {} };
-      const result = await controller.findAll(undefined, undefined, undefined, undefined, undefined, undefined, mockUser, req);
+      const result = await controller.findAll(mockUser);
 
       expect(result).toHaveProperty('data');
       expect(Array.isArray(result.data)).toBe(true);
@@ -87,8 +85,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: [] } on error (never throw 500)', async () => {
       jest.spyOn(templatesService, 'findAll').mockRejectedValue(new Error('DB error'));
 
-      const req = { headers: {} };
-      const result = await controller.findAll(undefined, undefined, undefined, undefined, undefined, undefined, mockUser, req);
+      const result = await controller.findAll(mockUser);
 
       expect(result).toHaveProperty('data');
       expect(Array.isArray(result.data)).toBe(true);
@@ -96,8 +93,8 @@ describe('TemplatesController - Contract Tests', () => {
     });
 
     it('should return { data: [] } when organizationId is missing', async () => {
-      const req = { headers: {} };
-      const result = await controller.findAll(undefined, undefined, undefined, undefined, undefined, undefined, undefined, req);
+      const userWithoutOrg = { ...mockUser, organizationId: '' };
+      const result = await controller.findAll(userWithoutOrg);
 
       expect(result).toHaveProperty('data');
       expect(Array.isArray(result.data)).toBe(true);
@@ -109,8 +106,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: TemplateDetail } format', async () => {
       jest.spyOn(templatesService, 'findOne').mockResolvedValue(mockTemplate as ProjectTemplate);
 
-      const req = { headers: {} };
-      const result = await controller.findOne('test-template-id', mockUser, req);
+      const result = await controller.findOne('test-template-id', mockUser);
 
       expect(result).toHaveProperty('data');
       expect(result.data).toMatchObject({
@@ -122,8 +118,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: null } when template not found (200 status)', async () => {
       jest.spyOn(templatesService, 'findOne').mockRejectedValue(new NotFoundException('Template not found'));
 
-      const req = { headers: {} };
-      const result = await controller.findOne('non-existent-id', mockUser, req);
+      const result = await controller.findOne('non-existent-id', mockUser);
 
       expect(result).toHaveProperty('data');
       expect(result.data).toBeNull();
@@ -132,8 +127,7 @@ describe('TemplatesController - Contract Tests', () => {
     it('should return { data: null } on error (never throw 500)', async () => {
       jest.spyOn(templatesService, 'findOne').mockRejectedValue(new Error('DB error'));
 
-      const req = { headers: {} };
-      const result = await controller.findOne('test-template-id', mockUser, req);
+      const result = await controller.findOne('test-template-id', mockUser);
 
       expect(result).toHaveProperty('data');
       expect(result.data).toBeNull();
