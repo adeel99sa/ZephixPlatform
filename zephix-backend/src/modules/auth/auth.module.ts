@@ -14,7 +14,7 @@ import { OrganizationSignupService } from './services/organization-signup.servic
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { OrgInvitesService } from './services/org-invites.service';
-import { OutboxProcessorService } from './services/outbox-processor.service';
+import { OutboxProcessorService } from '../../infrastructure/outbox/outbox-processor.service';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';

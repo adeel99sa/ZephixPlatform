@@ -33,6 +33,7 @@ import { WorkItemActivity } from '../work-items/entities/work-item-activity.enti
 import { Project } from '../projects/entities/project.entity'; // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs TenantAwareRepository_Project
 import { WorkspaceHealthService } from './services/workspace-health.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
+import { Risk } from '../risks/entities/risk.entity';
 import { forwardRef } from '@nestjs/common';
 import {
   TenancyModule,
@@ -51,6 +52,7 @@ import {
       WorkItem, // PHASE 7 MODULE 7.3: For execution summary
       WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary
       WorkTask, // For workspace summary counts
+      Risk, // For workspace health risk counts
     ]),
     ConfigModule,
     ObservabilityModule,
@@ -85,6 +87,7 @@ import {
     createTenantAwareRepositoryProvider(WorkItem),
     createTenantAwareRepositoryProvider(WorkItemActivity),
     createTenantAwareRepositoryProvider(WorkTask), // For workspace summary
+    createTenantAwareRepositoryProvider(Risk), // For workspace health risk counts
   ],
   controllers: [WorkspacesController, AdminTrashController],
   exports: [

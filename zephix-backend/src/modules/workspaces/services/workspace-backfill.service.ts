@@ -215,12 +215,9 @@ export class WorkspaceBackfillService {
     let memberCreated = false;
     let memberUpdated = false;
 
-    // Use query runner for transaction support
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
+    // Use transaction for atomicity
+    // For dryRun, we still need to run the logic but rollback at the end
+    return this.dataSource.transaction(async (manager) => {
       // Step 1: Determine desired ownerId
       let desiredOwnerId: string | null = null;
 
@@ -247,7 +244,6 @@ export class WorkspaceBackfillService {
 
       // If no candidate owner found, skip
       if (!desiredOwnerId) {
-        await queryRunner.rollbackTransaction();
         return {
           updated: false,
           ownerIdChanged: false,
@@ -261,7 +257,7 @@ export class WorkspaceBackfillService {
       // Step 2: Update ownerId if needed
       if (workspace.ownerId !== desiredOwnerId) {
         if (!dryRun) {
-          await queryRunner.manager.update(
+          await manager.update(
             Workspace,
             { id: workspace.id },
             { ownerId: desiredOwnerId },
@@ -275,7 +271,7 @@ export class WorkspaceBackfillService {
       }
 
       // Step 3: Ensure workspace_members row exists for owner
-      const existingMember = await queryRunner.manager.findOne(
+      const existingMember = await manager.findOne(
         WorkspaceMember,
         {
           where: {
@@ -288,12 +284,12 @@ export class WorkspaceBackfillService {
       if (!existingMember) {
         // Create new member record
         if (!dryRun) {
-          const newMember = queryRunner.manager.create(WorkspaceMember, {
+          const newMember = manager.create(WorkspaceMember, {
             workspaceId: workspace.id,
             userId: desiredOwnerId,
             role: 'workspace_owner' as WorkspaceRole,
           });
-          await queryRunner.manager.save(newMember);
+          await manager.save(newMember);
           memberCreated = true;
           updated = true;
         } else {
@@ -304,7 +300,7 @@ export class WorkspaceBackfillService {
         // Update existing member to workspace_owner role
         if (!dryRun) {
           existingMember.role = 'workspace_owner' as WorkspaceRole;
-          await queryRunner.manager.save(existingMember);
+          await manager.save(existingMember);
           memberUpdated = true;
           updated = true;
         } else {
@@ -313,12 +309,9 @@ export class WorkspaceBackfillService {
         }
       }
 
-      if (!dryRun) {
-        await queryRunner.commitTransaction();
-      } else {
-        await queryRunner.rollbackTransaction();
-      }
-
+      // For dryRun, we want to see what would happen but not commit
+      // Transaction will auto-rollback if we throw, but we want to return the result
+      // So we'll let it commit and return the result (dryRun is just for preview)
       return {
         updated,
         ownerIdChanged,
@@ -326,11 +319,6 @@ export class WorkspaceBackfillService {
         memberUpdated,
         skipped: false,
       };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 }

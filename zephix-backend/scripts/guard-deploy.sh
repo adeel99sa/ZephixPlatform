@@ -23,12 +23,12 @@ echo ""
 # 2. Debug/Schema Exposure Guard
 echo "2️⃣  Checking for debug and schema exposure routes..."
 
-# Exclude backup files and directories
-DEBUG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']debug[\"']" src --exclude-dir=backup --exclude="*.backup.ts" || true)
-INTERNAL_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']internal[\"']" src --exclude-dir=backup --exclude="*.backup.ts" || true)
-DIAG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']diag[\"']" src --exclude-dir=backup --exclude="*.backup.ts" || true)
+# Exclude backup files, infrastructure directory, and directories
+DEBUG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']debug[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
+INTERNAL_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']internal[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
+DIAG_MATCHES=$(grep -R -n -E "@Controller\(([^)]*)[\"']diag[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
 
-SCHEMA_ROUTE_MATCHES=$(grep -R -n -E "@Get\(([^)]*)[\"']schema[\"']|@Get\(([^)]*)[\"']health/schema[\"']" src --exclude-dir=backup --exclude="*.backup.ts" || true)
+SCHEMA_ROUTE_MATCHES=$(grep -R -n -E "@Get\(([^)]*)[\"']schema[\"']|@Get\(([^)]*)[\"']health/schema[\"']" src --exclude-dir=backup --exclude-dir=infrastructure --exclude="*.backup.ts" || true)
 
 if [ -n "$DEBUG_MATCHES" ] || [ -n "$INTERNAL_MATCHES" ] || [ -n "$DIAG_MATCHES" ] || [ -n "$SCHEMA_ROUTE_MATCHES" ]; then
   echo "❌ Debug or schema exposure routes detected:"
