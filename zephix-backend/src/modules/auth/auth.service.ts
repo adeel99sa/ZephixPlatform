@@ -20,6 +20,7 @@ import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { AuthSession } from './entities/auth-session.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import {
@@ -39,6 +40,8 @@ export class AuthService {
     private userOrgRepository: Repository<UserOrganization>,
     @InjectRepository(AuthSession)
     private authSessionRepository: Repository<AuthSession>,
+    @InjectRepository(Workspace)
+    private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -217,12 +220,37 @@ export class AuthService {
     // Pass the org role and organization explicitly
     const userResponse = this.buildUserResponse(user, orgRole, organization);
 
+    // Get default workspace slug (most recently used, or earliest created)
+    let defaultWorkspaceSlug: string | null = null;
+    if (user.organizationId) {
+      try {
+        // Try to get most recently accessed workspace (if we track lastWorkspaceId)
+        // For now, get the earliest created workspace as default
+        const defaultWorkspace = await this.workspaceRepository.findOne({
+          where: {
+            organizationId: user.organizationId,
+            deletedAt: null,
+          },
+          order: {
+            createdAt: 'ASC', // Earliest created
+          },
+        });
+        if (defaultWorkspace?.slug) {
+          defaultWorkspaceSlug = defaultWorkspace.slug;
+        }
+      } catch (error) {
+        // Silently fail - defaultWorkspaceSlug will be null
+        console.warn('Failed to get default workspace:', error);
+      }
+    }
+
     return {
       user: userResponse,
       accessToken,
       refreshToken,
       sessionId: savedSession.id, // Feature 2B: Return sessionId
       organizationId: user.organizationId,
+      defaultWorkspaceSlug, // Default workspace slug for redirect
       expiresIn: 900, // 15 minutes in seconds
     };
   }

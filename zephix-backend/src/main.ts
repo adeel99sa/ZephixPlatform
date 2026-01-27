@@ -111,6 +111,8 @@ async function bootstrap() {
       'X-Request-Id',
       'x-org-id',
       'X-CSRF-Token',
+      'X-Workspace-Id', // Workspace header for multi-tenant requests
+      'x-workspace-id', // Lowercase variant
     ],
     exposedHeaders: ['X-Request-Id'],
   });

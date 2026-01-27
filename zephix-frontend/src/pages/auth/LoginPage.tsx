@@ -65,14 +65,21 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await login(formData.email, formData.password);
+      const loginResponse = await login(formData.email, formData.password);
 
       // Clear returnUrl from localStorage after successful login
       localStorage.removeItem('zephix.returnUrl');
 
-      // Always route to /home after login (all roles)
-      // /home will handle workspace selection and role-based routing
-      navigate('/home', { replace: true });
+      // Modernized login flow: redirect to default workspace or returnUrl
+      if (returnUrl) {
+        navigate(returnUrl, { replace: true });
+      } else if (loginResponse?.defaultWorkspaceSlug) {
+        // Redirect directly to workspace home using slug from backend
+        navigate(`/w/${loginResponse.defaultWorkspaceSlug}/home`, { replace: true });
+      } else {
+        // Fallback to /home if no default workspace
+        navigate('/home', { replace: true });
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");
     } finally {

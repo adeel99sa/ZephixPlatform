@@ -148,6 +148,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           permissions: userWithName.permissions,
         });
       }
+
+      // Return login response including defaultWorkspaceSlug
+      return {
+        user: userWithName,
+        defaultWorkspaceSlug: response.defaultWorkspaceSlug || null,
+      };
     } finally {
       // Clear flag after login completes (success or failure)
       setIsLoggingIn(false);
