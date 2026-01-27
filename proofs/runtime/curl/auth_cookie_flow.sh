@@ -4,7 +4,7 @@ set -euo pipefail
 BASE_URL="${1:-http://localhost:3000}"
 OUT_DIR="proofs/runtime/auth"
 EMAIL="${EMAIL:-admin@zephix.ai}"
-PASSWORD="${PASSWORD:-test123}"
+PASSWORD="${PASSWORD:-admin123456}"
 
 LOGIN_PATH="${LOGIN_PATH:-/api/auth/login}"
 ME_PATH="${ME_PATH:-/api/auth/me}"

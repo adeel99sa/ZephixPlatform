@@ -1,0 +1,2 @@
+GET http://localhost:3000/api/auth/me
+Cookie jar: proofs/runtime/auth/cookies.txt

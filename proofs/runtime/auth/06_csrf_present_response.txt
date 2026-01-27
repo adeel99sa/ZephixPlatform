@@ -1,0 +1,1 @@
+{"data":{"message":"CSRF protection verified","timestamp":"2026-01-27T05:33:52.008Z"},"meta":{"timestamp":"2026-01-27T05:33:52.008Z","requestId":"9e55197a-bcca-40be-b838-194ea9ad7dd1"}}
