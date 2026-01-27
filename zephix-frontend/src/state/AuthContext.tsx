@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { api, setTokens, clearTokens, loadTokensFromStorage, getSessionId } from "@/lib/api";
+import { api } from "@/lib/api";
+import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 
 type User = {
   id: string;
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     hydrating = true;
     hydrationPromise = (async () => {
       try {
-        loadTokensFromStorage();
+        // Call /api/auth/me with cookies - no token needed
         // API interceptor already unwraps, so response is already the data
         const userData = await api.get("/auth/me");
         // Add computed name field
@@ -94,17 +95,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[AuthContext] Full permissions object:', JSON.stringify(userWithName.permissions, null, 2));
         }
       } catch (error: any) {
-        // Don't log 401 errors as failures if we already have a user - might be a token refresh issue
+        // 401 means not authenticated - clear user and let routing handle redirect
         if (error?.response?.status === 401) {
-          console.warn('[AuthContext] ⚠️ 401 on /auth/me - token may be expired, but keeping existing user if available');
-          // If we already have a user, don't clear it - might just be a token refresh issue
-          // The API interceptor should handle token refresh
+          console.log('[AuthContext] 401 on /auth/me - user not authenticated');
+          setUser(null);
         } else {
           console.log('Auth hydration failed:', error);
-        }
-        // Don't clear user on 401 - let the API interceptor handle token refresh
-        // Only clear if it's a different error
-        if (error?.response?.status !== 401) {
           setUser(null);
         }
       } finally {
@@ -122,19 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []); // Only run once on mount
 
   const login = async (email: string, password: string) => {
+    // Login sets cookies on the backend - no token storage needed
     const response = await api.post("/auth/login", { email, password });
-    // API interceptor unwraps the response, so tokens are at the top level
-    
-    // CRITICAL: Write token to storage IMMEDIATELY before any other operations
-    // This ensures token is available for subsequent requests even if state update fails
-    setTokens(response.accessToken, response.refreshToken, response.sessionId);
-    
-    // Verify token was written (defensive check)
-    const writtenToken = localStorage.getItem('zephix.at');
-    if (!writtenToken || writtenToken !== response.accessToken) {
-      console.error('[AuthContext] Token write failed! Expected:', response.accessToken?.substring(0, 20), 'Got:', writtenToken?.substring(0, 20));
-      throw new Error('Failed to store authentication token');
-    }
+    // API interceptor unwraps the response, so user is at the top level
     
     // Add computed name field
     const userWithName = {
@@ -151,16 +137,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platformRole: userWithName.platformRole,
         permissions: userWithName.permissions,
       });
-      console.log('[AuthContext] Token stored in zephix.at:', !!writtenToken);
     }
   };
 
   const logout = async () => {
     try {
-      const sid = getSessionId();
-      await api.post("/auth/logout", { sessionId: sid });
+      // Call logout endpoint to clear cookies on backend
+      await api.post("/auth/logout", {});
     } catch {}
-    clearTokens();
+    // Cleanup any legacy tokens that might exist
+    cleanupLegacyAuthStorage();
     setUser(null);
   };
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/state/AuthContext";
-import { clearTokens } from "@/lib/api";
+import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { listWorkspaces, type Workspace } from "@/features/workspaces/api";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
@@ -67,9 +67,8 @@ export default function WorkspaceSelectionScreen() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await logout(); // This already calls cleanupLegacyAuthStorage
     } finally {
-      clearTokens();
       localStorage.removeItem("zephix.activeWorkspaceId");
       navigate("/login", { replace: true });
     }

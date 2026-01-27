@@ -62,25 +62,9 @@ export const LoginPage: React.FC = () => {
       // Clear returnUrl from localStorage after successful login
       localStorage.removeItem('zephix.returnUrl');
 
-      // Check onboarding status after login
-      try {
-        const { onboardingApi } = await import('@/services/onboardingApi');
-        const status = await onboardingApi.getOnboardingStatus();
-
-        if (!status.completed) {
-          // Redirect to onboarding if not completed
-          navigate('/onboarding', { replace: true });
-        } else {
-          // Use returnUrl if available, otherwise default to /home
-          const target = returnUrl || '/home';
-          navigate(target, { replace: true });
-        }
-      } catch (onboardingError) {
-        console.error('Failed to check onboarding:', onboardingError);
-        // Fallback: Use returnUrl if available, otherwise /home
-        const target = returnUrl || '/home';
-        navigate(target, { replace: true });
-      }
+      // Always route to /home after login (all roles)
+      // /home will handle workspace selection and role-based routing
+      navigate('/home', { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");
     } finally {
