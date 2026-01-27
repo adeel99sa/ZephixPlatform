@@ -20,18 +20,18 @@ function normalizeRole(input: unknown): Role {
 }
 
 function routeForRole(role: Role): string {
-  if (role === "admin") return "/admin/home";
-  if (role === "member") return "/my-work";
-  return "/guest/home";
+  // All roles go to /home - workspace selection happens there
+  // If workspace is selected, redirect to workspace home route
+  return "/home";
 }
 
 export default function HomeRouterPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
-  // Map isAuthenticated from user existence if not provided
-  const isAuthenticatedValue = isAuthenticated !== undefined ? isAuthenticated : !!user;
+  // User existence determines authentication
+  const isAuthenticatedValue = !!user;
 
   const {
     activeWorkspaceId,
@@ -120,16 +120,21 @@ export default function HomeRouterPage() {
     lastWorkspaceId,
   ]);
 
-  // Route based on role once workspace is selected
+  // If workspace is selected, redirect to workspace home route
   useEffect(() => {
     if (!activeWorkspaceId) return;
     if (roleLoading) return;
 
-    const effective = normalizeRole(workspaceRole);
-    const target = routeForRole(effective);
-
-    navigate(target, { replace: true });
-  }, [activeWorkspaceId, roleLoading, workspaceRole, navigate]);
+    // All roles go to workspace home route when workspace is selected
+    // Find workspace slug from workspaces list
+    const workspace = workspaces.find((w: any) => String(w.id) === String(activeWorkspaceId));
+    if (workspace?.slug) {
+      navigate(`/w/${workspace.slug}/home`, { replace: true });
+    } else {
+      // Fallback to ID-based route if slug not available
+      navigate(`/workspaces/${activeWorkspaceId}/home`, { replace: true });
+    }
+  }, [activeWorkspaceId, roleLoading, workspaces, navigate]);
 
   const loading = authLoading || workspacesLoading || roleLoading;
 

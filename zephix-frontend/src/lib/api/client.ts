@@ -51,11 +51,7 @@ class ApiClient {
         // Normalize URL to exactly one /api prefix
         config.url = normalizeApiPath(config.url);
 
-        // Add JWT token from auth store
-        const token = this.getAuthToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        // No Authorization header - cookies are sent automatically with withCredentials: true
 
         // Add request ID for tracking
         config.headers['x-request-id'] = this.generateRequestId();
@@ -144,21 +140,11 @@ class ApiClient {
         const isAuthRoute = (url: string) =>
           url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout');
 
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute(originalRequest.url ?? '')) {
-          originalRequest._retry = true;
-
-          try {
-            await this.refreshToken();
-            // Retry original request with new token
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${this.getAuthToken()}`;
-            }
-            return this.instance(originalRequest);
-          } catch (refreshError) {
-            // Refresh failed, redirect to login
-            this.handleAuthFailure();
-            return Promise.reject(refreshError);
-          }
+        if (error.response?.status === 401 && !isAuthRoute(originalRequest.url ?? '')) {
+          // 401 means not authenticated - redirect to login
+          // Cookies handle refresh on backend, so no client-side refresh needed
+          this.handleAuthFailure();
+          return Promise.reject(error);
         }
 
         // Handle 403 - insufficient permissions
@@ -182,29 +168,7 @@ class ApiClient {
     );
   }
 
-  private getAuthToken(): string | null {
-    // CRITICAL FIX: Check BOTH token storage locations
-    // AuthContext uses zephix.at/zephix.rt, but this client was looking in zephix-auth-storage
-    // This mismatch causes 401 errors when adminApi is called
-
-    // First, try the AuthContext storage (zephix.at)
-    const tokenFromAuthContext = localStorage.getItem('zephix.at');
-    if (tokenFromAuthContext) {
-      return tokenFromAuthContext;
-    }
-
-    // Fallback to zephix-auth-storage (legacy)
-    try {
-      const authStorage = localStorage.getItem('zephix-auth-storage');
-      if (authStorage) {
-        const { state } = JSON.parse(authStorage);
-        return state?.accessToken || null;
-      }
-    } catch (error) {
-      console.warn('Failed to get auth token from storage:', error);
-    }
-    return null;
-  }
+  // Removed getAuthToken - using cookies only
 
   private getOrganizationId(): string | null {
     // This will be connected to the organization context later
@@ -250,67 +214,12 @@ class ApiClient {
     }
   }
 
-  private async refreshToken(): Promise<void> {
-    // CRITICAL FIX: Get refresh token from the SAME storage as AuthContext
-    // AuthContext uses zephix.rt, so we must use that too
-
-    // First, try the AuthContext storage (zephix.rt)
-    let refreshToken = localStorage.getItem('zephix.rt');
-
-    // Fallback to zephix-auth-storage (legacy)
-    if (!refreshToken) {
-      try {
-        const authStorage = localStorage.getItem('zephix-auth-storage');
-        if (authStorage) {
-          const { state } = JSON.parse(authStorage);
-          refreshToken = state?.refreshToken;
-        }
-      } catch (error) {
-        console.warn('Failed to get refresh token from storage:', error);
-      }
-    }
-
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await axios.post('/api/auth/refresh', {
-      refreshToken,
-    });
-
-    const { accessToken, refreshToken: newRefreshToken } = response.data;
-
-    // CRITICAL: Update BOTH storage locations to keep them in sync
-    // Update AuthContext storage (zephix.at / zephix.rt)
-    localStorage.setItem('zephix.at', accessToken);
-    if (newRefreshToken) {
-      localStorage.setItem('zephix.rt', newRefreshToken);
-    }
-
-    // Also update zephix-auth-storage if it exists (for backward compatibility)
-    try {
-      const authStorage = localStorage.getItem('zephix-auth-storage');
-      if (authStorage) {
-        const parsed = JSON.parse(authStorage);
-        const updatedState = {
-          ...parsed.state,
-          accessToken,
-          refreshToken: newRefreshToken || refreshToken,
-        };
-        localStorage.setItem('zephix-auth-storage', JSON.stringify({ state: updatedState }));
-      }
-    } catch (error) {
-      // Ignore errors updating legacy storage
-    }
-  }
+  // Removed refreshToken - cookies handle refresh on backend
 
   private handleAuthFailure(): void {
-    // CRITICAL FIX: Clear BOTH token storage locations
-    // Clear AuthContext storage
-    localStorage.removeItem('zephix.at');
-    localStorage.removeItem('zephix.rt');
-    // Clear legacy storage
-    localStorage.removeItem('zephix-auth-storage');
+    // Cleanup any legacy tokens
+    const { cleanupLegacyAuthStorage } = require('@/auth/cleanupAuthStorage');
+    cleanupLegacyAuthStorage();
 
     // Don't redirect if we're on an admin route - let AdminRoute handle it
     const isAdminRoute = window.location.pathname.startsWith('/admin');
@@ -378,15 +287,7 @@ class ApiClient {
     return response.data;
   }
 
-  // Utility methods
-  setAuthToken(token: string): void {
-    localStorage.setItem('auth_token', token);
-  }
-
-  clearAuthToken(): void {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
-  }
+  // Removed token utility methods - using cookies only
 
   setOrganizationId(orgId: string): void {
     localStorage.setItem('organization_id', orgId);

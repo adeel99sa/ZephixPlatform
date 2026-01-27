@@ -4,6 +4,10 @@ import App from './App.tsx'
 import './index.css'
 import { initializeAnalytics } from './lib/analytics'
 import { QueryProvider } from './lib/providers/QueryProvider'
+import { cleanupLegacyAuthStorage } from './auth/cleanupAuthStorage'
+
+// Cleanup legacy auth tokens on app startup
+cleanupLegacyAuthStorage();
 
 // Initialize analytics
 // initializeAnalytics(); // Temporarily disabled for debugging

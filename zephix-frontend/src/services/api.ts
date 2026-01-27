@@ -84,52 +84,10 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor for token attachment and logging
+// Request interceptor - cookies only, no token attachment
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // CRITICAL FIX: Read token from AuthContext storage (zephix.at) first
-    // AuthContext stores tokens in zephix.at, not auth-storage
-    let token: string | null = null;
-
-    // First, try AuthContext storage (zephix.at)
-    token = localStorage.getItem('zephix.at');
-
-    // Fallback to Zustand auth store (auth-storage) for backward compatibility
-    if (!token) {
-      const authStorage = localStorage.getItem('auth-storage');
-      if (authStorage) {
-        try {
-          const { state } = JSON.parse(authStorage) as { state: AuthState };
-
-          // Check if we have a valid token that hasn't expired
-          const hasValidToken = state?.accessToken &&
-                               state.accessToken !== 'null' &&
-                               state.accessToken !== null &&
-                               typeof state.accessToken === 'string' &&
-                               state.accessToken.length > 0 &&
-                               state?.expiresAt;
-
-          if (hasValidToken) {
-            const now = Date.now();
-
-            if (now < state.expiresAt) {
-              token = state.accessToken;
-            } else {
-              // Token expired, remove it
-              console.warn('Access token expired, will attempt refresh');
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse auth storage:', error);
-          localStorage.removeItem('auth-storage');
-        }
-      }
-    }
-
-    // Attach token if found
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // No Authorization header - cookies are sent automatically with withCredentials: true
 
     // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
     // These endpoints should not require workspace context
@@ -214,56 +172,18 @@ api.interceptors.response.use(
       console.error('Error details:', error.response?.data || error.message);
     }
 
-    // Don't retry refresh endpoint itself
-    if (originalRequest?.url?.includes('/auth/refresh')) {
-      localStorage.removeItem('auth-storage');
-      if (!window.location.pathname.includes('/login')) {
+    // No special handling for refresh endpoint - cookies handle it
+
+    // Handle 401 Unauthorized - redirect to login (cookies handle refresh on backend)
+    if (error.response?.status === 401 && originalRequest) {
+      // Don't redirect if we're on an admin route - let AdminRoute handle it
+      const isAdminRoute = window.location.pathname.startsWith('/admin');
+      const isLoginPage = window.location.pathname.includes('/login');
+      
+      if (!isLoginPage && !isAdminRoute) {
         window.location.href = '/login';
       }
       return Promise.reject(error);
-    }
-
-    // Handle 401 Unauthorized
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      if (isRefreshing) {
-        // Already refreshing, queue this request
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        }).catch(err => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshResponse = await api.post('/auth/refresh');
-
-        if (refreshResponse.data.accessToken) {
-          const authStorage = localStorage.getItem('auth-storage');
-          if (authStorage) {
-            const parsed = JSON.parse(authStorage);
-            parsed.state.accessToken = refreshResponse.data.accessToken;
-            parsed.state.expiresAt = Date.now() + (refreshResponse.data.expiresIn * 1000);
-            localStorage.setItem('auth-storage', JSON.stringify(parsed));
-          }
-
-          processQueue(null, refreshResponse.data.accessToken);
-          originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.accessToken}`;
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        localStorage.removeItem('auth-storage');
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
-        }
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
     }
 
     // Handle 403 Forbidden (email not verified)

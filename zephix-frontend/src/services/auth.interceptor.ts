@@ -9,6 +9,7 @@ class AuthInterceptor {
     this.api = axios.create({
       baseURL: '', // Use relative paths - Vite proxy handles /api -> localhost:3001
       timeout: 10000,
+      withCredentials: true, // Enable cookies for authentication
       headers: {
         'Content-Type': 'application/json',
       },
@@ -18,15 +19,10 @@ class AuthInterceptor {
   }
 
   private setupInterceptors() {
-    // Request interceptor
+    // Request interceptor - cookies only, no token attachment
     this.api.interceptors.request.use(
       (config: AxiosRequestConfig) => {
-        const token = localStorage.getItem('accessToken');
-
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-
+        // No Authorization header - cookies are sent automatically with withCredentials: true
         return config;
       },
       (error: AxiosError) => {
@@ -40,36 +36,11 @@ class AuthInterceptor {
       async (error: AxiosError) => {
         const originalRequest: any = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          if (this.isRefreshing) {
-            return new Promise((resolve, reject) => {
-              this.failedQueue.push({ resolve, reject });
-            }).then(token => {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              return this.api(originalRequest);
-            }).catch(err => {
-              return Promise.reject(err);
-            });
-          }
-
-          originalRequest._retry = true;
-          this.isRefreshing = true;
-
-          return new Promise((resolve, reject) => {
-            // Try to refresh token or redirect to login
-            const refreshToken = localStorage.getItem('refreshToken');
-
-            if (!refreshToken) {
-              this.redirectToLogin();
-              reject(error);
-              return;
-            }
-
-            // If you have refresh token endpoint, implement here
-            // For now, just redirect to login
-            this.redirectToLogin();
-            reject(error);
-          });
+        if (error.response?.status === 401) {
+          // 401 means not authenticated - redirect to login
+          // Cookies handle refresh on backend, so no client-side refresh needed
+          this.redirectToLogin();
+          return Promise.reject(error);
         }
 
         return Promise.reject(error);
@@ -78,7 +49,9 @@ class AuthInterceptor {
   }
 
   private redirectToLogin() {
-    localStorage.clear();
+    // Cleanup legacy tokens but keep non-auth localStorage items
+    const { cleanupLegacyAuthStorage } = require('@/auth/cleanupAuthStorage');
+    cleanupLegacyAuthStorage();
     window.location.href = '/login';
   }
 

@@ -76,17 +76,8 @@ export const OrganizationSignupPage: React.FC = () => {
         organizationSize: data.organizationSize || undefined,
       });
 
-      // Store tokens
-      if (response.access_token) {
-        const { setTokens } = await import('@/lib/api');
-        setTokens(response.access_token, response.access_token); // Refresh token same for now
-      }
-
-      // Store user and organization info
-      if (response.user) {
-        const { useAuth } = await import('@/state/AuthContext');
-        // User will be set via auth context hydration
-      }
+      // No token storage needed - cookies are set by backend
+      // User will be set via auth context hydration from /api/auth/me
 
       toast.success(`Welcome to Zephix! Organization "${data.organizationName}" created successfully.`);
 

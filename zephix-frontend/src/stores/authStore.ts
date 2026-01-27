@@ -190,9 +190,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'zephix-auth-storage',
       partialize: (state) => ({
+        // Only persist user data, not tokens (cookie-based auth)
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {

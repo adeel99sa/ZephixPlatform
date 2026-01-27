@@ -34,7 +34,8 @@ export function useUnreadNotifications() {
 
   useEffect(() => {
     const isPaid = user && isPaidUser(user);
-    const hasToken = !!localStorage.getItem("zephix.at");
+    // Check if user is authenticated via AuthContext (cookie-based)
+    const hasToken = !!user;
 
     // Only poll for paid users with valid token
     if (!isPaid || !hasToken) {
