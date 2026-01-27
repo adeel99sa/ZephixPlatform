@@ -1,0 +1,6 @@
+# MVP Demo Script - Locked Content
+#
+# TODO: PASTE THE FINAL LOCKED 03_demo_script.txt CONTENT HERE
+#
+# This file should contain the locked demo script that defines the exact
+# flow and checkpoints for MVP demonstrations.
