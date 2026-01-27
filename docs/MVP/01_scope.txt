@@ -51,7 +51,7 @@ Out of Scope
 - AI assistant features
 - Financial reporting
 - Integration worker services
-- Dashboard builder (view-only dashboards allowed)
+- overview page builder (view-only dashboards allowed)
 - Admin console completeness beyond workspace management
 - Advanced notification preferences
 - Custom field creation for non-admins
@@ -62,4 +62,4 @@ Success Criteria
 
 All 5 sprints must pass their proof gates before MVP is considered complete.
 Each sprint requires runtime proof artifacts demonstrating working functionality.
-No Phase 6 features or dashboard builder work included in MVP scope.
+No Phase 6 features or overview page builder work included in MVP scope.

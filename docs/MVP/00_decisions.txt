@@ -8,7 +8,7 @@ Core Business Rules
    - Only admins create workspaces
    - Admin assigns a workspace owner
    - Workspace owner or admin can create projects from Template Center only
-   - No global "New project" or "New workspace" actions in header or dashboard
+   - No global "New project" or "New workspace" actions in header or overview page
 
 2. Roles and access model
    - Organization roles: owner, admin, member, viewer
