@@ -232,10 +232,11 @@ export class AuthController {
     const secureCookie = !isLocal && isHttps;
 
     // Set refresh token in HttpOnly cookie
+    // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', loginResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: 'strict',
+      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -244,7 +245,7 @@ export class AuthController {
     res.cookie('zephix_session', loginResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: 'strict',
+      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
@@ -331,10 +332,11 @@ export class AuthController {
     const secureCookie = !isLocal && isHttps;
 
     // Set CSRF token in cookie (readable by JS, not HttpOnly)
+    // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false, // Must be readable by browser JS
       secure: secureCookie,
-      sameSite: 'strict',
+      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
     });
@@ -389,10 +391,11 @@ export class AuthController {
     const secureCookie = !isLocal && isHttps;
 
     // Set refresh token in HttpOnly cookie
+    // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', refreshResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: 'strict',
+      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -401,7 +404,7 @@ export class AuthController {
     res.cookie('zephix_session', refreshResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: 'strict',
+      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
