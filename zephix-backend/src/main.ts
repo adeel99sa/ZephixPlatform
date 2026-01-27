@@ -127,12 +127,10 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true, // Changed to true to reject unknown params
-      forbidUnknownValues: false,
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
-        excludeExtraneousValues: false, // Allow properties with decorators
       },
       exceptionFactory: (errors) => {
         // Build standardized validation error
