@@ -24,12 +24,14 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    // Skip CSRF check for login and refresh endpoints
+    // Skip CSRF check for login, refresh, csrf, and health endpoints
     const path = request.path.toLowerCase();
     if (
       path.includes('/auth/login') ||
       path.includes('/auth/refresh') ||
-      path.includes('/auth/csrf')
+      path.includes('/auth/csrf') ||
+      path.includes('/health') ||
+      path.includes('/api/health')
     ) {
       return true;
     }

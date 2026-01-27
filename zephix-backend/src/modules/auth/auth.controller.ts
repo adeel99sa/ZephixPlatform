@@ -215,18 +215,18 @@ export class AuthController {
     );
 
     // Set refresh token in HttpOnly cookie
-    res.cookie('zephix.rt', loginResult.refreshToken, {
+    res.cookie('zephix_refresh', loginResult.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
 
     // Set access token in HttpOnly cookie
-    res.cookie('zephix.at', loginResult.accessToken, {
+    res.cookie('zephix_session', loginResult.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
       sameSite: 'strict',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
@@ -279,11 +279,17 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(
     @Request() req: AuthRequest,
+    @Response() res: any,
     @Body() body?: { sessionId?: string; refreshToken?: string },
   ) {
     const { userId } = getAuthContext(req);
     await this.authService.logout(userId, body?.sessionId, body?.refreshToken);
-    return { message: 'Logged out successfully' };
+    
+    // Clear session and refresh cookies
+    res.clearCookie('zephix_session', { path: '/' });
+    res.clearCookie('zephix_refresh', { path: '/' });
+    
+    return res.json({ message: 'Logged out successfully' });
   }
 
   @Get('csrf')
@@ -299,7 +305,7 @@ export class AuthController {
     // Set CSRF token in cookie (readable by JS, not HttpOnly)
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false, // Must be readable by browser JS
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
@@ -327,6 +333,7 @@ export class AuthController {
   @Post('refresh')
   async refreshToken(
     @Request() req,
+    @Response() res: any,
     @Body() body: { refreshToken: string; sessionId?: string },
   ) {
     // Extract IP and userAgent with x-forwarded-for support
@@ -335,11 +342,31 @@ export class AuthController {
       req.ip ||
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.refreshToken(
+    const refreshResult = await this.authService.refreshToken(
       body.refreshToken,
       body.sessionId || null,
       ip,
       userAgent,
     );
+
+    // Set refresh token in HttpOnly cookie
+    res.cookie('zephix_refresh', refreshResult.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+
+    // Set access token in HttpOnly cookie
+    res.cookie('zephix_session', refreshResult.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/',
+    });
+
+    return res.json(refreshResult);
   }
 }
