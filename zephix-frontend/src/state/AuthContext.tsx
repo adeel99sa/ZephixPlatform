@@ -34,7 +34,7 @@ type AuthCtx = {
   loading: boolean;
   activeWorkspaceId: string | null;
   setActiveWorkspaceId: (id: string | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ user: User; defaultWorkspaceSlug: string | null }>;
   logout: () => Promise<void>;
 };
 
