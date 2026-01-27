@@ -71,20 +71,21 @@ api.interceptors.response.use(
     const original = err.config;
 
     // 401 → redirect to login (cookies handle refresh on backend)
+    // BUT: Don't redirect if we're on the login page or during login
     if (err.response?.status === 401) {
       console.log('[Auth] 401 error - not authenticated');
 
-      // Don't redirect if we're on an admin route - let AdminRoute handle it
-      // This prevents redirect loops when trying to access admin pages
       const isAdminRoute = window.location.pathname.startsWith('/admin');
       const isLoginPage = window.location.pathname.includes('/login');
+      const isSignupPage = window.location.pathname.includes('/signup');
 
-      if (!isLoginPage && !isAdminRoute) {
-        console.log('[Auth] Redirecting to login (not on admin route)');
+      // Never redirect from login/signup pages or admin routes
+      if (!isLoginPage && !isSignupPage && !isAdminRoute) {
+        // Only redirect if not already going to login (prevents loops)
+        console.log('[Auth] Redirecting to login (not on login/signup/admin route)');
         window.location.href = "/login?reason=session_expired";
       } else if (isAdminRoute) {
         console.warn('[Auth] On admin route, not redirecting - AdminRoute will handle access denial');
-        // Don't redirect - let AdminRoute show /403 or handle it
       }
     }
 

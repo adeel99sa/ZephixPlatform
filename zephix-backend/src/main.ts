@@ -110,6 +110,7 @@ async function bootstrap() {
       'Authorization',
       'X-Request-Id',
       'x-org-id',
+      'X-CSRF-Token',
     ],
     exposedHeaders: ['X-Request-Id'],
   });
