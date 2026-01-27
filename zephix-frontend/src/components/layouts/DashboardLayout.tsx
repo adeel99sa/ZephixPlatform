@@ -10,7 +10,8 @@ import WorkspaceSelectionScreen from '@/components/workspace/WorkspaceSelectionS
 
 // Patch 1: Routes that require workspace selection
 // Note: /workspaces does NOT require workspace selection - it IS the workspace selection page
-const WORKSPACE_REQUIRED_ROUTES = ['/home', '/templates', '/projects'];
+// Note: /home does NOT require workspace selection here - HomeRouterPage handles workspace selection and routing
+const WORKSPACE_REQUIRED_ROUTES = ['/templates', '/projects'];
 
 export default function DashboardLayout() {
   const { user } = useAuth();
