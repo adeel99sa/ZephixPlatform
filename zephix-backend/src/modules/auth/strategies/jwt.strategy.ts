@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 import { AuthUser } from '../../../common/http/auth-request';
 
 interface JwtPayload {
@@ -14,6 +15,23 @@ interface JwtPayload {
   roles?: string[];
 }
 
+// Custom extractor: Try cookie first, then Authorization header (for backward compatibility)
+const cookieOrBearerExtractor = (req: Request): string | null => {
+  // First, try to get token from cookie (primary method)
+  const cookieToken = req.cookies?.['zephix_session'];
+  if (cookieToken) {
+    return cookieToken;
+  }
+  
+  // Fallback to Authorization header (for backward compatibility)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  
+  return null;
+};
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
@@ -23,7 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: cookieOrBearerExtractor,
       ignoreExpiration: false,
       secretOrKey: secret,
     });
