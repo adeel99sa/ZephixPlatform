@@ -1,9 +1,10 @@
 import axios from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
-// Derive from env once
-const BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "/api"; // dev proxies; prod full URL
+// Use Vite proxy in dev (/api -> localhost:3000), full URL in prod
+const BASE_URL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "https://zephix-backend-production.up.railway.app/api")
+  : "/api"; // Relative path uses Vite proxy in development
 
 export const api = axios.create({
   baseURL: BASE_URL,

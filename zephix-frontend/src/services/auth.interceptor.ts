@@ -6,8 +6,13 @@ class AuthInterceptor {
   private failedQueue: any[] = [];
 
   constructor() {
+    // Use Vite proxy in dev (/api -> localhost:3000), full URL in prod
+    const baseURL = import.meta.env.PROD
+      ? (import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "https://zephix-backend-production.up.railway.app/api")
+      : "/api"; // Relative path uses Vite proxy in development
+    
     this.api = axios.create({
-      baseURL: '', // Use relative paths - Vite proxy handles /api -> localhost:3001
+      baseURL: baseURL,
       timeout: 10000,
       withCredentials: true, // Enable cookies for authentication
       headers: {
