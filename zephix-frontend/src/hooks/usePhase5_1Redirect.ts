@@ -16,7 +16,9 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
   const location = useLocation();
   const { activeWorkspaceId, workspaceRole, canWrite } = useWorkspaceStore();
   const { user } = useAuth();
-  const { workspaceRole: fetchedRole } = useWorkspaceRole(activeWorkspaceId);
+  // Only call useWorkspaceRole if activeWorkspaceId exists to prevent errors
+  // Pass null explicitly to avoid calling the hook with undefined
+  const { workspaceRole: fetchedRole } = useWorkspaceRole(activeWorkspaceId ?? null);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -26,8 +28,14 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
       return;
     }
 
-    // Need workspace to check projects
+    // Need workspace to check projects - early return if no workspace
     if (!activeWorkspaceId) {
+      setIsRedirecting(false);
+      return;
+    }
+
+    // Need user to check role
+    if (!user) {
       setIsRedirecting(false);
       return;
     }
@@ -59,7 +67,17 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
 
         // Get all projects for workspace, then filter client-side
         const response = await api.get(`/projects?workspaceId=${activeWorkspaceId}`);
-        const projects = response.data?.data?.projects || response.data?.projects || [];
+        // API interceptor unwraps response, so response might already be the data
+        // Handle both wrapped and unwrapped responses
+        const responseData = response?.data || response;
+        const projects = responseData?.data?.projects || responseData?.projects || responseData || [];
+        
+        // Ensure projects is an array
+        if (!Array.isArray(projects)) {
+          console.warn('Projects response is not an array:', projects);
+          setIsRedirecting(false);
+          return;
+        }
 
         // Filter for ACTIVE or DRAFT state (project.state field, not status)
         const activeOrDraftProjects = projects.filter((p: any) =>
