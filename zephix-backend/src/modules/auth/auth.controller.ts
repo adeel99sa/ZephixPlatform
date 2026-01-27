@@ -40,6 +40,12 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+
+// Helper function to detect localhost hosts
+function isLocalhostHost(host: string): boolean {
+  return host.includes('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0');
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -199,8 +205,8 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
-    @Request() req: Request,
-    @Response() res: any,
+    @Request() req: ExpressRequest,
+    @Response() res: ExpressResponse,
   ) {
     // Extract IP and userAgent with x-forwarded-for support
     const ip =
@@ -215,11 +221,15 @@ export class AuthController {
     );
 
     // Determine secure cookie setting based on request origin
-    const host = req.hostname || '';
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
-    const isHttps = (req as any).secure || xfProto === 'https';
-    const secureCookie = !isLocalhost && isHttps;
+    const hostHeader =
+      (req as any).headers?.host ??
+      (req as any).get?.('host') ??
+      '';
+    const host = String(hostHeader);
+    const isLocal = isLocalhostHost(host);
+    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = !isLocal && isHttps;
 
     // Set refresh token in HttpOnly cookie
     res.cookie('zephix_refresh', loginResult.refreshToken, {
@@ -305,22 +315,25 @@ export class AuthController {
     status: 200,
     description: 'CSRF token returned in cookie and response body',
   })
-  getCsrfToken(@Request() req: Request, @Response() res: any) {
+  getCsrfToken(@Request() req: ExpressRequest, @Response() res: ExpressResponse) {
     // Generate CSRF token
     const csrfToken = require('crypto').randomBytes(32).toString('hex');
 
     // Determine secure cookie setting based on request origin
-    const host = req.hostname || '';
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
-    const isHttps = (req as any).secure || xfProto === 'https';
-    const secureCookie = !isLocalhost && isHttps;
+    const hostHeader =
+      (req as any).headers?.host ??
+      (req as any).get?.('host') ??
+      '';
+    const host = String(hostHeader);
+    const isLocal = isLocalhostHost(host);
+    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = !isLocal && isHttps;
 
     // Set CSRF token in cookie (readable by JS, not HttpOnly)
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false, // Must be readable by browser JS
       secure: secureCookie,
-      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
@@ -347,14 +360,14 @@ export class AuthController {
 
   @Post('refresh')
   async refreshToken(
-    @Request() req,
-    @Response() res: any,
+    @Request() req: ExpressRequest,
+    @Response() res: ExpressResponse,
     @Body() body: { refreshToken: string; sessionId?: string },
   ) {
     // Extract IP and userAgent with x-forwarded-for support
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip ||
+      (req as any).ip ||
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const refreshResult = await this.authService.refreshToken(
@@ -365,11 +378,15 @@ export class AuthController {
     );
 
     // Determine secure cookie setting based on request origin
-    const host = req.hostname || '';
-    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
-    const isHttps = (req as any).secure || xfProto === 'https';
-    const secureCookie = !isLocalhost && isHttps;
+    const hostHeader =
+      (req as any).headers?.host ??
+      (req as any).get?.('host') ??
+      '';
+    const host = String(hostHeader);
+    const isLocal = isLocalhostHost(host);
+    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = !isLocal && isHttps;
 
     // Set refresh token in HttpOnly cookie
     res.cookie('zephix_refresh', refreshResult.refreshToken, {
