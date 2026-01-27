@@ -107,7 +107,22 @@ export default function HomeRouterPage() {
       return; // Will trigger workspace redirect effect
     }
 
+    // Auto-select first workspace if multiple exist and no last workspace saved
+    // This ensures users always land on a home page, not a selection screen
+    if (workspaces.length > 1) {
+      const firstWorkspace = workspaces[0];
+      if (firstWorkspace?.id) {
+        const id = String(firstWorkspace.id);
+        setActiveWorkspace(id);
+        try {
+          localStorage.setItem(LAST_WORKSPACE_KEY, id);
+        } catch {}
+        return; // Will trigger workspace redirect effect
+      }
+    }
+
     // No workspace selected - stay on /home and show workspace selection UI
+    // This should rarely happen now (only if workspace has no ID)
     // Don't redirect - let the component render the selection screen
   }, [
     workspacesLoading,
