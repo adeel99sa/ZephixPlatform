@@ -6,6 +6,7 @@ import { useAuth } from "../../state/AuthContext";
 import { useWorkspaceRole } from "../../hooks/useWorkspaceRole";
 import { useWorkspaceStore } from "../../state/workspace.store";
 import { listWorkspaces } from "../../features/workspaces/api";
+import WorkspaceSelectionScreen from "../../components/workspace/WorkspaceSelectionScreen";
 
 const LAST_WORKSPACE_KEY = "zephix.lastWorkspaceId";
 
@@ -85,30 +86,29 @@ export default function HomeRouterPage() {
       return;
     }
 
+    // If workspace already selected, skip to redirect logic
     if (activeWorkspaceId) return;
 
     // Auto-select if only 1 workspace
     if (workspaces.length === 1) {
       const id = String((workspaces[0] as any).id || "");
-      if (!id) {
-        navigate("/select-workspace", { replace: true });
-        return;
+      if (id) {
+        setActiveWorkspace(id);
+        try {
+          localStorage.setItem(LAST_WORKSPACE_KEY, id);
+        } catch {}
+        return; // Will trigger workspace redirect effect
       }
-      setActiveWorkspace(id);
-      try {
-        localStorage.setItem(LAST_WORKSPACE_KEY, id);
-      } catch {}
-      return;
     }
 
     // Try to restore last selected workspace
     if (lastWorkspaceId && workspaces.some((w: any) => String(w.id) === lastWorkspaceId)) {
       setActiveWorkspace(lastWorkspaceId);
-      return;
+      return; // Will trigger workspace redirect effect
     }
 
-    // No workspace selected, go to selection screen
-    navigate("/select-workspace", { replace: true });
+    // No workspace selected - stay on /home and show workspace selection UI
+    // Don't redirect - let the component render the selection screen
   }, [
     workspacesLoading,
     isAuthenticatedValue,
@@ -142,5 +142,16 @@ export default function HomeRouterPage() {
 
   if (!user) return <LoadingScreen />;
 
+  // If no workspace selected, show workspace selection UI on /home
+  if (!activeWorkspaceId && workspaces && workspaces.length > 0) {
+    return <WorkspaceSelectionScreen />;
+  }
+
+  // If workspace is selected but redirect hasn't happened yet, show loading
+  if (activeWorkspaceId && roleLoading) {
+    return <LoadingScreen />;
+  }
+
+  // Should not reach here - workspace redirect should have happened
   return <LoadingScreen />;
 }
