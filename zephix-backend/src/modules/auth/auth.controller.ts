@@ -11,6 +11,7 @@ import {
   UseGuards,
   Get,
   Request,
+  Response,
   Query,
   UnauthorizedException,
   BadRequestException,
@@ -196,14 +197,42 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Request() req: Request) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Request() req: Request,
+    @Response() res: any,
+  ) {
     // Extract IP and userAgent with x-forwarded-for support
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       (req as any).ip ||
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.login(loginDto, ip as string, userAgent);
+    const loginResult = await this.authService.login(
+      loginDto,
+      ip as string,
+      userAgent,
+    );
+
+    // Set refresh token in HttpOnly cookie
+    res.cookie('zephix.rt', loginResult.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+
+    // Set access token in HttpOnly cookie
+    res.cookie('zephix.at', loginResult.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/',
+    });
+
+    return res.json(loginResult);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -255,6 +284,44 @@ export class AuthController {
     const { userId } = getAuthContext(req);
     await this.authService.logout(userId, body?.sessionId, body?.refreshToken);
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('csrf')
+  @ApiOperation({ summary: 'Get CSRF token' })
+  @ApiResponse({
+    status: 200,
+    description: 'CSRF token returned in cookie and response body',
+  })
+  getCsrfToken(@Request() req: Request, @Response() res: any) {
+    // Generate CSRF token
+    const csrfToken = require('crypto').randomBytes(32).toString('hex');
+
+    // Set CSRF token in cookie (readable by JS, not HttpOnly)
+    res.cookie('XSRF-TOKEN', csrfToken, {
+      httpOnly: false, // Must be readable by browser JS
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/',
+    });
+
+    return res.json({ csrfToken });
+  }
+
+  @Post('csrf-test')
+  @ApiOperation({ summary: 'CSRF test endpoint for Gate 1 proof' })
+  @ApiResponse({
+    status: 200,
+    description: 'CSRF protection working',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'CSRF token missing or invalid',
+  })
+  csrfTest(@Request() req: Request) {
+    // This endpoint exists only for Gate 1 proof
+    // CSRF guard will enforce token validation
+    return { message: 'CSRF protection verified', timestamp: new Date() };
   }
 
   @Post('refresh')

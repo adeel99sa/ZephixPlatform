@@ -29,6 +29,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CsrfGuard } from './guards/csrf.guard';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     OrgInvitesService,
     OutboxProcessorService,
     EmailService,
+    CsrfGuard,
   ],
   exports: [AuthService, JwtStrategy, EmailVerificationService],
 })
