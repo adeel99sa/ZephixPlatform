@@ -51,7 +51,7 @@ Out of Scope
 - AI assistant features
 - Financial reporting
 - Integration worker services
-- overview page builder (view-only dashboards allowed)
+- overview page builder (view-only overview pages allowed)
 - Admin console completeness beyond workspace management
 - Advanced notification preferences
 - Custom field creation for non-admins
