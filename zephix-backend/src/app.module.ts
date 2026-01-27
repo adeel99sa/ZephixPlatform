@@ -5,6 +5,7 @@ import {
   NestModule,
 } from '@nestjs/common';
 import { APP_GUARD, APP_PIPE, APP_INTERCEPTOR } from '@nestjs/core';
+import { CsrfGuard } from './modules/auth/guards/csrf.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
@@ -156,6 +157,10 @@ if (!(global as any).crypto) {
     //   provide: APP_GUARD,
     //   useClass: ThrottlerGuard,
     // },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
