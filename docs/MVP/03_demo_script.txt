@@ -1,6 +1,168 @@
-# MVP Demo Script - Locked Content
-#
-# TODO: PASTE THE FINAL LOCKED 03_demo_script.txt CONTENT HERE
-#
-# This file should contain the locked demo script that defines the exact
-# flow and checkpoints for MVP demonstrations.
+MVP DEMO SCRIPT - LOCKED
+
+Day 5 Internal Demo Script
+Duration: 15 minutes
+Audience: Engineering team, Product, QA
+Goal: Prove Week 1 blockers cleared, show technical progress
+
+Pre-Demo Setup
+Test Data:
+- 1 organization with 2 workspaces
+- 3 users: Admin, Member, Guest
+- 1 workspace with 5 projects, 20 tasks
+- Tasks in various states: TODO, IN_PROGRESS, BLOCKED, IN_REVIEW, DONE
+- 1 project with tasks assigned to Member user
+
+Browser Setup:
+- Open 3 browser windows (one per user role)
+- Clear browser cache
+- Ensure notifications enabled in user preferences
+
+Demo Flow
+
+1. Role-Specific Home (2 min)
+Admin Window:
+- Login as admin
+- Navigate to /home
+- Show: AdminHome displays organization summary, quick actions, inbox preview
+
+Member Window:
+- Login as member
+- Navigate to /home
+- Show: MemberHome displays My Work summary, team signals, inbox preview
+
+Guest Window:
+- Login as guest (VIEWER)
+- Navigate to /home
+- Show: GuestHome displays read-only summary, access guidance
+
+Checkpoint: All three role homes render correctly with role-appropriate data.
+
+2. Workspace Entry by Slug (1 min)
+Admin Window:
+- Navigate to /w/test-workspace/home
+- Show: WorkspaceHomeBySlug loads successfully
+- Show: Workspace store updates with active workspace
+- Show: URL shows /w/test-workspace/home
+
+Checkpoint: Workspace slug routing works, workspace home loads.
+
+3. Workspace Health Snapshot (2 min)
+Admin Window:
+- On workspace home, scroll to health snapshot widget
+- Show: Execution summary widget displays active projects, total work items, overdue count, due soon count, in progress, done last 7 days
+- Show: Overdue Tasks panel shows top 10 overdue items
+- Show: Recent Activity panel shows last 20 activities
+
+Checkpoint: Health snapshot displays all metrics correctly, matches database counts.
+
+4. Status Progression Enforcement (3 min)
+Member Window:
+- Navigate to a project with tasks
+- Open a task with status TODO
+- Show: Status dropdown only shows valid next states
+- Change status to IN_PROGRESS
+- Show: Status updates successfully
+- Try to change status to DONE directly
+- Show: Error message for invalid transition
+- Change status to IN_REVIEW, then DONE
+- Show: Status updates successfully
+- Try to change status from DONE to TODO
+- Show: Error message for terminal state
+
+Checkpoint: Status transitions are enforced in both UI and backend. Invalid transitions are blocked.
+
+5. Core Notifications (2 min)
+Admin Window:
+- Assign a task to Member user
+- Show: Console log shows notification dispatched
+- Navigate to /inbox
+- Show: Member's inbox shows "Task assigned" notification
+
+Member Window:
+- Refresh inbox
+- Show: New notification appears
+- Change task status to IN_PROGRESS
+- Show: Notification appears for status change
+
+Admin Window:
+- Add a comment to the task
+- Show: Notification appears for comment added
+
+Checkpoint: Three core notification events are wired and appear in inbox.
+
+Day 10 Investor Demo Script
+Duration: 20 minutes
+Audience: Investors, potential customers, early adopters
+Goal: Prove MVP completeness, show business value
+
+Pre-Demo Setup
+Test Data:
+- 1 organization: "Acme Corp"
+- 1 workspace: "Q1 2025 Product Launch"
+- 1 portfolio: "2025 Product Portfolio"
+- 1 program: "Mobile App Launch"
+- 3 projects: "iOS App", "Android App", "Backend API"
+- 15 tasks across projects, various statuses
+- 2 users: Admin (demo presenter), Member (collaborator)
+
+Demo Flow
+
+1. Login and Role-Based Orientation (2 min)
+- Navigate to login page
+- Login as admin
+- Show: Admin home displays organization overview, quick actions, inbox preview
+- Narrative: Every user lands on role-appropriate home
+
+2. Workspace Entry and Health Snapshot (3 min)
+- Click workspace
+- Show: URL updates to /w/q1-2025-product-launch/home
+- Show: Workspace home displays health snapshot widget with metrics
+- Narrative: Workspace health gives instant visibility
+
+3. Project Creation from Template (2 min)
+- Click "New" -> "Project"
+- Show: Template selection modal
+- Select "Mobile App Development" template
+- Show: Template preview with phases and tasks
+- Click "Create Project"
+- Show: Project created with phases and tasks pre-populated
+- Narrative: Templates eliminate setup time
+
+4. Work Execution and Status Enforcement (3 min)
+- Open project
+- Show: Task list with various statuses
+- Try to change status to DONE from TODO
+- Show: Error for invalid transition
+- Change status through valid transitions: TODO -> IN_PROGRESS -> IN_REVIEW -> DONE
+- Show: Status updates successfully
+- Narrative: Status transitions enforce workflow discipline
+
+5. Notifications and Collaboration (2 min)
+- Assign a task to Member user
+- Show: Notification appears in inbox
+- Add a comment to the task
+- Show: Notification appears for comment
+- Change task status
+- Show: Notification appears for status change
+- Narrative: Notifications keep teams aligned
+
+6. Rollups and Hierarchy (3 min)
+- Navigate to portfolio
+- Show: Portfolio rollup displays programs, projects, work items, health
+- Navigate to program
+- Show: Program rollup displays projects, work items, health
+- Link project to program
+- Show: Program rollup updates immediately
+- Unlink project
+- Show: Program rollup updates immediately
+- Narrative: Rollups aggregate work across hierarchy
+
+Closing
+Narrative: Zephix MVP delivers core workflow. All six MVP blockers cleared. Ready for external user testing.
+
+Success Criteria
+- All 6 MVP blockers demonstrated
+- No errors or broken flows
+- Smooth transitions between screens
+- Business value clearly communicated

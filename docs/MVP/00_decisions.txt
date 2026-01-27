@@ -1,6 +1,58 @@
-# MVP Decisions - Locked Content
-# 
-# TODO: PASTE THE FINAL LOCKED 00_decisions.txt CONTENT HERE
-#
-# This file should contain the locked MVP decisions that serve as the foundation
-# for all MVP implementation work.
+MVP DECISIONS - LOCKED
+
+Core Business Rules
+
+1. Workspace-first rule
+   - A project must belong to a workspace
+   - Cannot create a project without a workspace
+   - Only admins create workspaces
+   - Admin assigns a workspace owner
+   - Workspace owner or admin can create projects from Template Center only
+   - No global "New project" or "New workspace" actions in header or dashboard
+
+2. Roles and access model
+   - Organization roles: owner, admin, member, viewer
+   - Only owner and admin see Administration
+   - Workspace roles: workspace owner, workspace member, non-member viewer
+   - Workspace permissions managed in Workspace Settings only
+
+3. Creation flows
+   - Workspaces: Created only by org admin or org owner from workspace menu or Administration
+   - Projects: Created only through Template Center, never from random "+ New project" buttons
+   - Boards and other artifacts: Also created from Template Center inside workspace context
+
+4. Execution entity
+   - Use WorkTask as single execution entity for MVP
+   - Status transitions enforced: BACKLOG -> TODO -> IN_PROGRESS -> IN_REVIEW -> DONE
+   - Terminal states: DONE, CANCELED (no transitions allowed)
+   - Invalid transitions throw BadRequestException
+
+5. Template system
+   - Templates create projects with phases and tasks pre-populated
+   - Template instantiation is one-click operation
+   - Template preview shows phases and tasks before creation
+
+6. Rollup system
+   - Program rollups aggregate projects within program
+   - Portfolio rollups aggregate programs and direct projects
+   - Rollups refresh automatically on link/unlink operations
+   - Health calculation: BLOCKED if any project BLOCKED or overdue items > 0, AT_RISK if projects at risk > 0, HEALTHY otherwise
+
+7. Notifications
+   - Three core events: TASK_ASSIGNED, TASK_STATUS_CHANGED, TASK_COMMENT_ADDED
+   - Notifications appear in /inbox page
+   - Guest users (VIEWER) do not receive notifications
+
+8. Security and tenancy
+   - All data access scoped by organizationId
+   - Workspace-scoped endpoints enforce workspaceId
+   - Cross-workspace access attempts return 403 or 404
+   - PlatformRole is source of truth for permissions
+
+MVP Flow Steps
+1. Login
+2. Land on role home
+3. Enter workspace by slug
+4. Create project from template
+5. Assign work and update status
+6. Verify rollups and basic reporting

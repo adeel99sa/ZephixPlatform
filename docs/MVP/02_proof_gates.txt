@@ -1,6 +1,72 @@
-# MVP Proof Gates - Locked Content
-#
-# TODO: PASTE THE FINAL LOCKED 02_proof_gates.txt CONTENT HERE
-#
-# This file should contain the locked proof gates that define the acceptance
-# criteria and proof requirements for each MVP sprint.
+MVP PROOF GATES - LOCKED
+
+Gate 1: Auth Cookie Flow
+Sprint: S1 Auth
+Proof Required: Runtime proof of cookie-based authentication
+Artifact: proofs/runtime/curl/auth_cookie_flow.sh must execute successfully
+Acceptance: Login returns HTTP 200 with Set-Cookie header, refresh token stored, session maintained
+
+Gate 2: Governance Preview and Apply
+Sprint: S2 Governance
+Proof Required: Runtime proof of workspace creation and preview
+Artifacts: 
+  - proofs/runtime/curl/governance_preview.sh must execute successfully
+  - proofs/runtime/curl/governance_apply.sh must execute successfully
+Acceptance: Workspace preview shows validation, workspace creation returns workspaceId, workspace home loads at /w/:slug/home
+
+Gate 3: Template Instantiation
+Sprint: S3 Templates
+Proof Required: Runtime proof of template to project creation
+Artifact: proofs/runtime/curl/templates_instantiate.sh must execute successfully
+Acceptance: Template selection works, template instantiation creates project with phases and tasks, projectId returned
+
+Gate 4: Resources Utilization
+Sprint: S4 Resources
+Proof Required: Runtime proof of resource allocation calculations
+Artifact: proofs/runtime/curl/resources_utilization.sh must execute successfully
+Acceptance: Allocation percentages calculated correctly, over-allocation warnings displayed, utilization metrics accurate
+
+Gate 5: Security Negative Tests
+Sprint: S5 Security
+Proof Required: Runtime proof of cross-workspace access blocking
+Artifact: proofs/runtime/curl/security_negative.sh must execute successfully
+Acceptance: Cross-workspace access attempts return 403 or 404, role-based permissions enforced, no data leakage
+
+Proof Gate Execution
+
+All gates must pass before MVP is considered complete.
+Each gate requires executable curl script that demonstrates working functionality.
+Scripts must be runnable against local, staging, or production environments.
+Proof artifacts must be committed to proofs/runtime/ directory.
+
+Gate Verification Checklist
+
+Gate 1: Auth
+- [ ] Login endpoint returns HTTP 200
+- [ ] Set-Cookie header present
+- [ ] Refresh token stored securely
+- [ ] Session persists across requests
+
+Gate 2: Governance
+- [ ] Workspace preview endpoint works
+- [ ] Workspace creation endpoint works
+- [ ] Workspace home loads at /w/:slug/home
+- [ ] Health snapshot displays on workspace home
+
+Gate 3: Templates
+- [ ] Template list endpoint works
+- [ ] Template preview works
+- [ ] Template instantiation creates project
+- [ ] Project contains phases and tasks
+
+Gate 4: Resources
+- [ ] Allocation calculations correct
+- [ ] Over-allocation warnings display
+- [ ] Utilization metrics accurate
+- [ ] Resource endpoints return correct data
+
+Gate 5: Security
+- [ ] Cross-workspace access blocked (403/404)
+- [ ] Role-based permissions enforced
+- [ ] No data leakage across workspaces
+- [ ] Negative tests pass
