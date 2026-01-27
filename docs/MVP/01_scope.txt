@@ -1,6 +1,65 @@
-# MVP Scope - Locked Content
-#
-# TODO: PASTE THE FINAL LOCKED 01_scope.txt CONTENT HERE
-#
-# This file should contain the locked MVP scope definition that defines
-# what is in and out of scope for the MVP.
+MVP SCOPE - LOCKED
+
+One-sentence MVP
+Admin creates a workspace, creates a project from a template, assigns tasks to members, members update status and comment, admin sees rollups and one basic reporting surface, with role-gated access.
+
+MVP Flow Steps
+1. Login
+2. Land on role home
+3. Enter workspace by slug
+4. Create project from template
+5. Assign work and update status
+6. Verify rollups and basic reporting
+
+In Scope
+
+Sprint 1: Auth
+- Cookie-based authentication flow
+- JWT refresh token mechanism
+- Role-based home routing (AdminHome, MemberHome, GuestHome)
+- Session management
+
+Sprint 2: Governance
+- Workspace creation by admin
+- Workspace slug resolution
+- Workspace home with health snapshot
+- Role-based workspace access
+
+Sprint 3: Templates
+- Template Center UI
+- Template selection and preview
+- Template instantiation to project
+- Project creation with phases and tasks
+
+Sprint 4: Resources
+- Resource allocation tracking
+- Allocation percentage calculations
+- Over-allocation warnings
+- Resource utilization reporting
+
+Sprint 5: Security
+- Workspace-scoped data access
+- Cross-workspace access blocking
+- Role-based permission enforcement
+- Negative test coverage
+
+Out of Scope
+
+- External integrations (Linear, ClickUp, etc.)
+- Mobile applications
+- Real-time WebSocket updates
+- AI assistant features
+- Financial reporting
+- Integration worker services
+- Dashboard builder (view-only dashboards allowed)
+- Admin console completeness beyond workspace management
+- Advanced notification preferences
+- Custom field creation for non-admins
+- Template versioning and updates
+- Program/Portfolio creation UI (backend exists, UI deferred)
+
+Success Criteria
+
+All 5 sprints must pass their proof gates before MVP is considered complete.
+Each sprint requires runtime proof artifacts demonstrating working functionality.
+No Phase 6 features or dashboard builder work included in MVP scope.

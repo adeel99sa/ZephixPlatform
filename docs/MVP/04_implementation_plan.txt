@@ -1,6 +1,119 @@
-# MVP Implementation Plan - Locked Content
-#
-# TODO: PASTE THE FINAL LOCKED 04_implementation_plan.txt CONTENT HERE
-#
-# This file should contain the locked implementation plan that defines
-# the sprint breakdown and execution sequence for MVP delivery.
+MVP IMPLEMENTATION PLAN - LOCKED
+
+Sprint Breakdown
+
+Sprint 1: Auth (S1)
+Duration: Week 1, Days 1-2
+Goal: Cookie-based authentication flow with role-based home routing
+Deliverables:
+- Cookie-based login endpoint
+- JWT refresh token mechanism
+- AdminHome component with organization aggregations
+- MemberHome component with assigned work aggregations
+- GuestHome component with read-only access
+- Role-based routing at /home
+Proof Gate: Gate 1 - Auth Cookie Flow
+
+Sprint 2: Governance (S2)
+Duration: Week 1, Days 3-5
+Goal: Workspace creation and workspace home with health snapshot
+Deliverables:
+- Workspace creation endpoint with preview
+- Workspace slug resolution endpoint
+- Workspace home route /w/:slug/home
+- WorkspaceHome component with health snapshot widget
+- Health snapshot endpoint with execution summary
+- Overdue tasks panel
+- Recent activity panel
+Proof Gate: Gate 2 - Governance Preview and Apply
+
+Sprint 3: Templates (S3)
+Duration: Week 2, Days 1-3
+Goal: Template Center and template instantiation to project
+Deliverables:
+- Template Center UI at /templates
+- Template list endpoint
+- Template preview modal
+- Template instantiation endpoint
+- Project creation with phases and tasks from template
+- Success navigation to project overview
+Proof Gate: Gate 3 - Template Instantiation
+
+Sprint 4: Resources (S4)
+Duration: Week 2, Days 4-5
+Goal: Resource allocation tracking and utilization reporting
+Deliverables:
+- Resource allocation calculation endpoints
+- Allocation percentage validation
+- Over-allocation warning system
+- Resource utilization reporting endpoints
+- Utilization metrics display
+Proof Gate: Gate 4 - Resources Utilization
+
+Sprint 5: Security (S5)
+Duration: Week 2, Days 6-7
+Goal: Workspace-scoped access control and negative test coverage
+Deliverables:
+- Workspace-scoped query enforcement
+- Cross-workspace access blocking (403/404 responses)
+- Role-based permission enforcement
+- Negative test suite for security
+- Security proof artifacts
+Proof Gate: Gate 5 - Security Negative Tests
+
+Execution Sequence
+
+Week 1:
+Day 1-2: Sprint 1 (Auth) - Cookie flow, role homes
+Day 3-5: Sprint 2 (Governance) - Workspace creation, workspace home, health snapshot
+
+Week 2:
+Day 1-3: Sprint 3 (Templates) - Template Center, instantiation
+Day 4-5: Sprint 4 (Resources) - Allocation calculations, utilization
+Day 6-7: Sprint 5 (Security) - Access control, negative tests
+
+Acceptance Criteria by Sprint
+
+Sprint 1: Auth
+- Login returns HTTP 200 with Set-Cookie header
+- Refresh token stored securely
+- AdminHome displays organization aggregations
+- MemberHome displays assigned work aggregations
+- GuestHome displays read-only access
+- Role-based routing works at /home
+
+Sprint 2: Governance
+- Workspace preview shows validation
+- Workspace creation returns workspaceId
+- Workspace home loads at /w/:slug/home
+- Health snapshot displays execution summary
+- Overdue tasks panel shows top 10 items
+- Recent activity panel shows last 20 activities
+
+Sprint 3: Templates
+- Template Center lists available templates
+- Template preview shows phases and tasks
+- Template instantiation creates project
+- Project contains phases and tasks from template
+- Success navigation routes to project overview
+
+Sprint 4: Resources
+- Allocation percentages calculated correctly
+- Over-allocation warnings displayed
+- Utilization metrics accurate
+- Resource endpoints return correct data
+
+Sprint 5: Security
+- Cross-workspace access blocked (403/404)
+- Role-based permissions enforced
+- No data leakage across workspaces
+- Negative tests pass
+
+Dependencies
+
+Sprint 1 (Auth) -> Sprint 2 (Governance): Role-based routing needed for workspace access
+Sprint 2 (Governance) -> Sprint 3 (Templates): Workspace context needed for project creation
+Sprint 3 (Templates) -> Sprint 4 (Resources): Projects needed for resource allocation
+Sprint 4 (Resources) -> Sprint 5 (Security): Resource access needs security enforcement
+
+All sprints must pass their proof gates before MVP is considered complete.
