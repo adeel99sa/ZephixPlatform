@@ -1,0 +1,6 @@
+# MVP Proof Gates - Locked Content
+#
+# TODO: PASTE THE FINAL LOCKED 02_proof_gates.txt CONTENT HERE
+#
+# This file should contain the locked proof gates that define the acceptance
+# criteria and proof requirements for each MVP sprint.

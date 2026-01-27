@@ -1,0 +1,6 @@
+# MVP Scope - Locked Content
+#
+# TODO: PASTE THE FINAL LOCKED 01_scope.txt CONTENT HERE
+#
+# This file should contain the locked MVP scope definition that defines
+# what is in and out of scope for the MVP.

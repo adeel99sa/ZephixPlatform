@@ -1,0 +1,6 @@
+# MVP Implementation Plan - Locked Content
+#
+# TODO: PASTE THE FINAL LOCKED 04_implementation_plan.txt CONTENT HERE
+#
+# This file should contain the locked implementation plan that defines
+# the sprint breakdown and execution sequence for MVP delivery.

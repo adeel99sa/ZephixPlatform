@@ -1,0 +1,6 @@
+# MVP Decisions - Locked Content
+# 
+# TODO: PASTE THE FINAL LOCKED 00_decisions.txt CONTENT HERE
+#
+# This file should contain the locked MVP decisions that serve as the foundation
+# for all MVP implementation work.
