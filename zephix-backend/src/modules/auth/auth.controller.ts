@@ -214,10 +214,17 @@ export class AuthController {
       userAgent,
     );
 
+    // Determine secure cookie setting based on request origin
+    const host = req.hostname || '';
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
+    const isHttps = (req as any).secure || xfProto === 'https';
+    const secureCookie = !isLocalhost && isHttps;
+
     // Set refresh token in HttpOnly cookie
     res.cookie('zephix_refresh', loginResult.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      secure: secureCookie,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
@@ -226,7 +233,7 @@ export class AuthController {
     // Set access token in HttpOnly cookie
     res.cookie('zephix_session', loginResult.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      secure: secureCookie,
       sameSite: 'strict',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
@@ -284,11 +291,11 @@ export class AuthController {
   ) {
     const { userId } = getAuthContext(req);
     await this.authService.logout(userId, body?.sessionId, body?.refreshToken);
-    
+
     // Clear session and refresh cookies
     res.clearCookie('zephix_session', { path: '/' });
     res.clearCookie('zephix_refresh', { path: '/' });
-    
+
     return res.json({ message: 'Logged out successfully' });
   }
 
@@ -302,9 +309,17 @@ export class AuthController {
     // Generate CSRF token
     const csrfToken = require('crypto').randomBytes(32).toString('hex');
 
+    // Determine secure cookie setting based on request origin
+    const host = req.hostname || '';
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
+    const isHttps = (req as any).secure || xfProto === 'https';
+    const secureCookie = !isLocalhost && isHttps;
+
     // Set CSRF token in cookie (readable by JS, not HttpOnly)
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false, // Must be readable by browser JS
+      secure: secureCookie,
       secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -349,10 +364,17 @@ export class AuthController {
       userAgent,
     );
 
+    // Determine secure cookie setting based on request origin
+    const host = req.hostname || '';
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+    const xfProto = (req.headers['x-forwarded-proto'] || '').toString();
+    const isHttps = (req as any).secure || xfProto === 'https';
+    const secureCookie = !isLocalhost && isHttps;
+
     // Set refresh token in HttpOnly cookie
     res.cookie('zephix_refresh', refreshResult.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      secure: secureCookie,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
@@ -361,7 +383,7 @@ export class AuthController {
     // Set access token in HttpOnly cookie
     res.cookie('zephix_session', refreshResult.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local',
+      secure: secureCookie,
       sameSite: 'strict',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',

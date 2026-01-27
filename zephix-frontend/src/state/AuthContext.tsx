@@ -47,6 +47,7 @@ let hydrationPromise: Promise<void> | null = null;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeWorkspaceId, _setActiveWorkspaceId] = useState<string | null>(
     () => localStorage.getItem(ACTIVE_WORKSPACE_KEY)
   );
@@ -96,12 +97,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error: any) {
         // 401 means not authenticated - clear user and let routing handle redirect
+        // BUT: Don't redirect if we're in the middle of logging in
         if (error?.response?.status === 401) {
           console.log('[AuthContext] 401 on /auth/me - user not authenticated');
-          setUser(null);
+          // Only clear user if not actively logging in (prevents redirect loop during login)
+          if (!isLoggingIn) {
+            setUser(null);
+          }
         } else {
           console.log('Auth hydration failed:', error);
-          setUser(null);
+          if (!isLoggingIn) {
+            setUser(null);
+          }
         }
       } finally {
         setLoading(false);
@@ -118,25 +125,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []); // Only run once on mount
 
   const login = async (email: string, password: string) => {
-    // Login sets cookies on the backend - no token storage needed
-    const response = await api.post("/auth/login", { email, password });
-    // API interceptor unwraps the response, so user is at the top level
-    
-    // Add computed name field
-    const userWithName = {
-      ...response.user,
-      name: `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim()
-    };
-    setUser(userWithName);
+    // Set flag to prevent session_expired redirect during login
+    setIsLoggingIn(true);
+    try {
+      // Login sets cookies on the backend - no token storage needed
+      const response = await api.post("/auth/login", { email, password });
+      // API interceptor unwraps the response, so user is at the top level
+      
+      // Add computed name field
+      const userWithName = {
+        ...response.user,
+        name: `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim()
+      };
+      setUser(userWithName);
 
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[AuthContext] user loaded:', {
-        email: userWithName.email,
-        role: userWithName.role,
-        platformRole: userWithName.platformRole,
-        permissions: userWithName.permissions,
-      });
+      // Debug logging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthContext] user loaded:', {
+          email: userWithName.email,
+          role: userWithName.role,
+          platformRole: userWithName.platformRole,
+          permissions: userWithName.permissions,
+        });
+      }
+    } finally {
+      // Clear flag after login completes (success or failure)
+      setIsLoggingIn(false);
     }
   };
 

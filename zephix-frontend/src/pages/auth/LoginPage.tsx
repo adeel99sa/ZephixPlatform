@@ -29,6 +29,7 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -53,7 +54,14 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submit
+    if (submitting || isLoading) {
+      return;
+    }
+    
     setError(null);
+    setSubmitting(true);
     setIsLoading(true);
 
     try {
@@ -68,6 +76,7 @@ export const LoginPage: React.FC = () => {
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Login failed");
     } finally {
+      setSubmitting(false);
       setIsLoading(false);
     }
   };
@@ -206,7 +215,7 @@ export const LoginPage: React.FC = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={isLoading || !formData.email || !formData.password}
+                  disabled={submitting || isLoading || !formData.email || !formData.password}
                   data-testid="login-submit"
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
