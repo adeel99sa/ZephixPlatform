@@ -17,43 +17,49 @@ api.interceptors.request.use((cfg) => {
   if (!cfg.headers) cfg.headers = {} as any;
   // No Authorization header - cookies are sent automatically with withCredentials: true
 
-  // STEP D: Workspace header safety - read from Zustand store
-  // Skip workspace header for auth, health, and version endpoints
-  const url = cfg.url || '';
-  const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
-  const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
-  const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
+  // Normalize path for consistent matching
+  const raw = String(cfg.url || '');
+  const path = raw.startsWith('http') ? new URL(raw).pathname : raw;
+
+  // Check if this is an auth, health, or version endpoint
+  const isAuthEndpoint =
+    path.startsWith('/auth/') ||
+    path.startsWith('auth/') ||
+    path.startsWith('/api/auth/') ||
+    path.startsWith('api/auth/');
+
+  const isHealthEndpoint =
+    path.startsWith('/health') ||
+    path.startsWith('/api/health') ||
+    path.startsWith('health') ||
+    path.startsWith('api/health');
+
+  const isVersionEndpoint =
+    path.startsWith('/version') ||
+    path.startsWith('/api/version') ||
+    path.startsWith('version') ||
+    path.startsWith('api/version');
+
   const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
 
-  if (!shouldSkipWorkspaceHeader) {
-    const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+  if (shouldSkipWorkspaceHeader) {
+    // Explicitly remove workspace headers for auth/health/version endpoints
+    delete (cfg.headers as any)['X-Workspace-Id'];
+    delete (cfg.headers as any)['x-workspace-id'];
+    return cfg;
+  }
 
-    // STEP D: If activeWorkspaceId is null, delete headers to prevent stale context
-    if (!wsId) {
-      delete cfg.headers?.['X-Workspace-Id'];
-      delete cfg.headers?.['x-workspace-id'];
-      
-      // Development log for debugging
-      if (import.meta.env.MODE === 'development') {
-        console.log('[API] Workspace header removed - activeWorkspaceId is null', {
-          url: cfg.url,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } else {
-      // STEP D: Set header only when activeWorkspaceId exists
-      cfg.headers['X-Workspace-Id'] = wsId;
-      cfg.headers['x-workspace-id'] = wsId; // Support both cases
-      
-      // Development log for debugging
-      if (import.meta.env.MODE === 'development') {
-        console.log('[API] Workspace header injected', {
-          workspaceId: wsId,
-          url: cfg.url,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
+  // For all other endpoints, add workspace header if available
+  const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+
+  if (!wsId) {
+    // If no workspace ID, ensure headers are removed
+    delete (cfg.headers as any)['X-Workspace-Id'];
+    delete (cfg.headers as any)['x-workspace-id'];
+  } else {
+    // Set workspace header when activeWorkspaceId exists
+    (cfg.headers as any)['X-Workspace-Id'] = wsId;
+    (cfg.headers as any)['x-workspace-id'] = wsId; // Support both cases
   }
 
   return cfg;

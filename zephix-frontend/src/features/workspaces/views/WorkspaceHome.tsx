@@ -187,19 +187,56 @@ export default function WorkspaceHome() {
   }, [showNewMenu]);
 
   useEffect(() => {
-    if (authLoading || !user || !workspaceId) {
+    if (authLoading || !user) {
       setLoading(false);
       return;
     }
 
     loadWorkspaceData();
-  }, [authLoading, user, workspaceId]);
+  }, [authLoading, user, workspaceId, slug]);
+
+  /**
+   * Resolve workspace ID from slug if slug is provided
+   * Returns the resolved workspace ID or null if not found
+   */
+  async function resolveWorkspaceIdFromSlug(slug: string): Promise<string | null> {
+    try {
+      const response = await api.get<{ id: string; slug: string; name: string }>(`/workspaces/slug/${slug}`);
+      return response?.id || null;
+    } catch (error) {
+      console.error('Failed to resolve workspace from slug:', error);
+      return null;
+    }
+  }
 
   async function loadWorkspaceData() {
-    if (!workspaceId) return;
-
     setLoading(true);
     try {
+      let effectiveWorkspaceId = workspaceId;
+
+      // Step 1: If slug exists, resolve slug to id first
+      if (slug) {
+        const resolvedId = await resolveWorkspaceIdFromSlug(slug);
+        if (resolvedId) {
+          effectiveWorkspaceId = resolvedId;
+          // Step 2: If resolved id differs from store, update store
+          if (resolvedId !== workspaceId) {
+            useWorkspaceStore.getState().setActiveWorkspace(resolvedId);
+          }
+        } else {
+          // Slug resolution failed - cannot proceed
+          setWorkspace(null);
+          return;
+        }
+      }
+
+      // Step 3: If no effective workspace ID, cannot proceed
+      if (!effectiveWorkspaceId) {
+        setWorkspace(null);
+        return;
+      }
+
+      // Step 4: Use effectiveWorkspaceId for all subsequent calls
       // PHASE 6 MODULE 2: Use workspace home endpoint if slug available
       let homeData: WorkspaceHomeData | null = null;
       if (slug) {
@@ -220,8 +257,8 @@ export default function WorkspaceHome() {
               } : undefined,
             };
             setWorkspace(ws);
-            // Get workspace notes separately
-            const wsDetail = await getWorkspace(workspaceId).catch(() => null);
+            // Get workspace notes separately using effectiveWorkspaceId
+            const wsDetail = await getWorkspace(effectiveWorkspaceId).catch(() => null);
             if (wsDetail?.homeNotes) {
               setNotesValue(wsDetail.homeNotes);
             }
@@ -232,10 +269,11 @@ export default function WorkspaceHome() {
       }
 
       // Always fetch full project list for metrics (includes programId/portfolioId)
+      // Use effectiveWorkspaceId for all calls
       const [ws, projs, mems] = await Promise.all([
-        !homeData ? getWorkspace(workspaceId).catch(() => null) : Promise.resolve(null),
-        listProjects(workspaceId).catch(() => []),
-        listWorkspaceMembers(workspaceId).catch(() => []),
+        !homeData ? getWorkspace(effectiveWorkspaceId).catch(() => null) : Promise.resolve(null),
+        listProjects(effectiveWorkspaceId).catch(() => []),
+        listWorkspaceMembers(effectiveWorkspaceId).catch(() => []),
       ]);
 
       if (!homeData && ws) {

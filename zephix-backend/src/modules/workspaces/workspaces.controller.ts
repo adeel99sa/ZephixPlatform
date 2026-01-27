@@ -119,6 +119,45 @@ export class WorkspacesController {
   }
 
   /**
+   * Resolve workspace by slug - returns id, slug, name
+   * GET /api/workspaces/slug/:slug
+   */
+  @Get('slug/:slug')
+  async getWorkspaceBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser() u: UserJwt,
+  ) {
+    const workspace = await this.svc.findBySlug(u.organizationId, slug);
+    if (!workspace) {
+      throw new NotFoundException({
+        code: 'WORKSPACE_NOT_FOUND',
+        message: 'Workspace not found',
+      });
+    }
+
+    // Check access - non-members get 403
+    const canAccess = await this.accessService.canAccessWorkspace(
+      workspace.id,
+      u.organizationId,
+      u.id,
+      u.role,
+    );
+
+    if (!canAccess) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'You do not have access to this workspace',
+      });
+    }
+
+    return formatResponse({
+      id: workspace.id,
+      slug: workspace.slug,
+      name: workspace.name,
+    });
+  }
+
+  /**
    * PHASE 5.3: Get workspace home data by slug
    * GET /api/workspaces/slug/:slug/home
    */
