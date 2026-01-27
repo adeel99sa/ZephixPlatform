@@ -62,4 +62,4 @@ Success Criteria
 
 All 5 sprints must pass their proof gates before MVP is considered complete.
 Each sprint requires runtime proof artifacts demonstrating working functionality.
-No Phase 6 features or overview page builder work included in MVP scope.
+No Phase6 features or overview page builder work included in MVP scope.
