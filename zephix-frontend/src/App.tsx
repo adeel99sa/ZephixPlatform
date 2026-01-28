@@ -10,7 +10,7 @@ import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
 // Auth pages
-import { LoginPage } from "@/pages/auth/LoginPage";
+import LoginPage from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
