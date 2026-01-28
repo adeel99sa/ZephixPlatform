@@ -20,7 +20,7 @@ function readReturnUrl(search: string): string | null {
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, user, loading } = useAuth();
+  const { login, user, isLoading: loading } = useAuth();
   const returnUrl = useMemo(() => readReturnUrl(location.search), [location.search]);
   const [formData, setFormData] = useState({
     email: '',
@@ -34,8 +34,13 @@ export const LoginPage: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      // Always redirect to /home (HomeView will handle workspace redirect)
-      navigate('/home', { replace: true });
+      const params = new URLSearchParams(window.location.search);
+      const returnUrl = params.get("returnUrl");
+      if (returnUrl && returnUrl.startsWith("/")) {
+        navigate(returnUrl, { replace: true });
+      } else {
+        navigate('/home', { replace: true });
+      }
     }
   }, [user, navigate]);
 
@@ -65,24 +70,12 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const loginResponse = await login(formData.email, formData.password);
-
-      // Clear returnUrl from localStorage after successful login
-      localStorage.removeItem('zephix.returnUrl');
-
-      // Modernized login flow: redirect to default workspace or returnUrl
-      if (returnUrl) {
-        navigate(returnUrl, { replace: true });
-      } else if (loginResponse?.defaultWorkspaceSlug) {
-        // Redirect directly to workspace home using slug from backend
-        navigate(`/w/${loginResponse.defaultWorkspaceSlug}/home`, { replace: true });
-      } else {
-        // Fallback to /home if no default workspace
-        navigate('/home', { replace: true });
-      }
+      const params = new URLSearchParams(window.location.search);
+      const returnUrl = params.get("returnUrl") || undefined;
+      await login(formData.email, formData.password, { returnUrl });
+      // AuthContext handles redirect, so we don't navigate here
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Login failed");
-    } finally {
+      setError(err?.response?.data?.message ?? "Invalid credentials");
       setSubmitting(false);
       setIsLoading(false);
     }
@@ -127,6 +120,24 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {(() => {
+              const params = new URLSearchParams(window.location.search);
+              const reason = params.get("reason");
+              if (reason === "session_expired") {
+                return (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3" data-testid="session-expired">
+                    <div className="flex">
+                      <AlertCircle className="h-5 w-5 text-yellow-400 mr-2" />
+                      <div>
+                        <p className="text-sm text-yellow-800">Your session has expired. Please sign in again.</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
               {/* Enterprise Security Status */}
               <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-md p-4">
