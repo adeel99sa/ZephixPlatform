@@ -1,180 +1,105 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 
-type User = {
+type AuthUser = {
   id: string;
-  firstName: string;
-  lastName: string;
   email: string;
   role?: string;
-  platformRole?: string;
-  permissions?: {
-    isAdmin?: boolean;
-    canManageUsers?: boolean;
-    canViewProjects?: boolean;
-    canManageResources?: boolean;
-    canViewAnalytics?: boolean;
-  };
-  organizationId?: string | null;
-  organization?: {
-    id: string;
-    name: string;
-    slug: string;
-    features?: {
-      enableProgramsPortfolios?: boolean;
-    };
-  } | null;
-  name?: string; // computed field
+  platformRole?: "ADMIN" | "MEMBER" | "VIEWER";
+  firstName?: string;
+  lastName?: string;
+  organizationId?: string;
 };
-const ACTIVE_WORKSPACE_KEY = "activeWorkspaceId";
 
-type AuthCtx = {
-  user: User | null;
-  loading: boolean;
-  activeWorkspaceId: string | null;
-  setActiveWorkspaceId: (id: string | null) => void;
-  login: (email: string, password: string) => Promise<{ user: User; defaultWorkspaceSlug: string | null }>;
+type AuthContextValue = {
+  user: AuthUser | null;
+  isLoading: boolean;
+  login: (email: string, password: string, opts?: { returnUrl?: string }) => Promise<void>;
   logout: () => Promise<void>;
+  hydrate: () => Promise<AuthUser | null>;
 };
 
-const Ctx = createContext<AuthCtx | null>(null);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-// In-memory lock to prevent concurrent /auth/me calls
-let hydrating = false;
-let hydrationPromise: Promise<void> | null = null;
+function isInternalReturnUrl(u?: string) {
+  if (!u) return false;
+  if (!u.startsWith("/")) return false;
+  if (u.startsWith("//")) return false;
+  return true;
+}
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [activeWorkspaceId, _setActiveWorkspaceId] = useState<string | null>(
-    () => localStorage.getItem(ACTIVE_WORKSPACE_KEY)
-  );
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const setActiveWorkspaceId = (id: string | null) => {
-    if (!id) {
-      localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
-      _setActiveWorkspaceId(null);
-      return;
-    }
-    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
-    _setActiveWorkspaceId(id);
-  };
+  const inflight = useRef<Promise<AuthUser | null> | null>(null);
+  const hydratedOnce = useRef(false);
 
-  async function hydrate() {
-    // Prevent concurrent hydration calls
-    if (hydrating && hydrationPromise) {
-      console.log('[AuthContext] Hydration already in progress, waiting...');
-      await hydrationPromise;
-      return;
-    }
+  async function hydrate(): Promise<AuthUser | null> {
+    if (inflight.current) return inflight.current;
 
-    hydrating = true;
-    hydrationPromise = (async () => {
+    inflight.current = (async () => {
       try {
-        // Call /api/auth/me with cookies - no token needed
-        // API interceptor already unwraps, so response is already the data
-        const userData = await api.get("/auth/me");
-        // Add computed name field
-        const userWithName = {
-          ...userData,
-          name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim()
-        };
-        setUser(userWithName);
-
-        // Debug logging in development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[AuthContext] user loaded:', {
-            email: userWithName.email,
-            role: userWithName.role,
-            platformRole: userWithName.platformRole,
-            permissions: userWithName.permissions,
-          });
-          // Explicitly log permissions.isAdmin for debugging
-          console.log('[AuthContext] ⚠️ CRITICAL: permissions.isAdmin =', userWithName.permissions?.isAdmin);
-          console.log('[AuthContext] Full permissions object:', JSON.stringify(userWithName.permissions, null, 2));
-        }
-      } catch (error: any) {
-        // 401 means not authenticated - clear user and let routing handle redirect
-        // BUT: Don't redirect if we're in the middle of logging in
-        if (error?.response?.status === 401) {
-          console.log('[AuthContext] 401 on /auth/me - user not authenticated');
-          // Only clear user if not actively logging in (prevents redirect loop during login)
-          if (!isLoggingIn) {
-            setUser(null);
-          }
-        } else {
-          console.log('Auth hydration failed:', error);
-          if (!isLoggingIn) {
-            setUser(null);
-          }
-        }
+        const me = await api.get("/auth/me");
+        const u = (me as any)?.user ?? me;
+        setUser(u ?? null);
+        return u ?? null;
+      } catch (e: any) {
+        setUser(null);
+        return null;
       } finally {
-        setLoading(false);
-        hydrating = false;
-        hydrationPromise = null;
+        inflight.current = null;
+        setIsLoading(false);
       }
     })();
 
-    await hydrationPromise;
+    return inflight.current;
+  }
+
+  async function login(email: string, password: string, opts?: { returnUrl?: string }) {
+    setIsLoading(true);
+    await api.post("/auth/login", { email, password });
+    const u = await hydrate();
+
+    const url = opts?.returnUrl;
+    if (u && isInternalReturnUrl(url)) {
+      window.location.assign(url!);
+      return;
+    }
+
+    if (u) {
+      window.location.assign("/home");
+      return;
+    }
+
+    window.location.assign("/login?reason=not_authenticated");
+  }
+
+  async function logout() {
+    setIsLoading(true);
+    try {
+      await api.post("/auth/logout");
+    } catch (e) {
+    } finally {
+      setUser(null);
+      setIsLoading(false);
+      window.location.assign("/login");
+    }
   }
 
   useEffect(() => {
+    if (hydratedOnce.current) return;
+    hydratedOnce.current = true;
     hydrate();
-  }, []); // Only run once on mount
+  }, []);
 
-  const login = async (email: string, password: string) => {
-    // Set flag to prevent session_expired redirect during login
-    setIsLoggingIn(true);
-    try {
-      // Login sets cookies on the backend - no token storage needed
-      const response = await api.post("/auth/login", { email, password });
-      // API interceptor unwraps the response, so user is at the top level
-      
-      // Add computed name field
-      const userWithName = {
-        ...response.user,
-        name: `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim()
-      };
-      setUser(userWithName);
+  const value = useMemo(() => ({ user, isLoading, login, logout, hydrate }), [user, isLoading]);
 
-      // Debug logging in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[AuthContext] user loaded:', {
-          email: userWithName.email,
-          role: userWithName.role,
-          platformRole: userWithName.platformRole,
-          permissions: userWithName.permissions,
-        });
-      }
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
-      // Return login response including defaultWorkspaceSlug
-      return {
-        user: userWithName,
-        defaultWorkspaceSlug: response.defaultWorkspaceSlug || null,
-      };
-    } finally {
-      // Clear flag after login completes (success or failure)
-      setIsLoggingIn(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      // Call logout endpoint to clear cookies on backend
-      await api.post("/auth/logout", {});
-    } catch {}
-    // Cleanup any legacy tokens that might exist
-    cleanupLegacyAuthStorage();
-    setUser(null);
-  };
-
-  return <Ctx.Provider value={{ user, loading, activeWorkspaceId, setActiveWorkspaceId, login, logout }}>{children}</Ctx.Provider>;
-};
-
-export const useAuth = () => {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("AuthProvider missing");
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-};
+}
