@@ -34,6 +34,7 @@ import { addWorkspaceMember } from '@/features/workspaces/workspace.api';
 import { toast } from 'sonner';
 import { mapAccessLevelToRole } from '@/utils/workspace-access-levels';
 import { api } from '@/lib/api';
+import { useWorkspaceVisitTracker } from '@/hooks/useWorkspaceVisitTracker';
 
 type Workspace = {
   id: string;
@@ -194,6 +195,12 @@ export default function WorkspaceHome() {
 
     loadWorkspaceData();
   }, [authLoading, user, workspaceId, slug]);
+
+  // Track workspace visits for /home page
+  useWorkspaceVisitTracker({
+    workspaceId: workspace?.id,
+    workspaceName: workspace?.name,
+  });
 
   /**
    * Resolve workspace ID from slug if slug is provided

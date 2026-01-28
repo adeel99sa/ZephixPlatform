@@ -4,6 +4,7 @@ import { getWorkspace, getWorkspaceSummary, updateWorkspace, Workspace, Workspac
 import { useAuth } from "@/state/AuthContext";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import { toast } from "sonner";
+import { useWorkspaceVisitTracker } from "@/hooks/useWorkspaceVisitTracker";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
@@ -24,6 +25,12 @@ export default function WorkspaceHomePage() {
     setActiveWorkspaceId(workspaceId);
     loadData();
   }, [workspaceId, setActiveWorkspaceId]);
+
+  // Track workspace visits for /home page
+  useWorkspaceVisitTracker({
+    workspaceId: ws?.id,
+    workspaceName: ws?.name,
+  });
 
   const loadData = async () => {
     setLoading(true);
