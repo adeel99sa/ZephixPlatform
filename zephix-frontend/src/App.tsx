@@ -21,7 +21,7 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import HomeRouterPage from "@/pages/home/HomeRouterPage";
+import GlobalHomePage from "@/pages/home/GlobalHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
 import { DashboardsIndex } from "@/views/dashboards/Index";
@@ -108,7 +108,7 @@ export default function App() {
                 <DashboardLayout />
               </ErrorBoundary>
             }>
-              <Route path="/home" element={<HomeRouterPage />} />
+              <Route path="/home" element={<GlobalHomePage />} />
               <Route path="/select-workspace" element={<SelectWorkspacePage />} />
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/dashboards" element={<DashboardsIndex />} />

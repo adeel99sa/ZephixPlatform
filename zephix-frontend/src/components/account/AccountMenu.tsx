@@ -53,7 +53,11 @@ export function AccountMenu() {
         <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
           {(user?.firstName?.[0] ?? user?.email?.[0] ?? "U").toUpperCase()}
         </div>
-        <span className="text-sm font-medium">{user?.name || user?.email || 'User'}</span>
+        <span className="text-sm font-medium">
+          {user?.firstName && user?.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user?.firstName || user?.email || 'User'}
+        </span>
         <svg width="12" height="12" viewBox="0 0 20 20">
           <path d="M5 7l5 5 5-5" stroke="currentColor" fill="none"/>
         </svg>
