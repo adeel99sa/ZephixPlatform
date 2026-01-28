@@ -25,28 +25,8 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        // Ensure cookies are forwarded correctly
-        cookieDomainRewrite: '',
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            // Forward cookies from browser to backend
-            if (req.headers.cookie) {
-              proxyReq.setHeader('Cookie', req.headers.cookie);
-            }
-          });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            // Forward Set-Cookie headers from backend to browser
-            const setCookieHeaders = proxyRes.headers['set-cookie'];
-            if (setCookieHeaders) {
-              // Ensure cookies work with proxy by removing domain restrictions
-              const modifiedCookies = setCookieHeaders.map((cookie: string) => {
-                // Remove domain=... if present (cookies should work for current origin)
-                return cookie.replace(/;\s*domain=[^;]+/gi, '');
-              });
-              res.setHeader('Set-Cookie', modifiedCookies);
-            }
-          });
-        },
+        ws: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },
