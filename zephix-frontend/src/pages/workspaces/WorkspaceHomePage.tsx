@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getWorkspace, getWorkspaceSummary, updateWorkspace, Workspace, WorkspaceSummary } from "@/features/workspaces/api";
-import { useAuth } from "@/state/AuthContext";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import { toast } from "sonner";
 import { useWorkspaceVisitTracker } from "@/hooks/useWorkspaceVisitTracker";
+import { useWorkspaceStore } from "@/state/workspace.store";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
-  const { setActiveWorkspaceId, activeWorkspaceId } = useAuth();
+  const { setActiveWorkspaceId } = useWorkspaceStore();
   const navigate = useNavigate();
   const { role, canWrite } = useWorkspaceRole(workspaceId);
   const [ws, setWs] = useState<Workspace | null>(null);
@@ -27,10 +27,11 @@ export default function WorkspaceHomePage() {
   }, [workspaceId, setActiveWorkspaceId]);
 
   // Track workspace visits for /home page
-  useWorkspaceVisitTracker({
-    workspaceId: ws?.id,
-    workspaceName: ws?.name,
-  });
+  useWorkspaceVisitTracker(
+    ws && ws.slug
+      ? { id: ws.id, slug: ws.slug, name: ws.name }
+      : null
+  );
 
   const loadData = async () => {
     setLoading(true);

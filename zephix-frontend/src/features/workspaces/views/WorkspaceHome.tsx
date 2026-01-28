@@ -197,10 +197,13 @@ export default function WorkspaceHome() {
   }, [authLoading, user, workspaceId, slug]);
 
   // Track workspace visits for /home page
-  useWorkspaceVisitTracker({
-    workspaceId: workspace?.id,
-    workspaceName: workspace?.name,
-  });
+  useWorkspaceVisitTracker(
+    workspaceHomeData?.workspace
+      ? { id: workspaceHomeData.workspace.id, slug: workspaceHomeData.workspace.slug, name: workspaceHomeData.workspace.name }
+      : workspace && slug
+        ? { id: workspace.id, slug, name: workspace.name }
+        : null
+  );
 
   /**
    * Resolve workspace ID from slug if slug is provided
