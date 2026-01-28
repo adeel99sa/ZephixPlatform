@@ -1,99 +1,103 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 
+type PlatformRole = "ADMIN" | "MEMBER" | "VIEWER" | "GUEST";
+
 type AuthUser = {
   id: string;
   email: string;
-  role?: string;
-  platformRole?: "ADMIN" | "MEMBER" | "VIEWER";
-  firstName?: string;
-  lastName?: string;
-  organizationId?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  platformRole?: PlatformRole;
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string, opts?: { returnUrl?: string }) => Promise<void>;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  hydrate: () => Promise<AuthUser | null>;
+  refreshMe: () => Promise<AuthUser | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function isInternalReturnUrl(u?: string) {
-  if (!u) return false;
-  if (!u.startsWith("/")) return false;
-  if (u.startsWith("//")) return false;
-  return true;
+let inFlightMe: Promise<AuthUser | null> | null = null;
+
+async function fetchMeSingleFlight(): Promise<AuthUser | null> {
+  if (inFlightMe) return inFlightMe;
+
+  inFlightMe = (async () => {
+    try {
+      const res = await api.get<any>("/auth/me");
+      const user = (res?.user || res) as AuthUser | null;
+      return user || null;
+    } catch {
+      return null;
+    } finally {
+      inFlightMe = null;
+    }
+  })();
+
+  return inFlightMe;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hydratedRef = useRef(false);
 
-  const inflight = useRef<Promise<AuthUser | null> | null>(null);
-  const hydratedOnce = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
 
-  async function hydrate(): Promise<AuthUser | null> {
-    if (inflight.current) return inflight.current;
-
-    inflight.current = (async () => {
-      try {
-        const me = await api.get("/auth/me");
-        const u = (me as any)?.user ?? me;
-        setUser(u ?? null);
-        return u ?? null;
-      } catch (e: any) {
-        setUser(null);
-        return null;
-      } finally {
-        inflight.current = null;
-        setIsLoading(false);
-      }
+    (async () => {
+      setIsLoading(true);
+      const me = await fetchMeSingleFlight();
+      setUser(me);
+      setIsLoading(false);
     })();
+  }, []);
 
-    return inflight.current;
+  async function refreshMe() {
+    const me = await fetchMeSingleFlight();
+    setUser(me);
+    return me;
   }
 
-  async function login(email: string, password: string, opts?: { returnUrl?: string }) {
+  async function login(email: string, password: string) {
     setIsLoading(true);
-    await api.post("/auth/login", { email, password });
-    const u = await hydrate();
-
-    const url = opts?.returnUrl;
-    if (u && isInternalReturnUrl(url)) {
-      window.location.assign(url!);
-      return;
+    try {
+      await api.post("/auth/login", { email, password });
+      const me = await fetchMeSingleFlight();
+      setUser(me);
+      if (!me) throw new Error("Login succeeded but session not established");
+    } finally {
+      setIsLoading(false);
     }
-
-    if (u) {
-      window.location.assign("/home");
-      return;
-    }
-
-    window.location.assign("/login?reason=not_authenticated");
   }
 
   async function logout() {
     setIsLoading(true);
     try {
       await api.post("/auth/logout");
-    } catch (e) {
+    } catch {
     } finally {
       setUser(null);
       setIsLoading(false);
-      window.location.assign("/login");
     }
   }
 
-  useEffect(() => {
-    if (hydratedOnce.current) return;
-    hydratedOnce.current = true;
-    hydrate();
-  }, []);
-
-  const value = useMemo(() => ({ user, isLoading, login, logout, hydrate }), [user, isLoading]);
+  const value = useMemo<AuthContextValue>(() => {
+    return {
+      user,
+      isLoading,
+      isAuthenticated: Boolean(user),
+      login,
+      logout,
+      refreshMe,
+    };
+  }, [user, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
