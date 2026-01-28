@@ -1,14 +1,14 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { visualizer } from 'rollup-plugin-visualizer'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig({
   plugins: [
     react(),
     visualizer({
-      filename: 'reports/frontend/bundle-stats.html',
-      template: 'treemap',
+      filename: "reports/frontend/bundle-stats.html",
+      template: "treemap",
       gzipSize: true,
       brotliSize: true,
       open: false,
@@ -16,17 +16,38 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
+      "/api": {
+        target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
-        ws: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        ws: true,
+        rewrite: (path) => path,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            const cookie = req.headers.cookie;
+            if (cookie) proxyReq.setHeader("cookie", cookie);
+          });
+
+          proxy.on("proxyRes", (proxyRes) => {
+            const setCookie = proxyRes.headers["set-cookie"];
+            if (!setCookie) return;
+
+            const normalized = Array.isArray(setCookie) ? setCookie : [setCookie];
+            proxyRes.headers["set-cookie"] = normalized.map((c) => {
+              return String(c)
+                .replace(/;\s*domain=[^;]+/i, "")
+                .replace(/;\s*secure/gi, "")
+                .replace(/;\s*samesite=none/gi, "; SameSite=Lax");
+            });
+          });
+        },
       },
     },
   },
