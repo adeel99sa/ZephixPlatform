@@ -1,39 +1,39 @@
 import axios from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
-const BASE_URL = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "https://zephix-backend-production.up.railway.app/api")
+const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
+
+const baseURL = import.meta.env.PROD
+  ? (String(import.meta.env.VITE_API_URL || PROD_DEFAULT).replace(/\/+$/, ""))
   : "/api";
 
-function isAuthPath(url: string) {
-  const u = url || "";
-  return u.startsWith("/auth/") || u.includes("/auth/");
-}
-
-function isHealthPath(url: string) {
-  const u = url || "";
-  return u.startsWith("/health") || u.includes("/health") || u.startsWith("/version") || u.includes("/version");
-}
-
 export const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL,
   withCredentials: true,
 });
 
+function isAuthUrl(url: string) {
+  return url.includes("/auth/");
+}
+
+function isHealthUrl(url: string) {
+  return url.includes("/health") || url.includes("/version");
+}
+
 api.interceptors.request.use((cfg) => {
+  const url = String(cfg.url || "");
+  const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+
   if (!cfg.headers) cfg.headers = {} as any;
 
-  const url = cfg.url || "";
-  const skipWorkspaceHeader = isAuthPath(url) || isHealthPath(url);
-
-  if (!skipWorkspaceHeader) {
+  if (!skipWorkspace) {
     const wsId = useWorkspaceStore.getState().activeWorkspaceId;
-    if (!wsId) {
-      delete (cfg.headers as any)["X-Workspace-Id"];
-      delete (cfg.headers as any)["x-workspace-id"];
-    } else {
+    if (wsId) {
       (cfg.headers as any)["X-Workspace-Id"] = wsId;
       (cfg.headers as any)["x-workspace-id"] = wsId;
+    } else {
+      delete (cfg.headers as any)["X-Workspace-Id"];
+      delete (cfg.headers as any)["x-workspace-id"];
     }
   }
 
@@ -42,21 +42,11 @@ api.interceptors.request.use((cfg) => {
 
 api.interceptors.response.use(
   (res) => {
-    if (res?.data && typeof res.data === "object" && "data" in res.data) {
-      return (res.data as any).data;
-    }
-    return res.data ?? res;
+    const data = res?.data;
+    if (data && typeof data === "object" && "data" in data) return (data as any).data;
+    return data;
   },
   (err) => {
-    if (err.response?.status === 401) {
-      const p = window.location.pathname;
-      const onAuthPage = p.startsWith("/login") || p.startsWith("/signup") || p.startsWith("/verify-email");
-      const onAdmin = p.startsWith("/admin");
-      if (!onAuthPage && !onAdmin) {
-        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `/login?reason=session_expired&returnUrl=${returnUrl}`;
-      }
-    }
     throw err;
   }
 );
