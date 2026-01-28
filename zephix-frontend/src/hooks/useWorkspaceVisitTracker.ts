@@ -1,41 +1,52 @@
 import { useEffect } from "react";
-import { useLocation, useParams } from "react-router-dom";
+
+type Ref = { id: string; slug: string; name: string; ts: number };
 
 const LAST_KEY = "zephix_last_workspace_v1";
 const RECENT_KEY = "zephix_recent_workspaces_v1";
+const RECENT_MAX = 6;
 
-function safeRead<T>(key: string): T | null {
+function readList(): Ref[] {
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Ref[];
   } catch {
-    return null;
+    return [];
   }
 }
 
-function safeWrite(key: string, value: any) {
+function writeList(list: Ref[]) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
   } catch {
   }
 }
 
-export function useWorkspaceVisitTracker(opts?: { workspaceId?: string; workspaceName?: string }) {
-  const loc = useLocation();
-  const params = useParams();
+function writeLast(ref: Ref) {
+  try {
+    localStorage.setItem(LAST_KEY, JSON.stringify(ref));
+  } catch {
+  }
+}
 
+export function useWorkspaceVisitTracker(workspace: { id: string; slug: string; name: string } | null) {
   useEffect(() => {
-    const slug = (params as any).slug as string | undefined;
-    const id = opts?.workspaceId;
-    if (!id) return;
+    if (!workspace) return;
 
-    if (!loc.pathname.startsWith("/w/") && !loc.pathname.startsWith("/workspaces/")) return;
+    const ref: Ref = {
+      id: workspace.id,
+      slug: workspace.slug,
+      name: workspace.name,
+      ts: Date.now(),
+    };
 
-    const ref = { id, slug, name: opts?.workspaceName, ts: Date.now() };
-    safeWrite(LAST_KEY, ref);
+    writeLast(ref);
 
-    const recent = safeRead<any[]>(RECENT_KEY) || [];
-    const next = [ref, ...recent.filter((r) => r?.id !== id)].slice(0, 8);
-    safeWrite(RECENT_KEY, next);
-  }, [loc.pathname, opts?.workspaceId, (params as any).slug]);
+    const list = readList();
+    const dedup = [ref, ...list.filter((x) => x.id !== ref.id)];
+    writeList(dedup.slice(0, RECENT_MAX));
+  }, [workspace?.id, workspace?.slug, workspace?.name]);
 }
