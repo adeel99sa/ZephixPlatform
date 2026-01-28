@@ -1,28 +1,25 @@
+import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 
 export default function ProtectedRoute() {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
   const loc = useLocation();
 
-  // Log route protection checks
-  console.log('[ProtectedRoute] Checking access:', {
-    path: loc.pathname,
-    loading,
-    hasUser: !!user,
-    userEmail: user?.email,
-  });
-
-  if (loading) {
-    console.log('[ProtectedRoute] Still loading...');
-    return <div data-testid="auth-loading">Loading...</div>;
+  if (isLoading) {
+    return (
+      <div style={{ padding: 24 }}>
+        <div style={{ height: 12, width: 220, background: "#eee", borderRadius: 8, marginBottom: 12 }} />
+        <div style={{ height: 12, width: 320, background: "#eee", borderRadius: 8, marginBottom: 12 }} />
+        <div style={{ height: 12, width: 280, background: "#eee", borderRadius: 8 }} />
+      </div>
+    );
   }
 
   if (!user) {
-    console.error('[ProtectedRoute] ❌ No user, redirecting to login');
-    return <Navigate to="/login" replace state={{ from: loc }} />;
+    const returnUrl = encodeURIComponent(loc.pathname + loc.search);
+    return <Navigate to={`/login?reason=session_expired&returnUrl=${returnUrl}`} replace />;
   }
 
-  console.log('[ProtectedRoute] ✅ User authenticated, allowing access');
   return <Outlet />;
 }
