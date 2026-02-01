@@ -6,64 +6,58 @@ Do these checks **in this exact order**.
 
 ## 1. Railway service Root Directory
 
-- **Backend service Root Directory must be `zephix-backend`.**
-- If it is **repo root**, `db:migrate` and `start:railway` resolve to the wrong `package.json` and Railway prints **Missing script: db:migrate**.
-- **If it is repo root:** switch `railway.toml` to **Variant B** and set Pre-deploy to:
-  ```text
-  cd zephix-backend && npm run db:migrate
-  ```
-- **Variant B** in `railway.toml`: use `cd zephix-backend &&` in `buildCommand`, `startCommand`, and `postBuildCommand` (see comments at top of `railway.toml`).
+- **Backend service Root Directory must be `zephix-backend`.** Set it in Railway → zephix-backend → Settings → Source → Root Directory.
+- **Never use `cd zephix-backend` in any command** (not in `railway.toml`, not in Railway UI overrides). The container already starts in that directory; `cd zephix-backend` fails with “No such file or directory”.
 
 ---
 
-## 2. Railway Deploy settings
+## 2. Commands come from the repo (`railway.toml`)
 
-Set these in **Railway UI** for the **backend** service (Settings → Deploy / Build):
+All of these are defined in **`zephix-backend/railway.toml`**. Railway reads that file on deploy. You cannot edit that file inside Railway; you edit it in the repo and push.
 
-| Setting | Value |
-|--------|--------|
-| **Pre-deploy Command** | `npm run db:migrate` |
-| **Start Command** | `npm run start:railway` |
-| **Healthcheck Path** | **`/api/health/ready`** (not `/api/health`). After deploy, confirm the UI shows `/api/health/ready`. If it shows `/api/health`, change it manually in Railway UI. |
-| **Replicas** | **1** for the next deploy until you get one clean deploy with migrations and readiness green. Then raise to **2**. |
-
-(If Root Directory is repo root, Pre-deploy = `cd zephix-backend && npm run db:migrate`.)
+- **Build:** `npm run build` only (Nixpacks runs `npm ci` once in the install phase; do not add `npm ci` to the build command or you get EBUSY).
+- **Pre-deploy:** `npm run db:migrate`
+- **Start:** `npm run start:railway`
+- **Healthcheck Path:** `/api/health/ready`
 
 ---
 
-## 3. Health paths must use the global prefix
+## 3. Railway UI — do not override with wrong values
 
-The app uses **global prefix `api`**. All health probes must use:
+In Railway → zephix-backend → **Settings** (Build / Deploy):
 
-- **Liveness:** `/api/health/live`
-- **Readiness:** `/api/health/ready`
+- If the UI shows “The value is set in **zephix-backend/railway.toml**”, the repo is the source; that is correct.
+- **Do not set** Custom Build Command, Pre-deploy Command, Custom Start Command, or Healthcheck Path to anything that includes `cd zephix-backend`.
+- If Healthcheck Path is shown as `/api/health`, change it in the UI to **`/api/health/ready`** (or clear the override so the file value is used).
 
-If Railway is set to `/health/live` or `/health/ready` (without `/api`), it will **404** and restart the container. Set **Healthcheck Path** to **`/api/health/ready`** only.
+See **RAILWAY_BACKEND_SINGLE_SOURCE.md** for the full table and why overrides cause the “cd zephix-backend” failure.
 
 ---
 
-## 4. Redeploy and read logs in this order
+## 4. Health path uses global prefix
 
-After redeploy, you want to see these lines **in order**, with no crash between them:
+The app uses global prefix `api`. Healthcheck must be **`/api/health/ready`**, not `/health/ready` or `/api/health`.
+
+---
+
+## 5. Redeploy and read logs
+
+After redeploy, you want to see these lines **in order**:
 
 1. **BOOT_START**
 2. **BOOT_AFTER_NEST_CREATE**
 3. **schema_verify_ok**
 4. **pending_migrations=0**
 5. **BOOT_BEFORE_LISTEN**
+6. Healthcheck passes on `/api/health/ready`
 
-If the container stops again, paste the lines from **BOOT_START** through the **first error line** after it. That block is enough to produce the next patch.
+If the container stops again, capture **Deploy logs from BOOT_START to the first error line** and share that (e.g. one screenshot).
 
 ---
 
-## 5. If you see "Missing script: db:migrate" — send these 2 screenshots
+## 6. If you see “Missing script: db:migrate”
 
-Do **not** change package.json or Pre-deploy command until the architect has seen:
+Confirm Root Directory is `zephix-backend` (so Railway uses `zephix-backend/package.json`). Then send:
 
-1. **zephix-backend/package.json, scripts section visible**  
-   Must show: `db:migrate`, `start:railway`, `start:prod`, `build`, `build:migrations`.
-
-2. **Railway deployment log around pre-deploy**  
-   The lines right before and after “Running Pre-deploy Command” (or equivalent), including the exact working directory if Railway prints it.
-
-Then you will get one exact fix: either patch package.json, or Pre-deploy = `cd zephix-backend && npm run db:migrate`, or set Healthcheck/Pre-deploy in UI only if config-as-code is ignored.
+1. **zephix-backend/package.json** — scripts section showing `db:migrate`, `start:railway`, `build`.
+2. **Railway deployment log** around “Running Pre-deploy Command” and the working directory Railway prints.

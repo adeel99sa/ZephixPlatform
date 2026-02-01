@@ -1,6 +1,33 @@
 name: ci
 on: [push, pull_request]
 jobs:
+  # Non-Docker C1 gates: build, lint, unit tests, placeholder check. No Postgres required.
+  c1-gates:
+    name: C1 Gates (no Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Backend build
+        working-directory: zephix-backend
+        run: npm ci && npm run build
+      - name: Backend lint (changed files)
+        working-directory: zephix-backend
+        run: npm run lint:changed
+      - name: Backend unit tests
+        working-directory: zephix-backend
+        run: npm run test:unit
+      - name: Frontend build
+        working-directory: zephix-frontend
+        run: npm ci && npm run build
+      - name: Frontend lint (new code)
+        working-directory: zephix-frontend
+        run: npm run lint:new
+      - name: Frontend check no route placeholders
+        working-directory: zephix-frontend
+        run: npm run check:no-route-placeholders
+
   contract-gate:
     name: Contract Tests Gate
     runs-on: ubuntu-latest
@@ -326,6 +353,101 @@ jobs:
           npm test -- integrations.controller.spec.ts || exit 1
           npm test -- external-user-mappings.controller.spec.ts || exit 1
           echo "✅ All contract tests passed!"
+
+  # Job A: Fresh DB dev convenience — AUTO_MIGRATE=true, app runs migrations on init, demo bootstrap, login smoke
+  auth-dev-path:
+    name: Auth dev path (AUTO_MIGRATE)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Build backend
+        working-directory: zephix-backend
+        run: npm ci && npm run build
+      - name: Start app (AUTO_MIGRATE=true) + demo bootstrap + smoke
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          NODE_ENV: development
+          AUTO_MIGRATE: "true"
+          JWT_SECRET: test-jwt-secret-min-32-chars-long
+          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
+          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+        run: |
+          (npm run start:prod &)
+          sleep 15
+          node dist/src/scripts/demo/bootstrap.js || true
+          BASE_URL=http://localhost:3000 bash scripts/smoke-auth-health.sh
+
+  # Job B: Production deploy contract — db:migrate, start with AUTO_MIGRATE=false, db:verify, login smoke
+  auth-prod-path:
+    name: Auth prod path (no AUTO_MIGRATE)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - name: Build backend
+        working-directory: zephix-backend
+        run: npm ci && npm run build
+      - name: Run db:migrate
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+        run: node dist/src/scripts/db/migrate.js
+      - name: Demo bootstrap (non-prod)
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          NODE_ENV: development
+        run: node dist/src/scripts/demo/bootstrap.js
+      - name: Run db:verify
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+        run: node dist/src/scripts/db/verify.js
+      - name: Start app (AUTO_MIGRATE=false) + smoke
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
+          NODE_ENV: production
+          AUTO_MIGRATE: "false"
+          JWT_SECRET: test-jwt-secret-min-32-chars-long
+          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
+          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+        run: |
+          (npm run start:prod &)
+          sleep 15
+          BASE_URL=http://localhost:3000 bash scripts/smoke-auth-health.sh
 
   verify:
     runs-on: ubuntu-latest

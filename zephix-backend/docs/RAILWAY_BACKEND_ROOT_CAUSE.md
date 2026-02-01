@@ -45,14 +45,14 @@ Pre-deploy runs where the root `package.json` is used → **Missing script: "db:
 
 Pre-deploy must run **inside the backend directory** so it uses `zephix-backend/package.json`.
 
-**Option A — In Railway UI (Settings → Deploy)**  
+**Option A — In Railway UI (Settings → Deploy)**
 Set **Pre-deploy Command** to:
 
 ```bash
 cd zephix-backend && npm run db:migrate
 ```
 
-**Option B — In `zephix-backend/railway.toml`**  
+**Option B — In `zephix-backend/railway.toml`**
 Set:
 
 ```toml
