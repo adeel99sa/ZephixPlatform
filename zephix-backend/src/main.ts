@@ -30,13 +30,51 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { DatabaseVerifyService } from './modules/database/database-verify.service';
 import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import helmet from 'helmet';
 const cookieParser = require('cookie-parser');
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
+import type { Request, Response, NextFunction } from 'express';
+
+/** Rewrite /api/v1/* to /api/* so existing controllers serve v1 without path changes. */
+function v1RewriteMiddleware(req: Request, _res: Response, next: NextFunction) {
+  const path = req.path || req.url?.split('?')[0] || '';
+  if (path.startsWith('/api/v1/')) {
+    const q = req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    req.url = '/api' + path.slice(7) + q;
+  }
+  next();
+}
+
+/** Set deprecation headers on legacy /api/* (not /api/v1/*) responses. */
+function legacyDeprecationHeaders(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const p = req.path || req.url?.split('?')[0] || '';
+  const isLegacyApi = p.startsWith('/api/') && !p.startsWith('/api/v1/');
+  if (isLegacyApi) {
+    const sunset = new Date(
+      Date.now() + 90 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Sunset', sunset);
+    res.setHeader('Link', '</api/v1/>; rel="successor-version"');
+  }
+  next();
+}
 
 async function bootstrap() {
+  console.log('BOOT_START', new Date().toISOString());
+  console.log('BOOT_ENV', {
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT,
+    AUTO_MIGRATE: process.env.AUTO_MIGRATE,
+    DATABASE_URL_SET: Boolean(process.env.DATABASE_URL),
+  });
   // Skip env validation in test mode (tests use Test.createTestingModule, not bootstrap)
   if (process.env.NODE_ENV === 'test') {
     // Tests don't call bootstrap, but guardrail in case they do
@@ -44,12 +82,21 @@ async function bootstrap() {
   }
 
   // Validate required environment variables at startup
-  const requiredEnvVars = {
+  const requiredEnvVars: Record<
+    string,
+    { value: string | undefined; minLength?: number; description: string }
+  > = {
     INTEGRATION_ENCRYPTION_KEY: {
       value: process.env.INTEGRATION_ENCRYPTION_KEY,
       minLength: 32,
       description:
         'Encryption key for integration secrets (AES-256 requires 32+ chars)',
+    },
+    REFRESH_TOKEN_PEPPER: {
+      value: process.env.REFRESH_TOKEN_PEPPER,
+      minLength: 32,
+      description:
+        'Pepper for refresh token hashing (min 32 chars); fail fast if missing or too short',
     },
   };
 
@@ -78,10 +125,26 @@ async function bootstrap() {
   }
 
   console.log('🚀 Creating NestJS application...');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log'] });
+  console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
 
+  const env = process.env.NODE_ENV || 'development';
+  if (env === 'production' || env === 'staging') {
+    process.env.AUTO_MIGRATE = 'false';
+  }
+
+  if (process.env.SKIP_DATABASE !== 'true') {
+    const verifier = app.get(DatabaseVerifyService);
+    await verifier.verifyOnBoot();
+  }
+
+  // Health and all routes live under /api (e.g. /api/health/live, /api/health/ready). Smoke uses these paths.
   console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
+
+  // Enterprise Foundation: /api/v1/* alias and legacy deprecation headers
+  app.use(legacyDeprecationHeaders);
+  app.use(v1RewriteMiddleware);
 
   console.log('🛡️ Configuring security middleware...');
   app.use(
@@ -156,13 +219,13 @@ async function bootstrap() {
   const interceptors = [new EnvelopeInterceptor()];
 
   // Conditionally add request context logger
-  const requestLoggerEnabled = isTrue(process.env.REQUEST_CONTEXT_LOGGER_ENABLED);
+  const requestLoggerEnabled = isTrue(
+    process.env.REQUEST_CONTEXT_LOGGER_ENABLED,
+  );
   console.log(
     `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
   );
-  console.log(
-    `REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`,
-  );
+  console.log(`REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`);
   if (requestLoggerEnabled) {
     interceptors.unshift(new RequestContextLoggerInterceptor());
     console.log('✅ RequestContextLoggerInterceptor enabled');
@@ -195,7 +258,8 @@ async function bootstrap() {
     }
   }
 
-  const port = process.env.PORT || 3000;
+  const port = Number(process.env.PORT) || 3000;
+  console.log('BOOT_BEFORE_LISTEN', { port });
   console.log('🚀 Starting server on port:', port);
   await app.listen(port, '0.0.0.0'); // Bind to all interfaces for Railway
 
@@ -206,7 +270,11 @@ async function bootstrap() {
   // Only log in development to avoid Railway log rate limits
   if (process.env.NODE_ENV !== 'production') {
     const httpServer = app.getHttpServer();
-    if (httpServer && typeof httpServer._router !== 'undefined' && httpServer._router?.stack) {
+    if (
+      httpServer &&
+      typeof httpServer._router !== 'undefined' &&
+      httpServer._router?.stack
+    ) {
       const routes = httpServer._router.stack.filter((layer) => layer.route);
       console.log(
         `🎯 Router verification: ${routes.length} routes registered in Express stack`,
