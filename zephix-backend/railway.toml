@@ -1,11 +1,10 @@
-# ROOT CAUSE: Pre-deploy runs from REPO ROOT, not from zephix-backend.
-# So "npm run db:migrate" fails (root package.json has no db:migrate).
-# Fix: preDeployCommand must cd into zephix-backend first.
-#
+# Pre-deploy runs from REPO ROOT: preDeployCommand = cd zephix-backend && npm run db:migrate.
+# Install runs ONCE in Nixpacks install phase (npm ci). Do NOT run npm ci in buildCommand
+# or it runs twice and conflicts with mounted /app/node_modules/.cache (EBUSY, exit 240).
 # Healthcheck Path must be /api/health/ready (global prefix is api).
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci --legacy-peer-deps && npm run build"
+buildCommand = "npm run build"
 postBuildCommand = "test -f dist/src/main.js || (echo 'dist/src/main.js missing' && exit 1)"
 
 [deploy]
