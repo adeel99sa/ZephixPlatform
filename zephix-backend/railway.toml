@@ -1,13 +1,6 @@
-# ROOT DIRECTORY: Backend service Root Directory MUST be zephix-backend (Variant A).
-# If Root Directory is repo root: use Variant B below and Pre-deploy = "cd zephix-backend && npm run db:migrate".
-#
-# Variant A (Root Directory = zephix-backend):
-#   Pre-deploy: npm run db:migrate
-# Variant B (repo root): replace build/start/postBuild with:
-#   buildCommand = "cd zephix-backend && npm ci --legacy-peer-deps && npm run build"
-#   startCommand = "cd zephix-backend && npm run start:railway"
-#   postBuildCommand = "cd zephix-backend && test -f dist/src/main.js || (echo 'dist/src/main.js missing' && exit 1)"
-#   Pre-deploy: cd zephix-backend && npm run db:migrate
+# ROOT CAUSE: Pre-deploy runs from REPO ROOT, not from zephix-backend.
+# So "npm run db:migrate" fails (root package.json has no db:migrate).
+# Fix: preDeployCommand must cd into zephix-backend first.
 #
 # Healthcheck Path must be /api/health/ready (global prefix is api).
 [build]
@@ -16,6 +9,7 @@ buildCommand = "npm ci --legacy-peer-deps && npm run build"
 postBuildCommand = "test -f dist/src/main.js || (echo 'dist/src/main.js missing' && exit 1)"
 
 [deploy]
+preDeployCommand = "cd zephix-backend && npm run db:migrate"
 startCommand = "npm run start:railway"
 healthcheckPath = "/api/health/ready"
 healthcheckTimeout = 10
