@@ -1,5 +1,17 @@
+# Pattern A: Run backend from repo root. Root Directory in Railway must be empty or ".".
+# Railway wraps commands with cd <Root Directory>; when Root is empty, /app has the full repo
+# so we explicitly cd zephix-backend here and the image has /app/zephix-backend.
+
 [build]
 builder = "nixpacks"
+buildCommand = "cd zephix-backend && npm run build"
+
+[deploy]
+startCommand = "cd zephix-backend && npm run start:railway"
+healthcheckPath = "/api/health/ready"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
 
 [env]
 NODE_ENV = "production"
