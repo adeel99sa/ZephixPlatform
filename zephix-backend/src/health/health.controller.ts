@@ -12,6 +12,7 @@ import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
 import { resolveCommitSha } from '../common/utils/commit-sha.resolver';
+import { DatabaseVerifyService } from '../modules/database/database-verify.service';
 
 // Define the health check interface
 interface HealthCheck {
@@ -22,6 +23,7 @@ interface HealthCheck {
   error?: string;
 }
 
+// Global prefix is 'api'. Railway must use /api/health/live and /api/health/ready (not /health/*).
 @ApiTags('Health')
 @Controller()
 export class HealthController {
@@ -31,32 +33,26 @@ export class HealthController {
     @Optional()
     @InjectDataSource()
     private dataSource?: DataSource,
+    @Optional()
+    private verifier?: DatabaseVerifyService,
   ) {}
 
   @Get(['health', 'api/health'])
-  @ApiOperation({ summary: 'Health check endpoint' })
-  @ApiResponse({ status: 200, description: 'Service is healthy' })
+  @ApiOperation({ summary: 'Health check - same as readiness; do not use generic 200' })
+  @ApiResponse({ status: 200, description: 'Service is healthy (DB + schema OK)' })
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
   async check(@Res() res: Response) {
-    const startTime = Date.now();
-    
-    // Fast health check for Railway - return immediately if app is running
-    // Full health checks are available at /api/health/detailed
-    const response = {
-      status: 'healthy',
+    // Do not return generic 200. Delegate to readiness so /api/health reflects real state.
+    const checks = await this.performHealthChecks();
+    const criticalChecks = checks.filter((check) => check.critical);
+    const isHealthy = criticalChecks.every((check) => check.status === 'healthy');
+    const statusCode = isHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+    return res.status(statusCode).json({
+      status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      version: process.env.npm_package_version || '0.0.1',
-      message: 'Service is running',
-    };
-
-    const responseTime = Date.now() - startTime;
-    this.logger.log(
-      `Health check completed in ${responseTime}ms - Status: ${response.status}`,
-    );
-
-    return res.status(HttpStatus.OK).json(response);
+      checks: criticalChecks,
+    });
   }
 
   @Get(['health/detailed', 'api/health/detailed'])
@@ -153,15 +149,72 @@ export class HealthController {
     };
   }
 
-  @Get(['live', 'api/health/live'])
-  @ApiOperation({ summary: 'Liveness probe endpoint' })
+  @Get(['live', 'api/health/live', 'health/live'])
+  @ApiOperation({ summary: 'Liveness probe - no DB' })
   @ApiResponse({ status: 200, description: 'Service is alive' })
-  async liveness(@Res() res: Response) {
+  live() {
+    return { status: 'ok', ts: new Date().toISOString() };
+  }
+
+  @Get(['ready', 'api/health/ready', 'health/ready'])
+  @ApiOperation({ summary: 'Readiness - DB and schema verify' })
+  @ApiResponse({ status: 200, description: 'Ready to receive traffic' })
+  @ApiResponse({ status: 503, description: 'Not ready - DB or schema verify failed' })
+  async ready(@Res() res: Response) {
+    // Never return 200 when DB or schema verify fails; load balancers treat 200 as healthy.
+    const db = await this.checkDb();
+    if (db.status !== 'ok') {
+      return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        status: 'error',
+        ts: new Date().toISOString(),
+        checks: { db },
+      });
+    }
+
+    const schema = await this.checkSchema();
+    if (schema.status !== 'ok') {
+      return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        status: 'error',
+        ts: new Date().toISOString(),
+        checks: { db, schema },
+      });
+    }
+
     return res.status(HttpStatus.OK).json({
-      status: 'alive',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+      status: 'ok',
+      ts: new Date().toISOString(),
+      checks: { db, schema },
     });
+  }
+
+  private async checkDb(): Promise<{ status: string; message?: string }> {
+    if (!this.dataSource) {
+      return { status: 'error', message: 'DataSource not configured' };
+    }
+    try {
+      await this.dataSource.query('SELECT 1');
+      return { status: 'ok' };
+    } catch (e: unknown) {
+      const err = e as Error;
+      return { status: 'error', message: err?.message || String(e) };
+    }
+  }
+
+  private async checkSchema(): Promise<{ status: string; message?: string; details?: unknown }> {
+    if (!this.verifier) {
+      return { status: 'error', message: 'DatabaseVerifyService not available' };
+    }
+    try {
+      const ttlMs = Number(process.env.HEALTH_SCHEMA_TTL_MS || 15000);
+      const r = await this.verifier.verify(ttlMs);
+      if (!r.ok) {
+        return { status: 'error', details: r };
+      }
+      return { status: 'ok' };
+    } catch (e: unknown) {
+      const err = e as Error;
+      return { status: 'error', message: err?.message || String(e) };
+    }
   }
 
   private async performHealthChecks(): Promise<HealthCheck[]> {
