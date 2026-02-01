@@ -7,8 +7,9 @@ builder = "nixpacks"
 buildCommand = "cd zephix-backend && npm run build"
 
 [deploy]
+preDeployCommand = "cd zephix-backend && npm run db:migrate"
 startCommand = "cd zephix-backend && npm run start:railway"
-healthcheckPath = "/api/health/ready"
+healthcheckPath = "/api/health/live"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
