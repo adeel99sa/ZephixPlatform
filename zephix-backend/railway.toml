@@ -1,17 +1,16 @@
+# Pre-deploy runs from REPO ROOT: preDeployCommand = cd zephix-backend && npm run db:migrate.
+# Install runs ONCE in Nixpacks install phase. Do NOT run npm ci in buildCommand (EBUSY on cache).
+# Healthcheck Path must be /api/health/ready (global prefix is api).
 [build]
 builder = "nixpacks"
-# CRITICAL: Build must fail fast on errors - no stale images
-# Railway will not deploy if buildCommand exits with non-zero
-# NOTE: npm ci runs in Nixpacks install phase - do NOT run it again here
 buildCommand = "npm run build"
-# Verify build succeeded before proceeding (does not touch node_modules)
-postBuildCommand = "test -f dist/main.js || (echo '❌ Build failed: dist/main.js not found' && exit 1)"
+postBuildCommand = "test -f dist/src/main.js || (echo 'dist/src/main.js missing' && exit 1)"
 
 [deploy]
+preDeployCommand = "cd zephix-backend && npm run db:migrate"
 startCommand = "npm run start:railway"
-# CRITICAL FIX: Health check path must match actual endpoint
-healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckPath = "/api/health/ready"
+healthcheckTimeout = 10
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
