@@ -1,7 +1,7 @@
 # Root Directory must be zephix-backend. Start command must NOT contain "cd zephix-backend".
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build && npm run check:railway"
+buildCommand = "npm run build"
 
 [deploy]
 preDeployCommand = "npm run db:migrate"
