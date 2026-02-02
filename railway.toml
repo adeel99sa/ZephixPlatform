@@ -1,5 +1,17 @@
+# Backend service: set Root Directory to zephix-backend in Railway Settings > Source.
+# Commands run inside that directory; do NOT use "cd zephix-backend" (container has no nested folder).
+
 [build]
 builder = "nixpacks"
+buildCommand = "npm run build && npm run check:railway"
+
+[deploy]
+preDeployCommand = "npm run db:migrate"
+startCommand = "npm run start:railway"
+healthcheckPath = "/api/health/ready"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
 
 [env]
 NODE_ENV = "production"
