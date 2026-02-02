@@ -1,8 +1,7 @@
-# Root Directory = zephix-backend (set in Railway UI). Never use "cd zephix-backend" in any command.
-# Install runs ONCE in Nixpacks install phase (npm ci). Do NOT add npm ci to buildCommand or it runs twice (EBUSY).
+# Root Directory must be zephix-backend. Start command must NOT contain "cd zephix-backend".
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build"
+buildCommand = "npm run build && npm run check:railway"
 
 [deploy]
 preDeployCommand = "npm run db:migrate"
@@ -12,6 +11,5 @@ healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-[deploy.envs]
+[env]
 NODE_ENV = "production"
-PORT = "3000"
