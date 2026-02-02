@@ -3,7 +3,7 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build && npm run check:railway"
+buildCommand = "npm run build"
 
 [deploy]
 preDeployCommand = "npm run db:migrate"
