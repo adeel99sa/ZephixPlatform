@@ -4,9 +4,6 @@
 .DS_Store
 temp-disabled/
 *.md
-/docs
-/docs/
-/docs/**
 coverage/
 .nyc_output/
 test/
