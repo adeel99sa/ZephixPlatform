@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
@@ -21,11 +22,9 @@ export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  // At runtime __dirname is dist/src/config, so ../../migrations = dist/migrations (build:migrations output).
-  migrations: [
-    __dirname + '/../../migrations/*.ts',
-    __dirname + '/../../migrations/*.js',
-  ],
+  // Single source of truth: dist/migrations (process.cwd() is /app in Railway).
+  migrations: [join(process.cwd(), 'dist/migrations/*.js')],
+  migrationsTableName: 'migrations',
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
   ssl:

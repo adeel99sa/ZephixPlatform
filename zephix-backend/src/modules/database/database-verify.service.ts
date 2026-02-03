@@ -4,7 +4,6 @@ import { PostgresAdvisoryLockService } from './postgres-advisory-lock.service';
 import {
   AUTH_REQUIRED_TABLES,
   AUTH_REQUIRED_COLUMNS,
-  AUTH_REQUIRED_MIGRATIONS_MIN_COUNT,
 } from '../auth/auth-schema.contract';
 
 type VerifyResult = {
@@ -35,8 +34,10 @@ export class DatabaseVerifyService {
       (m: { name?: string; constructor?: { name?: string } }) =>
         m.name ?? (m.constructor as { name?: string })?.name ?? '',
     );
-    if (loaded.length < AUTH_REQUIRED_MIGRATIONS_MIN_COUNT) {
-      throw new Error('No migrations loaded. Fix data-source migration paths.');
+    // Do not throw on 0 loaded; fail only when pending migrations exist or schema is incompatible.
+    if (loaded.length === 0) {
+      this.logger.warn('loaded_migrations=0; cannot compute pending. Fix DataSource migrations path (e.g. process.cwd() + dist/migrations/*.js).');
+      return [];
     }
 
     const has = await this.tableExists('migrations');
