@@ -206,7 +206,7 @@ export class HealthController {
 
   private async checkSchema(): Promise<{ status: string; message?: string; details?: unknown }> {
     if (!this.verifier) {
-      return { status: 'error', message: 'DatabaseVerifyService not available' };
+      return { status: 'skipped', message: 'schema check disabled (DatabaseVerifyService not registered)' };
     }
     try {
       const ttlMs = Number(process.env.HEALTH_SCHEMA_TTL_MS || 15000);

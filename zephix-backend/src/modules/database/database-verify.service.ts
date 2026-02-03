@@ -102,7 +102,15 @@ export class DatabaseVerifyService {
     const lockId = 193847561; // stable constant
     const timeoutMs = Number(process.env.MIGRATION_LOCK_TIMEOUT_MS || 60000);
 
-    this.logger.log(`loaded_migrations=${this.dataSource.migrations?.length ?? 0}`);
+    const migrations = this.dataSource.migrations || [];
+    const count = migrations.length;
+    const names = migrations.map(
+      (m: { name?: string; constructor?: { name?: string } }) =>
+        m.name ?? (m.constructor as { name?: string })?.name ?? '',
+    );
+    const first = names[0] ?? '(none)';
+    const last = names[names.length - 1] ?? '(none)';
+    this.logger.log(`migrations_loaded=${count} first=${first} last=${last}`);
 
     if (env === 'development' && auto) {
       await this.lock.withLock(lockId, async () => {
@@ -128,6 +136,5 @@ export class DatabaseVerifyService {
     }
 
     this.logger.log('schema_verify_ok');
-    this.logger.log(`loaded_migrations=${result.loadedMigrations} pending_migrations=0`);
   }
 }
