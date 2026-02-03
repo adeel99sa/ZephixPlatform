@@ -48,9 +48,9 @@ async function testAdminAccess() {
     // 2. Check UserOrganization record
     console.log('\n2. Checking UserOrganization record...');
     const userOrgs = await dataSource.query(
-      `SELECT "userId", "organizationId", role, "isActive"
+      `SELECT user_id, organization_id, role, "isActive"
        FROM user_organizations
-       WHERE "userId" = $1 AND "organizationId" = $2 AND "isActive" = true`,
+       WHERE user_id = $1 AND organization_id = $2 AND "isActive" = true`,
       [adminUser.id, adminUser.organization_id],
     );
 
@@ -65,8 +65,8 @@ async function testAdminAccess() {
 
     const userOrg = userOrgs[0];
     console.log('✅ UserOrganization record found:', {
-      userId: userOrg.userId,
-      organizationId: userOrg.organizationId,
+      userId: userOrg.user_id,
+      organizationId: userOrg.organization_id,
       role: userOrg.role,
       isActive: userOrg.isActive,
     });

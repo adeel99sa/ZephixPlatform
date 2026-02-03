@@ -116,7 +116,13 @@ export class DatabaseVerifyService {
     if (!result.ok) {
       this.logger.error(`schema_verify_failed env=${env}`);
       this.logger.error(JSON.stringify(result));
-      throw new Error('Schema verification failed');
+      // In production, do not exit: keep server running so /api/health/ready returns 503 with details.
+      const failFast = process.env.FAIL_FAST_SCHEMA_VERIFY === 'true';
+      if (failFast || env !== 'production') {
+        throw new Error('Schema verification failed');
+      }
+      this.logger.warn('Schema verification failed but FAIL_FAST_SCHEMA_VERIFY is not set; continuing. /api/health/ready will return 503.');
+      return;
     }
 
     this.logger.log('schema_verify_ok');
