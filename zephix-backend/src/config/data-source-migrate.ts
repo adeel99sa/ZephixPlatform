@@ -11,7 +11,8 @@ const dataSource = new DataSource({
   type: 'postgres',
   url,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  migrations: [join(__dirname, '../../migrations/*.js')],
+  migrations: [join(process.cwd(), 'dist/migrations/*.js')],
+  migrationsTableName: 'migrations',
 });
 
 export default dataSource;
