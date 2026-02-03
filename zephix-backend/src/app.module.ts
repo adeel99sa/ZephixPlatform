@@ -30,6 +30,7 @@ import { RiskManagementModule } from './pm/risk-management/risk-management.modul
 import { ResourceModule } from './modules/resources/resource.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
+import { TaskTrafficCounterMiddleware } from './middleware/task-traffic-counter.middleware';
 import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -55,6 +56,8 @@ import { TenancyModule } from './modules/tenancy/tenancy.module';
 import { TenantContextInterceptor } from './modules/tenancy/tenant-context.interceptor';
 import { DocsModule } from './modules/docs/docs.module';
 import { FormsModule } from './modules/forms/forms.module';
+import { TemplateCenterModule } from './modules/template-center/template-center.module';
+import { DatabaseModule } from './modules/database/database.module';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -90,7 +93,7 @@ if (!(global as any).crypto) {
     ScheduleModule.forRoot(), // Required for @Cron decorators (e.g., OutboxProcessorService)
 
     ...(process.env.SKIP_DATABASE !== 'true'
-      ? [TypeOrmModule.forRoot(databaseConfig)]
+      ? [TypeOrmModule.forRoot(databaseConfig), DatabaseModule]
       : []),
 
     SharedModule,
@@ -128,6 +131,7 @@ if (!(global as any).crypto) {
           HomeModule,
           DocsModule,
           FormsModule,
+          TemplateCenterModule,
         ]
       : [
           HealthModule, // Keep health module for basic health checks
@@ -172,5 +176,6 @@ export class AppModule implements NestModule {
 
   configure(consumer: MiddlewareConsumer) {
     // consumer.apply(TenantMiddleware).forRoutes('*'); // Temporarily disabled for debugging
+    consumer.apply(TaskTrafficCounterMiddleware).forRoutes('*');
   }
 }
