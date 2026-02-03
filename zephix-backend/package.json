@@ -36,6 +36,7 @@
       "lint:mutual-imports": "bash ../scripts/check-mutual-imports.sh",
       "lint:controller-prefixes": "bash scripts/check-controller-prefixes.sh",
       "typecheck:tests": "tsc -p tsconfig.spec.json --noEmit",
+      "prepush": "tsc --noEmit -p tsconfig.build.json && npm run build:migrations && node -e \"const fs=require('fs');const files=fs.existsSync('dist/migrations')?fs.readdirSync('dist/migrations'):[];const ok=files.some(f=>f.includes('17980202500000')||f.toLowerCase().includes('userorganizationssnakecasecolumns'));if(!ok){console.error('missing migration in dist/migrations');process.exit(1);}console.log('migration present');\"",
       "typecheck:tests:ci": "npm run typecheck:tests || echo '⚠️  Test typecheck has errors - fix before merging'",
       "ensure:demo": "ts-node -T scripts/ensure-demo-users.ts",
       "migrate": "ts-node scripts/migrate.ts",
