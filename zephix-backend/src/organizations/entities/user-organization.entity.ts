@@ -26,10 +26,10 @@ export class UserOrganization {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
+  @Column('uuid', { name: 'user_id' })
   userId: string;
 
-  @Column('uuid')
+  @Column('uuid', { name: 'organization_id' })
   organizationId: string;
 
   @Column({
@@ -59,13 +59,13 @@ export class UserOrganization {
 
   // Relations
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToOne(() => Organization, (org) => org.userOrganizations, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'organizationId' })
+  @JoinColumn({ name: 'organization_id' })
   organization: Organization;
 
   // Helper methods

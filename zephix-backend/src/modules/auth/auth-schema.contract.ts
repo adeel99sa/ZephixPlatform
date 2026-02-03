@@ -17,7 +17,7 @@ export const AUTH_REQUIRED_COLUMNS: Array<{
   { table: 'users', column: 'email' },
   { table: 'users', column: 'password' },
   { table: 'organizations', column: 'id' },
-  // user_organizations: snake_case (migration 20260201090000 adds and backfills; camelCase columns kept for 1–2 deploys)
+  // user_organizations: snake_case (migration UserOrganizationsSnakeCaseColumns adds and backfills)
   { table: 'user_organizations', column: 'user_id' },
   { table: 'user_organizations', column: 'organization_id' },
   { table: 'auth_sessions', column: 'user_id' },

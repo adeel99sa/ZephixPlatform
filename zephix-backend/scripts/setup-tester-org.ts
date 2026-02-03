@@ -148,26 +148,24 @@ async function setupTesterOrg() {
         console.log(`✅ User updated: ${testerData.email}`);
       }
 
-      // Ensure UserOrganization record exists
-      // Database uses camelCase column names (userId, organizationId, isActive, createdAt, updatedAt)
+      // Ensure UserOrganization record exists (snake_case columns per auth contract)
       const userOrgResult = await client.query(
-        'SELECT id FROM user_organizations WHERE "userId" = $1 AND "organizationId" = $2',
+        'SELECT id FROM user_organizations WHERE user_id = $1 AND organization_id = $2',
         [userId, orgId]
       );
 
       if (userOrgResult.rows.length === 0) {
         await client.query(
-          `INSERT INTO user_organizations (id, "userId", "organizationId", role, "isActive", permissions, "createdAt", "updatedAt")
+          `INSERT INTO user_organizations (id, user_id, organization_id, role, "isActive", permissions, "createdAt", "updatedAt")
            VALUES (gen_random_uuid(), $1, $2, $3, true, '{}', NOW(), NOW())`,
           [userId, orgId, testerData.orgRole]
         );
         console.log(`✅ UserOrganization created for ${testerData.email}`);
       } else {
-        // Update existing UserOrganization
         await client.query(
           `UPDATE user_organizations
            SET role = $1, "isActive" = true, "updatedAt" = NOW()
-           WHERE "userId" = $2 AND "organizationId" = $3`,
+           WHERE user_id = $2 AND organization_id = $3`,
           [testerData.orgRole, userId, orgId]
         );
         console.log(`✅ UserOrganization updated for ${testerData.email}`);
