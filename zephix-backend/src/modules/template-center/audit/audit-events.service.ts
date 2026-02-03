@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 import { AuditEvent } from '../../work-management/entities/audit-event.entity';
 
 export interface EmitAuditParams {
@@ -27,7 +27,7 @@ export class TemplateCenterAuditService {
   ) {}
 
   async emit(params: EmitAuditParams): Promise<void> {
-    const row = this.auditRepo.create({
+    const data = {
       workspaceId: params.workspaceId ?? null,
       projectId: params.projectId ?? null,
       userId: params.userId,
@@ -37,7 +37,8 @@ export class TemplateCenterAuditService {
       oldState: params.oldState ?? null,
       newState: params.newState ?? null,
       metadata: params.metadata ?? null,
-    });
+    } as DeepPartial<AuditEvent>;
+    const row = this.auditRepo.create(data);
     await this.auditRepo.save(row);
   }
 }
