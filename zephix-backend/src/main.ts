@@ -67,14 +67,18 @@ function legacyDeprecationHeaders(
   next();
 }
 
+const debugBoot = process.env.DEBUG_BOOT === 'true';
+
 async function bootstrap() {
   console.log('BOOT_START', new Date().toISOString());
-  console.log('BOOT_ENV', {
-    NODE_ENV: process.env.NODE_ENV,
-    PORT: process.env.PORT,
-    AUTO_MIGRATE: process.env.AUTO_MIGRATE,
-    DATABASE_URL_SET: Boolean(process.env.DATABASE_URL),
-  });
+  if (debugBoot) {
+    console.log('BOOT_ENV', {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      AUTO_MIGRATE: process.env.AUTO_MIGRATE,
+      DATABASE_URL_SET: Boolean(process.env.DATABASE_URL),
+    });
+  }
   // Skip env validation in test mode (tests use Test.createTestingModule, not bootstrap)
   if (process.env.NODE_ENV === 'test') {
     // Tests don't call bootstrap, but guardrail in case they do
@@ -124,8 +128,10 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  console.log('🚀 Creating NestJS application...');
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log'] });
+  if (debugBoot) console.log('🚀 Creating NestJS application...');
+  const app = await NestFactory.create(AppModule, {
+    logger: debugBoot ? ['error', 'warn', 'log'] : ['error', 'warn'],
+  });
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
 
   const env = process.env.NODE_ENV || 'development';
@@ -139,14 +145,14 @@ async function bootstrap() {
   }
 
   // Health and all routes live under /api (e.g. /api/health/live, /api/health/ready). Smoke uses these paths.
-  console.log('🔧 Setting global prefix...');
+  if (debugBoot) console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
 
   // Enterprise Foundation: /api/v1/* alias and legacy deprecation headers
   app.use(legacyDeprecationHeaders);
   app.use(v1RewriteMiddleware);
 
-  console.log('🛡️ Configuring security middleware...');
+  if (debugBoot) console.log('🛡️ Configuring security middleware...');
   app.use(
     helmet({
       crossOriginEmbedderPolicy: false,
@@ -154,7 +160,7 @@ async function bootstrap() {
     }),
   );
 
-  console.log('🍪 Configuring cookie parser...');
+  if (debugBoot) console.log('🍪 Configuring cookie parser...');
   app.use(cookieParser());
 
   console.log('🌐 Configuring CORS...');
@@ -260,11 +266,14 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT) || 3000;
   console.log('BOOT_BEFORE_LISTEN', { port });
-  console.log('🚀 Starting server on port:', port);
+  if (debugBoot) console.log('🚀 Starting server on port:', port);
   await app.listen(port, '0.0.0.0'); // Bind to all interfaces for Railway
+  console.log('BOOT_LISTENING', { port });
 
-  console.log('✅ Application is running on:', `http://localhost:${port}`);
-  console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
+  if (debugBoot) {
+    console.log('✅ Application is running on:', `http://localhost:${port}`);
+    console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
+  }
 
   // Post-startup router verification (Express only)
   // Only log in development to avoid Railway log rate limits
@@ -301,18 +310,19 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Monitor memory usage to prevent Railway container kills
+// Monitor memory usage to prevent Railway container kills (log only when DEBUG_BOOT or high)
 setInterval(() => {
   const used = process.memoryUsage();
   const rssMB = Math.round(used.rss / 1024 / 1024);
   const heapMB = Math.round(used.heapUsed / 1024 / 1024);
   const externalMB = Math.round(used.external / 1024 / 1024);
+  const debugBootEnv = process.env.DEBUG_BOOT === 'true';
 
-  console.log(
-    `📊 Memory Usage - RSS: ${rssMB}MB, Heap: ${heapMB}MB, External: ${externalMB}MB`,
-  );
-
-  // Warning if memory usage is high (Railway typically has 512MB-1GB limits)
+  if (debugBootEnv) {
+    console.log(
+      `📊 Memory Usage - RSS: ${rssMB}MB, Heap: ${heapMB}MB, External: ${externalMB}MB`,
+    );
+  }
   if (rssMB > 400) {
     console.warn(
       `⚠️  High memory usage detected: ${rssMB}MB - Railway may kill container`,
@@ -331,16 +341,18 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Log Railway environment information
-console.log('🚂 Railway Environment Info:');
-console.log(`   PORT: ${process.env.PORT || 'Not set'}`);
-console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
-console.log(`   SKIP_DATABASE: ${process.env.SKIP_DATABASE || 'Not set'}`);
-console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
-console.log(
-  `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
-);
-console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
+// Log Railway environment information (only when DEBUG_BOOT)
+if (process.env.DEBUG_BOOT === 'true') {
+  console.log('🚂 Railway Environment Info:');
+  console.log(`   PORT: ${process.env.PORT || 'Not set'}`);
+  console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
+  console.log(`   SKIP_DATABASE: ${process.env.SKIP_DATABASE || 'Not set'}`);
+  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
+  console.log(
+    `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
+  );
+  console.log(`   CPU Limit: ${process.env.RAILWAY_CPU_LIMIT || 'Not set'}`);
+}
 
 // Log commit SHA for deployment verification
 import { logCommitSha } from './common/utils/commit-sha.resolver';

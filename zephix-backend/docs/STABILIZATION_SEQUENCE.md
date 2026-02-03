@@ -42,7 +42,7 @@ const { Client } = require('pg');
 (async () => {
   const c = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }});
   await c.connect();
-  const r = await c.query(\"select name, run_on from migrations order by run_on desc limit 5\");
+  const r = await c.query(\"select id, timestamp, name from migrations order by id desc limit 5\");
   console.log(JSON.stringify(r.rows, null, 2));
   await c.end();
 })().catch(e=>{ console.error(e); process.exit(1); });
@@ -106,3 +106,39 @@ Also ensure:
 - Healthcheck failures now point to real readiness issues, not silent crashes.
 
 Schema verify is the remaining gate: the database must have `user_organizations.user_id` and `user_organizations.organization_id` (snake_case) per the auth contract and migration.
+
+---
+
+## Post-deploy verification (8 checks)
+
+Do these after deployment is marked successful. No more patches until all 8 are green.
+
+1. **Readiness 200 from outside**
+   Open: `https://zephix-backend-production.up.railway.app/api/health/ready`
+   Expected: HTTP 200, payload with `"status":"ok"` and `checks.db.status === "ok"`.
+
+2. **Readiness 200 from inside container**
+   Run from a Railway one-off shell (or same network as app):
+   `curl -i http://127.0.0.1:$PORT/api/health/ready`
+   Expected: HTTP 200.
+   Note: `railway run -- curl 127.0.0.1` runs on your laptop, not in the container; use Railway’s shell/debug if you need in-container curl.
+
+3. **Liveness 200**
+   `curl -i http://127.0.0.1:$PORT/api/health/live` (from inside container or use public URL).
+   Expected: HTTP 200 always.
+
+4. **Migrations and schema aligned**
+   Run the DB proof script (Step 1 / Step 2 style).
+   Expected: `migrationRows` > 0, `last5` includes `UserOrganizationsSnakeCaseColumns17980202500000`.
+
+5. **Lock Railway healthcheck**
+   In Railway → zephix-backend → Settings: Healthcheck path `/api/health/ready`, timeout 120 seconds. Keep 2 replicas only after confirming stable boot time across restarts.
+
+6. **Remove temporary knobs**
+   If you set `NO_CACHE=1` for cache busting, remove it. Keep only for one-off busts.
+
+7. **Reduce noise**
+   Verbose boot logs are gated behind `DEBUG_BOOT=true`. Default boot logs: BOOT_START, BOOT_AFTER_NEST_CREATE, BOOT_BEFORE_LISTEN, BOOT_LISTENING, DatabaseVerifyService summary once. Set `DEBUG_BOOT=true` in Railway to restore full boot output if needed.
+
+8. **CI guardrail**
+   Backend CI runs: `npm ci`, `npm run prepush`, `npm run build`, and fails if `dist/migrations` is empty or missing expected migration pattern. See `.github/workflows/ci.yml`.
