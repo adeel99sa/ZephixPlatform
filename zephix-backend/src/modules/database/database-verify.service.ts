@@ -75,7 +75,8 @@ export class DatabaseVerifyService {
 
   async verify(ttlMs: number): Promise<VerifyResult> {
     const now = Date.now();
-    if (this.cached && now - this.cached.at < ttlMs) return this.cached.value;
+    // Only use cache for success; never serve a stale failure so readiness can flip to 200 after schema is fixed.
+    if (this.cached?.value.ok && now - this.cached.at < ttlMs) return this.cached.value;
 
     const loadedMigrations = this.dataSource.migrations?.length ?? 0;
     const pending = await this.pendingMigrations();
@@ -90,7 +91,8 @@ export class DatabaseVerifyService {
       loadedMigrations,
     };
 
-    this.cached = { at: now, value };
+    if (value.ok) this.cached = { at: now, value };
+    else this.cached = null;
     return value;
   }
 
