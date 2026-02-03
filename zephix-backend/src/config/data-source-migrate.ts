@@ -14,7 +14,7 @@ if (!url) {
   throw new Error('DATABASE_URL or PRODUCTION_DATABASE_URL is required for migrations');
 }
 
-export const MigrateDataSource = new DataSource({
+const MigrateDataSource = new DataSource({
   type: 'postgres',
   url,
   entities: [],
