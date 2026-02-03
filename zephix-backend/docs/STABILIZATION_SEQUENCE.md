@@ -58,7 +58,8 @@ If it is not there: pre-deploy is not executing on the deploy you are looking at
 ## 3. Make healthcheck tell the truth while you fix schema
 
 - **Non-fatal production behavior is kept.** Boot does not exit on schema verify failure (unless `FAIL_FAST_SCHEMA_VERIFY=true`). This prevents restart loops.
-- Hit `/api/health/ready` to see the exact missing pieces (e.g. `missingColumns`).
+- **In production, readiness does not block on schema.** `/api/health/ready` returns 200 if DB is ok; schema is still checked and included in the response body for visibility. To require schema for readiness in production, set `READINESS_REQUIRE_SCHEMA=true`.
+- Hit `/api/health/ready` to see the exact missing pieces (e.g. `missingColumns`) in the response body.
 
 ---
 
