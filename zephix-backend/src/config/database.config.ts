@@ -21,6 +21,11 @@ export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  // At runtime __dirname is dist/src/config, so ../../migrations = dist/migrations (build:migrations output).
+  migrations: [
+    __dirname + '/../../migrations/*.ts',
+    __dirname + '/../../migrations/*.js',
+  ],
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
   ssl:
