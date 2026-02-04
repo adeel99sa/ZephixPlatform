@@ -9,9 +9,48 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: 'npm' }
+      - name: Backend prepush (typecheck + migrations in dist)
+        working-directory: zephix-backend
+        run: npm ci && npm run prepush
       - name: Backend build
         working-directory: zephix-backend
-        run: npm ci && npm run build
+        run: npm run build
+      - name: Backend dist/migrations guardrail
+        working-directory: zephix-backend
+        run: |
+          if [ ! -d dist/migrations ] || [ -z "$(ls -A dist/migrations 2>/dev/null)" ]; then
+            echo "::error::dist/migrations is empty or missing"
+            exit 1
+          fi
+          if ! ls dist/migrations | grep -qE '17980202500000|UserOrganizationsSnakeCaseColumns'; then
+            echo "::error::dist/migrations missing expected snake_case migration"
+            exit 1
+          fi
+          echo "dist/migrations OK"
+      - name: Backend git guardrail
+        run: |
+          set -euo pipefail
+          echo "Backend git guardrail"
+          
+          # Fail on any dirty state (tracked modifications)
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::git status not clean after build"
+            git status --porcelain
+            exit 1
+          fi
+          
+          # Fail on untracked TS/TSX under backend src
+          untracked_ts="$(git ls-files --others --exclude-standard -- \
+            'zephix-backend/src/**/*.ts' \
+            'zephix-backend/src/**/*.tsx' || true)"
+          
+          if [ -n "$untracked_ts" ]; then
+            echo "::error::untracked backend TS files found"
+            echo "$untracked_ts"
+            exit 1
+          fi
+          
+          echo "OK: git state clean and no untracked backend TS files"
       - name: Backend lint (changed files)
         working-directory: zephix-backend
         run: npm run lint:changed
