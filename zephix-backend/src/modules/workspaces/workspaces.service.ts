@@ -23,6 +23,7 @@ import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repositor
 import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 import { TaskStatus } from '../work-management/enums/task.enums';
+import { bootLog } from '../../common/utils/debug-boot';
 import { In } from 'typeorm';
 // Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
 // Import it from the module, not the local service
@@ -46,17 +47,12 @@ export class WorkspacesService {
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {
-    // Debug metadata registration
-    console.log(
-      '[WorkspaceRepo] deleteDateColumn =',
-      this.repo.metadata.deleteDateColumn?.propertyName,
-    );
-    console.log(
-      '[WorkspaceRepo] columns =',
-      this.repo.metadata.columns.map((c) => ({
-        name: c.propertyName,
-        databaseName: c.databaseName,
-      })),
+    // Debug metadata registration (only when DEBUG_BOOT=true)
+    bootLog(
+      '[WorkspaceRepo] columns:',
+      this.repo.metadata.columns.length,
+      'deleteDateColumn:',
+      this.repo.metadata.deleteDateColumn?.propertyName || 'none',
     );
   }
 

@@ -58,6 +58,7 @@ import { DocsModule } from './modules/docs/docs.module';
 import { FormsModule } from './modules/forms/forms.module';
 import { TemplateCenterModule } from './modules/template-center/template-center.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
   (global as any).crypto = crypto.webcrypto || crypto;
@@ -169,9 +170,7 @@ if (!(global as any).crypto) {
 })
 export class AppModule implements NestModule {
   constructor() {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('🚀 AppModule initialized');
-    }
+    bootLog('AppModule initialized');
   }
 
   configure(consumer: MiddlewareConsumer) {

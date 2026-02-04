@@ -1,5 +1,9 @@
 const sgMail = require('@sendgrid/mail');
 import { Injectable } from '@nestjs/common';
+import { bootLog } from '../../common/utils/debug-boot';
+
+// Module-scoped flag to ensure SendGrid log only prints once per process
+let sendGridLoggedOnce = false;
 
 export interface InvitationEmailData {
   recipientEmail: string;
@@ -21,9 +25,13 @@ export class EmailService {
     if (apiKey) {
       sgMail.setApiKey(apiKey);
       this.isConfigured = true;
-      console.log('SendGrid configured successfully');
-    } else {
+      if (!sendGridLoggedOnce) {
+        bootLog('SendGrid configured');
+        sendGridLoggedOnce = true;
+      }
+    } else if (!sendGridLoggedOnce) {
       console.warn('SendGrid API key not found - emails will not be sent');
+      sendGridLoggedOnce = true;
     }
   }
 

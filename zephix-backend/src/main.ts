@@ -273,6 +273,7 @@ async function bootstrap() {
   if (debugBoot) console.log('🚀 Starting server on port:', port);
   await app.listen(port, '0.0.0.0'); // Bind to all interfaces for Railway
   console.log('BOOT_LISTENING', { port });
+  console.log(`BOOT_READY port=${port}`);
 
   if (debugBoot) {
     console.log('✅ Application is running on:', `http://localhost:${port}`);

@@ -1,8 +1,5 @@
-if (process.env.NODE_ENV !== 'test') {
-  if (process.env.NODE_ENV !== 'test') {
-    console.log('🔍 ProjectsController file loading...');
-  }
-}
+import { bootLog } from '../../common/utils/debug-boot';
+bootLog('ProjectsController file loading');
 
 import {
   Controller,
@@ -46,9 +43,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     // private readonly assignmentService: ProjectAssignmentService,
   ) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('🚀 ProjectsController constructor called!');
-    }
+    bootLog('ProjectsController constructor called');
   }
 
   @Get('test')
