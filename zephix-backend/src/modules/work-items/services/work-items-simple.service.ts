@@ -38,13 +38,13 @@ export class WorkItemsSimpleService {
 
   async list(workspaceId: string, projectId: string) {
     return this.repo.find({
-      where: { workspaceId, projectId },
-      order: { createdAt: 'ASC' },
+      where: { workspaceId, projectId, deletedAt: null },
+      order: { updatedAt: 'DESC', createdAt: 'DESC' },
     });
   }
 
   async get(workspaceId: string, idOrKey: string) {
-    const byId = await this.repo.findOne({ where: { workspaceId, id: idOrKey } });
+    const byId = await this.repo.findOne({ where: { workspaceId, id: idOrKey, deletedAt: null } });
     if (byId) return byId;
 
     // TODO: Add key column to WorkItem entity to support key-based lookup
@@ -53,7 +53,7 @@ export class WorkItemsSimpleService {
   }
 
   async update(workspaceId: string, workItemId: string, dto: UpdateWorkItemSimpleDto) {
-    const item = await this.repo.findOne({ where: { workspaceId, id: workItemId } });
+    const item = await this.repo.findOne({ where: { workspaceId, id: workItemId, deletedAt: null } });
     if (!item) throw new NotFoundException('Work item not found');
 
     Object.assign(item, {
@@ -67,7 +67,11 @@ export class WorkItemsSimpleService {
   }
 
   async remove(workspaceId: string, workItemId: string) {
-    const res = await this.repo.delete({ workspaceId, id: workItemId });
-    return { deleted: res.affected === 1 };
+    const item = await this.repo.findOne({ where: { workspaceId, id: workItemId, deletedAt: null } });
+    if (!item) throw new NotFoundException('Work item not found');
+
+    item.deletedAt = new Date();
+    await this.repo.save(item);
+    return { deleted: true };
   }
 }

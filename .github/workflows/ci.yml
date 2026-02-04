@@ -64,9 +64,9 @@ jobs:
       - name: Backend lint (changed files)
         working-directory: zephix-backend
         run: npm run lint:changed
-      - name: Backend unit tests (Work Management only)
+      - name: Backend unit tests (Work Management + Work Items)
         working-directory: zephix-backend
-        run: npm test -- src/modules/work-management --passWithNoTests
+        run: npm test -- "src/modules/work-management|work-items-simple.service.spec" --passWithNoTests
       - name: Backend unit tests (full suite - non-blocking)
         working-directory: zephix-backend
         run: npm run test:unit
