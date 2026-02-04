@@ -6,6 +6,7 @@ import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { ProjectHealthService } from './project-health.service';
 import { DependencyType } from '../enums/task.enums';
 
 describe('TaskDependenciesService', () => {
@@ -44,6 +45,11 @@ describe('TaskDependenciesService', () => {
       assertOrganizationId: jest.fn().mockReturnValue('org-1'),
     };
 
+    const mockProjectHealthService = {
+      invalidateCache: jest.fn(),
+      getHealthScore: jest.fn().mockResolvedValue({ score: 100 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TaskDependenciesService,
@@ -62,6 +68,10 @@ describe('TaskDependenciesService', () => {
         {
           provide: TenantContextService,
           useValue: mockTenantContext,
+        },
+        {
+          provide: ProjectHealthService,
+          useValue: mockProjectHealthService,
         },
       ],
     }).compile();
