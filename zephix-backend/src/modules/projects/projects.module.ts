@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { bootLog } from '../../common/utils/debug-boot';
 
 // Import the UsersModule to get access to User entity
 import { UsersModule } from '../users/users.module';
@@ -37,6 +38,7 @@ import { TaskController } from './controllers/task.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller'; // PHASE 6: Workspace-scoped project routes
 
 // Import guards
+import { LegacyTasksGuard } from '../../guards/legacy-tasks.guard';
 import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-workspace-role.guard';
 // PHASE 6: Import for project linking
 import { ProgramsModule } from '../programs/programs.module';
@@ -71,6 +73,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
     WorkspaceProjectsController,
   ], // PHASE 6: Added WorkspaceProjectsController
   providers: [
+    LegacyTasksGuard,
     // Provide TenantAwareRepository for Project, ProjectView, Task, Template, TemplateBlock
     createTenantAwareRepositoryProvider(Project),
     createTenantAwareRepositoryProvider(ProjectView),
@@ -95,6 +98,6 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
 })
 export class ProjectsModule {
   constructor() {
-    console.log('🚀 ProjectsModule loaded with enterprise-grade assignments!');
+    bootLog('ProjectsModule loaded');
   }
 }

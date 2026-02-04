@@ -28,6 +28,7 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 import { Template } from '../../templates/entities/template.entity';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { bootLog } from '../../../common/utils/debug-boot';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 
 type CreateProjectV1Input = {
@@ -71,9 +72,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     // @InjectRepository(ProjectPhase)
     // private readonly projectPhaseRepository: Repository<ProjectPhase>,
   ) {
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('🚀 ProjectsService constructor called!');
-    }
+    bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
   }
 
