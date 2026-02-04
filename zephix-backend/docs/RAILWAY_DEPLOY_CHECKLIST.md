@@ -4,6 +4,21 @@ Do these checks **in this exact order**.
 
 ---
 
+## Before Push (Dev Workflow)
+
+Before every push to main or a deploy branch:
+
+```bash
+cd zephix-backend
+npm run prepush
+git status   # must be clean
+git ls-files -- 'src/**/*.ts' 'src/**/*.tsx'   # verify new src files are tracked
+```
+
+If `git status` shows uncommitted changes, commit or stash before pushing. If `git ls-files` does not show your new source files, run `git add` first.
+
+---
+
 ## 0. If start fails with “cd: zephix-backend: No such file or directory”
 
 **Cause:** The start command being run still contains `cd zephix-backend`. When Root Directory is `zephix-backend`, the container **is already** in that directory; there is no `zephix-backend` subfolder, so `cd zephix-backend` fails.

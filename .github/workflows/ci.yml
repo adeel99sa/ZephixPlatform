@@ -32,13 +32,6 @@ jobs:
           set -euo pipefail
           echo "Backend git guardrail"
           
-          # Fail on any dirty state (tracked modifications)
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::git status not clean after build"
-            git status --porcelain
-            exit 1
-          fi
-          
           # Fail on untracked TS/TSX under backend src
           untracked_ts="$(git ls-files --others --exclude-standard -- \
             'zephix-backend/src/**/*.ts' \
@@ -50,7 +43,24 @@ jobs:
             exit 1
           fi
           
-          echo "OK: git state clean and no untracked backend TS files"
+          # Fail on tracked changes, excluding generated paths
+          dirty="$(git status --porcelain -- \
+            . \
+            ':!zephix-backend/dist/**' \
+            ':!zephix-backend/node_modules/**' \
+            ':!zephix-backend/coverage/**' \
+            ':!zephix-backend/.cache/**' \
+            ':!zephix-backend/.turbo/**' \
+            ':!zephix-backend/.nest/**' \
+          )"
+          
+          if [ -n "$dirty" ]; then
+            echo "::error::git status not clean (excluding generated paths)"
+            echo "$dirty"
+            exit 1
+          fi
+          
+          echo "OK: no untracked backend TS files and git state clean (generated paths excluded)"
       - name: Backend lint (changed files)
         working-directory: zephix-backend
         run: npm run lint:changed
