@@ -669,35 +669,3 @@ jobs:
           echo "Note: Full smoke test requires running server with valid token"
           echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:templates"
         continue-on-error: true
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: zephix_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
-      - name: Setup backend
-        working-directory: zephix-backend
-        run: |
-          npm ci
-      - name: Run billing contract tests
-        working-directory: zephix-backend
-        run: |
-          npm test -- billing.controller.spec.ts
-      - name: Run billing smoke test (requires running server)
-        working-directory: zephix-backend
-        run: |
-          echo "Note: Full smoke test requires running server with valid token"
-          echo "Run manually with: ACCESS_TOKEN=<token> npm run smoke:admin"
-        continue-on-error: true
