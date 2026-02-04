@@ -130,7 +130,9 @@ async function bootstrap() {
 
   if (debugBoot) console.log('🚀 Creating NestJS application...');
   const app = await NestFactory.create(AppModule, {
-    logger: debugBoot ? ['error', 'warn', 'log'] : ['error', 'warn'],
+    logger: debugBoot
+      ? ['log', 'warn', 'error', 'debug', 'verbose']
+      : ['error', 'warn'],
   });
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
 
@@ -163,7 +165,7 @@ async function bootstrap() {
   if (debugBoot) console.log('🍪 Configuring cookie parser...');
   app.use(cookieParser());
 
-  console.log('🌐 Configuring CORS...');
+  if (debugBoot) console.log('🌐 Configuring CORS...');
   app.enableCors({
     origin: [
       'https://getzephix.com', // Production frontend
@@ -186,7 +188,7 @@ async function bootstrap() {
     exposedHeaders: ['X-Request-Id'],
   });
 
-  console.log('🆔 Configuring request ID middleware...');
+  if (debugBoot) console.log('🆔 Configuring request ID middleware...');
   app.use((req, res, next) => {
     const rid = req.headers['x-request-id'] || crypto.randomUUID();
     res.setHeader('X-Request-Id', String(rid));
@@ -195,7 +197,7 @@ async function bootstrap() {
     next();
   });
 
-  console.log('✅ Configuring global validation pipe...');
+  if (debugBoot) console.log('✅ Configuring global validation pipe...');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -221,27 +223,29 @@ async function bootstrap() {
   );
 
   // Add global envelope interceptor for standardized responses
-  console.log('📦 Configuring global envelope interceptor...');
+  if (debugBoot) console.log('📦 Configuring global envelope interceptor...');
   const interceptors = [new EnvelopeInterceptor()];
 
   // Conditionally add request context logger
   const requestLoggerEnabled = isTrue(
     process.env.REQUEST_CONTEXT_LOGGER_ENABLED,
   );
-  console.log(
-    `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
-  );
-  console.log(`REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`);
+  if (debugBoot) {
+    console.log(
+      `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
+    );
+    console.log(`REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`);
+  }
   if (requestLoggerEnabled) {
     interceptors.unshift(new RequestContextLoggerInterceptor());
-    console.log('✅ RequestContextLoggerInterceptor enabled');
+    if (debugBoot) console.log('✅ RequestContextLoggerInterceptor enabled');
   } else {
-    console.log('⚠️  RequestContextLoggerInterceptor disabled');
+    if (debugBoot) console.log('⚠️  RequestContextLoggerInterceptor disabled');
   }
 
   app.useGlobalInterceptors(...interceptors);
 
-  console.log('🚨 Configuring global exception filter...');
+  if (debugBoot) console.log('🚨 Configuring global exception filter...');
   app.useGlobalFilters(new ApiErrorFilter());
 
   // DEBUG: list all registered routes (Express)

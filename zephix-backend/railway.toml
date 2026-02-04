@@ -7,7 +7,7 @@ buildCommand = "npm run build"
 preDeployCommand = "npm run db:migrate"
 startCommand = "npm run start:railway"
 healthcheckPath = "/api/health/ready"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 

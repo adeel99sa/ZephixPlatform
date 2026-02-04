@@ -23,8 +23,8 @@ __tests__/
 *.test.*
 *.spec.*
 
-# Documentation
-docs/
+# Documentation (root only; do not exclude zephix-backend/src/modules/docs)
+/docs/
 *.md
 README*
 LICENSE

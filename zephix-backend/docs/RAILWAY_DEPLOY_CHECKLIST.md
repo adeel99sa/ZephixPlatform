@@ -4,6 +4,23 @@ Do these checks **in this exact order**.
 
 ---
 
+## 0. If start fails with “cd: zephix-backend: No such file or directory”
+
+**Cause:** The start command being run still contains `cd zephix-backend`. When Root Directory is `zephix-backend`, the container **is already** in that directory; there is no `zephix-backend` subfolder, so `cd zephix-backend` fails.
+
+**Repo fix (done):** Root `railway.toml` and `zephix-backend/railway.toml` no longer contain `cd zephix-backend`. Build/start/pre-deploy run without `cd`.
+
+**Fix in Railway UI (mandatory):**
+
+1. **Railway UI:** Service → **Settings** → **Deploy** → find **Custom Start Command** (and Custom Build Command, Pre-deploy Command if present).
+2. **Delete the entire value** for each. Make the fields empty. Save.
+3. Railway will then use commands from the repo `railway.toml` (no `cd`).
+4. Clear build cache and redeploy once.
+
+**Do not** set Custom Start Command to `cd zephix-backend && npm run start:railway` or any variant that changes directory.
+
+---
+
 ## 1. Railway service Root Directory
 
 - **Backend service Root Directory must be `zephix-backend`.** Set it in Railway → zephix-backend → Settings → Source → Root Directory.
@@ -15,10 +32,12 @@ Do these checks **in this exact order**.
 
 All of these are defined in **`zephix-backend/railway.toml`**. Railway reads that file on deploy. You cannot edit that file inside Railway; you edit it in the repo and push.
 
-- **Build:** `npm run build` only (Nixpacks runs `npm ci` once in the install phase; do not add `npm ci` to the build command or you get EBUSY).
+- **Build:** `npm run build && npm run check:railway` (Nixpacks runs `npm ci` in the install phase; `check:railway` fails the deploy if `dist/main.js` is missing).
 - **Pre-deploy:** `npm run db:migrate`
-- **Start:** `npm run start:railway`
+- **Start:** `npm run start:railway` (runs `node dist/main.js`)
 - **Healthcheck Path:** `/api/health/ready`
+
+If you set **Build Command** in Railway UI (e.g. for a non-Nixpacks builder), use: `npm ci && npm run build && npm run check:railway`.
 
 ---
 
@@ -61,3 +80,31 @@ Confirm Root Directory is `zephix-backend` (so Railway uses `zephix-backend/pack
 
 1. **zephix-backend/package.json** — scripts section showing `db:migrate`, `start:railway`, `build`.
 2. **Railway deployment log** around “Running Pre-deploy Command” and the working directory Railway prints.
+
+---
+
+## 7. Schema verify / DB–migration alignment
+
+If healthcheck fails with schema verify or missing user_organizations.user_id / organization_id, run the exact stabilization sequence in **docs/STABILIZATION_SEQUENCE.md**: Step 1 (prove DB = migration DB), Step 2 (confirm new migration ran), then Option A (reset Postgres) or Option B (keep data, let backfill migration run). Before every push: `cd zephix-backend && npm run prepush`.
+
+---
+
+## 8. Lock-in and validation (Railway UI + deploy sequence)
+
+**In Railway UI (do once):**
+
+1. **Healthcheck:** Service → Settings → Health → **Path** = `/api/health/ready`, **Timeout** = `120`.
+2. **Replicas:** Set to **1** for the next two deploys; after validation set to **2** and deploy again.
+3. **Env:** Ensure **DEBUG_BOOT** and **FAIL_FAST_SCHEMA_VERIFY** are **not set** (delete if present). Remove **NO_CACHE** if it was added during the incident.
+
+**Deploy sequence:**
+
+1. Deploy from the branch that has commit `b8fc3bb5` (e.g. `fix/railway-start-path`).
+2. After deploy: `curl -s https://<backend-url>/api/health/ready | jq` → confirm `status` ok, `checks.db.status` ok, `checks.schema.status` skipped or ok.
+3. Restart the service once (Railway → Service → ⋮ → Restart).
+4. Hit `/api/health/ready` again → must stay 200.
+5. Set replicas to **2**, deploy again.
+
+**Frontend smoke:** Login → GET `/api/users/me`, GET `/api/workspaces` → select a workspace → confirm no 500s in Network tab.
+
+**If anything fails,** paste only: `/api/health/ready` JSON, first 30 lines after BOOT_START, and any DatabaseVerifyService error block.
