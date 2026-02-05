@@ -69,9 +69,10 @@ export default function WorkspaceHomeBySlug() {
         `/workspaces/slug/${slug}/home`
       );
 
-      const data = response.data;
+      // Backend returns { data: WorkspaceHomeData }
+      const homeData = response.data?.data ?? (response.data as unknown as WorkspaceHomeData);
 
-      if (!data || !data.workspace) {
+      if (!homeData || !homeData.workspace) {
         setError('Workspace not found');
         setLoading(false);
         setHydrating(false);
@@ -79,8 +80,8 @@ export default function WorkspaceHomeBySlug() {
       }
 
       // Sync workspace store
-      setActiveWorkspace(data.workspace.id);
-      markWorkspaceHydrated(data.workspace.id);
+      setActiveWorkspace(homeData.workspace.id);
+      markWorkspaceHydrated(homeData.workspace.id);
       setLoading(false);
       setHydrating(false);
     } catch (error: any) {

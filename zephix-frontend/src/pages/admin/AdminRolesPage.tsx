@@ -44,8 +44,8 @@ export default function AdminRolesPage() {
 
   const loadRoles = async () => {
     try {
-      const data = await adminApi.getRoles();
-      setRoles(data.roles || []);
+      const data = await adminApi.getRoles() as { roles?: Role[] };
+      setRoles(data?.roles || []);
     } catch (error) {
       console.error('Failed to load roles:', error);
     } finally {

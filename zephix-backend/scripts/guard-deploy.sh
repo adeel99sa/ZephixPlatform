@@ -22,10 +22,10 @@ echo ""
 
 # 2. Debug/Schema Exposure Guard
 echo "2️⃣  Checking for debug/schema exposure controllers..."
-DEBUG_MATCHES=$(grep -R "@Controller('debug'\\|\"debug\"\\|`debug`)" src -n || true)
-INTERNAL_MATCHES=$(grep -R "@Controller('internal'\\|\"internal\"\\|`internal`)" src -n || true)
-DIAG_MATCHES=$(grep -R "@Controller('diag'\\|\"diag\"\\|`diag`)" src -n || true)
-SCHEMA_ROUTE_MATCHES=$(grep -R "@Get('schema'\\|\"schema\"\\|`schema`\\|'health/schema'\\|\"health/schema\"\\|`health/schema`)" src -n || true)
+DEBUG_MATCHES=$(grep -rEn "@Controller\(['\"]debug['\"]" src || true)
+INTERNAL_MATCHES=$(grep -rEn "@Controller\(['\"]internal['\"]" src || true)
+DIAG_MATCHES=$(grep -rEn "@Controller\(['\"]diag['\"]" src || true)
+SCHEMA_ROUTE_MATCHES=$(grep -rEn "@Get\(['\"]schema['\"]|@Get\(['\"]health/schema['\"]" src || true)
 
 if [ -n "$DEBUG_MATCHES" ] || [ -n "$INTERNAL_MATCHES" ] || [ -n "$DIAG_MATCHES" ] || [ -n "$SCHEMA_ROUTE_MATCHES" ]; then
   echo "❌ Debug/schema exposure routes detected in runtime build:"

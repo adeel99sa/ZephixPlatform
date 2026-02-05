@@ -36,7 +36,9 @@ export class TemplateComponent {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => TemplateVersion, (v) => v.components, { onDelete: 'CASCADE' })
+  @ManyToOne(() => TemplateVersion, (v) => v.components, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'template_version_id' })
   templateVersion?: TemplateVersion;
 }

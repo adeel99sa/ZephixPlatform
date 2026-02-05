@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Upload, FileText, Users, AlertTriangle, Target, Download, CheckCircle, Clock } from 'lucide-react';
 import { useProjectInitiation } from '../../../hooks/useProjectInitiation';
+import { getErrorMessage } from '@/lib/api/errors';
 import DocumentUpload from './DocumentUpload';
 import CharterView from './CharterView';
 import StakeholderMatrix from './StakeholderMatrix';
@@ -32,22 +33,26 @@ const ProjectInitiationDashboard: React.FC<ProjectInitiationDashboardProps> = ({
 
   const { analyzeDocument, getProject, updateCharter, exportProject } = useProjectInitiation();
 
-  const handleDocumentAnalysis = async (file: File, type: string, orgContext: any) => {
+  const handleDocumentAnalysis = async (file: File, type: string, orgContext: unknown) => {
     setLoading(true);
     setError(null);
 
     try {
       const result = await analyzeDocument(file, type, orgContext);
-      setProjectData(result);
-      setActiveTab('charter');
-      
-      // Calculate initial readiness score
-      calculateReadinessScore(result);
-      
-      // Notify parent component
-      onProjectCreated(result.projectId);
+      // Narrow result to ProjectData
+      if (result && typeof result === 'object' && 'projectId' in result) {
+        const data = result as ProjectData;
+        setProjectData(data);
+        setActiveTab('charter');
+        
+        // Calculate initial readiness score
+        calculateReadinessScore(data);
+        
+        // Notify parent component
+        onProjectCreated(data.projectId);
+      }
     } catch (err) {
-      setError(err.message || 'Document analysis failed');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -92,25 +97,27 @@ const ProjectInitiationDashboard: React.FC<ProjectInitiationDashboardProps> = ({
     setReadinessScore(Math.round(score));
   };
 
-  const handleCharterUpdate = async (updates: any) => {
+  const handleCharterUpdate = async (updates: unknown) => {
     if (!projectData) return;
 
     try {
       const updatedCharter = await updateCharter(projectData.projectId, updates);
+      // Narrow updatedCharter to object type
+      const charterData = updatedCharter && typeof updatedCharter === 'object' ? updatedCharter : {};
       setProjectData(prev => prev ? {
         ...prev,
-        charter: { ...prev.charter, ...updatedCharter }
+        charter: { ...prev.charter, ...charterData }
       } : null);
       
       // Recalculate readiness score
       if (projectData) {
         calculateReadinessScore({
           ...projectData,
-          charter: { ...projectData.charter, ...updatedCharter }
+          charter: { ...projectData.charter, ...charterData }
         });
       }
     } catch (err) {
-      setError(err.message || 'Failed to update charter');
+      setError(getErrorMessage(err));
     }
   };
 
@@ -118,11 +125,11 @@ const ProjectInitiationDashboard: React.FC<ProjectInitiationDashboardProps> = ({
     if (!projectData) return;
 
     try {
-      const result = await exportProject(projectData.projectId, format);
+      const result = await exportProject(projectData.projectId, { format });
       // Handle export result (download file, etc.)
       console.log('Export result:', result);
     } catch (err) {
-      setError(err.message || 'Export failed');
+      setError(getErrorMessage(err));
     }
   };
 

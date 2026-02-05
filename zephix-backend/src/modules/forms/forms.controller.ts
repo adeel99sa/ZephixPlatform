@@ -41,10 +41,7 @@ export class FormsController {
   }
 
   @Get('forms/:formId')
-  async findOne(
-    @Param('formId') formId: string,
-    @CurrentUser() user: UserJwt,
-  ) {
+  async findOne(@Param('formId') formId: string, @CurrentUser() user: UserJwt) {
     const form = await this.formsService.findOne(
       formId,
       user.id,

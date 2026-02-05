@@ -35,11 +35,14 @@ export function DiagnosticsPage() {
     }
 
     // Test 2: API Base URL
+    const baseURL = import.meta.env.PROD
+      ? (import.meta.env.VITE_API_URL || 'https://zephix-backend-production.up.railway.app/api')
+      : '/api';
     diagnostics.push({
       test: 'API Base URL',
       status: 'success',
-      message: apiClient.defaults.baseURL || '/api',
-      details: { baseURL: apiClient.defaults.baseURL }
+      message: baseURL,
+      details: { baseURL }
     });
 
     // Test 3: Auth token presence

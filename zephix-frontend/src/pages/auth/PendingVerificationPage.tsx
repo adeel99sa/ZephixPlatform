@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Mail, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../stores/authStore';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 
 interface LocationState {
   email?: string;

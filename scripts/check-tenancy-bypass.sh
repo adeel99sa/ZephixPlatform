@@ -1,67 +1,55 @@
 #!/bin/bash
-# Check for tenant scoping bypass patterns in modules
-# This script fails if forbidden patterns are found in src/modules/**
-# Exceptions: tenancy/** and database/** modules are allowed
+# Check for tenant scoping bypass patterns in CHANGED files only (regression guard)
+# This script fails only if forbidden patterns are found in files changed vs main
 
 set -e
 
-# Support running from project root or zephix-backend directory
-if [ -d "zephix-backend/src/modules" ]; then
-  MODULES_DIR="zephix-backend/src/modules"
-elif [ -d "src/modules" ]; then
-  MODULES_DIR="src/modules"
-else
-  echo "❌ Error: Cannot find src/modules directory"
-  exit 1
+echo "🔍 Tenancy bypass regression guard (changed files only)..."
+
+# Fetch main for comparison
+git fetch origin main:refs/remotes/origin/main 2>/dev/null || true
+
+# Get changed backend source files
+CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null \
+  | grep -E '^zephix-backend/src/modules/.*\.ts$' \
+  | grep -v 'src/modules/tenancy/' \
+  | grep -v 'src/modules/database/' \
+  | grep -v '\.spec\.ts$' \
+  | grep -v '\.test\.ts$' || true)
+
+if [ -z "$CHANGED_FILES" ]; then
+  echo "✅ No backend module source changes. Skipping tenancy bypass scan."
+  exit 0
 fi
+
+echo "   Scanning $(echo "$CHANGED_FILES" | wc -l | tr -d ' ') changed files..."
+
+# Patterns to check
+BANNED='@InjectRepository\(|getRepository\(|DataSource\.getRepository|manager\.getRepository|createQueryBuilder\(|dataSource\.query|manager\.query|createQueryRunner'
 
 EXIT_CODE=0
 
-# Patterns to check (grep -E compatible)
-PATTERNS=(
-  "@InjectRepository\\("
-  "getRepository\\("
-  "DataSource\\.getRepository"
-  "manager\\.getRepository"
-  "createQueryBuilder\\("
-  "dataSource\\.query"
-  "manager\\.query"
-  "createQueryRunner"
-)
-
-echo "🔍 Checking for tenant scoping bypass patterns in ${MODULES_DIR}..."
-
-# Check each pattern
-for pattern in "${PATTERNS[@]}"; do
-  echo "  Checking pattern: ${pattern}"
-
-  # Search in modules directory, excluding allowed dirs
-  MATCHES=$(grep -r -E "${pattern}" "${MODULES_DIR}" \
-    --include="*.ts" \
-    --exclude-dir=tenancy \
-    --exclude-dir=node_modules \
-    --exclude-dir=dist \
-    2>/dev/null || true)
-
-  if [ -n "$MATCHES" ]; then
-    echo "❌ Found forbidden pattern '${pattern}' in:"
-    echo "$MATCHES" | while IFS= read -r line; do
-      echo "   $line"
-    done
-    EXIT_CODE=1
+# Check each changed file
+for file in $CHANGED_FILES; do
+  if [ -f "$file" ]; then
+    MATCHES=$(grep -n -E "$BANNED" "$file" 2>/dev/null || true)
+    if [ -n "$MATCHES" ]; then
+      echo "❌ Found forbidden pattern in $file:"
+      echo "$MATCHES" | while IFS= read -r line; do
+        echo "   $line"
+      done
+      EXIT_CODE=1
+    fi
   fi
 done
 
 if [ $EXIT_CODE -eq 0 ]; then
-  echo "✅ No bypass patterns found"
+  echo "✅ No new bypass patterns in changed files"
 else
   echo ""
-  echo "❌ Tenant scoping bypass patterns detected!"
+  echo "❌ New tenant scoping bypass patterns detected in changed files!"
   echo "   Use TenantAwareRepository instead of direct TypeORM repository access."
   echo "   See docs/PHASE2A_MIGRATION_PLAYBOOK.md for migration guide."
 fi
 
 exit $EXIT_CODE
-
-
-

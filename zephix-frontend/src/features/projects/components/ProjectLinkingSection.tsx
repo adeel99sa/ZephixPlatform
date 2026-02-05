@@ -68,17 +68,20 @@ export function ProjectLinkingSection({ projectId, project, onUpdated }: Props) 
       const portfoliosResponse = await api.get<{ data: Portfolio[] }>(
         `/workspaces/${workspaceId}/portfolios`
       );
-      setPortfolios(portfoliosResponse.data || []);
+      // Backend returns { data: Portfolio[] }
+      const portfoliosList = portfoliosResponse.data?.data ?? portfoliosResponse.data ?? [];
+      setPortfolios(portfoliosList as Portfolio[]);
 
       // Load all programs in workspace using new endpoint
       const programsResponse = await api.get<{ data: Program[] }>(
         `/workspaces/${workspaceId}/programs`
       );
-      const allPrograms = programsResponse.data || [];
+      // Backend returns { data: Program[] }
+      const allPrograms = programsResponse.data?.data ?? programsResponse.data ?? [];
 
       // Enrich programs with portfolio names from portfolios list
-      const enrichedPrograms = allPrograms.map(program => {
-        const portfolio = portfoliosResponse.data?.find(p => p.id === program.portfolioId);
+      const enrichedPrograms = (allPrograms as Program[]).map((program: Program) => {
+        const portfolio = (portfoliosList as Portfolio[]).find((p: Portfolio) => p.id === program.portfolioId);
         return {
           ...program,
           portfolio: portfolio ? { id: portfolio.id, name: portfolio.name } : undefined,
@@ -89,7 +92,7 @@ export function ProjectLinkingSection({ projectId, project, onUpdated }: Props) 
       // Pre-select current values
       if (project?.programId) {
         setSelectedProgramId(project.programId);
-        const program = allPrograms.find(p => p.id === project.programId);
+        const program = (allPrograms as Program[]).find((p: Program) => p.id === project.programId);
         if (program?.portfolioId) {
           setSelectedPortfolioId(program.portfolioId);
         }

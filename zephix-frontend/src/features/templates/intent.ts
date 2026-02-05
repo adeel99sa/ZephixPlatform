@@ -16,6 +16,6 @@ export async function applyTemplateWithWorkspace({
   const active = useWorkspaceStore.getState().activeWorkspaceId ?? preferredWorkspaceId;
   const workspaceId = active ?? await onRequireWorkspace(); // invokes your modal
   useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
-  return applyTemplate({ templateId, type, workspaceId });
+  return applyTemplate(type, { templateId, workspaceId });
 }
 

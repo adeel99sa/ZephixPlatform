@@ -1,3 +1,10 @@
+interface TaskUser {
+  id: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -5,7 +12,7 @@ export interface Task {
   name: string;
   description?: string;
   assignedTo?: string;
-  assignee?: User;
+  assignee?: TaskUser;
   status: 'todo' | 'in_progress' | 'review' | 'done';
   progress: number;
   estimatedHours?: number;

@@ -256,8 +256,7 @@ export class WorkspacesController {
    * PROMPT 6: Create workspace
    *
    * Constraints enforced:
-   * - Only platform ADMIN can create workspaces (enforced by RequireOrgRoleGuard)
-   * - Request user platformRole must be Admin, else 403 FORBIDDEN_ROLE
+   * - Platform ADMIN or MEMBER can create workspaces (Guest blocked)
    * - Payload must include ownerUserIds array, min 1
    * - Each ownerUserId must belong to the org and must have platformRole Member or Admin
    * - Guest cannot be assigned Owner or Member in any workspace
@@ -266,7 +265,7 @@ export class WorkspacesController {
    */
   @Post()
   @UseGuards(WorkspaceMembershipFeatureGuard, RequireOrgRoleGuard)
-  @RequireOrgRole(PlatformRole.ADMIN) // Only platform ADMIN can create workspaces
+  @RequireOrgRole(PlatformRole.MEMBER) // Platform ADMIN or MEMBER can create workspaces
   async create(
     @Body() dto: CreateWorkspaceDto,
     @CurrentUser() u: UserJwt,
@@ -275,9 +274,12 @@ export class WorkspacesController {
   ) {
     const requestId = req.headers['x-request-id'] || 'unknown';
 
-    // PROMPT 6: Explicit platform role check
-    const userPlatformRole = normalizePlatformRole(u.role);
-    if (userPlatformRole !== PlatformRole.ADMIN) {
+    // Block Guest writes (VIEWER)
+    const userPayload = u as UserJwt & { platformRole?: string };
+    const userPlatformRole = normalizePlatformRole(
+      userPayload.platformRole || u.role,
+    );
+    if (userPlatformRole === PlatformRole.VIEWER) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
         message: 'Read only access',
@@ -301,9 +303,10 @@ export class WorkspacesController {
 
     // Derive owner from auth context if not provided in request
     // Frontend should never send ownerId - backend derives it from @CurrentUser()
-    const ownerUserIds = dto.ownerUserIds && dto.ownerUserIds.length > 0
-      ? dto.ownerUserIds
-      : [u.id]; // Default to current user as owner
+    const ownerUserIds =
+      dto.ownerUserIds && dto.ownerUserIds.length > 0
+        ? dto.ownerUserIds
+        : [u.id]; // Default to current user as owner
 
     // Validate at least one owner exists (should always be true after derivation)
     if (!ownerUserIds || ownerUserIds.length === 0) {
@@ -357,8 +360,14 @@ export class WorkspacesController {
           requestId,
           endpoint: 'POST /api/workspaces',
         });
-        // PROMPT 6: Return shape { data: { workspaceId } }
-        return formatResponse({ workspaceId: workspace.id });
+        // Return workspace data for onboarding
+        return formatResponse({
+          id: workspace.id,
+          workspaceId: workspace.id,
+          name: workspace.name,
+          slug: workspace.slug,
+          role: 'workspace_owner',
+        });
       }
 
       // Production logic: demo user restrictions
@@ -387,14 +396,20 @@ export class WorkspacesController {
         workspaceId: workspace.id,
         creatorUserId: u.id,
         creatorPlatformRole: u.role,
-        ownerUserIds: dto.ownerUserIds,
+        ownerUserIds: ownerUserIds,
         workspaceName: workspace.name,
         requestId,
         endpoint: 'POST /api/workspaces',
       });
 
-      // PROMPT 6: Return shape { data: { workspaceId } }
-      return formatResponse({ workspaceId: workspace.id });
+      // Return workspace data for onboarding
+      return formatResponse({
+        id: workspace.id,
+        workspaceId: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        role: 'workspace_owner',
+      });
     } catch (error) {
       // Re-throw validation and auth errors
       if (
@@ -589,7 +604,11 @@ export class WorkspacesController {
     @Req() req: Request,
   ) {
     try {
-      const roleData = await this.svc.getUserRole(workspaceId, u.id, u.organizationId);
+      const roleData = await this.svc.getUserRole(
+        workspaceId,
+        u.id,
+        u.organizationId,
+      );
       return formatResponse(roleData);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';
@@ -624,7 +643,11 @@ export class WorkspacesController {
         throw new ForbiddenException('Workspace access denied');
       }
 
-      const summary = await this.svc.getSummary(workspaceId, u.organizationId, u.id);
+      const summary = await this.svc.getSummary(
+        workspaceId,
+        u.organizationId,
+        u.id,
+      );
       return formatResponse(summary);
     } catch (error) {
       const requestId = req.headers['x-request-id'] || 'unknown';

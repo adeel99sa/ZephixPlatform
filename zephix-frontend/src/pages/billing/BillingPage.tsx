@@ -262,9 +262,10 @@ export default function BillingPage() {
           {plans.map((plan) => {
             const Icon = getPlanIcon(plan.type);
             const isCurrent = currentPlan?.id === plan.id;
-            const isUpgrade = currentPlan &&
+            const isUpgrade = currentPlan && (
               (plan.type === 'professional' && currentPlan.type === 'starter') ||
-              (plan.type === 'enterprise' && (currentPlan.type === 'starter' || currentPlan.type === 'professional'));
+              (plan.type === 'enterprise' && (currentPlan.type === 'starter' || currentPlan.type === 'professional'))
+            );
 
             return (
               <div

@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { SparklesIcon } from '@heroicons/react/24/solid';
 import { cn } from '../../utils';
-import { aiApi } from '../../services/api';
+import { request } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface Message {
@@ -247,7 +247,7 @@ export const FloatingAIAssistant: React.FC = () => {
         Please provide helpful, contextual assistance for this specific page and situation. Be concise and actionable.
       `;
 
-      const response = await aiApi.sendMessage(contextualPrompt);
+      const response = await request.post<{ messageId: string; response: string }>('/ai-chat/send-message', { message: contextualPrompt });
       
       const aiMessage: Message = {
         id: response.messageId,

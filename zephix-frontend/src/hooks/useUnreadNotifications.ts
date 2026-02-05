@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 import { useAuth } from "@/state/AuthContext";
 import { isPaidUser } from "@/utils/roles";
 
@@ -22,7 +22,7 @@ export function useUnreadNotifications() {
 
     try {
       setLoading(true);
-      const data = await api.get<{ count: number }>("/notifications/unread-count");
+      const data = await request.get<{ count: number }>("/notifications/unread-count");
       setUnreadCount(data.count);
     } catch (error) {
       // Silent fail for polling

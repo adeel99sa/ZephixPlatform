@@ -25,10 +25,9 @@ export class DocumentLibraryService {
       qb.andWhere('d.category = :category', { category: query.category });
     }
     if (query.search) {
-      qb.andWhere(
-        '(d.name ILIKE :search OR d.doc_key ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+      qb.andWhere('(d.name ILIKE :search OR d.doc_key ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
     }
     qb.orderBy('d.category', 'ASC').addOrderBy('d.name', 'ASC');
     return qb.getMany();

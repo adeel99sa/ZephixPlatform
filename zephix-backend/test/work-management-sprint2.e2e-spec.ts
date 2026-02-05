@@ -213,6 +213,40 @@ describe('Work Management Sprint 2 E2E', () => {
     });
   });
 
+  describe('Status transition validation', () => {
+    it('PATCH /api/work/tasks/:id with blocked transition returns 400 INVALID_STATUS_TRANSITION', async () => {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/work/tasks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('x-workspace-id', workspaceId)
+        .send({
+          projectId,
+          title: 'Transition Test Task',
+          status: 'TODO',
+          type: 'TASK',
+          priority: 'MEDIUM',
+        })
+        .expect(201);
+
+      const taskId = createRes.body.data.id;
+
+      const patchRes = await request(app.getHttpServer())
+        .patch(`/api/work/tasks/${taskId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('x-workspace-id', workspaceId)
+        .send({ status: 'DONE' });
+
+      expect(patchRes.status).toBe(400);
+      const code = patchRes.body?.code ?? patchRes.body?.response?.code;
+      const message = patchRes.body?.message ?? patchRes.body?.response?.message ?? '';
+      expect(code === 'INVALID_STATUS_TRANSITION' || String(message).includes('INVALID_STATUS_TRANSITION') || String(message).includes('Cannot transition')).toBe(true);
+
+      // Cleanup
+      const taskRepo = dataSource.getRepository(WorkTask);
+      await taskRepo.delete({ id: taskId });
+    });
+  });
+
   describe('A. Lock persisted under plan API', () => {
     let testProjectId: string;
     let testPhaseId: string;

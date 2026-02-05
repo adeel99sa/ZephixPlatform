@@ -18,23 +18,29 @@ export class AuditEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', name: 'workspace_id' })
-  workspaceId: string;
+  @Column({ type: 'uuid', name: 'workspace_id', nullable: true })
+  workspaceId: string | null;
 
-  @Column({ type: 'uuid', name: 'project_id' })
-  projectId: string;
+  @Column({ type: 'uuid', name: 'project_id', nullable: true })
+  projectId: string | null;
 
   @Column({ type: 'uuid', name: 'user_id' })
   userId: string;
 
   @Column({ type: 'varchar', length: 50, name: 'event_type' })
-  eventType: string; // ACK_CONSUMED, PHASE_UPDATED_WITH_ACK
+  eventType: string; // ACK_CONSUMED, PHASE_UPDATED_WITH_ACK, TEMPLATE_APPLIED, DOC_TRANSITION, GATE_DECIDE
 
   @Column({ type: 'varchar', length: 50, name: 'entity_type' })
-  entityType: string; // PHASE, TASK, PROJECT
+  entityType: string; // PHASE, TASK, PROJECT, TEMPLATE_LINEAGE, DOCUMENT_INSTANCE, GATE_APPROVAL
 
-  @Column({ type: 'uuid', name: 'entity_id' })
-  entityId: string;
+  @Column({ type: 'uuid', name: 'entity_id', nullable: true })
+  entityId: string | null;
+
+  @Column({ type: 'jsonb', name: 'old_state', nullable: true })
+  oldState: Record<string, any> | null;
+
+  @Column({ type: 'jsonb', name: 'new_state', nullable: true })
+  newState: Record<string, any> | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;

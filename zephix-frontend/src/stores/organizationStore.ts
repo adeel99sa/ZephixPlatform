@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import type { BaseStoreState, AsyncResult } from '../types/store';
 import type { Organization, UserOrganization, CreateOrganizationData, InviteUserData } from '../types/organization';
 import { createError } from '../types/store';
-import { api } from '@/lib/api';
+import { typedApi } from '@/lib/api';
 
 interface OrganizationState extends BaseStoreState {
   organizations: Organization[];
@@ -33,7 +33,7 @@ interface OrganizationState extends BaseStoreState {
 const organizationApi = {
   getUserOrganizations: async (): Promise<{ data: Organization[] }> => {
     try {
-      const response = await api.get('/organizations');
+      const response = await typedApi.get<Organization[] | { data: Organization[] }>('/organizations');
       const organizations = Array.isArray(response) ? response : (response.data || []);
       return { data: organizations };
     } catch (error) {
@@ -44,7 +44,7 @@ const organizationApi = {
 
   createOrganization: async (data: CreateOrganizationData): Promise<{ data: Organization }> => {
     try {
-      const response = await api.post('/organizations', data);
+      const response = await typedApi.post<Organization>('/organizations', data);
       return { data: response };
     } catch (error) {
       console.error('Failed to create organization:', error);
@@ -54,7 +54,7 @@ const organizationApi = {
 
   switchOrganization: async (organizationId: string): Promise<{ data: Organization }> => {
     try {
-      const response = await api.get(`/organizations/${organizationId}`);
+      const response = await typedApi.get<Organization>(`/organizations/${organizationId}`);
       return { data: response };
     } catch (error) {
       console.error('Failed to fetch organization:', error);
@@ -62,12 +62,22 @@ const organizationApi = {
     }
   },
 
-  inviteUser: async (organizationId: string, data: InviteUserData) => {
+  inviteUser: async (organizationId: string, data: InviteUserData): Promise<{ data: { success: boolean; message: string } }> => {
     try {
-      const response = await api.post(`/organizations/${organizationId}/invite`, data);
+      const response = await typedApi.post<{ success: boolean; message: string }>(`/organizations/${organizationId}/invite`, data);
       return { data: response };
     } catch (error) {
       console.error('Failed to invite user:', error);
+      throw error;
+    }
+  },
+
+  updateOrganization: async (id: string, data: Partial<CreateOrganizationData>): Promise<{ data: Organization }> => {
+    try {
+      const response = await typedApi.patch<Organization>(`/organizations/${id}`, data);
+      return { data: response };
+    } catch (error) {
+      console.error('Failed to update organization:', error);
       throw error;
     }
   },
@@ -312,8 +322,8 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
 
         try {
-          const response = await api.patch(`/organizations/${id}`, data);
-          const updatedOrg = response;
+          const response = await organizationApi.updateOrganization(id, data);
+          const updatedOrg = response.data;
 
           const organizations = get().organizations;
           const updatedOrgs = organizations.map(org =>
@@ -332,7 +342,7 @@ export const useOrganizationStore = create<OrganizationState>()(
           toast.success('Organization updated successfully');
 
           return {
-            success: true,
+            success: true as const,
             data: updatedOrg
           };
         } catch (error) {
@@ -414,7 +424,7 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
 
         try {
-          await api.delete(`/organizations/${organizationId}/users/${userId}`);
+          await typedApi.delete(`/organizations/${organizationId}/users/${userId}`);
 
           set({
             isLoading: false,
@@ -460,7 +470,7 @@ export const useOrganizationStore = create<OrganizationState>()(
         });
 
         try {
-          await api.put(`/organizations/${organizationId}/team/members/${userId}/role`, { role });
+          await typedApi.put(`/organizations/${organizationId}/team/members/${userId}/role`, { role });
 
           set({
             isLoading: false,

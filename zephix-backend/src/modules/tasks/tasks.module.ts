@@ -4,6 +4,7 @@ import { Task } from './entities/task.entity';
 import { TaskDependency } from './entities/task-dependency.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
+import { LegacyTasksGuard } from '../../guards/legacy-tasks.guard';
 import { ResourceModule } from '../resources/resource.module';
 import { KPIModule } from '../kpi/kpi.module';
 import {
@@ -19,6 +20,7 @@ import {
     KPIModule,
   ],
   providers: [
+    LegacyTasksGuard,
     // Provide TenantAwareRepository for tenant-scoped entities
     createTenantAwareRepositoryProvider(Task),
     createTenantAwareRepositoryProvider(TaskDependency),

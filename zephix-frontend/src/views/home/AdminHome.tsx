@@ -50,7 +50,8 @@ export function AdminHome() {
       setLoading(true);
       setError(null);
       const response = await api.get<{ data: AdminHomeData }>('/home');
-      setData(response.data);
+      // Backend returns { data: AdminHomeData }
+      setData(response.data?.data ?? (response.data as unknown as AdminHomeData));
     } catch (error: any) {
       console.error('Failed to load admin home data:', error);
       // STEP 5: Don't show toast errors - silent failure, show empty state instead

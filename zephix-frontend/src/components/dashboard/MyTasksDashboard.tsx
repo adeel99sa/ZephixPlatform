@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react';
-import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
+import * as workTasksApi from '@/features/work-management/workTasks.api';
+import { api } from '@/lib/api';
 
 export function MyTasksDashboard() {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<workTasksApi.WorkTask[]>([]);
   const [weeklyCapacity, setWeeklyCapacity] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchMyTasks();
       calculateWeeklyCapacity();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchMyTasks = async () => {
     try {
-      // This endpoint needs to be created in backend
-      const response = await api.get('/tasks/my-tasks');
-      setTasks(response.data?.success ? response.data.data : []);
+      const result = await workTasksApi.listTasks({
+        assigneeUserId: user?.id,
+        limit: 50,
+        offset: 0,
+      });
+      setTasks(result.items);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
@@ -28,10 +32,10 @@ export function MyTasksDashboard() {
   };
 
   const calculateWeeklyCapacity = async () => {
-    // Calculate based on assigned tasks
     try {
       const response = await api.get('/resources/my-capacity');
-      setWeeklyCapacity(response.data?.success ? response.data.data?.capacityPercentage : 0);
+      const data = response as { data?: { capacityPercentage?: number }; success?: boolean };
+      setWeeklyCapacity(data?.data?.capacityPercentage ?? (data as any)?.capacityPercentage ?? 0);
     } catch (error) {
       console.error('Failed to calculate capacity:', error);
     }
@@ -90,28 +94,25 @@ export function MyTasksDashboard() {
               <div key={task.id} className="p-4 hover:bg-gray-50">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="font-medium">{task.name || task.title}</h3>
-                    <p className="text-sm text-gray-500">{task.projectName}</p>
+                    <h3 className="font-medium">{task.title}</h3>
+                    <p className="text-sm text-gray-500">Project: {task.projectId}</p>
                     <div className="flex items-center gap-4 mt-2">
-                      <span className={`text-sm ${getPriorityColor(task.priority)}`}>
-                        {task.priority?.toUpperCase()}
+                      <span className={`text-sm ${getPriorityColor(task.priority?.toLowerCase() ?? 'medium')}`}>
+                        {task.priority}
                       </span>
                       <span className="text-sm text-gray-500">
-                        Due: {task.endDate ? new Date(task.endDate).toLocaleDateString() : 'No date'}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {task.estimatedHours || 0} hours
+                        Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
                       </span>
                     </div>
                   </div>
                   <div className="ml-4">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      task.status === 'done' ? 'bg-green-100 text-green-800' :
-                      task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                      task.status === 'blocked' ? 'bg-red-100 text-red-800' :
+                      task.status === 'DONE' ? 'bg-green-100 text-green-800' :
+                      task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                      task.status === 'BLOCKED' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {task.status?.replace('_', ' ').toUpperCase()}
+                      {task.status?.replace('_', ' ')}
                     </span>
                   </div>
                 </div>

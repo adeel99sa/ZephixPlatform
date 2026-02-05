@@ -4,6 +4,7 @@ import { ChevronDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { telemetry } from '@/lib/telemetry';
 import { listWorkspaces } from './api';
 import type { Workspace } from './api';
@@ -11,7 +12,8 @@ import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 import { isAdminRole } from '@/types/roles';
 
 export function SidebarWorkspaces() {
-  const { user, loading: authLoading, activeWorkspaceId, setActiveWorkspaceId } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [open, setOpen] = useState(false);
@@ -70,7 +72,7 @@ export function SidebarWorkspaces() {
   function handleWorkspaceSelect(id: string) {
     if (!id) return;
     // Single source of truth: set activeWorkspaceId in AuthContext
-    setActiveWorkspaceId(id);
+    setActiveWorkspace(id);
     // Always navigate to workspace home
     navigate(`/workspaces/${id}/home`, { replace: true });
   }
@@ -98,7 +100,7 @@ export function SidebarWorkspaces() {
       hasInitializedRef.current = true;
       const firstWorkspace = availableWorkspaces[0];
       if (firstWorkspace) {
-        setActiveWorkspaceId(firstWorkspace.id);
+        setActiveWorkspace(firstWorkspace.id);
         navigate(`/workspaces/${firstWorkspace.id}/home`, { replace: true });
         telemetry.track('workspace.selected', { workspaceId: firstWorkspace.id });
       }

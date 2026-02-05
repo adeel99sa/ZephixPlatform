@@ -25,10 +25,9 @@ export class KpiLibraryService {
       qb.andWhere('k.category = :category', { category: query.category });
     }
     if (query.search) {
-      qb.andWhere(
-        '(k.name ILIKE :search OR k.kpi_key ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+      qb.andWhere('(k.name ILIKE :search OR k.kpi_key ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
     }
     qb.orderBy('k.category', 'ASC').addOrderBy('k.name', 'ASC');
     return qb.getMany();

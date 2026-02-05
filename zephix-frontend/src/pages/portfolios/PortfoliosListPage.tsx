@@ -60,7 +60,9 @@ export default function PortfoliosListPage() {
       if (workspaceResponse) {
         setWorkspaceName(workspaceResponse.name);
       }
-      setPortfolios(portfoliosResponse.data || []);
+      const result = portfoliosResponse as unknown as { data?: Portfolio[] } | Portfolio[];
+      const portfolioData = 'data' in result && Array.isArray(result.data) ? result.data : Array.isArray(result) ? result : [];
+      setPortfolios(portfolioData);
     } catch (err: any) {
       console.error('Failed to load portfolios:', err);
       if (err?.response?.status === 404) {

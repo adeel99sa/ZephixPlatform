@@ -1,0 +1,11 @@
+# DELETE CANDIDATE
+# Reason: Generated artifact
+# Original: all-modules.txt
+
+src/organizations/organizations.module.ts
+src/auth/auth.module.ts
+src/projects/projects.module.ts
+src/health/health.module.ts
+src/shared/shared.module.ts
+src/app.module.ts
+src/modules/templates/template.module.ts

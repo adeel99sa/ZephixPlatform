@@ -8,15 +8,23 @@ export type CreateWorkspaceInput = {
 
 export type CreateWorkspaceResponse = {
   data: {
+    id: string;
     workspaceId: string;
+    name: string;
+    slug?: string | null;
+    role: string;
   };
 };
 
-export type Workspace = {
-  id: string;
-  name: string;
-  slug?: string | null;
-  description?: string | null;
+// Use the shared Workspace type from types.ts
+import type { Workspace as WorkspaceBase } from './types';
+
+// Extended Workspace type for API responses (may have additional nullable fields)
+export type Workspace = WorkspaceBase & {
+  // Additional optional fields from API responses
+  ownerId?: string;
+  owner?: { id: string; name?: string; email?: string };
+  homeNotes?: string;
 };
 
 export type GetWorkspaceResponse = {
@@ -40,16 +48,27 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return unwrapArray<Workspace>(response);
 }
 
-export async function createWorkspace(input: CreateWorkspaceInput): Promise<string> {
+export async function createWorkspace(
+  input: CreateWorkspaceInput,
+): Promise<CreateWorkspaceResponse['data']> {
   const res = await api.post<CreateWorkspaceResponse>("/workspaces", input);
-  // API interceptor unwraps { data: { workspaceId } } to { workspaceId }
-  const workspaceId = (res as any)?.data?.workspaceId || (res as any)?.workspaceId;
+  const data =
+    (res as any)?.data ||
+    (res as any) ||
+    undefined;
+  const resolved = {
+    id: data?.id || data?.workspaceId,
+    workspaceId: data?.workspaceId || data?.id,
+    name: data?.name,
+    slug: data?.slug,
+    role: data?.role,
+  };
 
-  if (!workspaceId) {
+  if (!resolved.workspaceId) {
     throw new Error("Workspace create returned no workspaceId");
   }
 
-  return workspaceId;
+  return resolved as CreateWorkspaceResponse['data'];
 }
 
 export async function getWorkspace(workspaceId: string): Promise<Workspace> {

@@ -58,7 +58,8 @@ export class GateApprovalsService {
     requirements: GateRequirements,
   ): Promise<GateBlocker[]> {
     const blockers: GateBlocker[] = [];
-    const { requiredDocKeys, requiredKpiKeys, requiredDocStates } = requirements;
+    const { requiredDocKeys, requiredKpiKeys, requiredDocStates } =
+      requirements;
     const allowedDocStates = new Set(requiredDocStates);
 
     if (requiredDocKeys.length > 0) {
@@ -69,7 +70,11 @@ export class GateApprovalsService {
       for (const key of requiredDocKeys) {
         const doc = byKey.get(key);
         if (!doc) {
-          blockers.push({ type: 'document', key, reason: 'missing_doc_instance' });
+          blockers.push({
+            type: 'document',
+            key,
+            reason: 'missing_doc_instance',
+          });
         } else if (!allowedDocStates.has(doc.status)) {
           blockers.push({
             type: 'document',
@@ -85,7 +90,9 @@ export class GateApprovalsService {
         relations: ['kpiDefinition'],
       });
       const byKey = new Map(
-        kpis.filter((pk) => pk.kpiDefinition).map((pk) => [pk.kpiDefinition!.kpiKey, pk]),
+        kpis
+          .filter((pk) => pk.kpiDefinition)
+          .map((pk) => [pk.kpiDefinition.kpiKey, pk]),
       );
       for (const key of requiredKpiKeys) {
         if (!byKey.has(key)) {
@@ -125,13 +132,18 @@ export class GateApprovalsService {
       throw new NotFoundException('Project not found');
     }
     if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Project does not belong to your organization');
+      throw new ForbiddenException(
+        'Project does not belong to your organization',
+      );
     }
     if (workspaceId && project.workspaceId !== workspaceId) {
       throw new ForbiddenException('Project does not belong to this workspace');
     }
 
-    if (dto.decision === 'approved' || dto.decision === 'approved_with_comments') {
+    if (
+      dto.decision === 'approved' ||
+      dto.decision === 'approved_with_comments'
+    ) {
       const blockers = await this.getBlockers(projectId, gateKey, requirements);
       if (blockers.length > 0) {
         await this.auditService.emit({
@@ -146,7 +158,11 @@ export class GateApprovalsService {
             projectId,
             gateKey,
             errorCode: 'gate_blocked',
-            errorMessage: `Blockers: ${blockers.map((b) => b.reason).join(', ')}`.slice(0, 500),
+            errorMessage:
+              `Blockers: ${blockers.map((b) => b.reason).join(', ')}`.slice(
+                0,
+                500,
+              ),
           },
           metadata: { blockers: blockers.length },
         });

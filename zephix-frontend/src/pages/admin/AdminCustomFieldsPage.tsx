@@ -34,7 +34,8 @@ export default function AdminCustomFieldsPage() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await apiClient.get('/admin/custom-fields');
+      const response = await apiClient.get<{ data: any[] }>('/admin/custom-fields');
+      const data = (response as unknown as { data?: any[] })?.data ?? [];
       // Map backend response to frontend format
       const mappedFields = data.map((field: any) => ({
         id: field.id,

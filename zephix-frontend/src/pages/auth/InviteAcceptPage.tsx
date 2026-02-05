@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Zap, CheckCircle, XCircle, Loader } from 'lucide-react';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import { useAuth } from '../../state/AuthContext';
 
 export const InviteAcceptPage: React.FC = () => {

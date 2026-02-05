@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { telemetry } from '@/lib/telemetry';
 
 import { createWorkspace } from './api';
@@ -17,7 +18,8 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [busy, setBusy] = useState(false);
-  const { user, setActiveWorkspaceId } = useAuth();
+  const { user } = useAuth();
+  const { setActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
 
   if (!open) return null;
@@ -30,16 +32,16 @@ export function WorkspaceCreateModal({ open, onClose, onCreated }: Props) {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const workspaceId = await createWorkspace({
+      const workspace = await createWorkspace({
         name,
         slug: slug || undefined,
       });
-      telemetry.track('ui.workspace.create.success', { workspaceId });
+      telemetry.track('ui.workspace.create.success', { workspaceId: workspace.workspaceId });
       // Fix: Close modal first, then set workspace, then navigate (exact order required)
       onClose();
-      setActiveWorkspaceId(workspaceId);
-      navigate(`/workspaces/${workspaceId}/home`, { replace: true });
-      onCreated(workspaceId);
+      setActiveWorkspace(workspace.workspaceId);
+      navigate(`/workspaces/${workspace.workspaceId}/home`, { replace: true });
+      onCreated(workspace.workspaceId);
     } catch (e) {
       telemetry.track('ui.workspace.create.error', { message: (e as Error).message });
       const errorMessage = (e as any)?.response?.data?.message || (e as Error).message || 'Failed to create workspace.';

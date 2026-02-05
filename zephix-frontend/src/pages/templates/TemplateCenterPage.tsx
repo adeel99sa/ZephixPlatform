@@ -11,6 +11,7 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { CreateTemplateModal } from './CreateTemplateModal';
 import { TemplateStructureEditor } from './TemplateStructureEditor';
 import { TemplateKpiSelector } from './TemplateKpiSelector';
+import { InstantiateTemplateModal } from './InstantiateTemplateModal';
 
 export default function TemplateCenterPage() {
   const [allTemplates, setAllTemplates] = useState<TemplateDto[]>([]);

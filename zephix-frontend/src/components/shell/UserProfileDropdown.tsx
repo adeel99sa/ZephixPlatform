@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { ChevronDown } from "lucide-react";
 import { track } from "@/lib/telemetry";
 import { isAdminUser } from "@/types/roles";
@@ -17,6 +18,7 @@ import { PHASE_5_1_UAT_MODE } from "@/config/phase5_1";
 export function UserProfileDropdown() {
   const { user, logout } = useAuth();
   const { currentOrganization, getUserOrganizations, organizations } = useOrganizationStore();
+  const { clearActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,7 @@ export function UserProfileDropdown() {
   const handleLogout = async () => {
     track("user.logout", { userId: user?.id });
     await logout();
+    clearActiveWorkspace();
     navigate("/login");
   };
 
@@ -93,8 +96,7 @@ export function UserProfileDropdown() {
         const currentPathBefore = window.location.pathname;
         console.log('[UserProfileDropdown] ⚠️ CLICKED ADMINISTRATION - Starting navigation', {
           email: user?.email,
-          permissions: user?.permissions,
-          permissionsIsAdmin: user?.permissions?.isAdmin,
+          platformRole: user?.platformRole,
           currentPath: currentPathBefore,
           timestamp: new Date().toISOString(),
         });

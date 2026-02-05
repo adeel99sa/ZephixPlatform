@@ -47,7 +47,8 @@ export function MemberHome() {
       setLoading(true);
       setError(null);
       const response = await api.get<{ data: MemberHomeData }>('/home');
-      setData(response.data);
+      // Backend returns { data: MemberHomeData }
+      setData(response.data?.data ?? (response.data as unknown as MemberHomeData));
     } catch (error: any) {
       console.error('Failed to load member home data:', error);
       // STEP 5: Don't show toast errors - silent failure, show empty state instead

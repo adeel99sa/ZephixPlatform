@@ -82,16 +82,18 @@ export default function ProgramDetailPage() {
       const rollupResponse = await api.get<{ data: ProgramRollup }>(
         `/workspaces/${wsId}/programs/${programId}/rollup`
       );
-      const rollupData = rollupResponse.data;
+      // Backend returns { data: ProgramRollup }
+      const rollupData = rollupResponse.data?.data ?? rollupResponse.data as unknown as ProgramRollup;
       setRollup(rollupData);
 
       // Fetch portfolio if program has portfolioId
-      if (rollupData.program.portfolioId) {
+      if (rollupData.program?.portfolioId) {
         try {
           const portfolioResponse = await api.get<{ data: Portfolio }>(
             `/workspaces/${wsId}/portfolios/${rollupData.program.portfolioId}`
           );
-          setPortfolio(portfolioResponse.data);
+          // Backend returns { data: Portfolio }
+          setPortfolio(portfolioResponse.data?.data ?? portfolioResponse.data as unknown as Portfolio);
         } catch (err) {
           console.warn('Failed to load portfolio:', err);
         }

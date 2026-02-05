@@ -88,7 +88,7 @@ export default function AdminOverviewPage() {
     try {
       const response = await api.get<{ data: OrgSummary }>("/admin/org/summary");
       // Backend returns { data: OrgSummary }
-      return response?.data || response;
+      return response?.data?.data ?? response?.data as unknown as OrgSummary;
     } catch (error) {
       // Fallback if endpoint doesn't exist yet
       return {
@@ -104,7 +104,7 @@ export default function AdminOverviewPage() {
     try {
       const response = await api.get<{ data: UserSummary }>("/admin/users/summary");
       // Backend returns { data: UserSummary }
-      return response?.data || response;
+      return response?.data?.data ?? response?.data as unknown as UserSummary;
     } catch (error) {
       // Fallback
       return {
@@ -123,7 +123,7 @@ export default function AdminOverviewPage() {
     try {
       const response = await api.get<{ data: WorkspaceSummary }>("/admin/workspaces/summary");
       // Backend returns { data: WorkspaceSummary }
-      return response?.data || response;
+      return response?.data?.data ?? response?.data as unknown as WorkspaceSummary;
     } catch (error) {
       // Fallback
       return {
@@ -144,7 +144,7 @@ export default function AdminOverviewPage() {
     try {
       const response = await api.get<{ data: RiskSummary }>("/admin/risk/summary");
       // Backend returns { data: RiskSummary }
-      return response?.data || response;
+      return response?.data?.data ?? response?.data as unknown as RiskSummary;
     } catch (error) {
       // Fallback
       return {

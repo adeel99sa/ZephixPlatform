@@ -25,6 +25,9 @@ interface TeamMember {
     firstName?: string;
     lastName?: string;
   };
+  // Convenience accessors (may be computed from user object)
+  name?: string;
+  email?: string;
   role: 'owner' | 'admin' | 'pm' | 'viewer';
   status: 'active' | 'pending' | 'inactive';
   joinedAt: string;
@@ -142,7 +145,9 @@ export const TeamManagement: React.FC = () => {
         role: inviteRole,
       });
 
-      if (response.data?.success) {
+      // Check for success - response may be the data object directly or wrapped
+      const responseData = response.data as { success?: boolean } | undefined;
+      if (responseData?.success !== false) {
         toast.success(`Invitation sent to ${inviteEmail}`);
         setInviteEmail('');
         setShowInviteModal(false);
@@ -163,7 +168,9 @@ export const TeamManagement: React.FC = () => {
       const response = await apiClient.post(
         `/organizations/${organizationId}/team/invitations/${invitationId}/resend`
       );
-      if (response.data?.success) {
+      // Check for success - response may be the data object directly
+      const responseData = response.data as { success?: boolean } | undefined;
+      if (responseData?.success !== false) {
         toast.success('Invitation resent successfully');
       }
     } catch (error: any) {
@@ -179,7 +186,9 @@ export const TeamManagement: React.FC = () => {
       const response = await apiClient.delete(
         `/organizations/${organizationId}/team/invitations/${invitationId}`
       );
-      if (response.data?.success) {
+      // Check for success - response may be the data object directly
+      const responseData = response.data as { success?: boolean } | undefined;
+      if (responseData?.success !== false) {
         toast.success('Invitation cancelled');
         setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
       }

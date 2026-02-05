@@ -21,7 +21,16 @@ const AVAILABLE_PHASES = [
 
 export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, onClose, onSuccess }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    priority: string;
+    methodology: string;
+    status: string;
+    selectedPhases: string[];
+  }>({
     name: '',
     description: '',
     startDate: '',
@@ -65,8 +74,8 @@ export const CreateProjectPanel: React.FC<CreateProjectPanelProps> = ({ isOpen, 
         selectedPhases: []
       });
       setStep(1);
-    } catch (err) {
-      setError(err.message || 'Failed to create project');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create project');
     } finally {
       setLoading(false);
     }

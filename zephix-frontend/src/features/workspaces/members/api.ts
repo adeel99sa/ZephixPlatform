@@ -1,4 +1,4 @@
-import api, { unwrapApiData } from '@/services/api';
+import { api, unwrapApiData } from '@/lib/api';
 
 export type WorkspaceMemberRow = {
   id: string;

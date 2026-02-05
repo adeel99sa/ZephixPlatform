@@ -60,8 +60,8 @@ export default function WorkspaceSettingsPage() {
     try {
       const response = await api.get<{ data: WorkspaceSettings | null }>(`/workspaces/${effectiveWorkspaceId}/settings`);
       // Backend returns { data: WorkspaceSettings | null }, extract data field
-      const settings = response?.data || response;
-      if (settings === null) {
+      const settings = response?.data?.data ?? (response?.data as unknown as WorkspaceSettings);
+      if (!settings) {
         toast.error('Workspace not found');
         navigate('/workspaces');
         return;

@@ -32,13 +32,13 @@ export default tseslint.config([
       '@typescript-eslint/no-unused-vars': 'error',
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
-      
+
       // React rules
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      
+
       // Accessibility rules
       'jsx-a11y/alt-text': 'error',
       'jsx-a11y/aria-props': 'error',
@@ -46,11 +46,55 @@ export default tseslint.config([
       'jsx-a11y/aria-unsupported-elements': 'error',
       'jsx-a11y/role-has-required-aria-props': 'error',
       'jsx-a11y/role-supports-aria-props': 'error',
-      
+
       // Import rules
       'import/order': ['error', {
         'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
         'newlines-between': 'always',
+      }],
+
+      // Prevent importing deprecated work-items API
+      // Allowed: ProjectTasksList.tsx, workItems.stats.api.ts, types.ts
+      // Blocked: api.ts (deprecated CRUD throws)
+      'no-restricted-imports': ['error', {
+        'paths': [
+          {
+            'name': '@/features/work-items/api',
+            'message': 'DEPRECATED: Use @/features/work-management/workTasks.api instead',
+          },
+          {
+            'name': '@/services/api',
+            'message': 'DEPRECATED: Use @/lib/api instead. See import cleanup migration.',
+          },
+          {
+            'name': 'axios',
+            'message': 'Use the shared axios instance from @/lib/api instead of direct axios imports.',
+          },
+        ],
+      }],
+    },
+  },
+  // Allow axios in lib/api files (they define the shared instance) and files that need axios types
+  {
+    files: [
+      '**/src/lib/api.ts',
+      '**/src/lib/api/**/*.ts',
+      '**/src/lib/__tests__/**/*.ts',
+      '**/src/features/workspaces/api/workspace-invite.api.ts', // Uses type-only axios import
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        'paths': [
+          {
+            'name': '@/features/work-items/api',
+            'message': 'DEPRECATED: Use @/features/work-management/workTasks.api instead',
+          },
+          {
+            'name': '@/services/api',
+            'message': 'DEPRECATED: Use @/lib/api instead. See import cleanup migration.',
+          },
+          // axios is allowed in lib/api files and type imports
+        ],
       }],
     },
   },

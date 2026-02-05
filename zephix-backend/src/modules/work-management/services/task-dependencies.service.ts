@@ -15,7 +15,7 @@ import { TaskActivityService } from './task-activity.service';
 import { AddDependencyDto, RemoveDependencyDto } from '../dto';
 import { DependencyType } from '../enums/task.enums';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { ProjectHealthService } from './project-health.service';
 
 interface AuthContext {
@@ -53,19 +53,19 @@ export class TaskDependenciesService {
       });
     }
 
-    // Validate both tasks exist in same org and workspace
+    // Validate both tasks exist in same workspace and are not soft-deleted
     const [predecessor, successor] = await Promise.all([
       this.taskRepo.findOne({
-        where: { id: predecessorTaskId, workspaceId },
+        where: { id: predecessorTaskId, workspaceId, deletedAt: IsNull() },
       }),
       this.taskRepo.findOne({
-        where: { id: successorTaskId, workspaceId },
+        where: { id: successorTaskId, workspaceId, deletedAt: IsNull() },
       }),
     ]);
 
     if (!predecessor || !successor) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'TASK_NOT_FOUND',
         message: 'One or more tasks not found',
       });
     }
@@ -150,6 +150,17 @@ export class TaskDependenciesService {
     predecessors: WorkTaskDependency[];
     successors: WorkTaskDependency[];
   }> {
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, workspaceId, deletedAt: IsNull() },
+      select: ['id'],
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+
     const [predecessors, successors] = await Promise.all([
       this.dependencyRepo.find({
         where: { successorTaskId: taskId, workspaceId },
@@ -172,6 +183,17 @@ export class TaskDependenciesService {
   ): Promise<void> {
     const { predecessorTaskId, type } = dto;
 
+    const successor = await this.taskRepo.findOne({
+      where: { id: successorTaskId, workspaceId, deletedAt: IsNull() },
+      select: ['projectId'],
+    });
+    if (!successor) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+
     const dependency = await this.dependencyRepo.findOne({
       where: {
         workspaceId,
@@ -187,12 +209,6 @@ export class TaskDependenciesService {
         message: 'Dependency not found',
       });
     }
-
-    // Get projectId from successor task for health recalculation
-    const successor = await this.taskRepo.findOne({
-      where: { id: successorTaskId, workspaceId },
-      select: ['projectId'],
-    });
 
     await this.dependencyRepo.remove(dependency);
 

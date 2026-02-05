@@ -27,6 +27,25 @@ if (process.env.DATABASE_URL) {
   console.warn('⚠️  E2E Test Setup: DATABASE_URL not set. Tests may fail.');
 }
 
+// CI gate: fail if DATABASE_URL host is not the test host (prevents pointing at staging/prod)
+const isCI = process.env.CI === 'true' || !!process.env.GITHUB_ACTIONS;
+if (isCI && process.env.DATABASE_URL) {
+  let host: string;
+  try {
+    const u = new URL(process.env.DATABASE_URL);
+    host = (u.hostname || '').toLowerCase();
+  } catch {
+    host = '';
+  }
+  const allowedHosts = ['127.0.0.1', 'localhost', (process.env.POSTGRES_HOST || '').toLowerCase()].filter(Boolean);
+  const isTestHost = allowedHosts.includes(host);
+  if (!isTestHost) {
+    console.error('❌ E2E CI: DATABASE_URL host must be the test host (127.0.0.1, localhost, or POSTGRES_HOST).');
+    console.error(`   Current host: ${host || '(parse failed)'}. Use setup-test-db.sh and do not set DATABASE_URL in CI.`);
+    process.exit(1);
+  }
+}
+
 // Diagnostic: Verify pg module is loaded correctly before Nest boot
 try {
   const pg = require('pg');

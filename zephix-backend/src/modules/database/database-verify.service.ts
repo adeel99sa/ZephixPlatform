@@ -25,7 +25,9 @@ export class DatabaseVerifyService {
   ) {}
 
   private async tableExists(name: string): Promise<boolean> {
-    const r = await this.dataSource.query(`SELECT to_regclass($1) as t`, [`public.${name}`]);
+    const r = await this.dataSource.query(`SELECT to_regclass($1) as t`, [
+      `public.${name}`,
+    ]);
     return !!r?.[0]?.t;
   }
 
@@ -36,14 +38,18 @@ export class DatabaseVerifyService {
     );
     // Do not throw on 0 loaded; fail only when pending migrations exist or schema is incompatible.
     if (loaded.length === 0) {
-      this.logger.warn('loaded_migrations=0; cannot compute pending. Fix DataSource migrations path (e.g. process.cwd() + dist/migrations/*.js).');
+      this.logger.warn(
+        'loaded_migrations=0; cannot compute pending. Fix DataSource migrations path (e.g. process.cwd() + dist/migrations/*.js).',
+      );
       return [];
     }
 
     const has = await this.tableExists('migrations');
     if (!has) return loaded;
 
-    const rows = await this.dataSource.query(`SELECT name FROM migrations ORDER BY id ASC`);
+    const rows = await this.dataSource.query(
+      `SELECT name FROM migrations ORDER BY id ASC`,
+    );
     const executed = new Set((rows as { name: string }[]).map((r) => r.name));
     return loaded.filter((n: string) => !executed.has(n));
   }
@@ -56,7 +62,9 @@ export class DatabaseVerifyService {
     return missing;
   }
 
-  private async missingColumns(): Promise<Array<{ table: string; column: string }>> {
+  private async missingColumns(): Promise<
+    Array<{ table: string; column: string }>
+  > {
     const missing: Array<{ table: string; column: string }> = [];
     for (const c of AUTH_REQUIRED_COLUMNS) {
       const r = await this.dataSource.query(
@@ -76,7 +84,8 @@ export class DatabaseVerifyService {
   async verify(ttlMs: number): Promise<VerifyResult> {
     const now = Date.now();
     // Only use cache for success; never serve a stale failure so readiness can flip to 200 after schema is fixed.
-    if (this.cached?.value.ok && now - this.cached.at < ttlMs) return this.cached.value;
+    if (this.cached?.value.ok && now - this.cached.at < ttlMs)
+      return this.cached.value;
 
     const loadedMigrations = this.dataSource.migrations?.length ?? 0;
     const pending = await this.pendingMigrations();
@@ -113,13 +122,19 @@ export class DatabaseVerifyService {
     this.logger.log(`migrations_loaded=${count} first=${first} last=${last}`);
 
     if (env === 'development' && auto) {
-      await this.lock.withLock(lockId, async () => {
-        const pre = await this.verify(0);
-        if (pre.pendingMigrations.length > 0) {
-          this.logger.warn(`pending_migrations=${pre.pendingMigrations.length} running=true`);
-          await this.dataSource.runMigrations({ transaction: 'all' });
-        }
-      }, timeoutMs);
+      await this.lock.withLock(
+        lockId,
+        async () => {
+          const pre = await this.verify(0);
+          if (pre.pendingMigrations.length > 0) {
+            this.logger.warn(
+              `pending_migrations=${pre.pendingMigrations.length} running=true`,
+            );
+            await this.dataSource.runMigrations({ transaction: 'all' });
+          }
+        },
+        timeoutMs,
+      );
     }
 
     const result = await this.verify(0);
@@ -131,7 +146,9 @@ export class DatabaseVerifyService {
       if (failFast || env !== 'production') {
         throw new Error('Schema verification failed');
       }
-      this.logger.warn('Schema verification failed but FAIL_FAST_SCHEMA_VERIFY is not set; continuing. /api/health/ready will return 503.');
+      this.logger.warn(
+        'Schema verification failed but FAIL_FAST_SCHEMA_VERIFY is not set; continuing. /api/health/ready will return 503.',
+      );
       return;
     }
 

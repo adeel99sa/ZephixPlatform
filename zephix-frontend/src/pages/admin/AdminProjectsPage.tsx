@@ -45,8 +45,8 @@ export default function AdminProjectsPage() {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         workspaceId: workspaceFilter !== 'all' ? workspaceFilter : undefined,
       });
-      // Handle both { data: { projects, ... } } and direct array responses
-      const data = response?.data?.projects || response?.projects || response;
+      // Handle various response shapes from the API
+      const data = response?.projects || (Array.isArray(response) ? response : []);
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -88,7 +88,9 @@ export default function AdminProjectsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const uniqueWorkspaces = Array.from(new Set(projects.map(p => p.workspaceId).filter(Boolean)));
+  const uniqueWorkspaces = Array.from(
+    new Set(projects.map(p => p.workspaceId).filter((id): id is string => Boolean(id)))
+  );
 
   return (
     <div className="space-y-6">

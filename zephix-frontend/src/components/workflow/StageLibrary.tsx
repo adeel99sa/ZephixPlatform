@@ -274,7 +274,7 @@ interface StageTemplateCardProps {
 
 const StageTemplateCard: React.FC<StageTemplateCardProps> = ({ stage, onAdd }) => {
   const Icon = stage.icon;
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:border-purple-500/40',
     blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:border-blue-500/40',
     amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:border-amber-500/40',
@@ -282,12 +282,14 @@ const StageTemplateCard: React.FC<StageTemplateCardProps> = ({ stage, onAdd }) =
     gray: 'bg-gray-500/10 border-gray-500/20 text-gray-400 hover:border-gray-500/40'
   };
 
+  const colorClass = colorClasses[stage.color as string] ?? colorClasses.gray;
+
   return (
     <div
       onClick={onAdd}
       className={`
         p-3 border rounded-lg cursor-pointer transition-all duration-200 group
-        ${colorClasses[stage.color]}
+        ${colorClass}
       `}
     >
       <div className="flex items-start space-x-3">

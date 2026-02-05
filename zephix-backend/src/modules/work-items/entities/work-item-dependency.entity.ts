@@ -16,7 +16,11 @@ export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 @Index('idx_wid_workspace', ['workspaceId'])
 @Index('idx_wid_predecessor', ['workspaceId', 'predecessorId'])
 @Index('idx_wid_successor', ['workspaceId', 'successorId'])
-@Index('uq_wid_ws_pred_succ_type', ['workspaceId', 'predecessorId', 'successorId', 'type'], { unique: true })
+@Index(
+  'uq_wid_ws_pred_succ_type',
+  ['workspaceId', 'predecessorId', 'successorId', 'type'],
+  { unique: true },
+)
 export class WorkItemDependency {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -33,7 +37,12 @@ export class WorkItemDependency {
   @Column({ name: 'successor_id', type: 'uuid' })
   successorId!: string;
 
-  @Column({ name: 'dependency_type', type: 'varchar', length: 2, default: 'FS' })
+  @Column({
+    name: 'dependency_type',
+    type: 'varchar',
+    length: 2,
+    default: 'FS',
+  })
   type!: DependencyType;
 
   @Column({ name: 'lag_days', type: 'int', default: 0 })

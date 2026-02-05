@@ -4,8 +4,18 @@
  */
 
 import { jwtDecode } from 'jwt-decode';
-import { securityMiddleware } from '../middleware/security.middleware';
-import { authApi } from './api';
+import { typedApi } from '@/lib/api';
+import { securityMiddleware } from '@/middleware/security.middleware';
+
+// Inline authApi to replace deleted services/api
+// Uses typedApi to get properly typed responses (unwrapped by interceptor)
+const authApi = {
+  login: (creds: { email: string; password: string }) =>
+    typedApi.post<{ user: { id: string; email: string; firstName: string; lastName: string; role?: string; organizationId?: string }; accessToken: string; refreshToken?: string; expiresIn?: number }>('/auth/login', creds),
+  register: (data: { firstName: string; lastName: string; email: string; password: string }) =>
+    typedApi.post<{ user: { id: string; email: string; firstName: string; lastName: string; role?: string; organizationId?: string }; accessToken: string; refreshToken?: string; expiresIn?: number }>('/auth/register', data),
+  logout: () => typedApi.post('/auth/logout'),
+};
 
 // Relaxed JWT payload type for development
 type JwtPayload = {
@@ -311,7 +321,7 @@ class EnterpriseAuthService {
       });
 
       // 7. Store tokens securely
-      this.storeTokensSecurely(response.accessToken, response.refreshToken);
+      this.storeTokensSecurely(response.accessToken, response.refreshToken ?? null);
 
       return true;
 

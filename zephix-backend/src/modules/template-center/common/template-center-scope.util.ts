@@ -11,7 +11,7 @@ export type TemplateCenterScope = {
  */
 export function getTemplateCenterScope(
   auth: { organizationId?: string | null; workspaceIds?: string[] },
-  workspaceIdFromQuery?: string | undefined,
+  workspaceIdFromQuery?: string,
 ): TemplateCenterScope {
   if (!auth?.organizationId) {
     throw new ForbiddenException('missing_org_context');

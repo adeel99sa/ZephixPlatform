@@ -10,7 +10,10 @@ if (!url) {
 const dataSource = new DataSource({
   type: 'postgres',
   url,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false,
   migrations: [join(process.cwd(), 'dist/migrations/*.js')],
   migrationsTableName: 'migrations',
 });

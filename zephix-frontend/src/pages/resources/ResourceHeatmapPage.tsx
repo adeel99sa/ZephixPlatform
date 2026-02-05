@@ -38,7 +38,7 @@ export const ResourceHeatmapPage: React.FC = () => {
 
   // Fetch heatmap data
   const { data, isLoading, error } = useResourceHeatmap(
-    workspaceId,
+    workspaceId ?? undefined,
     fromDate,
     toDate,
   );

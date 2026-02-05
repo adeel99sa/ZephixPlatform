@@ -58,10 +58,21 @@ export class AuthSession {
   @Column({ name: 'refresh_expires_at', type: 'timestamptz', nullable: true })
   refreshExpiresAt: Date | null;
 
+  @Column({
+    name: 'last_active_organization_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  lastActiveOrganizationId: string | null;
+
   // Relations
   @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })
   organization: Organization;
+
+  @ManyToOne(() => Organization, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'last_active_organization_id' })
+  lastActiveOrganization: Organization | null;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

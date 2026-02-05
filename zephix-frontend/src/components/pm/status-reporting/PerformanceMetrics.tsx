@@ -278,7 +278,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {Object.entries(metrics.healthIndicators).map(([key, value]) => (
               <div key={key} className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{value}%</div>
+                <div className="text-2xl font-bold text-blue-600">{String(value)}%</div>
                 <div className="text-sm text-gray-600 capitalize">
                   {key.replace(/([A-Z])/g, ' $1').trim()}
                 </div>

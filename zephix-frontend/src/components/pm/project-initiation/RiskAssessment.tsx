@@ -166,8 +166,10 @@ const RiskAssessment: React.FC<RiskAssessmentProps> = ({ risks, onUpdate }) => {
 
     // Populate risk matrix
     (risks?.risks || []).forEach((risk: any) => {
-      if (riskMatrix[risk.probability as keyof typeof riskMatrix]) {
-        riskMatrix[risk.probability as keyof typeof riskMatrix][risk.impact as keyof typeof riskMatrix.high].push(risk);
+      const prob = risk.probability as string;
+      const impact = risk.impact as string;
+      if (prob in riskMatrix && impact in (riskMatrix as any)[prob]) {
+        ((riskMatrix as any)[prob][impact] as any[]).push(risk);
       }
     });
 
@@ -352,7 +354,7 @@ const RiskAssessment: React.FC<RiskAssessmentProps> = ({ risks, onUpdate }) => {
             ).map(([category, count]) => (
               <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span className="font-medium text-gray-900">{category}</span>
-                <span className="text-sm text-gray-600">{count} risks</span>
+                <span className="text-sm text-gray-600">{String(count)} risks</span>
               </div>
             ))}
           </div>

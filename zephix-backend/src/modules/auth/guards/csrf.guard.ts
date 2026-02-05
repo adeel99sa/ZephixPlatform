@@ -36,9 +36,19 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
+    // Skip legacy task paths only when legacy is disabled so LegacyTasksGuard returns 410 first
+    if (process.env.LEGACY_TASKS_ENABLED !== 'true') {
+      if (path === '/api/tasks' || path.startsWith('/api/tasks/')) {
+        return true;
+      }
+      if (/^\/api\/projects\/[^/]+\/tasks(\/|$)/.test(path)) {
+        return true;
+      }
+    }
+
     // Get CSRF token from cookie
     const cookieToken = request.cookies?.['XSRF-TOKEN'];
-    
+
     // Get CSRF token from header
     const headerToken = request.headers['x-csrf-token'] as string;
 

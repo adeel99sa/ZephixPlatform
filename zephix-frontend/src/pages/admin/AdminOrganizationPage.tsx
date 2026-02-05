@@ -49,7 +49,7 @@ export default function AdminOrganizationPage() {
 
   const loadOverview = async () => {
     try {
-      const data = await adminApi.getOrganizationOverview();
+      const data = await adminApi.getOrganizationOverview() as OrganizationOverview | null;
       setOverview(data);
     } catch (error) {
       console.error('Failed to load organization overview:', error);

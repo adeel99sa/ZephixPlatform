@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { Project } from '../../projects/entities/project.entity';
@@ -95,24 +95,26 @@ export class WorkPlanService {
       throw new NotFoundException('Project not found');
     }
 
-    // Load phases ordered by sortOrder
+    // Load phases ordered by sortOrder (exclude soft-deleted)
     const phases = await this.workPhaseRepository.find({
       where: {
         organizationId,
         workspaceId,
         projectId,
+        deletedAt: IsNull(),
       },
       order: {
         sortOrder: 'ASC',
       },
     });
 
-    // Load all tasks for this project
+    // Load all tasks for this project (exclude soft-deleted)
     const allTasks = await this.workTaskRepository.find({
       where: {
         organizationId,
         workspaceId,
         projectId,
+        deletedAt: IsNull(),
       },
       relations: ['phase'],
     });

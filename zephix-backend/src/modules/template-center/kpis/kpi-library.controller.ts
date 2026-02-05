@@ -1,4 +1,11 @@
-import { Controller, Get, Query, Req, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Req,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -21,7 +28,7 @@ export class KpiLibraryController {
     if (!isTemplateCenterEnabled()) {
       throw new NotFoundException('Template Center is not enabled');
     }
-    const auth = getAuthContext(req!);
+    const auth = getAuthContext(req);
     getTemplateCenterScope(auth);
     const query: ListKpisQuery = {
       category,

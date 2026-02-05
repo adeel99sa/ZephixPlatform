@@ -6,11 +6,18 @@ export class PostgresAdvisoryLockService {
   private readonly logger = new Logger(PostgresAdvisoryLockService.name);
   constructor(private readonly dataSource: DataSource) {}
 
-  async withLock<T>(lockId: number, fn: () => Promise<T>, timeoutMs: number): Promise<T> {
+  async withLock<T>(
+    lockId: number,
+    fn: () => Promise<T>,
+    timeoutMs: number,
+  ): Promise<T> {
     const start = Date.now();
 
     while (true) {
-      const r = await this.dataSource.query('SELECT pg_try_advisory_lock($1) as ok', [lockId]);
+      const r = await this.dataSource.query(
+        'SELECT pg_try_advisory_lock($1) as ok',
+        [lockId],
+      );
       if (r?.[0]?.ok) break;
 
       if (Date.now() - start > timeoutMs) {

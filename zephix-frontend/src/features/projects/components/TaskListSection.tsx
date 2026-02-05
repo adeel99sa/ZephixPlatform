@@ -8,60 +8,67 @@
  * - Due date display
  * - Comment panel
  * - Activity log
+ *
+ * OPTIMISTIC UPDATES:
+ * - Status change: instant UI update, rollback on error
+ * - Create task: temp ID appears immediately, replaced on success
+ * - Add comment: temp comment appears, replaced/removed on success/error
+ * - Bulk delete: optimistic remove, rollback on error
+ * - Bulk status: NOT optimistic (STRICT validation may reject)
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { api } from '@/lib/api';
 import { isAdminUser, isGuestUser } from '@/utils/roles';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
+import {
+  addComment,
+  createTask,
+  deleteTask,
+  listActivity,
+  listComments,
+  listTasks,
+  restoreTask,
+  updateTask,
+  type TaskActivityItem,
+  type TaskComment,
+  type UpdateTaskPatch,
+  type WorkTask,
+  type WorkTaskStatus,
+} from '@/features/work-management/workTasks.api';
+import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 
-type WorkItemStatus = 'todo' | 'in_progress' | 'done';
+// Generate temporary ID for optimistic inserts
+function tempId(): string {
+  return `temp:${crypto.randomUUID()}`;
+}
 
-type WorkItem = {
+// Error code constants
+const ERR_WORKSPACE_REQUIRED = 'WORKSPACE_REQUIRED';
+const ERR_VALIDATION_ERROR = 'VALIDATION_ERROR';
+
+// Extract error details from API response
+function getErrorDetails(error: any): { code?: string; message?: string; invalidTransitions?: any[] } {
+  const data = error?.response?.data || error;
+  return {
+    code: data?.code,
+    message: data?.message || 'An error occurred',
+    invalidTransitions: data?.invalidTransitions,
+  };
+}
+
+type WorkspaceMember = {
   id: string;
-  title: string;
-  description?: string;
-  status: WorkItemStatus;
-  assigneeId?: string;
-  assignee?: {
+  userId: string;
+  user?: {
     id: string;
     firstName?: string;
     lastName?: string;
     email: string;
   };
-  dueDate?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type WorkItemComment = {
-  id: string;
-  body: string;
-  createdBy: string;
-  createdByUser?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-  };
-  createdAt: string;
-};
-
-type WorkItemActivity = {
-  id: string;
-  type: string;
-  actorUser?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-  };
-  payload?: Record<string, any>;
-  createdAt: string;
 };
 
 interface Props {
@@ -72,14 +79,13 @@ interface Props {
 export function TaskListSection({ projectId, workspaceId }: Props) {
   const { user } = useAuth();
   const { isReadOnly } = useWorkspaceRole(workspaceId);
-  const { getWorkspaceMembers, setWorkspaceMembers } = useWorkspaceStore();
-  const [tasks, setTasks] = useState<WorkItem[]>([]);
+  const { getWorkspaceMembers, setWorkspaceMembers, activeWorkspaceId } = useWorkspaceStore();
+  const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<WorkItem | null>(null);
-  const [comments, setComments] = useState<Record<string, WorkItemComment[]>>({});
-  const [activities, setActivities] = useState<Record<string, WorkItemActivity[]>>({});
+  const [comments, setComments] = useState<Record<string, TaskComment[]>>({});
+  const [activities, setActivities] = useState<Record<string, TaskActivityItem[]>>({});
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
   const [showActivity, setShowActivity] = useState<Record<string, boolean>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
@@ -88,26 +94,44 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   // PHASE 7 MODULE 7.4: Bulk actions state
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<'status' | 'assign' | 'dueDate' | 'clearDueDate' | 'unassign' | 'delete' | null>(null);
-  const [bulkStatus, setBulkStatus] = useState<WorkItemStatus>('todo');
+  const [bulkStatus, setBulkStatus] = useState<WorkTaskStatus>('TODO');
   const [bulkAssigneeId, setBulkAssigneeId] = useState<string>('');
   const [bulkDueDate, setBulkDueDate] = useState<string>('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
+  // OPTIMISTIC UPDATES: Rollback storage for failed operations
+  const rollbackTasks = useRef<Map<string, WorkTask>>(new Map());
+  const rollbackComments = useRef<Map<string, TaskComment[]>>(new Map());
+
+  // ADMIN ONLY: Recently deleted tasks panel
+  const [showDeletedPanel, setShowDeletedPanel] = useState(false);
+  const [deletedTasks, setDeletedTasks] = useState<WorkTask[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [restoringTaskIds, setRestoringTaskIds] = useState<Set<string>>(new Set());
+  const deletedInFlight = useRef(false);
+
   // PHASE 7 MODULE 7.1 FIX: Use cached members
   const cachedMembers = workspaceId ? getWorkspaceMembers(workspaceId) : null;
-  const [workspaceMembers, setWorkspaceMembersState] = useState(cachedMembers || []);
+  const [workspaceMembers, setWorkspaceMembersState] = useState<WorkspaceMember[]>(cachedMembers || []);
 
   // PHASE 7 MODULE 7.1 FIX: Consistent role checks
   const isAdmin = isAdminUser(user);
   const isGuest = isGuestUser(user);
   const canEdit = !isReadOnly && !isGuest;
+  const hasWorkspaceMismatch = !activeWorkspaceId || activeWorkspaceId !== workspaceId;
+
+  // Handle WORKSPACE_REQUIRED errors consistently
+  const handleWorkspaceError = useCallback(() => {
+    toast.error('Workspace selection required. Please select a workspace.');
+    // Could redirect to workspace picker here if needed
+  }, []);
 
   useEffect(() => {
     if (projectId && workspaceId) {
       loadTasks();
       loadWorkspaceMembers();
     }
-  }, [projectId, workspaceId]);
+  }, [projectId, workspaceId, activeWorkspaceId]);
 
   async function loadWorkspaceMembers() {
     if (!workspaceId) return;
@@ -121,38 +145,54 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
     try {
       const members = await listWorkspaceMembers(workspaceId);
-      setWorkspaceMembers(workspaceId, members); // Cache it
-      setWorkspaceMembersState(members);
+      const normalized = (members || [])
+        .filter((member): member is WorkspaceMember => typeof member.userId === 'string' && member.userId.length > 0)
+        .map((member) => {
+          const base = { id: member.id, userId: member.userId };
+          if (member.user) {
+            return { ...base, user: { ...member.user, id: member.user.id || member.userId } };
+          }
+          return base;
+        });
+      setWorkspaceMembers(workspaceId, normalized); // Cache it
+      setWorkspaceMembersState(normalized);
     } catch (error) {
       console.error('Failed to load workspace members:', error);
     }
   }
 
-  async function loadTasks() {
+  async function loadTasks(silent = false) {
     if (!projectId || !workspaceId) return;
-
-    setLoading(true);
-    try {
-      // PHASE 7 MODULE 7.1 FIX: Explicit scoping with projectId and workspaceId
-      const response = await api.get<WorkItem[]>(
-        `/work-items?projectId=${projectId}&workspaceId=${workspaceId}`
-      );
-      // Backend sorts by dueDate ASC, createdAt DESC
-      setTasks(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Failed to load tasks:', error);
-      toast.error('Failed to load tasks');
-    } finally {
+    if (hasWorkspaceMismatch) {
+      if (!silent) handleWorkspaceError();
       setLoading(false);
+      return;
+    }
+
+    if (!silent) setLoading(true);
+    try {
+      const result = await listTasks({ projectId });
+      const items = Array.isArray(result.items) ? result.items : [];
+      setTasks(items);
+      // Preserve selections: filter to only IDs that still exist
+      setSelectedTaskIds((prev) => new Set([...prev].filter((id) => items.some((task) => task.id === id))));
+    } catch (error: any) {
+      console.error('Failed to load tasks:', error);
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        if (!silent) handleWorkspaceError();
+      } else if (!silent) {
+        toast.error(message || 'Failed to load tasks');
+      }
+    } finally {
+      if (!silent) setLoading(false);
     }
   }
 
   async function loadComments(taskId: string) {
     try {
-      const response = await api.get<WorkItemComment[]>(
-        `/work-items/${taskId}/comments`
-      );
-      setComments(prev => ({ ...prev, [taskId]: response.data || [] }));
+      const result = await listComments(taskId);
+      setComments(prev => ({ ...prev, [taskId]: result.items || [] }));
     } catch (error) {
       console.error('Failed to load comments:', error);
     }
@@ -160,10 +200,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   async function loadActivities(taskId: string) {
     try {
-      const response = await api.get<WorkItemActivity[]>(
-        `/work-items/${taskId}/activities`
-      );
-      setActivities(prev => ({ ...prev, [taskId]: response.data || [] }));
+      const result = await listActivity(taskId);
+      setActivities(prev => ({ ...prev, [taskId]: result.items || [] }));
     } catch (error) {
       console.error('Failed to load activities:', error);
     }
@@ -172,74 +210,222 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   async function handleCreateTask(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!projectId || !workspaceId) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
 
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-    const assigneeId = formData.get('assigneeId') as string || undefined;
+    const assigneeId = (formData.get('assigneeId') as string) || undefined;
     const dueDate = formData.get('dueDate') as string || undefined;
 
     if (!title.trim()) return;
 
+    // OPTIMISTIC: Create temp task and insert immediately
+    // FIX #3: Use placeholder values for server-only fields, mark as optimistic to avoid leaking to analytics
+    const tempTaskId = tempId();
+    const nowIso = new Date().toISOString();
+    const tempTask: WorkTask = {
+      id: tempTaskId,
+      organizationId: 'temp-org', // Placeholder - replaced by server on success
+      workspaceId: workspaceId,
+      projectId,
+      parentTaskId: null,
+      phaseId: null,
+      title: title.trim(),
+      description: description?.trim() || null,
+      status: 'TODO' as WorkTaskStatus,
+      type: 'TASK',
+      priority: 'MEDIUM',
+      assigneeUserId: assigneeId || null,
+      reporterUserId: user?.id ?? 'temp-user', // Placeholder if no user
+      startDate: null,
+      dueDate: dueDate || null,
+      completedAt: null,
+      rank: null,
+      tags: ['__optimistic__'], // Marker to identify temp tasks, stripped on server replace
+      metadata: { optimistic: true }, // Flag to prevent leaking to analytics
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      deletedAt: null,
+      deletedByUserId: null,
+    };
+
+    // Insert temp task at top of list
+    setTasks(prev => [tempTask, ...prev]);
+    setShowCreateForm(false);
+    e.currentTarget.reset();
     setCreating(true);
+
     try {
-      await api.post('/work-items', {
-        workspaceId,
+      const input = {
         projectId,
         title: title.trim(),
-        description: description.trim() || undefined,
-        assigneeId,
-        dueDate: dueDate || undefined,
-        status: 'todo',
-      });
+      } as Parameters<typeof createTask>[0];
+      const trimmedDescription = description?.trim();
+      if (trimmedDescription) input.description = trimmedDescription;
+      if (assigneeId) input.assigneeUserId = assigneeId;
+      if (dueDate) input.dueDate = dueDate;
 
+      const created = await createTask(input);
+
+      // Replace temp task with real task from server
+      setTasks(prev => prev.map(t => t.id === tempTaskId ? created : t));
       toast.success('Task created');
-      setShowCreateForm(false);
-      e.currentTarget.reset();
-      await loadTasks();
+
+      // Invalidate stats cache and dispatch event for KPI invalidation
+      invalidateStatsCache(projectId);
+      window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
     } catch (error: any) {
       console.error('Failed to create task:', error);
-      toast.error(error?.response?.data?.message || 'Failed to create task');
+      // Remove temp task on error
+      setTasks(prev => prev.filter(t => t.id !== tempTaskId));
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else {
+        toast.error(message || 'Failed to create task');
+      }
+      setShowCreateForm(true); // Re-open form so user can retry
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleStatusChange(taskId: string, newStatus: WorkItemStatus) {
+  async function handleStatusChange(taskId: string, newStatus: WorkTaskStatus) {
     if (!canEdit) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
+
+    // FIX #5: Capture prev status and store rollback inside functional update
+    // to avoid stale closure if user toggles twice fast
+    let prevStatus: WorkTaskStatus | null = null;
+
+    setTasks(prev => {
+      const currentTask = prev.find(t => t.id === taskId);
+      if (!currentTask) return prev;
+
+      prevStatus = currentTask.status;
+      rollbackTasks.current.set(taskId, { ...currentTask });
+
+      return prev.map(t =>
+        t.id === taskId
+          ? { ...t, status: newStatus, updatedAt: new Date().toISOString() }
+          : t
+      );
+    });
+
+    // If task wasn't found, abort
+    if (prevStatus === null) return;
+    const capturedPrevStatus = prevStatus; // TypeScript narrowing
 
     try {
-      await api.patch(`/work-items/${taskId}/status`, { status: newStatus });
-      toast.success('Status updated');
-      await loadTasks();
-      // Reload activities to show status change
+      const updated = await updateTask(taskId, { status: newStatus });
+
+      // Reconcile with server response
+      setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
+      rollbackTasks.current.delete(taskId);
+
+      // Invalidate stats cache and dispatch event for KPI invalidation
+      invalidateStatsCache(projectId);
+      window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
+
+      // Background refresh activities if panel is open
       if (activities[taskId]) {
-        await loadActivities(taskId);
+        loadActivities(taskId);
       }
     } catch (error: any) {
       console.error('Failed to update status:', error);
-      toast.error(error?.response?.data?.message || 'Failed to update status');
+      // ROLLBACK: Restore previous state (no stats invalidation on error)
+      const rollback = rollbackTasks.current.get(taskId);
+      if (rollback) {
+        setTasks(prev => prev.map(t => t.id === taskId ? rollback : t));
+        rollbackTasks.current.delete(taskId);
+      }
+
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else if (code === 'INVALID_STATUS_TRANSITION') {
+        toast.error(`Cannot change from ${capturedPrevStatus} to ${newStatus}`);
+      } else {
+        toast.error(message || 'Failed to update status');
+      }
     }
   }
 
   async function handleAddComment(taskId: string) {
     const commentText = newComment[taskId];
     if (!commentText?.trim()) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
 
+    // OPTIMISTIC: Create temp comment and insert immediately
+    const tempCommentId = tempId();
+    const nowIso = new Date().toISOString();
+    const tempComment: TaskComment = {
+      id: tempCommentId,
+      taskId,
+      body: commentText.trim(),
+      authorUserId: user?.id || 'unknown',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    // FIX #4: Store rollback inside functional update to avoid stale closure
+    setComments(prev => {
+      rollbackComments.current.set(taskId, prev[taskId] || []);
+      return {
+        ...prev,
+        [taskId]: [...(prev[taskId] || []), tempComment],
+      };
+    });
+    setNewComment(prev => ({ ...prev, [taskId]: '' }));
     setPostingComment(prev => ({ ...prev, [taskId]: true }));
-    try {
-      await api.post(`/work-items/${taskId}/comments`, {
-        body: commentText.trim(),
-      });
 
-      toast.success('Comment added');
-      setNewComment(prev => ({ ...prev, [taskId]: '' }));
-      await loadComments(taskId);
-      // Reload activities to show comment
-      await loadActivities(taskId);
+    try {
+      const created = await addComment(taskId, commentText.trim());
+
+      // Replace temp comment with real comment from server
+      setComments(prev => ({
+        ...prev,
+        [taskId]: (prev[taskId] || []).map(c =>
+          c.id === tempCommentId ? created : c
+        ),
+      }));
+      rollbackComments.current.delete(taskId);
+
+      // Background refresh activities if panel is open
+      if (activities[taskId]) {
+        loadActivities(taskId);
+      }
     } catch (error: any) {
       console.error('Failed to add comment:', error);
-      toast.error(error?.response?.data?.message || 'Failed to add comment');
+      // ROLLBACK: Restore previous comments
+      const rollback = rollbackComments.current.get(taskId);
+      if (rollback !== undefined) {
+        setComments(prev => ({ ...prev, [taskId]: rollback }));
+        rollbackComments.current.delete(taskId);
+      } else {
+        // Fallback: remove temp comment
+        setComments(prev => ({
+          ...prev,
+          [taskId]: (prev[taskId] || []).filter(c => c.id !== tempCommentId),
+        }));
+      }
+
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else {
+        toast.error(message || 'Failed to add comment');
+      }
     } finally {
       setPostingComment(prev => ({ ...prev, [taskId]: false }));
     }
@@ -261,19 +447,58 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }
 
-  function getStatusColor(status: WorkItemStatus): string {
+  function getStatusColor(status: WorkTaskStatus): string {
     switch (status) {
-      case 'todo':
+      case 'TODO':
+      case 'BACKLOG':
         return 'bg-gray-100 text-gray-800';
-      case 'in_progress':
+      case 'IN_PROGRESS':
+      case 'IN_REVIEW':
+      case 'BLOCKED':
         return 'bg-blue-100 text-blue-800';
-      case 'done':
+      case 'DONE':
+      case 'CANCELED':
         return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
+  }
+
+  function getStatusLabel(status: WorkTaskStatus): string {
+    switch (status) {
+      case 'BACKLOG':
+        return 'Backlog';
+      case 'TODO':
+        return 'Todo';
+      case 'IN_PROGRESS':
+        return 'In Progress';
+      case 'BLOCKED':
+        return 'Blocked';
+      case 'IN_REVIEW':
+        return 'In Review';
+      case 'DONE':
+        return 'Done';
+      case 'CANCELED':
+        return 'Canceled';
+      default:
+        return status;
+    }
+  }
+
+  function getUserLabel(userId?: string | null): string {
+    if (!userId) return 'Unknown';
+    const member = workspaceMembers.find((m: any) => m.userId === userId);
+    const user = member?.user || (member ? { id: member.userId, email: 'Unknown' } : null);
+    if (!user) return userId;
+    const displayName = user.firstName && user.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : user.email;
+    return displayName || userId;
   }
 
   // PHASE 7 MODULE 7.4: Bulk action handlers
   function toggleTaskSelection(taskId: string) {
+    if (loading) return;
     setSelectedTaskIds(prev => {
       const next = new Set(prev);
       if (next.has(taskId)) {
@@ -286,6 +511,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   }
 
   function toggleSelectAll() {
+    if (loading) return;
     if (selectedTaskIds.size === tasks.length) {
       setSelectedTaskIds(new Set());
     } else {
@@ -300,54 +526,80 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   async function handleBulkUpdate() {
     if (selectedTaskIds.size === 0 || !bulkAction) return;
+    if (loading) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
 
     setBulkProcessing(true);
+    const ids = Array.from(selectedTaskIds);
+
     try {
-      const patch: any = {};
+      const patch: UpdateTaskPatch = {};
 
       if (bulkAction === 'status') {
         patch.status = bulkStatus;
       } else if (bulkAction === 'assign') {
-        patch.assigneeId = bulkAssigneeId || null;
+        patch.assigneeUserId = bulkAssigneeId || null;
       } else if (bulkAction === 'unassign') {
-        patch.assigneeId = null;
+        patch.assigneeUserId = null;
       } else if (bulkAction === 'dueDate') {
         patch.dueDate = bulkDueDate || null;
       } else if (bulkAction === 'clearDueDate') {
         patch.dueDate = null;
       }
 
-      const response = await api.post('/work-items/bulk/update', {
-        workspaceId,
-        projectId,
-        ids: Array.from(selectedTaskIds),
-        patch,
-      });
+      // BULK STATUS: NOT optimistic due to STRICT validation
+      // Server may reject entire batch if any transition is invalid
+      // For non-status actions: also keep non-optimistic for simplicity (MVP)
+      const results = await Promise.allSettled(
+        ids.map((id) => updateTask(id, patch as any))
+      );
 
-      const result = response.data;
-      const successCount = result.updatedCount || 0;
-      const skippedCount = result.skippedCount || 0;
-      const errorCount = result.errors?.length || 0;
+      const fulfilled = results.filter((r): r is PromiseFulfilledResult<WorkTask> => r.status === 'fulfilled');
+      const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
-      if (successCount > 0) {
-        toast.success(`Updated ${successCount} task${successCount > 1 ? 's' : ''}`);
+      // Apply successful updates to local state (in-place, no full reload)
+      if (fulfilled.length > 0) {
+        const updatedMap = new Map(fulfilled.map(r => [r.value.id, r.value]));
+        setTasks(prev => prev.map(t => updatedMap.get(t.id) || t));
+        toast.success(`Updated ${fulfilled.length} task${fulfilled.length > 1 ? 's' : ''}`);
+
+        // Invalidate stats cache (only when changes applied) and dispatch event
+        invalidateStatsCache(projectId);
+        window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
       }
-      if (skippedCount > 0) {
-        toast.warning(`${skippedCount} task${skippedCount > 1 ? 's' : ''} skipped`);
-      }
-      if (errorCount > 0) {
-        toast.error(`${errorCount} error${errorCount > 1 ? 's' : ''}`);
+      // Note: Do NOT invalidate stats when all rejected (VALIDATION_ERROR)
+
+      // Handle errors with detailed messages
+      if (rejected.length > 0) {
+        const firstError = rejected[0]?.reason;
+        const { code, message, invalidTransitions } = getErrorDetails(firstError);
+
+        if (code === ERR_VALIDATION_ERROR && invalidTransitions?.length) {
+          // Show first 3 invalid transitions
+          const details = invalidTransitions.slice(0, 3)
+            .map(t => `${t.from} → ${t.to}`)
+            .join(', ');
+          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${details}`);
+        } else if (code === ERR_WORKSPACE_REQUIRED) {
+          handleWorkspaceError();
+        } else {
+          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${message}`);
+        }
       }
 
-      // Keep only skipped items selected
-      const skippedIds = new Set(result.errors?.map((e: any) => e.id) || []);
-      setSelectedTaskIds(skippedIds);
+      setSelectedTaskIds(new Set());
       setBulkAction(null);
-
-      await loadTasks();
     } catch (error: any) {
       console.error('Bulk update failed:', error);
-      toast.error(error?.response?.data?.message || 'Bulk update failed');
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else {
+        toast.error(message || 'Bulk update failed');
+      }
     } finally {
       setBulkProcessing(false);
     }
@@ -355,51 +607,213 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
   async function handleBulkDelete() {
     if (selectedTaskIds.size === 0) return;
-
-    if (!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? 's' : ''}? This action cannot be undone.`)) {
+    if (loading) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
       return;
     }
 
+    if (!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    const ids = Array.from(selectedTaskIds);
+
+    // FIX #2: Store full task list snapshot before optimistic removal (preserves order)
+    const snapshotBeforeDelete = [...tasks];
+    const idsSet = new Set(ids);
+
+    setTasks(prev => prev.filter(t => !idsSet.has(t.id)));
+    setSelectedTaskIds(new Set());
+    setBulkAction(null);
     setBulkProcessing(true);
+
     try {
-      const response = await api.post('/work-items/bulk/delete', {
-        workspaceId,
-        projectId,
-        ids: Array.from(selectedTaskIds),
+      const results = await Promise.allSettled(ids.map((id) => deleteTask(id)));
+
+      // FIX #1: Track failed IDs by index, not by slice assumption
+      const succeededIds = new Set<string>();
+      const failedIds = new Set<string>();
+      results.forEach((r, idx) => {
+        const taskId = ids[idx];
+        if (!taskId) return; // Safety check
+        if (r.status === 'fulfilled') {
+          succeededIds.add(taskId);
+        } else {
+          failedIds.add(taskId);
+        }
       });
 
-      const result = response.data;
-      const successCount = result.updatedCount || 0;
-      const skippedCount = result.skippedCount || 0;
-
-      if (successCount > 0) {
-        toast.success(`Deleted ${successCount} task${successCount > 1 ? 's' : ''}`);
-      }
-      if (skippedCount > 0) {
-        toast.warning(`${skippedCount} task${skippedCount > 1 ? 's' : ''} skipped`);
+      if (succeededIds.size > 0) {
+        toast.success(`Deleted ${succeededIds.size} task${succeededIds.size > 1 ? 's' : ''}`);
+        // Invalidate stats cache and dispatch event for KPI invalidation
+        invalidateStatsCache(projectId);
+        window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
+        // Refresh deleted panel if open to show newly deleted tasks
+        refreshDeletedPanelIfOpen();
       }
 
-      clearSelection();
-      await loadTasks();
+      if (failedIds.size > 0) {
+        // FIX #2: Restore from snapshot, keeping original order, filtering out succeeded
+        setTasks(snapshotBeforeDelete.filter(t => !succeededIds.has(t.id)));
+
+        const firstRejected = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        const { code, message } = getErrorDetails(firstRejected?.reason);
+        if (code === ERR_WORKSPACE_REQUIRED) {
+          handleWorkspaceError();
+        } else {
+          toast.error(`${failedIds.size} task${failedIds.size > 1 ? 's' : ''} failed to delete: ${message}`);
+        }
+      }
     } catch (error: any) {
       console.error('Bulk delete failed:', error);
-      toast.error(error?.response?.data?.message || 'Bulk delete failed');
+      // FULL ROLLBACK: Restore entire snapshot
+      setTasks(snapshotBeforeDelete);
+
+      const { code, message } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else {
+        toast.error(message || 'Bulk delete failed');
+      }
     } finally {
       setBulkProcessing(false);
     }
   }
 
-  function formatActivity(activity: WorkItemActivity): string {
-    const actor = activity.actorUser
-      ? `${activity.actorUser.firstName || ''} ${activity.actorUser.lastName || ''}`.trim() || activity.actorUser.email
-      : 'Someone';
+  // ============================================================
+  // ADMIN ONLY: Recently Deleted Tasks
+  // ============================================================
+
+  async function loadDeletedTasks() {
+    if (!projectId || !isAdmin) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
+    // In-flight guard to prevent duplicate concurrent fetches
+    if (deletedInFlight.current) return;
+    deletedInFlight.current = true;
+
+    setDeletedLoading(true);
+    try {
+      // RISK #1 MITIGATION: Use high limit to get all deleted tasks for this project.
+      // Client-side filtering means we need all rows. If backend paginates,
+      // we might miss some deleted tasks. Using limit=500 as reasonable max for MVP.
+      // TODO: Add server-side deletedOnly=true support for proper pagination.
+      const result = await listTasks({ projectId, includeDeleted: true, limit: 500 });
+      // Harden: ensure items is an array before filtering
+      const items = Array.isArray(result.items) ? result.items : [];
+      // Filter to only deleted tasks (deletedAt is not null)
+      const deleted = items.filter(t => t.deletedAt !== null);
+      setDeletedTasks(deleted);
+    } catch (error: any) {
+      console.error('Failed to load deleted tasks:', error);
+      const { code } = getErrorDetails(error);
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      }
+      // Silent failure for deleted panel - don't toast
+    } finally {
+      deletedInFlight.current = false;
+      setDeletedLoading(false);
+    }
+  }
+
+  async function handleRestoreTask(taskId: string) {
+    if (!isAdmin) return;
+    if (hasWorkspaceMismatch) {
+      handleWorkspaceError();
+      return;
+    }
+
+    // Disable row during restore
+    setRestoringTaskIds(prev => new Set(prev).add(taskId));
+
+    try {
+      const restored = await restoreTask(taskId);
+
+      // Remove from deleted list
+      setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
+
+      // Add to active list if it matches current view (same project)
+      // Prevent duplicates by checking if task already exists, then merge or insert at top
+      if (restored.projectId === projectId) {
+        setTasks(prev => {
+          const exists = prev.some(t => t.id === restored.id);
+          if (exists) {
+            // Replace existing (edge case: stale data)
+            return prev.map(t => t.id === restored.id ? restored : t);
+          }
+          // Insert at top (MVP: consistent top insertion for restored tasks)
+          return [restored, ...prev];
+        });
+      }
+
+      // Invalidate stats cache and dispatch events
+      invalidateStatsCache(projectId);
+      window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
+
+      // RISK #2 MITIGATION: If restored task has a phaseId, also trigger plan refresh
+      // This handles edge case where task's phase may have changed state
+      if (restored.phaseId) {
+        window.dispatchEvent(new CustomEvent('plan:changed', { detail: { projectId } }));
+      }
+
+      toast.success('Task restored');
+    } catch (error: any) {
+      console.error('Failed to restore task:', error);
+      const { code, message } = getErrorDetails(error);
+
+      if (code === ERR_WORKSPACE_REQUIRED) {
+        handleWorkspaceError();
+      } else if (code === 'TASK_NOT_FOUND') {
+        toast.error('Task not found or already permanently deleted');
+        // Remove from list since it's gone
+        setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
+      } else if (code === 'TASK_NOT_DELETED') {
+        // Treat as success from UX standpoint - task is already active
+        // Remove from deleted list silently, no error toast, NO full loadTasks
+        setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
+      } else {
+        toast.error(message || 'Failed to restore task');
+      }
+    } finally {
+      // Always clear restoring state
+      setRestoringTaskIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
+  }
+
+  // Refresh deleted panel when it's open and count might have changed
+  function refreshDeletedPanelIfOpen() {
+    if (showDeletedPanel && isAdmin) {
+      loadDeletedTasks();
+    }
+  }
+
+  // Load deleted tasks when panel opens or projectId changes while panel is open
+  useEffect(() => {
+    if (!showDeletedPanel || !isAdmin) return;
+
+    // Reset and reload when projectId changes to show correct project's deleted tasks
+    setDeletedTasks([]);
+    loadDeletedTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDeletedPanel, isAdmin, projectId]);
+
+  function formatActivity(activity: TaskActivityItem): string {
+    const actor = getUserLabel(activity.userId);
 
     switch (activity.type) {
       case 'created':
         return `${actor} created this task`;
       case 'status_changed':
-        const from = activity.payload?.from || 'unknown';
-        const to = activity.payload?.to || 'unknown';
+        const from = (activity.payload as any)?.from || 'unknown';
+        const to = (activity.payload as any)?.to || 'unknown';
         return `${actor} changed status from ${from} to ${to}`;
       case 'assigned':
         return `${actor} assigned this task`;
@@ -499,12 +913,12 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCreateForm(false)}
-                disabled={creating}
-              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowCreateForm(false)}
+                  disabled={creating}
+                >
                 Cancel
               </Button>
               <Button type="submit" disabled={creating}>
@@ -534,51 +948,50 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               <>
                 <Button
                   onClick={() => setBulkAction('status')}
-                  variant="outline"
-                  size="sm"
-                  disabled={bulkProcessing}
+                  variant="ghost"
+                  className="text-sm"
+                  disabled={bulkProcessing || loading}
                 >
                   Change Status
                 </Button>
                 <Button
                   onClick={() => setBulkAction('assign')}
-                  variant="outline"
-                  size="sm"
-                  disabled={bulkProcessing}
+                  variant="ghost"
+                  className="text-sm"
+                  disabled={bulkProcessing || loading}
                 >
                   Assign To
                 </Button>
                 <Button
                   onClick={() => setBulkAction('dueDate')}
-                  variant="outline"
-                  size="sm"
-                  disabled={bulkProcessing}
+                  variant="ghost"
+                  className="text-sm"
+                  disabled={bulkProcessing || loading}
                 >
                   Set Due Date
                 </Button>
                 <Button
                   onClick={() => setBulkAction('clearDueDate')}
-                  variant="outline"
-                  size="sm"
-                  disabled={bulkProcessing}
+                  variant="ghost"
+                  className="text-sm"
+                  disabled={bulkProcessing || loading}
                 >
                   Clear Due Date
                 </Button>
                 <Button
                   onClick={() => setBulkAction('unassign')}
-                  variant="outline"
-                  size="sm"
-                  disabled={bulkProcessing}
+                  variant="ghost"
+                  className="text-sm"
+                  disabled={bulkProcessing || loading}
                 >
                   Unassign
                 </Button>
                 {isAdmin && (
                   <Button
                     onClick={handleBulkDelete}
-                    variant="outline"
-                    size="sm"
-                    disabled={bulkProcessing}
-                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    variant="ghost"
+                    className="text-sm text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={bulkProcessing || loading}
                   >
                     Delete
                   </Button>
@@ -589,17 +1002,17 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               <div className="flex items-center gap-2">
                 <select
                   value={bulkStatus}
-                  onChange={(e) => setBulkStatus(e.target.value as WorkItemStatus)}
+                  onChange={(e) => setBulkStatus(e.target.value as WorkTaskStatus)}
                   className="px-2 py-1 border rounded text-sm"
                 >
-                  <option value="todo">Todo</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="done">Done</option>
+                  <option value="TODO">Todo</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="DONE">Done</option>
                 </select>
-                <Button onClick={handleBulkUpdate} size="sm" disabled={bulkProcessing}>
+                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
                   {bulkProcessing ? 'Updating...' : 'Update'}
                 </Button>
-                <Button onClick={() => setBulkAction(null)} variant="outline" size="sm">
+                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
                   Cancel
                 </Button>
               </div>
@@ -624,10 +1037,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     );
                   })}
                 </select>
-                <Button onClick={handleBulkUpdate} size="sm" disabled={bulkProcessing}>
+                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
                   {bulkProcessing ? 'Updating...' : 'Update'}
                 </Button>
-                <Button onClick={() => setBulkAction(null)} variant="outline" size="sm">
+                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
                   Cancel
                 </Button>
               </div>
@@ -640,20 +1053,20 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   onChange={(e) => setBulkDueDate(e.target.value)}
                   className="px-2 py-1 border rounded text-sm"
                 />
-                <Button onClick={handleBulkUpdate} size="sm" disabled={bulkProcessing}>
+                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
                   {bulkProcessing ? 'Updating...' : 'Update'}
                 </Button>
-                <Button onClick={() => setBulkAction(null)} variant="outline" size="sm">
+                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
                   Cancel
                 </Button>
               </div>
             )}
             {(bulkAction === 'clearDueDate' || bulkAction === 'unassign') && (
               <div className="flex items-center gap-2">
-                <Button onClick={handleBulkUpdate} size="sm" disabled={bulkProcessing}>
+                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
                   {bulkProcessing ? 'Updating...' : 'Update'}
                 </Button>
-                <Button onClick={() => setBulkAction(null)} variant="outline" size="sm">
+                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
                   Cancel
                 </Button>
               </div>
@@ -669,7 +1082,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
           {canEdit && (
             <Button
               onClick={() => setShowCreateForm(true)}
-              variant="outline"
+              variant="ghost"
               className="mt-4"
             >
               Create first task
@@ -685,6 +1098,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                 type="checkbox"
                 checked={selectedTaskIds.size === tasks.length && tasks.length > 0}
                 onChange={toggleSelectAll}
+                disabled={loading}
                 className="w-4 h-4 rounded border-gray-300"
               />
               <span className="text-sm text-gray-600">Select all</span>
@@ -709,6 +1123,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     type="checkbox"
                     checked={selectedTaskIds.has(task.id)}
                     onChange={() => toggleTaskSelection(task.id)}
+                    disabled={loading}
                     className="mt-1 mr-3 w-4 h-4 rounded border-gray-300"
                   />
                 )}
@@ -718,16 +1133,16 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     {canEdit ? (
                       <select
                         value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkItemStatus)}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
                         className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)} border-0`}
                       >
-                        <option value="todo">Todo</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="done">Done</option>
+                        <option value="TODO">Todo</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="DONE">Done</option>
                       </select>
                     ) : (
                       <span className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)}`}>
-                        {task.status}
+                        {getStatusLabel(task.status)}
                       </span>
                     )}
                   </div>
@@ -735,8 +1150,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     <p className="text-sm text-gray-600 mb-2">{task.description}</p>
                   )}
                   <div className="flex items-center gap-4 text-xs text-gray-500">
-                    {task.assignee && (
-                      <span>Assigned to: {task.assignee.firstName || task.assignee.email}</span>
+                    {task.assigneeUserId && (
+                      <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
                     )}
                     {task.dueDate && (
                       <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
@@ -769,7 +1184,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     {comments[task.id]?.map((comment) => (
                       <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
                         <div className="font-medium text-gray-700">
-                          {comment.createdByUser?.firstName || comment.createdByUser?.email || 'Unknown'}
+                          {getUserLabel(comment.authorUserId)}
                         </div>
                         <div className="text-gray-600 mt-1">{comment.body}</div>
                         <div className="text-xs text-gray-400 mt-1">
@@ -824,6 +1239,63 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
             </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ADMIN ONLY: Recently Deleted Tasks Panel */}
+      {isAdmin && (
+        <div className="mt-6 border-t pt-4">
+          <button
+            type="button"
+            onClick={() => setShowDeletedPanel(prev => !prev)}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            <span className={`transform transition-transform ${showDeletedPanel ? 'rotate-90' : ''}`}>
+              ▶
+            </span>
+            <span>Recently deleted</span>
+            {deletedTasks.length > 0 && (
+              <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-full">
+                {deletedTasks.length}
+              </span>
+            )}
+          </button>
+
+          {showDeletedPanel && (
+            <div className="mt-3 space-y-2">
+              {deletedLoading ? (
+                <div className="text-sm text-gray-500 py-2">Loading deleted tasks...</div>
+              ) : deletedTasks.length === 0 ? (
+                <div className="text-sm text-gray-500 py-2">No deleted tasks</div>
+              ) : (
+                deletedTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 ${
+                      restoringTaskIds.has(task.id) ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-700 line-through">
+                        {task.title}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Deleted {task.deletedAt ? new Date(task.deletedAt).toLocaleDateString() : 'recently'}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleRestoreTask(task.id)}
+                      disabled={restoringTaskIds.has(task.id)}
+                      className="ml-3 text-sm"
+                      variant="ghost"
+                    >
+                      {restoringTaskIds.has(task.id) ? 'Restoring...' : 'Restore'}
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

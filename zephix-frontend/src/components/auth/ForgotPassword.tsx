@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { authApi } from '../../api/auth';
+import { api } from '@/lib/api';
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +13,7 @@ const ForgotPassword: React.FC = () => {
     setError('');
 
     try {
-      await authApi.forgotPassword(email);
+      await api.post('/auth/forgot-password', { email });
       setIsSuccess(true);
     } catch (err: any) {
       setError('Failed to send reset email. Please try again.');

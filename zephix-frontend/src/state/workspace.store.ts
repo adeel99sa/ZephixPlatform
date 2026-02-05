@@ -33,6 +33,7 @@ interface WorkspaceState {
   memberCache: Record<string, WorkspaceMemberCache>;
 
   setActiveWorkspace: (id: string | null) => void;
+  clearActiveWorkspace: () => void;
   setWorkspaceRole: (role: WorkspaceRole | null) => void;
 
   // PROMPT 4: Hydration methods
@@ -69,6 +70,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setActiveWorkspace: (id) => set({
         activeWorkspaceId: id,
         workspaceReady: !!id, // Patch 1: workspaceReady true only when id exists
+      }),
+      clearActiveWorkspace: () => set({
+        activeWorkspaceId: null,
+        workspaceReady: false,
+        workspaceRole: null,
       }),
       setWorkspaceRole: (role) => {
         const isReadOnly = role === 'stakeholder' || role === 'workspace_viewer';

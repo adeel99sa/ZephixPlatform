@@ -4,7 +4,10 @@ import { Doc } from './entities/doc.entity';
 import { DocsService } from './docs.service';
 import { DocsController } from './docs.controller';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
-import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/tenancy.module';
+import {
+  TenancyModule,
+  createTenantAwareRepositoryProvider,
+} from '../tenancy/tenancy.module';
 
 @Module({
   imports: [
@@ -13,10 +16,7 @@ import { TenancyModule, createTenantAwareRepositoryProvider } from '../tenancy/t
     TenancyModule,
   ],
   controllers: [DocsController],
-  providers: [
-    DocsService,
-    createTenantAwareRepositoryProvider(Doc),
-  ],
+  providers: [DocsService, createTenantAwareRepositoryProvider(Doc)],
   exports: [DocsService],
 })
 export class DocsModule {}

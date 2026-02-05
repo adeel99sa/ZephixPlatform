@@ -53,15 +53,23 @@ export default function TemplateDetailPage() {
     setLoading(true);
     try {
       const data = await templatesApi.getTemplate(id!);
+      if (!data) {
+        toast.error('Template not found');
+        navigate('/templates');
+        return;
+      }
       setTemplate(data);
       setName(data.name);
       setDescription(data.description || '');
-      setCategory((data as any).category || '');
+      // Access category with type guard
+      const dataRecord = data as unknown as Record<string, unknown>;
+      setCategory(typeof dataRecord.category === 'string' ? dataRecord.category : '');
       setMethodology(data.methodology || 'agile');
 
       // Load structure if available, otherwise use legacy phases/taskTemplates
-      if ((data as any).structure?.phases) {
-        setStructure((data as any).structure);
+      const structureObj = dataRecord.structure as Record<string, unknown> | undefined;
+      if (structureObj?.phases) {
+        setStructure(structureObj as typeof structure);
       } else if (data.phases && data.taskTemplates) {
         // Convert legacy structure to new format
         const phasesMap = new Map<number, typeof structure.phases[0]>();

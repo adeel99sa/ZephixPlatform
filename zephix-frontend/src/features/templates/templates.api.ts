@@ -3,7 +3,7 @@
  * Wrappers for template CRUD operations with proper workspace scoping
  */
 
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import { getActiveWorkspaceId } from '../../utils/workspace';
 
 // Types

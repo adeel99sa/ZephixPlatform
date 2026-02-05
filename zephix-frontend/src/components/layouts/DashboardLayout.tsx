@@ -6,32 +6,61 @@ import DemoBanner from '@/components/shell/DemoBanner';
 import { useAuth } from '@/state/AuthContext';
 import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import WorkspaceSelectionScreen from '@/components/workspace/WorkspaceSelectionScreen';
 
-// Patch 1: Routes that require workspace selection
-// Note: /workspaces does NOT require workspace selection - it IS the workspace selection page
-// Note: /home does NOT require workspace selection here - HomeRouterPage handles workspace selection and routing
-const WORKSPACE_REQUIRED_ROUTES = ['/templates', '/projects'];
+/**
+ * Routes that require workspace selection before rendering.
+ * If activeWorkspaceId is missing for these routes, redirect to workspace selection.
+ */
+const WORKSPACE_REQUIRED_ROUTES = [
+  '/templates',
+  '/projects',
+  '/work',        // All work management routes
+  '/dashboards',
+  '/resources',
+  '/my-work',
+];
 
 export default function DashboardLayout() {
   const { user } = useAuth();
   const location = useLocation();
-  const { workspaceReady } = useWorkspaceStore();
+  const { workspaceReady, activeWorkspaceId, isHydrating } = useWorkspaceStore();
+  
+  // Validate persisted workspace on load - ensures stale IDs are cleared
+  const { isValidating } = useWorkspaceValidation();
 
   // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
-  // Patch 2: Get isRedirecting to prevent Home flicker
   const { isRedirecting } = usePhase5_1Redirect();
 
-  // Patch 1: Check if current route requires workspace
+  // Check if current route requires workspace
   const requiresWorkspace = WORKSPACE_REQUIRED_ROUTES.some(route =>
     location.pathname === route || location.pathname.startsWith(route + '/')
   );
 
-  // PROMPT 4: Gate main outlet render - show workspace selection if required and not ready
-  // Also check if we're hydrating to prevent flicker
-  const { isHydrating } = useWorkspaceStore();
-  if (requiresWorkspace && (!workspaceReady || isHydrating)) {
-    return <WorkspaceSelectionScreen />;
+  /**
+   * Workspace gate: For workspace-required routes, ensure:
+   * 1. Store is hydrated (not isHydrating)
+   * 2. Validation has completed (not isValidating)
+   * 3. activeWorkspaceId exists
+   * 
+   * During validation, show loading state (not workspace selection)
+   * After validation, if no workspace, show workspace selection screen.
+   */
+  if (requiresWorkspace) {
+    // Still loading - show minimal loading state
+    if (isHydrating || isValidating) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+          <div className="text-sm text-slate-500">Loading...</div>
+        </div>
+      );
+    }
+    
+    // No workspace selected - show workspace selection
+    if (!activeWorkspaceId || !workspaceReady) {
+      return <WorkspaceSelectionScreen />;
+    }
   }
 
   return (

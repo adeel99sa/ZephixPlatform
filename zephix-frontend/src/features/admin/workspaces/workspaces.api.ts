@@ -48,7 +48,7 @@ export const workspacesApi = {
   async getWorkspace(workspaceId: string): Promise<Workspace | null> {
     const response = await apiClient.get<{ data: Workspace | null }>(`/admin/workspaces/${workspaceId}`);
     // Backend returns { data: Workspace | null }, extract data field
-    return response?.data?.data !== undefined ? response.data.data : response?.data || null;
+    return response?.data?.data ?? (response?.data as unknown as Workspace) ?? null;
   },
 
   async createWorkspace(workspace: CreateWorkspaceRequest): Promise<Workspace> {

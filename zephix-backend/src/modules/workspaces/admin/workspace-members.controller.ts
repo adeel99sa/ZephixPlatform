@@ -1,7 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RequireOrgRoleGuard, RequireOrgRole } from '../guards/require-org-role.guard';
+import {
+  RequireOrgRoleGuard,
+  RequireOrgRole,
+} from '../guards/require-org-role.guard';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 import { AdminWorkspaceMembersService } from './workspace-members.service';
@@ -21,7 +33,10 @@ export class WorkspaceMembersController {
   }
 
   @Post()
-  async add(@Param('workspaceId') workspaceId: string, @Body() dto: WorkspaceAddMemberDto) {
+  async add(
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: WorkspaceAddMemberDto,
+  ) {
     const data = await this.svc.add(workspaceId, dto.userId, dto.role);
     return { data, meta: {} };
   }
@@ -37,7 +52,10 @@ export class WorkspaceMembersController {
   }
 
   @Delete(':memberId')
-  async remove(@Param('workspaceId') workspaceId: string, @Param('memberId') memberId: string) {
+  async remove(
+    @Param('workspaceId') workspaceId: string,
+    @Param('memberId') memberId: string,
+  ) {
     const data = await this.svc.remove(workspaceId, memberId);
     return { data, meta: {} };
   }

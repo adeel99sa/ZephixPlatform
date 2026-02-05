@@ -18,12 +18,17 @@ export class TemplateDefinitionsService {
     query: ListTemplatesQueryDto,
     organizationId: string,
     workspaceId?: string | null,
-  ): Promise<{ definitions: TemplateDefinition[]; latestVersions: Map<string, TemplateVersion> }> {
+  ): Promise<{
+    definitions: TemplateDefinition[];
+    latestVersions: Map<string, TemplateVersion>;
+  }> {
     const qb = this.defRepo.createQueryBuilder('d');
     if (query.scope) {
       qb.andWhere('d.scope = :scope', { scope: query.scope });
     }
-    qb.andWhere('(d.org_id IS NULL OR d.org_id = :orgId)', { orgId: organizationId });
+    qb.andWhere('(d.org_id IS NULL OR d.org_id = :orgId)', {
+      orgId: organizationId,
+    });
     if (query.workspaceId) {
       qb.andWhere('(d.workspace_id IS NULL OR d.workspace_id = :workspaceId)', {
         workspaceId: query.workspaceId,
@@ -75,12 +80,21 @@ export class TemplateDefinitionsService {
         { templateKey, scope: 'system' },
         { templateKey, scope: 'org', orgId: organizationId },
         ...(workspaceId
-          ? [{ templateKey, scope: 'workspace', orgId: organizationId, workspaceId }]
+          ? [
+              {
+                templateKey,
+                scope: 'workspace',
+                orgId: organizationId,
+                workspaceId,
+              },
+            ]
           : []),
       ],
     });
     if (!definition) {
-      throw new NotFoundException(`Template with key "${templateKey}" not found`);
+      throw new NotFoundException(
+        `Template with key "${templateKey}" not found`,
+      );
     }
     const versions = await this.versionRepo.find({
       where: { templateDefinitionId: definition.id },

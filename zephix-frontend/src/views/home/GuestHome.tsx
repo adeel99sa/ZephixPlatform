@@ -34,7 +34,8 @@ export function GuestHome() {
       setLoading(true);
       setError(null);
       const response = await api.get<{ data: GuestHomeData }>('/home');
-      setData(response.data);
+      // Backend returns { data: GuestHomeData }
+      setData(response.data?.data ?? (response.data as unknown as GuestHomeData));
     } catch (error: any) {
       console.error('Failed to load guest home data:', error);
       // STEP 5: Don't show toast errors - silent failure, show empty state instead

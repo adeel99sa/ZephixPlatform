@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../../../services/api';
+import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
@@ -117,7 +117,8 @@ export const ProjectOverviewPage: React.FC = () => {
       const response = await apiClient.get<{ data: { projects: any[] } }>(
         `/projects?workspaceId=${workspaceId}`
       );
-      const projects = response.data?.projects || response.data || [];
+      const responseData = response as unknown as { data?: { projects?: any[] } };
+      const projects = responseData?.data?.projects || [];
       const currentProject = Array.isArray(projects)
         ? projects.find(p => p.id === projectId)
         : null;

@@ -30,8 +30,15 @@ export interface ApiError extends BaseError {
   method: string;
 }
 
+export interface OrganizationError extends BaseError {
+  type: 'organization';
+  reason?: string;
+  endpoint?: string;
+  method?: string;
+}
+
 // Union type for all error types
-export type StoreError = NetworkError | ValidationError | AuthError | ApiError;
+export type StoreError = NetworkError | ValidationError | AuthError | ApiError | OrganizationError;
 
 // Loading states
 export interface LoadingState {
@@ -104,6 +111,16 @@ export const createError = (
         method: (additionalData as ApiError)?.method || 'GET',
         ...additionalData,
       } as ApiError;
+    
+    case 'organization':
+      return {
+        ...baseError,
+        type: 'organization',
+        reason: (additionalData as OrganizationError)?.reason,
+        endpoint: (additionalData as OrganizationError)?.endpoint,
+        method: (additionalData as OrganizationError)?.method,
+        ...additionalData,
+      } as OrganizationError;
     
     default:
       return {

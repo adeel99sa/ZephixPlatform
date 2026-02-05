@@ -1,10 +1,14 @@
 import { useEffect } from "react";
-import { useWorkspaces } from "@/features/workspaces/api";
+import { useQuery } from "@tanstack/react-query";
+import { listWorkspaces } from "@/features/workspaces/api";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import WorkspaceMenu from "./WorkspaceMenu";
 
 export default function WorkspaceSwitcher() {
-  const { data, isLoading } = useWorkspaces();
+  const { data, isLoading } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: listWorkspaces,
+  });
   const ws = useWorkspaceStore();
 
   useEffect(() => { if (data?.length) ws.setWorkspaces(data); }, [data]);

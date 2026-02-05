@@ -73,8 +73,8 @@ export function useGovernedAllocationMutation(
   // Create allocation mutation
   const createMutation = useMutation({
     mutationFn: async (payload: CreateAllocationPayload) => {
-      const { data } = await apiClient.post('/resources/allocations', payload);
-      return data?.data || data;
+      const response = await apiClient.post<{ data: unknown }>('/resources/allocations', payload);
+      return response.data ?? response;
     },
     onSuccess: (data) => {
       // Invalidate relevant queries
@@ -98,8 +98,8 @@ export function useGovernedAllocationMutation(
   const updateMutation = useMutation({
     mutationFn: async (payload: UpdateAllocationPayload) => {
       const { id, ...updateData } = payload;
-      const { data } = await apiClient.patch(`/resources/allocations/${id}`, updateData);
-      return data?.data || data;
+      const response = await apiClient.patch<{ data: unknown }>(`/resources/allocations/${id}`, updateData);
+      return response.data ?? response;
     },
     onSuccess: (data) => {
       // Invalidate relevant queries
@@ -214,16 +214,15 @@ export function useGovernedAllocationMutation(
   }, []);
 
   // Build modal props
+  const dateRange =
+    pendingPayload && pendingPayload.startDate && pendingPayload.endDate
+      ? { startDate: pendingPayload.startDate, endDate: pendingPayload.endDate }
+      : undefined;
+
   const justificationModalProps: Omit<ResourceJustificationModalProps, 'onSubmit' | 'onCancel'> = {
     open: isJustificationModalOpen,
     resourceName: options.resourceName,
-    dateRange:
-      pendingPayload && 'startDate' in pendingPayload && 'endDate' in pendingPayload
-        ? {
-            startDate: pendingPayload.startDate,
-            endDate: pendingPayload.endDate,
-          }
-        : undefined,
+    dateRange,
     isLoading: createMutation.isPending || updateMutation.isPending,
     error: modalError,
   };

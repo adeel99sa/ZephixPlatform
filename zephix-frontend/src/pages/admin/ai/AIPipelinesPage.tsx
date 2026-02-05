@@ -1,14 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
+interface Pipeline {
+  id: string;
+  name: string;
+  lastRunAt?: string;
+  health?: string;
+}
+
 export default function AIPipelinesPage() {
   const q = useQuery({
     queryKey: ['admin','ai','pipelines'],
-    queryFn: async () => (await apiClient.get('/admin/ai/pipelines')).data,
+    queryFn: async () => apiClient.get<{ data: Pipeline[] }>('/admin/ai/pipelines'),
   });
   if (q.isLoading) return <div>Loading pipelines…</div>;
   if (q.error) return <div role="alert">{String(q.error)}</div>;
-  const pipelines = q.data?.data ?? [];
+  const data = q.data as { data?: Pipeline[] } | undefined;
+  const pipelines = data?.data ?? [];
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">AI Pipelines</h1>

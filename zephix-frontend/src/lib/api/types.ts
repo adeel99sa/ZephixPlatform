@@ -23,7 +23,7 @@ export interface StandardError {
 }
 
 export interface ApiClientConfig {
-  baseURL: string;
+  baseURL?: string;
   timeout: number;
   retries: number;
   retryDelay: number;

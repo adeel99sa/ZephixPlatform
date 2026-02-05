@@ -2,11 +2,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Add tenant indexes for Workspace MVP tables
- * 
+ *
  * Indexes added:
  * - workspaces: (organizationId, slug) - unique constraint if slug uniqueness per org is required
  * - projects: (organizationId, workspaceId) - for efficient workspace-scoped project queries
- * 
+ *
  * Note: docs table is workspace-scoped only and does not have organizationId column,
  * so no tenant index is added for it.
  */

@@ -85,11 +85,12 @@ export function InviteUsersDrawer({ isOpen, onClose, onSuccess }: InviteUsersDra
     setError(null);
 
     try {
-      // Call invite endpoint (may not be implemented yet, but UI is ready)
+      // Call invite endpoint - map UI roles to platform roles
+      // admin/pm -> Member, viewer -> Guest
+      const platformRole: 'Member' | 'Guest' = role === 'viewer' ? 'Guest' : 'Member';
       await adminApi.inviteUsers({
         emails,
-        role: role === 'pm' ? 'member' : role, // Map pm to member for backend
-        message: message || undefined,
+        platformRole,
       });
 
       // Success - reset and close

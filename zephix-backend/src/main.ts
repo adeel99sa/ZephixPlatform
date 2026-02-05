@@ -234,7 +234,9 @@ async function bootstrap() {
     console.log(
       `REQUEST_CONTEXT_LOGGER_ENABLED value: ${process.env.REQUEST_CONTEXT_LOGGER_ENABLED}`,
     );
-    console.log(`REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`);
+    console.log(
+      `REQUEST_CONTEXT_LOGGER_ENABLED parsed: ${requestLoggerEnabled}`,
+    );
   }
   if (requestLoggerEnabled) {
     interceptors.unshift(new RequestContextLoggerInterceptor());
@@ -277,7 +279,10 @@ async function bootstrap() {
 
   if (debugBoot) {
     console.log('✅ Application is running on:', `http://localhost:${port}`);
-    console.log('✅ API endpoints available at:', `http://localhost:${port}/api`);
+    console.log(
+      '✅ API endpoints available at:',
+      `http://localhost:${port}/api`,
+    );
   }
 
   // Post-startup router verification (Express only)
@@ -352,7 +357,9 @@ if (process.env.DEBUG_BOOT === 'true') {
   console.log(`   PORT: ${process.env.PORT || 'Not set'}`);
   console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'Not set'}`);
   console.log(`   SKIP_DATABASE: ${process.env.SKIP_DATABASE || 'Not set'}`);
-  console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
+  console.log(
+    `   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`,
+  );
   console.log(
     `   Memory Limit: ${process.env.RAILWAY_MEMORY_LIMIT || 'Not set'}`,
   );

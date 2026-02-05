@@ -19,21 +19,27 @@ export type WorkspaceAccessLevel = 'Owner' | 'Member' | 'Guest';
  * PROMPT 5 Part D: Map internal workspace role to UI access level
  *
  * Mapping:
- * - workspace_owner or delivery_owner → Owner
- * - workspace_member → Member
- * - stakeholder or workspace_viewer → Guest
+ * - workspace_owner or delivery_owner or OWNER → Owner
+ * - workspace_member or ADMIN or MEMBER → Member
+ * - stakeholder or workspace_viewer or GUEST → Guest
+ *
+ * Supports both snake_case workspace roles and UPPERCASE hook roles
  */
-export function mapRoleToAccessLevel(role: WorkspaceRole | null | undefined): WorkspaceAccessLevel {
+export function mapRoleToAccessLevel(role: WorkspaceRole | 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' | null | undefined): WorkspaceAccessLevel {
   if (!role) return 'Guest';
 
   switch (role) {
     case 'workspace_owner':
     case 'delivery_owner':
+    case 'OWNER':
       return 'Owner';
     case 'workspace_member':
+    case 'ADMIN':
+    case 'MEMBER':
       return 'Member';
     case 'workspace_viewer':
     case 'stakeholder':
+    case 'GUEST':
       return 'Guest';
     default:
       return 'Guest';

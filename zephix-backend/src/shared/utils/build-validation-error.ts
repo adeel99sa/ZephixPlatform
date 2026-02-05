@@ -33,8 +33,11 @@ export function buildValidationError(exception: any): {
         const firstError = responseObj.errors[0];
         if (firstError && firstError.property) {
           // Check if it's a whitelist validation error (forbidNonWhitelisted)
-          const isWhitelistError = firstError.constraints && 
-            Object.keys(firstError.constraints).some(key => key.includes('whitelist'));
+          const isWhitelistError =
+            firstError.constraints &&
+            Object.keys(firstError.constraints).some((key) =>
+              key.includes('whitelist'),
+            );
           if (isWhitelistError) {
             message = `property '${firstError.property}' should not exist`;
           } else {

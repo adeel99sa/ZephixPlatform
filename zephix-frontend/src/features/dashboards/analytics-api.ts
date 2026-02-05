@@ -1,5 +1,5 @@
 // Phase 4.3: Analytics Widgets API Client with Workspace Header Enforcement
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 import { getWorkspaceHeader, WorkspaceRequiredError } from "./workspace-header";
 
 /**
@@ -48,7 +48,7 @@ export type ConflictTrendsData = ConflictTrendsItem[];
  */
 export async function getProjectHealth(dateRange: DateRange): Promise<ProjectHealthData> {
   try {
-    const response = await api.get(`/api/analytics/widgets/project-health`, {
+    const response = await request.get<ProjectHealthData>(`/api/analytics/widgets/project-health`, {
       params: {
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -56,7 +56,7 @@ export async function getProjectHealth(dateRange: DateRange): Promise<ProjectHea
       headers: getHeaders(),
     });
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof WorkspaceRequiredError) {
       throw error;
     }
@@ -70,7 +70,7 @@ export async function getProjectHealth(dateRange: DateRange): Promise<ProjectHea
  */
 export async function getResourceUtilization(dateRange: DateRange): Promise<ResourceUtilizationData> {
   try {
-    const response = await api.get(`/api/analytics/widgets/resource-utilization`, {
+    const response = await request.get<ResourceUtilizationData>(`/api/analytics/widgets/resource-utilization`, {
       params: {
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -78,7 +78,7 @@ export async function getResourceUtilization(dateRange: DateRange): Promise<Reso
       headers: getHeaders(),
     });
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof WorkspaceRequiredError) {
       throw error;
     }
@@ -92,7 +92,7 @@ export async function getResourceUtilization(dateRange: DateRange): Promise<Reso
  */
 export async function getConflictTrends(dateRange: DateRange): Promise<ConflictTrendsData> {
   try {
-    const response = await api.get(`/api/analytics/widgets/conflict-trends`, {
+    const response = await request.get<ConflictTrendsData>(`/api/analytics/widgets/conflict-trends`, {
       params: {
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -100,7 +100,7 @@ export async function getConflictTrends(dateRange: DateRange): Promise<ConflictT
       headers: getHeaders(),
     });
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof WorkspaceRequiredError) {
       throw error;
     }

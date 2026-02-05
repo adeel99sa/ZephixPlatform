@@ -22,10 +22,7 @@ export class ProjectKpisController {
   constructor(private readonly service: ProjectKpisService) {}
 
   @Get(':projectId/kpis')
-  async list(
-    @Param('projectId') projectId: string,
-    @Req() req: AuthRequest,
-  ) {
+  async list(@Param('projectId') projectId: string, @Req() req: AuthRequest) {
     if (!isTemplateCenterEnabled()) {
       throw new NotFoundException('Template Center is not enabled');
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { resolveWorkspaceSlug } from "@/features/workspaces/api";
+import { getWorkspace } from "@/features/workspaces/api";
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -21,9 +21,9 @@ export default function LegacyWorkspaceIdRedirect() {
 
     (async () => {
       try {
-        const res = await resolveWorkspaceSlug(workspaceId);
-        // resolveWorkspaceSlug returns { id, slug } directly
-        const slug = res?.slug;
+        const workspace = await getWorkspace(workspaceId);
+        // getWorkspace returns the Workspace with slug
+        const slug = workspace?.slug;
         if (slug) {
           const suffix = rest ? `/${rest}` : "/home";
           setTarget(`/w/${slug}${suffix}${location.search || ""}`);

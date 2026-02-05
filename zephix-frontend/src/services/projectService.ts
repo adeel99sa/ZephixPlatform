@@ -1,4 +1,4 @@
-import api from './api';
+import { api } from '@/lib/api';
 
 export interface Project {
   id: string;
@@ -15,8 +15,9 @@ export interface Project {
 export interface CreateProjectDto {
   name: string;
   description?: string;
-  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
-  priority?: 'low' | 'medium' | 'high' | 'critical';
+  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | string;
+  priority?: 'low' | 'medium' | 'high' | 'critical' | string;
+  methodology?: 'agile' | 'waterfall' | 'kanban' | 'hybrid' | 'custom' | 'scrum' | string;
   startDate?: string;
   endDate?: string;
 }

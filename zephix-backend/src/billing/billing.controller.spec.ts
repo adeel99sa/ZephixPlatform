@@ -11,6 +11,20 @@ describe('BillingController - Contract Tests', () => {
   let plansService: PlansService;
   let subscriptionsService: SubscriptionsService;
 
+  // Mock authenticated request with all required fields
+  const mockAuthRequest = (overrides = {}) => ({
+    user: {
+      id: 'test-user-id',
+      organizationId: 'test-org-id',
+      workspaceId: 'test-workspace-id',
+      email: 'test@example.com',
+      roles: ['admin'],
+      platformRole: 'ADMIN',
+      ...overrides,
+    },
+    headers: {},
+  });
+
   const mockPlan: Plan = {
     id: 'test-plan-id',
     name: 'Test Plan',
@@ -82,7 +96,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Plan[] } format', async () => {
       jest.spyOn(plansService, 'findAll').mockResolvedValue([mockPlan]);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getPlans(req as any);
 
       expect(result).toHaveProperty('data');
@@ -97,7 +111,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: [] } on error (never throw 500)', async () => {
       jest.spyOn(plansService, 'findAll').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getPlans(req as any);
 
       expect(result).toHaveProperty('data');
@@ -110,7 +124,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Subscription | null } format', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockResolvedValue(mockSubscription);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -123,7 +137,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: null } when no subscription exists', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockResolvedValue(null);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -133,7 +147,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: null } on error (never throw 500)', async () => {
       jest.spyOn(subscriptionsService, 'findForOrganization').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getSubscription(req as any);
 
       expect(result).toHaveProperty('data');
@@ -145,7 +159,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: CurrentPlan } format', async () => {
       jest.spyOn(subscriptionsService, 'getCurrentPlan').mockResolvedValue(mockPlan);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getCurrentPlan(req as any);
 
       expect(result).toHaveProperty('data');
@@ -161,7 +175,7 @@ describe('BillingController - Contract Tests', () => {
       jest.spyOn(subscriptionsService, 'getCurrentPlan').mockRejectedValue(new Error('DB error'));
       jest.spyOn(subscriptionsService, 'getMockedFreePlan').mockReturnValue(mockPlan);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getCurrentPlan(req as any);
 
       expect(result).toHaveProperty('data');
@@ -173,7 +187,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return { data: Usage } format', async () => {
       jest.spyOn(subscriptionsService, 'checkUsageLimit').mockResolvedValue({ allowed: 10, used: 5 });
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getUsage(req as any);
 
       expect(result).toHaveProperty('data');
@@ -188,7 +202,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return safe defaults on error (never throw 500)', async () => {
       jest.spyOn(subscriptionsService, 'checkUsageLimit').mockRejectedValue(new Error('DB error'));
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const result = await controller.getUsage(req as any);
 
       expect(result).toHaveProperty('data');
@@ -201,7 +215,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 403 for internalManaged organizations', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const dto = { planType: PlanType.PROFESSIONAL, annual: false };
 
       await expect(controller.subscribe(req as any, dto)).rejects.toThrow(ForbiddenException);
@@ -210,7 +224,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 501 if not implemented', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const dto = { planType: PlanType.PROFESSIONAL, annual: false };
 
       await expect(controller.subscribe(req as any, dto)).rejects.toThrow(NotImplementedException);
@@ -221,7 +235,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 403 for internalManaged organizations when changing plan', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const dto = { planType: PlanType.PROFESSIONAL };
 
       await expect(controller.updateSubscription(req as any, dto)).rejects.toThrow(ForbiddenException);
@@ -230,7 +244,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 501 if not implemented', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
       const dto = { planType: PlanType.PROFESSIONAL };
 
       await expect(controller.updateSubscription(req as any, dto)).rejects.toThrow(NotImplementedException);
@@ -241,7 +255,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 403 for internalManaged organizations', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(true);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
 
       await expect(controller.cancelSubscription(req as any)).rejects.toThrow(ForbiddenException);
     });
@@ -249,7 +263,7 @@ describe('BillingController - Contract Tests', () => {
     it('should return 501 if not implemented', async () => {
       jest.spyOn(subscriptionsService, 'checkInternalManaged').mockResolvedValue(false);
 
-      const req = { user: { organizationId: 'test-org-id' }, headers: {} };
+      const req = mockAuthRequest();
 
       await expect(controller.cancelSubscription(req as any)).rejects.toThrow(NotImplementedException);
     });

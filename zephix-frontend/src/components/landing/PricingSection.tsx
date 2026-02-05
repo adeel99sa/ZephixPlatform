@@ -121,7 +121,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ onDemoRequest })
                           {featureText}
                           {isLimitedFeature && (
                             <span className="inline-flex items-center ml-1">
-                              <Info className="w-3 h-3 text-gray-400 cursor-help" title={tooltip} />
+                              <Info className="w-3 h-3 text-gray-400 cursor-help" aria-label={tooltip ?? undefined} />
                             </span>
                           )}
                         </span>

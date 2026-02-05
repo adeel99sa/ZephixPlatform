@@ -85,7 +85,8 @@ export async function getRecommendations(
     }
   );
 
-  return response.data;
+  // Backend returns { data: RecommendationResponse }
+  return response.data?.data ?? response.data as unknown as RecommendationResponse;
 }
 
 /**
@@ -109,7 +110,8 @@ export async function getPreview(
     }
   );
 
-  return response.data;
+  // Backend returns { data: PreviewResponse }
+  return response.data?.data ?? response.data as unknown as PreviewResponse;
 }
 
 /**
@@ -137,13 +139,14 @@ export async function instantiateV51(
     }
   );
 
-  return response.data;
+  // Backend returns { data: InstantiateV51Response }
+  return response.data?.data ?? response.data as unknown as InstantiateV51Response;
 }
 
 // Legacy exports for backward compatibility
-export const listTemplates = async (params?: { type?: string; category?: string }): Promise<any[]> => {
-  const response = await apiClient.get('/templates', { params });
-  return response.data || [];
+export const listTemplates = async (params?: { type?: string; category?: string }): Promise<unknown[]> => {
+  const response = await apiClient.get<{ data: unknown[] }>('/templates', { params });
+  return response.data?.data ?? response.data ?? [];
 };
 
 export const applyTemplate = async (type: string, payload: any): Promise<any> => {

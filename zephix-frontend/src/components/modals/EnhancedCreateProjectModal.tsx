@@ -228,14 +228,19 @@ export const EnhancedCreateProjectModal: React.FC<EnhancedCreateProjectModalProp
   const onSubmit = async (data: EnhancedProjectData) => {
     setIsCreating(true);
     try {
+      // Map priority from schema format to Project format
+      const priorityMap: Record<string, 'High' | 'Medium' | 'Low'> = {
+        critical: 'High',
+        high: 'High',
+        medium: 'Medium',
+        low: 'Low',
+      };
+
       // Create project with enhanced data
       const projectData = {
-        ...data,
-        budget: data.budget || 0,
-        // Add template-specific phases
-        phases: selectedTemplate?.phases || [],
-        estimatedDuration: selectedTemplate?.estimatedDuration || 'TBD',
-        organizationId: currentOrganization?.id
+        name: data.name,
+        budget: data.budget ?? 0,
+        priority: priorityMap[data.priority] ?? 'Medium',
       };
 
       const success = await createProject(projectData);
@@ -656,8 +661,8 @@ export const EnhancedCreateProjectModal: React.FC<EnhancedCreateProjectModalProp
                           type="button"
                           variant="outline"
                           onClick={handlePrevious}
-                          leftIcon={<ChevronLeftIcon className="w-4 h-4" />}
                         >
+                          <ChevronLeftIcon className="w-4 h-4 mr-1 inline" />
                           Previous
                         </Button>
                       )}
@@ -674,9 +679,9 @@ export const EnhancedCreateProjectModal: React.FC<EnhancedCreateProjectModalProp
                         <Button
                           type="button"
                           onClick={handleNext}
-                          rightIcon={<ChevronRightIcon className="w-4 h-4" />}
                         >
                           Next
+                          <ChevronRightIcon className="w-4 h-4 ml-1 inline" />
                         </Button>
                       ) : (
                         <Button

@@ -55,6 +55,10 @@ export default function ProjectSettingsPage() {
     setError(null);
     try {
       const projectData = await projectsApi.getProject(id);
+      if (!projectData) {
+        setError('Project not found');
+        return;
+      }
       setProject(projectData);
       setName(projectData.name);
       setDescription(projectData.description || '');

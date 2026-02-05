@@ -3,10 +3,18 @@
  * Comprehensive testing of authentication endpoints and security features
  */
 
-import { authApi } from '../services/api';
+import { api } from '@/lib/api';
 import { securityTester } from './securityTest';
 import { securityMiddleware } from '../middleware/security.middleware';
 import { apiClient } from '../lib/api/client';
+
+// Auth API inline replacement
+const authApi = {
+  register: (data: { firstName: string; lastName: string; email: string; password: string }) =>
+    api.post<{ user: any; accessToken: string }>('/auth/register', data),
+  login: (data: { email: string; password: string }) =>
+    api.post<{ user: any; accessToken: string }>('/auth/login', data),
+};
 
 export interface AuthTestResult {
   testName: string;

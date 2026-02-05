@@ -94,7 +94,12 @@ export class FormsService {
     organizationId: string,
     platformRole: string,
   ): Promise<Form> {
-    const form = await this.findOne(formId, userId, organizationId, platformRole);
+    const form = await this.findOne(
+      formId,
+      userId,
+      organizationId,
+      platformRole,
+    );
 
     // Verify write access
     const role = await this.workspaceAccessService.getUserWorkspaceRole(

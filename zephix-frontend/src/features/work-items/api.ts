@@ -1,82 +1,47 @@
-import { api } from '@/lib/api';
-import type { WorkItem, WorkItemCompletionStats, WorkItemType, WorkItemStatus } from './types';
+/**
+ * DEPRECATED — Work Items module has been fully migrated to work-management.
+ * These exports exist only to break builds loudly if any code still imports them.
+ *
+ * For tasks: use @/features/work-management/workTasks.api
+ * For stats: use @/features/work-management/workTasks.stats.api
+ */
 
-interface ListOptions {
-  workspaceId?: string;
-  projectId?: string;
-  status?: string;
-  assigneeId?: string;
-  limit?: number;
-  offset?: number;
+export function listWorkItems(): never {
+  throw new Error('DEPRECATED: use workTasks.api listTasks');
 }
 
-export async function listWorkItems(options: ListOptions): Promise<WorkItem[]> {
-  const params = new URLSearchParams();
-  if (options.workspaceId) params.set('workspaceId', options.workspaceId);
-  if (options.projectId) params.set('projectId', options.projectId);
-  if (options.status) params.set('status', options.status);
-  if (options.assigneeId) params.set('assigneeId', options.assigneeId);
-  if (options.limit) params.set('limit', String(options.limit));
-  if (options.offset) params.set('offset', String(options.offset));
-
-  return api.get(`/work-items?${params}`);
+export function listWorkItemsByProject(): never {
+  throw new Error('DEPRECATED: use workTasks.api listTasks with projectId');
 }
 
-export async function listWorkItemsByProject(projectId: string, status?: string): Promise<WorkItem[]> {
-  const params = new URLSearchParams({ projectId });
-  if (status) params.set('status', status);
-  return api.get(`/work-items/project/${projectId}?${params}`);
+export function createWorkItem(): never {
+  throw new Error('DEPRECATED: use workTasks.api createTask');
 }
 
-export async function createWorkItem(input: {
-  workspaceId: string;
-  projectId: string;
-  title: string;
-  description?: string;
-  type?: WorkItemType;
-  status?: WorkItemStatus;
-  assigneeId?: string;
-  points?: number;
-  dueDate?: string;
-}): Promise<WorkItem> {
-  return api.post('/work-items', input);
+export function getWorkItem(): never {
+  throw new Error('DEPRECATED: use workTasks.api getTask');
 }
 
-export async function getWorkItem(id: string): Promise<WorkItem> {
-  return api.get(`/work-items/${id}`);
+export function updateWorkItem(): never {
+  throw new Error('DEPRECATED: use workTasks.api updateTask');
 }
 
-export async function updateWorkItem(id: string, input: Partial<{
-  title: string;
-  description?: string;
-  type: WorkItemType;
-  status: WorkItemStatus;
-  assigneeId?: string;
-  points?: number;
-  dueDate?: string;
-}>): Promise<WorkItem> {
-  return api.patch(`/work-items/${id}`, input);
+export function updateWorkItemStatus(): never {
+  throw new Error('DEPRECATED: use workTasks.api updateTask with status');
 }
 
-export async function updateWorkItemStatus(id: string, status: WorkItemStatus): Promise<WorkItem> {
-  return api.patch(`/work-items/${id}/status`, { status });
+export function deleteWorkItem(): never {
+  throw new Error('DEPRECATED: use workTasks.api deleteTask');
 }
 
-export async function deleteWorkItem(id: string): Promise<void> {
-  return api.delete(`/work-items/${id}`);
+export function restoreWorkItem(): never {
+  throw new Error('DEPRECATED: use workTasks.api (soft delete recovery not supported)');
 }
 
-export async function restoreWorkItem(id: string): Promise<WorkItem> {
-  return api.post(`/work-items/${id}/restore`);
+export function getCompletionRatioByProject(): never {
+  throw new Error('DEPRECATED: use workTasks.stats.api getProjectCompletionStats');
 }
 
-export async function getCompletionRatioByProject(projectId: string): Promise<WorkItemCompletionStats> {
-  const res = await api.get(`/work-items/stats/completed-ratio/by-project/${projectId}`);
-  return res.data || { completed: 0, total: 0, ratio: 0 };
+export function getCompletionRatioByWorkspace(): never {
+  throw new Error('DEPRECATED: use workTasks.stats.api getWorkspaceCompletionStats');
 }
-
-export async function getCompletionRatioByWorkspace(workspaceId: string): Promise<WorkItemCompletionStats> {
-  const res = await api.get(`/work-items/stats/completed-ratio/by-workspace/${workspaceId}`);
-  return res.data || { completed: 0, total: 0, ratio: 0 };
-}
-

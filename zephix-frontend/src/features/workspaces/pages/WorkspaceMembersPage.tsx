@@ -23,6 +23,7 @@ import {
   listOrgUsers,
   suspendWorkspaceMember,
   reinstateWorkspaceMember,
+  WorkspaceMember,
 } from '@/features/workspaces/workspace.api';
 import { mapRoleToAccessLevel, mapAccessLevelToRole, getPlatformRoleDisplay } from '@/utils/workspace-access-levels';
 import { Button } from '@/components/ui/Button';
@@ -32,19 +33,10 @@ import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScr
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 
-type Member = {
-  id: string;
-  userId: string;
-  user?: {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-  };
-  role: string;
-  status?: 'active' | 'suspended';
-  email?: string;
-  name?: string;
+// Use the Member type from workspace.api.ts
+type Member = WorkspaceMember & {
+  userId: string;  // Required in this context
+  role: string;    // Required in this context
 };
 
 type OrgUser = {
@@ -121,7 +113,7 @@ export default function WorkspaceMembersPage() {
     setIsSuspended(false);
     try {
       const mems = await listWorkspaceMembers(effectiveWorkspaceId);
-      setMembers(mems);
+      setMembers(mems as Member[]);
 
       // Count owners for last owner protection
       const owners = mems.filter(m => m.role === 'workspace_owner');
@@ -204,6 +196,44 @@ export default function WorkspaceMembersPage() {
       toast.error(message);
     } finally {
       setRemovingMember(null);
+    }
+  }
+
+  async function handleSuspendMember(memberId: string) {
+    if (!effectiveWorkspaceId) return;
+
+    setSuspendingMember(memberId);
+    try {
+      await suspendWorkspaceMember(effectiveWorkspaceId, memberId);
+      toast.success('Member suspended');
+      await loadMembers();
+      setActionMenuOpen(null);
+    } catch (error: unknown) {
+      console.error('Failed to suspend member:', error);
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err?.response?.data?.message || 'Failed to suspend member';
+      toast.error(message);
+    } finally {
+      setSuspendingMember(null);
+    }
+  }
+
+  async function handleReinstateMember(memberId: string) {
+    if (!effectiveWorkspaceId) return;
+
+    setReinstatingMember(memberId);
+    try {
+      await reinstateWorkspaceMember(effectiveWorkspaceId, memberId);
+      toast.success('Member reinstated');
+      await loadMembers();
+      setActionMenuOpen(null);
+    } catch (error: unknown) {
+      console.error('Failed to reinstate member:', error);
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err?.response?.data?.message || 'Failed to reinstate member';
+      toast.error(message);
+    } finally {
+      setReinstatingMember(null);
     }
   }
 
@@ -409,7 +439,7 @@ export default function WorkspaceMembersPage() {
                           <button
                             onClick={() => setActionMenuOpen(actionMenuOpen === member.id ? null : member.id)}
                             className="text-sm text-gray-600 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-100"
-                            disabled={isRemoving === member.id || isSuspendingMember === member.id || isReinstatingMember === member.id}
+                            disabled={removingMember === member.id || suspendingMember === member.id || reinstatingMember === member.id}
                           >
                             ⋮
                           </button>
@@ -418,18 +448,18 @@ export default function WorkspaceMembersPage() {
                               {member.status === 'suspended' ? (
                                 <button
                                   onClick={() => handleReinstateMember(member.id)}
-                                  disabled={isReinstatingMember === member.id}
+                                  disabled={reinstatingMember === member.id}
                                   className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
                                 >
-                                  {isReinstatingMember === member.id ? 'Reinstating...' : 'Reinstate member'}
+                                  {reinstatingMember === member.id ? 'Reinstating...' : 'Reinstate member'}
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleSuspendMember(member.id)}
-                                  disabled={isSuspendingMember === member.id}
+                                  disabled={suspendingMember === member.id}
                                   className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
                                 >
-                                  {isSuspendingMember === member.id ? 'Suspending...' : 'Suspend member'}
+                                  {suspendingMember === member.id ? 'Suspending...' : 'Suspend member'}
                                 </button>
                               )}
                               <div className="border-t border-gray-200 my-1"></div>
@@ -438,10 +468,10 @@ export default function WorkspaceMembersPage() {
                                   handleRemoveMember(member.id, member.userId || '', member.role || '');
                                   setActionMenuOpen(null);
                                 }}
-                                disabled={isRemoving === member.id || isLastOwner}
+                                disabled={removingMember === member.id || isLastOwner}
                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {isRemoving === member.id ? 'Removing...' : 'Remove'}
+                                {removingMember === member.id ? 'Removing...' : 'Remove'}
                               </button>
                             </div>
                           )}

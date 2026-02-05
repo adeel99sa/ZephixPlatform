@@ -54,7 +54,8 @@ export default function AdminUsersPage() {
         status: statusFilter !== 'all' ? statusFilter : undefined,
       });
 
-      setUsers(data.users || []);
+      const users = (data.users || []) as User[];
+      setUsers(users);
       setPagination(prev => ({
         ...prev,
         total: data.pagination?.total || 0,

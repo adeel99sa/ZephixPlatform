@@ -9,11 +9,23 @@ import {
   CreateWorkflowInstanceRequest,
   WorkflowActionRequest
 } from '../types/workflow';
-import api from './api';
+import { api } from '@/lib/api';
 
 class WorkflowTemplateService {
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return api.get(endpoint, options);
+  private async get<T>(endpoint: string): Promise<T> {
+    return api.get(endpoint);
+  }
+
+  private async post<T>(endpoint: string, data?: unknown): Promise<T> {
+    return api.post(endpoint, data);
+  }
+
+  private async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+    return api.patch(endpoint, data);
+  }
+
+  private async del<T>(endpoint: string): Promise<T> {
+    return api.delete(endpoint);
   }
 
   // Workflow Templates
@@ -23,7 +35,7 @@ class WorkflowTemplateService {
     isActive?: boolean;
     page?: number;
     limit?: number;
-  }): Promise<{ data: WorkflowTemplate[]; meta: any }> {
+  }): Promise<{ data: WorkflowTemplate[]; meta: unknown }> {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -33,62 +45,44 @@ class WorkflowTemplateService {
       });
     }
 
-    return this.request(`/api/pm/workflow-templates?${queryParams}`);
+    return this.get(`/api/pm/workflow-templates?${queryParams}`);
   }
 
   async getById(id: string): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates/${id}`);
+    return this.get(`/api/pm/workflow-templates/${id}`);
   }
 
   async create(data: CreateWorkflowTemplateRequest): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post(`/api/pm/workflow-templates`, data);
   }
 
   async update(id: string, data: UpdateWorkflowTemplateRequest): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    return this.patch(`/api/pm/workflow-templates/${id}`, data);
   }
 
   async clone(id: string, data: CloneWorkflowTemplateRequest): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates/${id}/clone`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post(`/api/pm/workflow-templates/${id}/clone`, data);
   }
 
   async activate(id: string): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates/${id}/activate`, {
-      method: 'POST',
-    });
+    return this.post(`/api/pm/workflow-templates/${id}/activate`);
   }
 
   async deactivate(id: string): Promise<WorkflowTemplate> {
-    return this.request(`/api/pm/workflow-templates/${id}/deactivate`, {
-      method: 'POST',
-    });
+    return this.post(`/api/pm/workflow-templates/${id}/deactivate`);
   }
 
   async delete(id: string): Promise<void> {
-    return this.request(`/api/pm/workflow-templates/${id}`, {
-      method: 'DELETE',
-    });
+    return this.del(`/api/pm/workflow-templates/${id}`);
   }
 
   async getDefaults(): Promise<WorkflowTemplate[]> {
-    return this.request('/api/pm/workflow-templates/defaults');
+    return this.get('/api/pm/workflow-templates/defaults');
   }
 
   // Workflow Instances
   async createInstance(data: CreateWorkflowInstanceRequest): Promise<WorkflowInstance> {
-    return this.request(`/api/pm/workflow-templates/${data.templateId}/instances`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post(`/api/pm/workflow-templates/${data.templateId}/instances`, data);
   }
 
   async getInstances(params?: {
@@ -98,7 +92,7 @@ class WorkflowTemplateService {
     assignedTo?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ data: WorkflowInstance[]; meta: any }> {
+  }): Promise<{ data: WorkflowInstance[]; meta: unknown }> {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -108,101 +102,96 @@ class WorkflowTemplateService {
       });
     }
 
-    return this.request(`/api/pm/workflow-instances?${queryParams}`);
+    return this.get(`/api/pm/workflow-instances?${queryParams}`);
   }
 
   async getInstanceById(id: string): Promise<WorkflowInstance> {
-    return this.request(`/api/pm/workflow-instances/${id}`);
+    return this.get(`/api/pm/workflow-instances/${id}`);
   }
 
   async updateInstance(id: string, data: Partial<WorkflowInstance>): Promise<WorkflowInstance> {
-    return this.request(`/api/pm/workflow-instances/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    return this.patch(`/api/pm/workflow-instances/${id}`, data);
   }
 
   async executeAction(id: string, action: WorkflowActionRequest): Promise<WorkflowInstance> {
-    return this.request(`/api/pm/workflow-instances/${id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify(action),
-    });
+    return this.post(`/api/pm/workflow-instances/${id}/actions`, action);
   }
 
   async getInstanceHistory(id: string): Promise<{
     instanceId: string;
     currentStage: string;
-    stageHistory: any[];
-    approvals: any[];
-    metrics: any;
+    stageHistory: unknown[];
+    approvals: unknown[];
+    metrics: unknown;
     totalDuration: number | null;
   }> {
-    return this.request(`/api/pm/workflow-instances/${id}/history`);
+    return this.get(`/api/pm/workflow-instances/${id}/history`);
   }
 
   async getInstanceMetrics(id: string): Promise<{
     instanceId: string;
     status: string;
     currentStage: string;
-    stageMetrics: any;
+    stageMetrics: unknown;
     totalDuration: number | null;
     pendingApprovals: number;
     canProgress: boolean;
   }> {
-    return this.request(`/api/pm/workflow-instances/${id}/metrics`);
+    return this.get(`/api/pm/workflow-instances/${id}/metrics`);
   }
 }
 
 class IntakeFormService {
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    return api.get(endpoint, options);
+  private async get<T>(endpoint: string): Promise<T> {
+    return api.get(endpoint);
+  }
+
+  private async post<T>(endpoint: string, data?: unknown): Promise<T> {
+    return api.post(endpoint, data);
+  }
+
+  private async patch<T>(endpoint: string, data?: unknown): Promise<T> {
+    return api.patch(endpoint, data);
+  }
+
+  private async del<T>(endpoint: string): Promise<T> {
+    return api.delete(endpoint);
   }
 
   // Intake Forms Management
   async getForms(): Promise<IntakeForm[]> {
-    return this.request('/api/pm/intake/forms');
+    return this.get('/api/pm/intake/forms');
   }
 
   async getFormById(id: string): Promise<IntakeForm> {
-    return this.request(`/api/pm/intake/forms/${id}`);
+    return this.get(`/api/pm/intake/forms/${id}`);
   }
 
   async createForm(data: Partial<IntakeForm>): Promise<IntakeForm> {
-    return this.request('/api/pm/intake/forms', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post('/api/pm/intake/forms', data);
   }
 
   async updateForm(id: string, data: Partial<IntakeForm>): Promise<IntakeForm> {
-    return this.request(`/api/pm/intake/forms/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+    return this.patch(`/api/pm/intake/forms/${id}`, data);
   }
 
   async deleteForm(id: string): Promise<void> {
-    return this.request(`/api/pm/intake/forms/${id}`, {
-      method: 'DELETE',
-    });
+    return this.del(`/api/pm/intake/forms/${id}`);
   }
 
   // Public Form Access (no auth required)
   async getPublicForm(slug: string): Promise<IntakeForm> {
-    return this.request(`/api/intake/${slug}`);
+    return this.get(`/api/intake/${slug}`);
   }
 
-  async submitIntake(slug: string, data: any): Promise<{
+  async submitIntake(slug: string, data: unknown): Promise<{
     id: string;
     title: string;
     status: string;
     submittedAt: Date;
     confirmationMessage: string;
   }> {
-    return this.request(`/api/intake/${slug}/submit`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post(`/api/intake/${slug}/submit`, data);
   }
 
   // Submissions Management
@@ -216,7 +205,7 @@ class IntakeFormService {
     limit?: number;
     dateFrom?: string;
     dateTo?: string;
-  }): Promise<{ data: IntakeSubmission[]; meta: any }> {
+  }): Promise<{ data: IntakeSubmission[]; meta: unknown }> {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -226,11 +215,11 @@ class IntakeFormService {
       });
     }
 
-    return this.request(`/api/pm/intake/submissions?${queryParams}`);
+    return this.get(`/api/pm/intake/submissions?${queryParams}`);
   }
 
   async getSubmissionById(id: string): Promise<IntakeSubmission> {
-    return this.request(`/api/pm/intake/submissions/${id}`);
+    return this.get(`/api/pm/intake/submissions/${id}`);
   }
 
   async processSubmission(id: string, data: {
@@ -241,10 +230,7 @@ class IntakeFormService {
     projectTitle?: string;
     projectDescription?: string;
   }): Promise<IntakeSubmission> {
-    return this.request(`/api/pm/intake/submissions/${id}/process`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post(`/api/pm/intake/submissions/${id}/process`, data);
   }
 
   async bulkAction(data: {
@@ -254,10 +240,7 @@ class IntakeFormService {
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     notes?: string;
   }): Promise<{ success: number; failed: number; errors: string[] }> {
-    return this.request('/api/pm/intake/submissions/bulk-action', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.post('/api/pm/intake/submissions/bulk-action', data);
   }
 
   async getFormAnalytics(formId: string): Promise<{
@@ -271,7 +254,7 @@ class IntakeFormService {
     averageCompletionTime: number | null;
     peakSubmissionHours: Record<string, number>;
   }> {
-    return this.request(`/api/pm/intake/forms/${formId}/analytics`);
+    return this.get(`/api/pm/intake/forms/${formId}/analytics`);
   }
 }
 

@@ -3,7 +3,7 @@
  * Typed API client for all project-related endpoints
  */
 
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
 
 export interface ProjectSummary {
@@ -130,7 +130,7 @@ export const projectsApi = {
   async getProject(id: string): Promise<ProjectDetail | null> {
     const response = await api.get<{ data: ProjectDetail | null }>(`/projects/${id}`);
     // Backend returns { data: ProjectDetail | null }, extract data field
-    return response?.data?.data !== undefined ? response.data.data : response?.data || null;
+    return response?.data?.data ?? (response?.data as unknown as ProjectDetail) ?? null;
   },
 
   /**

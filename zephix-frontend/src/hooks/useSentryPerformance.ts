@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import * as Sentry from '@sentry/react';
 import { startSentryTransaction } from '../config/sentry';
 
 interface UseSentryPerformanceOptions {
@@ -7,6 +6,13 @@ interface UseSentryPerformanceOptions {
   operation: string;
   data?: Record<string, unknown>;
   autoFinish?: boolean;
+}
+
+// Stub transaction interface for when Sentry is not fully initialized
+interface StubTransaction {
+  finish: () => void;
+  setTag: (key: string, value: string) => void;
+  setData: (key: string, value: unknown) => void;
 }
 
 /**
@@ -17,39 +23,34 @@ interface UseSentryPerformanceOptions {
  */
 export const useSentryPerformance = (options: UseSentryPerformanceOptions) => {
   const { name, operation, data, autoFinish = true } = options;
-  const transactionRef = useRef<Sentry.Transaction | null>(null);
+  // startSentryTransaction currently returns null - this is a placeholder for future implementation
+  const transactionRef = useRef<StubTransaction | null>(null);
 
   useEffect(() => {
-    // Start performance transaction
-    transactionRef.current = startSentryTransaction(name, operation, data);
+    // Start performance transaction - currently returns null, will be implemented when Sentry is configured
+    const tx = startSentryTransaction(name, operation, data);
+    // If startSentryTransaction returns a real transaction in the future, use it
+    transactionRef.current = tx as StubTransaction | null;
 
     // Auto-finish transaction when component unmounts
     if (autoFinish) {
       return () => {
-        if (transactionRef.current) {
-          transactionRef.current.finish();
-        }
+        transactionRef.current?.finish();
       };
     }
   }, [name, operation, data, autoFinish]);
 
   const finish = () => {
-    if (transactionRef.current) {
-      transactionRef.current.finish();
-      transactionRef.current = null;
-    }
+    transactionRef.current?.finish();
+    transactionRef.current = null;
   };
 
   const setTag = (key: string, value: string) => {
-    if (transactionRef.current) {
-      transactionRef.current.setTag(key, value);
-    }
+    transactionRef.current?.setTag(key, value);
   };
 
   const setData = (key: string, value: unknown) => {
-    if (transactionRef.current) {
-      transactionRef.current.setData(key, value);
-    }
+    transactionRef.current?.setData(key, value);
   };
 
   return {

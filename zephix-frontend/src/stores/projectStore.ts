@@ -1,9 +1,17 @@
 import { create } from 'zustand';
 
-import { projectsApi } from '../services/api';
+import { request } from '@/lib/api';
 import type { Project } from '../types';
 import type { BaseStoreState, AsyncResult } from '../types/store';
 import { createError } from '../types/store';
+
+// Projects API inline replacement - use request for unwrapped responses
+const projectsApi = {
+  getAll: () => request.get<{ data: Project[]; total: number } | Project[]>('/projects'),
+  create: (data: Partial<Project>) => request.post<Project>('/projects', data),
+  update: (id: string, data: Partial<Project>) => request.patch<Project>(`/projects/${id}`, data),
+  delete: (id: string) => request.delete(`/projects/${id}`),
+};
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -95,9 +103,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const response = await callWithRetry(() => projectsApi.getAll());
       
       // Handle both paginated and non-paginated responses
-      const projects = response.data || response;
+      // Type guard to check if response is paginated
+      const isPaginated = (r: unknown): r is { data: Project[]; total: number } => 
+        r !== null && typeof r === 'object' && 'data' in r && 'total' in r;
+      
+      const projects = isPaginated(response) ? response.data : response;
       const projectsArray = Array.isArray(projects) ? projects : [];
-      const total = response.total || projectsArray.length;
+      const total = isPaginated(response) ? response.total : projectsArray.length;
       
       // Update cache
       const cache: ProjectCache = {
@@ -126,8 +138,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch projects';
       const storeError = createError('api', errorMessage, {
         endpoint: '/projects',
-        method: 'GET',
-        retryAttempts: MAX_RETRY_ATTEMPTS
+        method: 'GET'
       });
       
       set({ 
@@ -189,8 +200,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Failed to create project';
       const storeError = createError('api', errorMessage, {
         endpoint: '/projects',
-        method: 'POST',
-        payload: data
+        method: 'POST'
       });
       
       set({ 

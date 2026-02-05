@@ -77,7 +77,6 @@ export default function AdminRoute() {
       role: user.role,
       platformRole: user.platformRole,
       permissions: user.permissions,
-      permissionsIsAdmin: user.permissions?.isAdmin,
       isAdminUserResult: isAdmin,
       decision: isAdmin ? 'ALLOW ✅' : 'DENY ❌',
     });
@@ -89,7 +88,6 @@ export default function AdminRoute() {
       role: user.role,
       platformRole: user.platformRole,
       permissions: user.permissions,
-      permissionsIsAdmin: user.permissions?.isAdmin,
       isAdminUserResult: isAdmin,
       path: location.pathname,
     });

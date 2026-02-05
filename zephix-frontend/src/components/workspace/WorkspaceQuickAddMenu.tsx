@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import api, { unwrapApiData } from '@/services/api';
+import { api, unwrapApiData } from '@/lib/api';
 
 type Props = {
   workspaceId: string;

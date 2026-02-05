@@ -35,7 +35,9 @@ import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
 import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
-import { ProjectOverviewPage } from "@/features/projects/overview/ProjectOverviewPage";
+import { ProjectPageLayout } from "@/features/projects/layout";
+import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectRisksTab, ProjectResourcesTab } from "@/features/projects/tabs";
+import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
 import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
@@ -114,8 +116,16 @@ export default function App() {
               <Route path="/dashboards" element={<DashboardsIndex />} />
               <Route path="/dashboards/:id" element={<DashboardView />} />
               <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
-              <Route path="/projects" element={<div>Projects Page</div>} />
-              <Route path="/projects/:projectId" element={<ProjectOverviewPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              {/* Project detail pages with tabbed layout */}
+              <Route path="/projects/:projectId" element={<ProjectPageLayout />}>
+                <Route index element={<ProjectOverviewTab />} />
+                <Route path="plan" element={<ProjectPlanTab />} />
+                <Route path="tasks" element={<ProjectTasksTab />} />
+                <Route path="risks" element={<ProjectRisksTab />} />
+                <Route path="resources" element={<ProjectResourcesTab />} />
+              </Route>
+              {/* Legacy route redirect for backwards compatibility */}
               <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />

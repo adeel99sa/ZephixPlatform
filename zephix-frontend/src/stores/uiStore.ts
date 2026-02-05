@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { Project } from '../types';
+
 export interface Toast {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
@@ -32,6 +34,9 @@ export interface UIState {
   // Modal states
   activeModal: string | null;
   
+  // Project selection state
+  selectedProject: Project | null;
+  
   // Actions
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -47,6 +52,10 @@ export interface UIState {
   setGlobalLoading: (loading: boolean) => void;
   
   setActiveModal: (modalId: string | null) => void;
+  
+  // Project selection actions
+  selectProject: (project: Project | null) => void;
+  clearSelectedProject: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -59,6 +68,7 @@ export const useUIStore = create<UIState>()(
       toastQueue: [],
       globalLoading: false,
       activeModal: null,
+      selectedProject: null,
 
       // Actions
       setSidebarOpen: (open: boolean) => {
@@ -129,6 +139,14 @@ export const useUIStore = create<UIState>()(
 
       setActiveModal: (modalId: string | null) => {
         set({ activeModal: modalId });
+      },
+
+      selectProject: (project: Project | null) => {
+        set({ selectedProject: project });
+      },
+
+      clearSelectedProject: () => {
+        set({ selectedProject: null });
       },
     }),
     {

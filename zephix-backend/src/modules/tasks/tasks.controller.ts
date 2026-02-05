@@ -13,11 +13,12 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { LegacyTasksGuard } from '../../guards/legacy-tasks.guard';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('tasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(LegacyTasksGuard, JwtAuthGuard)
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 

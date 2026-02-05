@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import api from '../services/api';
+import { api } from '@/lib/api';
 
 export interface ProjectGenerationRequest {
   methodology: string;

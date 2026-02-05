@@ -1,4 +1,12 @@
-import { Controller, Get, Query, Req, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Req,
+  UseGuards,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -13,16 +21,13 @@ export class TemplateCenterSearchController {
   constructor(private readonly service: TemplateCenterSearchService) {}
 
   @Get()
-  async search(
-    @Query() query: SearchQueryDto,
-    @Req() req: AuthRequest,
-  ) {
+  async search(@Query() query: SearchQueryDto, @Req() req: AuthRequest) {
     if (!isTemplateCenterEnabled()) {
       throw new NotFoundException('Template Center is not enabled');
     }
     const auth = getAuthContext(req);
     const scope = getTemplateCenterScope(auth, query.workspaceId);
-    const context = query.context as string | undefined;
+    const context = query.context;
     const q = query.q?.trim() ?? '';
     if (!q && context !== 'browse') {
       throw new BadRequestException('q is required unless context is browse');

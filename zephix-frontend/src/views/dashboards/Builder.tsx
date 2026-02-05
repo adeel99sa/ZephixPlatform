@@ -2,11 +2,29 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Save, Plus, Eye, Undo2, Redo2, X, Copy, Trash2, MoreHorizontal, Sparkles } from "lucide-react";
-import GridLayout, { Layout } from "react-grid-layout";
+import GridLayout from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import { fetchDashboard, patchDashboard, duplicateDashboard, deleteDashboard } from "@/features/dashboards/api";
 import { DashboardEntitySchema, WorkspaceRequiredError } from "@/features/dashboards/schemas";
-import type { DashboardEntity, DashboardWidget } from "@/features/dashboards/types";
+import type { DashboardEntity, DashboardWidget, DashboardLayoutItem } from "@/features/dashboards/types";
+
+// GridLayout's layout type - matching DashboardLayoutItem structure
+type RGLLayout = DashboardLayoutItem;
+
+// Type-safe GridLayout wrapper to handle @types/react-grid-layout@1.3.6 vs react-grid-layout@2.2.2 mismatch
+interface TypedGridLayoutProps {
+  className?: string;
+  layout: RGLLayout[];
+  cols: number;
+  rowHeight: number;
+  width: number;
+  onLayoutChange: (layout: RGLLayout[]) => void;
+  isDraggable: boolean;
+  isResizable: boolean;
+  draggableHandle: string;
+  children: React.ReactNode;
+}
+const TypedGridLayout = GridLayout as unknown as React.ComponentType<TypedGridLayoutProps>;
 import { createWidget, getWidgetsByCategory, widgetRegistry } from "@/features/dashboards/widget-registry";
 import type { WidgetType } from "@/features/dashboards/types";
 import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
@@ -49,10 +67,10 @@ export function DashboardBuilder() {
       setError(null);
       setWorkspaceError(false);
       const data = await fetchDashboard(id);
-      // Validate with zod
-      const validated = DashboardEntitySchema.parse(data);
+      // Validate with zod and cast to DashboardEntity
+      const validated = DashboardEntitySchema.parse(data) as DashboardEntity;
       setDashboard(validated);
-      initialDashboardRef.current = JSON.parse(JSON.stringify(validated)); // Deep clone
+      initialDashboardRef.current = JSON.parse(JSON.stringify(validated)) as DashboardEntity; // Deep clone
       setHistory([validated]);
       setHistoryIndex(0);
       setIsDirty(false);
@@ -196,7 +214,7 @@ export function DashboardBuilder() {
   };
 
   // Layout change handler
-  const handleLayoutChange = (layout: Layout[]) => {
+  const handleLayoutChange = (layout: RGLLayout[]) => {
     if (!dashboard) return;
 
     updateDashboard((prev) => ({
@@ -271,7 +289,7 @@ export function DashboardBuilder() {
   };
 
   // Convert widgets to grid layout format
-  const layoutItems: Layout[] = dashboard?.widgets.map((w) => ({
+  const layoutItems: RGLLayout[] = dashboard?.widgets.map((w) => ({
     i: w.id,
     x: w.layout.x,
     y: w.layout.y,
@@ -464,7 +482,7 @@ export function DashboardBuilder() {
               </div>
             </div>
           ) : (
-            <GridLayout
+            <TypedGridLayout
               className="layout"
               layout={layoutItems}
               cols={12}
@@ -516,7 +534,7 @@ export function DashboardBuilder() {
                   </div>
                 );
               })}
-            </GridLayout>
+            </TypedGridLayout>
           )}
         </div>
 

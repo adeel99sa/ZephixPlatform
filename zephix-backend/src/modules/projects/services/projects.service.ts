@@ -795,9 +795,34 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   ): Promise<Project> {
     const orgId = this.getOrgId(req);
     const userId = this.getUserId(req);
+    const userRole = (req as any)?.user?.role;
 
     if (!input?.name || input.name.trim().length === 0) {
       throw new BadRequestException('name is required');
+    }
+    if (!input?.workspaceId) {
+      throw new BadRequestException('workspaceId is required');
+    }
+    if (!userId) {
+      throw new ForbiddenException('User context required');
+    }
+
+    const canAccess = await this.tenantContext.runWithTenant(
+      { organizationId: orgId, workspaceId: input.workspaceId },
+      async () => {
+        return this.workspaceAccessService.canAccessWorkspace(
+          input.workspaceId,
+          orgId,
+          userId,
+          userRole,
+        );
+      },
+    );
+    if (!canAccess) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Access denied to workspace',
+      });
     }
 
     return this.dataSource.transaction<Project>(
@@ -846,7 +871,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         const projectData: DeepPartial<Project> = {
           name: input.name.trim(),
           description: input.description,
-          status: input.status,
+          status: input.status || ProjectStatus.PLANNING,
           workspaceId: input.workspaceId,
           organizationId: orgId,
           createdById: userId,

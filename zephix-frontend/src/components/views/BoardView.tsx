@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import api from '@/services/api';
+import { api } from '@/lib/api';
 
 interface Task {
   id: string;

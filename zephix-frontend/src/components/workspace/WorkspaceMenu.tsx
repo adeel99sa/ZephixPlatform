@@ -1,12 +1,28 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { useCreateWorkspace, useCreateProject } from "@/features/workspaces/api";
+import { createWorkspace } from "@/features/workspaces/api";
+import { api } from "@/lib/api";
 
 export default function WorkspaceMenu() {
   const [open, setOpen] = useState(false);
   const ws = useWorkspaceStore();
-  const createWS = useCreateWorkspace();
-  const createProj = useCreateProject();
+  const queryClient = useQueryClient();
+
+  const createWS = useMutation({
+    mutationFn: (name: string) => createWorkspace({ name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    },
+  });
+
+  const createProj = useMutation({
+    mutationFn: (data: { workspaceId: string; name: string }) =>
+      api.post(`/projects`, { workspaceId: data.workspaceId, name: data.name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
 
   return (
     <div className="relative">
