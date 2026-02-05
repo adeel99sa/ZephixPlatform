@@ -77,15 +77,16 @@ async function bootstrap() {
     console.log('✅ Demo user created/updated:', userId);
 
     // Link user to organization (check first, then insert if not exists)
+    // Note: user_organizations uses camelCase columns in the actual DB schema
     const existingLink = await dataSource.query(`
       SELECT id FROM user_organizations 
-      WHERE user_id = $1 AND organization_id = $2
+      WHERE "userId" = $1 AND "organizationId" = $2
       LIMIT 1
     `, [userId, orgId]);
     
     if (existingLink.length === 0) {
       await dataSource.query(`
-        INSERT INTO user_organizations (user_id, organization_id, role)
+        INSERT INTO user_organizations ("userId", "organizationId", role)
         VALUES ($1, $2, 'admin')
       `, [userId, orgId]);
     }
