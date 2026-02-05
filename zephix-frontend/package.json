@@ -55,7 +55,8 @@
     "prepare": "husky",
     "guard": "bash ../scripts/ci-guardrails.sh",
     "guard:typecheck": "tsc -p tsconfig.app.json --noEmit && echo '✅ TypeScript: zero errors'",
-    "guard:imports": "bash -c 'if grep -rn \"setAuthToken\\|clearAuthToken\" src/ --include=\"*.ts\" --include=\"*.tsx\" | grep -v \"__tests__\\|\\.test\\.\" | grep -v \"// eslint-disable\"; then echo \"❌ Found deprecated auth token methods\" && exit 1; else echo \"✅ Import guardrail passed\"; fi'"
+    "guard:imports": "bash -c 'if grep -rn \"setAuthToken\\|clearAuthToken\" src/ --include=\"*.ts\" --include=\"*.tsx\" | grep -v \"__tests__\\|\\.test\\.\" | grep -v \"// eslint-disable\"; then echo \"❌ Found deprecated auth token methods\" && exit 1; else echo \"✅ Import guardrail passed\"; fi'",
+    "guard:competitors": "bash ../scripts/guard/competitor-boundary.sh"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

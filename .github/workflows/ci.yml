@@ -98,6 +98,8 @@ jobs:
             exit 1
           fi
           echo "✅ Import guardrail passed"
+      - name: Competitor boundary guard
+        run: bash scripts/guard/competitor-boundary.sh
       - name: Frontend check no route placeholders
         working-directory: zephix-frontend
         run: npm run check:no-route-placeholders
