@@ -242,7 +242,7 @@ export class TemplatesController {
   /**
    * Sprint 4: GET /api/templates/recommendations
    * Get template recommendations with deterministic scoring
-   * Route order: Must be before @Get(':id') to avoid shadowing
+   * Route order: Must be before :id catch-all to avoid shadowing
    */
   @Get('recommendations')
   @UsePipes(
@@ -338,7 +338,7 @@ export class TemplatesController {
   /**
    * Sprint 4: GET /api/templates/:templateId/preview-v5_1
    * Get template preview for v5_1
-   * Route order: Must be before @Get(':id') to avoid shadowing
+   * Note: Different path segment count than :id catch-all, no shadowing risk
    */
   @Get(':templateId/preview-v5_1')
   @ApiOperation({
