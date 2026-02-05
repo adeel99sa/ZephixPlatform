@@ -30,6 +30,10 @@ async function runMigrations() {
     await dataSource.initialize();
     console.log('✅ Database connected\n');
 
+    // Ensure uuid-ossp extension is available (required for uuid_generate_v4)
+    await dataSource.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+    console.log('✅ uuid-ossp extension ensured\n');
+
     const pendingMigrations = await dataSource.showMigrations();
     if (pendingMigrations) {
       console.log('📋 Pending migrations found, running...\n');
