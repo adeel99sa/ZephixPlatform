@@ -51,7 +51,7 @@ npm run dev                # Dev mode on port 5173
 
 ### Guides
 - [Engineering Playbook](./guides/ENGINEERING_PLAYBOOK.md) - Development standards, PR process
-  - See [Documentation Policy](./guides/ENGINEERING_PLAYBOOK.md#documentation-policy) for docs standards
+  - **[Documentation Policy](./guides/ENGINEERING_PLAYBOOK.md#documentation-policy)** - Execution vs narrative rules
 - [Operations Runbook](./guides/OPERATIONS_RUNBOOK.md) - Releases, monitoring, incidents
 
 ### Security
