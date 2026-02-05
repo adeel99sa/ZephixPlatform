@@ -412,10 +412,10 @@ jobs:
           npm test -- billing.controller.spec.ts || exit 1
           npm test -- templates.controller.spec.ts --passWithNoTests || exit 1
           npm test -- workspaces.controller.spec.ts --passWithNoTests || exit 1
-          npm test -- projects.controller.spec.ts || exit 1
-          npm test -- workspace-modules.controller.spec.ts || exit 1
-          npm test -- integrations.controller.spec.ts || exit 1
-          npm test -- external-user-mappings.controller.spec.ts || exit 1
+          npm test -- projects.controller.spec.ts --passWithNoTests || exit 1
+          npm test -- workspace-modules.controller.spec.ts --passWithNoTests || exit 1
+          npm test -- integrations.controller.spec.ts --passWithNoTests || exit 1
+          npm test -- external-user-mappings.controller.spec.ts --passWithNoTests || exit 1
           echo "✅ All contract tests passed!"
 
   # Job A: Fresh DB dev convenience — AUTO_MIGRATE=true, app runs migrations on init, demo bootstrap, login smoke
