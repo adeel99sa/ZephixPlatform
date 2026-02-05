@@ -71,12 +71,33 @@ jobs:
         working-directory: zephix-backend
         run: npm run test:unit
         continue-on-error: true
+      - name: Frontend install
+        working-directory: zephix-frontend
+        run: npm ci
+      - name: Frontend typecheck (zero errors guardrail)
+        working-directory: zephix-frontend
+        run: npm run typecheck
       - name: Frontend build
         working-directory: zephix-frontend
-        run: npm ci && npm run build
+        run: npm run build
       - name: Frontend lint (new code)
         working-directory: zephix-frontend
         run: npm run lint:new
+      - name: Import guardrail (banned patterns)
+        working-directory: zephix-frontend
+        run: |
+          echo "Checking for banned import patterns..."
+          # Check for deprecated auth imports
+          if grep -rn "setAuthToken\|clearAuthToken" src/ --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\." | grep -v "// eslint-disable"; then
+            echo "❌ Found deprecated auth token methods. Use cookie-based auth instead."
+            exit 1
+          fi
+          # Check for direct localStorage auth token access (should use AuthContext)
+          if grep -rn "localStorage\.\(get\|set\|remove\)Item.*auth_token" src/ --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\." | grep -v "cleanupAuthStorage"; then
+            echo "❌ Found direct localStorage auth_token access. Use AuthContext instead."
+            exit 1
+          fi
+          echo "✅ Import guardrail passed"
       - name: Frontend check no route placeholders
         working-directory: zephix-frontend
         run: npm run check:no-route-placeholders
