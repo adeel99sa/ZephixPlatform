@@ -29,52 +29,42 @@ async function bootstrap() {
     await dataSource.initialize();
     console.log('✅ Database connected');
 
-    // Check if demo user exists
-    const userResult = await dataSource.query(
-      `SELECT id FROM users WHERE email = 'demo@zephix.io' LIMIT 1`
-    );
-
-    if (userResult.length > 0) {
-      console.log('✅ Demo user already exists, skipping seed');
-      await dataSource.destroy();
-      process.exit(0);
+    // Create demo organization (check first, no ON CONFLICT)
+    let orgId: string;
+    const existingOrg = await dataSource.query(`
+      SELECT id FROM organizations WHERE slug = 'demo-org' LIMIT 1
+    `);
+    if (existingOrg.length > 0) {
+      orgId = existingOrg[0].id;
+      console.log('✅ Demo organization already exists:', orgId);
+    } else {
+      const orgResult = await dataSource.query(`
+        INSERT INTO organizations (id, name, slug, created_at, updated_at)
+        VALUES (gen_random_uuid(), 'Demo Organization', 'demo-org', NOW(), NOW())
+        RETURNING id
+      `);
+      orgId = orgResult[0].id;
+      console.log('✅ Demo organization created:', orgId);
     }
 
-    // Create demo organization
-    const orgResult = await dataSource.query(`
-      INSERT INTO organizations (id, name, slug, created_at, updated_at)
-      VALUES (
-        gen_random_uuid(),
-        'Demo Organization',
-        'demo-org',
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (slug) DO UPDATE SET updated_at = NOW()
-      RETURNING id
-    `);
-    const orgId = orgResult[0].id;
-    console.log('✅ Demo organization created/updated:', orgId);
-
-    // Create demo user with hashed password
+    // Create demo user with hashed password (check first, no ON CONFLICT)
     const passwordHash = await bcrypt.hash('demo123!', 10);
-    const userInsertResult = await dataSource.query(`
-      INSERT INTO users (id, email, password, first_name, last_name, email_verified_at, created_at, updated_at)
-      VALUES (
-        gen_random_uuid(),
-        'demo@zephix.io',
-        $1,
-        'Demo',
-        'User',
-        NOW(),
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (email) DO UPDATE SET updated_at = NOW()
-      RETURNING id
-    `, [passwordHash]);
-    const userId = userInsertResult[0].id;
-    console.log('✅ Demo user created/updated:', userId);
+    let userId: string;
+    const existingUser = await dataSource.query(`
+      SELECT id FROM users WHERE email = 'demo@zephix.io' LIMIT 1
+    `);
+    if (existingUser.length > 0) {
+      userId = existingUser[0].id;
+      console.log('✅ Demo user already exists:', userId);
+    } else {
+      const userInsertResult = await dataSource.query(`
+        INSERT INTO users (id, email, password, first_name, last_name, email_verified_at, created_at, updated_at)
+        VALUES (gen_random_uuid(), 'demo@zephix.io', $1, 'Demo', 'User', NOW(), NOW(), NOW())
+        RETURNING id
+      `, [passwordHash]);
+      userId = userInsertResult[0].id;
+      console.log('✅ Demo user created:', userId);
+    }
 
     // Link user to organization (check first, then insert if not exists)
     // Note: DB may have both camelCase (userId) and snake_case (user_id) columns 
@@ -131,23 +121,23 @@ async function bootstrap() {
     }
     console.log('✅ User linked to organization');
 
-    // Create demo workspace
-    const workspaceResult = await dataSource.query(`
-      INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_at, updated_at)
-      VALUES (
-        gen_random_uuid(),
-        'Demo Workspace',
-        'demo-workspace',
-        $1,
-        $2,
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (slug, organization_id) DO UPDATE SET updated_at = NOW()
-      RETURNING id
-    `, [orgId, userId]);
-    const workspaceId = workspaceResult[0].id;
-    console.log('✅ Demo workspace created/updated:', workspaceId);
+    // Create demo workspace (check first, no ON CONFLICT)
+    let workspaceId: string;
+    const existingWorkspace = await dataSource.query(`
+      SELECT id FROM workspaces WHERE slug = 'demo-workspace' AND organization_id = $1 LIMIT 1
+    `, [orgId]);
+    if (existingWorkspace.length > 0) {
+      workspaceId = existingWorkspace[0].id;
+      console.log('✅ Demo workspace already exists:', workspaceId);
+    } else {
+      const workspaceResult = await dataSource.query(`
+        INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_at, updated_at)
+        VALUES (gen_random_uuid(), 'Demo Workspace', 'demo-workspace', $1, $2, NOW(), NOW())
+        RETURNING id
+      `, [orgId, userId]);
+      workspaceId = workspaceResult[0].id;
+      console.log('✅ Demo workspace created:', workspaceId);
+    }
 
     console.log('\n🎉 Demo bootstrap complete!');
     await dataSource.destroy();
