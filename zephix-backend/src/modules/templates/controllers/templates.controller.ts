@@ -596,7 +596,7 @@ export class TemplatesController {
   /**
    * Sprint 2.5: POST /api/templates/:templateId/instantiate-v5_1
    * Phase 5.1 compliant template instantiation - creates WorkPhase and WorkTask
-   * Route order: Must be before @Post(':id/instantiate') to avoid shadowing
+   * Route order: Must be before legacy instantiate route to avoid shadowing
    */
   @Post(':templateId/instantiate-v5_1')
   @ApiHeader({
