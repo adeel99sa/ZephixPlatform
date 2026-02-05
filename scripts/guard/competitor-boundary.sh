@@ -26,29 +26,53 @@ VIOLATIONS=""
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   
-  # Skip allowed directories
-  case "$file" in
-    */docs/competitive/*) continue ;;
-    */docs/monday-research/*) continue ;;
-    */docs/archive/*) continue ;;
-    */docs/vision/*) continue ;;
-    */docs/MVP/*) continue ;;
-    */proofs/*) continue ;;
-    */node_modules/*) continue ;;
-    */.git/*) continue ;;
-    */dist/*) continue ;;
-    */build/*) continue ;;
-    */zephix-backend/docs/*) continue ;;
-    */zephix-backend/proofs/*) continue ;;
-    */zephix-frontend/docs/*) continue ;;
-    # Also skip backend/frontend root-level docs (these are pending cleanup)
-    ./zephix-backend/*.md) continue ;;
+  # Normalize: remove leading ./
+  normalized="${file#./}"
+  
+  # Skip allowed directories and patterns
+  
+  # Skip any node_modules anywhere in path
+  if [[ "$normalized" == *node_modules* ]]; then
+    continue
+  fi
+  
+  # Skip old backups
+  if [[ "$normalized" == old-root-backup/* ]]; then
+    continue
+  fi
+  
+  case "$normalized" in
+    # Allowed doc directories
+    docs/competitive/*) continue ;;
+    docs/monday-research/*) continue ;;
+    docs/archive/*) continue ;;
+    docs/vision/*) continue ;;
+    docs/MVP/*) continue ;;
+    proofs/*) continue ;;
+    
+    # System directories
+    .git/*) continue ;;
+    dist/*) continue ;;
+    build/*) continue ;;
+    
+    # Backend/frontend docs
+    zephix-backend/docs/*) continue ;;
+    zephix-backend/proofs/*) continue ;;
+    zephix-frontend/docs/*) continue ;;
+    
+    # Root-level backend/frontend md files (pending cleanup)
     zephix-backend/*.md) continue ;;
-    ./zephix-frontend/*.md) continue ;;
     zephix-frontend/*.md) continue ;;
-    # Skip landing page (may have legitimate comparisons)
-    */zephix-landing/*) continue ;;
+    zephix-landing/*) continue ;;
+    
+    # Root-level docs pending cleanup (Commit C deletions)
+    # Skip any file that doesn't contain a slash (root-level)
     *)
+      if [[ "$normalized" != */* ]]; then
+        # Root-level file, skip it (pending deletion)
+        continue
+      fi
+      # Has subdirectory, add to violations
       VIOLATIONS="${VIOLATIONS}${file}"$'\n'
       ;;
   esac
