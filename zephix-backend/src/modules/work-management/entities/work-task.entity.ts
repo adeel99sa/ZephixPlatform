@@ -23,6 +23,14 @@ import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
 @Index(['reporterUserId'])
 @Index(['rank'])
 @Index(['workspaceId', 'phaseId', 'rank'], { where: '"phase_id" IS NOT NULL' })
+// Composite indexes for list queries (tenancy + filtering + sorting)
+@Index(['workspaceId', 'projectId', 'status', 'updatedAt'])
+@Index(['workspaceId', 'assigneeUserId', 'status'], {
+  where: '"assignee_user_id" IS NOT NULL',
+})
+@Index(['workspaceId', 'status', 'dueDate'], {
+  where: '"due_date" IS NOT NULL',
+})
 export class WorkTask {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -98,6 +106,12 @@ export class WorkTask {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Column({ type: 'timestamp', name: 'deleted_at', nullable: true })
+  deletedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'deleted_by_user_id', nullable: true })
+  deletedByUserId: string | null;
 
   // Relations
   @ManyToOne(() => Project, { onDelete: 'RESTRICT' })

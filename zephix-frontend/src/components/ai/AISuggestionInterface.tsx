@@ -22,6 +22,14 @@ export interface AIRecommendation {
   effort: 'high' | 'medium' | 'low';
   alternatives?: string[];
   createdAt: Date;
+  // Status and action tracking
+  status?: 'pending' | 'accepted' | 'dismissed' | 'modified';
+  acceptedAt?: Date;
+  dismissedAt?: Date;
+  modifiedAt?: Date;
+  alternativeAddedAt?: Date;
+  dismissReason?: string;
+  modifications?: Record<string, unknown>;
 }
 
 export interface AISuggestionInterfaceProps {

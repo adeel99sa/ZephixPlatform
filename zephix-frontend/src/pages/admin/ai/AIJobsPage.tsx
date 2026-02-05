@@ -1,21 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
+interface Job {
+  id: string;
+  queue: string;
+  state: string;
+  attemptsMade: number;
+  attempts: number;
+}
+
 export default function AIJobsPage() {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['admin','ai','jobs'],
-    queryFn: async () => (await apiClient.get('/admin/ai/jobs?state=active')).data,
+    queryFn: async () => apiClient.get<{ data: Job[] }>('/admin/ai/jobs?state=active'),
   });
 
   const retry = useMutation({
-    mutationFn: async (id: string) => (await apiClient.post(`/admin/ai/jobs/${id}/retry`, {})).data,
+    mutationFn: async (id: string) => apiClient.post(`/admin/ai/jobs/${id}/retry`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin','ai','jobs'] }),
   });
 
   if (q.isLoading) return <div>Loading jobs…</div>;
   if (q.error) return <div role="alert">{String(q.error)}</div>;
-  const jobs = q.data?.data ?? [];
+  const data = q.data as { data?: Job[] } | undefined;
+  const jobs = data?.data ?? [];
   return (
     <div>
       <h1 className="text-xl font-semibold mb-3">AI Jobs</h1>

@@ -117,6 +117,14 @@ export type FileUploadResponse = {
   message?: string;
 };
 
+// Feedback types
+export type FeedbackData = {
+  type: 'bug' | 'feature_request' | 'usability' | 'general';
+  content: string;
+  context?: string;
+  metadata?: Record<string, unknown>;
+};
+
 // AI Chat types
 export type ChatMessage = {
   id: string;

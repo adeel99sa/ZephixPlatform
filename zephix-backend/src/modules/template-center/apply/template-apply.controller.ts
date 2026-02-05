@@ -37,7 +37,7 @@ export class TemplateApplyController {
       dto.templateKey,
       Number.isNaN(version) ? undefined : version,
       auth.userId,
-      auth.organizationId!,
+      auth.organizationId,
       auth.workspaceId ?? null,
       options,
     );

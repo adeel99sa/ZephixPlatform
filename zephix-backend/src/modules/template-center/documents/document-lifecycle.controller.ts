@@ -112,14 +112,13 @@ export class DocumentLifecycleController {
     }
     const auth = getAuthContext(req);
     const isPm =
-      auth.platformRole === 'ADMIN' ||
-      auth.platformRole === 'MEMBER'; // simplified: PM can mark complete
+      auth.platformRole === 'ADMIN' || auth.platformRole === 'MEMBER'; // simplified: PM can mark complete
     return this.service.transition(
       projectId,
       documentId,
       dto,
       auth.userId,
-      auth.organizationId!,
+      auth.organizationId,
       auth.workspaceId ?? null,
       isPm,
     );

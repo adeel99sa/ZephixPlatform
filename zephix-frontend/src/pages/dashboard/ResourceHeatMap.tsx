@@ -1,8 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../services/api';
+import { api } from '@/lib/api';
+
+interface HeatMapTask {
+  id: string;
+  name: string;
+}
+
+interface HeatMapWeek {
+  weekStart: string;
+  taskCount: number;
+  allocation: number;
+  status: 'critical' | 'warning' | 'available' | string;
+  tasks: HeatMapTask[];
+}
+
+interface ResourceHeatMapData {
+  resourceId: string;
+  resourceName: string;
+  weeks: HeatMapWeek[];
+}
 
 const ResourceHeatMap = () => {
-  const [heatMapData, setHeatMapData] = useState([]);
+  const [heatMapData, setHeatMapData] = useState<ResourceHeatMapData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +40,7 @@ const ResourceHeatMap = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch(status) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-300';
       case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-300';

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 
 type PlatformRole = "ADMIN" | "MEMBER" | "VIEWER" | "GUEST";
 
@@ -9,11 +9,17 @@ type AuthUser = {
   firstName?: string | null;
   lastName?: string | null;
   platformRole?: PlatformRole;
+  /** @deprecated Use platformRole instead */
+  role?: string;
+  organizationId?: string;
+  permissions?: string[];
 };
 
 type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
+  /** @deprecated Use isLoading instead */
+  loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -29,8 +35,9 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
 
   inFlightMe = (async () => {
     try {
-      const res = await api.get<any>("/auth/me");
-      const user = (res?.user || res) as AuthUser | null;
+      const res = await request.get<{ user?: AuthUser } | AuthUser>("/auth/me");
+      const userData = res as { user?: AuthUser };
+      const user = (userData?.user || res) as AuthUser | null;
       return user || null;
     } catch {
       return null;
@@ -68,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     setIsLoading(true);
     try {
-      await api.post("/auth/login", { email, password });
+      await request.post("/auth/login", { email, password });
       const me = await fetchMeSingleFlight();
       setUser(me);
       if (!me) throw new Error("Login succeeded but session not established");
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function logout() {
     setIsLoading(true);
     try {
-      await api.post("/auth/logout");
+      await request.post("/auth/logout");
     } catch {
     } finally {
       setUser(null);
@@ -92,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       user,
       isLoading,
+      loading: isLoading,
       isAuthenticated: Boolean(user),
       login,
       logout,

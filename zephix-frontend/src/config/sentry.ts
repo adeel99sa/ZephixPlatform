@@ -1,11 +1,9 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 
 // Initialize Sentry
 export const initSentry = () => {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
   const environment = import.meta.env.VITE_SENTRY_ENVIRONMENT || 'development';
-  const release = import.meta.env.VITE_SENTRY_RELEASE || '1.0.0';
 
   if (!dsn) {
     console.warn('Sentry DSN not found. Error tracking disabled.');
@@ -14,62 +12,6 @@ export const initSentry = () => {
 
   // Temporarily disable Sentry for build compatibility
   console.warn('Sentry initialization disabled for build compatibility');
-  return;
-
-  Sentry.init({
-    dsn,
-    environment,
-    release,
-    integrations: [
-      new BrowserTracing({
-        // Set sampling rate for performance monitoring
-        // 0.1 = 10% of transactions, 1.0 = 100%
-        tracesSampleRate: environment === 'production' ? 0.1 : 1.0,
-      }),
-    ],
-    // Set sampling rate for error monitoring
-    // 0.1 = 10% of errors, 1.0 = 100%
-    sampleRate: environment === 'production' ? 0.1 : 1.0,
-    
-    // Configure beforeSend to filter out certain errors
-    beforeSend(event, _hint) {
-      // Don't send errors from localhost in development
-      if (environment === 'development' && window.location.hostname === 'localhost') {
-        return null;
-      }
-
-      // Filter out network errors that are not critical
-      if (event.exception) {
-        const exception = event.exception.values?.[0];
-        if (exception?.type === 'NetworkError' && exception.value?.includes('fetch')) {
-          return null;
-        }
-      }
-
-      return event;
-    },
-
-    // Configure beforeBreadcrumb to add custom context
-    beforeBreadcrumb(breadcrumb, _hint) {
-      // Add user context to breadcrumbs
-      const scope = Sentry.getCurrentHub().getScope();
-      const user = scope?.getUser();
-      if (user) {
-        breadcrumb.data = {
-          ...breadcrumb.data,
-          userId: user.id,
-          userEmail: user.email,
-        };
-      }
-
-      return breadcrumb;
-    },
-
-    // Enable debug mode in development
-    debug: environment === 'development',
-  });
-
-  console.log(`Sentry initialized for environment: ${environment}`);
 };
 
 // Set user context for Sentry
@@ -128,19 +70,14 @@ export const captureSentryMessage = (
   });
 };
 
-// Start performance transaction
+// Start performance transaction (no-op placeholder)
 export const startSentryTransaction = (
-  name: string,
-  operation: string,
-  data?: Record<string, unknown>
+  _name: string,
+  _operation: string,
+  _data?: Record<string, unknown>
 ) => {
-  const hub = Sentry.getCurrentHub();
-  const transaction = hub.startTransaction({
-    name,
-    op: operation,
-    data,
-  });
-  return transaction;
+  // Placeholder - Sentry transactions require proper initialization
+  return null;
 };
 
 // Set Sentry tags for better filtering

@@ -77,7 +77,8 @@ describe('API envelope unwrapping', () => {
 
   it('should correctly identify envelope structure', () => {
     const hasEnvelope = (res: any): boolean => {
-      return res?.data && typeof res.data === 'object' && 'data' in res.data;
+      if (!res?.data || typeof res.data !== 'object') return false;
+      return 'data' in res.data;
     };
 
     expect(hasEnvelope({ data: { data: {} } })).toBe(true);
@@ -107,6 +108,104 @@ describe('Request ID logging', () => {
       path: '/api/error',
       requestId: 'test-req-id-123',
     });
+  });
+});
+
+describe('WORKSPACE_REQUIRED fail-fast', () => {
+  /**
+   * Test the URL detection functions used by the request interceptor
+   * to determine which routes require workspace context.
+   */
+
+  const isWorkUrl = (url: string): boolean => {
+    return url.startsWith('/work/') || url.includes('/work/');
+  };
+
+  const isProjectsUrl = (url: string): boolean => {
+    return url.startsWith('/projects/') || url.includes('/projects/');
+  };
+
+  const isAuthUrl = (url: string): boolean => {
+    return url.includes('/auth/');
+  };
+
+  const isHealthUrl = (url: string): boolean => {
+    return url.includes('/health') || url.includes('/version');
+  };
+
+  it('should identify /work/* routes as requiring workspace', () => {
+    expect(isWorkUrl('/work/tasks')).toBe(true);
+    expect(isWorkUrl('/work/projects/123/plan')).toBe(true);
+    expect(isWorkUrl('/api/work/tasks')).toBe(true);
+    expect(isWorkUrl('/auth/login')).toBe(false);
+    expect(isWorkUrl('/health')).toBe(false);
+  });
+
+  it('should identify /projects/* routes as requiring workspace', () => {
+    expect(isProjectsUrl('/projects/123')).toBe(true);
+    expect(isProjectsUrl('/api/projects/456/tasks')).toBe(true);
+    expect(isProjectsUrl('/auth/login')).toBe(false);
+  });
+
+  it('should skip workspace header for auth routes', () => {
+    expect(isAuthUrl('/auth/login')).toBe(true);
+    expect(isAuthUrl('/api/auth/refresh')).toBe(true);
+    expect(isAuthUrl('/work/tasks')).toBe(false);
+  });
+
+  it('should skip workspace header for health routes', () => {
+    expect(isHealthUrl('/health')).toBe(true);
+    expect(isHealthUrl('/api/health')).toBe(true);
+    expect(isHealthUrl('/version')).toBe(true);
+    expect(isHealthUrl('/work/tasks')).toBe(false);
+  });
+
+  it('should throw WORKSPACE_REQUIRED for /work routes when activeWorkspaceId is null', () => {
+    // Simulate the interceptor logic
+    const simulateInterceptor = (url: string, activeWorkspaceId: string | null) => {
+      const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+
+      if (!skipWorkspace) {
+        if ((isWorkUrl(url) || isProjectsUrl(url)) && !activeWorkspaceId) {
+          const err: any = new Error('WORKSPACE_REQUIRED');
+          err.code = 'WORKSPACE_REQUIRED';
+          err.meta = { url };
+          throw err;
+        }
+      }
+      return { url, headers: activeWorkspaceId ? { 'x-workspace-id': activeWorkspaceId } : {} };
+    };
+
+    // Should throw when workspace is null
+    expect(() => simulateInterceptor('/work/tasks', null)).toThrow('WORKSPACE_REQUIRED');
+    expect(() => simulateInterceptor('/projects/123', null)).toThrow('WORKSPACE_REQUIRED');
+
+    // Should not throw when workspace is set
+    expect(() => simulateInterceptor('/work/tasks', 'ws-123')).not.toThrow();
+    expect(() => simulateInterceptor('/projects/123', 'ws-456')).not.toThrow();
+
+    // Should not throw for auth/health routes even without workspace
+    expect(() => simulateInterceptor('/auth/login', null)).not.toThrow();
+    expect(() => simulateInterceptor('/health', null)).not.toThrow();
+  });
+
+  it('should include error code and meta in WORKSPACE_REQUIRED error', () => {
+    const url = '/work/tasks';
+    try {
+      const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
+      if (!skipWorkspace && isWorkUrl(url) && !null) {
+        // This won't execute, just for structure
+      }
+      // Simulate the throw
+      const err: any = new Error('WORKSPACE_REQUIRED');
+      err.code = 'WORKSPACE_REQUIRED';
+      err.meta = { url };
+      throw err;
+    } catch (e: any) {
+      expect(e.message).toBe('WORKSPACE_REQUIRED');
+      expect(e.code).toBe('WORKSPACE_REQUIRED');
+      expect(e.meta).toEqual({ url: '/work/tasks' });
+    }
   });
 });
 

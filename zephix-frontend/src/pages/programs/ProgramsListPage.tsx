@@ -73,8 +73,10 @@ export default function ProgramsListPage() {
       if (workspaceResponse) {
         setWorkspaceName(workspaceResponse.name);
       }
-      setPortfolios(portfoliosResponse.data || []);
-      setPrograms(programsResponse.data || []);
+      const portfolioResult = portfoliosResponse as unknown as { data?: Portfolio[] };
+      const programResult = programsResponse as unknown as { data?: Program[] };
+      setPortfolios(portfolioResult?.data ?? []);
+      setPrograms(programResult?.data ?? []);
     } catch (err: any) {
       console.error('Failed to load programs:', err);
       if (err?.response?.status === 404) {

@@ -274,7 +274,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
           
           <div className="flex items-center space-x-2">
             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              WORKFLOW_STATUS_COLORS[template.isActive ? 'active' : 'inactive']
+              template.isActive ? WORKFLOW_STATUS_COLORS.active : 'bg-gray-100 text-gray-800'
             }`}>
               {template.isActive ? 'Active' : 'Inactive'}
             </span>

@@ -16,6 +16,27 @@ import { listWorkspaces } from '@/features/workspaces/api';
 import type { Workspace } from '@/features/workspaces/types';
 import { isResourceRiskAIEnabled } from '@/lib/flags';
 
+// Severity color utilities
+function getSeverityBgColor(severity: string): string {
+  switch (severity?.toLowerCase()) {
+    case 'critical': return 'bg-red-100';
+    case 'high': return 'bg-orange-100';
+    case 'medium': return 'bg-yellow-100';
+    case 'low': return 'bg-green-100';
+    default: return 'bg-gray-50';
+  }
+}
+
+function getSeverityColor(severity: string): string {
+  switch (severity?.toLowerCase()) {
+    case 'critical': return 'badge-error';
+    case 'high': return 'badge-warning';
+    case 'medium': return 'badge-info';
+    case 'low': return 'badge-success';
+    default: return 'badge-ghost';
+  }
+}
+
 export default function ResourcesPage() {
   const [sp, setSp] = useSearchParams();
   const { activeWorkspaceId } = useWorkspaceStore();

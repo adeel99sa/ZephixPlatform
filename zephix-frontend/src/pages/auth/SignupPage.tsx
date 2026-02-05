@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, Building2 } from 'lucide-react';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 
 interface SignupFormData {
   email: string;

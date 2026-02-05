@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import api from '../services/api';
+import { api } from '@/lib/api';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export interface UseProjectInitiationReturn {
-  analyzeDocument: (file: File, type: string, orgContext: any) => Promise<any>;
-  getProject: (projectId: string) => Promise<any>;
-  updateCharter: (projectId: string, updates: any) => Promise<any>;
-  exportProject: (projectId: string, options: any) => Promise<any>;
+  analyzeDocument: (file: File, type: string, orgContext: unknown) => Promise<unknown>;
+  getProject: (projectId: string) => Promise<unknown>;
+  updateCharter: (projectId: string, updates: unknown) => Promise<unknown>;
+  exportProject: (projectId: string, options: unknown) => Promise<unknown>;
   loading: boolean;
   error: string | null;
 }
@@ -15,16 +16,23 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const apiCall = async (options: {
-    method: string;
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     url: string;
-    data?: any;
-    headers?: any;
+    data?: unknown;
+    headers?: Record<string, string>;
   }) => {
-    return api.get(options.url, {
-      method: options.method,
-      body: options.data,
-      headers: options.headers,
-    });
+    switch (options.method) {
+      case 'GET':
+        return api.get(options.url, { headers: options.headers });
+      case 'POST':
+        return api.post(options.url, options.data, { headers: options.headers });
+      case 'PUT':
+        return api.put(options.url, options.data, { headers: options.headers });
+      case 'PATCH':
+        return api.patch(options.url, options.data, { headers: options.headers });
+      case 'DELETE':
+        return api.delete(options.url, { headers: options.headers });
+    }
   };
 
   const analyzeDocument = async (file: File, type: string, orgContext: any) => {
@@ -46,9 +54,9 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         },
       });
 
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Analysis failed');
+      return response;
+    } catch (err) {
+      setError(getErrorMessage(err));
       throw err;
     } finally {
       setLoading(false);
@@ -61,37 +69,37 @@ export const useProjectInitiation = (): UseProjectInitiationReturn => {
         method: 'GET',
         url: `/pm/project-initiation/${projectId}`,
       });
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to get project');
+      return response;
+    } catch (err) {
+      setError(getErrorMessage(err));
       throw err;
     }
   };
 
-  const updateCharter = async (projectId: string, updates: any) => {
+  const updateCharter = async (projectId: string, updates: unknown) => {
     try {
       const response = await apiCall({
         method: 'PUT',
         url: `/pm/project-initiation/${projectId}/charter`,
         data: updates,
       });
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to update charter');
+      return response;
+    } catch (err) {
+      setError(getErrorMessage(err));
       throw err;
     }
   };
 
-  const exportProject = async (projectId: string, options: any) => {
+  const exportProject = async (projectId: string, options: unknown) => {
     try {
       const response = await apiCall({
         method: 'POST',
         url: `/pm/project-initiation/${projectId}/export`,
         data: options,
       });
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Export failed');
+      return response;
+    } catch (err) {
+      setError(getErrorMessage(err));
       throw err;
     }
   };

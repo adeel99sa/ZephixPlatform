@@ -1,14 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
+interface DocRow {
+  id: string;
+  filename: string;
+  status: string;
+  lastJobId?: string;
+}
+
 export default function AIDocumentsPage() {
   const q = useQuery({
     queryKey: ['admin','ai','docs'],
-    queryFn: async () => (await apiClient.get('/admin/ai/docs?status=any')).data,
+    queryFn: async () => {
+      const response = await apiClient.get<{ data: DocRow[] }>('/admin/ai/docs?status=any');
+      return response;
+    },
   });
   if (q.isLoading) return <div>Loading documents…</div>;
   if (q.error) return <div role="alert">{String(q.error)}</div>;
-  const rows = q.data?.data ?? [];
+  const data = q.data as { data?: DocRow[] } | undefined;
+  const rows = data?.data ?? [];
   return (
     <div>
       <h1 className="text-xl font-semibold mb-3">AI Documents</h1>

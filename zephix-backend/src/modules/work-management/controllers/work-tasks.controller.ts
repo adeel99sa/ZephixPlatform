@@ -99,7 +99,38 @@ export class WorkTasksController {
   })
   @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({
+    name: 'dueFrom',
+    required: false,
+    type: String,
+    description: 'ISO date inclusive',
+  })
+  @ApiQuery({
+    name: 'dueTo',
+    required: false,
+    type: String,
+    description: 'ISO date inclusive',
+  })
+  @ApiQuery({
+    name: 'includeStatuses',
+    required: false,
+    type: String,
+    description: 'Comma-separated statuses',
+  })
+  @ApiQuery({
+    name: 'excludeStatuses',
+    required: false,
+    type: String,
+    description: 'Comma-separated statuses',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['dueDate', 'updatedAt', 'createdAt'],
+  })
+  @ApiQuery({ name: 'sortDir', required: false, enum: ['asc', 'desc'] })
   @ApiQuery({ name: 'includeArchived', required: false, type: Boolean })
+  @ApiQuery({ name: 'includeDeleted', required: false, type: Boolean })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
@@ -570,5 +601,119 @@ export class WorkTasksController {
 
     await this.workTasksService.deleteTask(auth, workspaceId, taskId);
     return this.responseService.success({ message: 'Task deleted' });
+  }
+
+  // 12. POST /api/work/tasks/:id/restore
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted work task' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiResponse({ status: 200, description: 'Task restored successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - task is not deleted',
+    schema: {
+      properties: { code: { type: 'string', example: 'TASK_NOT_DELETED' } },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - workspace access denied',
+    schema: {
+      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Not found - task not found',
+    schema: {
+      properties: { code: { type: 'string', example: 'TASK_NOT_FOUND' } },
+    },
+  })
+  async restoreTask(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') taskId: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Require write access
+    await this.workspaceRoleGuard.requireWorkspaceWrite(
+      workspaceId,
+      auth.userId,
+    );
+
+    const task = await this.workTasksService.restoreTask(
+      auth,
+      workspaceId,
+      taskId,
+    );
+    return this.responseService.success(task);
+  }
+
+  // 13. GET /api/work/tasks/stats/completion
+  // Unified stats endpoint - uses header for workspace, optional query for project
+  @Get('tasks/stats/completion')
+  @ApiOperation({
+    summary: 'Get task completion stats (workspace or project scoped)',
+  })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID (required)',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'projectId',
+    description: 'Optional project ID to scope stats',
+    required: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Completion stats retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        completed: { type: 'number', example: 5 },
+        total: { type: 'number', example: 10 },
+        ratio: {
+          type: 'number',
+          example: 0.5,
+          description: 'Rounded to 4 decimals',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - workspace access denied',
+    schema: {
+      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
+    },
+  })
+  async getTaskStats(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Query('projectId') projectId?: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    // Require read access
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const stats = await this.workTasksService.getCompletionStats(
+      auth,
+      workspaceId,
+      projectId,
+    );
+    return this.responseService.success(stats);
   }
 }

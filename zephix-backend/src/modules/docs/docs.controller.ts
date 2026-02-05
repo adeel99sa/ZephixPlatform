@@ -41,10 +41,7 @@ export class DocsController {
   }
 
   @Get('docs/:docId')
-  async findOne(
-    @Param('docId') docId: string,
-    @CurrentUser() user: UserJwt,
-  ) {
+  async findOne(@Param('docId') docId: string, @CurrentUser() user: UserJwt) {
     const doc = await this.docsService.findOne(
       docId,
       user.id,

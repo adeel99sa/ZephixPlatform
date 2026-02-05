@@ -9,7 +9,7 @@ import { ProjectEditForm } from '../../components/projects/ProjectEditForm';
 import { BoardView } from '../../components/views/BoardView';
 import { TimelineView } from '../../components/views/TimelineView';
 import { projectService } from '../../services/projectService';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 
 const ProjectDetailPage = () => {
   const { id } = useParams();

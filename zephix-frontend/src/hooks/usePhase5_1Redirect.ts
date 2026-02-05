@@ -14,11 +14,11 @@ import { useWorkspaceRole } from './useWorkspaceRole';
 export function usePhase5_1Redirect(): { isRedirecting: boolean } {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeWorkspaceId, workspaceRole, canWrite } = useWorkspaceStore();
+  const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
   // Only call useWorkspaceRole if activeWorkspaceId exists to prevent errors
   // Pass null explicitly to avoid calling the hook with undefined
-  const { workspaceRole: fetchedRole } = useWorkspaceRole(activeWorkspaceId ?? null);
+  const { role: workspaceRole, canWrite } = useWorkspaceRole(activeWorkspaceId ?? null);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
@@ -40,9 +40,8 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
       return;
     }
 
-    // Wait for role to be fetched (use fetchedRole from useWorkspaceRole hook)
-    // Use workspaceRole from store if available, otherwise wait for fetchedRole
-    const effectiveRole = workspaceRole || fetchedRole;
+    // Wait for role to be fetched from useWorkspaceRole hook
+    const effectiveRole = workspaceRole;
 
     // If role is still being fetched, don't redirect yet (prevent false positives)
     if (!effectiveRole) {
@@ -50,8 +49,8 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
       return;
     }
 
-    // Only redirect delivery_owner or workspace_owner
-    const isDeliveryOwner = effectiveRole === 'delivery_owner' || effectiveRole === 'workspace_owner';
+    // Only redirect if user has ADMIN or OWNER role (which map to delivery/workspace owners)
+    const isDeliveryOwner = effectiveRole === 'ADMIN' || effectiveRole === 'OWNER';
 
     // If not a delivery owner, stay on home
     if (!isDeliveryOwner) {
@@ -99,7 +98,7 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
     };
 
     checkProjects();
-  }, [location.pathname, activeWorkspaceId, workspaceRole, fetchedRole, navigate]);
+  }, [location.pathname, activeWorkspaceId, workspaceRole, navigate]);
 
   return { isRedirecting };
 }

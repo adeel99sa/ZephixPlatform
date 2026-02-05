@@ -18,7 +18,10 @@ import type {
   DocumentHistoryItemDto,
 } from './dto/document-read.dto';
 
-const TRANSITIONS: Record<string, Record<string, { next: string[]; allowedRoles: string[] }>> = {
+const TRANSITIONS: Record<
+  string,
+  Record<string, { next: string[]; allowedRoles: string[] }>
+> = {
   not_started: {
     start_draft: { next: ['draft'], allowedRoles: ['owner'] },
   },
@@ -74,7 +77,9 @@ export class DocumentLifecycleService {
     if (!project) throw new NotFoundException('Project not found');
     // Cross-org access must return 403, not 404
     if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Project does not belong to your organization');
+      throw new ForbiddenException(
+        'Project does not belong to your organization',
+      );
     }
     if (workspaceId != null && project.workspaceId !== workspaceId) {
       throw new ForbiddenException('Project does not belong to this workspace');
@@ -139,7 +144,11 @@ export class DocumentLifecycleService {
           projectId,
           documentId,
           errorCode: 'INVALID_STATE_TRANSITION',
-          errorMessage: `Transition from "${fromStatus}" via "${dto.action}" not allowed`.slice(0, 500),
+          errorMessage:
+            `Transition from "${fromStatus}" via "${dto.action}" not allowed`.slice(
+              0,
+              500,
+            ),
         },
         metadata: null,
       });
@@ -170,7 +179,9 @@ export class DocumentLifecycleService {
         },
         metadata: null,
       });
-      throw new ForbiddenException('You do not have permission to perform this transition');
+      throw new ForbiddenException(
+        'You do not have permission to perform this transition',
+      );
     }
 
     const result = await this.dataSource.transaction(async (manager) => {
@@ -190,7 +201,12 @@ export class DocumentLifecycleService {
       }
       await docRepo.save(entity);
 
-      if (dto.content !== undefined || dto.changeSummary || dto.externalUrl || dto.fileStorageKey) {
+      if (
+        dto.content !== undefined ||
+        dto.changeSummary ||
+        dto.externalUrl ||
+        dto.fileStorageKey
+      ) {
         const version = versionRepo.create({
           documentInstanceId: entity.id,
           versionNumber: entity.currentVersion,
@@ -312,7 +328,8 @@ export class DocumentLifecycleService {
     });
     if (!doc) throw new NotFoundException('Document not found');
     if (payload.ownerUserId != null) doc.ownerId = payload.ownerUserId;
-    if (payload.reviewerUserId != null) doc.reviewerIds = [payload.reviewerUserId];
+    if (payload.reviewerUserId != null)
+      doc.reviewerIds = [payload.reviewerUserId];
     return this.docInstanceRepo.save(doc);
   }
 }

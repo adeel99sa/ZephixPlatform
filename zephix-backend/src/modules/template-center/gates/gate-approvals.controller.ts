@@ -30,13 +30,16 @@ export class GateApprovalsController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
-    const requirements = await this.policyResolver.getGateRequirements(projectId, gateKey);
+    const requirements = await this.policyResolver.getGateRequirements(
+      projectId,
+      gateKey,
+    );
     return this.service.decide(
       projectId,
       gateKey,
       dto,
       auth.userId,
-      auth.organizationId!,
+      auth.organizationId,
       auth.workspaceId ?? null,
       requirements,
     );

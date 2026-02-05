@@ -19,7 +19,7 @@ import { Button } from '../ui/Button';
 import { AIFormPreview } from './AIFormPreview';
 import { RefinementInterface } from './RefinementInterface';
 import { DeploymentOptions } from './DeploymentOptions';
-import api from '../../services/api';
+import { request } from '@/lib/api';
 
 interface ConversationMessage {
   id: string;
@@ -176,14 +176,11 @@ export const NaturalLanguageDesigner: React.FC = () => {
 
     try {
       // Call the AI form generation API
-      const result: GeneratedFormResult = await api.get('/pm/intake-designer/generate', {
-        method: 'POST',
-        body: {
-          description,
-          expectedComplexity: 'moderate',
-          includeWorkflow: true,
-          enableConditionalLogic: true
-        },
+      const result = await request.post<GeneratedFormResult>('/pm/intake-designer/generate', {
+        description,
+        expectedComplexity: 'moderate',
+        includeWorkflow: true,
+        enableConditionalLogic: true
       });
       setGeneratedForm(result);
 
@@ -228,12 +225,9 @@ export const NaturalLanguageDesigner: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const refinedForm: GeneratedFormResult = await api.get('/pm/intake-designer/temp/refine', {
-        method: 'POST',
-        body: {
-          existingForm: generatedForm,
-          refinementRequest
-        },
+      const refinedForm = await request.post<GeneratedFormResult>('/pm/intake-designer/temp/refine', {
+        existingForm: generatedForm,
+        refinementRequest
       });
       setGeneratedForm(refinedForm);
 
@@ -266,12 +260,9 @@ export const NaturalLanguageDesigner: React.FC = () => {
     if (!generatedForm) return;
 
     try {
-      const result = await api.get('/pm/intake-designer/temp/deploy', {
-        method: 'POST',
-        body: {
-          formStructure: generatedForm.formStructure,
-          ...deploymentOptions
-        },
+      const result = await request.post<{ publicUrl: string }>('/pm/intake-designer/temp/deploy', {
+        formStructure: generatedForm.formStructure,
+        ...deploymentOptions
       });
       
       const deployMessage: ConversationMessage = {

@@ -40,11 +40,18 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
-import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import type {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from 'express';
 
 // Helper function to detect localhost hosts
 function isLocalhostHost(host: string): boolean {
-  return host.includes('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0');
+  return (
+    host.includes('localhost') ||
+    host.startsWith('127.0.0.1') ||
+    host.startsWith('0.0.0.0')
+  );
 }
 
 @ApiTags('auth')
@@ -222,12 +229,12 @@ export class AuthController {
 
     // Determine secure cookie setting based on request origin
     const hostHeader =
-      (req as any).headers?.host ??
-      (req as any).get?.('host') ??
-      '';
+      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
     const isLocal = isLocalhostHost(host);
-    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const xfProto = String(
+      (req as any).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
     const isHttps = xfProto === 'https';
     const secureCookie = !isLocal && isHttps;
 
@@ -316,18 +323,21 @@ export class AuthController {
     status: 200,
     description: 'CSRF token returned in cookie and response body',
   })
-  getCsrfToken(@Request() req: ExpressRequest, @Response() res: ExpressResponse) {
+  getCsrfToken(
+    @Request() req: ExpressRequest,
+    @Response() res: ExpressResponse,
+  ) {
     // Generate CSRF token
     const csrfToken = require('crypto').randomBytes(32).toString('hex');
 
     // Determine secure cookie setting based on request origin
     const hostHeader =
-      (req as any).headers?.host ??
-      (req as any).get?.('host') ??
-      '';
+      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
     const isLocal = isLocalhostHost(host);
-    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const xfProto = String(
+      (req as any).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
     const isHttps = xfProto === 'https';
     const secureCookie = !isLocal && isHttps;
 
@@ -381,12 +391,12 @@ export class AuthController {
 
     // Determine secure cookie setting based on request origin
     const hostHeader =
-      (req as any).headers?.host ??
-      (req as any).get?.('host') ??
-      '';
+      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
     const isLocal = isLocalhostHost(host);
-    const xfProto = String(((req as any).headers?.['x-forwarded-proto'] ?? '')).toLowerCase();
+    const xfProto = String(
+      (req as any).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
     const isHttps = xfProto === 'https';
     const secureCookie = !isLocal && isHttps;
 

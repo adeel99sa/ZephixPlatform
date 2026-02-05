@@ -294,10 +294,11 @@ export class AuthService {
     };
 
     // Use config service for expiration, with dev-friendly default
-    const expiresIn = process.env.NODE_ENV === 'development' 
-      ? (process.env.JWT_EXPIRES_IN || '7d')  // 7 days for dev testing
-      : (process.env.JWT_EXPIRES_IN || '15m'); // 15 minutes for production
-    
+    const expiresIn =
+      process.env.NODE_ENV === 'development'
+        ? process.env.JWT_EXPIRES_IN || '7d' // 7 days for dev testing
+        : process.env.JWT_EXPIRES_IN || '15m'; // 15 minutes for production
+
     return this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET || 'fallback-secret-key',
       expiresIn,
@@ -417,9 +418,10 @@ export class AuthService {
 
     // Extract organization features from settings
     // Default to empty object if no organization or no features in settings
-    const features = organization?.settings && typeof organization.settings === 'object'
-      ? (organization.settings as any).features || {}
-      : {};
+    const features =
+      organization?.settings && typeof organization.settings === 'object'
+        ? (organization.settings as any).features || {}
+        : {};
 
     // Return consistent structure
     return {
@@ -429,12 +431,14 @@ export class AuthService {
       permissions,
       organizationId: user.organizationId,
       emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
-      organization: organization ? {
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-        features, // Organization feature flags (e.g., enableProgramsPortfolios)
-      } : null,
+      organization: organization
+        ? {
+            id: organization.id,
+            name: organization.name,
+            slug: organization.slug,
+            features, // Organization feature flags (e.g., enableProgramsPortfolios)
+          }
+        : null,
     };
   }
 

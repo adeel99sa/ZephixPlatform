@@ -72,9 +72,8 @@ export function isAdminRole(role: string | undefined | null): boolean {
 export function isAdminUser(user: {
   role?: string | null;
   platformRole?: string | null;
-  permissions?: {
-    isAdmin?: boolean;
-  } | null;
+  email?: string | null;
+  permissions?: { isAdmin?: boolean } | string[] | null;
 } | null | undefined): boolean {
   if (!user) {
     if (process.env.NODE_ENV === 'development') {
@@ -83,20 +82,28 @@ export function isAdminUser(user: {
     return false;
   }
 
-  // Single source of truth: permissions.isAdmin from backend
-  const isAdmin = user.permissions?.isAdmin === true;
+  // Check if user has admin role via platformRole
+  if (user.platformRole?.toLowerCase() === 'admin') {
+    return true;
+  }
 
-  // Always log this critical check
-  console.log('[isAdminUser] ⚠️ CRITICAL CHECK:', {
-    userEmail: user.email,
-    permissionsObject: user.permissions,
-    permissionsIsAdmin: user.permissions?.isAdmin,
-    isAdminType: typeof user.permissions?.isAdmin,
-    strictEqualityCheck: user.permissions?.isAdmin === true,
-    decision: isAdmin ? 'TRUE ✅' : 'FALSE ❌',
-  });
+  // Check permissions object format (from certain contexts)
+  if (user.permissions && !Array.isArray(user.permissions)) {
+    const isAdmin = user.permissions.isAdmin === true;
+    // Always log this critical check
+    console.log('[isAdminUser] ⚠️ CRITICAL CHECK:', {
+      userEmail: user.email,
+      permissionsObject: user.permissions,
+      permissionsIsAdmin: user.permissions?.isAdmin,
+      isAdminType: typeof user.permissions?.isAdmin,
+      strictEqualityCheck: user.permissions?.isAdmin === true,
+      decision: isAdmin ? 'TRUE ✅' : 'FALSE ❌',
+    });
+    return isAdmin;
+  }
 
-  return isAdmin;
+  // Fallback to legacy role check
+  return user.role?.toLowerCase() === 'admin';
 }
 
 /**
@@ -107,9 +114,7 @@ export function isAdminUser(user: {
 export function isPaidUser(user: {
   role?: string | null;
   platformRole?: string | null;
-  permissions?: {
-    isAdmin?: boolean;
-  } | null;
+  permissions?: { isAdmin?: boolean } | string[] | null;
 } | null | undefined): boolean {
   if (!user) return false;
 
@@ -122,7 +127,8 @@ export function isPaidUser(user: {
   }
 
   // Fallback to permissions.isAdmin (Admin is always paid)
-  if (user.permissions?.isAdmin === true) {
+  // Handle both object and array formats
+  if (user.permissions && !Array.isArray(user.permissions) && user.permissions.isAdmin === true) {
     return true;
   }
 

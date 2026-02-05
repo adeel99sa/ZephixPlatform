@@ -13,10 +13,15 @@ export class WorkItemsSimpleService {
     private readonly keyService: WorkItemKeyService,
   ) {}
 
-  async create(workspaceId: string, organizationId: string, projectId: string, dto: CreateWorkItemSimpleDto) {
+  async create(
+    workspaceId: string,
+    organizationId: string,
+    projectId: string,
+    dto: CreateWorkItemSimpleDto,
+  ) {
     const nextKey = await this.keyService.nextKey(workspaceId, 'ZPX');
 
-    const status: WorkItemStatus = (dto.status as WorkItemStatus) ?? WorkItemStatus.TODO;
+    const status: WorkItemStatus = dto.status ?? WorkItemStatus.TODO;
 
     const item = this.repo.create({
       organizationId,
@@ -44,7 +49,9 @@ export class WorkItemsSimpleService {
   }
 
   async get(workspaceId: string, idOrKey: string) {
-    const byId = await this.repo.findOne({ where: { workspaceId, id: idOrKey, deletedAt: null } });
+    const byId = await this.repo.findOne({
+      where: { workspaceId, id: idOrKey, deletedAt: null },
+    });
     if (byId) return byId;
 
     // TODO: Add key column to WorkItem entity to support key-based lookup
@@ -52,22 +59,38 @@ export class WorkItemsSimpleService {
     throw new NotFoundException('Work item not found');
   }
 
-  async update(workspaceId: string, workItemId: string, dto: UpdateWorkItemSimpleDto) {
-    const item = await this.repo.findOne({ where: { workspaceId, id: workItemId, deletedAt: null } });
+  async update(
+    workspaceId: string,
+    workItemId: string,
+    dto: UpdateWorkItemSimpleDto,
+  ) {
+    const item = await this.repo.findOne({
+      where: { workspaceId, id: workItemId, deletedAt: null },
+    });
     if (!item) throw new NotFoundException('Work item not found');
 
     Object.assign(item, {
-      dueDate: dto.dueDate !== undefined ? (dto.dueDate ? new Date(dto.dueDate) : null) : item.dueDate,
+      dueDate:
+        dto.dueDate !== undefined
+          ? dto.dueDate
+            ? new Date(dto.dueDate)
+            : null
+          : item.dueDate,
       status: dto.status ?? item.status,
       title: dto.title !== undefined ? dto.title.trim() : item.title,
-      description: dto.description !== undefined ? (dto.description?.trim() || null) : item.description,
+      description:
+        dto.description !== undefined
+          ? dto.description?.trim() || null
+          : item.description,
     });
 
     return this.repo.save(item);
   }
 
   async remove(workspaceId: string, workItemId: string) {
-    const item = await this.repo.findOne({ where: { workspaceId, id: workItemId, deletedAt: null } });
+    const item = await this.repo.findOne({
+      where: { workspaceId, id: workItemId, deletedAt: null },
+    });
     if (!item) throw new NotFoundException('Work item not found');
 
     item.deletedAt = new Date();

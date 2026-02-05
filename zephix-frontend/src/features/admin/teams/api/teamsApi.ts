@@ -43,18 +43,18 @@ class TeamsApiService {
   }
 
   async getTeam(id: string): Promise<Team> {
-    const { data } = await apiClient.get(`/admin/teams/${id}`);
-    return data;
+    const response = await apiClient.get<{ data: Team }>(`/admin/teams/${id}`);
+    return response.data?.data ?? response.data as unknown as Team;
   }
 
   async createTeam(team: CreateTeamDto): Promise<Team> {
-    const { data } = await apiClient.post('/admin/teams', team);
-    return data;
+    const response = await apiClient.post<{ data: Team }>('/admin/teams', team);
+    return response.data?.data ?? response.data as unknown as Team;
   }
 
   async updateTeam(id: string, updates: UpdateTeamDto): Promise<Team> {
-    const { data } = await apiClient.patch(`/admin/teams/${id}`, updates);
-    return data;
+    const response = await apiClient.patch<{ data: Team }>(`/admin/teams/${id}`, updates);
+    return response.data?.data ?? response.data as unknown as Team;
   }
 
   async deleteTeam(id: string): Promise<void> {

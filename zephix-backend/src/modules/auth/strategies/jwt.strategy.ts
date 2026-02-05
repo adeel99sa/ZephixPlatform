@@ -22,13 +22,13 @@ const cookieOrBearerExtractor = (req: Request): string | null => {
   if (cookieToken) {
     return cookieToken;
   }
-  
+
   // Fallback to Authorization header (for backward compatibility)
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
-  
+
   return null;
 };
 

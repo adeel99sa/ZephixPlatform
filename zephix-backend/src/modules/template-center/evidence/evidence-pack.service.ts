@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
@@ -13,9 +17,25 @@ export interface EvidencePackJson {
   gateApprovals: Record<string, any>[];
   documentInstances: Record<string, any>[];
   kpiSnapshot: Record<string, any>[];
-  documents: { docKey: string; state?: string; status: string; version: number; updatedAt: string }[];
-  kpis: { kpiKey: string; latestValue: number | string | null; asOfDate: string | null }[];
-  gates: { gateKey: string; decision: string; decidedAt: string; decidedBy: string; comment: string | null }[];
+  documents: {
+    docKey: string;
+    state?: string;
+    status: string;
+    version: number;
+    updatedAt: string;
+  }[];
+  kpis: {
+    kpiKey: string;
+    latestValue: number | string | null;
+    asOfDate: string | null;
+  }[];
+  gates: {
+    gateKey: string;
+    decision: string;
+    decidedAt: string;
+    decidedBy: string;
+    comment: string | null;
+  }[];
 }
 
 @Injectable()
@@ -49,28 +69,44 @@ export class EvidencePackService {
       throw new NotFoundException('Project not found');
     }
     if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Project does not belong to your organization');
+      throw new ForbiddenException(
+        'Project does not belong to your organization',
+      );
     }
     if (workspaceId && project.workspaceId !== workspaceId) {
       throw new ForbiddenException('Project does not belong to this workspace');
     }
 
-    const [lineage, gateApprovals, documentInstances, projectKpis] = await Promise.all([
-      this.lineageRepo.findOne({ where: { projectId }, relations: ['templateDefinition', 'templateVersion'] }),
-      this.gateRepo.find({ where: { projectId }, order: { decidedAt: 'DESC' } }),
-      this.docInstanceRepo.find({
-        where: { projectId },
-        order: { createdAt: 'ASC' },
-      }),
-      this.projectKpiRepo.find({
-        where: { projectId },
-        relations: ['kpiDefinition'],
-      }),
-    ]);
+    const [lineage, gateApprovals, documentInstances, projectKpis] =
+      await Promise.all([
+        this.lineageRepo.findOne({
+          where: { projectId },
+          relations: ['templateDefinition', 'templateVersion'],
+        }),
+        this.gateRepo.find({
+          where: { projectId },
+          order: { decidedAt: 'DESC' },
+        }),
+        this.docInstanceRepo.find({
+          where: { projectId },
+          order: { createdAt: 'ASC' },
+        }),
+        this.projectKpiRepo.find({
+          where: { projectId },
+          relations: ['kpiDefinition'],
+        }),
+      ]);
 
-    const kpis: { kpiKey: string; latestValue: number | string | null; asOfDate: string | null }[] = [];
+    const kpis: {
+      kpiKey: string;
+      latestValue: number | string | null;
+      asOfDate: string | null;
+    }[] = [];
     const pkIds = (projectKpis ?? []).map((pk) => pk.id);
-    const latestByPkId = new Map<string, { value: number | string | null; recordedAt: string | null }>();
+    const latestByPkId = new Map<
+      string,
+      { value: number | string | null; recordedAt: string | null }
+    >();
     if (pkIds.length > 0) {
       const rows = await this.dataSource.query(
         `SELECT DISTINCT ON (project_kpi_id) project_kpi_id, value, value_text, recorded_at
@@ -82,7 +118,9 @@ export class EvidencePackService {
         const val = r.value != null ? Number(r.value) : (r.value_text ?? null);
         latestByPkId.set(r.project_kpi_id, {
           value: val,
-          recordedAt: r.recorded_at ? new Date(r.recorded_at).toISOString() : null,
+          recordedAt: r.recorded_at
+            ? new Date(r.recorded_at).toISOString()
+            : null,
         });
       }
     }

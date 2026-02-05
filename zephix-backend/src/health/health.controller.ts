@@ -38,15 +38,24 @@ export class HealthController {
   ) {}
 
   @Get(['health', 'api/health'])
-  @ApiOperation({ summary: 'Health check - same as readiness; do not use generic 200' })
-  @ApiResponse({ status: 200, description: 'Service is healthy (DB + schema OK)' })
+  @ApiOperation({
+    summary: 'Health check - same as readiness; do not use generic 200',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Service is healthy (DB + schema OK)',
+  })
   @ApiResponse({ status: 503, description: 'Service is unhealthy' })
   async check(@Res() res: Response) {
     // Do not return generic 200. Delegate to readiness so /api/health reflects real state.
     const checks = await this.performHealthChecks();
     const criticalChecks = checks.filter((check) => check.critical);
-    const isHealthy = criticalChecks.every((check) => check.status === 'healthy');
-    const statusCode = isHealthy ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+    const isHealthy = criticalChecks.every(
+      (check) => check.status === 'healthy',
+    );
+    const statusCode = isHealthy
+      ? HttpStatus.OK
+      : HttpStatus.SERVICE_UNAVAILABLE;
     return res.status(statusCode).json({
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
@@ -157,7 +166,9 @@ export class HealthController {
   }
 
   @Get(['ready', 'api/health/ready', 'health/ready'])
-  @ApiOperation({ summary: 'Readiness - DB required; schema optional in production' })
+  @ApiOperation({
+    summary: 'Readiness - DB required; schema optional in production',
+  })
   @ApiResponse({ status: 200, description: 'Ready to receive traffic' })
   @ApiResponse({ status: 503, description: 'Not ready - DB connection failed' })
   async ready(@Res() res: Response) {
@@ -174,7 +185,8 @@ export class HealthController {
     // In production, do not block readiness on schema verify so deploys can go green.
     // Schema is still checked and included in response for visibility; fix schema separately.
     const isProduction = process.env.NODE_ENV === 'production';
-    const blockOnSchema = !isProduction || process.env.READINESS_REQUIRE_SCHEMA === 'true';
+    const blockOnSchema =
+      !isProduction || process.env.READINESS_REQUIRE_SCHEMA === 'true';
 
     if (blockOnSchema && schema.status !== 'ok') {
       return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
@@ -204,9 +216,16 @@ export class HealthController {
     }
   }
 
-  private async checkSchema(): Promise<{ status: string; message?: string; details?: unknown }> {
+  private async checkSchema(): Promise<{
+    status: string;
+    message?: string;
+    details?: unknown;
+  }> {
     if (!this.verifier) {
-      return { status: 'skipped', message: 'schema check disabled (DatabaseVerifyService not registered)' };
+      return {
+        status: 'skipped',
+        message: 'schema check disabled (DatabaseVerifyService not registered)',
+      };
     }
     try {
       const ttlMs = Number(process.env.HEALTH_SCHEMA_TTL_MS || 15000);

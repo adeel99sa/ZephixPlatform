@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { LoadingScreen } from '../common/LoadingScreen';
 
@@ -10,6 +10,7 @@ import { LoadingScreen } from '../common/LoadingScreen';
  */
 export const PublicRoute: React.FC = () => {
   const { isAuthenticated, isLoading, isHydrated } = useAuthStore();
+  const location = useLocation();
 
   // Show loading screen while checking authentication status or before hydration
   if (isLoading || !isHydrated) {
@@ -22,7 +23,8 @@ export const PublicRoute: React.FC = () => {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && isAuthPage) {
-    const from = location.state?.from?.pathname || '/hub';
+    const state = location.state as { from?: { pathname?: string } } | null;
+    const from = state?.from?.pathname || '/hub';
     return <Navigate to={from} replace />;
   }
 

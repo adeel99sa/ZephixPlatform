@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getForm, updateForm, Form } from "@/features/forms/api";
-import { useAuth } from "@/state/AuthContext";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { toast } from "sonner";
 
 export default function FormsPage() {
   const { formId } = useParams();
   const navigate = useNavigate();
-  const { activeWorkspaceId } = useAuth();
+  const { activeWorkspaceId } = useWorkspaceStore();
   const [form, setForm] = useState<Form | null>(null);
   const [title, setTitle] = useState("");
   const [schemaJson, setSchemaJson] = useState("{}");

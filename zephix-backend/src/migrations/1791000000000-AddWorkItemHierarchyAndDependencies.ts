@@ -1,4 +1,11 @@
-import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableColumn,
+  TableIndex,
+  TableForeignKey,
+} from 'typeorm';
 
 /**
  * Add Work Item Hierarchy and Dependencies
@@ -15,7 +22,7 @@ export class AddWorkItemHierarchyAndDependencies1791000000000
     // 1. Add parent_id column to work_items if it doesn't exist
     const workItemsTable = await queryRunner.getTable('work_items');
     const hasParentId = workItemsTable?.findColumnByName('parent_id');
-    
+
     if (!hasParentId) {
       await queryRunner.addColumn(
         'work_items',
@@ -48,8 +55,10 @@ export class AddWorkItemHierarchyAndDependencies1791000000000
     }
 
     // 2. Create work_item_dependencies table
-    const dependenciesTableExists = await queryRunner.hasTable('work_item_dependencies');
-    
+    const dependenciesTableExists = await queryRunner.hasTable(
+      'work_item_dependencies',
+    );
+
     if (!dependenciesTableExists) {
       await queryRunner.createTable(
         new Table({
@@ -169,7 +178,9 @@ export class AddWorkItemHierarchyAndDependencies1791000000000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop work_item_dependencies table
-    const dependenciesTableExists = await queryRunner.hasTable('work_item_dependencies');
+    const dependenciesTableExists = await queryRunner.hasTable(
+      'work_item_dependencies',
+    );
     if (dependenciesTableExists) {
       await queryRunner.dropTable('work_item_dependencies');
     }
@@ -177,7 +188,7 @@ export class AddWorkItemHierarchyAndDependencies1791000000000
     // Remove parent_id column from work_items
     const workItemsTable = await queryRunner.getTable('work_items');
     const hasParentId = workItemsTable?.findColumnByName('parent_id');
-    
+
     if (hasParentId) {
       // Drop foreign key first
       const foreignKey = workItemsTable?.foreignKeys.find(

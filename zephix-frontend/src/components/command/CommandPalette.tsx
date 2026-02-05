@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { track } from '@/lib/telemetry';
-import { registerWorkspaceSettingsAction } from '@/features/workspaces/WorkspaceSettingsAction';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminRole } from '@/types/roles';
 import { listWorkspaces } from '@/features/workspaces/api';
+import * as workTasksApi from '@/features/work-management/workTasks.api';
+import toast from 'react-hot-toast';
 
 type Command = {
   id: string;
@@ -28,6 +29,14 @@ export function CommandPalette() {
   const { user } = useAuth();
   const isAdmin = user?.role ? isAdminRole(user.role) : false;
   const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug?: string }>>([]);
+
+  const location = useLocation();
+
+  /** Project ID from route when on a project page (e.g. /projects/:id or /work/projects/:id/plan). */
+  const activeProjectId = (() => {
+    const m = location.pathname.match(/^\/projects\/([^/]+)/) ?? location.pathname.match(/^\/work\/projects\/([^/]+)/);
+    return m?.[1] ?? null;
+  })();
 
   const close = useCallback(() => {
     setOpen(false);
@@ -123,6 +132,46 @@ export function CommandPalette() {
       setCommands(prev => prev.filter(cmd => !cmd.id.startsWith('workspace.switch-')));
     }
   }, [workspaces, navigate, setActiveWorkspace, close]);
+
+  // Accept any RFC 4122 UUID (v4, v7, etc.) — not v4-only, so DB can use v7 later.
+  const isValidProjectId = (id: string | null): id is string =>
+    !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  // Create Task: requires valid workspace (workTasksApi) and project context
+  useEffect(() => {
+    const createTaskRun = () => {
+      if (!activeProjectId || !isValidProjectId(activeProjectId)) {
+        toast.error('Select a project first');
+        navigate('/projects');
+        close();
+        return;
+      }
+      const taskName = window.prompt('Task name:');
+      if (!taskName?.trim()) return;
+      workTasksApi
+        .createTask({ projectId: activeProjectId, title: taskName.trim() })
+        .then(() => {
+          toast.success('Task created');
+          close();
+        })
+        .catch((err: any) => {
+          const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to create task';
+          toast.error(msg);
+        });
+    };
+    setCommands(prev => {
+      const filtered = prev.filter(c => c.id !== 'create-task');
+      return [
+        ...filtered,
+        {
+          id: 'create-task',
+          label: activeProjectId ? 'Create task in this project' : 'Select a project first',
+          hint: activeProjectId ? undefined : 'Go to Projects',
+          run: createTaskRun,
+        },
+      ];
+    });
+  }, [activeProjectId, navigate, close]);
 
   // Add Admin commands if user is admin
   useEffect(() => {

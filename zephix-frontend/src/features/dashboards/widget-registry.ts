@@ -67,6 +67,13 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     displayName: "Risk Summary",
     description: "Risk assessment and mitigation status",
   },
+  kpi: {
+    defaultConfig: {},
+    defaultLayout: { x: 0, y: 14, w: 4, h: 3 },
+    category: "Analytics",
+    displayName: "KPI Dashboard",
+    description: "Key Performance Indicators overview",
+  },
 };
 
 /**

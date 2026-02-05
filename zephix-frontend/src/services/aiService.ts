@@ -1,5 +1,11 @@
-import { projectsApi, feedbackApi } from './api';
+import { request } from '@/lib/api';
 import type { Project, CreateProjectData } from '../types';
+
+// Inline projectsApi to replace deleted services/api - use request for unwrapped responses
+const projectsApi = {
+  create: (data: CreateProjectData) => request.post<{ project: Project }>('/projects', data),
+  getById: (id: string) => request.get<{ project: Project }>(`/projects/${id}`),
+};
 
 export interface AIResponse {
   content: string;
@@ -53,7 +59,7 @@ export class AIService {
       }
 
       const projectList = context.projects.map(p => 
-        `• **${p.name}** - ${p.description || 'No description'} (${p.status || 'active'})`
+        `• **${p.name}** - (${p.status || 'Planning'})`
       ).join('\n');
 
       return {
@@ -67,7 +73,8 @@ export class AIService {
 
     // Project analytics
     if (this.matchesPattern(input, ['analytics', 'statistics', 'stats', 'report', 'progress'])) {
-      const activeProjects = context.projects.filter(p => p.status === 'active').length;
+      // Count non-complete projects as "active"
+      const activeProjects = context.projects.filter(p => p.status !== 'Complete').length;
       const totalProjects = context.projects.length;
       
       return {
@@ -147,14 +154,10 @@ export class AIService {
       suggestions.push("📈 **Expand your portfolio** - Consider creating more projects to diversify your work");
     }
     
-    const activeProjects = projects.filter(p => p.status === 'active');
+    // Count non-complete projects as "active"
+    const activeProjects = projects.filter(p => p.status !== 'Complete');
     if (activeProjects.length > 5) {
       suggestions.push("⚡ **Focus on priorities** - Consider completing some projects before starting new ones");
-    }
-    
-    const projectsWithoutDescription = projects.filter(p => !p.description);
-    if (projectsWithoutDescription.length > 0) {
-      suggestions.push("📝 **Add descriptions** - Add descriptions to your projects for better organization");
     }
     
     if (suggestions.length === 0) {
@@ -173,12 +176,11 @@ export class AIService {
       const createData: CreateProjectData = {
         name: projectData.name,
         description: projectData.description || `AI-created project: ${projectData.name}`,
-        status: 'active'
       };
       
       const response = await projectsApi.create(createData);
       return response.project;
-    } catch (error) {
+    } catch {
       throw new Error('Failed to create project via AI');
     }
   }

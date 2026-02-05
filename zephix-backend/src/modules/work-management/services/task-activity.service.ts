@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import {
   TenantAwareRepository,
   getTenantAwareRepositoryToken,
@@ -7,6 +7,7 @@ import { TaskActivity } from '../entities/task-activity.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityType } from '../enums/task.enums';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { IsNull } from 'typeorm';
 
 interface AuthContext {
   organizationId: string;
@@ -62,6 +63,17 @@ export class TaskActivityService {
     limit: number = 50,
     offset: number = 0,
   ): Promise<{ items: TaskActivity[]; total: number }> {
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, workspaceId, deletedAt: IsNull() },
+      select: ['id'],
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+
     const [items, total] = await this.activityRepo.findAndCount({
       where: { taskId, workspaceId },
       order: { createdAt: 'DESC' },

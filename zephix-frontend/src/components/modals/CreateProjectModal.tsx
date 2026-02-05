@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '../ui/Button';
-import type { CreateProjectData } from '../../types';
+import type { CreateProjectData, Project } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 
 const createProjectSchema = z.object({
@@ -50,7 +50,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       budget: data.budget ? Number(data.budget) : undefined,
     };
 
-    const success = await createProject(projectData);
+    const success = await createProject(projectData as Partial<Project>);
     if (success) {
       reset();
       onSuccess();

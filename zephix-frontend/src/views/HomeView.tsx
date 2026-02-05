@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
+import { useWorkspaceStore } from '@/state/workspace.store';
 import { HomeEmptyState } from './home/HomeEmptyState';
 
 export const HomeView: React.FC = () => {
-  const { user, activeWorkspaceId } = useAuth();
+  const { user } = useAuth();
+  const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId);
   const navigate = useNavigate();
 
   if (!user) {

@@ -6,6 +6,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { aiService, type AIResponse } from '../../services/aiService';
 import { DashboardSidebar } from '../../components/dashboard';
 import { Skeleton, SkeletonList, SkeletonCard } from '../../components/ui/Skeleton';
+import { ChatInterface } from '../../components/ChatInterface';
 
 interface Message {
   id: string;
@@ -181,16 +182,7 @@ export const AIDashboard: React.FC<AIDashboardProps> = memo(() => {
             </button>
           </div>
 
-          <ChatInterface
-            messages={messages.map(msg => ({
-              id: msg.id,
-              content: msg.content,
-              isUser: msg.type === 'user',
-              timestamp: msg.timestamp
-            }))}
-            onSendMessage={handleSendMessage}
-            isLoading={isProcessing}
-          />
+          <ChatInterface />
         </div>
 
         {/* Sidebar */}

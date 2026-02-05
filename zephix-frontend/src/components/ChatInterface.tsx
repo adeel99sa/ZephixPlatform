@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PaperAirplaneIcon, SparklesIcon, BrainIcon, LightBulbIcon, ChartBarIcon, ExclamationTriangleIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, SparklesIcon, CpuChipIcon, LightBulbIcon, ChartBarIcon, ExclamationTriangleIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { Button } from './ui/Button';
-import api from '../services/api';
+import { request } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface Message {
@@ -60,8 +60,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const loadQuickActions = async () => {
     try {
-      const response = await api.get('/ai-chat/quick-actions');
-      setQuickActions(response.actions);
+      const response = await request.get<{ actions: QuickAction[] }>('/ai-chat/quick-actions');
+      setQuickActions(response.actions || []);
     } catch (error) {
       console.error('Failed to load quick actions:', error);
       // Set default quick actions
@@ -137,14 +137,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
 
     try {
-      const data = await api.get('/ai-chat/send-message', {
-        method: 'POST',
-        body: {
-          message: textToSend,
-          context: {
-            userId: 'current-user', // This would come from auth context
-            projectId,
-          },
+      interface ChatResponse {
+        messageId: string;
+        response: string;
+        aiInsights?: unknown;
+        suggestedActions?: Array<{
+          type: string;
+          title: string;
+          description: string;
+          data?: unknown;
+        }>;
+        followUpQuestions?: string[];
+      }
+      
+      const data = await request.post<ChatResponse>('/ai-chat/send-message', {
+        message: textToSend,
+        context: {
+          userId: 'current-user', // This would come from auth context
+          projectId,
         },
       });
       
@@ -253,7 +263,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center space-x-2">
-          <BrainIcon className="h-5 w-5 text-indigo-600" />
+          <CpuChipIcon className="h-5 w-5 text-indigo-600" />
           <h3 className="text-lg font-medium text-gray-900">Zephix AI Assistant</h3>
           {projectId && (
             <span className="text-sm text-gray-500">(Project Context)</span>
@@ -293,7 +303,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center py-8">
-            <BrainIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+            <CpuChipIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               Welcome to Zephix AI Assistant
             </h3>

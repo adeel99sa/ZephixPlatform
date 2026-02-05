@@ -37,7 +37,9 @@ export class ProjectKpisService {
     if (!project) throw new NotFoundException('Project not found');
     // Cross-org access must return 403, not 404
     if (project.organizationId !== organizationId) {
-      throw new ForbiddenException('Project does not belong to your organization');
+      throw new ForbiddenException(
+        'Project does not belong to your organization',
+      );
     }
     if (workspaceId != null && project.workspaceId !== workspaceId) {
       throw new ForbiddenException('Project does not belong to this workspace');
@@ -93,13 +95,16 @@ export class ProjectKpisService {
       throw new BadRequestException('value must be a finite number');
     }
     const def = await this.kpiDefRepo.findOne({ where: { kpiKey } });
-    if (!def) throw new NotFoundException(`KPI definition "${kpiKey}" not found`);
+    if (!def)
+      throw new NotFoundException(`KPI definition "${kpiKey}" not found`);
     const projectKpi = await this.projectKpiRepo.findOne({
       where: { projectId, kpiDefinitionId: def.id },
       relations: ['kpiDefinition'],
     });
     if (!projectKpi) {
-      throw new NotFoundException(`KPI "${kpiKey}" is not attached to this project`);
+      throw new NotFoundException(
+        `KPI "${kpiKey}" is not attached to this project`,
+      );
     }
     const recordedAt = asOfDate ? new Date(asOfDate) : new Date();
     const row = this.kpiValueRepo.create({

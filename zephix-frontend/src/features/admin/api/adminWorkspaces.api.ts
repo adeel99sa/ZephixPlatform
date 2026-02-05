@@ -29,7 +29,11 @@ type CreateWorkspacePayload = {
 };
 
 type CreateWorkspaceResponse = {
+  id: string;
   workspaceId: string;
+  name: string;
+  slug?: string | null;
+  role: string;
 };
 
 /**
@@ -59,7 +63,17 @@ export async function createWorkspace(
       '/workspaces',
       payload
     );
-    return unwrapData<CreateWorkspaceResponse>(response) || { workspaceId: '' };
+    const data = unwrapData<CreateWorkspaceResponse>(response);
+    if (data?.workspaceId) {
+      return data;
+    }
+    return {
+      id: data?.id || '',
+      workspaceId: data?.id || '',
+      name: data?.name || '',
+      slug: data?.slug,
+      role: data?.role || 'workspace_owner',
+    };
   } catch (error) {
     console.error('Failed to create workspace:', error);
     throw error;

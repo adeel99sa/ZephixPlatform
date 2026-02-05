@@ -178,7 +178,7 @@ export default function AdminBillingPage() {
           )}
 
           {/* Show message if plan is managed internally */}
-          {subscription?.metadata?.internalManaged && (
+          {(subscription?.metadata?.internalManaged as boolean) && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <strong>Plan managed by Zephix team.</strong> Contact support to modify your plan.

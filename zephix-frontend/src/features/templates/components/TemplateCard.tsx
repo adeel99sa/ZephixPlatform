@@ -8,10 +8,10 @@ interface TemplateCardProps {
   description: string;
   type: 'workspace' | 'project' | 'dashboard' | 'document' | 'form';
   onApply: () => void;
-  onEdit?: () => void;
-  onDuplicate?: () => void;
-  onDelete?: () => void;
-  onSetDefault?: () => void;
+  onEdit?: (e?: React.MouseEvent) => void;
+  onDuplicate?: (e?: React.MouseEvent) => void;
+  onDelete?: (e?: React.MouseEvent) => void;
+  onSetDefault?: (e?: React.MouseEvent) => void;
 }
 
 export function TemplateCard({

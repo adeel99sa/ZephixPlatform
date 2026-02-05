@@ -272,8 +272,9 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                           value={memberRole}
                           onChange={async (e) => {
                             const newRole = e.target.value as 'member' | 'viewer';
+                            const apiRole = newRole === 'member' ? 'workspace_member' : 'workspace_viewer';
                             try {
-                              await changeWorkspaceRole(workspaceId, memberUserId, newRole);
+                              await changeWorkspaceRole(workspaceId, memberUserId, apiRole);
                               const updated = await listWorkspaceMembers(workspaceId);
                               setMembers(updated);
                               track("workspace.role.changed", { workspaceId, userId: memberUserId, role: newRole });
@@ -376,7 +377,8 @@ export function WorkspaceSettingsModal({ workspaceId, onClose }: Props) {
                       disabled={!selectedUserId}
                       onClick={async () => {
                         try {
-                          await addWorkspaceMember(workspaceId, selectedUserId, selectedRole);
+                          const apiRole = selectedRole === 'member' ? 'workspace_member' : 'workspace_viewer';
+                          await addWorkspaceMember(workspaceId, selectedUserId, apiRole);
                           const updated = await listWorkspaceMembers(workspaceId);
                           setMembers(updated);
                           setShowAddMemberModal(false);

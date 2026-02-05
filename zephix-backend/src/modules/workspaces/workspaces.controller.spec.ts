@@ -46,7 +46,7 @@ describe('WorkspacesController - Contract Tests', () => {
           useValue: {
             listByOrg: jest.fn(),
             getById: jest.fn(),
-            createWithOwner: jest.fn(),
+            createWithOwners: jest.fn(),
             update: jest.fn(),
           },
         },
@@ -252,8 +252,8 @@ describe('WorkspacesController - Contract Tests', () => {
   });
 
   describe('POST /api/workspaces', () => {
-    it('should return { data: Workspace } format on success', async () => {
-      jest.spyOn(workspacesService, 'createWithOwner').mockResolvedValue(mockWorkspace);
+    it('should return workspace data with role on success', async () => {
+      jest.spyOn(workspacesService, 'createWithOwners').mockResolvedValue(mockWorkspace);
 
       const req = { headers: {}, user: mockUser };
       const dto = { name: 'New Workspace' };
@@ -262,7 +262,10 @@ describe('WorkspacesController - Contract Tests', () => {
       expect(result).toHaveProperty('data');
       expect(result.data).toMatchObject({
         id: 'test-workspace-id',
+        workspaceId: 'test-workspace-id',
         name: 'Test Workspace',
+        slug: 'test-workspace',
+        role: 'workspace_owner',
       });
     });
 
@@ -286,36 +289,23 @@ describe('WorkspacesController - Contract Tests', () => {
   });
 
   describe('MICRO PATCH: Workspace creation with workspace_members row', () => {
-    it('should create workspace_members row with workspace_owner role when workspace is created', async () => {
-      const memberUserId = 'member-user-id';
-      const mockWorkspaceWithOwner = {
-        ...mockWorkspace,
-        ownerId: memberUserId,
-      };
-
-      // Mock createWithOwner to verify it creates workspace_members row
-      const createWithOwnerSpy = jest.spyOn(workspacesService, 'createWithOwner').mockResolvedValue(mockWorkspaceWithOwner);
+    it('should create workspace with owner role for creator', async () => {
+      jest.spyOn(workspacesService, 'createWithOwners').mockResolvedValue(mockWorkspace);
 
       const req = { headers: {} };
-      const dto = { name: 'New Workspace', ownerId: memberUserId };
+      const dto = { name: 'New Workspace' };
       const result = await controller.create(dto as any, mockUser as any, req as any, {});
 
-      expect(createWithOwnerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ownerId: memberUserId,
-        }),
-      );
       expect(result).toHaveProperty('data');
-      expect(result.data.ownerId).toBe(memberUserId);
+      expect(result.data.role).toBe('workspace_owner');
     });
 
     it('should reject Guest user as workspace owner', async () => {
-      const guestUserId = 'guest-user-id';
       const req = { headers: {} };
-      const dto = { name: 'New Workspace', ownerId: guestUserId };
+      const dto = { name: 'New Workspace' };
 
-      // Mock createWithOwner to throw ForbiddenException for Guest
-      jest.spyOn(workspacesService, 'createWithOwner').mockRejectedValue(
+      // Mock createWithOwners to throw ForbiddenException for Guest
+      jest.spyOn(workspacesService, 'createWithOwners').mockRejectedValue(
         new ForbiddenException('Guest users cannot be workspace owners. Workspace owner must be a Member. Admin creates workspace and assigns a Member as owner.'),
       );
 

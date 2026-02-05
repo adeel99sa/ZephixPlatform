@@ -19,10 +19,10 @@ export function useOnboardingCheck() {
       }
 
       try {
-        const status = await onboardingApi.getOnboardingStatus();
+        const status = await onboardingApi.getOnboardingStatus() as { completed?: boolean };
 
         // If onboarding is not completed, redirect to onboarding
-        if (!status.completed) {
+        if (!status?.completed) {
           navigate('/onboarding', { replace: true });
         }
       } catch (error) {

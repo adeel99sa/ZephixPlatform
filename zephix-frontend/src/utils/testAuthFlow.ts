@@ -144,7 +144,7 @@ export class AuthFlowTester {
       const invalidToken = 'invalid.token.format';
       const isValid = await enterpriseAuthService['validateTokenIntegrity'](invalidToken);
       
-      const passed = isValid === false; // Should reject invalid token
+      const passed = !isValid; // Should reject invalid token
       
       this.addTestResult({
         testName: 'Token Validation - Invalid Token',

@@ -16,13 +16,19 @@ export default function HubPage() {
   // Fetch real data
   const { data: workspaces } = useQuery({
     queryKey: ['workspaces'],
-    queryFn: () => api.get('/api/workspaces').then(r => r.data),
+    queryFn: async () => {
+      const r = await api.get<{ data: Array<{ id: string }> }>('/api/workspaces');
+      return r.data?.data ?? r.data ?? [];
+    },
   });
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects').then(r => r.data),
-    enabled: !!workspaces?.length,
+    queryFn: async () => {
+      const r = await api.get<{ data: Array<{ id: string }> }>('/api/projects');
+      return r.data?.data ?? r.data ?? [];
+    },
+    enabled: Array.isArray(workspaces) && workspaces.length > 0,
   });
 
   return (
@@ -31,8 +37,8 @@ export default function HubPage() {
       <p className="text-sm text-gray-500">Workspace: {workspaceId}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card title="Workspaces" value={workspaces?.length ?? '—'} />
-        <Card title="Active Projects" value={projects?.length ?? '—'} />
+        <Card title="Workspaces" value={workspaces?.length !== undefined ? String(workspaces.length) : '—'} />
+        <Card title="Active Projects" value={projects?.length !== undefined ? String(projects.length) : '—'} />
         <Card title="At-Risk" value="—" />
         <Card title="Utilization" value="—" />
       </div>

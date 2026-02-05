@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RequireWorkspaceAccessGuard } from '../../workspaces/guards/require-workspace-access.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ProjectsViewService } from '../services/projects-view.service';
 import { CreateProjectSimpleDto } from '../dto/create-project-simple.dto';
-import { formatResponse, formatArrayResponse } from '../../../shared/helpers/response.helper';
+import {
+  formatResponse,
+  formatArrayResponse,
+} from '../../../shared/helpers/response.helper';
 
 type UserJwt = {
   id: string;

@@ -51,16 +51,17 @@ export async function fetchDashboard(id: string): Promise<DashboardEntity> {
       headers: getHeaders(),
     });
 
-    // Parse and validate with zod
+    // Parse and validate with zod, then cast to DashboardEntity
     const parsed = DashboardEntitySchema.parse(response);
-    return parsed;
-  } catch (error: any) {
+    return parsed as DashboardEntity;
+  } catch (error: unknown) {
     if (error instanceof WorkspaceRequiredError) {
       throw error;
     }
-    const requestId = error?.response?.headers?.['x-request-id'];
-    if (requestId && error?.response?.data) {
-      console.error(`Dashboard schema invalid (requestId: ${requestId}):`, error.response.data);
+    const err = error as { response?: { headers?: Record<string, string>; data?: unknown } };
+    const requestId = err?.response?.headers?.['x-request-id'];
+    if (requestId && err?.response?.data) {
+      console.error(`Dashboard schema invalid (requestId: ${requestId}):`, err.response.data);
       throw new Error(`Dashboard schema invalid. RequestId: ${requestId}`);
     }
     throw error;
@@ -78,10 +79,10 @@ export async function listDashboards(): Promise<DashboardEntity[]> {
 
   // Validate array of dashboards
   if (Array.isArray(response)) {
-    return response.map((item) => DashboardEntitySchema.parse(item));
+    return response.map((item) => DashboardEntitySchema.parse(item) as DashboardEntity);
   }
   if (response?.data && Array.isArray(response.data)) {
-    return response.data.map((item: any) => DashboardEntitySchema.parse(item));
+    return response.data.map((item: unknown) => DashboardEntitySchema.parse(item) as DashboardEntity);
   }
   return [];
 }
@@ -97,7 +98,7 @@ export async function createDashboard(payload: Partial<DashboardEntity>): Promis
     }),
   });
 
-  return DashboardEntitySchema.parse(response);
+  return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
 /**
@@ -115,7 +116,7 @@ export async function patchDashboard(
   }
 
   const response = await api.patch(`/api/dashboards/${id}`, payload, { headers });
-  return DashboardEntitySchema.parse(response);
+  return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
 /**
@@ -136,7 +137,7 @@ export async function duplicateDashboard(id: string): Promise<DashboardEntity> {
   const response = await api.post(`/api/dashboards/${id}/duplicate`, {}, {
     headers: getHeaders(),
   });
-  return DashboardEntitySchema.parse(response);
+  return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
 /**
@@ -147,7 +148,7 @@ export async function restoreDashboard(id: string): Promise<DashboardEntity> {
   const response = await api.post(`/api/dashboards/${id}/restore`, {}, {
     headers: getHeaders(),
   });
-  return DashboardEntitySchema.parse(response);
+  return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
 /**
@@ -160,10 +161,10 @@ export async function listTemplates(): Promise<DashboardTemplate[]> {
   });
 
   if (Array.isArray(response)) {
-    return response.map((item) => DashboardTemplateSchema.parse(item));
+    return response.map((item) => DashboardTemplateSchema.parse(item) as DashboardTemplate);
   }
   if (response?.data && Array.isArray(response.data)) {
-    return response.data.map((item: any) => DashboardTemplateSchema.parse(item));
+    return response.data.map((item: unknown) => DashboardTemplateSchema.parse(item) as DashboardTemplate);
   }
   return [];
 }
@@ -181,7 +182,7 @@ export async function activateTemplate(templateKey: string): Promise<DashboardEn
     }
   );
 
-  return DashboardEntitySchema.parse(response);
+  return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
 /**
@@ -217,8 +218,9 @@ export async function aiSuggest(prompt: string, persona?: string): Promise<AISug
   );
 
   // Backend returns { data: { templateKey, widgetSuggestions } }
-  const data = response?.data || response;
-  return AISuggestResponseSchema.parse(data);
+  const rawResponse = response as { data?: unknown };
+  const data = rawResponse?.data || response;
+  return AISuggestResponseSchema.parse(data) as AISuggestResponse;
 }
 
 /**
@@ -235,8 +237,9 @@ export async function aiGenerate(prompt: string, persona?: string): Promise<AIGe
   );
 
   // Backend returns { data: { name, visibility, widgets } }
-  const data = response?.data || response;
-  return AIGenerateResponseSchema.parse(data);
+  const rawResponse = response as { data?: unknown };
+  const data = rawResponse?.data || response;
+  return AIGenerateResponseSchema.parse(data) as AIGenerateResponse;
 }
 
 /**
@@ -247,7 +250,8 @@ export async function enableShare(dashboardId: string, expiresAt?: string): Prom
   const response = await api.post(`/api/dashboards/${dashboardId}/share-enable`, { expiresAt }, {
     headers: getHeaders(),
   });
-  return response.data || response;
+  const rawResponse = response as { data?: { shareUrlPath: string }; shareUrlPath?: string };
+  return rawResponse.data || { shareUrlPath: rawResponse.shareUrlPath || '' };
 }
 
 /**
@@ -267,5 +271,6 @@ export async function fetchDashboardPublic(dashboardId: string, shareToken: stri
     params: { share: shareToken },
     // No Authorization header, no workspace header
   });
-  return SharedDashboardSchema.parse(response.data || response);
+  const rawResponse = response as { data?: unknown };
+  return SharedDashboardSchema.parse(rawResponse.data || response) as SharedDashboardEntity;
 }

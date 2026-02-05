@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Query, Req, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { AuthRequest } from '../../../common/http/auth-request';
@@ -13,17 +21,19 @@ export class TemplateDefinitionsController {
   constructor(private readonly service: TemplateDefinitionsService) {}
 
   @Get()
-  async list(
-    @Query() query: ListTemplatesQueryDto,
-    @Req() req: AuthRequest,
-  ) {
+  async list(@Query() query: ListTemplatesQueryDto, @Req() req: AuthRequest) {
     if (!isTemplateCenterEnabled()) {
       throw new NotFoundException('Template Center is not enabled');
     }
     const auth = getAuthContext(req);
     const scope = getTemplateCenterScope(auth, query.workspaceId);
     const { definitions, latestVersions } = await this.service.list(
-      { scope: query.scope, search: query.search, category: query.category, workspaceId: scope.workspaceId ?? undefined },
+      {
+        scope: query.scope,
+        search: query.search,
+        category: query.category,
+        workspaceId: scope.workspaceId ?? undefined,
+      },
       scope.organizationId,
       scope.workspaceId ?? undefined,
     );
@@ -40,7 +50,9 @@ export class TemplateDefinitionsController {
         category: d.category,
         isPrebuilt: d.isPrebuilt,
         isAdminDefault: d.isAdminDefault,
-        latestVersion: latest ? { version: latest.version, status: latest.status } : null,
+        latestVersion: latest
+          ? { version: latest.version, status: latest.status }
+          : null,
       };
     });
   }

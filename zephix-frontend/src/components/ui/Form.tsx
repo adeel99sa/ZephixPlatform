@@ -111,9 +111,8 @@ export const FormInput: React.FC<FormInputProps> = ({
       <input
         className={cn(
           'w-full rounded-lg bg-gray-800 border border-gray-700 py-2 text-gray-100 placeholder-gray-400 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed',
-          icon && 'pl-10 pr-3',
-          !icon && 'px-3',
-          error && 'border-red-500 focus-visible:ring-red-500',
+          icon ? 'pl-10 pr-3' : 'px-3',
+          error ? 'border-red-500 focus-visible:ring-red-500' : null,
           className
         )}
         disabled={disabled}

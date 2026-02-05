@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class WorkItemDependencyPhase21792000000000 implements MigrationInterface {
+export class WorkItemDependencyPhase21792000000000
+  implements MigrationInterface
+{
   name = 'WorkItemDependencyPhase21792000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

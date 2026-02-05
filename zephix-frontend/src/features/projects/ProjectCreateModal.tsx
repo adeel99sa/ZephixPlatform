@@ -80,12 +80,12 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
 
       if (selectedTemplateId) {
         // Use template apply endpoint
-        const { data } = await apiClient.post(`/admin/templates/${selectedTemplateId}/apply`, {
+        const response = await apiClient.post<{ data: { id?: string; projectId?: string } }>(`/admin/templates/${selectedTemplateId}/apply`, {
           name,
           workspaceId: effectiveWorkspaceId,
         });
-        project = data;
-        const projectId = project.id || project.projectId;
+        project = response.data?.data ?? response.data;
+        const projectId = (project as { id?: string; projectId?: string })?.id || (project as { projectId?: string })?.projectId;
         telemetry.track('project.create.templateSelected', { projectId, templateId: selectedTemplateId });
 
         // Emit event to invalidate KPI cache in dashboards
@@ -95,7 +95,7 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
           }));
         }
 
-        onCreated(projectId);
+        if (projectId) onCreated(projectId);
       } else {
         // Use regular project creation
         project = await createProject({

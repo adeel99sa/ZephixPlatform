@@ -21,7 +21,7 @@ import {
   Shield,
   Activity
 } from 'lucide-react';
-import api from '../../services/api';
+import { request } from '@/lib/api';
 
 interface AIIntelligenceDashboardProps {
   projectId?: string;
@@ -78,15 +78,15 @@ export const AIIntelligenceDashboard: React.FC<AIIntelligenceDashboardProps> = (
         setIsLoading(true);
         
         // Fetch AI insights
-        const insights = await api.get(`/ai-intelligence/project-insights/${projectId || 'demo'}`);
+        const insights = await request.get<{ aiInsights: AIInsights }>(`/ai-intelligence/project-insights/${projectId || 'demo'}`);
         setAiInsights(insights.aiInsights);
 
         // Fetch AI capabilities
-        const capabilities = await api.get('/ai-intelligence/ai-capabilities');
+        const capabilities = await request.get<AICapabilities>('/ai-intelligence/ai-capabilities');
         setAiCapabilities(capabilities);
 
         // Fetch AI value propositions
-        const value = await api.get('/ai-intelligence/ai-value-propositions');
+        const value = await request.get<AIValuePropositions>('/ai-intelligence/ai-value-propositions');
         setAiValuePropositions(value);
       } catch (error) {
         console.error('Error fetching AI data:', error);

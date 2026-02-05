@@ -20,7 +20,13 @@ export class KpiValue {
   @Column({ type: 'timestamptz', name: 'recorded_at', default: () => 'now()' })
   recordedAt: Date;
 
-  @Column({ type: 'decimal', precision: 20, scale: 6, name: 'value', nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 20,
+    scale: 6,
+    name: 'value',
+    nullable: true,
+  })
   value: number | null;
 
   @Column({ type: 'text', name: 'value_text', nullable: true })

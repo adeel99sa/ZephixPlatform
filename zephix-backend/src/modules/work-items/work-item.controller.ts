@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   Query,
+  Headers,
   UseGuards,
   BadRequestException,
   NotFoundException,
@@ -56,6 +57,23 @@ type UserJwt = {
   role: 'admin' | 'member' | 'guest';
 };
 
+function resolveWorkspaceId(params: {
+  header?: string;
+  body?: string;
+  query?: string;
+}): string | undefined {
+  const candidates = [params.header, params.body, params.query].filter(Boolean);
+  if (candidates.length === 0) return undefined;
+  const unique = new Set(candidates);
+  if (unique.size > 1) {
+    throw new BadRequestException({
+      code: 'WORKSPACE_ID_MISMATCH',
+      message: 'Workspace ID must match across header and request payload',
+    });
+  }
+  return candidates[0];
+}
+
 @Controller('work-items')
 @UseGuards(JwtAuthGuard)
 export class WorkItemController {
@@ -72,18 +90,23 @@ export class WorkItemController {
   @Get()
   async list(
     @GetTenant() tenant: TenantContext,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
     @Query('status') status?: string,
     @Query('assigneeId') assigneeId?: string,
   ) {
-    if (!workspaceId && !projectId) {
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+    if (!resolvedWorkspaceId && !projectId) {
       throw new BadRequestException('workspaceId or projectId required');
     }
 
     return this.workItemService.list({
       organizationId: tenant.organizationId,
-      workspaceId,
+      workspaceId: resolvedWorkspaceId,
       projectId,
       status,
       assigneeId,
@@ -94,10 +117,15 @@ export class WorkItemController {
   async listByProject(
     @GetTenant() tenant: TenantContext,
     @Param('projectId') projectId: string,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('status') status?: string,
   ) {
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+    });
     return this.workItemService.list({
       organizationId: tenant.organizationId,
+      workspaceId: resolvedWorkspaceId,
       projectId,
       status,
     });
@@ -107,15 +135,23 @@ export class WorkItemController {
   async create(
     @GetTenant() tenant: TenantContext,
     @Body() dto: CreateWorkItemDto,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @CurrentUser() user: UserJwt,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
     blockGuestWrite(user.role);
 
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      body: dto.workspaceId,
+    });
+
     return this.workItemService.create({
       ...dto,
+      workspaceId: resolvedWorkspaceId || dto.workspaceId,
       organizationId: tenant.organizationId,
       createdBy: user.id,
+      platformRole: user.role,
     });
   }
 
@@ -130,17 +166,23 @@ export class WorkItemController {
     @Param('id') id: string,
     @Body() dto: UpdateWorkItemDto,
     @CurrentUser() user: UserJwt,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
     blockGuestWrite(user.role);
 
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+
     // PHASE 7 MODULE 7.1 FIX: Get work item with scoping
     const workItem = await this.workItemService.getOne(
       id,
       tenant.organizationId,
-      workspaceId,
+      resolvedWorkspaceId,
       projectId,
     );
 
@@ -169,17 +211,23 @@ export class WorkItemController {
     @Param('id') id: string,
     @Body('status') status: WorkItemStatus,
     @CurrentUser() user: UserJwt,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
     blockGuestWrite(user.role);
 
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+
     // PHASE 7 MODULE 7.1 FIX: Get work item with scoping
     const workItem = await this.workItemService.getOne(
       id,
       tenant.organizationId,
-      workspaceId,
+      resolvedWorkspaceId,
       projectId,
     );
 
@@ -239,17 +287,23 @@ export class WorkItemController {
     @Body() dto: CreateWorkItemCommentDto,
     @CurrentUser() user: UserJwt,
     @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
     blockGuestWrite(user.role);
 
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+
     // PHASE 7 MODULE 7.1 FIX: Get work item with explicit scoping
     const workItem = await this.workItemService.getOne(
       id,
       tenant.organizationId,
-      workspaceId,
+      resolvedWorkspaceId,
       projectId,
     );
 
@@ -274,14 +328,20 @@ export class WorkItemController {
     @GetTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
   ) {
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+
     // PHASE 7 MODULE 7.1 FIX: Get work item with explicit scoping
     const workItem = await this.workItemService.getOne(
       id,
       tenant.organizationId,
-      workspaceId,
+      resolvedWorkspaceId,
       projectId,
     );
 
@@ -307,14 +367,20 @@ export class WorkItemController {
     @GetTenant() tenant: TenantContext,
     @Param('id') id: string,
     @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
     @Query('workspaceId') workspaceId?: string,
     @Query('projectId') projectId?: string,
   ) {
+    const resolvedWorkspaceId = resolveWorkspaceId({
+      header: workspaceIdHeader,
+      query: workspaceId,
+    });
+
     // PHASE 7 MODULE 7.1 FIX: Get work item with explicit scoping
     const workItem = await this.workItemService.getOne(
       id,
       tenant.organizationId,
-      workspaceId,
+      resolvedWorkspaceId,
       projectId,
     );
 

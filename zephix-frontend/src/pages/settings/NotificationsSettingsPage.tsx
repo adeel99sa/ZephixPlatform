@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 import { useUIStore } from "@/stores/uiStore";
 
 interface NotificationPreferences {
@@ -42,7 +42,7 @@ export default function NotificationsSettingsPage() {
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const data = await api.get<NotificationPreferences>("/users/me/notification-preferences");
+      const data = await request.get<NotificationPreferences>("/users/me/notification-preferences");
       setPreferences(data);
     } catch (error) {
       addToast({
@@ -60,7 +60,7 @@ export default function NotificationsSettingsPage() {
 
     try {
       setSaving(true);
-      const updated = await api.put<NotificationPreferences>(
+      const updated = await request.put<NotificationPreferences>(
         "/users/me/notification-preferences",
         preferences
       );

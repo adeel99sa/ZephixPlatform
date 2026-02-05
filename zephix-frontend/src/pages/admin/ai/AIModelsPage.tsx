@@ -1,19 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
+interface Model {
+  id: string;
+  name: string;
+  pipeline: string;
+  active: boolean;
+}
+
 export default function AIModelsPage() {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['admin','ai','models'],
-    queryFn: async () => (await apiClient.get('/admin/ai/models')).data,
+    queryFn: async () => apiClient.get<{ data: Model[] }>('/admin/ai/models'),
   });
   const update = useMutation({
-    mutationFn: async (payload: any) => (await apiClient.patch('/admin/ai/models', payload)).data,
+    mutationFn: async (payload: { id: string; active: boolean }) => apiClient.patch('/admin/ai/models', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin','ai','models'] }),
   });
   if (q.isLoading) return <div>Loading models…</div>;
   if (q.error) return <div role="alert">{String(q.error)}</div>;
-  const models = q.data?.data ?? [];
+  const data = q.data as { data?: Model[] } | undefined;
+  const models = data?.data ?? [];
   return (
     <div>
       <h1 className="text-xl font-semibold mb-3">AI Models</h1>

@@ -22,8 +22,76 @@ import {
   BulkStatusUpdateDto,
 } from '../dto';
 import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
+
+/** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
+const SORT_COLUMN_MAP: Record<string, string> = {
+  dueDate: 'task.dueDate',
+  updatedAt: 'task.updatedAt',
+  createdAt: 'task.createdAt',
+};
+
+const VALID_STATUSES = new Set<string>(Object.values(TaskStatus));
+const MAX_LIMIT = 200;
+const DEFAULT_LIMIT = 50;
+const DEFAULT_OFFSET = 0;
+
+function parseAndValidateStatusList(
+  value: string | undefined,
+  field: string,
+): string[] {
+  if (!value || typeof value !== 'string') return [];
+  const list = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const invalid = list.filter((s) => !VALID_STATUSES.has(s));
+  if (invalid.length > 0) {
+    throw new BadRequestException({
+      code: 'VALIDATION_ERROR',
+      message: `Invalid status value(s) in ${field}. Allowed: ${Array.from(VALID_STATUSES).join(', ')}`,
+      details: { invalid },
+    });
+  }
+  return list;
+}
+
+/**
+ * Status Transition Rules (MVP Locked)
+ *
+ * Terminal states: DONE, CANCELED - no transitions out
+ * BLOCKED: only from TODO or IN_PROGRESS
+ * IN_REVIEW: only from IN_PROGRESS
+ *
+ * Reject invalid transitions with 400 VALIDATION_ERROR code INVALID_STATUS_TRANSITION.
+ */
+const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+  [TaskStatus.BACKLOG]: [TaskStatus.TODO, TaskStatus.CANCELED],
+  [TaskStatus.TODO]: [
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.BLOCKED,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.IN_PROGRESS]: [
+    TaskStatus.BLOCKED,
+    TaskStatus.IN_REVIEW,
+    TaskStatus.DONE,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.BLOCKED]: [
+    TaskStatus.TODO,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.IN_REVIEW]: [
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.DONE,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.DONE]: [], // Terminal - no transitions out
+  [TaskStatus.CANCELED]: [], // Terminal - no transitions out
+};
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { DataSource, ILike, In } from 'typeorm';
+import { DataSource, ILike, In, IsNull } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -56,14 +124,29 @@ export class WorkTasksService {
     private readonly projectHealthService: ProjectHealthService,
   ) {}
 
-  async createTask(
-    auth: AuthContext,
-    workspaceId: string,
-    dto: CreateWorkTaskDto,
-  ): Promise<WorkTask> {
-    const organizationId = this.tenantContext.assertOrganizationId();
+  // ============================================================
+  // WORKSPACE SCOPE HELPERS - Centralized tenant safety
+  // ============================================================
 
-    // Validate workspace access
+  /**
+   * Assert workspace access for the current user.
+   * Always throws 403 WORKSPACE_REQUIRED if:
+   * - workspaceId is missing
+   * - user doesn't have access to the workspace
+   * - workspace doesn't belong to user's organization
+   */
+  private async assertWorkspaceAccess(
+    auth: AuthContext,
+    workspaceId: string | undefined | null,
+  ): Promise<string> {
+    if (!workspaceId) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Workspace ID is required. Include x-workspace-id header.',
+      });
+    }
+
+    const organizationId = this.tenantContext.assertOrganizationId();
     const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
       workspaceId,
       organizationId,
@@ -78,6 +161,100 @@ export class WorkTasksService {
       });
     }
 
+    return workspaceId;
+  }
+
+  /**
+   * Get a task by ID with workspace scope.
+   * Returns null if not found or not in workspace (404 behavior).
+   * This prevents cross-tenant data access.
+   */
+  private async getTaskInWorkspace(
+    workspaceId: string,
+    taskId: string,
+    includeDeleted = false,
+  ): Promise<WorkTask | null> {
+    const where: any = {
+      id: taskId,
+      workspaceId,
+    };
+    if (!includeDeleted) {
+      where.deletedAt = IsNull();
+    }
+    return this.taskRepo.findOne({ where });
+  }
+
+  /**
+   * Get a task by ID with workspace scope, throw 404 if not found.
+   */
+  private async getTaskInWorkspaceOrFail(
+    workspaceId: string,
+    taskId: string,
+    includeDeleted = false,
+  ): Promise<WorkTask> {
+    const task = await this.getTaskInWorkspace(
+      workspaceId,
+      taskId,
+      includeDeleted,
+    );
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+    return task;
+  }
+
+  /**
+   * Get a non-deleted task for mutations. Throws 404 TASK_NOT_FOUND if deleted or not found.
+   * Use this for update, comment, activity, dependency operations.
+   *
+   * Note: We use TASK_NOT_FOUND for both "doesn't exist" and "is deleted" cases
+   * to avoid leaking existence information across workspaces and keep client logic simple.
+   */
+  private async getActiveTaskOrFail(
+    workspaceId: string,
+    taskId: string,
+  ): Promise<WorkTask> {
+    const task = await this.getTaskInWorkspace(workspaceId, taskId, true);
+    if (!task || task.deletedAt) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+    return task;
+  }
+
+  // ============================================================
+  // STATUS TRANSITION VALIDATION
+  // ============================================================
+
+  private assertStatusTransition(
+    currentStatus: TaskStatus,
+    nextStatus: TaskStatus,
+  ): void {
+    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
+    if (!allowed.includes(nextStatus)) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from ${currentStatus} to ${nextStatus}`,
+        currentStatus,
+        requestedStatus: nextStatus,
+      });
+    }
+  }
+
+  async createTask(
+    auth: AuthContext,
+    workspaceId: string,
+    dto: CreateWorkTaskDto,
+  ): Promise<WorkTask> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+
     // Sprint 2: Auto-assign phaseId if missing
     let phaseId = dto.phaseId || null;
     if (!phaseId && dto.projectId) {
@@ -87,6 +264,7 @@ export class WorkTasksService {
           organizationId,
           workspaceId,
           projectId: dto.projectId,
+          deletedAt: IsNull(),
         },
         order: {
           sortOrder: 'ASC',
@@ -102,6 +280,22 @@ export class WorkTasksService {
       }
 
       phaseId = firstPhase.id;
+    } else if (phaseId) {
+      // Validate explicitly provided phaseId is not deleted
+      const phase = await this.workPhaseRepository.findOne({
+        where: {
+          id: phaseId,
+          workspaceId,
+          deletedAt: IsNull(),
+        },
+        select: ['id'],
+      });
+      if (!phase) {
+        throw new NotFoundException({
+          code: 'PHASE_NOT_FOUND',
+          message: 'Phase not found',
+        });
+      }
     }
 
     const task = this.taskRepo.create({
@@ -144,27 +338,26 @@ export class WorkTasksService {
     auth: AuthContext,
     workspaceId: string,
     query: ListWorkTasksQueryDto,
-  ): Promise<{ items: WorkTask[]; total: number }> {
-    const organizationId = this.tenantContext.assertOrganizationId();
-
-    // Validate workspace access
-    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
-      workspaceId,
-      organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
-
-    if (!hasAccess) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'Access denied to workspace',
-      });
-    }
+  ): Promise<{
+    items: WorkTask[];
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
 
     const qb = this.taskRepo
       .qb('task')
       .where('task.workspaceId = :workspaceId', { workspaceId });
+
+    // includeDeleted is internal: only admin or pm (MEMBER) may use it; others get non-deleted only
+    const allowIncludeDeleted =
+      auth.platformRole === 'ADMIN' || auth.platformRole === 'MEMBER';
+    const includeDeleted = allowIncludeDeleted && !!query.includeDeleted;
+    if (!includeDeleted) {
+      qb.andWhere('task.deletedAt IS NULL');
+    }
 
     if (query.projectId) {
       qb.andWhere('task.projectId = :projectId', {
@@ -174,6 +367,55 @@ export class WorkTasksService {
 
     if (query.status) {
       qb.andWhere('task.status = :status', { status: query.status });
+    }
+
+    const includeStatuses = parseAndValidateStatusList(
+      query.includeStatuses,
+      'includeStatuses',
+    );
+    const excludeStatuses = parseAndValidateStatusList(
+      query.excludeStatuses,
+      'excludeStatuses',
+    );
+    if (includeStatuses.length > 0 && excludeStatuses.length > 0) {
+      const overlap = includeStatuses.filter((s) =>
+        excludeStatuses.includes(s),
+      );
+      if (overlap.length > 0) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message:
+            'includeStatuses and excludeStatuses must not contain the same status',
+          details: { overlap },
+        });
+      }
+    }
+    if (includeStatuses.length > 0) {
+      qb.andWhere('task.status IN (:...includeStatuses)', { includeStatuses });
+    }
+    if (excludeStatuses.length > 0) {
+      qb.andWhere('task.status NOT IN (:...excludeStatuses)', {
+        excludeStatuses,
+      });
+    }
+
+    if (query.dueFrom && query.dueTo) {
+      if (query.dueFrom > query.dueTo) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'dueFrom must be less than or equal to dueTo',
+        });
+      }
+    }
+    if (query.dueFrom) {
+      qb.andWhere('task.dueDate >= :dueFrom', {
+        dueFrom: query.dueFrom,
+      });
+    }
+    if (query.dueTo) {
+      qb.andWhere('task.dueDate <= :dueTo', {
+        dueTo: query.dueTo,
+      });
     }
 
     if (query.assigneeUserId) {
@@ -186,21 +428,20 @@ export class WorkTasksService {
       qb.andWhere('task.title ILIKE :search', { search: `%${query.search}%` });
     }
 
-    if (!query.includeArchived) {
-      // Assuming archived is a boolean field, if not present, skip this filter
-      // For now, we'll skip archived filter if field doesn't exist
-    }
+    const sortByKey = query.sortBy ?? 'updatedAt';
+    const sortColumn = SORT_COLUMN_MAP[sortByKey] ?? SORT_COLUMN_MAP.updatedAt;
+    const sortDir = (query.sortDir ?? 'desc').toUpperCase() as 'ASC' | 'DESC';
+    qb.orderBy(sortColumn, sortDir);
 
-    const limit = Math.min(query.limit || 50, 200);
-    const offset = query.offset || 0;
+    const limit = Math.min(
+      Math.max(1, query.limit ?? DEFAULT_LIMIT),
+      MAX_LIMIT,
+    );
+    const offset = Math.max(0, query.offset ?? DEFAULT_OFFSET);
 
-    const [items, total] = await qb
-      .orderBy('task.updatedAt', 'DESC')
-      .take(limit)
-      .skip(offset)
-      .getManyAndCount();
+    const [items, total] = await qb.take(limit).skip(offset).getManyAndCount();
 
-    return { items, total };
+    return { items, total, limit, offset };
   }
 
   async getTaskById(
@@ -208,35 +449,9 @@ export class WorkTasksService {
     workspaceId: string,
     id: string,
   ): Promise<WorkTask> {
-    const organizationId = this.tenantContext.assertOrganizationId();
-
-    // Validate workspace access
-    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
-      workspaceId,
-      organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
-
-    if (!hasAccess) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'Access denied to workspace',
-      });
-    }
-
-    const task = await this.taskRepo.findOne({
-      where: { id, workspaceId },
-    });
-
-    if (!task) {
-      throw new NotFoundException({
-        code: 'NOT_FOUND',
-        message: 'Task not found',
-      });
-    }
-
-    return task;
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    return this.getTaskInWorkspaceOrFail(workspaceId, id);
   }
 
   async updateTask(
@@ -245,33 +460,11 @@ export class WorkTasksService {
     id: string,
     dto: UpdateWorkTaskDto,
   ): Promise<WorkTask> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
-
-    // Validate workspace access
-    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
-      workspaceId,
-      organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
-
-    if (!hasAccess) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'Access denied to workspace',
-      });
-    }
-
-    const task = await this.taskRepo.findOne({
-      where: { id, workspaceId },
-    });
-
-    if (!task) {
-      throw new NotFoundException({
-        code: 'NOT_FOUND',
-        message: 'Task not found',
-      });
-    }
+    // Use getActiveTaskOrFail to block mutations on deleted tasks
+    const task = await this.getActiveTaskOrFail(workspaceId, id);
 
     const oldStatus = task.status;
     const oldAssignee = task.assigneeUserId;
@@ -287,6 +480,7 @@ export class WorkTasksService {
       changedFields.push('description');
     }
     if (dto.status !== undefined && dto.status !== task.status) {
+      this.assertStatusTransition(task.status, dto.status);
       task.status = dto.status;
       changedFields.push('status');
       if (dto.status === TaskStatus.DONE && !task.completedAt) {
@@ -390,40 +584,62 @@ export class WorkTasksService {
     return saved;
   }
 
+  /**
+   * Bulk update status for multiple tasks.
+   *
+   * Behavior: STRICT mode - validates all transitions, fails entire request if any invalid.
+   * This prevents backdoor creation of invalid states.
+   */
   async bulkUpdateStatus(
     auth: AuthContext,
     workspaceId: string,
     dto: BulkStatusUpdateDto,
   ): Promise<{ updated: number }> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
 
-    // Validate workspace access
-    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
-      workspaceId,
-      organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
-
-    if (!hasAccess) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'Access denied to workspace',
-      });
-    }
-
-    // Verify all tasks exist in workspace
+    // Verify all tasks exist in workspace (exclude soft-deleted)
     const tasks = await this.taskRepo.find({
       where: {
         id: In(dto.taskIds),
         workspaceId,
+        deletedAt: IsNull(),
       },
     });
 
     if (tasks.length !== dto.taskIds.length) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'TASK_NOT_FOUND',
         message: 'One or more tasks not found',
+      });
+    }
+
+    // STRICT validation: check all transitions before applying any
+    const invalidTransitions: Array<{
+      id: string;
+      from: TaskStatus;
+      to: TaskStatus;
+      reason: string;
+    }> = [];
+
+    for (const task of tasks) {
+      const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
+      if (!allowed.includes(dto.status)) {
+        invalidTransitions.push({
+          id: task.id,
+          from: task.status,
+          to: dto.status,
+          reason: `Cannot transition from ${task.status} to ${dto.status}`,
+        });
+      }
+    }
+
+    if (invalidTransitions.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'One or more invalid status transitions',
+        invalidTransitions,
       });
     }
 
@@ -474,60 +690,123 @@ export class WorkTasksService {
     workspaceId: string,
     id: string,
   ): Promise<void> {
-    const organizationId = this.tenantContext.assertOrganizationId();
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    // Use getActiveTaskOrFail - can't delete an already deleted task
+    const task = await this.getActiveTaskOrFail(workspaceId, id);
 
-    // Validate workspace access
-    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+    // Soft delete: set deletedAt and deletedByUserId; keep dependencies/comments/activities for audit
+    task.deletedAt = new Date();
+    task.deletedByUserId = auth.userId;
+    await this.taskRepo.save(task);
+
+    // Emit activity for audit trail
+    await this.activityService.record(
+      auth,
       workspaceId,
-      organizationId,
-      auth.userId,
-      auth.platformRole,
+      id,
+      'TASK_DELETED' as any,
+      {
+        title: task.title,
+        projectId: task.projectId,
+        deletedBy: auth.userId,
+      },
     );
+  }
 
-    if (!hasAccess) {
-      throw new ForbiddenException({
-        code: 'WORKSPACE_REQUIRED',
-        message: 'Access denied to workspace',
-      });
-    }
+  /**
+   * Restore a soft-deleted task.
+   * Returns 404 if task doesn't exist or is not deleted.
+   */
+  async restoreTask(
+    auth: AuthContext,
+    workspaceId: string,
+    id: string,
+  ): Promise<WorkTask> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
 
-    const task = await this.taskRepo.findOne({
-      where: { id, workspaceId },
-    });
-
+    // Get task including deleted ones
+    const task = await this.getTaskInWorkspace(workspaceId, id, true);
     if (!task) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'TASK_NOT_FOUND',
         message: 'Task not found',
       });
     }
-
-    const taskTitle = task.title;
-
-    // Use transaction to ensure cascade deletes
-    await this.dataSource.transaction(async (manager) => {
-      // Delete dependencies (CASCADE should handle this, but explicit for safety)
-      await manager.delete(WorkTaskDependency, {
-        predecessorTaskId: id,
+    if (!task.deletedAt) {
+      throw new BadRequestException({
+        code: 'TASK_NOT_DELETED',
+        message: 'Task is not deleted',
       });
-      await manager.delete(WorkTaskDependency, {
-        successorTaskId: id,
-      });
+    }
 
-      // Delete comments (CASCADE should handle this)
-      await manager.delete(TaskComment, {
-        taskId: id,
-      });
+    // Restore: clear deletedAt and deletedByUserId
+    task.deletedAt = null;
+    task.deletedByUserId = null;
+    const restored = await this.taskRepo.save(task);
 
-      // Delete activities (SET NULL should handle this, but we'll delete explicitly)
-      await manager.delete(TaskActivity, {
-        taskId: id,
-      });
+    // Emit activity for audit trail
+    await this.activityService.record(
+      auth,
+      workspaceId,
+      id,
+      'TASK_RESTORED' as any,
+      {
+        title: task.title,
+        projectId: task.projectId,
+        restoredBy: auth.userId,
+      },
+    );
 
-      // Delete task
-      await manager.delete(WorkTask, {
-        id,
-      });
+    return restored;
+  }
+
+  // ============================================================
+  // STATS
+  // ============================================================
+
+  /**
+   * Get task completion stats for workspace, optionally scoped to a project.
+   *
+   * Rules:
+   * - Excludes deleted tasks (deletedAt IS NOT NULL)
+   * - Only counts DONE as completed (CANCELED is not completed)
+   * - Ratio rounded to 4 decimal places
+   * - Returns ratio 0 when total is 0 (no division by zero)
+   */
+  async getCompletionStats(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId?: string,
+  ): Promise<{ completed: number; total: number; ratio: number }> {
+    // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
+    await this.assertWorkspaceAccess(auth, workspaceId);
+
+    // Build where clause: workspace required, project optional
+    const whereClause: any = {
+      workspaceId,
+      deletedAt: IsNull(),
+    };
+    if (projectId) {
+      whereClause.projectId = projectId;
+    }
+
+    // Count all non-deleted tasks
+    const total = await this.taskRepo.count({ where: whereClause });
+
+    // Count completed (DONE only - CANCELED is not counted as completed)
+    const completed = await this.taskRepo.count({
+      where: {
+        ...whereClause,
+        status: TaskStatus.DONE,
+      },
     });
+
+    // Ratio: 0 when total is 0, otherwise rounded to 4 decimals
+    const ratio =
+      total > 0 ? Math.round((completed / total) * 10000) / 10000 : 0;
+
+    return { completed, total, ratio };
   }
 }

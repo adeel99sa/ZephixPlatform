@@ -11,9 +11,10 @@ const WIDGET_ALLOWLIST = [
   "program_summary",
   "budget_variance",
   "risk_summary",
+  "kpi",
 ] as const;
 
-export const WidgetTypeSchema = z.enum(WIDGET_ALLOWLIST as [string, ...string[]]);
+export const WidgetTypeSchema = z.enum(WIDGET_ALLOWLIST as unknown as [string, ...string[]]);
 
 export const DashboardVisibilitySchema = z.enum(["WORKSPACE", "ORG", "PRIVATE"]);
 
@@ -29,7 +30,7 @@ export const DashboardWidgetSchema = z.object({
   type: WidgetTypeSchema,
   title: z.string().min(1).max(200),
   layout: DashboardLayoutSchema,
-  config: z.record(z.any()),
+  config: z.record(z.string(), z.any()),
   dataSource: z.string().optional(),
 });
 
@@ -38,7 +39,7 @@ export const SharedDashboardWidgetSchema = z.object({
   type: WidgetTypeSchema,
   title: z.string().min(1).max(200),
   layout: DashboardLayoutSchema,
-  config: z.record(z.any()).optional().default({}),
+  config: z.record(z.string(), z.any()).default({}),
 });
 
 export const DashboardEntitySchema = z.object({
@@ -75,7 +76,7 @@ export const DashboardTemplateSchema = z.object({
       z.object({
         widgetKey: WidgetTypeSchema,
         title: z.string(),
-        config: z.record(z.any()),
+        config: z.record(z.string(), z.any()),
         layout: DashboardLayoutSchema,
       })
     ),
@@ -95,7 +96,7 @@ export const AIGenerateResponseSchema = z.object({
     z.object({
       widgetKey: WidgetTypeSchema,
       title: z.string(),
-      config: z.record(z.any()),
+      config: z.record(z.string(), z.any()),
       layout: DashboardLayoutSchema,
     })
   ),

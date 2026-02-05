@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Project, ProjectHealth } from '../../projects/entities/project.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkPhase } from '../entities/work-phase.entity';
@@ -72,6 +72,7 @@ export class ProjectHealthService {
         projectId,
         organizationId,
         workspaceId,
+        deletedAt: IsNull(),
       },
       select: [
         'id',
@@ -85,12 +86,13 @@ export class ProjectHealthService {
       ],
     });
 
-    // Load phases to find milestones
+    // Load phases to find milestones (exclude soft-deleted)
     const phases = await this.workPhaseRepository.find({
       where: {
         projectId,
         organizationId,
         workspaceId,
+        deletedAt: IsNull(),
       },
       select: ['id', 'isMilestone', 'dueDate'],
     });

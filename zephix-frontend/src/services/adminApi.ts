@@ -6,18 +6,36 @@ import { normalizePlatformRole } from '@/utils/roles';
  * Comprehensive Admin API Service
  * Connects to all admin backend endpoints
  */
+interface Stats {
+  userCount: number;
+  activeUsers: number;
+  templateCount: number;
+  projectCount: number;
+  totalItems?: number;
+}
+
+interface SystemHealth {
+  status: string;
+  timestamp: string;
+  database: string;
+  services?: Record<string, string>;
+  details?: string;
+}
+
 class AdminApiService {
   // ==================== Dashboard & Stats ====================
-  async getStats() {
+  async getStats(): Promise<Stats> {
     const response = await apiClient.get('/admin/stats');
     // Backend returns { data: Stats }
-    return unwrapData(response) || {};
+    const data = unwrapData<Stats>(response);
+    return data || { userCount: 0, activeUsers: 0, templateCount: 0, projectCount: 0 };
   }
 
-  async getSystemHealth() {
+  async getSystemHealth(): Promise<SystemHealth> {
     const response = await apiClient.get('/admin/health');
     // Backend returns { data: SystemHealth }
-    return unwrapData(response) || {};
+    const data = unwrapData<SystemHealth>(response);
+    return data || { status: 'unknown', timestamp: new Date().toISOString(), database: 'unknown' };
   }
 
   // ==================== Organization ====================
@@ -31,9 +49,15 @@ class AdminApiService {
     return data;
   }
 
-  async getOrganizationUsers(params?: { page?: number; limit?: number; search?: string; role?: string; status?: string }) {
-    const { data } = await apiClient.get('/admin/users', { params });
-    return data;
+  async getOrganizationUsers(params?: { page?: number; limit?: number; search?: string; role?: string; status?: string }): Promise<{
+    users?: Array<{ id: string; email: string; firstName?: string; lastName?: string; role?: string; status?: string }>;
+    pagination?: { total: number; totalPages: number };
+  }> {
+    type UserData = { id: string; email: string; firstName?: string; lastName?: string; role?: string; status?: string };
+    type ResponseData = { users: UserData[]; pagination: { total: number; totalPages: number } };
+    const response = await apiClient.get<{ data: ResponseData }>('/admin/users', { params });
+    const result = response as unknown as { data?: ResponseData };
+    return result?.data ?? { users: [], pagination: { total: 0, totalPages: 0 } };
   }
 
   async getAllUsersForAdmin() {

@@ -93,8 +93,7 @@ export function UserProfileDropdown() {
         const currentPathBefore = window.location.pathname;
         console.log('[UserProfileDropdown] ⚠️ CLICKED ADMINISTRATION - Starting navigation', {
           email: user?.email,
-          permissions: user?.permissions,
-          permissionsIsAdmin: user?.permissions?.isAdmin,
+          platformRole: user?.platformRole,
           currentPath: currentPathBefore,
           timestamp: new Date().toISOString(),
         });

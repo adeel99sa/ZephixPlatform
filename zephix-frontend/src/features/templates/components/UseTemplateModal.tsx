@@ -69,7 +69,7 @@ export function UseTemplateModal({
       });
 
       // Backend returns { data: { projectId, name, workspaceId } }
-      const projectId = result.projectId || result.id;
+      const projectId = result.projectId || (result as { id?: string }).id;
       if (!projectId) {
         throw new Error('Project ID not returned from server');
       }
