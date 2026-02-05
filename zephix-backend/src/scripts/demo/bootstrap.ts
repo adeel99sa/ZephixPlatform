@@ -76,10 +76,10 @@ async function bootstrap() {
     const userId = userInsertResult[0].id;
     console.log('✅ Demo user created/updated:', userId);
 
-    // Link user to organization
+    // Link user to organization (createdAt auto-populated by TypeORM)
     await dataSource.query(`
-      INSERT INTO user_organizations (user_id, organization_id, role, created_at)
-      VALUES ($1, $2, 'admin', NOW())
+      INSERT INTO user_organizations (user_id, organization_id, role)
+      VALUES ($1, $2, 'admin')
       ON CONFLICT (user_id, organization_id) DO NOTHING
     `, [userId, orgId]);
     console.log('✅ User linked to organization');
