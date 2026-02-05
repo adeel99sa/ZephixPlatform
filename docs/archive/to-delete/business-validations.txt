@@ -1,0 +1,5 @@
+# DELETE CANDIDATE
+# Reason: Generated artifact
+# Original: business-validations.txt
+
+src/auth/strategies/jwt.strategy.ts:  async validate(payload: any): Promise<User> {

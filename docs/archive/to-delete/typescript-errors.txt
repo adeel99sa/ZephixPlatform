@@ -1,0 +1,33 @@
+# DELETE CANDIDATE
+# Reason: Snapshot artifact
+# Original: typescript-errors.txt
+
+src/modules/projects/dto/assign-user.dto.ts(1,42): error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+src/modules/projects/entities/project-assignment.entity.ts(27,48): error TS2339: Property 'assignments' does not exist on type 'Project'.
+src/modules/projects/projects.module.ts(3,33): error TS2307: Cannot find module './services/projects.service' or its corresponding type declarations.
+src/modules/projects/projects.module.ts(4,36): error TS2307: Cannot find module './projects.controller' or its corresponding type declarations.
+src/modules/resources/dto/heat-map-query.dto.ts(1,58): error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+src/modules/resources/entities/resource-allocation.entity.ts(3,22): error TS2307: Cannot find module '../../users/entities/user.entity' or its corresponding type declarations.
+src/modules/resources/entities/resource-allocation.entity.ts(4,25): error TS2307: Cannot find module '../projects/entities/project.entity' or its corresponding type declarations.
+src/modules/resources/entities/resource-allocation.entity.ts(51,4): error TS2304: Cannot find name 'ManyToOne'.
+src/modules/resources/entities/resource-allocation.entity.ts(52,4): error TS2304: Cannot find name 'JoinColumn'.
+src/modules/resources/entities/resource-allocation.entity.ts(55,4): error TS2304: Cannot find name 'ManyToOne'.
+src/modules/resources/entities/resource-allocation.entity.ts(56,4): error TS2304: Cannot find name 'JoinColumn'.
+src/modules/resources/entities/resource-allocation.entity.ts(59,4): error TS2304: Cannot find name 'ManyToOne'.
+src/modules/resources/entities/resource-allocation.entity.ts(60,4): error TS2304: Cannot find name 'JoinColumn'.
+src/modules/resources/entities/resource-allocation.entity.ts(63,4): error TS2304: Cannot find name 'ManyToOne'.
+src/modules/resources/entities/resource-allocation.entity.ts(64,4): error TS2304: Cannot find name 'JoinColumn'.
+src/modules/resources/resource.module.ts(4,43): error TS2307: Cannot find module './services/resource-allocation.service' or its corresponding type declarations.
+src/modules/resources/resource.module.ts(5,46): error TS2307: Cannot find module './controllers/resource-allocation.controller' or its corresponding type declarations.
+src/projects/dto/assign-user.dto.ts(1,42): error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+src/projects/dto/create-project.dto.ts(1,58): error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+src/projects/entities/project-assignment.entity.ts(27,48): error TS2339: Property 'assignments' does not exist on type 'Project'.
+src/projects/services/projects.service.ts(34,44): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(entityLikeArray: DeepPartial<Project>[]): Project[]', gave the following error.
+    Object literal may only specify known properties, and 'organizationId' does not exist in type 'DeepPartial<Project>[]'.
+  Overload 2 of 3, '(entityLike: DeepPartial<Project>): Project', gave the following error.
+    Argument of type '{ organizationId: string; created_by: string; createdById: string; name: string; description?: string; status?: ProjectStatus; priority?: ProjectPriority; startDate?: string; endDate?: string; }' is not assignable to parameter of type 'DeepPartial<Project>'.
+      Type '{ organizationId: string; created_by: string; createdById: string; name: string; description?: string; status?: ProjectStatus; priority?: ProjectPriority; startDate?: string; endDate?: string; }' is not assignable to type '{ id?: string; name?: string; description?: string; currentPhase?: string; status?: DeepPartial<ProjectStatus>; startDate?: DeepPartial<Date>; ... 6 more ...; updatedAt?: DeepPartial<...>; }'.
+        Types of property 'status' are incompatible.
+          Type 'ProjectStatus' is not assignable to type 'DeepPartial<ProjectStatus>'.
+src/projects/services/projects.service.ts(45,20): error TS2339: Property 'id' does not exist on type 'Project[]'.
