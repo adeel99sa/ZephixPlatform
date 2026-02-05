@@ -59,12 +59,13 @@ async function bootstrap() {
     // Create demo user with hashed password
     const passwordHash = await bcrypt.hash('demo123!', 10);
     const userInsertResult = await dataSource.query(`
-      INSERT INTO users (id, email, password, name, email_verified_at, created_at, updated_at)
+      INSERT INTO users (id, email, password, first_name, last_name, email_verified_at, created_at, updated_at)
       VALUES (
         gen_random_uuid(),
         'demo@zephix.io',
         $1,
-        'Demo User',
+        'Demo',
+        'User',
         NOW(),
         NOW(),
         NOW()
