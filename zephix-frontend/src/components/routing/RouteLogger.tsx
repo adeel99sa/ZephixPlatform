@@ -9,6 +9,7 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/state/AuthContext';
+import { isAdminUser } from '@/utils/roles';
 
 interface RouteOutcome {
   route: string;
@@ -37,7 +38,7 @@ export function RouteLogger() {
     const isAdminRoute = location.pathname.startsWith('/admin');
     const userId = user?.id || 'anonymous';
     const orgId = user?.organizationId || 'none';
-    const isAdmin = user?.permissions?.isAdmin || false;
+    const isAdmin = user?.platformRole === 'ADMIN' || false;
 
     // Determine outcome for admin routes
     let outcome: RouteOutcome['outcome'] = 'unknown';
@@ -89,7 +90,7 @@ export function RouteLogger() {
         timestamp: new Date().toISOString(),
       });
     }
-  }, [location.pathname, user?.id, user?.organizationId, user?.permissions?.isAdmin]);
+  }, [location.pathname, user?.id, user?.organizationId, user?.platformRole]);
 
   return null; // This component doesn't render anything
 }

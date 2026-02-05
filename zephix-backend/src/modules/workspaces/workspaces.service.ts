@@ -13,7 +13,11 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { Project, ProjectStatus, ProjectState } from '../projects/entities/project.entity';
+import {
+  Project,
+  ProjectStatus,
+  ProjectState,
+} from '../projects/entities/project.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
@@ -155,7 +159,11 @@ export class WorkspacesService {
     }
   }
 
-  async getUserRole(workspaceId: string, userId: string, organizationId: string): Promise<{
+  async getUserRole(
+    workspaceId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<{
     role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
     canWrite: boolean;
     isReadOnly: boolean;
@@ -258,12 +266,12 @@ export class WorkspacesService {
    * PROMPT 6: Create workspace with multiple owners
    *
    * Constraints enforced:
-   * - Only platform ADMIN can create workspaces (enforced by RequireOrgRoleGuard)
+   * - Platform ADMIN or MEMBER can create workspaces (Guest blocked upstream)
    * - ownerUserIds array, minimum 1 owner required
    * - Each owner must be an org member with Member or Admin platform role
    * - Guest users (PlatformRole.VIEWER) CANNOT be workspace owners
    * - All owners are automatically added as workspace_owner members
-   * - If creator is Admin and not in ownerUserIds, still add creator as workspace_owner for safety
+   * - Creator is always added as workspace_owner
    */
   async createWithOwners(input: {
     name: string;
@@ -281,18 +289,22 @@ export class WorkspacesService {
       const userRepo = manager.getRepository(User);
       const userOrgRepo = manager.getRepository(UserOrganization);
 
+      const ownerUserIds = Array.from(
+        new Set([...input.ownerUserIds, input.createdBy]),
+      );
+
       // PROMPT 6: Validate all owner users exist and are in the organization
       const ownerUsers = await userRepo.find({
-        where: input.ownerUserIds.map((id) => ({ id })),
+        where: ownerUserIds.map((id) => ({ id })),
       });
 
-      if (ownerUsers.length !== input.ownerUserIds.length) {
+      if (ownerUsers.length !== ownerUserIds.length) {
         throw new NotFoundException('One or more owner users not found');
       }
 
       // Validate each owner is an active org member with Member or Admin platform role
       const ownerUserOrgs = await userOrgRepo.find({
-        where: input.ownerUserIds.map((userId) => ({
+        where: ownerUserIds.map((userId) => ({
           userId,
           organizationId: input.organizationId,
           isActive: true,
@@ -347,7 +359,7 @@ export class WorkspacesService {
       }
 
       // Use first owner as workspace.ownerId (for backward compatibility)
-      const primaryOwnerId = input.ownerUserIds[0];
+      const primaryOwnerId = ownerUserIds[0];
 
       const entity = workspaceRepo.create({
         name: input.name,
@@ -362,26 +374,7 @@ export class WorkspacesService {
       const savedWorkspace = await workspaceRepo.save(entity);
 
       // PROMPT 6: Create workspace_members rows for all owners
-      const ownerIdsSet = new Set(input.ownerUserIds);
-
-      // If creator is Admin and not in ownerUserIds, add creator as workspace_owner for safety
-      const creatorUserOrg = await userOrgRepo.findOne({
-        where: {
-          userId: input.createdBy,
-          organizationId: input.organizationId,
-          isActive: true,
-        },
-      });
-
-      if (creatorUserOrg) {
-        const creatorPlatformRole = normalizePlatformRole(creatorUserOrg.role);
-        if (
-          creatorPlatformRole === PlatformRole.ADMIN &&
-          !ownerIdsSet.has(input.createdBy)
-        ) {
-          ownerIdsSet.add(input.createdBy);
-        }
-      }
+      const ownerIdsSet = new Set(ownerUserIds);
 
       // Create or update workspace_members for all owners
       for (const ownerUserId of ownerIdsSet) {
@@ -583,7 +576,11 @@ export class WorkspacesService {
   /**
    * Get workspace summary with counts
    */
-  async getSummary(workspaceId: string, organizationId: string, userId: string) {
+  async getSummary(
+    workspaceId: string,
+    organizationId: string,
+    userId: string,
+  ) {
     // Verify workspace access (service method handles access check)
     const canAccess = await this.workspaceAccessService.canAccessWorkspace(
       workspaceId,
@@ -620,7 +617,10 @@ export class WorkspacesService {
     });
 
     // Use the higher count (some projects might have status != ACTIVE but state == ACTIVE)
-    const projectsInProgressCount = Math.max(projectsInProgress, projectsInProgressByState);
+    const projectsInProgressCount = Math.max(
+      projectsInProgress,
+      projectsInProgressByState,
+    );
 
     // Count tasks
     const tasksTotal = await this.taskRepo.count({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import { CreateTaskForm } from './CreateTaskForm';
 import { AssignResourceModal } from '../resources/AssignResourceModal';
 import { EditTaskModal } from './EditTaskModal';
@@ -13,6 +13,7 @@ interface Task {
   priority: string;
   dueDate?: string;
   projectId: string;
+  resourceImpactScore?: number;
 }
 
 interface TaskListProps {

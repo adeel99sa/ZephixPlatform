@@ -34,6 +34,12 @@ export interface Subscription {
   trialEndsAt?: string;
   autoRenew: boolean;
   plan: Plan;
+  metadata?: {
+    nextBillingDate?: string;
+    billingCycleDay?: number;
+    paymentMethodLast4?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface Usage {
@@ -63,24 +69,24 @@ class BillingApiService {
   }
 
   async subscribe(planType: 'starter' | 'professional' | 'enterprise', annual?: boolean): Promise<Subscription> {
-    const { data } = await apiClient.post('/billing/subscribe', {
+    const response = await apiClient.post<{ data: Subscription }>('/billing/subscribe', {
       planType,
       annual: annual || false,
     });
-    return data;
+    return unwrapData<Subscription>(response) || {} as Subscription;
   }
 
   async updateSubscription(updates: {
     planType?: 'starter' | 'professional' | 'enterprise';
     autoRenew?: boolean;
   }): Promise<Subscription> {
-    const { data } = await apiClient.patch('/billing/subscription', updates);
-    return data;
+    const response = await apiClient.patch<{ data: Subscription }>('/billing/subscription', updates);
+    return unwrapData<Subscription>(response) || {} as Subscription;
   }
 
   async cancelSubscription(): Promise<Subscription> {
-    const { data } = await apiClient.post('/billing/cancel');
-    return data;
+    const response = await apiClient.post<{ data: Subscription }>('/billing/cancel');
+    return unwrapData<Subscription>(response) || {} as Subscription;
   }
 
   async getUsage(): Promise<Usage> {

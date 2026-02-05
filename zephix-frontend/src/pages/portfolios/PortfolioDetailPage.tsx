@@ -82,7 +82,8 @@ export default function PortfolioDetailPage() {
       const response = await api.get<{ data: PortfolioRollup }>(
         `/workspaces/${wsId}/portfolios/${portfolioId}/rollup`
       );
-      setRollup(response.data);
+      const result = response as unknown as { data: PortfolioRollup };
+      setRollup(result.data);
     } catch (err: any) {
       console.error('Failed to load portfolio:', err);
       if (err?.response?.status === 404) {

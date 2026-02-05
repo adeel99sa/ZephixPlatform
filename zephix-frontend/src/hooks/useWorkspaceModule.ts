@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../services/api';
+import { api } from '@/lib/api';
 import { unwrapData } from '../lib/api/unwrapData';
 
 export interface WorkspaceModuleConfig {

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 export interface GateRequirements {
@@ -36,26 +40,46 @@ export class TemplatePolicyResolverService {
 
     const rawSchema = rows[0].schema;
     if (rawSchema !== null && typeof rawSchema !== 'object') {
-      throw new InternalServerErrorException('Template schema is invalid or malformed');
+      throw new InternalServerErrorException(
+        'Template schema is invalid or malformed',
+      );
     }
-    const schema = rawSchema && typeof rawSchema === 'object' && !Array.isArray(rawSchema) ? rawSchema : {};
-    const gates = schema.gates && typeof schema.gates === 'object' && !Array.isArray(schema.gates) ? schema.gates : {};
+    const schema =
+      rawSchema && typeof rawSchema === 'object' && !Array.isArray(rawSchema)
+        ? rawSchema
+        : {};
+    const gates =
+      schema.gates &&
+      typeof schema.gates === 'object' &&
+      !Array.isArray(schema.gates)
+        ? schema.gates
+        : {};
     if (!Object.prototype.hasOwnProperty.call(gates, gateKey)) {
-      throw new NotFoundException(`Gate "${gateKey}" not found in template schema`);
+      throw new NotFoundException(
+        `Gate "${gateKey}" not found in template schema`,
+      );
     }
     const gate = gates[gateKey];
-    const req = gate?.requirements && typeof gate.requirements === 'object' ? gate.requirements : {};
+    const req =
+      gate?.requirements && typeof gate.requirements === 'object'
+        ? gate.requirements
+        : {};
 
     return {
-      requiredDocKeys: Array.isArray(req.requiredDocKeys) ? req.requiredDocKeys : [],
-      requiredKpiKeys: Array.isArray(req.requiredKpiKeys) ? req.requiredKpiKeys : [],
+      requiredDocKeys: Array.isArray(req.requiredDocKeys)
+        ? req.requiredDocKeys
+        : [],
+      requiredKpiKeys: Array.isArray(req.requiredKpiKeys)
+        ? req.requiredKpiKeys
+        : [],
       requiredDocStates:
         Array.isArray(req.requiredDocStates) && req.requiredDocStates.length > 0
           ? req.requiredDocStates
           : ['approved', 'completed'],
       requireAllKpis:
         typeof req.requireAllKpis === 'boolean' ? req.requireAllKpis : true,
-      templateKey: typeof schema.templateKey === 'string' ? schema.templateKey : '',
+      templateKey:
+        typeof schema.templateKey === 'string' ? schema.templateKey : '',
       templateVersion: Number(rows[0].template_version ?? 1),
     };
   }

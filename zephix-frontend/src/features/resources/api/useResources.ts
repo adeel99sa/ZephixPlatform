@@ -40,7 +40,7 @@ export function useResourcesList(params: ResourceListFilters) {
     queryKey: ['resources', params],
     queryFn: async () => {
       // Build query params, handling array values
-      const queryParams: any = {
+      const queryParams: Record<string, unknown> = {
         page: params.page,
         pageSize: params.pageSize,
       };
@@ -57,12 +57,14 @@ export function useResourcesList(params: ResourceListFilters) {
       if (params.dateFrom) queryParams.dateFrom = params.dateFrom;
       if (params.dateTo) queryParams.dateTo = params.dateTo;
 
-      const { data } = await apiClient.get('/resources', {
+      const response = await apiClient.get<Resource[] | { data: Resource[] }>('/resources', {
         params: queryParams,
       });
 
       // Handle response format: { data: { data: Resource[] } } or { data: Resource[] }
-      const resources = data?.data?.data || data?.data || data || [];
+      const responseData = response.data as unknown;
+      const nestedData = responseData as { data?: Resource[] };
+      const resources = nestedData?.data || (Array.isArray(responseData) ? responseData : []);
 
       return {
         items: Array.isArray(resources) ? resources : [],
@@ -91,14 +93,16 @@ export function useCapacitySummary(
   return useQuery({
     queryKey: ['capacity-summary', dateFrom, dateTo, workspaceId],
     queryFn: async () => {
-      const params: any = { dateFrom, dateTo };
+      const params: Record<string, string> = { dateFrom, dateTo };
       if (workspaceId) params.workspaceId = workspaceId;
 
-      const { data } = await apiClient.get('/resources/capacity-summary', {
+      const response = await apiClient.get<CapacitySummary[] | { data: CapacitySummary[] }>('/resources/capacity-summary', {
         params,
       });
 
-      return (data?.data || data || []) as CapacitySummary[];
+      const responseData = response.data as unknown;
+      const nestedData = responseData as { data?: CapacitySummary[] };
+      return nestedData?.data || (Array.isArray(responseData) ? responseData : []) as CapacitySummary[];
     },
     enabled: !!dateFrom && !!dateTo,
     staleTime: 30_000,
@@ -123,11 +127,13 @@ export function useCapacityBreakdown(
     queryFn: async () => {
       if (!resourceId) return [];
 
-      const { data } = await apiClient.get(`/resources/${resourceId}/capacity-breakdown`, {
+      const response = await apiClient.get<CapacityBreakdown[] | { data: CapacityBreakdown[] }>(`/resources/${resourceId}/capacity-breakdown`, {
         params: { dateFrom, dateTo },
       });
 
-      return (data?.data || data || []) as CapacityBreakdown[];
+      const responseData = response.data as unknown;
+      const nestedData = responseData as { data?: CapacityBreakdown[] };
+      return nestedData?.data || (Array.isArray(responseData) ? responseData : []) as CapacityBreakdown[];
     },
     enabled: !!resourceId && !!dateFrom && !!dateTo,
     staleTime: 30_000,
@@ -143,8 +149,10 @@ export function useSkillsFacet() {
   return useQuery({
     queryKey: ['skills-facet'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/resources/skills');
-      return (data?.data || data || []) as SkillFacet[];
+      const response = await apiClient.get<SkillFacet[] | { data: SkillFacet[] }>('/resources/skills');
+      const responseData = response.data as unknown;
+      const nestedData = responseData as { data?: SkillFacet[] };
+      return nestedData?.data || (Array.isArray(responseData) ? responseData : []) as SkillFacet[];
     },
     staleTime: 60_000, // Skills change less frequently
   });
@@ -154,10 +162,10 @@ export function useResourceAllocations(resourceId: string, weeks = 8) {
   return useQuery({
     queryKey: ['resource-allocs', resourceId, weeks],
     queryFn: async () => {
-      const { data } = await apiClient.get(`/resources/${resourceId}/allocations`, {
+      const response = await apiClient.get<Array<{ week: string; pct: number }>>(`/resources/${resourceId}/allocations`, {
         params: { weeks },
       });
-      return data as Array<{ week: string; pct: number }>;
+      return response.data as Array<{ week: string; pct: number }>;
     },
   });
 }
@@ -191,13 +199,16 @@ export function useResourceRiskScore(
       if (!resourceId) return null;
 
       try {
-        const { data } = await apiClient.get(`/resources/${resourceId}/risk-score`, {
+        const response = await apiClient.get<ResourceRiskScore | { data: ResourceRiskScore }>(`/resources/${resourceId}/risk-score`, {
           params: { dateFrom, dateTo },
         });
-        return (data?.data || data) as ResourceRiskScore;
-      } catch (error: any) {
+        const responseData = response.data as unknown;
+        const nestedData = responseData as { data?: ResourceRiskScore };
+        return (nestedData?.data || responseData) as ResourceRiskScore;
+      } catch (error: unknown) {
         // Treat 404 as feature disabled, not an error
-        if (error?.response?.status === 404) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError?.response?.status === 404) {
           return null;
         }
         throw error;
@@ -205,9 +216,10 @@ export function useResourceRiskScore(
     },
     enabled: enabled && !!resourceId && !!dateFrom && !!dateTo,
     staleTime: 30_000,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 (feature disabled)
-      if (error?.response?.status === 404) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError?.response?.status === 404) {
         return false;
       }
       return failureCount < 2;
@@ -248,17 +260,20 @@ export function useWorkspaceResourceRiskSummary(
       if (!workspaceId) return null;
 
       try {
-        const params: any = { dateFrom, dateTo };
+        const params: Record<string, unknown> = { dateFrom, dateTo };
         if (limit !== undefined) params.limit = limit;
         if (minRiskScore !== undefined) params.minRiskScore = minRiskScore;
 
-        const { data } = await apiClient.get(`/workspaces/${workspaceId}/resource-risk-summary`, {
+        const response = await apiClient.get<WorkspaceRiskSummary | { data: WorkspaceRiskSummary }>(`/workspaces/${workspaceId}/resource-risk-summary`, {
           params,
         });
-        return (data?.data || data) as WorkspaceRiskSummary;
-      } catch (error: any) {
+        const responseData = response.data as unknown;
+        const nestedData = responseData as { data?: WorkspaceRiskSummary };
+        return (nestedData?.data || responseData) as WorkspaceRiskSummary;
+      } catch (error: unknown) {
         // Treat 404 as feature disabled, not an error
-        if (error?.response?.status === 404) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError?.response?.status === 404) {
           return null;
         }
         throw error;
@@ -266,9 +281,10 @@ export function useWorkspaceResourceRiskSummary(
     },
     enabled: enabled && !!workspaceId && !!dateFrom && !!dateTo,
     staleTime: 30_000,
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry on 404 (feature disabled)
-      if (error?.response?.status === 404) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError?.response?.status === 404) {
         return false;
       }
       return failureCount < 2;
@@ -291,7 +307,9 @@ export async function fetchResourceTimeline(
     },
   );
   // Handle response format: { data: [...] } from ResponseService.success()
-  return (response?.data?.data || response?.data || []) as ResourceTimelinePoint[];
+  const responseData = response.data as unknown;
+  const nestedData = responseData as { data?: ResourceTimelinePoint[] };
+  return (nestedData?.data || (Array.isArray(responseData) ? responseData : [])) as ResourceTimelinePoint[];
 }
 
 /**
@@ -302,7 +320,7 @@ export async function fetchResourceHeatmap(
   fromDate: string,
   toDate: string,
 ): Promise<HeatmapResponse> {
-  const params: any = { fromDate, toDate };
+  const params: Record<string, string> = { fromDate, toDate };
   if (workspaceId) params.workspaceId = workspaceId;
 
   const response = await apiClient.get<HeatmapApiResponse>(
@@ -314,7 +332,7 @@ export async function fetchResourceHeatmap(
 
   // Handle response format: { data: { data: [...] } } or { data: [...] }
   // Backend uses ResponseService.success() which wraps in { data: [...] }
-  const apiData = (response?.data?.data || response?.data || []) as Array<{
+  type HeatmapDayData = {
     date: string;
     resources: Array<{
       resourceId: string;
@@ -323,7 +341,10 @@ export async function fetchResourceHeatmap(
       softLoad: number;
       classification: 'NONE' | 'WARNING' | 'CRITICAL';
     }>;
-  }>;
+  };
+  const responseData = response.data as unknown;
+  const nestedData = responseData as { data?: HeatmapDayData[] };
+  const apiData = (nestedData?.data || (Array.isArray(responseData) ? responseData : [])) as HeatmapDayData[];
 
   // Extract unique resources and dates
   const resourceMap = new Map<string, HeatmapResourceRow>();

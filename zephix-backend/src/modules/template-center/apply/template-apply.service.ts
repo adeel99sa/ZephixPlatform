@@ -128,14 +128,18 @@ export class TemplateApplyService {
       throw new ForbiddenException('Project does not belong to this workspace');
     }
 
-    const { definition, versions } = await this.templateDefinitionsService.getByKey(
-      templateKey,
-      organizationId,
-      workspaceId ?? undefined,
-    );
-    const publishedVersion = versionOptional != null
-      ? versions.find((v) => v.version === versionOptional && v.status === 'published')
-      : versions.find((v) => v.status === 'published');
+    const { definition, versions } =
+      await this.templateDefinitionsService.getByKey(
+        templateKey,
+        organizationId,
+        workspaceId ?? undefined,
+      );
+    const publishedVersion =
+      versionOptional != null
+        ? versions.find(
+            (v) => v.version === versionOptional && v.status === 'published',
+          )
+        : versions.find((v) => v.status === 'published');
     if (!publishedVersion) {
       throw new NotFoundException(
         versionOptional != null
@@ -149,7 +153,11 @@ export class TemplateApplyService {
       name?: string;
       version?: number;
       kpis?: Array<{ kpi_key: string; required?: boolean }>;
-      documents?: Array<{ doc_key: string; required?: boolean; blocks_gate_key?: string }>;
+      documents?: Array<{
+        doc_key: string;
+        required?: boolean;
+        blocks_gate_key?: string;
+      }>;
       phases?: any[];
       gates?: any[];
       tasks?: any[];

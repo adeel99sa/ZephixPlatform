@@ -2,14 +2,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Add composite indexes for auth_outbox claim and retry queries
- * 
+ *
  * Indexes added:
  * - idx_auth_outbox_pending_claim: (status, next_attempt_at, created_at)
  *   Supports: WHERE status = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= $1) ORDER BY created_at ASC
- * 
+ *
  * - idx_auth_outbox_failed_retry: (status, next_attempt_at, attempts, created_at)
  *   Supports: WHERE status = 'failed' AND next_attempt_at <= $1 AND attempts < $2 ORDER BY created_at ASC
- * 
+ *
  * These indexes optimize the OutboxProcessorService queries that run every minute.
  */
 export class AddAuthOutboxCompositeIndexes1796000000001

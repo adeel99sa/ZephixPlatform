@@ -2,20 +2,27 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import ProfileMenu from './ProfileMenu';
 
+interface HealthResponse {
+  status: string;
+  timestamp?: string;
+}
+
 function ApiHealthChip() {
-  const { data, isFetching, error } = useQuery({
+  const { data, isFetching, error } = useQuery<HealthResponse>({
     queryKey: ['health'],
     queryFn: async () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
       
       try {
-        const response = await apiClient.get('/health', { 
+        const response = await apiClient.get<{ data?: HealthResponse } | HealthResponse>('/health', { 
           signal: controller.signal,
           timeout: 5000 
         });
         clearTimeout(timeoutId);
-        return response.data;
+        // Handle both { data: HealthResponse } and HealthResponse shapes
+        const result = response.data as { data?: HealthResponse } | HealthResponse;
+        return ('data' in result && result.data) ? result.data : result as HealthResponse;
       } catch (err) {
         clearTimeout(timeoutId);
         throw err;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 import { useAuth } from "@/state/AuthContext";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -35,7 +35,7 @@ export default function SecuritySettingsPage() {
   const loadSessions = async () => {
     try {
       setLoading(true);
-      const data = await api.get<Session[]>("/auth/sessions");
+      const data = await request.get<Session[]>("/auth/sessions");
       setSessions(data);
     } catch (error) {
       addToast({
@@ -50,7 +50,7 @@ export default function SecuritySettingsPage() {
 
   const handleRevokeSession = async (sessionId: string) => {
     try {
-      await api.post(`/auth/sessions/${sessionId}/revoke`);
+      await request.post(`/auth/sessions/${sessionId}/revoke`);
       setSessions((prev) =>
         prev.map((s) =>
           s.id === sessionId ? { ...s, isRevoked: true, isActive: false } : s
@@ -86,7 +86,7 @@ export default function SecuritySettingsPage() {
     try {
       // Backend uses auth context to identify current session
       // Send empty body - backend will use JWT to identify current session
-      await api.post("/auth/sessions/revoke-others", {});
+      await request.post("/auth/sessions/revoke-others", {});
       setSessions((prev) =>
         prev.map((s) =>
           s.id === currentSessionId ? s : { ...s, isRevoked: true, isActive: false }

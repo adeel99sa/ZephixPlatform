@@ -12,7 +12,8 @@ export type WidgetType =
   | "portfolio_summary"
   | "program_summary"
   | "budget_variance"
-  | "risk_summary";
+  | "risk_summary"
+  | "kpi";
 
 export interface DashboardLayoutItem {
   i: string; // widget id
@@ -58,6 +59,8 @@ export interface SharedDashboardEntity {
   description?: string | null;
   visibility?: DashboardVisibility;
   widgets: DashboardWidget[];
+  shareEnabled?: boolean;
+  shareToken?: string | null;
 }
 
 export interface DashboardTemplate {

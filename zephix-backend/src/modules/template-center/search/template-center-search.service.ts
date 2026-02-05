@@ -36,11 +36,12 @@ export class TemplateCenterSearchService {
     const maxPerType = Math.max(5, Math.ceil(effectiveLimit / 4));
 
     if (!context || context === 'template') {
-      const { definitions, latestVersions } = await this.templateDefinitionsService.list(
-        { search: term || undefined },
-        scope.organizationId,
-        scope.workspaceId ?? undefined,
-      );
+      const { definitions, latestVersions } =
+        await this.templateDefinitionsService.list(
+          { search: term || undefined },
+          scope.organizationId,
+          scope.workspaceId ?? undefined,
+        );
       for (const d of definitions.slice(0, maxPerType)) {
         const score = this.score(term, d.templateKey, d.name, d.description);
         if (score > 0 || !term) {
@@ -55,10 +56,13 @@ export class TemplateCenterSearchService {
               templateKey: d.templateKey,
               name: d.name,
               version: latest?.version,
-              latestVersion: latest ? { version: latest.version, status: latest.status } : undefined,
+              latestVersion: latest
+                ? { version: latest.version, status: latest.status }
+                : undefined,
             },
           };
-          if ((d as any).updatedAt) item.updatedAt = (d as any).updatedAt.toISOString();
+          if ((d as any).updatedAt)
+            item.updatedAt = (d as any).updatedAt.toISOString();
           results.push(item);
         }
       }
@@ -142,7 +146,10 @@ export class TemplateCenterSearchService {
     return results.slice(0, effectiveLimit);
   }
 
-  private score(term: string, ...fields: (string | null | undefined)[]): number {
+  private score(
+    term: string,
+    ...fields: (string | null | undefined)[]
+  ): number {
     if (!term) return 0;
     let best = 0;
     for (const f of fields) {

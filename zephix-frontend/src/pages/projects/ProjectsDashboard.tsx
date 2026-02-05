@@ -53,7 +53,7 @@ export const ProjectsDashboard: React.FC = () => {
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight text-white mb-3">Error Loading Projects</h1>
           <p className="text-gray-400 mb-6">{error.message}</p>
-          <Button onClick={fetchProjects}>Try Again</Button>
+          <Button onClick={() => fetchProjects()}>Try Again</Button>
         </div>
       </div>
     );
@@ -73,9 +73,9 @@ export const ProjectsDashboard: React.FC = () => {
             </div>
             <Button
               onClick={handleCreateProject}
-              leftIcon={<PlusIcon className="w-4 h-4" />}
-              className="px-6 py-3"
+              className="px-6 py-3 flex items-center gap-2"
             >
+              <PlusIcon className="w-4 h-4" />
               Create Project
             </Button>
           </div>
@@ -107,9 +107,9 @@ export const ProjectsDashboard: React.FC = () => {
             </p>
             <Button
               onClick={handleCreateProject}
-              leftIcon={<PlusIcon className="w-4 h-4" />}
-              className="px-6 py-3"
+              className="px-6 py-3 flex items-center gap-2"
             >
+              <PlusIcon className="w-4 h-4" />
               Create Your First Project
             </Button>
           </div>

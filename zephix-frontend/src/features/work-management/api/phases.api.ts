@@ -44,10 +44,10 @@ export async function updatePhase(
 
   // If response has ack, return it directly (not wrapped in { data })
   if ('ack' in response) {
-    return response as AckRequiredResponse;
+    return response as unknown as AckRequiredResponse;
   }
 
   // Otherwise, extract data from success response
-  return (response as { data: WorkPhase }).data;
+  return (response as unknown as { data: WorkPhase }).data;
 }
 

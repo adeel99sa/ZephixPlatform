@@ -24,7 +24,7 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
-import { getWorkspace, updateWorkspace, listProjects, listWorkspaceMembers } from '@/features/workspaces/workspace.api';
+import { getWorkspace, updateWorkspace, listProjects, listWorkspaceMembers, WorkspaceApiData, WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { ProjectCreateModal } from '@/features/projects/ProjectCreateModal';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
 import { Button } from '@/components/ui/Button';
@@ -33,23 +33,11 @@ import { mapRoleToAccessLevel } from '@/utils/workspace-access-levels';
 import { addWorkspaceMember } from '@/features/workspaces/workspace.api';
 import { toast } from 'sonner';
 import { mapAccessLevelToRole } from '@/utils/workspace-access-levels';
-import { api } from '@/lib/api';
+import { request } from '@/lib/api';
 import { useWorkspaceVisitTracker } from '@/hooks/useWorkspaceVisitTracker';
 
-type Workspace = {
-  id: string;
-  name: string;
-  description?: string;
-  ownerId?: string;
-  owner?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    name?: string;
-  };
-  homeNotes?: string;
-};
+// Use the Workspace type from workspace.api.ts
+type Workspace = WorkspaceApiData;
 
 type Project = {
   id: string;
@@ -128,26 +116,14 @@ type WorkspaceHomeData = {
   executionSummary?: ExecutionSummary; // PHASE 7 MODULE 7.3: Execution signals
 };
 
-type Member = {
-  id: string;
-  userId?: string;
-  user?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    name?: string;
-  };
-  email?: string;
-  name?: string;
-  role?: string;
-};
+// Use the Member type from workspace.api.ts
+type Member = WorkspaceMember;
 
 export default function WorkspaceHome() {
   const workspaceId = useWorkspaceStore(s => s.activeWorkspaceId);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { workspaceRole } = useWorkspaceRole(workspaceId);
+  const { role: workspaceRole } = useWorkspaceRole(workspaceId);
   const permissions = useWorkspacePermissions();
 
   const { slug } = useParams<{ slug: string }>();
@@ -211,7 +187,7 @@ export default function WorkspaceHome() {
    */
   async function resolveWorkspaceIdFromSlug(slug: string): Promise<string | null> {
     try {
-      const response = await api.get<{ id: string; slug: string; name: string }>(`/workspaces/slug/${slug}`);
+      const response = await request.get<{ id: string; slug: string; name: string }>(`/workspaces/slug/${slug}`);
       return response?.id || null;
     } catch (error) {
       console.error('Failed to resolve workspace from slug:', error);
@@ -251,7 +227,7 @@ export default function WorkspaceHome() {
       let homeData: WorkspaceHomeData | null = null;
       if (slug) {
         try {
-          const response = await api.get<{ data: WorkspaceHomeData }>(`/workspaces/slug/${slug}/home`);
+          const response = await request.get<{ data: WorkspaceHomeData }>(`/workspaces/slug/${slug}/home`);
           homeData = response.data;
           setWorkspaceHomeData(homeData);
           if (homeData?.workspace) {

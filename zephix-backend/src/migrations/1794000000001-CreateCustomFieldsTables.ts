@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateCustomFieldsTables1794000000001 implements MigrationInterface {
+export class CreateCustomFieldsTables1794000000001
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Create custom_field_definitions table
     await queryRunner.createTable(

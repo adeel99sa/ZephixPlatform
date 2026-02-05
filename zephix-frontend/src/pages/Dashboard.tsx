@@ -10,7 +10,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {user?.name}
+          Welcome back, {user?.firstName}
         </h1>
         <div className="text-sm text-gray-500">
           Organization: {user?.organizationId}
@@ -20,7 +20,7 @@ export function Dashboard() {
       <StatsGrid permissions={permissions} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <QuickActions permissions={permissions} />
+        <QuickActions />
         <RecentProjects />
       </div>
     </div>

@@ -1,12 +1,24 @@
 import { useState, useCallback } from 'react';
-import api from '../services/api';
+import { api } from '@/lib/api';
+
+export interface ReportResult {
+  reportId: string;
+  status?: string;
+}
+
+export interface ExportResult {
+  downloadUrl: string;
+}
+
+export type MetricsData = Record<string, unknown>;
+export type TrendsData = unknown[];
 
 export interface UseStatusReportingReturn {
-  generateReport: (config: any) => Promise<any>;
-  getMetrics: (projectId: string) => Promise<any>;
-  getTrends: (projectId: string) => Promise<any>;
-  exportReport: (reportId: string, format: string) => Promise<any>;
-  configureAlerts: (projectId: string, config: any) => Promise<any>;
+  generateReport: (config: unknown) => Promise<ReportResult>;
+  getMetrics: (projectId: string) => Promise<MetricsData>;
+  getTrends: (projectId: string) => Promise<TrendsData>;
+  exportReport: (reportId: string, format: string, stakeholderType?: string) => Promise<ExportResult>;
+  configureAlerts: (projectId: string, config: unknown) => Promise<unknown>;
   loading: boolean;
   error: string | null;
 }
@@ -15,15 +27,12 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generateReport = useCallback(async (config: any) => {
+  const generateReport = useCallback(async (config: unknown): Promise<ReportResult> => {
     setLoading(true);
     setError(null);
     
     try {
-      const data = await api.get('/pm/status-reporting/generate', {
-        method: 'POST',
-        body: config,
-      });
+      const data = await api.post('/pm/status-reporting/generate', config) as ReportResult;
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report');
@@ -33,42 +42,37 @@ export const useStatusReporting = (): UseStatusReportingReturn => {
     }
   }, []);
 
-  const getMetrics = useCallback(async (projectId: string) => {
+  const getMetrics = useCallback(async (projectId: string): Promise<MetricsData> => {
     try {
-      return await api.get(`/pm/status-reporting/${projectId}/metrics`);
+      return await api.get(`/pm/status-reporting/${projectId}/metrics`) as MetricsData;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
       throw err;
     }
   }, []);
 
-  const getTrends = useCallback(async (projectId: string) => {
+  const getTrends = useCallback(async (projectId: string): Promise<TrendsData> => {
     try {
-      return await api.get(`/pm/status-reporting/${projectId}/trends`);
+      return await api.get(`/pm/status-reporting/${projectId}/trends`) as TrendsData;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch trends');
       throw err;
     }
   }, []);
 
-  const exportReport = useCallback(async (reportId: string, format: string) => {
+  const exportReport = useCallback(async (reportId: string, format: string, stakeholderType = 'executive'): Promise<ExportResult> => {
     try {
-      return await api.get(`/pm/status-reporting/${reportId}/export`, {
-        method: 'POST',
-        body: { format, stakeholderType: 'executive' },
-      });
+      const result = await api.post(`/pm/status-reporting/${reportId}/export`, { format, stakeholderType }) as ExportResult;
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export report');
       throw err;
     }
   }, []);
 
-  const configureAlerts = useCallback(async (projectId: string, config: any) => {
+  const configureAlerts = useCallback(async (projectId: string, config: unknown) => {
     try {
-      return await api.get(`/pm/status-reporting/${projectId}/alerts/configure`, {
-        method: 'POST',
-        body: config,
-      });
+      return await api.post(`/pm/status-reporting/${projectId}/alerts/configure`, config);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to configure alerts');
       throw err;

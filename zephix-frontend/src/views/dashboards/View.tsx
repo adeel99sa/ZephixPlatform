@@ -11,6 +11,7 @@ import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
 import ShareDialog from "@/features/dashboards/ShareDialog";
 import { track } from "@/lib/telemetry";
 import { getProjectsCountByWorkspace } from "@/features/projects/api";
+import { getProjectCompletionStats, getWorkspaceCompletionStats } from "@/features/work-management/workTasks.stats.api";
 import type { DashboardEntity, SharedDashboardEntity } from "@/features/dashboards/types";
 import { WorkspaceRequiredError } from "@/features/dashboards/schemas";
 
@@ -218,18 +219,18 @@ export default function DashboardView() {
               if (source === 'workItems.completedRatio.byProject') {
                 const projectId = w.config?.projectId;
                 if (!projectId) return { id: w.id, data: { error: true } };
-                data = await getCompletionRatioByProject(projectId);
-                track('kpi.workitems_ratio.fetched', { projectId, widgetId: w.id });
+                data = await getProjectCompletionStats(projectId);
+                track('kpi.tasks_ratio.fetched', { projectId, widgetId: w.id });
               } else if (source === 'workItems.completedRatio.byWorkspace') {
                 const wsId = w.config?.workspaceId;
                 if (!wsId) return { id: w.id, data: { error: true } };
-                data = await getCompletionRatioByWorkspace(wsId);
-                track('kpi.workitems_ratio.fetched', { wsId, widgetId: w.id });
+                data = await getWorkspaceCompletionStats(wsId);
+                track('kpi.tasks_ratio.fetched', { wsId, widgetId: w.id });
               }
 
               return { id: w.id, data };
             } catch (e) {
-              track('kpi.workitems_ratio.error', { widgetId: w.id, error: (e as Error).message });
+              track('kpi.tasks_ratio.error', { widgetId: w.id, error: (e as Error).message });
               return { id: w.id, data: { error: true } };
             }
           })
@@ -431,8 +432,8 @@ export default function DashboardView() {
       {shareOpen && dashboard && (
         <ShareDialog
           dashboardId={dashboard.id}
-          initialVisibility={dashboard.visibility}
-          initialShareEnabled={dashboard.shareEnabled}
+          initialVisibility={dashboard.visibility ?? "PRIVATE"}
+          initialShareEnabled={dashboard.shareEnabled ?? false}
           onSave={saveShare}
           onClose={() => setShareOpen(false)}
         />

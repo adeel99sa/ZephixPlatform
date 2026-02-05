@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import api, { unwrapApiData } from '@/services/api';
+import { api, unwrapApiData } from '@/lib/api';
 
 type Doc = {
   id: string;

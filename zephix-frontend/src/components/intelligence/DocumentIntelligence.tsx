@@ -5,7 +5,7 @@ import {
   DocumentIntelligenceProps,
   DocumentIntelligenceState 
 } from '../../types/document-intelligence.types';
-import api from '../../services/api';
+import { request } from '@/lib/api';
 
 const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({ 
   onAnalysisComplete, 
@@ -35,16 +35,9 @@ const DocumentIntelligence: React.FC<DocumentIntelligenceProps> = ({
       formData.append('documentType', detectDocumentType(file.name));
       formData.append('organizationContext', JSON.stringify(organizationContext));
 
-      const response = await api.get('/ai-intelligence/pm-document-upload', {
-        method: 'POST',
-        body: formData
+      const result = await request.post<{ success: boolean; analysis: PMDocumentAnalysis }>('/ai-intelligence/pm-document-upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze document');
-      }
-
-      const result = await response.json();
       
       if (result.success) {
         setState(prev => ({ 

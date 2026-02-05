@@ -12,13 +12,14 @@ import {
   Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { LegacyTasksGuard } from '../../../guards/legacy-tasks.guard';
 import { TaskService } from '../services/task.service';
 import { CreateTaskDto, UpdateTaskDto } from '../dto/create-task.dto';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 
 @Controller('projects/:projectId/tasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(LegacyTasksGuard, JwtAuthGuard)
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 

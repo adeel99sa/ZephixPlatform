@@ -1,6 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Auth response types
+interface AuthResponseData {
+  user?: User;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+interface TokenResponseData {
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -70,17 +82,18 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Use the API client for proper path normalization
           const { apiClient } = await import('@/lib/api/client');
-          const response = await apiClient.post('/auth/login', { email, password });
+          const response = await apiClient.post<AuthResponseData>('/auth/login', { email, password });
           
           // Handle the API response structure
-          const userData = response.data?.user || response.user;
-          const accessToken = response.data?.accessToken || response.accessToken;
-          const refreshToken = response.data?.refreshToken || response.refreshToken;
+          const authData = response.data as AuthResponseData | undefined;
+          const userData = authData?.user;
+          const accessToken = authData?.accessToken;
+          const refreshToken = authData?.refreshToken;
           
           set({
-            user: userData,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
+            user: userData ?? null,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -118,11 +131,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Use the API client for proper path normalization
           const { apiClient } = await import('@/lib/api/client');
-          const response = await apiClient.post('/auth/refresh', { refreshToken });
+          const response = await apiClient.post<TokenResponseData>('/auth/refresh', { refreshToken });
           
+          const tokenData = response.data as TokenResponseData | undefined;
           set({
-            accessToken: response.data?.accessToken || response.accessToken,
-            refreshToken: response.data?.refreshToken || response.refreshToken,
+            accessToken: tokenData?.accessToken ?? null,
+            refreshToken: tokenData?.refreshToken ?? null,
             isAuthenticated: true,
           });
         } catch (error) {
@@ -160,16 +174,17 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Use the API client for proper path normalization
           const { apiClient } = await import('@/lib/api/client');
-          const response = await apiClient.post('/auth/signup', { email, password, firstName, lastName });
+          const response = await apiClient.post<AuthResponseData>('/auth/signup', { email, password, firstName, lastName });
           
-          const userData = response.data?.user || response.user;
-          const accessToken = response.data?.accessToken || response.accessToken;
-          const refreshToken = response.data?.refreshToken || response.refreshToken;
+          const authData = response.data as AuthResponseData | undefined;
+          const userData = authData?.user;
+          const accessToken = authData?.accessToken;
+          const refreshToken = authData?.refreshToken;
           
           set({
-            user: userData,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
+            user: userData ?? null,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
             isAuthenticated: true,
             isLoading: false,
             error: null,

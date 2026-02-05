@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ChevronRight, ChevronDown, Clock, User, Flag, AlertCircle, CheckCircle, Building } from 'lucide-react';
-import api from '../../services/api';
+import { request } from '@/lib/api';
+import { useWorkspaceStore } from '@/state/workspace.store';
 
 interface TaskDependency {
   id: string;
@@ -22,6 +23,7 @@ interface Task {
   status: string;
   priority: string;
   assignee?: { id: string; firstName: string; lastName: string; email: string };
+  assignedTo?: string; // ID of assigned user
   estimatedHours: number;
   actualHours: number;
   progressPercentage: number;
@@ -77,7 +79,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const fetchAvailableUsers = async () => {
     try {
-      const users = await api.get('/users/available');
+      const users = await request.get<User[]>('/users/available');
       setAvailableUsers(users);
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -87,10 +89,12 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/work/tasks?projectId=${projectId}`);
+      const response = await request.get<{ data?: Task[] } | Task[]>(`/work/tasks?projectId=${projectId}`);
       // Backend ResponseService returns { success: true, data: [...] }
-      const data = response.data?.data || response.data || [];
-      setTasks(Array.isArray(data) ? data : []);
+      // Handle both { data: [...] } and [...] response shapes
+      const rawData = response as { data?: Task[] } | Task[];
+      const data = Array.isArray(rawData) ? rawData : (rawData.data ?? []);
+      setTasks(data);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
@@ -128,7 +132,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const updateTaskStatus = async (taskId: string, status: string) => {
     try {
-      await api.patch(`/work/tasks/${taskId}`, { status });
+      await request.patch(`/work/tasks/${taskId}`, { status });
       fetchTasks();
     } catch (error) {
       console.error('Failed to update task:', error);
@@ -148,7 +152,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ projectId, phase
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      await api.patch(`/work/tasks/${updatedTask.id}`, updatedTask);
+      await request.patch(`/work/tasks/${updatedTask.id}`, updatedTask);
       fetchTasks(); // Refresh list
       setEditModalOpen(false);
       setEditingTask(null);
@@ -426,7 +430,7 @@ const CreateTaskModal: React.FC<{
     console.log('Sending task data:', payload);
 
     try {
-      await api.post('/work/tasks', payload);
+      await request.post('/work/tasks', payload);
       onSuccess();
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -774,12 +778,15 @@ const EditTaskModal: React.FC<{
             <label className="block text-sm font-medium mb-1">Assignment Type</label>
             <select
               value={formData.assignmentType}
-              onChange={(e) => setFormData({
-                ...formData,
-                assignmentType: e.target.value,
-                assignedTo: e.target.value === 'vendor' ? '' : formData.assignedTo,
-                vendorName: e.target.value === 'internal' ? '' : formData.vendorName
-              })}
+              onChange={(e) => {
+                const newType = e.target.value as 'internal' | 'vendor';
+                setFormData({
+                  ...formData,
+                  assignmentType: newType,
+                  assignedTo: newType === 'vendor' ? '' : formData.assignedTo,
+                  vendorName: newType === 'internal' ? '' : formData.vendorName
+                });
+              }}
               className="w-full border rounded px-3 py-2"
             >
               <option value="internal">Internal Team Member</option>

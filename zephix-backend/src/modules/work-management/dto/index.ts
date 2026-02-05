@@ -5,3 +5,8 @@ export * from './bulk-status-update.dto';
 export * from './add-dependency.dto';
 export * from './remove-dependency.dto';
 export * from './add-comment.dto';
+export * from './create-work-risk.dto';
+export * from './list-work-risks.query';
+export * from './create-work-resource-allocation.dto';
+export * from './update-work-resource-allocation.dto';
+export * from './list-work-resource-allocations.query';

@@ -46,7 +46,9 @@ export class TemplateVersion {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => TemplateDefinition, (d) => d.versions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => TemplateDefinition, (d) => d.versions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'template_definition_id' })
   templateDefinition?: TemplateDefinition;
 

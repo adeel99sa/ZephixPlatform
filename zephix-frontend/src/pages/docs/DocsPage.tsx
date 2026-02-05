@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getDoc, updateDoc, Doc } from "@/features/docs/api";
-import { useAuth } from "@/state/AuthContext";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { toast } from "sonner";
 
 export default function DocsPage() {
   const { docId } = useParams();
   const navigate = useNavigate();
-  const { activeWorkspaceId } = useAuth();
+  const { activeWorkspaceId } = useWorkspaceStore();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");

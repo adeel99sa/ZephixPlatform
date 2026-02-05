@@ -22,9 +22,12 @@ export const databaseConfig: TypeOrmModuleOptions = {
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging
   ssl:
-    process.env.NODE_ENV === 'production'
-      ? { rejectUnauthorized: false }
-      : false,
+    // Allow explicit override via DATABASE_SSL env var (for CI with NODE_ENV=production but no SSL)
+    process.env.DATABASE_SSL === 'false'
+      ? false
+      : process.env.NODE_ENV === 'production'
+        ? { rejectUnauthorized: false }
+        : false,
   extra: {
     max: 10, // Increased connection limit
     min: 2, // Minimum connections

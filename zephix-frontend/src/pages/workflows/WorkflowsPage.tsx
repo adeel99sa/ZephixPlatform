@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuthStore } from '../../stores/authStore';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface WorkflowTemplate {
@@ -120,9 +120,7 @@ export const WorkflowsPage: React.FC = () => {
 
     try {
       // Use existing API pattern with proper authentication and organization scoping
-      const response = await api.get(`/workflows/templates/${workflowId}/status`, {
-        method: 'PATCH',
-        body: { status: newStatus },
+      const response = await api.patch(`/workflows/templates/${workflowId}/status`, { status: newStatus }, {
         headers: {
           'X-Org-Id': user.organizationId
         }

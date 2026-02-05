@@ -75,8 +75,9 @@ export const useMetricCounter = (
       if (typeof endValue === 'number') {
         animateCount(startValue, endValue, duration, easeOutQuart);
       } else {
-        // For string values, just set immediately
-        setCount(endValue);
+        // For string values, parse to number or use 0
+        const numericValue = typeof endValue === 'string' ? parseFloat(endValue) || 0 : 0;
+        setCount(numericValue);
         setIsCounting(false);
       }
     }, delay);

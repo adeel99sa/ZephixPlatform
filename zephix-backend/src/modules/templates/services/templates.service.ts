@@ -837,89 +837,95 @@ export class TemplatesService {
       },
       async () => {
         return this.dataSource.transaction(async (manager) => {
-      // Load template by id first
-      const template = await manager.getRepository(Template).findOne({
-        where: { id: templateId },
-      });
+          // Load template by id first
+          const template = await manager.getRepository(Template).findOne({
+            where: { id: templateId },
+          });
 
-      if (!template) {
-        throw new NotFoundException('Template not found');
-      }
+          if (!template) {
+            throw new NotFoundException('Template not found');
+          }
 
-      // Apply scope checks using ctx
-      if (template.templateScope === 'ORG') {
-        // Require ctx.organizationId equals template.organizationId
-        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
-          throw new ForbiddenException(
-            'Cannot update template from different organization',
-          );
-        }
-        // Admin role required
-        const platformRole = ctx.platformRole
-          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
-          : null;
-        if (!isAdminRole(platformRole)) {
-          throw new ForbiddenException(
-            'Only organization admins can update ORG templates',
-          );
-        }
-      } else if (template.templateScope === 'WORKSPACE') {
-        // Require ctx.organizationId equals template.organizationId
-        if (!ctx.organizationId || ctx.organizationId !== template.organizationId) {
-          throw new ForbiddenException(
-            'Cannot update template from different organization',
-          );
-        }
-        // Require ctx.workspaceId equals template.workspaceId
-        if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
-          throw new ForbiddenException(
-            'Cannot update template from different workspace',
-          );
-        }
-        // Allow admin, or workspace_owner with write access
-        // For non-admin, workspace role check is done in controller
-      } else if (template.templateScope === 'SYSTEM') {
-        // Allow only admin
-        const platformRole = ctx.platformRole
-          ? normalizePlatformRole(ctx.platformRole as PlatformRole)
-          : null;
-        if (!isAdminRole(platformRole)) {
-          throw new ForbiddenException('Cannot update SYSTEM templates');
-        }
-      }
+          // Apply scope checks using ctx
+          if (template.templateScope === 'ORG') {
+            // Require ctx.organizationId equals template.organizationId
+            if (
+              !ctx.organizationId ||
+              ctx.organizationId !== template.organizationId
+            ) {
+              throw new ForbiddenException(
+                'Cannot update template from different organization',
+              );
+            }
+            // Admin role required
+            const platformRole = ctx.platformRole
+              ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+              : null;
+            if (!isAdminRole(platformRole)) {
+              throw new ForbiddenException(
+                'Only organization admins can update ORG templates',
+              );
+            }
+          } else if (template.templateScope === 'WORKSPACE') {
+            // Require ctx.organizationId equals template.organizationId
+            if (
+              !ctx.organizationId ||
+              ctx.organizationId !== template.organizationId
+            ) {
+              throw new ForbiddenException(
+                'Cannot update template from different organization',
+              );
+            }
+            // Require ctx.workspaceId equals template.workspaceId
+            if (!ctx.workspaceId || ctx.workspaceId !== template.workspaceId) {
+              throw new ForbiddenException(
+                'Cannot update template from different workspace',
+              );
+            }
+            // Allow admin, or workspace_owner with write access
+            // For non-admin, workspace role check is done in controller
+          } else if (template.templateScope === 'SYSTEM') {
+            // Allow only admin
+            const platformRole = ctx.platformRole
+              ? normalizePlatformRole(ctx.platformRole as PlatformRole)
+              : null;
+            if (!isAdminRole(platformRole)) {
+              throw new ForbiddenException('Cannot update SYSTEM templates');
+            }
+          }
 
-      // Update allowed fields only
-      if (dto.name !== undefined) {
-        template.name = dto.name.trim();
-      }
-      if (dto.description !== undefined) {
-        template.description = dto.description;
-      }
-      if (dto.category !== undefined) {
-        template.category = dto.category;
-      }
-      if (dto.icon !== undefined) {
-        template.icon = dto.icon;
-      }
-      if (dto.methodology !== undefined) {
-        template.methodology = dto.methodology as any;
-      }
-      if (dto.metadata !== undefined) {
-        template.metadata = dto.metadata;
-      }
-      if (dto.structure !== undefined) {
-        template.structure = dto.structure;
-      }
-      if (dto.defaultEnabledKPIs !== undefined) {
-        template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
-      }
+          // Update allowed fields only
+          if (dto.name !== undefined) {
+            template.name = dto.name.trim();
+          }
+          if (dto.description !== undefined) {
+            template.description = dto.description;
+          }
+          if (dto.category !== undefined) {
+            template.category = dto.category;
+          }
+          if (dto.icon !== undefined) {
+            template.icon = dto.icon;
+          }
+          if (dto.methodology !== undefined) {
+            template.methodology = dto.methodology as any;
+          }
+          if (dto.metadata !== undefined) {
+            template.metadata = dto.metadata;
+          }
+          if (dto.structure !== undefined) {
+            template.structure = dto.structure;
+          }
+          if (dto.defaultEnabledKPIs !== undefined) {
+            template.defaultEnabledKPIs = dto.defaultEnabledKPIs;
+          }
 
-      template.updatedById = ctx.userId;
+          template.updatedById = ctx.userId;
 
-      // Persist via repository save
-      // Use manager.getRepository which doesn't require tenant context
-      const saved = await manager.getRepository(Template).save(template);
-      return saved;
+          // Persist via repository save
+          // Use manager.getRepository which doesn't require tenant context
+          const saved = await manager.getRepository(Template).save(template);
+          return saved;
         });
       },
     );

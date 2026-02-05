@@ -7,6 +7,7 @@ export interface Column<T> {
   header: string;
   accessor: keyof T | ((row: T) => React.ReactNode);
   sortable?: boolean;
+  filterable?: boolean;
   width?: string;
   align?: 'left' | 'center' | 'right';
 }
@@ -34,6 +35,7 @@ export interface DataTableProps<T> {
   className?: string;
   loading?: boolean;
   emptyMessage?: string;
+  emptyState?: React.ReactNode;
 }
 
 type SortState = {
@@ -53,6 +55,7 @@ export function DataTable<T extends Record<string, any>>({
   className,
   loading = false,
   emptyMessage = 'No data available',
+  emptyState,
 }: DataTableProps<T>) {
   const [sortState, setSortState] = useState<SortState | null>(
     initialSort || null
@@ -219,7 +222,7 @@ export function DataTable<T extends Record<string, any>>({
                   colSpan={columns.length}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
-                  {emptyMessage}
+                  {emptyState ?? emptyMessage}
                 </td>
               </tr>
             ) : (

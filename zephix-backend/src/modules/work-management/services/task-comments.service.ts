@@ -8,6 +8,7 @@ import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
 import { AddCommentDto } from '../dto/add-comment.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { IsNull } from 'typeorm';
 
 interface AuthContext {
   organizationId: string;
@@ -34,14 +35,14 @@ export class TaskCommentsService {
   ): Promise<TaskComment> {
     const organizationId = this.tenantContext.assertOrganizationId();
 
-    // Validate task exists
+    // Validate task exists and is not soft-deleted
     const task = await this.taskRepo.findOne({
-      where: { id: taskId, workspaceId },
+      where: { id: taskId, workspaceId, deletedAt: IsNull() },
     });
 
     if (!task) {
       throw new NotFoundException({
-        code: 'NOT_FOUND',
+        code: 'TASK_NOT_FOUND',
         message: 'Task not found',
       });
     }
@@ -75,6 +76,17 @@ export class TaskCommentsService {
     limit: number = 50,
     offset: number = 0,
   ): Promise<{ items: TaskComment[]; total: number }> {
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, workspaceId, deletedAt: IsNull() },
+      select: ['id'],
+    });
+    if (!task) {
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+
     const [items, total] = await this.commentRepo.findAndCount({
       where: { taskId, workspaceId },
       order: { createdAt: 'DESC' },

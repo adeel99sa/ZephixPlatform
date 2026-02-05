@@ -34,7 +34,9 @@ import {
   isAdminRole,
 } from '../../shared/enums/platform-roles.enum';
 import { ForbiddenException } from '@nestjs/common';
-import { In } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { Project } from '../projects/entities/project.entity';
+import { InjectRepository } from '@nestjs/typeorm';
 
 /**
  * PHASE 7 MODULE 7.1: Status Transition Validation
@@ -70,6 +72,7 @@ interface ListOptions {
 interface CreateOptions extends CreateWorkItemDto {
   organizationId: string;
   createdBy: string;
+  platformRole?: string;
 }
 
 interface UpdateOptions extends UpdateWorkItemDto {
@@ -93,6 +96,8 @@ export class WorkItemService {
     @Inject(getTenantAwareRepositoryToken(WorkItemActivity))
     private readonly workItemActivityRepo: TenantAwareRepository<WorkItemActivity>,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
     @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
     private workspaceMemberRepo: TenantAwareRepository<WorkspaceMember>,
   ) {}
@@ -178,6 +183,34 @@ export class WorkItemService {
       throw new BadRequestException(
         'title, workspaceId, and projectId are required',
       );
+    }
+
+    const organizationId = this.tenantContextService.assertOrganizationId();
+    const project = await this.projectRepo.findOne({
+      where: { id: options.projectId, organizationId },
+      select: ['id', 'workspaceId', 'organizationId'],
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (project.workspaceId !== options.workspaceId) {
+      throw new BadRequestException({
+        code: 'PROJECT_WORKSPACE_MISMATCH',
+        message: 'Project does not belong to workspace',
+      });
+    }
+
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      options.workspaceId,
+      organizationId,
+      options.createdBy,
+      options.platformRole,
+    );
+    if (!canAccess) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Access denied to workspace',
+      });
     }
 
     const item = this.workItemRepository.create({

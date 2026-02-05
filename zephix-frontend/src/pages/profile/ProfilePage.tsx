@@ -3,7 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'sonner';
 
 export const ProfilePage: React.FC = () => {
-  const { user, updateUser } = useAuthStore();
+  const { user } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -24,7 +24,8 @@ export const ProfilePage: React.FC = () => {
       // TODO: Implement profile update API call
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       
-      updateUser(formData);
+      // TODO: updateUser not yet implemented in authStore - profile update will be added later
+      console.log('Profile update:', formData);
       setIsEditing(false);
       toast.success('Profile updated successfully!');
     } catch (error) {

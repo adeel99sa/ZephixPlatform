@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { cn } from '../../utils';
 
-interface PageHeaderProps {
+export interface PageHeaderProps {
   title: string;
   subtitle?: string;
   showBackButton?: boolean;
   backTo?: string;
   className?: string;
   children?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -18,7 +19,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   showBackButton = false,
   backTo = '/dashboard',
   className = '',
-  children
+  children,
+  actions
 }) => {
   const navigate = useNavigate();
 
@@ -59,8 +61,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </div>
 
         {/* Additional content like action buttons */}
-        {children && (
+        {(children || actions) && (
           <div className="flex items-center space-x-3">
+            {actions}
             {children}
           </div>
         )}

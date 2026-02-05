@@ -80,6 +80,12 @@ export class WorkPhase {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
+  @Column({ type: 'timestamp', name: 'deleted_at', nullable: true })
+  deletedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'deleted_by_user_id', nullable: true })
+  deletedByUserId: string | null;
+
   // Relations
   @ManyToOne(() => Project, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'project_id' })

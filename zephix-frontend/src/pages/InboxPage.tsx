@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 import { useUIStore } from "@/stores/uiStore";
 import { Bell } from "lucide-react";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
@@ -45,7 +45,7 @@ export default function InboxPage() {
         params.append("cursor", cursor);
       }
 
-      const data = await api.get<NotificationListResponse>(`/notifications?${params.toString()}`);
+      const data = await request.get<NotificationListResponse>(`/notifications?${params.toString()}`);
 
       if (cursor) {
         setNotifications((prev) => [...prev, ...data.notifications]);
@@ -74,7 +74,7 @@ export default function InboxPage() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await api.post(`/notifications/${notificationId}/read`);
+      await request.post(`/notifications/${notificationId}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
       );
@@ -90,7 +90,7 @@ export default function InboxPage() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.post("/notifications/read-all");
+      await request.post("/notifications/read-all");
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       refreshUnreadCount();
       addToast({

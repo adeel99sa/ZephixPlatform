@@ -2,25 +2,46 @@
 // This file is separate from features/workspaces/api.ts which handles basic CRUD
 import { api } from '@/lib/api';
 
-type Workspace = {
+export type WorkspaceApiData = {
   id: string;
   name: string;
   slug?: string;
   description?: string;
   privacy?: string;
   isPrivate?: boolean;
-  owner?: { name?: string; email?: string };
+  ownerId?: string;
+  owner?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  homeNotes?: string;
 };
 
-type Member = {
+// Alias for backwards compatibility
+type Workspace = WorkspaceApiData;
+
+export type WorkspaceMember = {
   id: string;
   userId?: string;
   email?: string;
   name?: string;
   role?: string;
   status?: 'active' | 'suspended';
-  user?: { email?: string; role?: string };
+  user?: {
+    id?: string;
+    email?: string;
+    role?: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+  };
 };
+
+// Alias for backwards compatibility
+type Member = WorkspaceMember;
 
 type Permissions = {
   capabilities?: Record<string, Record<string, boolean>>;
@@ -30,7 +51,7 @@ export async function getWorkspace(id: string): Promise<Workspace | null> {
   try {
     const response = await api.get<{ data: Workspace | null }>(`/workspaces/${id}`);
     // Backend returns { data: Workspace | null }
-    return response?.data?.data ?? response?.data ?? null;
+    return response?.data?.data ?? (response?.data as unknown as Workspace) ?? null;
   } catch (error: any) {
     // Re-throw 403 (access denied) so caller can handle it
     if (error?.response?.status === 403) {
@@ -237,13 +258,28 @@ export async function listProjects(id: string): Promise<any[]> {
   }
 }
 
-export async function listTasksDueThisWeek(id: string): Promise<any[]> {
+/**
+ * Tasks due this week in the active workspace.
+ * Uses GET /api/work/tasks with server-side dueFrom/dueTo. Requires x-workspace-id.
+ */
+export async function listTasksDueThisWeek(_workspaceId: string): Promise<any[]> {
   try {
-    const tasks = await api.get(`/tasks?workspaceId=${id}&due=week`);
-    return Array.isArray(tasks) ? tasks : (tasks.data || []);
+    const { listTasks } = await import('@/features/work-management/workTasks.api');
+    const now = new Date();
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const dueFrom = now.toISOString().slice(0, 10);
+    const dueTo = weekEnd.toISOString().slice(0, 10);
+    const result = await listTasks({
+      dueFrom,
+      dueTo,
+      limit: 200,
+      sortBy: 'dueDate',
+      sortDir: 'asc',
+    });
+    return result.items;
   } catch (error: any) {
-    // Phase 6: Gracefully handle 404s for empty workspaces (endpoint may not exist yet)
-    if (error?.response?.status === 404) {
+    if (error?.response?.status === 404 || (error as any)?.code === 'WORKSPACE_REQUIRED') {
       return [];
     }
     console.error('Failed to fetch tasks due this week:', error);

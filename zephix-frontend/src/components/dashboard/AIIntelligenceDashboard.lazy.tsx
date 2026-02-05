@@ -2,7 +2,9 @@ import React, { lazy, Suspense } from 'react';
 import { Skeleton } from '../ui/feedback/Skeleton';
 
 // Lazy load the heavy AI dashboard component
-const AIIntelligenceDashboard = lazy(() => import('./AIIntelligenceDashboard'));
+const AIIntelligenceDashboard = lazy(() => 
+  import('./AIIntelligenceDashboard').then(m => ({ default: m.AIIntelligenceDashboard }))
+);
 
 interface AIIntelligenceDashboardLazyProps {
   projectId?: string;

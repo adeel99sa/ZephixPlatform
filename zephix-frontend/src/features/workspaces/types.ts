@@ -3,6 +3,7 @@ export type Workspace = {
   name: string;
   slug: string;
   organizationId: string;
+  description?: string;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

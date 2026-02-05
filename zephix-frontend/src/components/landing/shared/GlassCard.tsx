@@ -79,7 +79,7 @@ const GlassCard: React.FC<GlassCardProps> = ({
     <motion.div
       className={cardClasses}
       onClick={handleClick}
-      {...animationProps}
+      {...(animationProps as object)}
       whileFocus={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >

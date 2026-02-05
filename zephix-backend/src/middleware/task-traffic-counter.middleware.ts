@@ -29,7 +29,12 @@ function maybeLog() {
   if (process.env.NODE_ENV === 'test') return;
   if (process.env.TASK_TRAFFIC_LOG !== 'true') return;
   const now = Date.now();
-  if (now - lastLogTime >= LOG_INTERVAL_MS && (counters.legacyTasks > 0 || counters.legacyProjectTasks > 0 || counters.workTasks > 0)) {
+  if (
+    now - lastLogTime >= LOG_INTERVAL_MS &&
+    (counters.legacyTasks > 0 ||
+      counters.legacyProjectTasks > 0 ||
+      counters.workTasks > 0)
+  ) {
     lastLogTime = now;
     console.log(
       `[task-traffic] (60s) legacy /tasks: ${counters.legacyTasks}, legacy /projects/:id/tasks: ${counters.legacyProjectTasks}, /work/tasks: ${counters.workTasks}`,
@@ -38,18 +43,27 @@ function maybeLog() {
 }
 
 /** Standalone handler for e2e when Nest middleware chain may not run; same logic as TaskTrafficCounterMiddleware.use */
-export function taskTrafficCounterHandler(req: Request, _res: Response, next: NextFunction): void {
+export function taskTrafficCounterHandler(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
   const rawPath =
     (req.url && req.url.split('?')[0]) ||
     req.path ||
     (req.originalUrl && req.originalUrl.split('?')[0]) ||
     '';
-  const path = rawPath.startsWith('/api') ? rawPath.replace(/^\/api/, '') || '/' : rawPath || '/';
+  const path = rawPath.startsWith('/api')
+    ? rawPath.replace(/^\/api/, '') || '/'
+    : rawPath || '/';
 
   if (path === '/tasks' || path.startsWith('/tasks/')) {
     counters.legacyTasks++;
     maybeLog();
-  } else if (/^\/projects\/[^/]+\/tasks/.test(path) || /^\/projects\/[^/]+\/tasks\//.test(path)) {
+  } else if (
+    /^\/projects\/[^/]+\/tasks/.test(path) ||
+    /^\/projects\/[^/]+\/tasks\//.test(path)
+  ) {
     counters.legacyProjectTasks++;
     maybeLog();
   } else if (
@@ -72,12 +86,17 @@ export class TaskTrafficCounterMiddleware implements NestMiddleware {
       req.path ||
       (req.originalUrl && req.originalUrl.split('?')[0]) ||
       '';
-    const path = rawPath.startsWith('/api') ? rawPath.replace(/^\/api/, '') || '/' : rawPath || '/';
+    const path = rawPath.startsWith('/api')
+      ? rawPath.replace(/^\/api/, '') || '/'
+      : rawPath || '/';
 
     if (path === '/tasks' || path.startsWith('/tasks/')) {
       counters.legacyTasks++;
       maybeLog();
-    } else if (/^\/projects\/[^/]+\/tasks/.test(path) || /^\/projects\/[^/]+\/tasks\//.test(path)) {
+    } else if (
+      /^\/projects\/[^/]+\/tasks/.test(path) ||
+      /^\/projects\/[^/]+\/tasks\//.test(path)
+    ) {
       counters.legacyProjectTasks++;
       maybeLog();
     } else if (

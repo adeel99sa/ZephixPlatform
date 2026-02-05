@@ -10,8 +10,9 @@ export default function KpiCatalogPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await apiClient.get('/admin/kpis');
-    setItems(data);
+    const response = await apiClient.get<{ data: Kpi[] }>('/admin/kpis');
+    const data = response.data?.data ?? response.data ?? [];
+    setItems(data as Kpi[]);
     setLoading(false);
   }
   async function create() {

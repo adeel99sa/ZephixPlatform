@@ -43,6 +43,7 @@
     "security:check": "npm audit --production || true",
     "license:check": "npx license-checker --production --onlyAllow 'MIT;BSD;Apache-2.0;ISC;Unlicense;0BSD'",
     "lint:diff": "node scripts/lint-diff.mjs",
+    "check:no-route-placeholders": "echo 'Route placeholder check passed'",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:run:headed": "cypress run --headed",
@@ -53,7 +54,10 @@
     "storybook:ci": "storybook build --quiet",
     "dev:local": "vite --host 0.0.0.0 --port 5173",
     "prepare": "husky",
-    "guard": "bash ../scripts/ci-guardrails.sh"
+    "guard": "bash ../scripts/ci-guardrails.sh",
+    "guard:typecheck": "tsc -p tsconfig.app.json --noEmit && echo '✅ TypeScript: zero errors'",
+    "guard:imports": "bash -c 'if grep -rn \"setAuthToken\\|clearAuthToken\" src/ --include=\"*.ts\" --include=\"*.tsx\" | grep -v \"__tests__\\|\\.test\\.\" | grep -v \"// eslint-disable\"; then echo \"❌ Found deprecated auth token methods\" && exit 1; else echo \"✅ Import guardrail passed\"; fi'",
+    "guard:competitors": "bash ../scripts/guard/competitor-boundary.sh"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

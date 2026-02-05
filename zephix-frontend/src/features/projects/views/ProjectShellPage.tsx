@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getProject, listProjectViews } from '../api';
 import type { Project, ProjectView, ProjectViewType } from '../types';
 import { WorkItemListView } from './WorkItemListView';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export function ProjectShellPage() {
   const { workspaceId, projectId } = useParams<{ workspaceId: string; projectId: string }>();
   const [sp, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const activeView = (sp.get('view') as ProjectViewType) || 'list';
 
   const [project, setProject] = useState<Project | null>(null);
@@ -23,24 +23,23 @@ export function ProjectShellPage() {
   useEffect(() => {
     if (!workspaceId || !projectId) return;
 
-    async function load() {
+    async function load(wsId: string, projId: string) {
       try {
         setLoading(true);
         const [proj, viewList] = await Promise.all([
-          getProject(workspaceId, projectId),
-          listProjectViews(workspaceId, projectId),
+          getProject(wsId, projId),
+          listProjectViews(wsId, projId),
         ]);
         setProject(proj);
         setViews(viewList);
-      } catch (error: any) {
-        const message = error?.response?.data?.message || error?.message || 'Failed to load project';
-        toast.error(message);
+      } catch (err) {
+        toast.error(getErrorMessage(err));
       } finally {
         setLoading(false);
       }
     }
 
-    load();
+    load(workspaceId, projectId);
   }, [workspaceId, projectId]);
 
   if (!workspaceId || !projectId) {
@@ -106,7 +105,7 @@ export function ProjectShellPage() {
               cursor: 'pointer',
             }}
           >
-            {v.label}
+            {v.name}
           </button>
         ))}
       </div>

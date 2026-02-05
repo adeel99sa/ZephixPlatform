@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../../services/api';
+import { api } from '@/lib/api';
 import { CreateResourceModal } from '../resources/CreateResourceModal';
 
 interface Resource {

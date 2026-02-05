@@ -1,6 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { DocumentProcessingState } from './AIMappingInterface';
+
+/** Processing state for document upload and AI analysis */
+export interface DocumentProcessingState {
+  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  error?: string;
+}
 
 interface FileUploadZoneProps {
   onFileUpload: (file: File) => Promise<void>;

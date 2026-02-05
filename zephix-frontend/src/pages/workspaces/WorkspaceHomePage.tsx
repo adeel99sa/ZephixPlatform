@@ -8,7 +8,7 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
-  const { setActiveWorkspaceId } = useWorkspaceStore();
+  const { setActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
   const { role, canWrite } = useWorkspaceRole(workspaceId);
   const [ws, setWs] = useState<Workspace | null>(null);
@@ -22,9 +22,9 @@ export default function WorkspaceHomePage() {
   useEffect(() => {
     if (!workspaceId) return;
 
-    setActiveWorkspaceId(workspaceId);
+    setActiveWorkspace(workspaceId);
     loadData();
-  }, [workspaceId, setActiveWorkspaceId]);
+  }, [workspaceId, setActiveWorkspace]);
 
   // Track workspace visits for /home page
   useWorkspaceVisitTracker(

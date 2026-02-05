@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useCallback, useState } from 'react';
-import { securityMiddleware } from '../middleware/security.middleware';
+import { securityMiddleware, type SecurityEvent } from '../middleware/security.middleware';
 import { securityConfig, securityValidators } from '../config/security.config';
 
 export interface SecurityState {

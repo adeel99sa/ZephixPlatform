@@ -48,16 +48,12 @@ describe('ApiClient', () => {
     expect(apiClient).toBeDefined();
   });
 
-  it('should handle auth token management', () => {
-    const mockSetItem = vi.mocked(localStorage.setItem);
-    const mockRemoveItem = vi.mocked(localStorage.removeItem);
-
-    apiClient.setAuthToken('new-token');
-    expect(mockSetItem).toHaveBeenCalledWith('auth_token', 'new-token');
-
-    apiClient.clearAuthToken();
-    expect(mockRemoveItem).toHaveBeenCalledWith('auth_token');
-    expect(mockRemoveItem).toHaveBeenCalledWith('refresh_token');
+  // Auth now uses HTTP-only cookies - no token management API exposed
+  // Removed: setAuthToken/clearAuthToken tests (cookie-based auth)
+  it('should not expose token management methods (cookie-based auth)', () => {
+    // Verify that legacy token methods have been removed in favor of cookie-based auth
+    expect((apiClient as unknown as { setAuthToken?: unknown }).setAuthToken).toBeUndefined();
+    expect((apiClient as unknown as { clearAuthToken?: unknown }).clearAuthToken).toBeUndefined();
   });
 
   it('should handle organization ID management', () => {

@@ -21,6 +21,7 @@ interface SystemHealth {
   timestamp: string;
   database: string;
   services?: Record<string, string>;
+  details?: { message?: string } | string;
 }
 
 interface ActivityItem {
@@ -124,8 +125,8 @@ export default function AdminDashboardPage() {
       // Optional endpoint - audit logs are non-critical
       // Fetch separately and silently handle failures
       try {
-        const auditData = await adminApi.getAuditLogs({ limit: 10 });
-        setActivities(auditData.data?.slice(0, 10) || []);
+        const auditData = await adminApi.getAuditLogs({ limit: 10 }) as { data?: ActivityItem[] } | undefined;
+        setActivities(auditData?.data?.slice(0, 10) || []);
       } catch (auditError: any) {
         // Silently fail - audit logs are optional
         // Just show empty state in the UI
@@ -274,7 +275,7 @@ export default function AdminDashboardPage() {
               </p>
               {health.status !== 'ok' && (
                 <p className="text-sm text-yellow-800 mt-1">
-                  Backend health check reports an error. {health.details?.message || 'Please check system logs.'}
+                  Backend health check reports an error. {typeof health.details === 'object' ? health.details?.message : health.details || 'Please check system logs.'}
                 </p>
               )}
               <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">

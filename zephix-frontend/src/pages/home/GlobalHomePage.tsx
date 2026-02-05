@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 
 type PlatformRole = "ADMIN" | "MEMBER" | "VIEWER" | "GUEST";
 
@@ -63,8 +63,9 @@ export default function GlobalHomePage() {
       setLoading(true);
       setErr(null);
       try {
-        const res = await api.get<any>("/workspaces");
-        const items = (res?.items || res?.data || res) as WorkspaceListItem[];
+        const res = await request.get<{ items?: WorkspaceListItem[]; data?: WorkspaceListItem[] } | WorkspaceListItem[]>("/workspaces");
+        const rawRes = res as { items?: WorkspaceListItem[]; data?: WorkspaceListItem[] } | WorkspaceListItem[];
+        const items = Array.isArray(rawRes) ? rawRes : (rawRes?.items || rawRes?.data || []);
         setWorkspaces(Array.isArray(items) ? items : []);
       } catch (e: any) {
         setErr(String(e?.response?.data?.message || e?.message || "Failed to load workspaces"));

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import { API_ENDPOINTS } from '@/lib/api/endpoints';
@@ -6,6 +5,18 @@ import { getErrorText } from '@/lib/api/errors';
 import { Card, CardBody, CardHeader } from '@/components/ui/card/Card';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import { ErrorBanner } from '@/components/ui/feedback/ErrorBanner';
+
+/** Portfolio KPI data shape */
+interface PortfolioKpiData {
+  totalProjects: number;
+  projectsOnTrack: number;
+  projectsAtRisk: number;
+  projectsOffTrack: number;
+  overallResourceUtilization: number;
+  totalBudget: number;
+  budgetConsumed: number;
+  criticalRisks: number;
+}
 
 export function PortfolioDashboard() {
   const {
@@ -16,7 +27,7 @@ export function PortfolioDashboard() {
   } = useQuery({
     queryKey: ['portfolio-kpi'],
     queryFn: async () => {
-      const response = await apiClient.get(API_ENDPOINTS.KPI.PORTFOLIO);
+      const response = await apiClient.get<PortfolioKpiData>(API_ENDPOINTS.KPI.PORTFOLIO);
       return response.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
