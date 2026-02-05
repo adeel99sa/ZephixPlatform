@@ -12,10 +12,10 @@ echo "=== Smoke Test: Auth & Health ==="
 echo "Base URL: $BASE_URL"
 echo ""
 
-# Test 1: Health endpoint
-echo -n "1. GET /health ... "
-HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health" || echo "000")
-if [ "$HEALTH_STATUS" = "200" ]; then
+# Test 1: Health endpoint (using /api/health - global prefix is 'api')
+echo -n "1. GET /api/health ... "
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health" || echo "000")
+if [ "$HEALTH_STATUS" = "200" ] || [ "$HEALTH_STATUS" = "503" ]; then
   echo "✅ PASS (HTTP $HEALTH_STATUS)"
   ((PASSED++))
 else

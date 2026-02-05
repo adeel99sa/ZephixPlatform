@@ -78,8 +78,8 @@ async function bootstrap() {
 
     // Link user to organization
     await dataSource.query(`
-      INSERT INTO user_organizations (user_id, organization_id, role, platform_role, created_at)
-      VALUES ($1, $2, 'admin', 'ADMIN', NOW())
+      INSERT INTO user_organizations (user_id, organization_id, role, created_at)
+      VALUES ($1, $2, 'admin', NOW())
       ON CONFLICT (user_id, organization_id) DO NOTHING
     `, [userId, orgId]);
     console.log('✅ User linked to organization');
