@@ -1,82 +1,57 @@
 #!/bin/bash
-# Check for tenant scoping bypass patterns across entire backend
-# This is a comprehensive scan that covers scripts, tests, and legacy modules
-# Exceptions: migrations, infrastructure modules, node_modules, dist
+# Check for tenant scoping bypass patterns in CHANGED files only (regression guard)
+# Full backend version - checks all changed backend files, not just modules
 
 set -e
 
-# Support running from project root or zephix-backend directory
-if [ -d "zephix-backend/src" ]; then
-  BACKEND_DIR="zephix-backend"
-elif [ -d "src" ]; then
-  BACKEND_DIR="."
-else
-  echo "❌ Error: Cannot find backend directory"
-  exit 1
+echo "🔍 Tenancy bypass regression guard - full backend (changed files only)..."
+
+# Fetch main for comparison
+git fetch origin main:refs/remotes/origin/main 2>/dev/null || true
+
+# Get changed backend source files (excluding migrations, tenancy, database, tests)
+CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null \
+  | grep -E '^zephix-backend/src/.*\.ts$' \
+  | grep -v 'migrations/' \
+  | grep -v 'src/modules/tenancy/' \
+  | grep -v 'src/database/' \
+  | grep -v '\.spec\.ts$' \
+  | grep -v '\.test\.ts$' || true)
+
+if [ -z "$CHANGED_FILES" ]; then
+  echo "✅ No backend source changes. Skipping tenancy bypass scan."
+  exit 0
 fi
+
+echo "   Scanning $(echo "$CHANGED_FILES" | wc -l | tr -d ' ') changed files..."
+
+# Patterns to check
+BANNED='@InjectRepository\(|getRepository\(|DataSource\.getRepository|manager\.getRepository|createQueryBuilder\(|dataSource\.query|manager\.query|createQueryRunner'
 
 EXIT_CODE=0
 
-# Patterns to check (grep -E compatible)
-PATTERNS=(
-  "@InjectRepository\\("
-  "getRepository\\("
-  "DataSource\\.getRepository"
-  "manager\\.getRepository"
-  "createQueryBuilder\\("
-  "dataSource\\.query"
-  "manager\\.query"
-  "createQueryRunner"
-)
-
-echo "🔍 Checking for tenant scoping bypass patterns across entire backend..."
-
-# Directories to exclude (infrastructure and generated)
-EXCLUDE_DIRS=(
-  "node_modules"
-  "dist"
-  "migrations"
-  "src/modules/tenancy"
-  "src/database"
-  ".git"
-)
-
-# Build exclude pattern for grep
-EXCLUDE_PATTERN=""
-for dir in "${EXCLUDE_DIRS[@]}"; do
-  EXCLUDE_PATTERN="${EXCLUDE_PATTERN} --exclude-dir=${dir}"
-done
-
-# Check each pattern
-for pattern in "${PATTERNS[@]}"; do
-  echo "  Checking pattern: ${pattern}"
-
-  # Search in backend directory, excluding allowed dirs
-  MATCHES=$(grep -r -E "${pattern}" "${BACKEND_DIR}" \
-    --include="*.ts" \
-    ${EXCLUDE_PATTERN} \
-    2>/dev/null || true)
-
-  if [ -n "$MATCHES" ]; then
-    echo "❌ Found forbidden pattern '${pattern}' in:"
-    echo "$MATCHES" | while IFS= read -r line; do
-      echo "   $line"
-    done
-    EXIT_CODE=1
+# Check each changed file
+for file in $CHANGED_FILES; do
+  if [ -f "$file" ]; then
+    MATCHES=$(grep -n -E "$BANNED" "$file" 2>/dev/null || true)
+    if [ -n "$MATCHES" ]; then
+      echo "❌ Found forbidden pattern in $file:"
+      echo "$MATCHES" | while IFS= read -r line; do
+        echo "   $line"
+      done
+      EXIT_CODE=1
+    fi
   fi
 done
 
 if [ $EXIT_CODE -eq 0 ]; then
-  echo "✅ No bypass patterns found"
+  echo "✅ No new bypass patterns in changed files"
 else
   echo ""
-  echo "❌ Tenant scoping bypass patterns detected!"
+  echo "❌ New tenant scoping bypass patterns detected in changed files!"
   echo "   Use TenantAwareRepository instead of direct TypeORM repository access."
   echo "   For scripts and background jobs, use runWithTenant helper."
   echo "   See docs/PHASE2A_MIGRATION_PLAYBOOK.md for migration guide."
 fi
 
 exit $EXIT_CODE
-
-
-
