@@ -1,7 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { useWorkspaceStore } from '@/state/workspace.store';
+// InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
 import { ApiResponse, StandardError, ApiClientConfig } from './types';
+
+import { useWorkspaceStore } from '@/state/workspace.store';
+
+
+// Extend Axios types to include our custom metadata
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    metadata?: { startTime: number };
+  }
+}
 
 // Helper: normalize to exactly one "/api" prefix (same-origin)
 const isAbsoluteHttp = (u?: string) => !!u && /^https?:\/\//i.test(u);
@@ -222,9 +232,10 @@ class ApiClient {
   // Removed refreshToken - cookies handle refresh on backend
 
   private handleAuthFailure(): void {
-    // Cleanup any legacy tokens
-    const { cleanupLegacyAuthStorage } = require('@/auth/cleanupAuthStorage');
-    cleanupLegacyAuthStorage();
+    // Cleanup any legacy tokens dynamically to avoid circular deps
+    import('@/auth/cleanupAuthStorage').then(({ cleanupLegacyAuthStorage }) => {
+      cleanupLegacyAuthStorage();
+    }).catch(() => { /* ignore cleanup failures */ });
 
     // Don't redirect if we're on an admin route - let AdminRoute handle it
     const isAdminRoute = window.location.pathname.startsWith('/admin');
@@ -244,7 +255,8 @@ class ApiClient {
 
   private normalizeError(error: AxiosError): StandardError {
     const status = error.response?.status || 500;
-    const message = error.response?.data?.message || error.message || 'An error occurred';
+    const errorData = error.response?.data as { message?: string } | undefined;
+    const message = errorData?.message || error.message || 'An error occurred';
 
     let code: StandardError['code'] = 'SERVER_ERROR';
     if (status === 400) code = 'VALIDATION_ERROR';
