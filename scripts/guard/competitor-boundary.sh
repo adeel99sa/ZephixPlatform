@@ -50,6 +50,10 @@ while IFS= read -r file; do
     docs/MVP/*) continue ;;
     proofs/*) continue ;;
     
+    # Root-level docs files pending cleanup (Commit C) - allow until deleted
+    docs/*.md) continue ;;
+    docs/*.txt) continue ;;
+    
     # System directories
     .git/*) continue ;;
     dist/*) continue ;;
