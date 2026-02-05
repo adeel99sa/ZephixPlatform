@@ -131,8 +131,8 @@ async function bootstrap() {
       console.log('✅ Demo workspace already exists:', workspaceId);
     } else {
       const workspaceResult = await dataSource.query(`
-        INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_at, updated_at)
-        VALUES (gen_random_uuid(), 'Demo Workspace', 'demo-workspace', $1, $2, NOW(), NOW())
+        INSERT INTO workspaces (id, name, slug, organization_id, owner_id, created_by, created_at, updated_at)
+        VALUES (gen_random_uuid(), 'Demo Workspace', 'demo-workspace', $1, $2, $2, NOW(), NOW())
         RETURNING id
       `, [orgId, userId]);
       workspaceId = workspaceResult[0].id;
