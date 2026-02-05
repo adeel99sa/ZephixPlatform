@@ -100,6 +100,8 @@ jobs:
           echo "✅ Import guardrail passed"
       - name: Competitor boundary guard
         run: bash scripts/guard/competitor-boundary.sh
+      - name: Skip test guard (warn only)
+        run: bash scripts/guard/no-skip-tests.sh || echo "⚠️ Skip files exist - see TEST_DEBT_REGISTER.md"
       - name: Frontend check no route placeholders
         working-directory: zephix-frontend
         run: npm run check:no-route-placeholders
