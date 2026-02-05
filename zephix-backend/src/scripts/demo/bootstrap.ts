@@ -77,18 +77,57 @@ async function bootstrap() {
     console.log('✅ Demo user created/updated:', userId);
 
     // Link user to organization (check first, then insert if not exists)
-    // Note: user_organizations uses camelCase columns in the actual DB schema
+    // Note: DB may have both camelCase (userId) and snake_case (user_id) columns 
+    // depending on migration state. Check with either and insert into both.
     const existingLink = await dataSource.query(`
       SELECT id FROM user_organizations 
-      WHERE "userId" = $1 AND "organizationId" = $2
+      WHERE (
+        ("userId" IS NOT NULL AND "userId" = $1) OR 
+        (user_id IS NOT NULL AND user_id = $1)
+      ) AND (
+        ("organizationId" IS NOT NULL AND "organizationId" = $2) OR 
+        (organization_id IS NOT NULL AND organization_id = $2)
+      )
       LIMIT 1
     `, [userId, orgId]);
     
     if (existingLink.length === 0) {
-      await dataSource.query(`
-        INSERT INTO user_organizations ("userId", "organizationId", role)
-        VALUES ($1, $2, 'admin')
-      `, [userId, orgId]);
+      // Dynamically determine which columns exist and insert appropriately
+      const columns = await dataSource.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'user_organizations' AND column_name IN ('userId', 'user_id', 'organizationId', 'organization_id')
+      `);
+      const columnNames = columns.map((c: { column_name: string }) => c.column_name);
+      
+      const hasUserIdCamel = columnNames.includes('userId');
+      const hasUserIdSnake = columnNames.includes('user_id');
+      const hasOrgIdCamel = columnNames.includes('organizationId');
+      const hasOrgIdSnake = columnNames.includes('organization_id');
+      
+      // Build dynamic INSERT
+      const insertCols: string[] = [];
+      const values: string[] = [];
+      let paramIdx = 1;
+      
+      if (hasUserIdCamel) { insertCols.push('"userId"'); values.push(`$${paramIdx++}`); }
+      if (hasUserIdSnake) { insertCols.push('user_id'); values.push(`$${paramIdx++}`); }
+      if (hasOrgIdCamel) { insertCols.push('"organizationId"'); values.push(`$${paramIdx++}`); }
+      if (hasOrgIdSnake) { insertCols.push('organization_id'); values.push(`$${paramIdx++}`); }
+      insertCols.push('role');
+      values.push(`$${paramIdx}`);
+      
+      // Build params array: userId for each user column, orgId for each org column, then role
+      const params: (string | null)[] = [];
+      if (hasUserIdCamel) params.push(userId);
+      if (hasUserIdSnake) params.push(userId);
+      if (hasOrgIdCamel) params.push(orgId);
+      if (hasOrgIdSnake) params.push(orgId);
+      params.push('admin');
+      
+      await dataSource.query(
+        `INSERT INTO user_organizations (${insertCols.join(', ')}) VALUES (${values.join(', ')})`,
+        params
+      );
     }
     console.log('✅ User linked to organization');
 
