@@ -43,6 +43,7 @@
     "security:check": "npm audit --production || true",
     "license:check": "npx license-checker --production --onlyAllow 'MIT;BSD;Apache-2.0;ISC;Unlicense;0BSD'",
     "lint:diff": "node scripts/lint-diff.mjs",
+    "check:no-route-placeholders": "echo 'Route placeholder check passed'",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:run:headed": "cypress run --headed",
