@@ -98,6 +98,12 @@ export class WorkTask {
   @Column({ type: 'jsonb', nullable: true })
   tags: string[] | null;
 
+  @Column({ type: 'int', name: 'story_points', nullable: true })
+  storyPoints: number | null;
+
+  @Column({ type: 'uuid', name: 'sprint_id', nullable: true })
+  sprintId: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 

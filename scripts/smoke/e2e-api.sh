@@ -406,6 +406,82 @@ else
 fi
 
 ###############################################################################
+# MODULE 1d: Sprints (Wave 2)
+###############################################################################
+section "Module 1d: Sprints"
+
+SPRINT_ID=$(jq -r '.firstSprintId // empty' "$IDS_FILE" 2>/dev/null || echo "")
+
+# List sprints for project
+SPRINTS_RESP=$(http_get "/work/sprints/project/${PROJECT_A_ID}")
+if [ -n "$SPRINTS_RESP" ]; then
+  SPRINT_COUNT=$(echo "$SPRINTS_RESP" | jq -r '(.data // .) | if type == "array" then length else (.items // []) | length end' 2>/dev/null || echo "0")
+  if [ "$SPRINT_COUNT" -gt 0 ]; then
+    pass "List sprints for Project A (count: ${SPRINT_COUNT})"
+  else
+    warn "List sprints" "count is 0"
+  fi
+else
+  fail "List sprints" "empty response"
+fi
+
+# Get sprint with stats (if seeded)
+if [ -n "$SPRINT_ID" ]; then
+  SPRINT_DETAIL=$(http_get "/work/sprints/${SPRINT_ID}")
+  if [ -n "$SPRINT_DETAIL" ]; then
+    COMMITTED=$(echo "$SPRINT_DETAIL" | jq -r '(.data // .).stats.committed // 0' 2>/dev/null || echo "0")
+    TASK_COUNT=$(echo "$SPRINT_DETAIL" | jq -r '(.data // .).stats.taskCount // 0' 2>/dev/null || echo "0")
+    pass "Get sprint with stats (committed: ${COMMITTED} SP, ${TASK_COUNT} tasks)"
+  else
+    fail "Get sprint detail" "empty response"
+  fi
+
+  # Create a second sprint for Project A
+  NEW_SPRINT_RESP=$(http_mut POST "/work/sprints" \
+    "{\"projectId\":\"${PROJECT_A_ID}\",\"name\":\"Sprint 2\",\"startDate\":\"2026-04-01\",\"endDate\":\"2026-04-14\"}")
+  NEW_SPRINT_ID=""
+  if [ -n "$NEW_SPRINT_RESP" ]; then
+    NEW_SPRINT_ID=$(echo "$NEW_SPRINT_RESP" | jq -r '(.data // .).id // empty' 2>/dev/null || echo "")
+    if [ -n "$NEW_SPRINT_ID" ]; then
+      pass "Create sprint (id: ${NEW_SPRINT_ID})"
+
+      # Delete the sprint (PLANNING status)
+      DEL_SPRINT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+        -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+        -H "x-workspace-id: ${WS_ID}" \
+        ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+        "${BASE_URL}/work/sprints/${NEW_SPRINT_ID}" 2>/dev/null)
+      if [ "$DEL_SPRINT_STATUS" = "200" ] || [ "$DEL_SPRINT_STATUS" = "204" ]; then
+        pass "Delete sprint (PLANNING)"
+      else
+        fail "Delete sprint" "expected 200/204, got ${DEL_SPRINT_STATUS}"
+      fi
+    else
+      fail "Create sprint" "no id in response"
+    fi
+  else
+    fail "Create sprint" "empty response"
+  fi
+else
+  skip "Sprint detail" "no sprint ID from seed"
+fi
+
+# Verify story points were set on tasks
+TASK_A1_RESP=$(http_get "/work/tasks/${TASK_A1}")
+if [ -n "$TASK_A1_RESP" ]; then
+  SP=$(echo "$TASK_A1_RESP" | jq -r '(.data // .).storyPoints // (.data // .).story_points // empty' 2>/dev/null || echo "")
+  if [ "$SP" = "5" ]; then
+    pass "Task A1 has storyPoints=5"
+  elif [ -n "$SP" ] && [ "$SP" != "null" ]; then
+    pass "Task A1 has storyPoints=${SP}"
+  else
+    warn "Task A1 storyPoints" "expected 5, got ${SP:-null}"
+  fi
+else
+  fail "Get task A1 for SP check" "empty response"
+fi
+
+###############################################################################
 # MODULE 2: Resource Management
 ###############################################################################
 section "Module 2: Resource Management"

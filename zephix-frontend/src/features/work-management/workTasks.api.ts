@@ -75,6 +75,8 @@ export interface WorkTask {
   completedAt: string | null;
   rank: number | null;
   tags: string[] | null;
+  storyPoints: number | null;
+  sprintId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
@@ -117,6 +119,8 @@ export interface CreateTaskInput {
   assigneeUserId?: string;
   dueDate?: string;
   priority?: WorkTaskPriority;
+  storyPoints?: number;
+  sprintId?: string;
   tags?: string[];
 }
 
@@ -128,6 +132,8 @@ export interface UpdateTaskPatch {
   assigneeUserId?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
+  storyPoints?: number | null;
+  sprintId?: string | null;
   tags?: string[];
 }
 
@@ -251,6 +257,10 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     dueDate: toStringOrNull(raw.dueDate ?? raw.due_date),
     completedAt: toStringOrNull(raw.completedAt ?? raw.completed_at),
     rank: raw.rank != null ? Number(raw.rank) : null,
+    storyPoints: raw.storyPoints != null || raw.story_points != null
+      ? Number(raw.storyPoints ?? raw.story_points)
+      : null,
+    sprintId: toStringOrNull(raw.sprintId ?? raw.sprint_id),
     tags: Array.isArray(raw.tags) ? raw.tags : null,
     metadata:
       raw.metadata && typeof raw.metadata === "object" ? (raw.metadata as Record<string, unknown>) : null,

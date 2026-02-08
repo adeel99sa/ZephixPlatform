@@ -10,7 +10,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, Zap } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -24,6 +24,7 @@ const PROJECT_TABS = [
   { id: 'tasks', label: 'Tasks', path: '/tasks', icon: ListTodo },
   { id: 'board', label: 'Board', path: '/board', icon: LayoutGrid },
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
+  { id: 'sprints', label: 'Sprints', path: '/sprints', icon: Zap },
   { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
 ] as const;

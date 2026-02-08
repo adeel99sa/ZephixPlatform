@@ -37,7 +37,7 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectSprintsTab, ProjectRisksTab, ProjectResourcesTab } from "@/features/projects/tabs";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
@@ -140,6 +140,7 @@ export default function App() {
                   <Route path="tasks" element={<ProjectTasksTab />} />
                   <Route path="board" element={<ProjectBoardTab />} />
                   <Route path="gantt" element={<ProjectGanttTab />} />
+                  <Route path="sprints" element={<ProjectSprintsTab />} />
                   <Route path="risks" element={<ProjectRisksTab />} />
                   <Route path="resources" element={<ProjectResourcesTab />} />
                 </Route>

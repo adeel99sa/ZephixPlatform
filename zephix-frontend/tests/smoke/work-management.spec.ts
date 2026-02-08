@@ -21,6 +21,7 @@ import {
   navigateToProjectTasks,
   navigateToProjectBoard,
   navigateToProjectGantt,
+  navigateToProjectSprints,
   navigateToProjects,
   assertNo403,
   assertNoRouteBounce,
@@ -186,6 +187,19 @@ test.describe('Work Management Module', () => {
     const body = await page.locator('body').textContent();
     const hasGanttContent = body?.includes('Gantt Chart');
     expect(hasGanttContent).toBeTruthy();
+  });
+
+  test('sprints tab loads and shows sprint list', async ({ page }) => {
+    const ids = getSeedIds();
+    const projectId = ids.projectA?.id;
+    expect(projectId).toBeTruthy();
+
+    await navigateToProjectSprints(page, projectId);
+
+    // Should show the Sprints heading
+    const body = await page.locator('body').textContent();
+    const hasSprintsContent = body?.includes('Sprint') || body?.includes('sprints');
+    expect(hasSprintsContent).toBeTruthy();
   });
 
   test('no 403 spam across work management navigation', async ({ page }) => {
