@@ -93,4 +93,14 @@ export class CreateWorkTaskDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @ApiProperty({
+    description: 'Acceptance criteria items',
+    required: false,
+    type: 'array',
+    items: { type: 'object', properties: { text: { type: 'string' }, done: { type: 'boolean' } } },
+  })
+  @IsOptional()
+  @IsArray()
+  acceptanceCriteria?: Array<{ text: string; done: boolean }>;
 }

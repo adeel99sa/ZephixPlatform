@@ -72,6 +72,16 @@ export class UpdateWorkTaskDto {
   archived?: boolean;
 
   @ApiProperty({
+    description: 'Acceptance criteria items',
+    required: false,
+    type: 'array',
+    items: { type: 'object', properties: { text: { type: 'string' }, done: { type: 'boolean' } } },
+  })
+  @IsOptional()
+  @IsArray()
+  acceptanceCriteria?: Array<{ text: string; done: boolean }>;
+
+  @ApiProperty({
     description: 'Override WIP limit (admin only)',
     required: false,
   })

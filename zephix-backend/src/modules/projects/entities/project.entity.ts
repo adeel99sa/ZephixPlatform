@@ -255,4 +255,8 @@ export class Project {
   // Phase 7.5: KPI activation state - array of KPI IDs that are active for this project
   @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
   activeKpiIds: string[];
+
+  /** Project-level Definition of Done: ordered list of short strings. */
+  @Column({ type: 'jsonb', name: 'definition_of_done', nullable: true })
+  definitionOfDone: string[] | null;
 }

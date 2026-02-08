@@ -22,6 +22,10 @@ import {
   BulkStatusUpdateDto,
 } from '../dto';
 import { TaskStatus, TaskPriority, TaskType, TaskActivityType } from '../enums/task.enums';
+import {
+  normalizeAcceptanceCriteria,
+  validateAcceptanceCriteria,
+} from '../utils/acceptance-criteria.utils';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -300,6 +304,19 @@ export class WorkTasksService {
       }
     }
 
+    // Validate acceptance criteria if provided
+    let normalizedAC: Array<{ text: string; done: boolean }> | null = null;
+    if (dto.acceptanceCriteria !== undefined) {
+      const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);
+      if (acError) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: acError,
+        });
+      }
+      normalizedAC = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -315,6 +332,7 @@ export class WorkTasksService {
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: dto.tags || null,
+      acceptanceCriteria: normalizedAC,
     });
 
     const saved = await this.taskRepo.save(task);
@@ -537,6 +555,17 @@ export class WorkTasksService {
       // Will be added in future migration if needed
       changedFields.push('archived');
     }
+    if (dto.acceptanceCriteria !== undefined) {
+      const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);
+      if (acError) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: acError,
+        });
+      }
+      task.acceptanceCriteria = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
+      changedFields.push('acceptanceCriteria');
+    }
 
     const saved = await this.taskRepo.save(task);
 
@@ -565,6 +594,20 @@ export class WorkTasksService {
         {
           from: oldAssignee,
           to: saved.assigneeUserId,
+        },
+      );
+    }
+
+    if (changedFields.includes('acceptanceCriteria')) {
+      const acItems = saved.acceptanceCriteria || [];
+      await this.activityService.record(
+        auth,
+        workspaceId,
+        saved.id,
+        TaskActivityType.TASK_ACCEPTANCE_CRITERIA_UPDATED,
+        {
+          count: acItems.length,
+          doneCount: acItems.filter((i) => i.done).length,
         },
       );
     }
