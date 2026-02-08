@@ -287,12 +287,17 @@ if [ -n "$NEW_TASK_RESP" ]; then
     pass "Create task"
     # Delete
     http_mut DELETE "/work/tasks/${NEW_TASK_ID}" >/dev/null 2>&1 && pass "Delete task" || warn "Delete task" "failed"
-    # Restore
-    REST_TASK=$(http_mut POST "/work/tasks/${NEW_TASK_ID}/restore")
-    if [ -n "$REST_TASK" ]; then
-      pass "Restore task"
+    # Restore (may return empty body with 200/204 which is acceptable)
+    REST_TASK_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X POST -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+      -H "Accept: application/json" -H "Content-Type: application/json" \
+      -H "x-workspace-id: ${WS_ID}" \
+      ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+      "${BASE_URL}/work/tasks/${NEW_TASK_ID}/restore" 2>/dev/null || echo "000")
+    if [ "$REST_TASK_STATUS" = "200" ] || [ "$REST_TASK_STATUS" = "201" ] || [ "$REST_TASK_STATUS" = "204" ]; then
+      pass "Restore task (status ${REST_TASK_STATUS})"
     else
-      warn "Restore task" "empty response"
+      fail "Restore task" "expected 200/201/204, got ${REST_TASK_STATUS}"
     fi
   fi
 fi
@@ -378,7 +383,23 @@ if [ -n "$TASK_A2" ] && [ "$TASK_A2" != "null" ]; then
   if [ "$SELF_STATUS" = "400" ]; then
     pass "Reject self-dependency (400)"
   else
-    warn "Reject self-dependency" "expected 400, got ${SELF_STATUS}"
+    fail "Reject self-dependency" "expected 400, got ${SELF_STATUS}"
+  fi
+
+  # Try to create a cycle: seed has A1->A2, now try A2->A1 (should get 400 cycle detection)
+  CYCLE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -H "Accept: application/json" -H "Content-Type: application/json" \
+    -H "x-workspace-id: ${WS_ID}" \
+    ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+    -d "{\"predecessorTaskId\":\"${TASK_A2}\",\"type\":\"FINISH_TO_START\"}" \
+    "${BASE_URL}/work/tasks/${TASK_A1}/dependencies" 2>/dev/null || echo "000")
+  if [ "$CYCLE_STATUS" = "400" ]; then
+    pass "Reject dependency cycle (400)"
+  elif [ "$CYCLE_STATUS" = "200" ] || [ "$CYCLE_STATUS" = "201" ]; then
+    fail "Reject dependency cycle" "cycle was accepted — BLOCKER"
+  else
+    fail "Reject dependency cycle" "expected 400, got ${CYCLE_STATUS}"
   fi
 else
   skip "Task dependencies" "no second task ID from seed"
@@ -398,26 +419,38 @@ else
   fail "List allocations" "empty response"
 fi
 
-# Create allocation (may conflict if user already has one for this project)
+# Create allocation: delete any existing one for this user/project first, then create fresh
+# First try to get existing allocations for Project B to find conflict
+EXISTING_ALLOCS=$(http_get "/work/resources/allocations?projectId=${PROJECT_B_ID}")
+EXISTING_ALLOC_ID=$(echo "$EXISTING_ALLOCS" | jq -r '[(.data // .).items[]? | select(.userId == "'"${USER_ID}"'" or .user_id == "'"${USER_ID}"'")] | .[0].id // empty' 2>/dev/null || echo "")
+if [ -n "$EXISTING_ALLOC_ID" ] && [ "$EXISTING_ALLOC_ID" != "null" ]; then
+  # Delete existing to make room for fresh create
+  curl -s -o /dev/null -X DELETE \
+    -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -H "x-workspace-id: ${WS_ID}" \
+    ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+    "${BASE_URL}/work/resources/allocations/${EXISTING_ALLOC_ID}" 2>/dev/null || true
+fi
+
 NEW_ALLOC_RESP=$(http_mut POST "/work/resources/allocations" \
   "{\"projectId\":\"${PROJECT_B_ID}\",\"userId\":\"${USER_ID}\",\"allocationPercent\":15,\"startDate\":\"2026-03-01\",\"endDate\":\"2026-04-30\"}")
 NEW_ALLOC_ID=""
 if [ -n "$NEW_ALLOC_RESP" ]; then
   ALLOC_CODE=$(echo "$NEW_ALLOC_RESP" | jq -r '.code // empty' 2>/dev/null || echo "")
   if [ "$ALLOC_CODE" = "ALLOCATION_EXISTS" ]; then
-    # Use existing allocation from seed
+    # Edge case: unique constraint, use existing from seed
     NEW_ALLOC_ID="$ALLOC_A1"
     pass "Create allocation (reusing existing)"
   else
     NEW_ALLOC_ID=$(echo "$NEW_ALLOC_RESP" | jq -r '(.data // .).id // empty' 2>/dev/null || echo "")
     if [ -n "$NEW_ALLOC_ID" ]; then
-      pass "Create allocation"
+      pass "Create allocation (id: ${NEW_ALLOC_ID})"
     else
-      warn "Create allocation" "no id in response"
+      fail "Create allocation" "response contained no id"
     fi
   fi
 else
-  warn "Create allocation" "empty response (may need CSRF or unique constraint)"
+  fail "Create allocation" "empty response"
 fi
 
 # Update allocation
@@ -452,8 +485,11 @@ if [ "$HEATMAP_STATUS" = "200" ]; then
   pass "Resource heat-map"
 elif [ "$HEATMAP_STATUS" = "404" ]; then
   skip "Resource heat-map" "endpoint not found"
+elif [ "$HEATMAP_STATUS" = "500" ]; then
+  # 500 is caught by the no-500 gate — mark as fail here too
+  fail "Resource heat-map" "HTTP 500 — endpoint exists but crashes"
 else
-  warn "Resource heat-map" "status ${HEATMAP_STATUS}"
+  fail "Resource heat-map" "unexpected status ${HEATMAP_STATUS}"
 fi
 
 ###############################################################################
