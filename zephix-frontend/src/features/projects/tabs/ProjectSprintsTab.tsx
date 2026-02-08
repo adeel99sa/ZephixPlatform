@@ -13,8 +13,12 @@ import {
   deleteSprint,
   assignTasksToSprint,
   removeTasksFromSprint,
+  getSprintCapacity,
+  getProjectVelocity,
   type Sprint,
   type SprintStatus,
+  type SprintCapacity,
+  type VelocityData,
   type CreateSprintInput,
 } from '@/features/work-management/sprints.api';
 import { listTasks, type WorkTask } from '@/features/work-management/workTasks.api';
@@ -41,6 +45,8 @@ export default function ProjectSprintsTab() {
   const [expandedSprint, setExpandedSprint] = useState<string | null>(null);
   const [sprintTasks, setSprintTasks] = useState<Record<string, WorkTask[]>>({});
   const [backlogTasks, setBacklogTasks] = useState<WorkTask[]>([]);
+  const [capacityData, setCapacityData] = useState<Record<string, SprintCapacity>>({});
+  const [velocityData, setVelocityData] = useState<VelocityData | null>(null);
 
   // Create form state
   const [newName, setNewName] = useState('');
@@ -55,6 +61,10 @@ export default function ProjectSprintsTab() {
       setLoading(true);
       const data = await listSprints(projectId);
       setSprints(data);
+      // Load velocity in parallel
+      getProjectVelocity(projectId, 5)
+        .then(setVelocityData)
+        .catch(() => {}); // non-critical
     } catch (err: any) {
       toast.error('Failed to load sprints');
     } finally {
@@ -87,6 +97,10 @@ export default function ProjectSprintsTab() {
     } else {
       setExpandedSprint(sprintId);
       loadSprintTasks(sprintId);
+      // Load capacity
+      getSprintCapacity(sprintId)
+        .then((cap) => setCapacityData((prev) => ({ ...prev, [sprintId]: cap })))
+        .catch(() => {}); // non-critical
     }
   };
 
@@ -220,6 +234,45 @@ export default function ProjectSprintsTab() {
         </div>
       )}
 
+      {/* Velocity Panel */}
+      {velocityData && velocityData.sprints.length > 0 && (
+        <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700 uppercase">Velocity</h3>
+            <div className="text-right">
+              <span className="text-2xl font-bold text-indigo-600">
+                {velocityData.rollingAverageCompletedPoints}
+              </span>
+              <span className="text-sm text-gray-500 ml-1">SP/sprint avg</span>
+            </div>
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b">
+                <th className="text-left py-1">Sprint</th>
+                <th className="text-right py-1">Committed</th>
+                <th className="text-right py-1">Completed</th>
+                <th className="text-right py-1">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {velocityData.sprints.map((vs) => (
+                <tr key={vs.sprintId} className="border-b border-gray-100">
+                  <td className="py-1 text-gray-700">{vs.name}</td>
+                  <td className="py-1 text-right">{vs.committedStoryPoints} SP</td>
+                  <td className="py-1 text-right font-medium">{vs.completedStoryPoints} SP</td>
+                  <td className="py-1 text-right text-gray-500">
+                    {vs.committedStoryPoints > 0
+                      ? Math.round((vs.completedStoryPoints / vs.committedStoryPoints) * 100)
+                      : 0}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Sprint List */}
       {sprints.length === 0 ? (
         <p className="text-gray-500 text-sm">No sprints yet. Create one to start planning.</p>
@@ -280,6 +333,39 @@ export default function ProjectSprintsTab() {
                 <div className="border-t p-4 space-y-4">
                   {sprint.goal && (
                     <p className="text-sm text-gray-600 italic">Goal: {sprint.goal}</p>
+                  )}
+
+                  {/* Capacity Panel */}
+                  {capacityData[sprint.id] && (
+                    <div className="grid grid-cols-3 gap-3 p-3 bg-blue-50 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 uppercase">Capacity</div>
+                        <div className="text-lg font-semibold text-blue-700">
+                          {capacityData[sprint.id].capacityHours}h
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {capacityData[sprint.id].capacityBasis.workdays} days × {capacityData[sprint.id].capacityBasis.hoursPerDay}h/day
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 uppercase">Load</div>
+                        <div className="text-lg font-semibold text-orange-600">
+                          {capacityData[sprint.id].loadHours}h
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {capacityData[sprint.id].committedStoryPoints} SP × {capacityData[sprint.id].capacityBasis.pointsToHoursRatio}h
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500 uppercase">Remaining</div>
+                        <div className={`text-lg font-semibold ${capacityData[sprint.id].remainingHours >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {capacityData[sprint.id].remainingHours}h
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {capacityData[sprint.id].completedStoryPoints}/{capacityData[sprint.id].committedStoryPoints} SP done
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {/* Tasks in Sprint */}

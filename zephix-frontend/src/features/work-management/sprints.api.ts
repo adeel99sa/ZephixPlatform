@@ -115,3 +115,60 @@ export async function removeTasksFromSprint(
   });
   return resp?.data ?? resp;
 }
+
+// --- Sprint Capacity ---
+
+export interface SprintCapacity {
+  capacityHours: number;
+  loadHours: number;
+  remainingHours: number;
+  committedStoryPoints: number;
+  completedStoryPoints: number;
+  remainingStoryPoints: number;
+  capacityBasis: {
+    hoursPerDay: number;
+    workdays: number;
+    pointsToHoursRatio: number;
+    allocationCount: number;
+    allocationSource: "allocations" | "none";
+    loadSource: "estimates" | "storyPoints";
+  };
+}
+
+/** Get read-only computed capacity for a sprint. */
+export async function getSprintCapacity(
+  sprintId: string,
+): Promise<SprintCapacity> {
+  requireActiveWorkspace();
+  const resp = await request.get<any>(`/work/sprints/${sprintId}/capacity`);
+  return resp?.data ?? resp;
+}
+
+// --- Velocity ---
+
+export interface VelocitySprint {
+  sprintId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  committedStoryPoints: number;
+  completedStoryPoints: number;
+}
+
+export interface VelocityData {
+  window: number;
+  sprints: VelocitySprint[];
+  rollingAverageCompletedPoints: number;
+}
+
+/** Get velocity data for a project from completed sprints. */
+export async function getProjectVelocity(
+  projectId: string,
+  window: number = 5,
+): Promise<VelocityData> {
+  requireActiveWorkspace();
+  const resp = await request.get<any>(
+    `/work/sprints/project/${projectId}/velocity?window=${window}`,
+  );
+  return resp?.data ?? resp;
+}

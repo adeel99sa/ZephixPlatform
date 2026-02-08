@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Headers,
   Req,
   UseGuards,
@@ -196,5 +197,48 @@ export class SprintsController {
       dto.taskIds,
     );
     return this.responseService.success(result);
+  }
+
+  @Get(':id/capacity')
+  @ApiOperation({ summary: 'Get sprint capacity (read-only computed)' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'id', description: 'Sprint ID' })
+  @ApiResponse({ status: 200, description: 'Sprint capacity computed' })
+  async getSprintCapacity(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') id: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    const capacity = await this.sprintsService.getSprintCapacity(
+      auth,
+      workspaceId,
+      id,
+    );
+    return this.responseService.success(capacity);
+  }
+
+  @Get('project/:projectId/velocity')
+  @ApiOperation({ summary: 'Get project velocity from completed sprints' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiResponse({ status: 200, description: 'Velocity data' })
+  async getProjectVelocity(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('projectId') projectId: string,
+    @Query('window') windowParam?: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    const window = windowParam ? parseInt(windowParam, 10) : 5;
+    const velocity = await this.sprintsService.getProjectVelocity(
+      auth,
+      workspaceId,
+      projectId,
+      isNaN(window) ? 5 : window,
+    );
+    return this.responseService.success(velocity);
   }
 }

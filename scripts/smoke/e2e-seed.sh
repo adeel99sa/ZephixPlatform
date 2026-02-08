@@ -506,6 +506,23 @@ if [ -n "$SPRINT_ID" ]; then
     -d "{\"taskIds\":[\"${TASK_A1}\",\"${TASK_A2}\"]}" >/dev/null 2>&1 || log "Warning: Task assignment failed"
 fi
 
+# Create a completed sprint for velocity testing
+log "Creating completed sprint for velocity ..."
+VSPRINT_START=$(date -v-30d +%Y-%m-%d 2>/dev/null || date -d "-30 days" +%Y-%m-%d)
+VSPRINT_END=$(date -v-16d +%Y-%m-%d 2>/dev/null || date -d "-16 days" +%Y-%m-%d)
+VSPRINT_RESP=$(wsmut POST "/work/sprints" \
+  -d "{\"projectId\":\"${PROJECT_A_ID}\",\"name\":\"Sprint 0 (done)\",\"goal\":\"Velocity seed\",\"startDate\":\"${VSPRINT_START}\",\"endDate\":\"${VSPRINT_END}\"}" 2>/dev/null) || true
+VSPRINT_ID=$(echo "$VSPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$VSPRINT_ID" ] && [ "$VSPRINT_ID" != "null" ]; then
+  # Start then complete the sprint
+  wsmut PATCH "/work/sprints/${VSPRINT_ID}" -d '{"status":"ACTIVE"}' >/dev/null 2>&1 || true
+  wsmut PATCH "/work/sprints/${VSPRINT_ID}" -d '{"status":"COMPLETED"}' >/dev/null 2>&1 || true
+  log "Completed sprint ID: ${VSPRINT_ID}"
+else
+  VSPRINT_ID=""
+  log "Warning: Velocity sprint creation failed"
+fi
+
 ###############################################################################
 # STEP 13: Update project budget fields (budget on Project entity)
 ###############################################################################
@@ -570,7 +587,8 @@ cat > "$IDS_FILE" <<JSONEOF
   "firstAllocA": "${ALLOC_A1}",
   "firstCommentId": "${COMMENT_ID}",
   "firstDependencyId": "${DEP_ID}",
-  "firstSprintId": "${SPRINT_ID}"
+  "firstSprintId": "${SPRINT_ID}",
+  "firstVelocitySprintId": "${VSPRINT_ID}"
 }
 JSONEOF
 
