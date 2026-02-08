@@ -13,25 +13,6 @@ declare module 'axios' {
   }
 }
 
-// Helper: normalize to exactly one "/api" prefix (same-origin)
-const isAbsoluteHttp = (u?: string) => !!u && /^https?:\/\//i.test(u);
-
-const normalizeApiPath = (u?: string) => {
-  if (!u) return u;
-  if (isAbsoluteHttp(u)) return u;                  // leave full URLs alone
-  let url = u.trim();
-
-  // collapse accidental double prefixes
-  if (url.startsWith('/api/api/')) url = url.replace(/^\/api\/api\//, '/api/');
-  if (url.startsWith('api/api/'))  url = '/' + url.replace(/^api\/api\//, 'api/');
-
-  // ensure exactly one /api/ prefix
-  if (url.startsWith('/api/')) return url;          // good
-  if (url.startsWith('api/'))  return '/' + url;    // add leading slash
-  if (url.startsWith('/'))     return '/api' + url; // /x -> /api/x
-  return '/api/' + url;                              // x -> /api/x
-};
-
 class ApiClient {
   private instance: AxiosInstance;
   private config: ApiClientConfig;
@@ -96,7 +77,7 @@ class ApiClient {
     // Request interceptor
     this.instance.interceptors.request.use(
       async (config) => {
-        // NOTE: Do NOT call normalizeApiPath here!
+        // NOTE: Do NOT normalize path here — baseURL already includes /api
         // baseURL is already set to '/api' in dev or full URL in prod.
         // Adding /api prefix in the interceptor would cause double-prefixing:
         // baseURL('/api') + normalizedUrl('/api/...') = '/api/api/...' = 404

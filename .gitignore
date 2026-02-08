@@ -176,3 +176,6 @@ docs/build/
 
 # Local development
 .local/
+
+# E2E smoke test generated data
+scripts/smoke/e2e-ids.json
