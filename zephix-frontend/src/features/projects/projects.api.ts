@@ -30,7 +30,7 @@ export interface ProjectSummary {
 }
 
 export interface ProjectDetail extends ProjectSummary {
-  // Additional detail fields can be added here
+  definitionOfDone?: string[];
 }
 
 export interface Task {
@@ -103,6 +103,7 @@ export interface UpdateProjectSettingsDto {
   estimatedEndDate?: string;
   status?: ProjectStatus;
   priority?: ProjectPriority;
+  definitionOfDone?: string[];
 }
 
 /**
