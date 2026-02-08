@@ -482,6 +482,37 @@ else
 fi
 
 ###############################################################################
+# MODULE 1e: Sprint Capacity & Velocity (Wave 2.2)
+###############################################################################
+section "Module 1e: Sprint Capacity & Velocity"
+
+# Sprint capacity endpoint
+if [ -n "$SPRINT_ID" ]; then
+  CAP_RESP=$(http_get "/work/sprints/${SPRINT_ID}/capacity")
+  if [ -n "$CAP_RESP" ]; then
+    CAP_HOURS=$(echo "$CAP_RESP" | jq -r '(.data // .).capacityHours // 0' 2>/dev/null || echo "0")
+    LOAD_HOURS=$(echo "$CAP_RESP" | jq -r '(.data // .).loadHours // 0' 2>/dev/null || echo "0")
+    WORKDAYS=$(echo "$CAP_RESP" | jq -r '(.data // .).capacityBasis.workdays // 0' 2>/dev/null || echo "0")
+    LOAD_SRC=$(echo "$CAP_RESP" | jq -r '(.data // .).capacityBasis.loadSource // empty' 2>/dev/null || echo "")
+    pass "Sprint capacity (capacity: ${CAP_HOURS}h, load: ${LOAD_HOURS}h, workdays: ${WORKDAYS}, source: ${LOAD_SRC})"
+  else
+    fail "Sprint capacity" "empty response"
+  fi
+else
+  skip "Sprint capacity" "no sprint ID"
+fi
+
+# Velocity endpoint
+VEL_RESP=$(http_get "/work/sprints/project/${PROJECT_A_ID}/velocity?window=5")
+if [ -n "$VEL_RESP" ]; then
+  VEL_SPRINTS=$(echo "$VEL_RESP" | jq -r '(.data // .).sprints | length' 2>/dev/null || echo "0")
+  VEL_AVG=$(echo "$VEL_RESP" | jq -r '(.data // .).rollingAverageCompletedPoints // 0' 2>/dev/null || echo "0")
+  pass "Velocity (${VEL_SPRINTS} completed sprints, avg: ${VEL_AVG} SP)"
+else
+  fail "Velocity" "empty response"
+fi
+
+###############################################################################
 # MODULE 2: Resource Management
 ###############################################################################
 section "Module 2: Resource Management"

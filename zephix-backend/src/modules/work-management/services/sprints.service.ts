@@ -12,10 +12,20 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 import { Sprint, SprintStatus } from '../entities/sprint.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { Project } from '../../projects/entities/project.entity';
+import { WorkResourceAllocation } from '../entities/work-resource-allocation.entity';
 import { CreateSprintDto } from '../dto/create-sprint.dto';
 import { UpdateSprintDto } from '../dto/update-sprint.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { In } from 'typeorm';
+import {
+  countWorkdays,
+  computeAllocatedHours,
+  computeLoadFromPoints,
+  DEFAULT_HOURS_PER_DAY,
+  DEFAULT_HOURS_PER_POINT,
+  type SprintCapacityResult,
+  type AllocationInput,
+} from '../utils/sprint-capacity.utils';
 
 interface AuthContext {
   organizationId: string;
@@ -32,6 +42,8 @@ export class SprintsService {
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     @Inject(getTenantAwareRepositoryToken(Project))
     private readonly projectRepo: TenantAwareRepository<Project>,
+    @Inject(getTenantAwareRepositoryToken(WorkResourceAllocation))
+    private readonly allocationRepo: TenantAwareRepository<WorkResourceAllocation>,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly tenantContext: TenantContextService,
   ) {}
@@ -303,6 +315,160 @@ export class SprintsService {
     }
 
     return { removed: tasks.length };
+  }
+
+  /**
+   * Compute sprint capacity — read-only computed block.
+   */
+  async getSprintCapacity(
+    auth: AuthContext,
+    workspaceId: string,
+    sprintId: string,
+  ): Promise<SprintCapacityResult> {
+    const sprint = await this.getSprint(auth, workspaceId, sprintId);
+
+    // 1. Workdays
+    const sprintStart = new Date(sprint.startDate);
+    const sprintEnd = new Date(sprint.endDate);
+    const workdays = countWorkdays(sprintStart, sprintEnd);
+
+    // 2. Tasks in sprint
+    const tasks = await this.taskRepo.find({
+      where: { sprintId, workspaceId } as any,
+    });
+
+    const committedStoryPoints = tasks.reduce(
+      (sum, t) => sum + (t.storyPoints || 0),
+      0,
+    );
+    const completedStoryPoints = tasks
+      .filter((t) => t.status === 'DONE')
+      .reduce((sum, t) => sum + (t.storyPoints || 0), 0);
+
+    // 3. Allocations overlapping sprint range for this project
+    const allocations = await this.allocationRepo.find({
+      where: {
+        workspaceId,
+        projectId: sprint.projectId,
+        deletedAt: null,
+      } as any,
+    });
+
+    const allocInputs: AllocationInput[] = allocations.map((a) => ({
+      allocationPercent: a.allocationPercent ?? 100,
+      startDate: a.startDate ? new Date(a.startDate) : null,
+      endDate: a.endDate ? new Date(a.endDate) : null,
+    }));
+
+    const hoursPerDay = DEFAULT_HOURS_PER_DAY;
+    const hoursPerPoint = DEFAULT_HOURS_PER_POINT;
+
+    const capacityHours = computeAllocatedHours(
+      sprintStart,
+      sprintEnd,
+      allocInputs,
+      hoursPerDay,
+    );
+
+    // 4. Load — use story points as proxy if no task estimate hours exist
+    // (estimateHours column not yet on WorkTask entity)
+    const loadHours = computeLoadFromPoints(committedStoryPoints, hoursPerPoint);
+    const loadSource: 'estimates' | 'storyPoints' = 'storyPoints';
+
+    return {
+      capacityHours,
+      loadHours,
+      remainingHours: Math.round((capacityHours - loadHours) * 100) / 100,
+      committedStoryPoints,
+      completedStoryPoints,
+      remainingStoryPoints: committedStoryPoints - completedStoryPoints,
+      capacityBasis: {
+        hoursPerDay,
+        workdays,
+        pointsToHoursRatio: hoursPerPoint,
+        allocationCount: allocInputs.length,
+        allocationSource: allocInputs.length > 0 ? 'allocations' : 'none',
+        loadSource,
+      },
+    };
+  }
+
+  /**
+   * Project velocity — rolling average of completed sprints.
+   */
+  async getProjectVelocity(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId: string,
+    window: number = 5,
+  ): Promise<{
+    window: number;
+    sprints: Array<{
+      sprintId: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      committedStoryPoints: number;
+      completedStoryPoints: number;
+    }>;
+    rollingAverageCompletedPoints: number;
+  }> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+
+    // Clamp window
+    const w = Math.max(1, Math.min(window, 20));
+
+    // Get last N completed sprints
+    const completedSprints = await this.sprintRepo.find({
+      where: {
+        workspaceId,
+        projectId,
+        status: SprintStatus.COMPLETED,
+      } as any,
+      order: { endDate: 'DESC' },
+      take: w,
+    });
+
+    // For each sprint, compute committed/completed points
+    const sprintData = await Promise.all(
+      completedSprints.map(async (sprint) => {
+        const tasks = await this.taskRepo.find({
+          where: { sprintId: sprint.id, workspaceId } as any,
+        });
+
+        const committed = tasks.reduce(
+          (sum, t) => sum + (t.storyPoints || 0),
+          0,
+        );
+        const completed = tasks
+          .filter((t) => t.status === 'DONE')
+          .reduce((sum, t) => sum + (t.storyPoints || 0), 0);
+
+        return {
+          sprintId: sprint.id,
+          name: sprint.name,
+          startDate: String(sprint.startDate),
+          endDate: String(sprint.endDate),
+          committedStoryPoints: committed,
+          completedStoryPoints: completed,
+        };
+      }),
+    );
+
+    const totalCompleted = sprintData.reduce(
+      (sum, s) => sum + s.completedStoryPoints,
+      0,
+    );
+    const rollingAvg =
+      sprintData.length > 0
+        ? Math.round((totalCompleted / sprintData.length) * 100) / 100
+        : 0;
+
+    return {
+      window: w,
+      sprints: sprintData,
+      rollingAverageCompletedPoints: rollingAvg,
+    };
   }
 
   private validateStatusTransition(
