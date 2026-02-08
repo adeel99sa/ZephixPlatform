@@ -26,6 +26,11 @@ import {
   type SprintCapacityResult,
   type AllocationInput,
 } from '../utils/sprint-capacity.utils';
+import {
+  buildBurndownBuckets,
+  type DailyBucket,
+  type BurndownTask,
+} from '../utils/burndown.utils';
 
 interface AuthContext {
   organizationId: string;
@@ -219,6 +224,21 @@ export class SprintsService {
     if (dto.status !== undefined) {
       this.validateStatusTransition(sprint.status, dto.status);
       sprint.status = dto.status;
+
+      // Freeze points when completing a sprint
+      if (dto.status === SprintStatus.COMPLETED) {
+        const tasks = await this.taskRepo.find({
+          where: { sprintId, workspaceId } as any,
+        });
+        sprint.committedPoints = tasks.reduce(
+          (sum, t) => sum + (t.storyPoints || 0),
+          0,
+        );
+        sprint.completedPoints = tasks
+          .filter((t) => t.status === 'DONE')
+          .reduce((sum, t) => sum + (t.storyPoints || 0), 0);
+        sprint.completedAt = new Date();
+      }
     }
 
     return this.sprintRepo.save(sprint);
@@ -394,6 +414,47 @@ export class SprintsService {
   }
 
   /**
+   * Sprint burndown/burnup data — daily buckets of remaining/completed points.
+   */
+  async getSprintBurndown(
+    auth: AuthContext,
+    workspaceId: string,
+    sprintId: string,
+  ): Promise<{
+    sprintId: string;
+    sprintName: string;
+    startDate: string;
+    endDate: string;
+    totalPoints: number;
+    buckets: DailyBucket[];
+  }> {
+    const sprint = await this.getSprint(auth, workspaceId, sprintId);
+
+    const tasks = await this.taskRepo.find({
+      where: { sprintId, workspaceId } as any,
+    });
+
+    const burndownTasks: BurndownTask[] = tasks.map((t) => ({
+      storyPoints: t.storyPoints || 0,
+      completedAt: t.completedAt ? new Date(t.completedAt) : null,
+      status: t.status,
+    }));
+
+    const sprintStart = new Date(sprint.startDate);
+    const sprintEnd = new Date(sprint.endDate);
+    const buckets = buildBurndownBuckets(sprintStart, sprintEnd, burndownTasks);
+
+    return {
+      sprintId: sprint.id,
+      sprintName: sprint.name,
+      startDate: String(sprint.startDate),
+      endDate: String(sprint.endDate),
+      totalPoints: burndownTasks.reduce((s, t) => s + t.storyPoints, 0),
+      buckets,
+    };
+  }
+
+  /**
    * Project velocity — rolling average of completed sprints.
    */
   async getProjectVelocity(
@@ -429,13 +490,23 @@ export class SprintsService {
       take: w,
     });
 
-    // For each sprint, compute committed/completed points
+    // Use frozen points if available (set at completion time), else recompute live
     const sprintData = await Promise.all(
       completedSprints.map(async (sprint) => {
+        if (sprint.committedPoints != null) {
+          return {
+            sprintId: sprint.id,
+            name: sprint.name,
+            startDate: String(sprint.startDate),
+            endDate: String(sprint.endDate),
+            committedStoryPoints: sprint.committedPoints,
+            completedStoryPoints: sprint.completedPoints ?? 0,
+          };
+        }
+        // Fallback for sprints completed before freeze columns existed
         const tasks = await this.taskRepo.find({
           where: { sprintId: sprint.id, workspaceId } as any,
         });
-
         const committed = tasks.reduce(
           (sum, t) => sum + (t.storyPoints || 0),
           0,

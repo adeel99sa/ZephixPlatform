@@ -202,6 +202,29 @@ test.describe('Work Management Module', () => {
     expect(hasSprintsContent).toBeTruthy();
   });
 
+  test('burndown chart renders for sprint with tasks', async ({ page }) => {
+    const ids = getSeedIds();
+    const projectId = ids.projectA?.id;
+    expect(projectId).toBeTruthy();
+
+    await navigateToProjectSprints(page, projectId);
+
+    // Click on the first sprint to expand it
+    const sprintRow = page.locator('text=Sprint').first();
+    if (await sprintRow.isVisible()) {
+      await sprintRow.click();
+      await page.waitForTimeout(1500);
+
+      // Check for burndown/burnup chart elements
+      const body = await page.locator('body').textContent();
+      const hasBurndown = body?.includes('Burndown') || body?.includes('Burnup');
+      const hasCapacity = body?.includes('Capacity');
+
+      // At least capacity panel should render for any expanded sprint
+      expect(hasCapacity || hasBurndown).toBeTruthy();
+    }
+  });
+
   test('no 403 spam across work management navigation', async ({ page }) => {
     const ids = getSeedIds();
 

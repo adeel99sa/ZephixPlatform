@@ -116,6 +116,34 @@ export async function removeTasksFromSprint(
   return resp?.data ?? resp;
 }
 
+// --- Burndown ---
+
+export interface DailyBucket {
+  date: string;
+  totalPoints: number;
+  remainingPoints: number;
+  completedPoints: number;
+  idealRemaining: number;
+}
+
+export interface BurndownData {
+  sprintId: string;
+  sprintName: string;
+  startDate: string;
+  endDate: string;
+  totalPoints: number;
+  buckets: DailyBucket[];
+}
+
+/** Get burndown/burnup chart data for a sprint. */
+export async function getSprintBurndown(
+  sprintId: string,
+): Promise<BurndownData> {
+  requireActiveWorkspace();
+  const resp = await request.get<any>(`/work/sprints/${sprintId}/burndown`);
+  return resp?.data ?? resp;
+}
+
 // --- Sprint Capacity ---
 
 export interface SprintCapacity {

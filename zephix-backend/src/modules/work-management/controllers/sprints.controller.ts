@@ -219,6 +219,26 @@ export class SprintsController {
     return this.responseService.success(capacity);
   }
 
+  @Get(':id/burndown')
+  @ApiOperation({ summary: 'Get sprint burndown/burnup data (daily buckets)' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'id', description: 'Sprint ID' })
+  @ApiResponse({ status: 200, description: 'Burndown data returned' })
+  async getSprintBurndown(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') id: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    const burndown = await this.sprintsService.getSprintBurndown(
+      auth,
+      workspaceId,
+      id,
+    );
+    return this.responseService.success(burndown);
+  }
+
   @Get('project/:projectId/velocity')
   @ApiOperation({ summary: 'Get project velocity from completed sprints' })
   @ApiHeader({ name: 'x-workspace-id', required: true })
