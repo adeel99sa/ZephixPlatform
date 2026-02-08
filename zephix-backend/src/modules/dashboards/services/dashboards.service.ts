@@ -383,6 +383,7 @@ export class DashboardsService {
 
     const dashboard = this.dashboardRepository.create({
       ...dto,
+      visibility: dto.visibility || DashboardVisibility.PRIVATE,
       organizationId,
       ownerUserId: userId,
       workspaceId: dto.workspaceId || workspaceId || null,

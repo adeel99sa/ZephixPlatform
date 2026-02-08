@@ -67,6 +67,31 @@ export class OrganizationsController {
     return this.organizationsService.findByUser(userId);
   }
 
+  // IMPORTANT: Static routes MUST be before parameterized routes.
+  // @Get('users') must precede @Get(':id') or NestJS treats "users" as an :id.
+  @Get('users')
+  @ApiOperation({
+    summary: 'Get organization users for workspace member selection',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization users retrieved successfully',
+  })
+  async getOrgUsers(
+    @Request() req: AuthRequest,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('search') search?: string,
+  ) {
+    // Allow admin or workspace owner to list org users
+    const { organizationId } = getAuthContext(req);
+    return this.organizationsService.getOrganizationUsers(organizationId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+      search,
+    });
+  }
+
   @Get(':id')
   @UseGuards(OrganizationGuard)
   @ApiOperation({ summary: 'Get organization details' })
@@ -180,29 +205,6 @@ export class OrganizationsController {
     });
 
     return this.organizationsService.findAllUsers();
-  }
-
-  @Get('users')
-  @ApiOperation({
-    summary: 'Get organization users for workspace member selection',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Organization users retrieved successfully',
-  })
-  async getOrgUsers(
-    @Request() req: AuthRequest,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-    @Query('search') search?: string,
-  ) {
-    // Allow admin or workspace owner to list org users
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOrganizationUsers(organizationId, {
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-      search,
-    });
   }
 
   // Onboarding endpoints

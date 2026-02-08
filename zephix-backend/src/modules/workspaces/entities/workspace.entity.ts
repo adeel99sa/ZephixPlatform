@@ -16,6 +16,17 @@ import { User } from '../../users/entities/user.entity';
 import { WorkspaceMember } from './workspace-member.entity';
 
 /**
+ * Workspace visibility / permissions level.
+ * Maps to the isPrivate boolean column in the database:
+ *   OPEN   → isPrivate = false (anyone in org can see and join)
+ *   CLOSED → isPrivate = true  (anyone in org can see, admins manage access)
+ */
+export enum WorkspaceVisibility {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+}
+
+/**
  * PHASE 5.1: LOCKED PRODUCT MODEL - Workspace Access Levels
  *
  * These are INTERNAL workspace access levels. They are NOT exposed as "roles" in UI language.
