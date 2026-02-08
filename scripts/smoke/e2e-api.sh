@@ -481,6 +481,40 @@ else
   fail "Get task A1 for SP check" "empty response"
 fi
 
+# Negative test: completed sprint immutability guards
+VELOCITY_SPRINT_ID=$(jq -r '.firstVelocitySprintId // empty' "$IDS_FILE" 2>/dev/null || echo "")
+if [ -n "$VELOCITY_SPRINT_ID" ]; then
+  # Try to assign a task to the COMPLETED sprint — must fail with 400
+  ASSIGN_CLOSED_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -H "x-workspace-id: ${WS_ID}" \
+    -H "Content-Type: application/json" \
+    ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+    -d "{\"taskIds\":[\"${TASK_A1}\"]}" \
+    "${BASE_URL}/work/sprints/${VELOCITY_SPRINT_ID}/tasks" 2>/dev/null)
+  if [ "$ASSIGN_CLOSED_STATUS" = "400" ]; then
+    pass "Completed sprint rejects task assignment (400)"
+  else
+    fail "Completed sprint assign guard" "expected 400, got ${ASSIGN_CLOSED_STATUS}"
+  fi
+
+  # Try to rename a COMPLETED sprint — must fail with 400
+  RENAME_CLOSED_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+    -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -H "x-workspace-id: ${WS_ID}" \
+    -H "Content-Type: application/json" \
+    ${CSRF_TOKEN:+-H "x-csrf-token: ${CSRF_TOKEN}"} \
+    -d "{\"name\":\"Hacked\"}" \
+    "${BASE_URL}/work/sprints/${VELOCITY_SPRINT_ID}" 2>/dev/null)
+  if [ "$RENAME_CLOSED_STATUS" = "400" ]; then
+    pass "Completed sprint rejects rename (400)"
+  else
+    fail "Completed sprint rename guard" "expected 400, got ${RENAME_CLOSED_STATUS}"
+  fi
+else
+  skip "Completed sprint guards" "no velocity sprint ID"
+fi
+
 ###############################################################################
 # MODULE 1e: Sprint Capacity & Velocity (Wave 2.2)
 ###############################################################################
@@ -510,6 +544,22 @@ if [ -n "$VEL_RESP" ]; then
   pass "Velocity (${VEL_SPRINTS} completed sprints, avg: ${VEL_AVG} SP)"
 else
   fail "Velocity" "empty response"
+fi
+
+# Sprint progress endpoint (dashboard widget)
+if [ -n "$SPRINT_ID" ]; then
+  PROG_RESP=$(http_get "/work/sprints/${SPRINT_ID}/progress")
+  if [ -n "$PROG_RESP" ]; then
+    PROG_PCT=$(echo "$PROG_RESP" | jq -r '(.data // .).percentComplete // 0' 2>/dev/null || echo "0")
+    PROG_TOTAL=$(echo "$PROG_RESP" | jq -r '(.data // .).totalPoints // 0' 2>/dev/null || echo "0")
+    PROG_SCOPE=$(echo "$PROG_RESP" | jq -r '(.data // .).scopeMode // empty' 2>/dev/null || echo "")
+    PROG_SAMPLE=$(echo "$PROG_RESP" | jq -r '(.data // .).burndownSample | length' 2>/dev/null || echo "0")
+    pass "Sprint progress (${PROG_PCT}% of ${PROG_TOTAL} pts, scope: ${PROG_SCOPE}, sample: ${PROG_SAMPLE} days)"
+  else
+    fail "Sprint progress" "empty response"
+  fi
+else
+  skip "Sprint progress" "no sprint ID"
 fi
 
 # Burndown endpoint

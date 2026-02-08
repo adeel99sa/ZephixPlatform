@@ -5,6 +5,7 @@
 export const WIDGET_ALLOWLIST = [
   'project_health',
   'sprint_metrics',
+  'sprint_progress',
   'resource_utilization',
   'conflict_trends',
   'budget_variance',

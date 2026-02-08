@@ -381,6 +381,7 @@ export default function ProjectSprintsTab() {
                       buckets={burndownData[sprint.id].buckets}
                       totalPoints={burndownData[sprint.id].totalPoints}
                       sprintName={sprint.name}
+                      scopeMode={burndownData[sprint.id].scopeMode}
                     />
                   )}
 

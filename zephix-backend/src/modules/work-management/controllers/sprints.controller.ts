@@ -219,6 +219,26 @@ export class SprintsController {
     return this.responseService.success(capacity);
   }
 
+  @Get(':id/progress')
+  @ApiOperation({ summary: 'Get sprint progress summary for dashboard widgets' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'id', description: 'Sprint ID' })
+  @ApiResponse({ status: 200, description: 'Sprint progress returned' })
+  async getSprintProgress(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') id: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+    const progress = await this.sprintsService.getSprintProgress(
+      auth,
+      workspaceId,
+      id,
+    );
+    return this.responseService.success(progress);
+  }
+
   @Get(':id/burndown')
   @ApiOperation({ summary: 'Get sprint burndown/burnup data (daily buckets)' })
   @ApiHeader({ name: 'x-workspace-id', required: true })

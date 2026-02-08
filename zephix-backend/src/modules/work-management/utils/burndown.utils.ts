@@ -30,16 +30,22 @@ export interface DailyBucket {
  * - completedPoints = sum of SP for tasks with completedAt <= end-of-day
  * - idealRemaining = linear interpolation from totalPoints to 0 over workdays
  *
- * @param sprintStart - Sprint start date
- * @param sprintEnd   - Sprint end date
- * @param tasks       - Tasks in the sprint with storyPoints and completedAt
+ * @param sprintStart        - Sprint start date
+ * @param sprintEnd          - Sprint end date
+ * @param tasks              - Tasks in the sprint with storyPoints and completedAt
+ * @param overrideTotalPoints - If provided, use this as the frozen scope total
+ *                              instead of computing from tasks. Used for COMPLETED sprints.
  */
 export function buildBurndownBuckets(
   sprintStart: Date,
   sprintEnd: Date,
   tasks: BurndownTask[],
+  overrideTotalPoints?: number,
 ): DailyBucket[] {
-  const totalPoints = tasks.reduce((sum, t) => sum + t.storyPoints, 0);
+  const totalPoints =
+    overrideTotalPoints != null
+      ? overrideTotalPoints
+      : tasks.reduce((sum, t) => sum + t.storyPoints, 0);
   if (totalPoints === 0) return [];
 
   // Normalize to UTC midnight

@@ -3,6 +3,7 @@ import { fmtPercent, trendArrow } from "./format";
 import { ProjectHealthWidget } from "./project-health";
 import { ResourceUtilizationWidget } from "./resource-utilization";
 import { ConflictTrendsWidget } from "./conflict-trends";
+import { SprintProgressWidget } from "./sprint-progress";
 import type { DashboardWidget } from "../types";
 import type { WidgetFilters } from "./types";
 
@@ -47,6 +48,9 @@ export function WidgetRenderer({ widget, data, filters, isShareMode = false }: P
 
       case 'conflict_trends':
         return <ConflictTrendsWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      case 'sprint_progress':
+        return <SprintProgressWidget widget={dashboardWidget} />;
 
       default:
         return (

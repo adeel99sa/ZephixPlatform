@@ -7,6 +7,7 @@ export type DashboardVisibility = "WORKSPACE" | "ORG" | "PRIVATE";
 export type WidgetType =
   | "project_health"
   | "sprint_metrics"
+  | "sprint_progress"
   | "resource_utilization"
   | "conflict_trends"
   | "portfolio_summary"

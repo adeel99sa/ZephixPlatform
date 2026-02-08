@@ -217,6 +217,24 @@ export class SprintsService {
   ): Promise<Sprint> {
     const sprint = await this.getSprint(auth, workspaceId, sprintId);
 
+    // Guard: completed/cancelled sprints are immutable (except status transition is checked below)
+    if (
+      sprint.status === SprintStatus.COMPLETED ||
+      sprint.status === SprintStatus.CANCELLED
+    ) {
+      // Only allow status field (which will be rejected by validateStatusTransition anyway)
+      const nonStatusFields = ['name', 'goal', 'startDate', 'endDate'] as const;
+      const hasMutation = nonStatusFields.some(
+        (f) => dto[f] !== undefined,
+      );
+      if (hasMutation) {
+        throw new BadRequestException({
+          code: 'SPRINT_IMMUTABLE',
+          message: `Cannot modify a ${sprint.status} sprint`,
+        });
+      }
+    }
+
     if (dto.name !== undefined) sprint.name = dto.name;
     if (dto.goal !== undefined) sprint.goal = dto.goal || null;
     if (dto.startDate !== undefined) sprint.startDate = new Date(dto.startDate) as any;
@@ -321,7 +339,17 @@ export class SprintsService {
     sprintId: string,
     taskIds: string[],
   ): Promise<{ removed: number }> {
-    await this.getSprint(auth, workspaceId, sprintId);
+    const sprint = await this.getSprint(auth, workspaceId, sprintId);
+
+    if (
+      sprint.status === SprintStatus.COMPLETED ||
+      sprint.status === SprintStatus.CANCELLED
+    ) {
+      throw new BadRequestException({
+        code: 'SPRINT_CLOSED',
+        message: 'Cannot remove tasks from a completed or cancelled sprint',
+      });
+    }
 
     const tasks = await this.taskRepo.find({
       where: { id: In(taskIds), sprintId, workspaceId } as any,
@@ -415,6 +443,10 @@ export class SprintsService {
 
   /**
    * Sprint burndown/burnup data — daily buckets of remaining/completed points.
+   *
+   * Scope rule:
+   *  - ACTIVE: floating scope (live task data, totalPoints = current sum)
+   *  - COMPLETED: frozen scope (totalPoints = sprint.committedPoints at completion)
    */
   async getSprintBurndown(
     auth: AuthContext,
@@ -426,6 +458,7 @@ export class SprintsService {
     startDate: string;
     endDate: string;
     totalPoints: number;
+    scopeMode: 'live' | 'frozen';
     buckets: DailyBucket[];
   }> {
     const sprint = await this.getSprint(auth, workspaceId, sprintId);
@@ -442,15 +475,125 @@ export class SprintsService {
 
     const sprintStart = new Date(sprint.startDate);
     const sprintEnd = new Date(sprint.endDate);
-    const buckets = buildBurndownBuckets(sprintStart, sprintEnd, burndownTasks);
+
+    // Determine scope mode and total points
+    const isFrozen =
+      sprint.status === SprintStatus.COMPLETED &&
+      sprint.committedPoints != null;
+    const scopeMode: 'live' | 'frozen' = isFrozen ? 'frozen' : 'live';
+    const totalPoints = isFrozen
+      ? sprint.committedPoints!
+      : burndownTasks.reduce((s, t) => s + t.storyPoints, 0);
+
+    // For frozen sprints, override task list total to match frozen scope
+    const adjustedTasks: BurndownTask[] = isFrozen
+      ? burndownTasks // completions still come from task data; totalPoints is from frozen value
+      : burndownTasks;
+
+    const buckets = buildBurndownBuckets(
+      sprintStart,
+      sprintEnd,
+      adjustedTasks,
+      totalPoints, // pass explicit total for frozen scope
+    );
 
     return {
       sprintId: sprint.id,
       sprintName: sprint.name,
       startDate: String(sprint.startDate),
       endDate: String(sprint.endDate),
-      totalPoints: burndownTasks.reduce((s, t) => s + t.storyPoints, 0),
+      totalPoints,
+      scopeMode,
       buckets,
+    };
+  }
+
+  /**
+   * Sprint progress — lightweight summary for dashboard widgets.
+   * Returns headline numbers + a slim 7-day sample of burndown buckets.
+   */
+  async getSprintProgress(
+    auth: AuthContext,
+    workspaceId: string,
+    sprintId: string,
+  ): Promise<{
+    sprintId: string;
+    sprintName: string;
+    status: SprintStatus;
+    startDate: string;
+    endDate: string;
+    totalPoints: number;
+    completedPoints: number;
+    remainingPoints: number;
+    percentComplete: number;
+    scopeMode: 'live' | 'frozen';
+    burndownSample: DailyBucket[];
+  }> {
+    const sprint = await this.getSprint(auth, workspaceId, sprintId);
+
+    const tasks = await this.taskRepo.find({
+      where: { sprintId, workspaceId } as any,
+    });
+
+    const isFrozen =
+      sprint.status === SprintStatus.COMPLETED &&
+      sprint.committedPoints != null;
+    const scopeMode: 'live' | 'frozen' = isFrozen ? 'frozen' : 'live';
+
+    const burndownTasks: BurndownTask[] = tasks.map((t) => ({
+      storyPoints: t.storyPoints || 0,
+      completedAt: t.completedAt ? new Date(t.completedAt) : null,
+      status: t.status,
+    }));
+
+    const totalPoints = isFrozen
+      ? sprint.committedPoints!
+      : burndownTasks.reduce((s, t) => s + t.storyPoints, 0);
+
+    const completedPoints = isFrozen
+      ? sprint.completedPoints ?? 0
+      : burndownTasks
+          .filter((t) => t.status === 'DONE')
+          .reduce((s, t) => s + t.storyPoints, 0);
+
+    const remainingPoints = totalPoints - completedPoints;
+    const percentComplete =
+      totalPoints > 0
+        ? Math.round((completedPoints / totalPoints) * 100)
+        : 0;
+
+    const sprintStart = new Date(sprint.startDate);
+    const sprintEnd = new Date(sprint.endDate);
+    const allBuckets = buildBurndownBuckets(
+      sprintStart,
+      sprintEnd,
+      burndownTasks,
+      isFrozen ? totalPoints : undefined,
+    );
+
+    // Slim 7-day sample for performance: take evenly spaced buckets
+    let burndownSample: DailyBucket[];
+    if (allBuckets.length <= 7) {
+      burndownSample = allBuckets;
+    } else {
+      const step = (allBuckets.length - 1) / 6;
+      burndownSample = Array.from({ length: 7 }, (_, i) =>
+        allBuckets[Math.round(i * step)],
+      );
+    }
+
+    return {
+      sprintId: sprint.id,
+      sprintName: sprint.name,
+      status: sprint.status,
+      startDate: String(sprint.startDate),
+      endDate: String(sprint.endDate),
+      totalPoints,
+      completedPoints,
+      remainingPoints,
+      percentComplete,
+      scopeMode,
+      burndownSample,
     };
   }
 
