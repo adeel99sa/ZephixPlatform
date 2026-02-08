@@ -115,8 +115,8 @@ export class WorkPhasesService {
       reportingKey: p.reportingKey,
       isMilestone: p.isMilestone,
       isLocked: p.isLocked,
-      dueDate: p.dueDate?.toISOString() || null,
-      deletedAt: p.deletedAt?.toISOString() || null,
+      dueDate: p.dueDate ? (p.dueDate instanceof Date ? p.dueDate.toISOString() : String(p.dueDate)) : null,
+      deletedAt: p.deletedAt ? (p.deletedAt instanceof Date ? p.deletedAt.toISOString() : String(p.deletedAt)) : null,
       deletedByUserId: p.deletedByUserId || null,
     }));
   }
@@ -193,6 +193,7 @@ export class WorkPhasesService {
       isMilestone: dto.isMilestone ?? false,
       isLocked: false,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      createdByUserId: auth.userId,
     });
 
     const savedPhase = await this.phaseRepo.save(phase);

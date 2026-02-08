@@ -28,11 +28,12 @@ export class CreateDashboardDto {
   @IsOptional()
   workspaceId?: string;
 
-  @ApiProperty({
-    description: 'Dashboard visibility',
+  @ApiPropertyOptional({
+    description: 'Dashboard visibility (defaults to PRIVATE)',
     enum: DashboardVisibility,
     default: DashboardVisibility.PRIVATE,
   })
   @IsEnum(DashboardVisibility)
-  visibility: DashboardVisibility;
+  @IsOptional()
+  visibility?: DashboardVisibility;
 }

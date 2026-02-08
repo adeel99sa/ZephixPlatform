@@ -59,12 +59,47 @@ class ApiClient {
     this.setupInterceptors();
   }
 
+  /** Read the XSRF-TOKEN cookie set by the backend */
+  private getCsrfCookie(): string | null {
+    const match = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('XSRF-TOKEN='));
+    return match ? decodeURIComponent(match.split('=')[1]) : null;
+  }
+
+  /** Fetch a fresh CSRF token from the backend if cookie is missing */
+  private csrfFetchPromise: Promise<string | null> | null = null;
+  private async ensureCsrfToken(): Promise<string | null> {
+    const existing = this.getCsrfCookie();
+    if (existing) return existing;
+
+    if (this.csrfFetchPromise) return this.csrfFetchPromise;
+
+    this.csrfFetchPromise = (async () => {
+      try {
+        const baseURL = this.instance.defaults.baseURL || '/api';
+        await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+        return this.getCsrfCookie();
+      } catch {
+        return null;
+      } finally {
+        this.csrfFetchPromise = null;
+      }
+    })();
+
+    return this.csrfFetchPromise;
+  }
+
+  private static MUTATING_METHODS = ['post', 'put', 'patch', 'delete'];
+
   private setupInterceptors(): void {
     // Request interceptor
     this.instance.interceptors.request.use(
-      (config) => {
-        // Normalize URL to exactly one /api prefix
-        config.url = normalizeApiPath(config.url);
+      async (config) => {
+        // NOTE: Do NOT call normalizeApiPath here!
+        // baseURL is already set to '/api' in dev or full URL in prod.
+        // Adding /api prefix in the interceptor would cause double-prefixing:
+        // baseURL('/api') + normalizedUrl('/api/...') = '/api/api/...' = 404
 
         // No Authorization header - cookies are sent automatically with withCredentials: true
 
@@ -83,11 +118,21 @@ class ApiClient {
           config.headers['x-organization-id'] = orgId;
         }
 
-        // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
-        // These endpoints should not require workspace context
+        // CSRF: attach token on every mutating request
         const url = config.url || '';
+        const method = (config.method || 'get').toLowerCase();
         const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
         const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+
+        if (ApiClient.MUTATING_METHODS.includes(method) && !isAuthEndpoint && !isHealthEndpoint) {
+          const csrfToken = await this.ensureCsrfToken();
+          if (csrfToken) {
+            config.headers['x-csrf-token'] = csrfToken;
+          }
+        }
+
+        // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
+        // These endpoints should not require workspace context
         const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
         const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
 
@@ -100,28 +145,11 @@ class ApiClient {
           if (!wsId) {
             delete config.headers?.['X-Workspace-Id'];
             delete config.headers?.['x-workspace-id'];
-            
-            // Development log for debugging
-            if (import.meta.env.MODE === 'development') {
-              console.log('[API] Workspace header removed - activeWorkspaceId is null', {
-                url: config.url,
-                timestamp: new Date().toISOString(),
-              });
-            }
           } else {
             // STEP D: Set header only when activeWorkspaceId exists
             config.headers = config.headers || {};
             config.headers['X-Workspace-Id'] = wsId;
             config.headers['x-workspace-id'] = wsId; // Support both cases
-            
-            // Development log for debugging
-            if (import.meta.env.MODE === 'development') {
-              console.log('[API] Workspace header injected', {
-                workspaceId: wsId,
-                url: config.url,
-                timestamp: new Date().toISOString(),
-              });
-            }
           }
         }
 

@@ -39,6 +39,7 @@ import {
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
+import { track } from '@/lib/telemetry';
 
 export function ProjectPlanView() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -274,6 +275,24 @@ export function ProjectPlanView() {
       emitTaskChanged();
       emitPlanChanged();
       toast.success('Task created');
+
+      // Activation telemetry: fire once for the activation project, then clear marker
+      try {
+        const activationProject = localStorage.getItem('zephix_activation_project');
+        if (activationProject === projectId) {
+          track('activation_first_task_created', {
+            organizationId: user?.organizationId,
+            workspaceId,
+            projectId,
+            taskId: created.id,
+          });
+          // Auto-dismiss the overlay after first task
+          localStorage.setItem('zephix_activation_hint_dismissed', 'true');
+          localStorage.removeItem('zephix_activation_project');
+        }
+      } catch {
+        // ignore localStorage errors
+      }
     } catch (err: any) {
       // Remove temp task on error
       setPlan((prev) => {

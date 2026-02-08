@@ -8,6 +8,7 @@ import { TeamManagementController } from './controllers/team-management.controll
 import { InvitationAcceptanceController } from './controllers/invitation-acceptance.controller';
 import { Organization, UserOrganization, Invitation } from './entities';
 import { User } from '../modules/users/entities/user.entity';
+import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { SharedModule } from '../shared/shared.module';
 
 @Global() // Make OrganizationsModule globally available
@@ -18,6 +19,7 @@ import { SharedModule } from '../shared/shared.module';
       UserOrganization,
       Invitation,
       User,
+      Workspace,
     ]),
     SharedModule, // For EmailService used by InvitationService
     // ENTERPRISE APPROACH: Remove JWT module duplication - it's already global in app.module.ts

@@ -5,7 +5,7 @@ import {
   ConflictException,
   Inject,
 } from '@nestjs/common';
-import { LessThan, DataSource } from 'typeorm';
+import { LessThan, DataSource, Repository, In } from 'typeorm';
 import { Workspace } from './entities/workspace.entity';
 import { WorkspaceMember } from './entities/workspace-member.entity';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -28,7 +28,6 @@ import { TenantContextService } from '../tenancy/tenant-context.service';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 import { TaskStatus } from '../work-management/enums/task.enums';
 import { bootLog } from '../../common/utils/debug-boot';
-import { In } from 'typeorm';
 // Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
 // Import it from the module, not the local service
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
@@ -58,6 +57,42 @@ export class WorkspacesService {
       'deleteDateColumn:',
       this.repo.metadata.deleteDateColumn?.propertyName || 'none',
     );
+  }
+
+  /* ─── Slug helpers ─────────────────────────────────────────── */
+
+  /** Convert any string to a URL-safe slug */
+  private slugify(input: string): string {
+    return input
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+      .slice(0, 80);
+  }
+
+  /**
+   * Ensure slug is unique within organization.
+   * Checks soft-deleted rows too (the DB unique index covers them).
+   * Appends -2, -3, ... if needed.
+   */
+  private async ensureUniqueSlug(
+    orgId: string,
+    base: string,
+    workspaceRepo: Repository<Workspace>,
+  ): Promise<string> {
+    const slug = base || 'workspace';
+    for (let i = 0; i < 50; i++) {
+      const candidate = i === 0 ? slug : `${slug}-${i + 1}`;
+      const count = await workspaceRepo
+        .createQueryBuilder('w')
+        .withDeleted()
+        .where('w.organization_id = :orgId', { orgId })
+        .andWhere('w.slug = :candidate', { candidate })
+        .getCount();
+      if (count === 0) return candidate;
+    }
+    throw new ConflictException('Unable to generate a unique workspace slug');
   }
 
   /**
@@ -275,7 +310,7 @@ export class WorkspacesService {
    */
   async createWithOwners(input: {
     name: string;
-    slug: string;
+    slug?: string;
     description?: string;
     defaultMethodology?: string;
     isPrivate?: boolean;
@@ -288,6 +323,16 @@ export class WorkspacesService {
       const memberRepo = manager.getRepository(WorkspaceMember);
       const userRepo = manager.getRepository(User);
       const userOrgRepo = manager.getRepository(UserOrganization);
+
+      // Generate unique slug (from provided slug or from name)
+      const baseSlug = input.slug?.trim()
+        ? this.slugify(input.slug)
+        : this.slugify(input.name);
+      const slug = await this.ensureUniqueSlug(
+        input.organizationId,
+        baseSlug,
+        workspaceRepo,
+      );
 
       const ownerUserIds = Array.from(
         new Set([...input.ownerUserIds, input.createdBy]),
@@ -363,7 +408,7 @@ export class WorkspacesService {
 
       const entity = workspaceRepo.create({
         name: input.name,
-        slug: input.slug,
+        slug, // server-generated unique slug
         description: input.description,
         defaultMethodology: input.defaultMethodology,
         isPrivate: !!input.isPrivate,
@@ -412,7 +457,7 @@ export class WorkspacesService {
    */
   async createWithOwner(input: {
     name: string;
-    slug: string;
+    slug?: string;
     description?: string;
     defaultMethodology?: string;
     isPrivate?: boolean;

@@ -315,8 +315,8 @@ export function Sidebar() {
           <SidebarWorkspaces />
         </div>
 
-        {/* PROMPT 4: Nested workspace navigation - shows when workspace is active */}
-        {activeWorkspaceId ? (
+        {/* Workspace navigation - only visible when a workspace is selected */}
+        {activeWorkspaceId && (
           <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
             <NavLink
               data-testid="ws-nav-overview"
@@ -370,56 +370,19 @@ export function Sidebar() {
               Members
             </NavLink>
           </div>
-        ) : (
-          // PROMPT 4: If no active workspace, clicking Overview/Members/Projects routes to /workspaces
-          <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-            >
-              Projects
-            </button>
-            {/* Portfolios and Programs hidden by default for MVP */}
-            {enableProgramsPortfolios && (
-              <>
-                <button
-                  onClick={() => navigate('/workspaces')}
-                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-                >
-                  Portfolios
-                </button>
-                <button
-                  onClick={() => navigate('/workspaces')}
-                  className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-                >
-                  Programs
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => navigate('/workspaces')}
-              className="block rounded px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-            >
-              Members
-            </button>
-          </div>
         )}
 
-        <NavLink
-          data-testid="nav-templates"
-          to="/templates"
-          className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-          }
-        >
-          Template Center
-        </NavLink>
+        {activeWorkspaceId && (
+          <NavLink
+            data-testid="nav-templates"
+            to="/templates"
+            className={({ isActive }) =>
+              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+            }
+          >
+            Template Center
+          </NavLink>
+        )}
 
         {/* Phase 5.1: Hide out-of-scope items - Resources, Analytics */}
 
