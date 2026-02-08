@@ -119,26 +119,32 @@ export const projectsApi = {
     status?: string;
     search?: string;
   }): Promise<{ projects: ProjectDetail[]; total: number; page: number; totalPages: number }> {
-    const response = await api.get<{ data: { projects: ProjectDetail[]; total: number; page: number; totalPages: number } }>('/projects', { params });
-    // Backend returns { data: { projects, total, page, totalPages } }, extract data field
-    return response?.data?.data || response?.data || { projects: [], total: 0, page: 1, totalPages: 0 };
+    // api.ts response interceptor already unwraps { data: T } envelope
+    const result: any = await api.get('/projects', { params });
+    // Handle both unwrapped and raw shapes defensively
+    const payload = result?.projects ? result : (result?.data ?? result);
+    return payload?.projects
+      ? payload
+      : { projects: Array.isArray(payload) ? payload : [], total: 0, page: 1, totalPages: 0 };
   },
 
   /**
    * Get a single project by ID
    */
   async getProject(id: string): Promise<ProjectDetail | null> {
-    const response = await api.get<{ data: ProjectDetail | null }>(`/projects/${id}`);
-    // Backend returns { data: ProjectDetail | null }, extract data field
-    return response?.data?.data ?? (response?.data as unknown as ProjectDetail) ?? null;
+    // api.ts response interceptor already unwraps { data: T } envelope,
+    // so the resolved value IS the project object directly.
+    const result = await api.get(`/projects/${id}`);
+    return (result as unknown as ProjectDetail) ?? null;
   },
 
   /**
    * Get project summary with counts
    */
   async getProjectSummary(id: string): Promise<ProjectSummary> {
-    const response = await api.get(`/projects/${id}/summary`);
-    return response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.get(`/projects/${id}/summary`);
+    return result?.data ?? result;
   },
 
   /**
@@ -146,24 +152,27 @@ export const projectsApi = {
    * PART 1 Step 2: Use /work/tasks endpoint with projectId query param
    */
   async getProjectTasks(id: string): Promise<Task[]> {
-    const response = await api.get(`/work/tasks?projectId=${id}`);
-    return response.data?.data || response.data || [];
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.get(`/work/tasks?projectId=${id}`);
+    return Array.isArray(result) ? result : (result?.data ?? result ?? []);
   },
 
   /**
    * Get project risks
    */
   async getProjectRisks(id: string): Promise<Risk[]> {
-    const response = await api.get(`/projects/${id}/risks`);
-    return response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.get(`/projects/${id}/risks`);
+    return Array.isArray(result) ? result : (result?.data ?? result ?? []);
   },
 
   /**
    * Get project KPIs (legacy - returns KPI metrics)
    */
   async getProjectKPIs(id: string): Promise<KPI[]> {
-    const response = await api.get(`/projects/${id}/kpis`);
-    return response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.get(`/projects/${id}/kpis`);
+    return Array.isArray(result) ? result : (result?.data ?? result ?? []);
   },
 
   /**
@@ -181,9 +190,9 @@ export const projectsApi = {
     }>;
     activeKpiIds: string[];
   }> {
-    const response = await api.get(`/projects/${id}/kpis`);
-    // Backend ResponseService returns { success: true, data: {...} }
-    const data = response.data?.data || response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.get(`/projects/${id}/kpis`);
+    const data = result?.availableKPIs ? result : (result?.data ?? result);
     return {
       availableKPIs: data?.availableKPIs || [],
       activeKpiIds: data?.activeKpiIds || [],
@@ -204,11 +213,11 @@ export const projectsApi = {
     }>;
     activeKpiIds: string[];
   }> {
-    const response = await api.patch(`/projects/${id}/kpis`, {
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.patch(`/projects/${id}/kpis`, {
       activeKpiIds,
     });
-    // Backend ResponseService returns { success: true, data: {...} }
-    const data = response.data?.data || response.data;
+    const data = result?.availableKPIs ? result : (result?.data ?? result);
     return {
       availableKPIs: data?.availableKPIs || [],
       activeKpiIds: data?.activeKpiIds || [],
@@ -222,16 +231,18 @@ export const projectsApi = {
     id: string,
     settings: UpdateProjectSettingsDto,
   ): Promise<ProjectDetail> {
-    const response = await api.patch(`/projects/${id}/settings`, settings);
-    return response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.patch(`/projects/${id}/settings`, settings);
+    return result?.data ?? result;
   },
 
   /**
    * Archive project
    */
   async archiveProject(id: string): Promise<ProjectDetail> {
-    const response = await api.post(`/projects/${id}/archive`);
-    return response.data;
+    // api.ts interceptor already unwraps { data: T }
+    const result: any = await api.post(`/projects/${id}/archive`);
+    return result?.data ?? result;
   },
 
   /**

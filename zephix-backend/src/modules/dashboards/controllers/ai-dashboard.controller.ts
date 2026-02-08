@@ -39,8 +39,16 @@ import {
 } from '../widgets/widget-allowlist';
 
 class SuggestDto {
-  persona: DashboardPersona;
+  @IsEnum(DashboardPersona)
+  @IsOptional()
+  persona?: DashboardPersona;
+
+  @IsString()
+  @IsOptional()
   methodology?: string;
+
+  @IsUUID()
+  @IsOptional()
   workspaceId?: string;
 }
 

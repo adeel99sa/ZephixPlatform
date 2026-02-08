@@ -5,7 +5,7 @@ import AdminRoute from "@/routes/AdminRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
-import { AuthProvider } from "@/state/AuthContext";
+import { AuthProvider, useAuth } from "@/state/AuthContext";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
@@ -21,9 +21,10 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import GlobalHomePage from "@/pages/home/GlobalHomePage";
+import OrgHomePage from "@/pages/home/OrgHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
+import RequireWorkspace from "@/routes/RequireWorkspace";
 import { DashboardsIndex } from "@/views/dashboards/Index";
 import { DashboardBuilder } from "@/views/dashboards/Builder";
 import DashboardView from "@/views/dashboards/View";
@@ -31,12 +32,12 @@ import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
 import WorkspaceView from "@/views/workspaces/WorkspaceView";
 import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
 import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
-import TemplateCenterPage from "@/pages/templates/TemplateCenterPage";
+import TemplateRouteSwitch from "@/pages/templates/TemplateRouteSwitch";
 import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectRisksTab, ProjectResourcesTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab } from "@/features/projects/tabs";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
@@ -80,6 +81,14 @@ import AdminTemplateBuilderPage from "@/pages/admin/AdminTemplateBuilderPage";
 import AdminCustomFieldsPage from "@/pages/admin/AdminCustomFieldsPage";
 import AdminOverviewPage from "@/pages/admin/AdminOverviewPage";
 
+/** "/" — authenticated users go to /home, guests see the marketing page */
+function RootRoute() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null; // wait for auth check
+  if (user) return <Navigate to="/home" replace />;
+  return <LandingPage />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -87,7 +96,7 @@ export default function App() {
         <RouteLogger />
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -110,52 +119,59 @@ export default function App() {
                 <DashboardLayout />
               </ErrorBoundary>
             }>
-              <Route path="/home" element={<GlobalHomePage />} />
+              {/* ── Org-level routes (no workspace required) ── */}
+              <Route path="/home" element={<OrgHomePage />} />
               <Route path="/select-workspace" element={<SelectWorkspacePage />} />
               <Route path="/guest/home" element={<GuestHomePage />} />
-              <Route path="/dashboards" element={<DashboardsIndex />} />
-              <Route path="/dashboards/:id" element={<DashboardView />} />
-              <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              {/* Project detail pages with tabbed layout */}
-              <Route path="/projects/:projectId" element={<ProjectPageLayout />}>
-                <Route index element={<ProjectOverviewTab />} />
-                <Route path="plan" element={<ProjectPlanTab />} />
-                <Route path="tasks" element={<ProjectTasksTab />} />
-                <Route path="risks" element={<ProjectRisksTab />} />
-                <Route path="resources" element={<ProjectResourcesTab />} />
-              </Route>
-              {/* Legacy route redirect for backwards compatibility */}
-              <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
-              <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
-              <Route path="/workspaces/:id" element={<WorkspaceView />} />
-              <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
-              <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
-              <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
-              {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
-              <Route element={<FeaturesRoute feature="programsPortfolios" />}>
-                <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
-                <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
-                <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
-                <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
-              </Route>
-              <Route path="/templates" element={<TemplateCenterPage />} />
-              <Route path="/docs/:docId" element={<DocsPage />} />
-              <Route path="/forms/:formId/edit" element={<FormsPage />} />
-              <Route path="/resources" element={<ResourcesPage />} />
-              <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              {/* Paid routes - Admin and Member only */}
-              <Route element={<PaidRoute />}>
-                <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
-                <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                <Route path="/inbox" element={<InboxPage />} />
-                {/* PHASE 7 MODULE 7.2: My Work */}
-                <Route path="/my-work" element={<MyWorkPage />} />
-              </Route>
               <Route path="/billing" element={<BillingPage />} />
+
+              {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
+              <Route element={<RequireWorkspace />}>
+                <Route path="/dashboards" element={<DashboardsIndex />} />
+                <Route path="/dashboards/:id" element={<DashboardView />} />
+                <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                {/* Project detail pages with tabbed layout */}
+                <Route path="/projects/:projectId" element={<ProjectPageLayout />}>
+                  <Route index element={<ProjectOverviewTab />} />
+                  <Route path="plan" element={<ProjectPlanTab />} />
+                  <Route path="tasks" element={<ProjectTasksTab />} />
+                  <Route path="board" element={<ProjectBoardTab />} />
+                  <Route path="gantt" element={<ProjectGanttTab />} />
+                  <Route path="risks" element={<ProjectRisksTab />} />
+                  <Route path="resources" element={<ProjectResourcesTab />} />
+                </Route>
+                {/* Legacy route redirect for backwards compatibility */}
+                <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
+                <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
+                <Route path="/workspaces/:id" element={<WorkspaceView />} />
+                <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
+                <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
+                <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
+                {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
+                <Route element={<FeaturesRoute feature="programsPortfolios" />}>
+                  <Route path="/workspaces/:workspaceId/programs" element={<ProgramsListPage />} />
+                  <Route path="/workspaces/:workspaceId/programs/:programId" element={<ProgramDetailPage />} />
+                  <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
+                  <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
+                </Route>
+                <Route path="/templates" element={<TemplateRouteSwitch />} />
+                <Route path="/docs/:docId" element={<DocsPage />} />
+                <Route path="/forms/:formId/edit" element={<FormsPage />} />
+                <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                {/* Paid routes - Admin and Member only */}
+                <Route element={<PaidRoute />}>
+                  <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
+                  <Route path="/settings/security" element={<SecuritySettingsPage />} />
+                  <Route path="/inbox" element={<InboxPage />} />
+                  {/* PHASE 7 MODULE 7.2: My Work */}
+                  <Route path="/my-work" element={<MyWorkPage />} />
+                </Route>
+              </Route>
               <Route path="/403" element={<Forbidden />} />
               <Route path="/404" element={<NotFound />} />
             </Route>

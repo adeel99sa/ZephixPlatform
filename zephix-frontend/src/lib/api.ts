@@ -17,6 +17,43 @@ export const api = axios.create({
   },
 });
 
+/* ─── CSRF Token helpers ──────────────────────────────────────── */
+
+/** Read the XSRF-TOKEN cookie set by the backend */
+function getCsrfCookie(): string | null {
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="));
+  return match ? decodeURIComponent(match.split("=")[1]) : null;
+}
+
+/** Fetch a fresh CSRF token from the backend (sets the cookie too) */
+let csrfFetchPromise: Promise<string | null> | null = null;
+async function ensureCsrfToken(): Promise<string | null> {
+  const existing = getCsrfCookie();
+  if (existing) return existing;
+
+  // Deduplicate concurrent calls
+  if (csrfFetchPromise) return csrfFetchPromise;
+
+  csrfFetchPromise = (async () => {
+    try {
+      await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+      return getCsrfCookie();
+    } catch {
+      return null;
+    } finally {
+      csrfFetchPromise = null;
+    }
+  })();
+
+  return csrfFetchPromise;
+}
+
+const MUTATING_METHODS = ["post", "put", "patch", "delete"];
+
+/* ─── URL classification ─────────────────────────────────────── */
+
 function isAuthUrl(url: string) {
   return url.includes("/auth/");
 }
@@ -33,12 +70,24 @@ function isProjectsUrl(url: string) {
   return url.startsWith("/projects/") || url.includes("/projects/");
 }
 
-api.interceptors.request.use((cfg) => {
+/* ─── Request interceptor ────────────────────────────────────── */
+
+api.interceptors.request.use(async (cfg) => {
   const url = String(cfg.url || "");
   const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
 
   if (!cfg.headers) cfg.headers = {} as any;
 
+  // ── CSRF: attach token on every mutating request ──
+  const method = (cfg.method || "get").toLowerCase();
+  if (MUTATING_METHODS.includes(method) && !isAuthUrl(url) && !isHealthUrl(url)) {
+    const token = await ensureCsrfToken();
+    if (token) {
+      (cfg.headers as any)["x-csrf-token"] = token;
+    }
+  }
+
+  // ── Workspace header ──
   if (!skipWorkspace) {
     const wsId = useWorkspaceStore.getState().activeWorkspaceId;
 

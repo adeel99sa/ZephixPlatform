@@ -5,6 +5,7 @@ import { createWorkspace } from '@/features/workspaces/api';
 import { createProject } from '@/features/projects/api';
 import { createTask } from '@/features/work-management/workTasks.api';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { onboardingApi } from '@/services/onboardingApi';
 
 const LAST_WORKSPACE_KEY = 'zephix.lastWorkspaceId';
 
@@ -48,6 +49,19 @@ export default function OnboardingPage() {
 
   function goBack() {
     setStepIndex((current) => Math.max(current - 1, 0));
+  }
+
+  async function handleSkip() {
+    setSubmitting(true);
+    try {
+      await onboardingApi.skipOnboarding();
+      toast.success('Onboarding skipped');
+      navigate('/home', { replace: true });
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to skip onboarding');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleWorkspaceCreate() {
@@ -120,8 +134,17 @@ export default function OnboardingPage() {
         projectId,
         title: taskTitle.trim(),
       });
-      toast.success('Task created');
-      navigate(`/work/projects/${projectId}/plan`, { replace: true });
+      
+      // Mark onboarding as complete so user isn't redirected back
+      try {
+        await onboardingApi.completeOnboarding();
+      } catch (err) {
+        console.warn('[Onboarding] Failed to mark onboarding complete:', err);
+        // Don't block navigation - onboarding data is secondary
+      }
+      
+      toast.success('Setup complete! Welcome to Zephix.');
+      navigate(`/projects/${projectId}/plan`, { replace: true });
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to create task');
     } finally {
@@ -137,6 +160,13 @@ export default function OnboardingPage() {
             <span className="text-sm font-medium text-gray-700">
               Step {stepIndex + 1} of {steps.length}
             </span>
+            <button
+              onClick={handleSkip}
+              disabled={submitting}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Skip setup
+            </button>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div

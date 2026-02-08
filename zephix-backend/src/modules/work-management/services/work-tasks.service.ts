@@ -21,7 +21,7 @@ import {
   ListWorkTasksQueryDto,
   BulkStatusUpdateDto,
 } from '../dto';
-import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
+import { TaskStatus, TaskPriority, TaskType, TaskActivityType } from '../enums/task.enums';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -705,7 +705,7 @@ export class WorkTasksService {
       auth,
       workspaceId,
       id,
-      'TASK_DELETED' as any,
+      TaskActivityType.TASK_DELETED,
       {
         title: task.title,
         projectId: task.projectId,
@@ -751,7 +751,7 @@ export class WorkTasksService {
       auth,
       workspaceId,
       id,
-      'TASK_RESTORED' as any,
+      TaskActivityType.TASK_RESTORED,
       {
         title: task.title,
         projectId: task.projectId,

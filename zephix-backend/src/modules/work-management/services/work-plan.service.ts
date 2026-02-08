@@ -175,10 +175,10 @@ export class WorkPlanService {
         reportingKey: phase.reportingKey,
         isMilestone: phase.isMilestone,
         startDate: phase.startDate
-          ? phase.startDate.toISOString().split('T')[0]
+          ? (phase.startDate instanceof Date ? phase.startDate.toISOString().split('T')[0] : String(phase.startDate).split('T')[0])
           : null,
         dueDate: phase.dueDate
-          ? phase.dueDate.toISOString().split('T')[0]
+          ? (phase.dueDate instanceof Date ? phase.dueDate.toISOString().split('T')[0] : String(phase.dueDate).split('T')[0])
           : null,
         isLocked: phase.isLocked,
         tasks: phaseTasks.map((task) => ({
@@ -187,7 +187,7 @@ export class WorkPlanService {
           status: task.status,
           ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
           dueDate: task.dueDate
-            ? task.dueDate.toISOString().split('T')[0]
+            ? (task.dueDate instanceof Date ? task.dueDate.toISOString().split('T')[0] : String(task.dueDate).split('T')[0])
             : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,
@@ -219,7 +219,7 @@ export class WorkPlanService {
           status: task.status,
           ownerId: task.assigneeUserId, // Changed from ownerUserId to ownerId
           dueDate: task.dueDate
-            ? task.dueDate.toISOString().split('T')[0]
+            ? (task.dueDate instanceof Date ? task.dueDate.toISOString().split('T')[0] : String(task.dueDate).split('T')[0])
             : null,
           blockedByCount: blockedByMap.get(task.id) || 0,
           sortOrder: task.rank ? parseFloat(task.rank.toString()) : null,

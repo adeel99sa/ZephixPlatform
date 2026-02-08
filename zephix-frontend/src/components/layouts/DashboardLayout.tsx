@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { AiAssistantPanel } from '@/components/shell/AiAssistantPanel';
@@ -7,60 +7,50 @@ import { useAuth } from '@/state/AuthContext';
 import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
-import WorkspaceSelectionScreen from '@/components/workspace/WorkspaceSelectionScreen';
+import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
 
 /**
- * Routes that require workspace selection before rendering.
- * If activeWorkspaceId is missing for these routes, redirect to workspace selection.
+ * DashboardLayout — always renders the app shell (Sidebar + Header).
+ *
+ * Workspace gating is handled at the route level by <RequireWorkspace />.
+ * This layout only manages:
+ *   GATE 1 — Onboarding check (admin redirect to /onboarding)
+ *   GATE 2 — Workspace validation (validates persisted ID if one exists)
  */
-const WORKSPACE_REQUIRED_ROUTES = [
-  '/templates',
-  '/projects',
-  '/work',        // All work management routes
-  '/dashboards',
-  '/resources',
-  '/my-work',
-];
-
 export default function DashboardLayout() {
   const { user } = useAuth();
-  const location = useLocation();
-  const { workspaceReady, activeWorkspaceId, isHydrating } = useWorkspaceStore();
-  
-  // Validate persisted workspace on load - ensures stale IDs are cleared
-  const { isValidating } = useWorkspaceValidation();
-
-  // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
-  const { isRedirecting } = usePhase5_1Redirect();
-
-  // Check if current route requires workspace
-  const requiresWorkspace = WORKSPACE_REQUIRED_ROUTES.some(route =>
-    location.pathname === route || location.pathname.startsWith(route + '/')
-  );
+  const { activeWorkspaceId } = useWorkspaceStore();
 
   /**
-   * Workspace gate: For workspace-required routes, ensure:
-   * 1. Store is hydrated (not isHydrating)
-   * 2. Validation has completed (not isValidating)
-   * 3. activeWorkspaceId exists
-   * 
-   * During validation, show loading state (not workspace selection)
-   * After validation, if no workspace, show workspace selection screen.
+   * GATE 1: Onboarding check — MUST run FIRST before any workspace calls.
+   * If onboarding is incomplete (admin only), user is redirected to /onboarding.
    */
-  if (requiresWorkspace) {
-    // Still loading - show minimal loading state
-    if (isHydrating || isValidating) {
-      return (
-        <div className="flex h-screen items-center justify-center">
-          <div className="text-sm text-slate-500">Loading...</div>
+  const { checking: onboardingChecking, onboardingComplete } = useOnboardingCheck();
+
+  /**
+   * GATE 2: Workspace validation — only runs after onboarding is complete
+   * AND when a workspace is actually selected. Prevents 403 errors on
+   * workspace APIs for new users with zero workspaces.
+   */
+  useWorkspaceValidation({
+    enabled: onboardingComplete && Boolean(activeWorkspaceId),
+  });
+
+  // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
+  usePhase5_1Redirect();
+
+  /**
+   * GATE 1 CHECK: Block everything while checking onboarding status.
+   */
+  if (onboardingChecking) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+          <p className="mt-4 text-sm text-slate-500">Setting up your experience...</p>
         </div>
-      );
-    }
-    
-    // No workspace selected - show workspace selection
-    if (!activeWorkspaceId || !workspaceReady) {
-      return <WorkspaceSelectionScreen />;
-    }
+      </div>
+    );
   }
 
   return (
@@ -73,7 +63,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      {/* AI panel lives on the far right, overlayed */}
       <AiAssistantPanel />
     </div>
   );

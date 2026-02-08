@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Organization } from '../entities/organization.entity';
 import { UserOrganization } from '../entities/user-organization.entity';
 import { User } from '../../modules/users/entities/user.entity';
+import { Workspace } from '../../modules/workspaces/entities/workspace.entity';
 import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
@@ -25,6 +26,8 @@ export class OrganizationsService {
     private userOrganizationRepository: Repository<UserOrganization>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Workspace)
+    private workspaceRepository: Repository<Workspace>,
   ) {}
 
   async create(
@@ -368,23 +371,46 @@ export class OrganizationsService {
       .substring(0, 100); // Limit length
   }
 
-  // Onboarding methods
+  // Onboarding methods - computed based on workspace count and skipped flag
+
   async getOnboardingStatus(organizationId: string) {
     const organization = await this.findOne(organizationId);
+
     const settings = (organization.settings as any) || {};
-    const onboardingSettings = settings.onboarding || {};
+    const onboarding = settings.onboarding || {};
+
+    const workspaceCount = await this.workspaceRepository.count({
+      where: { organizationId },
+    });
+
+    const skipped = onboarding.skipped === true;
+
+    // Workspace count is the ONLY source of truth for completion
+    // Having at least one workspace means onboarding is truly complete
+    const completed = workspaceCount > 0;
+
+    // Must onboard if: no workspaces AND didn't skip
+    const mustOnboard = workspaceCount === 0 && skipped === false;
 
     return {
-      completed: onboardingSettings.completed === true,
-      currentStep: onboardingSettings.currentStep || 'welcome',
-      completedSteps: onboardingSettings.completedSteps || [],
+      completed,
+      mustOnboard,
+      skipped,
+      workspaceCount,
+      currentStep: onboarding.currentStep || 'welcome',
+      completedSteps: onboarding.completedSteps || [],
+      completedAt: onboarding.completedAt || null,
+      skippedAt: onboarding.skippedAt || null,
     };
   }
 
   async getOnboardingProgress(organizationId: string) {
     const status = await this.getOnboardingStatus(organizationId);
-    const totalSteps = 6; // welcome, organization, team, workspace, project, complete
-    const completedCount = status.completedSteps.length;
+
+    const totalSteps = 6;
+    const completedCount = Array.isArray(status.completedSteps)
+      ? status.completedSteps.length
+      : 0;
 
     return {
       ...status,
@@ -396,18 +422,20 @@ export class OrganizationsService {
 
   async completeOnboardingStep(organizationId: string, step: string) {
     const organization = await this.findOne(organizationId);
-    const settings = (organization.settings as any) || {};
-    const onboardingSettings = settings.onboarding || {};
 
-    const completedSteps = onboardingSettings.completedSteps || [];
-    if (!completedSteps.includes(step)) {
-      completedSteps.push(step);
-    }
+    const settings = (organization.settings as any) || {};
+    const onboarding = settings.onboarding || {};
+
+    const completedSteps = Array.isArray(onboarding.completedSteps)
+      ? [...onboarding.completedSteps]
+      : [];
+
+    if (!completedSteps.includes(step)) completedSteps.push(step);
 
     organization.settings = {
       ...settings,
       onboarding: {
-        ...onboardingSettings,
+        ...onboarding,
         completedSteps,
         currentStep: step,
       },
@@ -424,13 +452,16 @@ export class OrganizationsService {
 
   async completeOnboarding(organizationId: string) {
     const organization = await this.findOne(organizationId);
+
     const settings = (organization.settings as any) || {};
+    const onboarding = settings.onboarding || {};
 
     organization.settings = {
       ...settings,
       onboarding: {
-        ...settings.onboarding,
+        ...onboarding,
         completed: true,
+        skipped: false,
         completedAt: new Date().toISOString(),
       },
     };
@@ -444,6 +475,28 @@ export class OrganizationsService {
   }
 
   async skipOnboarding(organizationId: string) {
-    return this.completeOnboarding(organizationId);
+    const organization = await this.findOne(organizationId);
+
+    const settings = (organization.settings as any) || {};
+    const onboarding = settings.onboarding || {};
+
+    organization.settings = {
+      ...settings,
+      onboarding: {
+        ...onboarding,
+        skipped: true,
+        skippedAt: new Date().toISOString(),
+        // do not set completed here
+        // keep currentStep as is, or set to welcome
+        currentStep: onboarding.currentStep || 'welcome',
+      },
+    };
+
+    await this.organizationRepository.save(organization);
+
+    return {
+      success: true,
+      message: 'Onboarding skipped successfully',
+    };
   }
 }

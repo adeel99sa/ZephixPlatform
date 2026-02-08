@@ -27,6 +27,7 @@ import {
 } from '../../../shared/enums/platform-roles.enum';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 
 export const RequireWorkspaceAccess = (
   mode: 'viewer' | 'member' | 'ownerOrAdmin',
@@ -40,6 +41,7 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     private wmRepo: TenantAwareRepository<WorkspaceMember>,
     @Inject(getTenantAwareRepositoryToken(Workspace))
     private wsRepo: TenantAwareRepository<Workspace>,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -64,6 +66,30 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
       throw new NotFoundException('Workspace ID required');
     }
 
+    // Ensure tenant context is set for TenantAwareRepository.
+    // The global interceptor may not populate AsyncLocalStorage before guards run.
+    const organizationId = user.organizationId;
+    if (!organizationId) {
+      throw new ForbiddenException('Organization context required');
+    }
+
+    // If tenant context is missing, wrap the entire guard logic in runWithTenant
+    if (!this.tenantContextService.getOrganizationId()) {
+      return this.tenantContextService.runWithTenant(
+        { organizationId, workspaceId },
+        () => this.doActivate(request, user, mode, workspaceId),
+      );
+    }
+
+    return this.doActivate(request, user, mode, workspaceId);
+  }
+
+  private async doActivate(
+    request: any,
+    user: any,
+    mode: string,
+    workspaceId: string,
+  ): Promise<boolean> {
     // Verify workspace exists and belongs to user's organization
     // TenantAwareRepository automatically scopes by organizationId from context
     const workspace = await this.wsRepo.findOne({

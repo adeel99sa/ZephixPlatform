@@ -94,33 +94,38 @@ export class TemplatesPreviewV51Service {
           });
         }
 
-        // Load template using raw SQL to avoid selecting columns that don't exist in test DB
-        // Try with structure column first, fall back to phases if structure doesn't exist
+        // Query the current `templates` table (not legacy `project_templates`).
+        // Handle all three scopes: SYSTEM (org_id is null), ORG, WORKSPACE.
+        // This aligns with the instantiate-v5_1 service's scope logic.
         let templateRaw: any[];
         try {
           templateRaw = await this.dataSource.query(
             `
             SELECT
-              pt.id,
-              pt.name,
-              pt.organization_id,
-              pt.is_active,
-              COALESCE(pt.structure, jsonb_build_object('phases', COALESCE(pt.phases, '[]'::jsonb))) as structure,
-              pt.phases as phases_raw,
-              pt.lock_policy
-            FROM project_templates pt
-            WHERE pt.id = $1
-              AND pt.organization_id = $2
-              AND pt.is_active = $3
+              t.id,
+              t.name,
+              t.organization_id,
+              t.is_active,
+              COALESCE(t.structure, jsonb_build_object('phases', '[]'::jsonb)) as structure,
+              t.structure as phases_raw,
+              t.lock_policy
+            FROM templates t
+            WHERE t.id = $1
+              AND t.is_active = true
+              AND (
+                (t.template_scope = 'SYSTEM' AND t.organization_id IS NULL)
+                OR (t.template_scope = 'ORG' AND t.organization_id = $2)
+                OR (t.template_scope = 'WORKSPACE' AND t.organization_id = $2 AND t.workspace_id = $3)
+              )
             `,
-            [templateId, organizationId, true],
+            [templateId, organizationId, workspaceId],
           );
         } catch (error: any) {
-          // If structure column doesn't exist, use phases directly
+          // Fallback: try legacy project_templates table if templates query fails
           if (
             error.message &&
-            error.message.includes('column') &&
-            error.message.includes('structure')
+            (error.message.includes('relation "templates" does not exist') ||
+             error.message.includes('column'))
           ) {
             templateRaw = await this.dataSource.query(
               `
@@ -129,19 +134,15 @@ export class TemplatesPreviewV51Service {
                 pt.name,
                 pt.organization_id,
                 pt.is_active,
-                CASE
-                  WHEN pt.phases IS NOT NULL AND jsonb_typeof(pt.phases) = 'array' THEN jsonb_build_object('phases', pt.phases)
-                  WHEN pt.phases IS NOT NULL AND jsonb_typeof(pt.phases) = 'object' AND (pt.phases ? 'phases') THEN pt.phases
-                  ELSE jsonb_build_object('phases', '[]'::jsonb)
-                END as structure,
+                COALESCE(pt.structure, jsonb_build_object('phases', COALESCE(pt.phases, '[]'::jsonb))) as structure,
                 pt.phases as phases_raw,
                 pt.lock_policy
               FROM project_templates pt
               WHERE pt.id = $1
-                AND pt.organization_id = $2
-                AND pt.is_active = $3
+                AND (pt.organization_id = $2 OR pt.organization_id IS NULL)
+                AND pt.is_active = true
               `,
-              [templateId, organizationId, true],
+              [templateId, organizationId],
             );
           } else {
             throw error;

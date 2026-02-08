@@ -285,11 +285,13 @@ export class TenantAwareRepository<T extends ObjectLiteral> {
     const aliasName = alias || this.repository.metadata.name.toLowerCase();
     const qb = this.repository.createQueryBuilder(aliasName);
 
-    // Apply organization filter
+    // Apply organization filter (only if entity has an organizationId column)
     const orgColumn = this.getOrganizationIdColumn();
-    qb.andWhere(`${aliasName}.${orgColumn} = :organizationId`, {
-      organizationId: orgId,
-    });
+    if (orgColumn) {
+      qb.andWhere(`${aliasName}.${orgColumn} = :organizationId`, {
+        organizationId: orgId,
+      });
+    }
 
     // Apply workspace filter if needed
     if (this.isEntityWorkspaceScoped()) {
