@@ -14,14 +14,17 @@ import {
   assignTasksToSprint,
   removeTasksFromSprint,
   getSprintCapacity,
+  getSprintBurndown,
   getProjectVelocity,
   type Sprint,
   type SprintStatus,
   type SprintCapacity,
+  type BurndownData,
   type VelocityData,
   type CreateSprintInput,
 } from '@/features/work-management/sprints.api';
 import { listTasks, type WorkTask } from '@/features/work-management/workTasks.api';
+import { BurndownChart } from '@/features/work-management/components/BurndownChart';
 
 const STATUS_COLORS: Record<SprintStatus, string> = {
   PLANNING: 'bg-yellow-100 text-yellow-800',
@@ -46,6 +49,7 @@ export default function ProjectSprintsTab() {
   const [sprintTasks, setSprintTasks] = useState<Record<string, WorkTask[]>>({});
   const [backlogTasks, setBacklogTasks] = useState<WorkTask[]>([]);
   const [capacityData, setCapacityData] = useState<Record<string, SprintCapacity>>({});
+  const [burndownData, setBurndownData] = useState<Record<string, BurndownData>>({});
   const [velocityData, setVelocityData] = useState<VelocityData | null>(null);
 
   // Create form state
@@ -97,9 +101,12 @@ export default function ProjectSprintsTab() {
     } else {
       setExpandedSprint(sprintId);
       loadSprintTasks(sprintId);
-      // Load capacity
+      // Load capacity + burndown in parallel
       getSprintCapacity(sprintId)
         .then((cap) => setCapacityData((prev) => ({ ...prev, [sprintId]: cap })))
+        .catch(() => {}); // non-critical
+      getSprintBurndown(sprintId)
+        .then((bd) => setBurndownData((prev) => ({ ...prev, [sprintId]: bd })))
         .catch(() => {}); // non-critical
     }
   };
@@ -366,6 +373,15 @@ export default function ProjectSprintsTab() {
                         </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* Burndown / Burnup Chart */}
+                  {burndownData[sprint.id] && burndownData[sprint.id].buckets.length > 0 && (
+                    <BurndownChart
+                      buckets={burndownData[sprint.id].buckets}
+                      totalPoints={burndownData[sprint.id].totalPoints}
+                      sprintName={sprint.name}
+                    />
                   )}
 
                   {/* Tasks in Sprint */}

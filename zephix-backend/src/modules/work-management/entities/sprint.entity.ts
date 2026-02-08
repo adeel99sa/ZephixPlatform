@@ -51,6 +51,19 @@ export class Sprint {
   })
   status: SprintStatus;
 
+  /**
+   * Frozen at the moment of COMPLETED transition.
+   * Null while sprint is not yet completed.
+   */
+  @Column({ type: 'int', name: 'committed_points', nullable: true })
+  committedPoints: number | null;
+
+  @Column({ type: 'int', name: 'completed_points', nullable: true })
+  completedPoints: number | null;
+
+  @Column({ type: 'timestamp', name: 'completed_at', nullable: true })
+  completedAt: Date | null;
+
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;
 

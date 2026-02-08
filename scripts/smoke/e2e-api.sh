@@ -512,6 +512,21 @@ else
   fail "Velocity" "empty response"
 fi
 
+# Burndown endpoint
+if [ -n "$SPRINT_ID" ]; then
+  BD_RESP=$(http_get "/work/sprints/${SPRINT_ID}/burndown")
+  if [ -n "$BD_RESP" ]; then
+    BD_TOTAL=$(echo "$BD_RESP" | jq -r '(.data // .).totalPoints // 0' 2>/dev/null || echo "0")
+    BD_BUCKETS=$(echo "$BD_RESP" | jq -r '(.data // .).buckets | length' 2>/dev/null || echo "0")
+    BD_SPRINT_NAME=$(echo "$BD_RESP" | jq -r '(.data // .).sprintName // empty' 2>/dev/null || echo "")
+    pass "Sprint burndown (total: ${BD_TOTAL} pts, buckets: ${BD_BUCKETS} days, sprint: ${BD_SPRINT_NAME})"
+  else
+    fail "Sprint burndown" "empty response"
+  fi
+else
+  skip "Sprint burndown" "no sprint ID"
+fi
+
 ###############################################################################
 # MODULE 2: Resource Management
 ###############################################################################
