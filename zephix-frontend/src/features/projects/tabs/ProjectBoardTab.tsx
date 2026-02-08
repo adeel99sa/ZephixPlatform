@@ -43,16 +43,30 @@ export const ProjectBoardTab: React.FC = () => {
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
+  // Tracks per-column inline WIP warning messages
+  const [wipWarning, setWipWarning] = useState<Record<string, string | null>>({});
+
   const handleStatusChange = async (taskId: string, newStatus: WorkTaskStatus) => {
     // Optimistic update
+    const previousTasks = tasks;
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     try {
       await updateTask(taskId, { status: newStatus });
       toast.success('Task status updated');
     } catch (err: any) {
       console.error('Failed to update task status:', err);
-      toast.error(err?.message || 'Failed to update status');
-      loadTasks(); // Rollback
+      // Detect WIP_LIMIT_EXCEEDED from backend error
+      const code = err?.code || err?.response?.data?.code;
+      const msg = err?.message || err?.response?.data?.message || 'Failed to update status';
+      if (code === 'WIP_LIMIT_EXCEEDED' || msg.includes('WIP limit exceeded')) {
+        toast.error(msg);
+        // Inline column warning
+        setWipWarning(prev => ({ ...prev, [newStatus]: 'WIP limit reached. Move blocked.' }));
+        setTimeout(() => setWipWarning(prev => ({ ...prev, [newStatus]: null })), 3000);
+      } else {
+        toast.error(msg);
+      }
+      setTasks(previousTasks); // Rollback
     }
   };
 
@@ -106,6 +120,11 @@ export const ProjectBoardTab: React.FC = () => {
                 {col.tasks.length}
               </span>
             </div>
+            {wipWarning[col.status] && (
+              <div className="mb-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1" data-testid="wip-warning">
+                {wipWarning[col.status]}
+              </div>
+            )}
             <div className="space-y-2">
               {col.tasks.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-8">No tasks</p>
