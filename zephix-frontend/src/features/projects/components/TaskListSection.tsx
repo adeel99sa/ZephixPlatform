@@ -253,6 +253,8 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       dueDate: dueDate || null,
       completedAt: null,
       rank: null,
+      storyPoints: null,
+      sprintId: null,
       tags: ['__optimistic__'], // Marker to identify temp tasks, stripped on server replace
       metadata: { optimistic: true }, // Flag to prevent leaking to analytics
       createdAt: nowIso,
@@ -363,6 +365,18 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       } else {
         toast.error(message || 'Failed to update status');
       }
+    }
+  }
+
+  /** Generic field update (used for storyPoints, etc.) */
+  async function handleUpdateField(taskId: string, patch: UpdateTaskPatch) {
+    if (!canEdit) return;
+    try {
+      const updated = await updateTask(taskId, patch);
+      setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
+      invalidateStatsCache(projectId);
+    } catch (error: any) {
+      toast.error('Failed to update task');
     }
   }
 
@@ -1207,30 +1221,62 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                     {task.dueDate && (
                       <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
                     )}
+                    {task.storyPoints != null && task.storyPoints > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-medium">
+                        {task.storyPoints} SP
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Comments and Activity Toggles */}
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => toggleComments(task.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleActivity(task.id)}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  {showActivity[task.id] ? 'Hide' : 'Show'} Activity
-                </button>
-                <button
-                  onClick={() => toggleDeps(task.id)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
-                </button>
+              {/* Story Points + Toggles Row */}
+              <div className="mt-3 flex items-center gap-4">
+                {/* Story Points Inline Editor */}
+                {!isGuest && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <label className="text-gray-500">SP:</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="w-14 px-1 py-0.5 text-xs border rounded text-center"
+                      value={task.storyPoints ?? ''}
+                      placeholder="—"
+                      onBlur={(e) => {
+                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                        if (val !== task.storyPoints) {
+                          handleUpdateField(task.id, { storyPoints: val });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => toggleComments(task.id)}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => toggleActivity(task.id)}
+                    className="text-xs text-gray-600 hover:text-gray-800"
+                  >
+                    {showActivity[task.id] ? 'Hide' : 'Show'} Activity
+                  </button>
+                  <button
+                    onClick={() => toggleDeps(task.id)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800"
+                  >
+                    {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
+                  </button>
+                </div>
               </div>
 
               {/* Comments Panel */}

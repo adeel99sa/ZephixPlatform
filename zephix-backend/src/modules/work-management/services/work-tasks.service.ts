@@ -312,6 +312,8 @@ export class WorkTasksService {
       reporterUserId: dto.reporterUserId || null,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      storyPoints: dto.storyPoints ?? null,
+      sprintId: dto.sprintId ?? null,
       tags: dto.tags || null,
     });
 
@@ -510,6 +512,14 @@ export class WorkTasksService {
       // Note: estimateHours not in entity yet, skip for now
       // Will be added in future migration if needed
       changedFields.push('estimateHours');
+    }
+    if (dto.storyPoints !== undefined) {
+      task.storyPoints = dto.storyPoints;
+      changedFields.push('storyPoints');
+    }
+    if (dto.sprintId !== undefined) {
+      task.sprintId = dto.sprintId;
+      changedFields.push('sprintId');
     }
     if (dto.tags !== undefined) {
       task.tags = dto.tags;

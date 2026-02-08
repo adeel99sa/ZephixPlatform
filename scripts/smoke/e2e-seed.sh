@@ -480,7 +480,34 @@ DEP_ID=$(echo "$DEP_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 log "Dependency ID: ${DEP_ID:-none}"
 
 ###############################################################################
-# STEP 11: Update project budget fields (budget on Project entity)
+# STEP 11: Set story points on tasks
+###############################################################################
+log "Setting story points on tasks ..."
+wsmut PATCH "/work/tasks/${TASK_A1}" -d '{"storyPoints":5}' >/dev/null 2>&1 || log "Warning: SP update A1 failed"
+wsmut PATCH "/work/tasks/${TASK_A2}" -d '{"storyPoints":3}' >/dev/null 2>&1 || log "Warning: SP update A2 failed"
+TASK_A3=$(echo "$TASKS_A" | cut -d, -f3)
+[ -n "$TASK_A3" ] && wsmut PATCH "/work/tasks/${TASK_A3}" -d '{"storyPoints":8}' >/dev/null 2>&1 || true
+
+###############################################################################
+# STEP 12: Create a sprint and assign tasks
+###############################################################################
+log "Creating sprint for Project A ..."
+SPRINT_START=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d "+1 day" +%Y-%m-%d)
+SPRINT_END=$(date -v+15d +%Y-%m-%d 2>/dev/null || date -d "+15 days" +%Y-%m-%d)
+SPRINT_RESP=$(wsmut POST "/work/sprints" \
+  -d "{\"projectId\":\"${PROJECT_A_ID}\",\"name\":\"Sprint 1\",\"goal\":\"E2E smoke sprint\",\"startDate\":\"${SPRINT_START}\",\"endDate\":\"${SPRINT_END}\"}" 2>/dev/null) || true
+SPRINT_ID=$(echo "$SPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+[ -z "$SPRINT_ID" ] || [ "$SPRINT_ID" = "null" ] && { SPRINT_ID=""; log "Warning: Sprint creation failed"; }
+log "Sprint ID: ${SPRINT_ID:-none}"
+
+if [ -n "$SPRINT_ID" ]; then
+  log "Assigning tasks A1 and A2 to sprint ..."
+  wsmut POST "/work/sprints/${SPRINT_ID}/tasks" \
+    -d "{\"taskIds\":[\"${TASK_A1}\",\"${TASK_A2}\"]}" >/dev/null 2>&1 || log "Warning: Task assignment failed"
+fi
+
+###############################################################################
+# STEP 13: Update project budget fields (budget on Project entity)
 ###############################################################################
 log "Setting budget on Project A ..."
 wsmut PATCH "/projects/${PROJECT_A_ID}" \
@@ -491,7 +518,7 @@ wsmut PATCH "/projects/${PROJECT_B_ID}" \
   -d '{"budget":120000,"actualCost":45000}' >/dev/null 2>&1 || log "Warning: Budget update B failed"
 
 ###############################################################################
-# STEP 12: Complete onboarding (if required)
+# STEP 14: Complete onboarding (if required)
 ###############################################################################
 log "Completing onboarding ..."
 wsmut POST "/organizations/onboarding/complete" -d '{}' >/dev/null 2>&1 || true
@@ -542,7 +569,8 @@ cat > "$IDS_FILE" <<JSONEOF
   "firstPhaseB": "${PHASE_B1}",
   "firstAllocA": "${ALLOC_A1}",
   "firstCommentId": "${COMMENT_ID}",
-  "firstDependencyId": "${DEP_ID}"
+  "firstDependencyId": "${DEP_ID}",
+  "firstSprintId": "${SPRINT_ID}"
 }
 JSONEOF
 

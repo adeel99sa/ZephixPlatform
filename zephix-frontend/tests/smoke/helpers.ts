@@ -185,6 +185,11 @@ export async function navigateToProjectGantt(page: Page, projectId: string) {
   await page.waitForLoadState('networkidle');
 }
 
+export async function navigateToProjectSprints(page: Page, projectId: string) {
+  await page.goto(`/projects/${projectId}/sprints`);
+  await page.waitForLoadState('networkidle');
+}
+
 export async function navigateToTemplates(page: Page) {
   await page.goto('/templates');
   await page.waitForLoadState('networkidle');

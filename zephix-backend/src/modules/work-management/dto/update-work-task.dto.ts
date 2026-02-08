@@ -60,6 +60,16 @@ export class UpdateWorkTaskDto {
   @IsNumber()
   estimateHours?: number;
 
+  @ApiProperty({ description: 'Story points estimate', required: false })
+  @IsOptional()
+  @IsNumber()
+  storyPoints?: number;
+
+  @ApiProperty({ description: 'Sprint ID', required: false })
+  @IsOptional()
+  @IsUUID()
+  sprintId?: string;
+
   @ApiProperty({ description: 'Tags', required: false, type: [String] })
   @IsOptional()
   @IsArray()

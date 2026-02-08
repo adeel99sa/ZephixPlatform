@@ -35,6 +35,9 @@ import { WorkPlanController } from './controllers/work-plan.controller';
 import { WorkPhasesController } from './controllers/work-phases.controller';
 import { WorkRisksController } from './controllers/work-risks.controller';
 import { WorkResourceAllocationsController } from './controllers/work-resource-allocations.controller';
+import { Sprint } from './entities/sprint.entity';
+import { SprintsService } from './services/sprints.service';
+import { SprintsController } from './controllers/sprints.controller';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -52,6 +55,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
       Project,
       Program,
       WorkspaceMember,
+      Sprint,
     ]),
     WorkspaceAccessModule,
     TenancyModule,
@@ -62,6 +66,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     WorkPhasesController,
     WorkRisksController,
     WorkResourceAllocationsController,
+    SprintsController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -71,7 +76,10 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     createTenantAwareRepositoryProvider(WorkTaskDependency),
     createTenantAwareRepositoryProvider(TaskComment),
     createTenantAwareRepositoryProvider(TaskActivity),
+    createTenantAwareRepositoryProvider(Sprint),
+    createTenantAwareRepositoryProvider(Project),
     WorkTasksService,
+    SprintsService,
     WorkPlanService,
     ProjectStartService,
     ProjectStructureGuardService,
@@ -98,6 +106,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     ProjectOverviewService,
     WorkRisksService,
     WorkResourceAllocationsService,
+    SprintsService,
   ],
 })
 export class WorkManagementModule {}

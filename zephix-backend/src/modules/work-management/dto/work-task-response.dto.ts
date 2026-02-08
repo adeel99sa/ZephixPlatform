@@ -64,6 +64,12 @@ export class WorkTaskResponseDto {
   @ApiProperty({ description: 'Tags', type: [String], nullable: true })
   tags: string[] | null;
 
+  @ApiProperty({ description: 'Story points estimate', nullable: true })
+  storyPoints: number | null;
+
+  @ApiProperty({ description: 'Sprint ID', nullable: true })
+  sprintId: string | null;
+
   @ApiProperty({ description: 'Custom metadata', nullable: true })
   metadata: Record<string, unknown> | null;
 

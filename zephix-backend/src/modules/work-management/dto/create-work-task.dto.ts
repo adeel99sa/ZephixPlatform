@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsDateString,
   IsArray,
+  IsNumber,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -87,6 +88,16 @@ export class CreateWorkTaskDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @ApiProperty({ description: 'Story points estimate', required: false })
+  @IsOptional()
+  @IsNumber()
+  storyPoints?: number;
+
+  @ApiProperty({ description: 'Sprint ID', required: false })
+  @IsOptional()
+  @IsUUID()
+  sprintId?: string;
 
   @ApiProperty({ description: 'Tags', required: false, type: [String] })
   @IsOptional()
