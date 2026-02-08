@@ -38,6 +38,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
 import { WorkflowConfigController } from './controllers/workflow-config.controller';
 import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
 import { WorkflowConfigService } from './services/workflow-config.service';
+import { WipLimitsService } from './services/wip-limits.service';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -91,6 +92,7 @@ import { WorkflowConfigService } from './services/workflow-config.service';
     WorkRisksService,
     WorkResourceAllocationsService,
     WorkflowConfigService,
+    WipLimitsService,
   ],
   exports: [
     TypeOrmModule,
