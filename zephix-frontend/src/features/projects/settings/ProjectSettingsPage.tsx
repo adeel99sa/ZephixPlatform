@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { ProjectStatus, ProjectPriority } from '../../projects/types';
 import { useAuth } from '@/state/AuthContext';
 import { getWorkflowConfig, type EffectiveLimits } from '@/features/work-management/workTasks.api';
+import { DefinitionOfDonePanel } from '@/features/work-management/components/DefinitionOfDonePanel';
+import { isAdminUser } from '@/utils/roles';
 
 export default function ProjectSettingsPage() {
   const { id } = useParams<{ id: string }>();
@@ -311,6 +313,20 @@ export default function ProjectSettingsPage() {
         ) : (
           <p className="text-sm text-gray-400">No WIP limits configured for this project.</p>
         )}
+      </div>
+
+      {/* Definition of Done */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 max-w-3xl mt-6">
+        <DefinitionOfDonePanel
+          items={project.definitionOfDone || []}
+          onSave={async (items) => {
+            if (!id) return;
+            const updated = await projectsApi.updateProjectSettings(id, { definitionOfDone: items });
+            setProject(prev => prev ? { ...prev, definitionOfDone: updated.definitionOfDone } : prev);
+            toast.success('Definition of Done updated');
+          }}
+          canEdit={isAdminUser(user)}
+        />
       </div>
 
       <div className="mt-4 text-sm text-gray-500">
