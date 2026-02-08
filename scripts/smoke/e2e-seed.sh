@@ -496,8 +496,11 @@ SPRINT_START=$(date -v+1d +%Y-%m-%d 2>/dev/null || date -d "+1 day" +%Y-%m-%d)
 SPRINT_END=$(date -v+15d +%Y-%m-%d 2>/dev/null || date -d "+15 days" +%Y-%m-%d)
 SPRINT_RESP=$(wsmut POST "/work/sprints" \
   -d "{\"projectId\":\"${PROJECT_A_ID}\",\"name\":\"Sprint 1\",\"goal\":\"E2E smoke sprint\",\"startDate\":\"${SPRINT_START}\",\"endDate\":\"${SPRINT_END}\"}" 2>/dev/null) || true
-SPRINT_ID=$(echo "$SPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-[ -z "$SPRINT_ID" ] || [ "$SPRINT_ID" = "null" ] && { SPRINT_ID=""; log "Warning: Sprint creation failed"; }
+SPRINT_ID=$(echo "$SPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+if [ -z "$SPRINT_ID" ] || [ "$SPRINT_ID" = "null" ]; then
+  SPRINT_ID=""
+  log "Warning: Sprint creation failed"
+fi
 log "Sprint ID: ${SPRINT_ID:-none}"
 
 if [ -n "$SPRINT_ID" ]; then
@@ -512,7 +515,7 @@ VSPRINT_START=$(date -v-30d +%Y-%m-%d 2>/dev/null || date -d "-30 days" +%Y-%m-%
 VSPRINT_END=$(date -v-16d +%Y-%m-%d 2>/dev/null || date -d "-16 days" +%Y-%m-%d)
 VSPRINT_RESP=$(wsmut POST "/work/sprints" \
   -d "{\"projectId\":\"${PROJECT_A_ID}\",\"name\":\"Sprint 0 (done)\",\"goal\":\"Velocity seed\",\"startDate\":\"${VSPRINT_START}\",\"endDate\":\"${VSPRINT_END}\"}" 2>/dev/null) || true
-VSPRINT_ID=$(echo "$VSPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+VSPRINT_ID=$(echo "$VSPRINT_RESP" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
 if [ -n "$VSPRINT_ID" ] && [ "$VSPRINT_ID" != "null" ]; then
   # Start then complete the sprint
   wsmut PATCH "/work/sprints/${VSPRINT_ID}" -d '{"status":"ACTIVE"}' >/dev/null 2>&1 || true
