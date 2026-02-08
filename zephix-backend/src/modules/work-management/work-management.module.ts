@@ -35,6 +35,9 @@ import { WorkPlanController } from './controllers/work-plan.controller';
 import { WorkPhasesController } from './controllers/work-phases.controller';
 import { WorkRisksController } from './controllers/work-risks.controller';
 import { WorkResourceAllocationsController } from './controllers/work-resource-allocations.controller';
+import { WorkflowConfigController } from './controllers/workflow-config.controller';
+import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
+import { WorkflowConfigService } from './services/workflow-config.service';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -52,6 +55,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
       Project,
       Program,
       WorkspaceMember,
+      ProjectWorkflowConfig,
     ]),
     WorkspaceAccessModule,
     TenancyModule,
@@ -62,6 +66,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     WorkPhasesController,
     WorkRisksController,
     WorkResourceAllocationsController,
+    WorkflowConfigController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -71,6 +76,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     createTenantAwareRepositoryProvider(WorkTaskDependency),
     createTenantAwareRepositoryProvider(TaskComment),
     createTenantAwareRepositoryProvider(TaskActivity),
+    createTenantAwareRepositoryProvider(ProjectWorkflowConfig),
     WorkTasksService,
     WorkPlanService,
     ProjectStartService,
@@ -84,6 +90,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     WorkPhasesService,
     WorkRisksService,
     WorkResourceAllocationsService,
+    WorkflowConfigService,
   ],
   exports: [
     TypeOrmModule,
@@ -98,6 +105,7 @@ import { WorkResourceAllocationsController } from './controllers/work-resource-a
     ProjectOverviewService,
     WorkRisksService,
     WorkResourceAllocationsService,
+    WorkflowConfigService,
   ],
 })
 export class WorkManagementModule {}
