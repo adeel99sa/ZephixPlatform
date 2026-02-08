@@ -35,18 +35,31 @@ export class TaskActivityService {
     const organizationId = this.tenantContext.assertOrganizationId();
     let projectId: string | null = null;
 
-    // If taskId provided, get projectId from task
+    // If taskId provided, get projectId from task (include soft-deleted)
     if (taskId) {
-      const task = await this.taskRepo.findOne({ where: { id: taskId } });
+      const task = await this.taskRepo.findOne({ where: { id: taskId } as any });
       if (task) {
         projectId = task.projectId;
       }
     }
 
+    // Fallback: use projectId from metadata if task lookup failed
+    if (!projectId && metadata?.projectId) {
+      projectId = metadata.projectId;
+    }
+
+    // projectId is required (non-nullable UUID) — skip recording if missing
+    if (!projectId) {
+      console.warn(
+        `[TaskActivity] Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
+      );
+      return null as any;
+    }
+
     const activity = this.activityRepo.create({
       organizationId,
       workspaceId,
-      projectId: projectId || '',
+      projectId,
       taskId,
       type: activityType,
       actorUserId: auth.userId,
