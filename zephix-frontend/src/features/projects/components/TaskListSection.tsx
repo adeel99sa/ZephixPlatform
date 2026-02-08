@@ -26,15 +26,19 @@ import { toast } from 'sonner';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import {
   addComment,
+  addDependency,
   createTask,
   deleteTask,
   listActivity,
   listComments,
+  listDependencies,
   listTasks,
+  removeDependency,
   restoreTask,
   updateTask,
   type TaskActivityItem,
   type TaskComment,
+  type TaskDependency,
   type UpdateTaskPatch,
   type WorkTask,
   type WorkTaskStatus,
@@ -88,6 +92,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const [activities, setActivities] = useState<Record<string, TaskActivityItem[]>>({});
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
   const [showActivity, setShowActivity] = useState<Record<string, boolean>>({});
+  const [showDeps, setShowDeps] = useState<Record<string, boolean>>({});
+  const [deps, setDeps] = useState<Record<string, { predecessors: TaskDependency[]; successors: TaskDependency[] }>>({});
+  const [addingDep, setAddingDep] = useState<Record<string, boolean>>({});
+  const [depSearch, setDepSearch] = useState<Record<string, string>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
   const [postingComment, setPostingComment] = useState<Record<string, boolean>>({});
 
@@ -444,6 +452,49 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     setShowActivity(prev => ({ ...prev, [taskId]: !isOpen }));
     if (!isOpen && !activities[taskId]) {
       loadActivities(taskId);
+    }
+  }
+
+  function toggleDeps(taskId: string) {
+    const isOpen = showDeps[taskId];
+    setShowDeps(prev => ({ ...prev, [taskId]: !isOpen }));
+    if (!isOpen && !deps[taskId]) {
+      loadDeps(taskId);
+    }
+  }
+
+  async function loadDeps(taskId: string) {
+    try {
+      const result = await listDependencies(taskId);
+      setDeps(prev => ({ ...prev, [taskId]: result }));
+    } catch (error) {
+      console.error('Failed to load dependencies:', error);
+    }
+  }
+
+  async function handleAddDep(taskId: string, predecessorTaskId: string) {
+    if (addingDep[taskId]) return;
+    setAddingDep(prev => ({ ...prev, [taskId]: true }));
+    try {
+      await addDependency(taskId, predecessorTaskId, 'FINISH_TO_START');
+      toast.success('Dependency added');
+      await loadDeps(taskId);
+      setDepSearch(prev => ({ ...prev, [taskId]: '' }));
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to add dependency';
+      toast.error(msg);
+    } finally {
+      setAddingDep(prev => ({ ...prev, [taskId]: false }));
+    }
+  }
+
+  async function handleRemoveDep(taskId: string, predecessorTaskId: string) {
+    try {
+      await removeDependency(taskId, predecessorTaskId);
+      toast.success('Dependency removed');
+      await loadDeps(taskId);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to remove dependency');
     }
   }
 
@@ -1174,6 +1225,12 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                 >
                   {showActivity[task.id] ? 'Hide' : 'Show'} Activity
                 </button>
+                <button
+                  onClick={() => toggleDeps(task.id)}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
+                </button>
               </div>
 
               {/* Comments Panel */}
@@ -1234,6 +1291,78 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Dependencies Panel */}
+              {showDeps[task.id] && (
+                <div className="mt-3 pt-3 border-t">
+                  <h4 className="text-sm font-medium mb-2">Dependencies</h4>
+                  {/* Blocked by (predecessors) */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Blocked by</p>
+                    {deps[task.id]?.predecessors?.length ? (
+                      <div className="space-y-1">
+                        {deps[task.id].predecessors.map((dep) => (
+                          <div key={dep.id} className="flex items-center justify-between text-sm bg-red-50 p-2 rounded">
+                            <span className="text-gray-700">{dep.predecessorTitle || dep.predecessorTaskId}</span>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">None</p>
+                    )}
+                  </div>
+                  {/* Blocking (successors) */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Blocking</p>
+                    {deps[task.id]?.successors?.length ? (
+                      <div className="space-y-1">
+                        {deps[task.id].successors.map((dep) => (
+                          <div key={dep.id} className="flex items-center text-sm bg-amber-50 p-2 rounded">
+                            <span className="text-gray-700">{dep.successorTitle || dep.successorTaskId}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">None</p>
+                    )}
+                  </div>
+                  {/* Add dependency */}
+                  {canEdit && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Add "blocked by" dependency</p>
+                      <div className="flex gap-2">
+                        <select
+                          value={depSearch[task.id] || ''}
+                          onChange={(e) => setDepSearch(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        >
+                          <option value="">Select a task...</option>
+                          {tasks
+                            .filter(t => t.id !== task.id && !t.deletedAt)
+                            .map(t => (
+                              <option key={t.id} value={t.id}>{t.title}</option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={() => depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])}
+                          disabled={!depSearch[task.id] || addingDep[task.id]}
+                          className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {addingDep[task.id] ? 'Adding...' : 'Add'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

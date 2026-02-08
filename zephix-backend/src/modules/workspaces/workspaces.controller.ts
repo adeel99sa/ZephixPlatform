@@ -49,6 +49,7 @@ import { WorkspaceRole } from './entities/workspace.entity';
 import { Request } from 'express';
 import { ResourceRiskScoreService } from '../resources/services/resource-risk-score.service';
 import { ResponseService } from '../../shared/services/response.service';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { getAuthContextOptional } from '../../common/http/get-auth-context-optional';
@@ -84,6 +85,7 @@ export class WorkspacesController {
     private readonly responseService: ResponseService,
     private readonly inviteService: WorkspaceInviteService,
     private readonly workspaceHealthService: WorkspaceHealthService,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   /**
@@ -319,27 +321,17 @@ export class WorkspacesController {
     try {
       const isDev = process.env.NODE_ENV !== 'production';
 
-      // Normalize slug server-side
-      const normalizedSlug =
-        dto.slug && dto.slug.trim().length > 0
-          ? dto.slug
-              .trim()
-              .toLowerCase()
-              .replace(/[^a-z0-9-]/g, '-')
-              .replace(/-+/g, '-')
-              .replace(/^-|-$/g, '')
-          : dto.name
-              .toLowerCase()
-              .replace(/[^a-z0-9-]/g, '-')
-              .replace(/-+/g, '-')
-              .replace(/^-|-$/g, '');
+      // Map visibility to isPrivate (visibility takes precedence over isPrivate)
+      const isPrivate = dto.visibility
+        ? dto.visibility === 'CLOSED'
+        : (dto.isPrivate ?? false);
 
       const payload = {
         name: dto.name,
-        slug: normalizedSlug,
+        slug: dto.slug, // Service handles slugification and uniqueness
         description: dto.description,
         defaultMethodology: dto.defaultMethodology,
-        isPrivate: dto.isPrivate ?? false,
+        isPrivate,
         organizationId: u.organizationId,
         ownerUserIds: ownerUserIds, // Derived from auth context if not provided
         createdBy: u.id,
@@ -366,6 +358,7 @@ export class WorkspacesController {
           workspaceId: workspace.id,
           name: workspace.name,
           slug: workspace.slug,
+          visibility: workspace.isPrivate ? 'CLOSED' : 'OPEN',
           role: 'workspace_owner',
         });
       }
@@ -408,13 +401,16 @@ export class WorkspacesController {
         workspaceId: workspace.id,
         name: workspace.name,
         slug: workspace.slug,
+        visibility: workspace.isPrivate ? 'CLOSED' : 'OPEN',
         role: 'workspace_owner',
       });
     } catch (error) {
-      // Re-throw validation and auth errors
+      // Re-throw validation, auth, and conflict errors
       if (
         error instanceof BadRequestException ||
-        error instanceof ForbiddenException
+        error instanceof ForbiddenException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
       ) {
         throw error;
       }
@@ -668,22 +664,43 @@ export class WorkspacesController {
   @RequireWorkspaceAccess('viewer')
   async listMembers(
     @Param('id') id: string,
+    @Req() req: any,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('search') search?: string,
     @Actor() actor?: any,
   ) {
-    // Phase 3: Allow list if effective role is workspace_owner, workspace_member, workspace_viewer, or org admin
-    const members = await this.members.list(
-      id,
-      {
-        limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
-        search,
-      },
-      actor,
+    // TenantAwareRepository requires tenant context in AsyncLocalStorage.
+    // The global interceptor may not set it if organizationId is missing from JWT.
+    // Explicitly wrap with tenant context from the authenticated user.
+    const organizationId = req.user?.organizationId;
+
+    const doList = async () => {
+      const members = await this.members.list(
+        id,
+        {
+          limit: limit ? parseInt(limit, 10) : undefined,
+          offset: offset ? parseInt(offset, 10) : undefined,
+          search,
+        },
+        actor,
+      );
+      return formatArrayResponse(members || []);
+    };
+
+    // If tenant context already set, just run
+    if (this.tenantContextService.getOrganizationId()) {
+      return doList();
+    }
+
+    // Set tenant context explicitly
+    if (!organizationId) {
+      throw new BadRequestException('Organization context required for workspace members');
+    }
+    return this.tenantContextService.runWithTenant(
+      { organizationId, workspaceId: id },
+      doList,
     );
-    return formatArrayResponse(members || []);
   }
 
   @Post(':id/members')

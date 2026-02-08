@@ -36,6 +36,7 @@ export class ResourceHeatMapService {
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     // Get accessible workspace IDs (respects feature flag)
+    // Returns null when user can access ALL workspaces (admin or flag off)
     const accessibleWorkspaceIds =
       await this.workspaceAccessService.getAccessibleWorkspaceIds(
         organizationId,
@@ -44,7 +45,7 @@ export class ResourceHeatMapService {
       );
 
     // If workspace membership is enforced and user has no accessible workspaces
-    if (accessibleWorkspaceIds.length === 0) {
+    if (Array.isArray(accessibleWorkspaceIds) && accessibleWorkspaceIds.length === 0) {
       return this.processAllocations([], start, end);
     }
 
@@ -60,8 +61,8 @@ export class ResourceHeatMapService {
       });
     }
 
-    // Filter by accessible workspaces if membership is enforced
-    if (accessibleWorkspaceIds.length > 0) {
+    // Filter by accessible workspaces if membership is enforced (null = all workspaces)
+    if (Array.isArray(accessibleWorkspaceIds) && accessibleWorkspaceIds.length > 0) {
       // Get project IDs in accessible workspaces (automatically scoped by org via TenantAwareRepository)
       const accessibleProjects = await this.projectRepository.find({
         where: {
@@ -95,9 +96,10 @@ export class ResourceHeatMapService {
   ) {
     const heatMapData: any = {};
 
-    // Group by resource and week
+    // Group by resource and week — skip allocations with missing data
     allocations.forEach((allocation) => {
       const resourceId = allocation.resourceId || allocation.userId;
+      if (!resourceId) return; // skip allocations without a resource identifier
 
       if (!heatMapData[resourceId]) {
         heatMapData[resourceId] = {
@@ -106,17 +108,17 @@ export class ResourceHeatMapService {
         };
       }
 
+      // Skip allocations without valid date ranges
+      if (!allocation.startDate || !allocation.endDate) return;
+
       // Calculate weekly allocations
+      const allocStart = new Date(allocation.startDate);
+      const allocEnd = new Date(allocation.endDate);
+      if (isNaN(allocStart.getTime()) || isNaN(allocEnd.getTime())) return;
+
       const weeks = this.getWeeksBetween(
-        new Date(
-          Math.max(
-            new Date(allocation.startDate).getTime(),
-            startDate.getTime(),
-          ),
-        ),
-        new Date(
-          Math.min(new Date(allocation.endDate).getTime(), endDate.getTime()),
-        ),
+        new Date(Math.max(allocStart.getTime(), startDate.getTime())),
+        new Date(Math.min(allocEnd.getTime(), endDate.getTime())),
       );
 
       weeks.forEach((weekStart) => {

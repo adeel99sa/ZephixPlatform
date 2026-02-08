@@ -22,12 +22,15 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    // Only check on /home route
-    if (location.pathname !== '/home') {
+    // Never redirect on org-level routes — Home must stay Home
+    const ORG_LEVEL_PREFIXES = ['/home', '/workspaces', '/settings', '/billing', '/admin', '/onboarding'];
+    if (ORG_LEVEL_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) {
       setIsRedirecting(false);
       return;
     }
 
+    // Only check on workspace-scoped routes (this hook was originally for /home but
+    // the redirect-to-templates behaviour belongs on workspace overview, not org home)
     // Need workspace to check projects - early return if no workspace
     if (!activeWorkspaceId) {
       setIsRedirecting(false);

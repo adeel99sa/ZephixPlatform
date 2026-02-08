@@ -241,6 +241,39 @@ export class WorkTasksController {
     return this.responseService.success(result);
   }
 
+  // 3b. GET /api/work/tasks/:id/dependencies
+  @Get(':id/dependencies')
+  @ApiOperation({ summary: 'List dependencies for a task' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiResponse({ status: 200, description: 'Dependencies retrieved successfully' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - workspace access denied',
+    schema: {
+      properties: { code: { type: 'string', example: 'WORKSPACE_REQUIRED' } },
+    },
+  })
+  async listDependencies(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') taskId: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    const result = await this.taskDependenciesService.listDependencies(
+      auth,
+      workspaceId,
+      taskId,
+    );
+    return this.responseService.success(result);
+  }
+
   // 4. POST /api/work/tasks/:id/dependencies
   @Post(':id/dependencies')
   @ApiOperation({ summary: 'Add a dependency to a task' })

@@ -26,13 +26,26 @@ export interface WorkspaceValidationState {
   workspaces: Workspace[];
 }
 
+export interface UseWorkspaceValidationOptions {
+  /** 
+   * If false, validation is skipped entirely.
+   * Use this to gate workspace validation behind onboarding completion.
+   */
+  enabled?: boolean;
+}
+
 /**
  * Hook to validate the persisted workspace ID on app load.
  * 
  * Should be called in DashboardLayout or a top-level provider.
  * Only runs validation once per mount, not on every render.
+ * 
+ * @param options.enabled - If false, validation is skipped (use for onboarding gate)
  */
-export function useWorkspaceValidation(): WorkspaceValidationState {
+export function useWorkspaceValidation(
+  options: UseWorkspaceValidationOptions = {}
+): WorkspaceValidationState {
+  const { enabled = true } = options;
   const { user, loading: authLoading } = useAuth();
   const { activeWorkspaceId, setActiveWorkspace, isHydrating } = useWorkspaceStore();
   
@@ -44,6 +57,17 @@ export function useWorkspaceValidation(): WorkspaceValidationState {
   });
 
   useEffect(() => {
+    // If disabled (e.g., onboarding not complete), skip validation entirely
+    if (!enabled) {
+      setState({
+        isValidating: false,
+        isValid: false,
+        error: null,
+        workspaces: [],
+      });
+      return;
+    }
+    
     // Don't validate until auth is ready
     if (authLoading) return;
     
@@ -120,7 +144,7 @@ export function useWorkspaceValidation(): WorkspaceValidationState {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isHydrating, user, activeWorkspaceId, setActiveWorkspace]);
+  }, [enabled, authLoading, isHydrating, user, activeWorkspaceId, setActiveWorkspace]);
 
   return state;
 }

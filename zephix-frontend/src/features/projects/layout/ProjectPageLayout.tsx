@@ -10,7 +10,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -22,6 +22,8 @@ const PROJECT_TABS = [
   { id: 'overview', label: 'Overview', path: '', icon: LayoutDashboard },
   { id: 'plan', label: 'Plan', path: '/plan', icon: Folder },
   { id: 'tasks', label: 'Tasks', path: '/tasks', icon: ListTodo },
+  { id: 'board', label: 'Board', path: '/board', icon: LayoutGrid },
+  { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
   { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
 ] as const;
@@ -63,6 +65,8 @@ export const ProjectPageLayout: React.FC = () => {
     // Check for specific tab paths
     if (path.includes('/plan')) return 'plan';
     if (path.includes('/tasks')) return 'tasks';
+    if (path.includes('/board')) return 'board';
+    if (path.includes('/gantt')) return 'gantt';
     if (path.includes('/risks')) return 'risks';
     if (path.includes('/resources')) return 'resources';
     return 'overview';
