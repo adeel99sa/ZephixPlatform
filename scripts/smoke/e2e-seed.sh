@@ -364,6 +364,30 @@ TASK_B1=$(echo "$TASKS_B" | cut -d, -f1)
 TASK_B2=$(echo "$TASKS_B" | cut -d, -f2)
 
 ###############################################################################
+# STEP 7b: Set acceptance criteria on Task A1
+###############################################################################
+log "Setting acceptance criteria on Task A1 ..."
+AC_RESP=$(wsmut PATCH "/work/tasks/${TASK_A1}" \
+  -d '{"acceptanceCriteria":[{"text":"User can log in with email and password","done":true},{"text":"Error message shown for invalid credentials","done":false}]}') || true
+if [ -n "$AC_RESP" ] && [ "$AC_RESP" != "CURL_FAILED" ]; then
+  log "Acceptance criteria set on Task A1."
+else
+  log "Warning: Acceptance criteria set failed on Task A1."
+fi
+
+###############################################################################
+# STEP 7c: Set project Definition of Done on Project A
+###############################################################################
+log "Setting Definition of Done on Project A ..."
+DOD_RESP=$(wsmut PATCH "/projects/${PROJECT_A_ID}/settings" \
+  -d '{"definitionOfDone":["All acceptance criteria met","Code reviewed and approved","Unit tests passing"]}') || true
+if [ -n "$DOD_RESP" ] && [ "$DOD_RESP" != "CURL_FAILED" ]; then
+  log "Definition of Done set on Project A."
+else
+  log "Warning: Definition of Done set failed on Project A."
+fi
+
+###############################################################################
 # STEP 8: Create risks (2 per project)
 ###############################################################################
 create_risks() {

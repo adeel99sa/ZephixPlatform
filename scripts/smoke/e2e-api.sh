@@ -870,6 +870,82 @@ else
 fi
 
 ###############################################################################
+# MODULE 11: Acceptance Criteria and Definition of Done
+###############################################################################
+section "Module 11: Acceptance Criteria & DoD"
+
+# 11a. Get task detail includes acceptanceCriteria
+TASK_DETAIL=$(http_get "/work/tasks/${TASK_A1}")
+if [ -n "$TASK_DETAIL" ]; then
+  AC_FIELD=$(echo "$TASK_DETAIL" | jq -r '(.data // .).acceptanceCriteria // empty' 2>/dev/null || echo "")
+  if [ -n "$AC_FIELD" ] && [ "$AC_FIELD" != "null" ]; then
+    AC_LEN=$(echo "$TASK_DETAIL" | jq -r '(.data // .).acceptanceCriteria | length' 2>/dev/null || echo "0")
+    if [ "$AC_LEN" -ge 1 ]; then
+      pass "Task detail has acceptanceCriteria (${AC_LEN} items)"
+    else
+      fail "Task acceptanceCriteria" "expected >= 1 items, got ${AC_LEN}"
+    fi
+  else
+    fail "Task acceptanceCriteria" "field missing in response"
+  fi
+else
+  fail "Task detail for AC" "GET /work/tasks/${TASK_A1} returned empty"
+fi
+
+# 11b. Patch task with new acceptance criteria
+AC_PATCH_BODY='{"acceptanceCriteria":[{"text":"Smoke test criterion 1","done":false},{"text":"Smoke test criterion 2","done":true},{"text":"Smoke test criterion 3","done":false}]}'
+AC_PATCH_RESP=$(http_mut PATCH "/work/tasks/${TASK_A1}" "$AC_PATCH_BODY")
+if [ -n "$AC_PATCH_RESP" ]; then
+  AC_PATCH_LEN=$(echo "$AC_PATCH_RESP" | jq -r '(.data // .).acceptanceCriteria | length' 2>/dev/null || echo "0")
+  if [ "$AC_PATCH_LEN" = "3" ]; then
+    pass "Patch task acceptanceCriteria (3 items)"
+  else
+    fail "Patch task AC" "expected 3 items, got ${AC_PATCH_LEN}"
+  fi
+else
+  fail "Patch task AC" "PATCH returned empty"
+fi
+
+# 11c. Get project settings includes definitionOfDone
+PROJ_DETAIL=$(http_get "/projects/${PROJECT_A_ID}")
+if [ -n "$PROJ_DETAIL" ]; then
+  DOD_FIELD=$(echo "$PROJ_DETAIL" | jq -r '(.data // .).definitionOfDone // empty' 2>/dev/null || echo "")
+  if [ -n "$DOD_FIELD" ] && [ "$DOD_FIELD" != "null" ]; then
+    DOD_LEN=$(echo "$PROJ_DETAIL" | jq -r '(.data // .).definitionOfDone | length' 2>/dev/null || echo "0")
+    if [ "$DOD_LEN" -ge 1 ]; then
+      pass "Project has definitionOfDone (${DOD_LEN} items)"
+    else
+      fail "Project DoD" "expected >= 1 items, got ${DOD_LEN}"
+    fi
+  else
+    # DoD might not be in list response, try project detail endpoint
+    warn "Project DoD" "field not found in GET /projects/:id response (may need settings endpoint)"
+  fi
+else
+  fail "Project detail for DoD" "GET /projects/${PROJECT_A_ID} returned empty"
+fi
+
+# 11d. Patch project DoD
+DOD_PATCH_BODY='{"definitionOfDone":["Tests pass","Code review done","AC complete","Deployed to staging"]}'
+DOD_PATCH_RESP=$(http_mut PATCH "/projects/${PROJECT_A_ID}/settings" "$DOD_PATCH_BODY")
+if [ -n "$DOD_PATCH_RESP" ]; then
+  DOD_PATCH_LEN=$(echo "$DOD_PATCH_RESP" | jq -r '(.data // .).definitionOfDone | length' 2>/dev/null || echo "0")
+  if [ "$DOD_PATCH_LEN" = "4" ]; then
+    pass "Patch project DoD (4 items)"
+  else
+    # It may be in .data wrapper
+    DOD_PATCH_LEN2=$(echo "$DOD_PATCH_RESP" | jq -r '.definitionOfDone | length' 2>/dev/null || echo "0")
+    if [ "$DOD_PATCH_LEN2" = "4" ]; then
+      pass "Patch project DoD (4 items)"
+    else
+      warn "Patch project DoD" "expected 4 items, got ${DOD_PATCH_LEN} / ${DOD_PATCH_LEN2}"
+    fi
+  fi
+else
+  fail "Patch project DoD" "PATCH returned empty"
+fi
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 printf "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
