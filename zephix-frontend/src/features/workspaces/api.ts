@@ -3,6 +3,7 @@ import { unwrapArray, unwrapData } from '@/lib/api/unwrapData';
 
 export type CreateWorkspaceInput = {
   name: string;
+  slug?: string;
   description?: string;
   visibility?: 'OPEN' | 'CLOSED';
 };

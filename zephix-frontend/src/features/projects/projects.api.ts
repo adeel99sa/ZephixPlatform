@@ -135,7 +135,7 @@ export const projectsApi = {
     // api.ts response interceptor already unwraps { data: T } envelope,
     // so the resolved value IS the project object directly.
     const result = await api.get(`/projects/${id}`);
-    return (result as ProjectDetail) ?? null;
+    return (result as unknown as ProjectDetail) ?? null;
   },
 
   /**
