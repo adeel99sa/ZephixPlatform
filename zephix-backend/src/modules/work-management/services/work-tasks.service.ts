@@ -97,6 +97,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConflictException } from '@nestjs/common';
 import { ProjectHealthService } from './project-health.service';
+import { WipLimitsService } from './wip-limits.service';
 
 interface AuthContext {
   organizationId: string;
@@ -122,6 +123,7 @@ export class WorkTasksService {
     private readonly tenantContext: TenantContextService,
     private readonly dataSource: DataSource,
     private readonly projectHealthService: ProjectHealthService,
+    private readonly wipLimitsService: WipLimitsService,
   ) {}
 
   // ============================================================
@@ -481,6 +483,21 @@ export class WorkTasksService {
     }
     if (dto.status !== undefined && dto.status !== task.status) {
       this.assertStatusTransition(task.status, dto.status);
+
+      // WIP limit enforcement
+      await this.wipLimitsService.enforceWipLimitOrThrow(auth, {
+        organizationId,
+        workspaceId,
+        projectId: task.projectId,
+        taskId: task.id,
+        fromStatus: task.status,
+        toStatus: dto.status,
+        actorUserId: auth.userId,
+        actorRole: auth.platformRole,
+        override: dto.wipOverride,
+        overrideReason: dto.wipOverrideReason,
+      });
+
       task.status = dto.status;
       changedFields.push('status');
       if (dto.status === TaskStatus.DONE && !task.completedAt) {
@@ -645,6 +662,20 @@ export class WorkTasksService {
 
     // Get projectIds for health recalculation (before update)
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+
+    // WIP limit enforcement per project
+    for (const pid of projectIds) {
+      const projectTaskIds = tasks
+        .filter((t) => t.projectId === pid)
+        .map((t) => t.id);
+      await this.wipLimitsService.enforceWipLimitBulkOrThrow(
+        auth,
+        workspaceId,
+        pid,
+        projectTaskIds,
+        dto.status,
+      );
+    }
 
     // Update all tasks
     await this.taskRepo
