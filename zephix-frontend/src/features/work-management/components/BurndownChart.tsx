@@ -24,12 +24,14 @@ interface BurndownChartProps {
   buckets: DailyBucket[];
   totalPoints: number;
   sprintName: string;
+  scopeMode?: "live" | "frozen";
 }
 
 export function BurndownChart({
   buckets,
   totalPoints,
   sprintName,
+  scopeMode = "live",
 }: BurndownChartProps) {
   const [mode, setMode] = useState<ChartMode>("burndown");
 
@@ -55,9 +57,20 @@ export function BurndownChart({
     <div className="space-y-3">
       {/* Header + toggle */}
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-700">
-          {mode === "burndown" ? "Burndown" : "Burnup"} — {sprintName}
-        </h4>
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-gray-700">
+            {mode === "burndown" ? "Burndown" : "Burnup"} — {sprintName}
+          </h4>
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+              scopeMode === "frozen"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {scopeMode === "frozen" ? "Scope frozen" : "Scope is live"}
+          </span>
+        </div>
         <div className="flex gap-1 rounded-md border border-gray-200 bg-white p-0.5">
           <button
             onClick={() => setMode("burndown")}

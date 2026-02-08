@@ -132,6 +132,7 @@ export interface BurndownData {
   startDate: string;
   endDate: string;
   totalPoints: number;
+  scopeMode: "live" | "frozen";
   buckets: DailyBucket[];
 }
 
@@ -141,6 +142,31 @@ export async function getSprintBurndown(
 ): Promise<BurndownData> {
   requireActiveWorkspace();
   const resp = await request.get<any>(`/work/sprints/${sprintId}/burndown`);
+  return resp?.data ?? resp;
+}
+
+// --- Sprint Progress (dashboard widget) ---
+
+export interface SprintProgress {
+  sprintId: string;
+  sprintName: string;
+  status: SprintStatus;
+  startDate: string;
+  endDate: string;
+  totalPoints: number;
+  completedPoints: number;
+  remainingPoints: number;
+  percentComplete: number;
+  scopeMode: "live" | "frozen";
+  burndownSample: DailyBucket[];
+}
+
+/** Get sprint progress summary for dashboard widgets. */
+export async function getSprintProgress(
+  sprintId: string,
+): Promise<SprintProgress> {
+  requireActiveWorkspace();
+  const resp = await request.get<any>(`/work/sprints/${sprintId}/progress`);
   return resp?.data ?? resp;
 }
 

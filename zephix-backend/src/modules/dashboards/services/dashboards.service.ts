@@ -34,6 +34,7 @@ type WidgetConfigSchema = {
 const SHARED_WIDGET_CONFIG_SCHEMA: Record<WidgetKey, WidgetConfigSchema> = {
   project_health: {},
   sprint_metrics: {},
+  sprint_progress: { sprintId: { type: 'string' } },
   resource_utilization: {},
   conflict_trends: {},
   budget_variance: {},
@@ -45,6 +46,7 @@ const SHARED_WIDGET_CONFIG_SCHEMA: Record<WidgetKey, WidgetConfigSchema> = {
 const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
   project_health: [],
   sprint_metrics: [],
+  sprint_progress: ['sprintId'],
   resource_utilization: [],
   conflict_trends: [],
   budget_variance: [],

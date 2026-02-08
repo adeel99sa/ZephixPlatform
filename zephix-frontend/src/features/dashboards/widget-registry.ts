@@ -25,6 +25,13 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     displayName: "Sprint Metrics",
     description: "Sprint velocity and completion metrics",
   },
+  sprint_progress: {
+    defaultConfig: { sprintId: null },
+    defaultLayout: { x: 8, y: 0, w: 4, h: 4 },
+    category: "Analytics",
+    displayName: "Sprint Progress",
+    description: "Sprint burndown mini-chart with headline numbers",
+  },
   resource_utilization: {
     defaultConfig: {},
     defaultLayout: { x: 0, y: 3, w: 6, h: 4 },
