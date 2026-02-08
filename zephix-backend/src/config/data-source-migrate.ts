@@ -15,7 +15,6 @@ const dataSource = new DataSource({
       ? { rejectUnauthorized: false }
       : false,
   migrations: [
-    join(process.cwd(), 'dist/migrations/*.js'),
     join(process.cwd(), 'dist/src/migrations/*.js'),
   ],
   migrationsTableName: 'migrations',
