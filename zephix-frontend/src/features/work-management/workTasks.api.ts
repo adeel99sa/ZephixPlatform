@@ -159,6 +159,8 @@ export interface TaskDependency {
   predecessorTaskId: string;
   successorTaskId: string;
   type: DependencyType;
+  predecessorTitle?: string;
+  successorTitle?: string;
 }
 
 // --- Work Phase types (for plan view) ---
@@ -408,6 +410,28 @@ export async function listActivity(
       };
     }) as TaskActivityItem[],
     total,
+  };
+}
+
+export async function listDependencies(
+  taskId: string,
+): Promise<{ predecessors: TaskDependency[]; successors: TaskDependency[] }> {
+  requireActiveWorkspace();
+  const data = await request.get<{ predecessors?: unknown[]; successors?: unknown[] }>(`/work/tasks/${taskId}/dependencies`);
+  const mapDep = (d: unknown): TaskDependency => {
+    const x = d as Record<string, unknown>;
+    return {
+      id: String(x.id ?? ""),
+      predecessorTaskId: String(x.predecessorTaskId ?? x.predecessor_task_id ?? ""),
+      successorTaskId: String(x.successorTaskId ?? x.successor_task_id ?? ""),
+      type: (x.type ?? "FINISH_TO_START") as DependencyType,
+      predecessorTitle: String((x as any).predecessorTask?.title ?? ""),
+      successorTitle: String((x as any).successorTask?.title ?? ""),
+    };
+  };
+  return {
+    predecessors: Array.isArray(data?.predecessors) ? data.predecessors.map(mapDep) : [],
+    successors: Array.isArray(data?.successors) ? data.successors.map(mapDep) : [],
   };
 }
 
