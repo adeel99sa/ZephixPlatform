@@ -604,3 +604,21 @@ export async function reorderPhases(
   });
   return { message: data?.message || "Phases reordered" };
 }
+
+// ── Workflow Config (WIP Limits) ──────────────────────────────────────
+
+export interface EffectiveLimits {
+  defaultWipLimit: number | null;
+  statusWipLimits: Record<string, number> | null;
+  derivedEffectiveLimit: Record<string, number | null>;
+}
+
+export async function getWorkflowConfig(
+  projectId: string
+): Promise<EffectiveLimits> {
+  requireActiveWorkspace();
+  const data = await request.get<EffectiveLimits>(
+    `/work/projects/${projectId}/workflow-config`
+  );
+  return data as unknown as EffectiveLimits;
+}

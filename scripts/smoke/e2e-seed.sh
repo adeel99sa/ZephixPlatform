@@ -460,6 +460,18 @@ ALLOC_B1=$(create_allocation "$PROJECT_B_ID" "Beta" 40)
 log "Project B allocation: ${ALLOC_B1}"
 
 ###############################################################################
+# STEP 9b: Set WIP config for Project A
+###############################################################################
+log "Setting WIP config for Project A (defaultWipLimit=2, IN_REVIEW=1) ..."
+WIP_RESP=$(wsmut PUT "/work/projects/${PROJECT_A_ID}/workflow-config" \
+  -d '{"defaultWipLimit":2,"statusWipLimits":{"IN_REVIEW":1}}') || true
+if [ -n "$WIP_RESP" ] && [ "$WIP_RESP" != "CURL_FAILED" ]; then
+  log "WIP config set for Project A."
+else
+  log "Warning: WIP config set failed for Project A (endpoint may not exist yet)."
+fi
+
+###############################################################################
 # STEP 10: Create a comment on seeded task (Wave 1)
 ###############################################################################
 log "Adding comment on Task A1 ..."
