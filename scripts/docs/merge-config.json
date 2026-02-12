@@ -1,0 +1,249 @@
+{
+  "merges": [
+    {
+      "target": "docs/architecture/PLATFORM_ARCHITECTURE.md",
+      "sources": [
+        "docs/PLATFORM_ARCHITECTURE_TREE.md",
+        "docs/DETAILED_ARCHITECTURE_VERIFICATION.md",
+        "ARCHITECTURE_GUIDE.md"
+      ],
+      "title": "Platform Architecture"
+    },
+    {
+      "target": "docs/architecture/PLATFORM_SCOPE.md",
+      "sources": [
+        "docs/PLATFORM_VISION_COMPLETION_MATRIX.md",
+        "docs/EXECUTION_SYSTEM_DECISION_ARCHITECT_BRIEF.md",
+        "docs/plan-comparison-architect-vs-evaluation.md"
+      ],
+      "title": "Platform Scope & MVP Matrix"
+    },
+    {
+      "target": "docs/architecture/WORKSPACE_MODEL.md",
+      "sources": [
+        "docs/PHASE_0_WORKSPACE_BASELINE.md",
+        "docs/WORKSPACE_IMPLEMENTATION_STATUS.md",
+        "docs/WORKSPACE_DELETE_BEHAVIOR.md",
+        "docs/RBAC_AND_WORKSPACE_BEHAVIOR.md"
+      ],
+      "title": "Workspace Model"
+    },
+    {
+      "target": "docs/guides/ENGINEERING_PLAYBOOK.md",
+      "sources": [
+        "docs/ENGINEERING_PLAYBOOK.md",
+        "CURSOR_DEVELOPMENT_PROTOCOL.md",
+        "DAILY_WORK_GUIDE.md"
+      ],
+      "title": "Engineering Playbook"
+    },
+    {
+      "target": "docs/guides/OPERATIONS_RUNBOOK.md",
+      "sources": [
+        "docs/OPERATIONS_RUNBOOK.md",
+        "docs/go-live-checklist.md",
+        "docs/FINAL_PREP_CHECKLIST.md"
+      ],
+      "title": "Operations Runbook"
+    },
+    {
+      "target": "docs/guides/DEPLOYMENT_GUIDE.md",
+      "sources": [
+        "RAILWAY_DEPLOYMENT_FIXES.md",
+        "RAILWAY_DEPLOYMENT_SOLUTION.md",
+        "RAILWAY_MANUAL_STEPS.md",
+        "DEPLOYMENT_EXECUTION_SUMMARY.md",
+        "DEPLOYMENT_VERIFICATION_COMPLETE.md",
+        "FRONTEND_DEPLOYMENT_SUCCESS.md",
+        "FRONTEND_DEPLOYMENT_VERIFICATION.md",
+        "docs/RAILWAY_E2E_TEST_SETUP.md"
+      ],
+      "title": "Deployment Guide"
+    },
+    {
+      "target": "docs/guides/QA_TESTING_GUIDE.md",
+      "sources": [
+        "docs/TESTER_HANDOFF.md",
+        "docs/QUICK_START_FOR_TESTER.md",
+        "docs/TESTER_WORKSPACE_SCRIPT.md",
+        "docs/TESTER_MESSAGE.md",
+        "docs/SCREENSHOT_CHECKLIST.md"
+      ],
+      "title": "QA Testing Guide"
+    },
+    {
+      "target": "docs/security/RBAC.md",
+      "sources": [
+        "docs/RBAC_IMPLEMENTATION_COMPLETE.md",
+        "docs/RBAC_IMPLEMENTATION_SUMMARY.md",
+        "docs/RBAC_ROLE_STRING_LEAKS.md",
+        "docs/ADMIN_ACCESS_BEHAVIOR.md",
+        "docs/ENTERPRISE_CONSTITUTION_SUMMARY.md"
+      ],
+      "title": "Role-Based Access Control"
+    },
+    {
+      "target": "docs/security/AUTH.md",
+      "sources": [
+        "AUTH_WORKFLOWS_ARCHITECT_DOCUMENTATION.md",
+        "AUTH_FIX_COMPLETE.md",
+        "AUTH_FIX_FINAL_PROOF.md",
+        "AUTH_FILES_AUDIT.md",
+        "SIGNUP_EMAIL_ISSUE_SUMMARY.md"
+      ],
+      "title": "Authentication"
+    },
+    {
+      "target": "docs/competitive/PLATFORM_COMPARISON.md",
+      "sources": [
+        "docs/COMPREHENSIVE_PLATFORM_COMPARISON.md",
+        "docs/PLATFORM_COMPARISON_EXECUTIVE_SUMMARY.md",
+        "docs/PLATFORM_COMPETITIVE_ASSESSMENT.md",
+        "docs/LINEAR_VS_ZEPHIX_COMPARISON.md",
+        "docs/zephix-platform-honest-evaluation.md"
+      ],
+      "title": "Platform Comparison"
+    },
+    {
+      "target": "docs/implementation/IMPLEMENTATION_HISTORY.md",
+      "sources": [
+        "IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md",
+        "DELIVERABLES_MVP_WORK_EXECUTION_CORE.md",
+        "FINAL_PRE_MVP_STATUS.md",
+        "RELEASE_2025_WEEK4_STATUS.md",
+        "docs/IMPLEMENTATION_COMPLETE_SUMMARY.md"
+      ],
+      "title": "Implementation History"
+    },
+    {
+      "target": "docs/verification/VERIFICATION_MASTER.md",
+      "sources": [
+        "BASELINE_PUSH_CHECKLIST.md",
+        "docs/STEP8_VERIFICATION_CHECKLIST.md",
+        "docs/WORKSPACE_VERIFICATION_CHECKLIST.md",
+        "BROWSER_PROOF_STATUS.md"
+      ],
+      "title": "Verification Master Checklist"
+    },
+    {
+      "target": "zephix-backend/docs/TENANT_PATTERNS.md",
+      "sources": [
+        "zephix-backend/docs/TENANT_AWARE_REPOSITORY_API.md",
+        "zephix-backend/docs/TENANT_AWARE_REPOSITORY_PUBLIC_API.md",
+        "zephix-backend/docs/TENANT_AWARE_REPOSITORY_FINAL_API.md",
+        "zephix-backend/docs/TENANT_AWARE_REPOSITORY_API_SUMMARY.md",
+        "zephix-backend/docs/TENANT_REPOSITORY_API_REFERENCE.md",
+        "zephix-backend/docs/TENANT_REPOSITORY_HARDENING.md",
+        "zephix-backend/docs/CONTRIBUTING_TENANT_CONTEXT.md"
+      ],
+      "title": "Tenant-Aware Repository Patterns"
+    },
+    {
+      "target": "zephix-backend/docs/RAILWAY_GUIDE.md",
+      "sources": [
+        "zephix-backend/docs/RAILWAY_DEPLOY_CHECKLIST.md",
+        "zephix-backend/docs/RAILWAY_BACKEND_SINGLE_SOURCE.md",
+        "zephix-backend/docs/RAILWAY_BACKEND_ROOT_CAUSE.md",
+        "zephix-backend/docs/RAILWAY_SCALING_GUIDE.md",
+        "zephix-backend/docs/RAILWAY_MIGRATIONS.md",
+        "zephix-backend/docs/RAILWAY_VERIFICATION_CHECKLIST.md"
+      ],
+      "title": "Railway Deployment Guide"
+    },
+    {
+      "target": "zephix-backend/docs/API_CONTRACTS.md",
+      "sources": [
+        "zephix-backend/docs/TEMPLATE_CENTER_BACKEND_CONTRACT.md",
+        "zephix-backend/docs/TEMPLATE_CENTER_API_STABILITY.md",
+        "zephix-backend/docs/INVITES_AND_MEMBERS_ENDPOINTS.md",
+        "zephix-backend/docs/INVITE_LINK_FRONTEND_MAPPING.md"
+      ],
+      "title": "API Contracts"
+    },
+    {
+      "target": "zephix-frontend/docs/ROUTING.md",
+      "sources": [
+        "zephix-frontend/ROUTING_ARCHITECTURE_IMPLEMENTATION.md",
+        "zephix-frontend/ROUTING_LOCKDOWN_SUMMARY.md",
+        "zephix-frontend/ROUTING_LOCKDOWN_COMPLETE.md",
+        "zephix-frontend/ROUTING_CODE_VERIFICATION.md",
+        "zephix-frontend/src/routes/ROUTING_RULES.md"
+      ],
+      "title": "Frontend Routing"
+    },
+    {
+      "target": "zephix-frontend/docs/SECURITY.md",
+      "sources": [
+        "zephix-frontend/SECURITY_IMPLEMENTATION.md"
+      ],
+      "title": "Frontend Security"
+    },
+    {
+      "target": "zephix-frontend/docs/DEPLOYMENT.md",
+      "sources": [
+        "zephix-frontend/PRODUCTION-DEPLOYMENT.md",
+        "zephix-frontend/RAILWAY_DEPLOYMENT_FIX.md"
+      ],
+      "title": "Frontend Deployment"
+    },
+    {
+      "target": "zephix-frontend/docs/ANALYTICS.md",
+      "sources": [
+        "zephix-frontend/ANALYTICS-SETUP.md",
+        "zephix-frontend/docs/SENTRY_INTEGRATION.md"
+      ],
+      "title": "Frontend Analytics & Observability"
+    },
+    {
+      "target": "zephix-frontend/docs/TESTING.md",
+      "sources": [
+        "zephix-frontend/cypress/README.md",
+        "zephix-frontend/MANUAL_TEST_CHECKLIST.md",
+        "zephix-frontend/POST_MERGE_SMOKE_TEST.md"
+      ],
+      "title": "Frontend Testing"
+    }
+  ],
+  "stubs": [
+    {
+      "original": "ARCHITECTURE_GUIDE.md",
+      "redirect": "docs/architecture/PLATFORM_ARCHITECTURE.md"
+    },
+    {
+      "original": "docs/PLATFORM_ARCHITECTURE_TREE.md",
+      "redirect": "docs/architecture/PLATFORM_ARCHITECTURE.md"
+    },
+    {
+      "original": "docs/RBAC_AND_WORKSPACE_BEHAVIOR.md",
+      "redirect": "docs/security/RBAC.md"
+    },
+    {
+      "original": "docs/ENGINEERING_PLAYBOOK.md",
+      "redirect": "docs/guides/ENGINEERING_PLAYBOOK.md"
+    },
+    {
+      "original": "docs/OPERATIONS_RUNBOOK.md",
+      "redirect": "docs/guides/OPERATIONS_RUNBOOK.md"
+    },
+    {
+      "original": "docs/TESTER_HANDOFF.md",
+      "redirect": "docs/guides/QA_TESTING_GUIDE.md"
+    },
+    {
+      "original": "docs/COMPREHENSIVE_PLATFORM_COMPARISON.md",
+      "redirect": "docs/competitive/PLATFORM_COMPARISON.md"
+    },
+    {
+      "original": "zephix-backend/docs/TENANT_AWARE_REPOSITORY_API.md",
+      "redirect": "zephix-backend/docs/TENANT_PATTERNS.md"
+    },
+    {
+      "original": "zephix-backend/docs/RAILWAY_DEPLOY_CHECKLIST.md",
+      "redirect": "zephix-backend/docs/RAILWAY_GUIDE.md"
+    },
+    {
+      "original": "zephix-frontend/ROUTING_ARCHITECTURE_IMPLEMENTATION.md",
+      "redirect": "zephix-frontend/docs/ROUTING.md"
+    }
+  ]
+}
