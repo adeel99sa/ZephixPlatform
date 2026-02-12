@@ -54,10 +54,10 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     allowedHosts: [
-      'zephix-frontend-production.up.railway.app',
+      '.up.railway.app',
       'getzephix.com',
-      'www.getzephix.com'
-    ]
+      'www.getzephix.com',
+    ],
   },
   define: {
     // Inject build-time environment variables
