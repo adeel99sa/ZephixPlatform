@@ -42,6 +42,8 @@ import { WorkflowConfigService } from './services/workflow-config.service';
 import { WipLimitsService } from './services/wip-limits.service';
 import { GateApprovalChainService } from './services/gate-approval-chain.service';
 import { GateApprovalEngineService } from './services/gate-approval-engine.service';
+import { GateApprovalChainController } from './controllers/gate-approval-chain.controller';
+import { GateApprovalActionController } from './controllers/gate-approval-action.controller';
 // Sprint 10: Gate approval chain entities
 import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
 import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
@@ -86,6 +88,8 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WorkRisksController,
     WorkResourceAllocationsController,
     WorkflowConfigController,
+    GateApprovalChainController,
+    GateApprovalActionController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
