@@ -67,6 +67,13 @@ export class WorkTaskResponseDto {
   @ApiProperty({ description: 'Custom metadata', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  @ApiProperty({
+    description: 'Acceptance criteria items',
+    type: 'array',
+    items: { type: 'object', properties: { text: { type: 'string' }, done: { type: 'boolean' } } },
+  })
+  acceptanceCriteria: Array<{ text: string; done: boolean }>;
+
   @ApiProperty({ description: 'Created timestamp (ISO 8601)' })
   createdAt: string;
 

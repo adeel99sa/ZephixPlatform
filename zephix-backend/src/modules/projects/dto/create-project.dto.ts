@@ -102,4 +102,9 @@ export class CreateProjectDto {
   @IsUUID()
   @IsOptional()
   templateId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  definitionOfDone?: string[];
 }

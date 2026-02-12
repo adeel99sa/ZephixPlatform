@@ -758,8 +758,20 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         typeof dto.endDate === 'string' ? new Date(dto.endDate) : dto.endDate;
     }
     if (dto.methodology !== undefined) project.methodology = dto.methodology;
+    if (dto.definitionOfDone !== undefined) {
+      project.definitionOfDone = this.normalizeDoD(dto.definitionOfDone);
+    }
 
     return this.projectRepository.save(project);
+  }
+
+  /** Normalize and validate Definition of Done items. */
+  private normalizeDoD(items: string[] | undefined): string[] | null {
+    if (!items || !Array.isArray(items)) return null;
+    return items
+      .map((s) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, 240))
+      .filter((s) => s.length > 0)
+      .slice(0, 20);
   }
 
   /**

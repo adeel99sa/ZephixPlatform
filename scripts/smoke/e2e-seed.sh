@@ -364,6 +364,30 @@ TASK_B1=$(echo "$TASKS_B" | cut -d, -f1)
 TASK_B2=$(echo "$TASKS_B" | cut -d, -f2)
 
 ###############################################################################
+# STEP 7b: Set acceptance criteria on Task A1
+###############################################################################
+log "Setting acceptance criteria on Task A1 ..."
+AC_RESP=$(wsmut PATCH "/work/tasks/${TASK_A1}" \
+  -d '{"acceptanceCriteria":[{"text":"User can log in with email and password","done":true},{"text":"Error message shown for invalid credentials","done":false}]}') || true
+if [ -n "$AC_RESP" ] && [ "$AC_RESP" != "CURL_FAILED" ]; then
+  log "Acceptance criteria set on Task A1."
+else
+  log "Warning: Acceptance criteria set failed on Task A1."
+fi
+
+###############################################################################
+# STEP 7c: Set project Definition of Done on Project A
+###############################################################################
+log "Setting Definition of Done on Project A ..."
+DOD_RESP=$(wsmut PATCH "/projects/${PROJECT_A_ID}/settings" \
+  -d '{"definitionOfDone":["All acceptance criteria met","Code reviewed and approved","Unit tests passing"]}') || true
+if [ -n "$DOD_RESP" ] && [ "$DOD_RESP" != "CURL_FAILED" ]; then
+  log "Definition of Done set on Project A."
+else
+  log "Warning: Definition of Done set failed on Project A."
+fi
+
+###############################################################################
 # STEP 8: Create risks (2 per project)
 ###############################################################################
 create_risks() {
@@ -458,6 +482,18 @@ log "Project A allocation: ${ALLOC_A1}"
 log "Creating allocation for Project B ..."
 ALLOC_B1=$(create_allocation "$PROJECT_B_ID" "Beta" 40)
 log "Project B allocation: ${ALLOC_B1}"
+
+###############################################################################
+# STEP 9b: Set WIP config for Project A
+###############################################################################
+log "Setting WIP config for Project A (defaultWipLimit=2, IN_REVIEW=1) ..."
+WIP_RESP=$(wsmut PUT "/work/projects/${PROJECT_A_ID}/workflow-config" \
+  -d '{"defaultWipLimit":2,"statusWipLimits":{"IN_REVIEW":1}}') || true
+if [ -n "$WIP_RESP" ] && [ "$WIP_RESP" != "CURL_FAILED" ]; then
+  log "WIP config set for Project A."
+else
+  log "Warning: WIP config set failed for Project A (endpoint may not exist yet)."
+fi
 
 ###############################################################################
 # STEP 10: Create a comment on seeded task (Wave 1)

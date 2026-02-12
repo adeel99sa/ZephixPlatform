@@ -101,6 +101,10 @@ export class WorkTask {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 
+  /** Ordered list of acceptance criteria items: { text: string; done: boolean }[] */
+  @Column({ type: 'jsonb', name: 'acceptance_criteria', nullable: true })
+  acceptanceCriteria: Array<{ text: string; done: boolean }> | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
