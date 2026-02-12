@@ -39,6 +39,13 @@ import { WorkflowConfigController } from './controllers/workflow-config.controll
 import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
 import { WorkflowConfigService } from './services/workflow-config.service';
 import { WipLimitsService } from './services/wip-limits.service';
+// Sprint 10: Gate approval chain entities
+import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
+import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
+import { PhaseGateSubmissionDocument } from './entities/phase-gate-submission-document.entity';
+import { GateApprovalChain } from './entities/gate-approval-chain.entity';
+import { GateApprovalChainStep } from './entities/gate-approval-chain-step.entity';
+import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -57,6 +64,13 @@ import { WipLimitsService } from './services/wip-limits.service';
       Program,
       WorkspaceMember,
       ProjectWorkflowConfig,
+      // Sprint 10: Gate entities
+      PhaseGateDefinition,
+      PhaseGateSubmission,
+      PhaseGateSubmissionDocument,
+      GateApprovalChain,
+      GateApprovalChainStep,
+      GateApprovalDecision,
     ]),
     WorkspaceAccessModule,
     TenancyModule,
