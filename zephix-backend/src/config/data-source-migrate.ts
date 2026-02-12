@@ -11,7 +11,8 @@ const dataSource = new DataSource({
   type: 'postgres',
   url,
   ssl:
-    process.env.NODE_ENV === 'production'
+    ['production', 'staging'].includes(process.env.NODE_ENV) ||
+    (url || '').includes('railway')
       ? { rejectUnauthorized: false }
       : false,
   migrations: [
