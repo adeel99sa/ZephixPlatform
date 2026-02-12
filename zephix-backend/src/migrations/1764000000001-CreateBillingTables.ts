@@ -8,6 +8,9 @@ import {
 
 export class CreateBillingTables1764000000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Ensure uuid-ossp extension exists (required for uuid_generate_v4)
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+
     // Create plans table
     await queryRunner.createTable(
       new Table({

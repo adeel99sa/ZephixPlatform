@@ -19,22 +19,19 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 export class InitCoreSchema1000000000000 implements MigrationInterface {
   name = 'InitCoreSchema1000000000000';
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Create UUID extension for UUID generation
-    // PostgreSQL 13+ has gen_random_uuid() built-in, but we try to enable extensions for older versions
-    // Try pgcrypto first (provides gen_random_uuid()), fallback to uuid-ossp if Railway doesn't allow pgcrypto
+    // 1. Create UUID extensions for UUID generation
+    // Install both: pgcrypto (gen_random_uuid) and uuid-ossp (uuid_generate_v4)
+    // Later migrations may use either function, so both must be available.
     try {
       await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
-    } catch (error) {
-      // Railway may not allow pgcrypto, try uuid-ossp instead
-      try {
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
-      } catch (e) {
-        // If both fail, PostgreSQL 13+ has gen_random_uuid() built-in, so we can continue
-        // Railway typically uses PostgreSQL 13+, so this should work
-      }
+    } catch (e) {
+      // pgcrypto may not be available; gen_random_uuid() is built-in on PostgreSQL 13+
     }
-    // Note: We use gen_random_uuid() throughout - it's built-in on PostgreSQL 13+
-    // If using uuid-ossp, we'd need uuid_generate_v4(), but Railway likely has 13+
+    try {
+      await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+    } catch (e) {
+      // uuid-ossp may not be available on some hosted providers
+    }
 
     // 2. Create organizations table
     const organizationsTableExists =
