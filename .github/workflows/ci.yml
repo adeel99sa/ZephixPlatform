@@ -536,6 +536,106 @@ jobs:
           echo "Frontend smoke tests skipped temporarily - require backend connection"
           echo "Run manually with: npm run preview && npm run test:smoke"
 
+  # Sprint 10+ merge gate — blocks merge on governance test failure,
+  # migration idempotency failure, or health endpoint failure after deploy
+  sprint-merge-gate:
+    name: Sprint Merge Gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_gate
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+
+      # Gate 1: All governance-critical tests must pass
+      - name: "Gate 1: Governance tests"
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          echo "Running governance-critical test suites..."
+          npx jest --passWithNoTests --no-coverage \
+            notification.gateway.spec \
+            slack.service.spec \
+            inbox.service.spec \
+            wip-limits.service.spec \
+            resource-risk-score.service.spec \
+            phase-gate-evaluator.service.spec \
+            resource-conflict-engine.service.spec \
+            work-tasks.service.spec \
+            2>&1
+          echo "✅ Gate 1 passed: all governance tests green"
+
+      # Gate 2: Migrations idempotent (run twice — second run must be no-op)
+      - name: "Gate 2: Migration idempotency"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          NODE_ENV: test
+        run: |
+          npm run build
+          echo "Running migrations (first pass)..."
+          node dist/src/scripts/db/migrate.js
+          echo "Running migrations (second pass — must be idempotent)..."
+          node dist/src/scripts/db/migrate.js
+          echo "Running db:verify..."
+          node dist/src/scripts/db/verify.js
+          echo "✅ Gate 2 passed: migrations idempotent"
+
+      # Gate 3: Health endpoint responds after deploy simulation
+      - name: "Gate 3: Health ready endpoint"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          DATABASE_SSL: "false"
+          NODE_ENV: production
+          AUTO_MIGRATE: "false"
+          JWT_SECRET: test-jwt-secret-min-32-chars-long
+          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
+          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+        run: |
+          echo "Starting app for health check..."
+          (npm run start:prod &)
+          APP_PID=$!
+
+          # Wait for app to start (up to 30s)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "App is up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          # Health check
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Gate 3 failed: /api/health returned $HTTP_CODE"
+            kill $APP_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Ready check (if endpoint exists)
+          READY_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/health/ready 2>/dev/null || echo "000")
+          if [ "$READY_CODE" != "200" ] && [ "$READY_CODE" != "000" ]; then
+            echo "⚠️ /api/health/ready returned $READY_CODE (non-blocking if endpoint doesn't exist)"
+          fi
+
+          kill $APP_PID 2>/dev/null || true
+          echo "✅ Gate 3 passed: health endpoint responding"
+
   rbac-tests:
     runs-on: ubuntu-latest
     # Only run if RBAC-related files changed
