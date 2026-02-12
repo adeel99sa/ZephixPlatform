@@ -22,6 +22,10 @@ import {
   BulkStatusUpdateDto,
 } from '../dto';
 import { TaskStatus, TaskPriority, TaskType, TaskActivityType } from '../enums/task.enums';
+import {
+  normalizeAcceptanceCriteria,
+  validateAcceptanceCriteria,
+} from '../utils/acceptance-criteria.utils';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -97,6 +101,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConflictException } from '@nestjs/common';
 import { ProjectHealthService } from './project-health.service';
+import { WipLimitsService } from './wip-limits.service';
 
 interface AuthContext {
   organizationId: string;
@@ -122,6 +127,7 @@ export class WorkTasksService {
     private readonly tenantContext: TenantContextService,
     private readonly dataSource: DataSource,
     private readonly projectHealthService: ProjectHealthService,
+    private readonly wipLimitsService: WipLimitsService,
   ) {}
 
   // ============================================================
@@ -298,6 +304,19 @@ export class WorkTasksService {
       }
     }
 
+    // Validate acceptance criteria if provided
+    let normalizedAC: Array<{ text: string; done: boolean }> | null = null;
+    if (dto.acceptanceCriteria !== undefined) {
+      const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);
+      if (acError) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: acError,
+        });
+      }
+      normalizedAC = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -313,6 +332,7 @@ export class WorkTasksService {
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: dto.tags || null,
+      acceptanceCriteria: normalizedAC,
     });
 
     const saved = await this.taskRepo.save(task);
@@ -481,6 +501,21 @@ export class WorkTasksService {
     }
     if (dto.status !== undefined && dto.status !== task.status) {
       this.assertStatusTransition(task.status, dto.status);
+
+      // WIP limit enforcement
+      await this.wipLimitsService.enforceWipLimitOrThrow(auth, {
+        organizationId,
+        workspaceId,
+        projectId: task.projectId,
+        taskId: task.id,
+        fromStatus: task.status,
+        toStatus: dto.status,
+        actorUserId: auth.userId,
+        actorRole: auth.platformRole,
+        override: dto.wipOverride,
+        overrideReason: dto.wipOverrideReason,
+      });
+
       task.status = dto.status;
       changedFields.push('status');
       if (dto.status === TaskStatus.DONE && !task.completedAt) {
@@ -520,6 +555,17 @@ export class WorkTasksService {
       // Will be added in future migration if needed
       changedFields.push('archived');
     }
+    if (dto.acceptanceCriteria !== undefined) {
+      const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);
+      if (acError) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: acError,
+        });
+      }
+      task.acceptanceCriteria = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
+      changedFields.push('acceptanceCriteria');
+    }
 
     const saved = await this.taskRepo.save(task);
 
@@ -548,6 +594,20 @@ export class WorkTasksService {
         {
           from: oldAssignee,
           to: saved.assigneeUserId,
+        },
+      );
+    }
+
+    if (changedFields.includes('acceptanceCriteria')) {
+      const acItems = saved.acceptanceCriteria || [];
+      await this.activityService.record(
+        auth,
+        workspaceId,
+        saved.id,
+        TaskActivityType.TASK_ACCEPTANCE_CRITERIA_UPDATED,
+        {
+          count: acItems.length,
+          doneCount: acItems.filter((i) => i.done).length,
         },
       );
     }
@@ -645,6 +705,20 @@ export class WorkTasksService {
 
     // Get projectIds for health recalculation (before update)
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+
+    // WIP limit enforcement per project
+    for (const pid of projectIds) {
+      const projectTaskIds = tasks
+        .filter((t) => t.projectId === pid)
+        .map((t) => t.id);
+      await this.wipLimitsService.enforceWipLimitBulkOrThrow(
+        auth,
+        workspaceId,
+        pid,
+        projectTaskIds,
+        dto.status,
+      );
+    }
 
     // Update all tasks
     await this.taskRepo

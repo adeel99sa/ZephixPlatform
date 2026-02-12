@@ -14,6 +14,9 @@ import { Select } from '@/components/ui/form/Select';
 import { toast } from 'sonner';
 import { ProjectStatus, ProjectPriority } from '../../projects/types';
 import { useAuth } from '@/state/AuthContext';
+import { getWorkflowConfig, type EffectiveLimits } from '@/features/work-management/workTasks.api';
+import { DefinitionOfDonePanel } from '@/features/work-management/components/DefinitionOfDonePanel';
+import { isAdminUser } from '@/utils/roles';
 
 export default function ProjectSettingsPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +26,7 @@ export default function ProjectSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [wipConfig, setWipConfig] = useState<EffectiveLimits | null>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -46,8 +50,19 @@ export default function ProjectSettingsPage() {
 
     if (id) {
       loadProject();
+      loadWipConfig(id);
     }
   }, [authLoading, user, id]);
+
+  const loadWipConfig = async (projectId: string) => {
+    try {
+      const data = await getWorkflowConfig(projectId);
+      setWipConfig(data);
+    } catch {
+      // WIP config is optional — don't block settings page
+      setWipConfig(null);
+    }
+  };
 
   const loadProject = async () => {
     if (!id) return;
@@ -256,6 +271,62 @@ export default function ProjectSettingsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* WIP Limits (read-only display) */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 max-w-3xl mt-6" data-testid="wip-config-panel">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">WIP Limits</h2>
+        {wipConfig ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 font-medium">Default limit:</span>
+              <span className="text-gray-900">
+                {wipConfig.defaultWipLimit != null ? wipConfig.defaultWipLimit : 'No limit'}
+              </span>
+            </div>
+            {wipConfig.statusWipLimits && Object.keys(wipConfig.statusWipLimits).length > 0 && (
+              <div>
+                <p className="text-sm text-gray-500 font-medium mb-1">Per-status overrides:</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(wipConfig.statusWipLimits).map(([status, limit]) => (
+                    <span key={status} className="text-xs bg-gray-100 text-gray-700 rounded px-2 py-1">
+                      {status}: {limit}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {wipConfig.derivedEffectiveLimit && (
+              <div>
+                <p className="text-sm text-gray-500 font-medium mb-1">Effective limits:</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {Object.entries(wipConfig.derivedEffectiveLimit).map(([status, limit]) => (
+                    <div key={status} className="text-xs flex justify-between bg-gray-50 rounded px-2 py-1">
+                      <span className="text-gray-600">{status}</span>
+                      <span className="text-gray-900 font-medium">{limit ?? '∞'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">No WIP limits configured for this project.</p>
+        )}
+      </div>
+
+      {/* Definition of Done */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 max-w-3xl mt-6">
+        <DefinitionOfDonePanel
+          items={project.definitionOfDone || []}
+          onSave={async (items) => {
+            if (!id) return;
+            const updated = await projectsApi.updateProjectSettings(id, { definitionOfDone: items });
+            setProject(prev => prev ? { ...prev, definitionOfDone: updated.definitionOfDone } : prev);
+            toast.success('Definition of Done updated');
+          }}
+          canEdit={isAdminUser(user)}
+        />
       </div>
 
       <div className="mt-4 text-sm text-gray-500">

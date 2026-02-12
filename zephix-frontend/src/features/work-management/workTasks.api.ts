@@ -76,12 +76,18 @@ export interface WorkTask {
   rank: number | null;
   tags: string[] | null;
   metadata: Record<string, unknown> | null;
+  acceptanceCriteria: AcceptanceCriteriaItem[];
   createdAt: string;
   updatedAt: string;
   /** Soft delete timestamp. Null if task is active. */
   deletedAt: string | null;
   /** User who deleted the task. Null if task is active. */
   deletedByUserId: string | null;
+}
+
+export interface AcceptanceCriteriaItem {
+  text: string;
+  done: boolean;
 }
 
 export type SortBy = 'dueDate' | 'updatedAt' | 'createdAt';
@@ -129,6 +135,7 @@ export interface UpdateTaskPatch {
   startDate?: string | null;
   dueDate?: string | null;
   tags?: string[];
+  acceptanceCriteria?: AcceptanceCriteriaItem[];
 }
 
 export interface BulkUpdateInput {
@@ -254,6 +261,9 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     tags: Array.isArray(raw.tags) ? raw.tags : null,
     metadata:
       raw.metadata && typeof raw.metadata === "object" ? (raw.metadata as Record<string, unknown>) : null,
+    acceptanceCriteria: Array.isArray(raw.acceptanceCriteria ?? raw.acceptance_criteria)
+      ? (raw.acceptanceCriteria ?? raw.acceptance_criteria) as AcceptanceCriteriaItem[]
+      : [],
     createdAt: String(raw.createdAt ?? raw.created_at ?? ""),
     updatedAt: String(raw.updatedAt ?? raw.updated_at ?? ""),
     deletedAt: toStringOrNull(raw.deletedAt ?? raw.deleted_at),
@@ -603,4 +613,22 @@ export async function reorderPhases(
     orderedPhaseIds,
   });
   return { message: data?.message || "Phases reordered" };
+}
+
+// ── Workflow Config (WIP Limits) ──────────────────────────────────────
+
+export interface EffectiveLimits {
+  defaultWipLimit: number | null;
+  statusWipLimits: Record<string, number> | null;
+  derivedEffectiveLimit: Record<string, number | null>;
+}
+
+export async function getWorkflowConfig(
+  projectId: string
+): Promise<EffectiveLimits> {
+  requireActiveWorkspace();
+  const data = await request.get<EffectiveLimits>(
+    `/work/projects/${projectId}/workflow-config`
+  );
+  return data as unknown as EffectiveLimits;
 }

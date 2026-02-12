@@ -166,14 +166,19 @@ async function bootstrap() {
   app.use(cookieParser());
 
   if (debugBoot) console.log('🌐 Configuring CORS...');
+  const corsOrigins: string[] = [
+    'https://getzephix.com', // Production frontend
+    'https://www.getzephix.com', // Production with www
+    'http://localhost:5173', // Vite local development
+    'http://localhost:3001', // Alternative frontend port
+    'http://localhost:3000', // Alternative frontend port
+  ];
+  // Allow dynamic FRONTEND_URL for staging and other environments
+  if (process.env.FRONTEND_URL && !corsOrigins.includes(process.env.FRONTEND_URL)) {
+    corsOrigins.push(process.env.FRONTEND_URL);
+  }
   app.enableCors({
-    origin: [
-      'https://getzephix.com', // Production frontend
-      'https://www.getzephix.com', // Production with www
-      'http://localhost:5173', // Vite local development
-      'http://localhost:3001', // Alternative frontend port
-      'http://localhost:3000', // Alternative frontend port
-    ],
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

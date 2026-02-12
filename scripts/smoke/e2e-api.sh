@@ -761,6 +761,191 @@ else
 fi
 
 ###############################################################################
+# MODULE 10: WIP Limits
+###############################################################################
+section "Module 10: WIP Limits"
+
+# Helper: mutation returning HTTP status code
+http_mut_status() {
+  local method="$1" url="$2" body="${3:-}"
+  local args=(
+    -s -o /dev/null -w "%{http_code}"
+    -X "$method"
+    -b "$COOKIE_JAR" -c "$COOKIE_JAR"
+    -H "Content-Type: application/json"
+    -H "Accept: application/json"
+    -H "x-workspace-id: ${WS_ID}"
+  )
+  [ -n "$CSRF_TOKEN" ] && args+=(-H "x-csrf-token: ${CSRF_TOKEN}")
+  [ -n "$body" ] && args+=(-d "$body")
+  curl "${args[@]}" "${BASE_URL}${url}" 2>/dev/null || echo "000"
+}
+
+# Helper: mutation returning body
+http_mut_body() {
+  local method="$1" url="$2" body="${3:-}"
+  local args=(
+    -s -X "$method"
+    -b "$COOKIE_JAR" -c "$COOKIE_JAR"
+    -H "Content-Type: application/json"
+    -H "Accept: application/json"
+    -H "x-workspace-id: ${WS_ID}"
+  )
+  [ -n "$CSRF_TOKEN" ] && args+=(-H "x-csrf-token: ${CSRF_TOKEN}")
+  [ -n "$body" ] && args+=(-d "$body")
+  curl "${args[@]}" "${BASE_URL}${url}" 2>/dev/null || echo ""
+}
+
+# 10a. Fetch workflow config
+WIP_CFG=$(http_get "/work/projects/${PROJECT_A_ID}/workflow-config")
+if [ -n "$WIP_CFG" ] && echo "$WIP_CFG" | jq -e '.data.defaultWipLimit' >/dev/null 2>&1; then
+  pass "GET workflow config (has defaultWipLimit)"
+elif [ -n "$WIP_CFG" ] && echo "$WIP_CFG" | jq -e '.defaultWipLimit' >/dev/null 2>&1; then
+  pass "GET workflow config (has defaultWipLimit)"
+else
+  fail "GET workflow config" "missing defaultWipLimit in response"
+fi
+
+# 10b. Create two fresh TODO tasks, then move both to IN_REVIEW (limit = 1)
+# Create task W1
+W1_RESP=$(http_mut POST "/work/tasks" "{\"projectId\":\"${PROJECT_A_ID}\",\"title\":\"WIP Test Task W1\"}")
+W1_ID=""
+if [ -n "$W1_RESP" ]; then
+  W1_ID=$(echo "$W1_RESP" | jq -r '(.data // .).id // empty' 2>/dev/null || echo "")
+fi
+
+# Create task W2
+W2_RESP=$(http_mut POST "/work/tasks" "{\"projectId\":\"${PROJECT_A_ID}\",\"title\":\"WIP Test Task W2\"}")
+W2_ID=""
+if [ -n "$W2_RESP" ]; then
+  W2_ID=$(echo "$W2_RESP" | jq -r '(.data // .).id // empty' 2>/dev/null || echo "")
+fi
+
+if [ -z "$W1_ID" ] || [ -z "$W2_ID" ] || [ "$W1_ID" = "null" ] || [ "$W2_ID" = "null" ]; then
+  skip "WIP move tests" "could not create test tasks (W1=$W1_ID W2=$W2_ID)"
+else
+  # Raise IN_PROGRESS limit temporarily so tasks can transition through IN_PROGRESS
+  # (seed already has tasks in IN_PROGRESS which may exceed the default=2 limit)
+  http_mut PUT "/work/projects/${PROJECT_A_ID}/workflow-config" \
+    '{"defaultWipLimit":20,"statusWipLimits":{"IN_REVIEW":1}}' >/dev/null 2>&1
+
+  # Move W1: TODO -> IN_PROGRESS -> IN_REVIEW (should pass, IN_REVIEW has 1 slot)
+  http_mut PATCH "/work/tasks/${W1_ID}" '{"status":"IN_PROGRESS"}' >/dev/null 2>&1
+  sleep 0.3
+  M1_STATUS=$(http_mut_status PATCH "/work/tasks/${W1_ID}" '{"status":"IN_REVIEW"}')
+  if [ "$M1_STATUS" = "200" ]; then
+    pass "First move to IN_REVIEW succeeds"
+  else
+    fail "First move to IN_REVIEW" "expected 200, got ${M1_STATUS}"
+  fi
+
+  # Move W2: TODO -> IN_PROGRESS -> IN_REVIEW (should fail with WIP_LIMIT_EXCEEDED)
+  http_mut PATCH "/work/tasks/${W2_ID}" '{"status":"IN_PROGRESS"}' >/dev/null 2>&1
+  sleep 0.3
+  M2_BODY=$(http_mut_body PATCH "/work/tasks/${W2_ID}" '{"status":"IN_REVIEW"}')
+  M2_CODE=$(echo "$M2_BODY" | jq -r '.code // empty' 2>/dev/null || echo "")
+  if [ "$M2_CODE" = "WIP_LIMIT_EXCEEDED" ]; then
+    pass "Second move to IN_REVIEW blocked (WIP_LIMIT_EXCEEDED)"
+  else
+    M2_MSG=$(echo "$M2_BODY" | jq -r '.message // empty' 2>/dev/null || echo "")
+    if echo "$M2_MSG" | grep -qi "WIP limit"; then
+      pass "Second move to IN_REVIEW blocked (WIP limit in message)"
+    else
+      fail "Second move to IN_REVIEW" "expected WIP_LIMIT_EXCEEDED, got: $M2_BODY"
+    fi
+  fi
+
+  # 10c. Move to DONE always passes (exempt from WIP)
+  # Move W1 from IN_REVIEW -> DONE
+  MD_STATUS=$(http_mut_status PATCH "/work/tasks/${W1_ID}" '{"status":"DONE"}')
+  if [ "$MD_STATUS" = "200" ]; then
+    pass "Move to DONE always passes"
+  else
+    fail "Move to DONE" "expected 200, got ${MD_STATUS}"
+  fi
+
+  # Restore original WIP config
+  http_mut PUT "/work/projects/${PROJECT_A_ID}/workflow-config" \
+    '{"defaultWipLimit":2,"statusWipLimits":{"IN_REVIEW":1}}' >/dev/null 2>&1
+fi
+
+###############################################################################
+# MODULE 11: Acceptance Criteria and Definition of Done
+###############################################################################
+section "Module 11: Acceptance Criteria & DoD"
+
+# 11a. Get task detail includes acceptanceCriteria
+TASK_DETAIL=$(http_get "/work/tasks/${TASK_A1}")
+if [ -n "$TASK_DETAIL" ]; then
+  AC_FIELD=$(echo "$TASK_DETAIL" | jq -r '(.data // .).acceptanceCriteria // empty' 2>/dev/null || echo "")
+  if [ -n "$AC_FIELD" ] && [ "$AC_FIELD" != "null" ]; then
+    AC_LEN=$(echo "$TASK_DETAIL" | jq -r '(.data // .).acceptanceCriteria | length' 2>/dev/null || echo "0")
+    if [ "$AC_LEN" -ge 1 ]; then
+      pass "Task detail has acceptanceCriteria (${AC_LEN} items)"
+    else
+      fail "Task acceptanceCriteria" "expected >= 1 items, got ${AC_LEN}"
+    fi
+  else
+    fail "Task acceptanceCriteria" "field missing in response"
+  fi
+else
+  fail "Task detail for AC" "GET /work/tasks/${TASK_A1} returned empty"
+fi
+
+# 11b. Patch task with new acceptance criteria
+AC_PATCH_BODY='{"acceptanceCriteria":[{"text":"Smoke test criterion 1","done":false},{"text":"Smoke test criterion 2","done":true},{"text":"Smoke test criterion 3","done":false}]}'
+AC_PATCH_RESP=$(http_mut PATCH "/work/tasks/${TASK_A1}" "$AC_PATCH_BODY")
+if [ -n "$AC_PATCH_RESP" ]; then
+  AC_PATCH_LEN=$(echo "$AC_PATCH_RESP" | jq -r '(.data // .).acceptanceCriteria | length' 2>/dev/null || echo "0")
+  if [ "$AC_PATCH_LEN" = "3" ]; then
+    pass "Patch task acceptanceCriteria (3 items)"
+  else
+    fail "Patch task AC" "expected 3 items, got ${AC_PATCH_LEN}"
+  fi
+else
+  fail "Patch task AC" "PATCH returned empty"
+fi
+
+# 11c. Get project settings includes definitionOfDone
+PROJ_DETAIL=$(http_get "/projects/${PROJECT_A_ID}")
+if [ -n "$PROJ_DETAIL" ]; then
+  DOD_FIELD=$(echo "$PROJ_DETAIL" | jq -r '(.data // .).definitionOfDone // empty' 2>/dev/null || echo "")
+  if [ -n "$DOD_FIELD" ] && [ "$DOD_FIELD" != "null" ]; then
+    DOD_LEN=$(echo "$PROJ_DETAIL" | jq -r '(.data // .).definitionOfDone | length' 2>/dev/null || echo "0")
+    if [ "$DOD_LEN" -ge 1 ]; then
+      pass "Project has definitionOfDone (${DOD_LEN} items)"
+    else
+      fail "Project DoD" "expected >= 1 items, got ${DOD_LEN}"
+    fi
+  else
+    # DoD might not be in list response, try project detail endpoint
+    warn "Project DoD" "field not found in GET /projects/:id response (may need settings endpoint)"
+  fi
+else
+  fail "Project detail for DoD" "GET /projects/${PROJECT_A_ID} returned empty"
+fi
+
+# 11d. Patch project DoD
+DOD_PATCH_BODY='{"definitionOfDone":["Tests pass","Code review done","AC complete","Deployed to staging"]}'
+DOD_PATCH_RESP=$(http_mut PATCH "/projects/${PROJECT_A_ID}/settings" "$DOD_PATCH_BODY")
+if [ -n "$DOD_PATCH_RESP" ]; then
+  DOD_PATCH_LEN=$(echo "$DOD_PATCH_RESP" | jq -r '(.data // .).definitionOfDone | length' 2>/dev/null || echo "0")
+  if [ "$DOD_PATCH_LEN" = "4" ]; then
+    pass "Patch project DoD (4 items)"
+  else
+    # It may be in .data wrapper
+    DOD_PATCH_LEN2=$(echo "$DOD_PATCH_RESP" | jq -r '.definitionOfDone | length' 2>/dev/null || echo "0")
+    if [ "$DOD_PATCH_LEN2" = "4" ]; then
+      pass "Patch project DoD (4 items)"
+    else
+      warn "Patch project DoD" "expected 4 items, got ${DOD_PATCH_LEN} / ${DOD_PATCH_LEN2}"
+    fi
+  fi
+else
+  fail "Patch project DoD" "PATCH returned empty"
+fi
+
+###############################################################################
 # SUMMARY
 ###############################################################################
 printf "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"

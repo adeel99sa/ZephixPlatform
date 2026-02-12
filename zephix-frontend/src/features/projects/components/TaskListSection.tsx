@@ -44,6 +44,7 @@ import {
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
+import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -93,6 +94,7 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
   const [showActivity, setShowActivity] = useState<Record<string, boolean>>({});
   const [showDeps, setShowDeps] = useState<Record<string, boolean>>({});
+  const [showAC, setShowAC] = useState<Record<string, boolean>>({});
   const [deps, setDeps] = useState<Record<string, { predecessors: TaskDependency[]; successors: TaskDependency[] }>>({});
   const [addingDep, setAddingDep] = useState<Record<string, boolean>>({});
   const [depSearch, setDepSearch] = useState<Record<string, string>>({});
@@ -461,6 +463,15 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     if (!isOpen && !deps[taskId]) {
       loadDeps(taskId);
     }
+  }
+
+  function toggleAC(taskId: string) {
+    setShowAC(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+  }
+
+  async function handleSaveAC(taskId: string, items: Array<{ text: string; done: boolean }>) {
+    const saved = await updateTask(taskId, { acceptanceCriteria: items });
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, acceptanceCriteria: saved.acceptanceCriteria } : t));
   }
 
   async function loadDeps(taskId: string) {
@@ -1211,8 +1222,14 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                 </div>
               </div>
 
-              {/* Comments and Activity Toggles */}
-              <div className="mt-3 flex gap-2">
+              {/* Comments, Activity, Dependencies, AC Toggles */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => toggleAC(task.id)}
+                  className="text-xs text-emerald-600 hover:text-emerald-800"
+                >
+                  {showAC[task.id] ? 'Hide' : 'Show'} Acceptance Criteria ({task.acceptanceCriteria?.length || 0})
+                </button>
                 <button
                   onClick={() => toggleComments(task.id)}
                   className="text-xs text-blue-600 hover:text-blue-800"
@@ -1232,6 +1249,15 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
                   {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
                 </button>
               </div>
+
+              {/* Acceptance Criteria Panel */}
+              {showAC[task.id] && (
+                <AcceptanceCriteriaEditor
+                  items={task.acceptanceCriteria || []}
+                  onSave={(items) => handleSaveAC(task.id, items)}
+                  readOnly={!canEdit}
+                />
+              )}
 
               {/* Comments Panel */}
               {showComments[task.id] && (
