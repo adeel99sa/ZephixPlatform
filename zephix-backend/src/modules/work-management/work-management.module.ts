@@ -44,6 +44,7 @@ import { GateApprovalChainService } from './services/gate-approval-chain.service
 import { GateApprovalEngineService } from './services/gate-approval-engine.service';
 import { GateApprovalChainController } from './controllers/gate-approval-chain.controller';
 import { GateApprovalActionController } from './controllers/gate-approval-action.controller';
+import { PhaseGateEvaluatorService } from './services/phase-gate-evaluator.service';
 // Sprint 10: Gate approval chain entities
 import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
 import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
@@ -117,6 +118,7 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WipLimitsService,
     GateApprovalChainService,
     GateApprovalEngineService,
+    PhaseGateEvaluatorService,
   ],
   exports: [
     TypeOrmModule,
@@ -134,6 +136,7 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WorkflowConfigService,
     GateApprovalChainService,
     GateApprovalEngineService,
+    PhaseGateEvaluatorService,
   ],
 })
 export class WorkManagementModule {}
