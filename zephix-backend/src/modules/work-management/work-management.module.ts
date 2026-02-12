@@ -13,6 +13,7 @@ import { Project } from '../projects/entities/project.entity';
 import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { PoliciesModule } from '../policies/policies.module';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -39,6 +40,8 @@ import { WorkflowConfigController } from './controllers/workflow-config.controll
 import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
 import { WorkflowConfigService } from './services/workflow-config.service';
 import { WipLimitsService } from './services/wip-limits.service';
+import { GateApprovalChainService } from './services/gate-approval-chain.service';
+import { GateApprovalEngineService } from './services/gate-approval-engine.service';
 // Sprint 10: Gate approval chain entities
 import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
 import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
@@ -73,6 +76,7 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
       GateApprovalDecision,
     ]),
     WorkspaceAccessModule,
+    PoliciesModule,
     TenancyModule,
   ],
   controllers: [
@@ -107,6 +111,8 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WorkResourceAllocationsService,
     WorkflowConfigService,
     WipLimitsService,
+    GateApprovalChainService,
+    GateApprovalEngineService,
   ],
   exports: [
     TypeOrmModule,
@@ -122,6 +128,8 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WorkRisksService,
     WorkResourceAllocationsService,
     WorkflowConfigService,
+    GateApprovalChainService,
+    GateApprovalEngineService,
   ],
 })
 export class WorkManagementModule {}
