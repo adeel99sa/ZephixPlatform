@@ -183,3 +183,141 @@ export async function cancelGateSubmission(
   );
   return unwrap<GateSubmission>(resp);
 }
+
+// ─── Sprint 10: Approval Chain Types ─────────────────────
+
+export type ApprovalType = 'ANY_ONE' | 'ALL';
+export type ApprovalDecision = 'APPROVED' | 'REJECTED' | 'ABSTAINED';
+export type StepStatus = 'PENDING' | 'ACTIVE' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
+export type ChainStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
+
+export interface ApprovalChainStep {
+  id: string;
+  chainId: string;
+  stepOrder: number;
+  name: string;
+  description: string | null;
+  requiredRole: string | null;
+  requiredUserId: string | null;
+  approvalType: ApprovalType;
+  minApprovals: number;
+  autoApproveAfterHours: number | null;
+}
+
+export interface ApprovalChain {
+  id: string;
+  gateDefinitionId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  steps: ApprovalChainStep[];
+}
+
+export interface StepDecision {
+  userId: string;
+  decision: ApprovalDecision;
+  note: string | null;
+  decidedAt: string;
+}
+
+export interface StepApprovalState {
+  stepId: string;
+  stepOrder: number;
+  name: string;
+  approvalType: ApprovalType;
+  minApprovals: number;
+  status: StepStatus;
+  decisions: StepDecision[];
+}
+
+export interface ChainExecutionState {
+  chainId: string;
+  submissionId: string;
+  chainStatus: ChainStatus;
+  activeStepId: string | null;
+  steps: StepApprovalState[];
+}
+
+export interface CreateChainPayload {
+  gateDefinitionId: string;
+  name: string;
+  description?: string;
+  steps: Array<{
+    name: string;
+    description?: string;
+    requiredRole?: string;
+    requiredUserId?: string;
+    approvalType?: ApprovalType;
+    minApprovals?: number;
+    autoApproveAfterHours?: number;
+  }>;
+}
+
+// ─── Sprint 10: Approval Chain API Functions ─────────────
+
+export async function getApprovalChain(
+  gateDefinitionId: string,
+): Promise<ApprovalChain | null> {
+  const resp = await request.get<unknown>(
+    `/work/gate-definitions/${gateDefinitionId}/approval-chain`,
+  );
+  return unwrap<ApprovalChain | null>(resp);
+}
+
+export async function createApprovalChain(
+  payload: CreateChainPayload,
+): Promise<ApprovalChain> {
+  const resp = await request.post<unknown>(
+    `/work/gate-definitions/approval-chains`,
+    payload,
+  );
+  return unwrap<ApprovalChain>(resp);
+}
+
+export async function reorderApprovalSteps(
+  chainId: string,
+  stepIds: string[],
+): Promise<ApprovalChain> {
+  const resp = await request.put<unknown>(
+    `/work/gate-definitions/approval-chains/${chainId}/reorder`,
+    { stepIds },
+  );
+  return unwrap<ApprovalChain>(resp);
+}
+
+export async function deleteApprovalChain(
+  chainId: string,
+): Promise<void> {
+  await request.delete(`/work/gate-definitions/approval-chains/${chainId}`);
+}
+
+export async function getApprovalState(
+  submissionId: string,
+): Promise<ChainExecutionState | null> {
+  const resp = await request.get<unknown>(
+    `/work/gate-submissions/${submissionId}/approval-state`,
+  );
+  return unwrap<ChainExecutionState | null>(resp);
+}
+
+export async function approveApprovalStep(
+  submissionId: string,
+  note?: string,
+): Promise<ChainExecutionState> {
+  const resp = await request.post<unknown>(
+    `/work/gate-submissions/${submissionId}/approve`,
+    { note },
+  );
+  return unwrap<ChainExecutionState>(resp);
+}
+
+export async function rejectApprovalStep(
+  submissionId: string,
+  note?: string,
+): Promise<ChainExecutionState> {
+  const resp = await request.post<unknown>(
+    `/work/gate-submissions/${submissionId}/reject`,
+    { note },
+  );
+  return unwrap<ChainExecutionState>(resp);
+}

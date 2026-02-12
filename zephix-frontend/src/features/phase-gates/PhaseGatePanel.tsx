@@ -14,10 +14,21 @@ import {
   approveGateSubmission,
   rejectGateSubmission,
   cancelGateSubmission,
+  getApprovalChain,
+  createApprovalChain,
+  deleteApprovalChain,
+  getApprovalState,
+  approveApprovalStep,
+  rejectApprovalStep,
   type GateDefinition,
   type GateSubmission,
   type UpsertGatePayload,
   type GateSubmissionStatus,
+  type ApprovalChain,
+  type ChainExecutionState,
+  type StepApprovalState,
+  type CreateChainPayload,
+  type ApprovalType,
 } from './phaseGates.api';
 import { listDocuments, type DocumentItem } from '@/features/documents/documents.api';
 
@@ -72,6 +83,19 @@ export function PhaseGatePanel({
   const [softWarnings, setSoftWarnings] = useState<string[]>([]);
   const [confirmWarningsChecked, setConfirmWarningsChecked] = useState(false);
 
+  // Sprint 10: Approval chain state
+  const [approvalChain, setApprovalChain] = useState<ApprovalChain | null>(null);
+  const [chainExecutionState, setChainExecutionState] = useState<ChainExecutionState | null>(null);
+  const [chainEditorOpen, setChainEditorOpen] = useState(false);
+  const [chainName, setChainName] = useState('');
+  const [chainSteps, setChainSteps] = useState<Array<{
+    name: string;
+    requiredRole: string;
+    approvalType: ApprovalType;
+    minApprovals: number;
+  }>>([]);
+  const [approvalNote, setApprovalNote] = useState('');
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -96,11 +120,44 @@ export function PhaseGatePanel({
         );
       }
 
+      // Load approval chain if definition exists
+      if (def) {
+        try {
+          const chain = await getApprovalChain(def.id);
+          setApprovalChain(chain);
+          if (chain) {
+            setChainName(chain.name);
+            setChainSteps(
+              chain.steps.map((s) => ({
+                name: s.name,
+                requiredRole: s.requiredRole || '',
+                approvalType: s.approvalType,
+                minApprovals: s.minApprovals,
+              })),
+            );
+          }
+        } catch {
+          // Fail-open: chain not required
+        }
+      }
+
       // Check for existing open draft/submitted
       const open = (subs?.items || []).find(
         (s: GateSubmission) => s.status === 'DRAFT' || s.status === 'SUBMITTED',
       );
       setDraftSubmission(open || null);
+
+      // Load chain execution state for active submission
+      if (open && open.status === 'SUBMITTED') {
+        try {
+          const state = await getApprovalState(open.id);
+          setChainExecutionState(state);
+        } catch {
+          // Fail-open
+        }
+      } else {
+        setChainExecutionState(null);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load gate data';
       toast.error(msg);
@@ -229,6 +286,98 @@ export function PhaseGatePanel({
       const errObj = err as { response?: { data?: { message?: string } } };
       toast.error(errObj?.response?.data?.message || 'Cancel failed');
     }
+  };
+
+  // ─── Sprint 10: Approval chain actions ──────────────────
+
+  const handleSaveChain = async () => {
+    if (!definition || !chainName.trim() || chainSteps.length === 0) {
+      toast.error('Chain requires a name and at least one step');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload: CreateChainPayload = {
+        gateDefinitionId: definition.id,
+        name: chainName.trim(),
+        steps: chainSteps
+          .filter((s) => s.name.trim() && s.requiredRole.trim())
+          .map((s) => ({
+            name: s.name.trim(),
+            requiredRole: s.requiredRole.trim(),
+            approvalType: s.approvalType,
+            minApprovals: s.minApprovals,
+          })),
+      };
+      const chain = await createApprovalChain(payload);
+      setApprovalChain(chain);
+      setChainEditorOpen(false);
+      toast.success('Approval chain saved');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save chain';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteChain = async () => {
+    if (!approvalChain) return;
+    try {
+      await deleteApprovalChain(approvalChain.id);
+      setApprovalChain(null);
+      setChainSteps([]);
+      setChainName('');
+      toast.success('Approval chain removed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete chain';
+      toast.error(msg);
+    }
+  };
+
+  const handleApproveStep = async (submissionId: string) => {
+    try {
+      const state = await approveApprovalStep(submissionId, approvalNote || undefined);
+      setChainExecutionState(state);
+      setApprovalNote('');
+      toast.success('Step approved');
+      loadData();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      toast.error(errObj?.response?.data?.message || 'Approve failed');
+    }
+  };
+
+  const handleRejectStep = async (submissionId: string) => {
+    try {
+      const state = await rejectApprovalStep(submissionId, approvalNote || undefined);
+      setChainExecutionState(state);
+      setApprovalNote('');
+      toast.success('Step rejected');
+      loadData();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      toast.error(errObj?.response?.data?.message || 'Reject failed');
+    }
+  };
+
+  const addChainStep = () => {
+    setChainSteps([
+      ...chainSteps,
+      { name: '', requiredRole: 'ADMIN', approvalType: 'ANY_ONE', minApprovals: 1 },
+    ]);
+  };
+
+  const removeChainStep = (index: number) => {
+    setChainSteps(chainSteps.filter((_, i) => i !== index));
+  };
+
+  const moveChainStep = (index: number, direction: 'up' | 'down') => {
+    const newSteps = [...chainSteps];
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= newSteps.length) return;
+    [newSteps[index], newSteps[targetIdx]] = [newSteps[targetIdx], newSteps[index]];
+    setChainSteps(newSteps);
   };
 
   // ─── Render ───────────────────────────────────────────────
@@ -486,6 +635,208 @@ export function PhaseGatePanel({
             <p className="text-sm text-gray-500">No gate configured for this phase.</p>
           )}
         </section>
+
+        {/* ─── Sprint 10: Approval Chain Section ─── */}
+        {definition && definition.status === 'ACTIVE' && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Approval Chain
+              </h3>
+              {isAdmin && !chainEditorOpen && (
+                <button
+                  onClick={() => setChainEditorOpen(true)}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  {approvalChain ? 'Edit Chain' : 'Configure Chain'}
+                </button>
+              )}
+            </div>
+
+            {chainEditorOpen ? (
+              <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Chain Name</label>
+                  <input
+                    type="text"
+                    value={chainName}
+                    onChange={(e) => setChainName(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1"
+                    placeholder="e.g. PMO + Finance Approval"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Steps (in order)</label>
+                  <div className="space-y-2 mt-1">
+                    {chainSteps.map((step, i) => (
+                      <div key={i} className="flex items-start gap-2 border border-gray-200 rounded p-2 bg-white">
+                        <span className="text-xs text-gray-400 mt-2">{i + 1}.</span>
+                        <div className="flex-1 space-y-1">
+                          <input
+                            type="text"
+                            value={step.name}
+                            onChange={(e) => {
+                              const n = [...chainSteps];
+                              n[i] = { ...n[i], name: e.target.value };
+                              setChainSteps(n);
+                            }}
+                            placeholder="Step name"
+                            className="w-full border border-gray-200 rounded px-2 py-0.5 text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={step.requiredRole}
+                              onChange={(e) => {
+                                const n = [...chainSteps];
+                                n[i] = { ...n[i], requiredRole: e.target.value };
+                                setChainSteps(n);
+                              }}
+                              placeholder="Role (e.g. ADMIN)"
+                              className="flex-1 border border-gray-200 rounded px-2 py-0.5 text-xs"
+                            />
+                            <select
+                              value={step.approvalType}
+                              onChange={(e) => {
+                                const n = [...chainSteps];
+                                n[i] = { ...n[i], approvalType: e.target.value as ApprovalType };
+                                setChainSteps(n);
+                              }}
+                              className="border border-gray-200 rounded px-1 py-0.5 text-xs"
+                            >
+                              <option value="ANY_ONE">Any One</option>
+                              <option value="ALL">All</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <button onClick={() => moveChainStep(i, 'up')} disabled={i === 0} className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30">▲</button>
+                          <button onClick={() => moveChainStep(i, 'down')} disabled={i === chainSteps.length - 1} className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30">▼</button>
+                          <button onClick={() => removeChainStep(i)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={addChainStep}
+                    className="mt-2 text-xs text-indigo-600 hover:text-indigo-800"
+                  >
+                    + Add Step
+                  </button>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleSaveChain}
+                    disabled={saving}
+                    className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Chain'}
+                  </button>
+                  <button
+                    onClick={() => setChainEditorOpen(false)}
+                    className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  {approvalChain && (
+                    <button
+                      onClick={handleDeleteChain}
+                      className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800"
+                    >
+                      Remove Chain
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : approvalChain ? (
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{approvalChain.name}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">
+                    {approvalChain.steps.length} step{approvalChain.steps.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <ol className="space-y-1">
+                  {approvalChain.steps.map((step, i) => (
+                    <li key={step.id} className="flex items-center gap-2 text-xs text-gray-600">
+                      <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium">{i + 1}</span>
+                      <span>{step.name}</span>
+                      <span className="text-gray-400">({step.requiredRole || 'User'}, {step.approvalType === 'ANY_ONE' ? 'Any one' : `All (min ${step.minApprovals})`})</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No approval chain configured. Single-step approval will be used.</p>
+            )}
+
+            {/* Chain execution state for active submission */}
+            {chainExecutionState && (
+              <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-gray-700">Chain Progress</h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                    chainExecutionState.chainStatus === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                    chainExecutionState.chainStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                    chainExecutionState.chainStatus === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {chainExecutionState.chainStatus}
+                  </span>
+                </div>
+                <ol className="space-y-1.5">
+                  {chainExecutionState.steps.map((step: StepApprovalState) => (
+                    <li key={step.stepId} className="flex items-center gap-2 text-xs">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium ${
+                        step.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
+                        step.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
+                        step.status === 'ACTIVE' ? 'bg-blue-200 text-blue-800' :
+                        'bg-gray-200 text-gray-500'
+                      }`}>
+                        {step.status === 'APPROVED' ? '✓' : step.status === 'REJECTED' ? '✕' : step.stepOrder}
+                      </span>
+                      <span className={step.status === 'ACTIVE' ? 'font-medium text-gray-900' : 'text-gray-600'}>
+                        {step.name}
+                      </span>
+                      {step.status === 'ACTIVE' && step.stepId === chainExecutionState.activeStepId && (
+                        <span className="text-blue-600 text-[10px]">← your action</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+
+                {/* Approve/Reject for active step */}
+                {chainExecutionState.chainStatus === 'IN_PROGRESS' && chainExecutionState.activeStepId && (
+                  <div className="pt-2 space-y-2 border-t border-gray-200">
+                    <input
+                      type="text"
+                      value={approvalNote}
+                      onChange={(e) => setApprovalNote(e.target.value)}
+                      placeholder="Note (optional)"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => draftSubmission && handleApproveStep(draftSubmission.id)}
+                        className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        <CheckCircle2 className="h-3 w-3" /> Approve Step
+                      </button>
+                      <button
+                        onClick={() => draftSubmission && handleRejectStep(draftSubmission.id)}
+                        className="flex items-center gap-1 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        <XCircle className="h-3 w-3" /> Reject Step
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ─── Submissions Section ─── */}
         {definition && definition.status === 'ACTIVE' && (
