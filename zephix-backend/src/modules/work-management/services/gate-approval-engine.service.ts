@@ -361,7 +361,7 @@ export class GateApprovalEngineService {
     // Eligibility check: user must match step target
     this.assertUserEligibleForStep(auth, activeStep);
 
-    // Record the decision
+    // Record the decision — with concurrency guard via unique constraint
     const decisionEntity = this.decisionRepo.create({
       organizationId: auth.organizationId,
       workspaceId,
@@ -371,7 +371,16 @@ export class GateApprovalEngineService {
       decision,
       note: note ?? null,
     });
-    await this.decisionRepo.save(decisionEntity);
+    try {
+      await this.decisionRepo.save(decisionEntity);
+    } catch (error: any) {
+      // Unique constraint violation = concurrent duplicate → treat as idempotent
+      if (error?.code === '23505' || error?.message?.includes('duplicate key')) {
+        this.logger.warn(`Concurrent duplicate decision for user ${auth.userId} on step ${activeStep.id} — returning current state`);
+        return this.getChainExecutionState(auth, workspaceId, chain.id, submissionId);
+      }
+      throw error;
+    }
 
     // Determine activity type
     const activityType =
