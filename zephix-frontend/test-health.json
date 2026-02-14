@@ -1,0 +1,186 @@
+{
+  "_comment": "Frontend test health tracker. Each entry is a failing test file with category, failure count, and fix priority. Move to vitest.gating.config.ts once fixed.",
+  "generated": "2026-02-10",
+  "totalFailing": 28,
+  "totalFailingTests": 85,
+  "fixOrder": [
+    "P1: ErrorBoundary + global UI primitives",
+    "P2: Admin pages (AdminInvitePage, AdminWorkspacesPage, AdminTemplatesPage)",
+    "P3: Core project pages (ProjectsPage, SettingsPage, ProjectCreateModal)",
+    "P4: Work management views (ProjectPlanView, WorkspaceHome)",
+    "P5: Resource pages",
+    "P6: Workspace member pages",
+    "P7: Template pages",
+    "P8: ChatInterface + Landing pages (lowest priority)"
+  ],
+  "failures": [
+    {
+      "file": "src/components/system/__tests__/ErrorBoundary.test.tsx",
+      "category": "P1",
+      "failCount": 5,
+      "reason": "Test expects specific DOM structure that changed; error UI rendering mismatch"
+    },
+    {
+      "file": "src/features/explanations/__tests__/ExplanationBanner.test.tsx",
+      "category": "P1",
+      "failCount": 6,
+      "reason": "Severity-based styling tests don't match current component output"
+    },
+    {
+      "file": "src/pages/admin/__tests__/AdminInvitePage.test.tsx",
+      "category": "P2",
+      "failCount": 3,
+      "reason": "Multi-email input and assignment UI DOM structure changed"
+    },
+    {
+      "file": "src/pages/admin/__tests__/AdminWorkspacesPage.test.tsx",
+      "category": "P2",
+      "failCount": 3,
+      "reason": "Admin role check and workspace creation modal tests stale"
+    },
+    {
+      "file": "src/pages/admin/__tests__/AdminTemplatesPage.test.tsx",
+      "category": "P2",
+      "failCount": 1,
+      "reason": "Loading state test stale"
+    },
+    {
+      "file": "src/pages/projects/__tests__/ProjectsPage.test.tsx",
+      "category": "P3",
+      "failCount": 4,
+      "reason": "Loading, empty state, project list, create button tests stale"
+    },
+    {
+      "file": "src/pages/settings/__tests__/SettingsPage.test.tsx",
+      "category": "P3",
+      "failCount": 9,
+      "reason": "All settings page tests fail — likely component rewrite not reflected in tests"
+    },
+    {
+      "file": "src/features/projects/__tests__/ProjectCreateModal.test.tsx",
+      "category": "P3",
+      "failCount": 4,
+      "reason": "Template selection flow tests don't match current modal structure"
+    },
+    {
+      "file": "src/views/work-management/__tests__/ProjectPlanView.test.tsx",
+      "category": "P4",
+      "failCount": 0,
+      "reason": "File-level import or setup failure"
+    },
+    {
+      "file": "src/views/work-management/__tests__/ProjectPlanView.phaseRestore.test.tsx",
+      "category": "P4",
+      "failCount": 13,
+      "reason": "Phase restore admin visibility, deleted phases list, restore button tests stale"
+    },
+    {
+      "file": "src/views/work-management/__tests__/ProjectPlanView.planPolish.test.tsx",
+      "category": "P4",
+      "failCount": 9,
+      "reason": "Inline add phase, inline add task, status dropdown, collapse tests stale"
+    },
+    {
+      "file": "src/features/workspaces/views/__tests__/WorkspaceHome.test.tsx",
+      "category": "P4",
+      "failCount": 0,
+      "reason": "File-level import or setup failure"
+    },
+    {
+      "file": "src/features/work-management/hooks/__tests__/usePhaseUpdate.test.tsx",
+      "category": "P4",
+      "failCount": 0,
+      "reason": "Hook test setup failure"
+    },
+    {
+      "file": "src/features/resources/pages/__tests__/ResourcesPage.test.tsx",
+      "category": "P5",
+      "failCount": 1,
+      "reason": "AI risk scoring feature flag test stale"
+    },
+    {
+      "file": "src/features/resources/components/__tests__/ResourceJustificationModal.test.tsx",
+      "category": "P5",
+      "failCount": 0,
+      "reason": "File-level import or setup failure"
+    },
+    {
+      "file": "src/features/workspaces/pages/__tests__/WorkspaceMembersPage.test.tsx",
+      "category": "P6",
+      "failCount": 3,
+      "reason": "Owner/Member/Guest visibility tests stale"
+    },
+    {
+      "file": "src/features/workspaces/pages/__tests__/WorkspaceMembersPageInviteLink.test.tsx",
+      "category": "P6",
+      "failCount": 3,
+      "reason": "Invite link section visibility tests stale"
+    },
+    {
+      "file": "src/features/workspaces/pages/__tests__/WorkspaceMembersPageSuspend.test.tsx",
+      "category": "P6",
+      "failCount": 0,
+      "reason": "PlatformRole enum import issue"
+    },
+    {
+      "file": "src/features/notifications/api/__tests__/useNotifications.test.ts",
+      "category": "P6",
+      "failCount": 0,
+      "reason": "API hook test setup failure"
+    },
+    {
+      "file": "src/pages/templates/__tests__/TemplatesPage.test.tsx",
+      "category": "P7",
+      "failCount": 0,
+      "reason": "File-level import or setup failure"
+    },
+    {
+      "file": "src/views/templates/__tests__/TemplateCenter.test.tsx",
+      "category": "P7",
+      "failCount": 5,
+      "reason": "Dropdown render, preview modal, template order, RBAC tests stale"
+    },
+    {
+      "file": "src/views/workspaces/__tests__/JoinWorkspacePage.test.tsx",
+      "category": "P7",
+      "failCount": 0,
+      "reason": "File-level import or setup failure"
+    },
+    {
+      "file": "src/components/dashboard/__tests__/ChatInterface.test.tsx",
+      "category": "P8",
+      "failCount": 1,
+      "reason": "Color contrast test stale"
+    },
+    {
+      "file": "src/components/landing/__tests__/FeaturesSection.test.tsx",
+      "category": "P8",
+      "failCount": 10,
+      "reason": "Marketing page DOM structure tests — lowest priority"
+    },
+    {
+      "file": "src/components/landing/__tests__/HeroSection.test.tsx",
+      "category": "P8",
+      "failCount": 2,
+      "reason": "Marketing page DOM tests"
+    },
+    {
+      "file": "src/components/landing/__tests__/HowItWorksSection.test.tsx",
+      "category": "P8",
+      "failCount": 12,
+      "reason": "Marketing page DOM tests"
+    },
+    {
+      "file": "src/components/landing/__tests__/LandingNavbar.test.tsx",
+      "category": "P8",
+      "failCount": 0,
+      "reason": "Marketing page DOM tests"
+    },
+    {
+      "file": "src/components/landing/__tests__/PricingSection.test.tsx",
+      "category": "P8",
+      "failCount": 0,
+      "reason": "Marketing page DOM tests"
+    }
+  ]
+}

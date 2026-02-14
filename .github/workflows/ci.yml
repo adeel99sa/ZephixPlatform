@@ -83,6 +83,13 @@ jobs:
       - name: Frontend lint (new code)
         working-directory: zephix-frontend
         run: npm run lint:new
+      - name: "Frontend gating tests (CI-blocking: 38 files, 385 tests)"
+        working-directory: zephix-frontend
+        run: npm run test:gating
+      - name: "Frontend all tests (non-blocking: tracks legacy debt)"
+        working-directory: zephix-frontend
+        run: npm run test:frontend:all || echo "::warning::Legacy frontend tests have failures — see test-health.json"
+        continue-on-error: true
       - name: Import guardrail (banned patterns)
         working-directory: zephix-frontend
         run: |
