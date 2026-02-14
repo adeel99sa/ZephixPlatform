@@ -1,6 +1,8 @@
 {
   "_comment": "Frontend test health tracker. Each entry is a failing test file with category, failure count, and fix priority. Move to vitest.gating.config.ts once fixed.",
   "generated": "2026-02-10",
+  "gatingFloor": 38,
+  "gatingFloor_comment": "Minimum gating test file count. Only increase, never decrease. Also enforced in vitest.gating.config.ts and CI.",
   "totalFailing": 28,
   "totalFailingTests": 85,
   "fixOrder": [

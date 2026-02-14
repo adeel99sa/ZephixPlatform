@@ -83,12 +83,34 @@ jobs:
       - name: Frontend lint (new code)
         working-directory: zephix-frontend
         run: npm run lint:new
-      - name: "Frontend gating tests (CI-blocking: 38 files, 385 tests)"
+      - name: "Frontend gating tests (CI-blocking)"
         working-directory: zephix-frontend
         run: npm run test:gating
-      - name: "Frontend all tests (non-blocking: tracks legacy debt)"
+      - name: "Gating floor enforcement (count cannot decrease)"
         working-directory: zephix-frontend
-        run: npm run test:frontend:all || echo "::warning::Legacy frontend tests have failures — see test-health.json"
+        run: |
+          FLOOR=38
+          ACTUAL=$(grep -cE '\.(test|spec)\.(tsx?|ts)' vitest.gating.config.ts)
+          echo "Gating floor: ${FLOOR} | Actual gating files: ${ACTUAL}"
+          if [ "$ACTUAL" -lt "$FLOOR" ]; then
+            echo "::error::GATING VIOLATION: gating suite has ${ACTUAL} files but floor is ${FLOOR}. Never remove tests from gating."
+            exit 1
+          fi
+          echo "Gating floor check passed"
+      - name: "Frontend legacy tests (non-blocking drift tracker)"
+        working-directory: zephix-frontend
+        run: |
+          npx vitest run --reporter=dot 2>&1 || true
+          echo ""
+          echo "── DRIFT METRIC ──"
+          LEGACY_FAILING=$(node -e "const h=require('./test-health.json');console.log(h.totalFailing)" 2>/dev/null || echo "?")
+          LEGACY_TESTS=$(node -e "const h=require('./test-health.json');console.log(h.totalFailingTests)" 2>/dev/null || echo "?")
+          echo "Legacy failing files: ${LEGACY_FAILING}"
+          echo "Legacy failing tests: ${LEGACY_TESTS}"
+          echo "Target: reduce weekly"
+          if [ "$LEGACY_FAILING" != "?" ] && [ "$LEGACY_FAILING" -gt 0 ]; then
+            echo "::warning::Frontend test debt: ${LEGACY_FAILING} files / ${LEGACY_TESTS} tests still failing — see test-health.json"
+          fi
         continue-on-error: true
       - name: Import guardrail (banned patterns)
         working-directory: zephix-frontend

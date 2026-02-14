@@ -1,13 +1,17 @@
 /**
  * Vitest Gating Config — CI-blocking test suite
  *
- * These 38 test files are verified stable and MUST pass on every PR.
+ * These test files are verified stable and MUST pass on every PR.
  * If a test is flaky, fix it — do not move it to the legacy lane.
  *
- * To move a legacy test into gating:
- *   1. Fix all failures in the test file
- *   2. Add its path to the `include` array below
- *   3. Remove it from test-health.json
+ * RULES:
+ *   - NEVER remove a test from gating. Only add.
+ *   - CI enforces GATING_FILE_FLOOR. If include.length < floor, CI fails.
+ *   - To move a legacy test into gating:
+ *     1. Fix all failures in the test file
+ *     2. Add its path to the `include` array below
+ *     3. Remove it from test-health.json
+ *     4. Update GATING_FILE_FLOOR to the new count
  *
  * Run: npm run test:gating
  */
@@ -15,19 +19,14 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    globals: true,
-    css: true,
-    include: [
+/**
+ * Minimum number of test files in the gating suite.
+ * CI will fail if include.length drops below this number.
+ * Only increase this number — never decrease.
+ */
+export const GATING_FILE_FLOOR = 38;
+
+const GATING_INCLUDES = [
       // ── UI Primitives ─────────────────────────────────────────
       'src/components/ui/__tests__/StatusBadge.test.tsx',
       'src/components/ui/button/__tests__/Button.test.tsx',
@@ -81,6 +80,28 @@ export default defineConfig({
 
       // ── Guardrails ────────────────────────────────────────────
       'src/test/guardrails/api-prefix.spec.ts',
-    ],
+];
+
+// Runtime assertion — never deploy with fewer gating tests than the floor
+if (GATING_INCLUDES.length < GATING_FILE_FLOOR) {
+  throw new Error(
+    `GATING VIOLATION: include has ${GATING_INCLUDES.length} files but floor is ${GATING_FILE_FLOOR}. ` +
+    `Never remove tests from gating. Only add.`,
+  );
+}
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    globals: true,
+    css: true,
+    include: GATING_INCLUDES,
   },
 });

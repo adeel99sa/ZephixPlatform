@@ -63,7 +63,7 @@ export function resolveExecutionExplanations(
       const due = new Date(ctx.task.dueDate);
       const now = new Date();
       if (due < now) {
-        const daysOverdue = Math.ceil(
+        const daysOverdue = Math.floor(
           (now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24),
         );
         explanations.push({
