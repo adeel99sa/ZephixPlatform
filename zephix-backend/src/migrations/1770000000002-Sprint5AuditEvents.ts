@@ -3,7 +3,8 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 /**
  * Sprint 5: Audit events table for work management
  */
-export class Sprint5AuditEvents1770000000001 implements MigrationInterface {
+export class Sprint5AuditEvents1770000000002 implements MigrationInterface {
+  name = 'Sprint5AuditEvents1770000000002';
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if table already exists
     const tableExists = await queryRunner.query(`

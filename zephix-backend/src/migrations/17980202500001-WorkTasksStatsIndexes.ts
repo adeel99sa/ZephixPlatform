@@ -4,8 +4,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Add partial indexes for stats queries on work_tasks.
  * These indexes only include non-deleted rows for optimal stats performance.
  */
-export class WorkTasksStatsIndexes17980202500000 implements MigrationInterface {
-  name = 'WorkTasksStatsIndexes17980202500000';
+export class WorkTasksStatsIndexes17980202500001 implements MigrationInterface {
+  name = 'WorkTasksStatsIndexes17980202500001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Partial index for workspace-level stats (excludes deleted tasks)
