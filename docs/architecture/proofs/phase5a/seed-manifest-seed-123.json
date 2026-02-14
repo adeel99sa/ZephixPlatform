@@ -1,0 +1,28 @@
+{
+  "seed": 123,
+  "scale": 0.05,
+  "orgSlug": "scale-seed",
+  "createdAt": "2026-02-14T04:46:17.613Z",
+  "version": "5a.1",
+  "counts": {
+    "organizations": 1,
+    "users": 25,
+    "user_organizations": 25,
+    "workspaces": 2,
+    "workspace_members": 50,
+    "projects": 50,
+    "work_tasks": 5000,
+    "work_task_dependencies": 7400,
+    "audit_events": 100000
+  },
+  "runtimeMs": 11745,
+  "skippedTables": [
+    "schedule_baselines",
+    "schedule_baseline_items",
+    "earned_value_snapshots",
+    "workspace_member_capacity",
+    "attachments",
+    "workspace_storage_usage"
+  ],
+  "detectedSchemaHash": "8f6cbfa8cfd93243"
+}

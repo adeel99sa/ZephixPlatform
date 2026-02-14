@@ -1,0 +1,43 @@
+{
+  "action": "cleanup_zero_residue_proof",
+  "orgId": "687b84e6-ca45-5c70-858e-dcf70dba06db",
+  "seed": 300,
+  "orgSlug": "scale-seed",
+  "cleanedAt": "2026-02-14T06:53:09.120Z",
+  "rowsDeleted": {
+    "audit_events": 2000000,
+    "workspace_storage_usage": 50,
+    "attachments": 50000,
+    "workspace_member_capacity": 45000,
+    "earned_value_snapshots": 2400,
+    "schedule_baseline_items": 20000,
+    "schedule_baselines": 200,
+    "work_task_dependencies": 148000,
+    "work_tasks": 100000,
+    "projects": 1000,
+    "workspace_members": 2200,
+    "workspaces": 50,
+    "user_organizations": 500,
+    "users": 500,
+    "organizations": 1
+  },
+  "totalDeleted": 2369901,
+  "residueCheck": {
+    "audit_events": 0,
+    "workspace_storage_usage": 0,
+    "attachments": 0,
+    "workspace_member_capacity": 0,
+    "earned_value_snapshots": 0,
+    "schedule_baseline_items": 0,
+    "schedule_baselines": 0,
+    "work_task_dependencies": 0,
+    "work_tasks": 0,
+    "projects": 0,
+    "workspace_members": 0,
+    "workspaces": 0,
+    "user_organizations": 0,
+    "users": 0,
+    "organizations": 0
+  },
+  "hasResidue": false
+}
