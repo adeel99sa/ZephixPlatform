@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-02-14T22:40:00.000Z",
+  "purpose": "Prove staging backend DATABASE_URL points to staging Postgres, not production",
+  "service": "staging/zephix-backend-v2",
+  "serviceId": "bc71a9e6-d44b-41cf-8d5c-cca55e58fed9",
+  "verification": {
+    "DATABASE_URL_host": "postgres-jj7b.railway.internal",
+    "DATABASE_URL_port": 5432,
+    "DATABASE_URL_dbName": "railway",
+    "ZEPHIX_ENV": "staging",
+    "expectedStagingDbHost": "postgres-jj7b.railway.internal",
+    "blockedProductionHosts": [
+      "postgres.railway.internal",
+      "ballast.proxy.rlwy.net"
+    ],
+    "hostMatchesStagingDb": true,
+    "hostIsNotProduction": true
+  },
+  "previousState": {
+    "DATABASE_URL_host_BEFORE_FIX": "postgres.railway.internal",
+    "fixAppliedAt": "2026-02-14T22:12Z",
+    "fixMethod": "railway variables --set DATABASE_URL=... (CLI)"
+  }
+}
