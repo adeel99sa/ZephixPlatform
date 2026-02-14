@@ -56,6 +56,7 @@ function requireWriteRole(role: PlatformRole): void {
   }
 }
 
+@Controller()
 @ApiTags('scenarios')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
