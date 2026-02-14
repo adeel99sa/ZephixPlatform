@@ -9,17 +9,18 @@ export class AuditEvents18000000000008 implements MigrationInterface {
   name = 'AuditEvents18000000000008';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create table if it doesn't exist at all
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS audit_events (
         id              uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
         organization_id uuid            NOT NULL,
         workspace_id    uuid,
         actor_user_id   uuid            NOT NULL,
-        actor_platform_role varchar(30) NOT NULL,
+        actor_platform_role varchar(30) NOT NULL DEFAULT 'SYSTEM',
         actor_workspace_role varchar(30),
         entity_type     varchar(40)     NOT NULL,
         entity_id       uuid            NOT NULL,
-        action          varchar(40)     NOT NULL,
+        action          varchar(40)     NOT NULL DEFAULT 'create',
         before_json     jsonb,
         after_json      jsonb,
         metadata_json   jsonb,
@@ -29,7 +30,41 @@ export class AuditEvents18000000000008 implements MigrationInterface {
       );
     `);
 
-    // CHECK: entity_type
+    // If table pre-existed from Sprint 5 migration, add missing columns
+    // Each ADD COLUMN IF NOT EXISTS is safe to run multiple times
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS organization_id uuid`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor_user_id uuid`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor_platform_role varchar(30)`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor_workspace_role varchar(30)`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS action varchar(40)`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS before_json jsonb`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS after_json jsonb`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS metadata_json jsonb`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS ip_address varchar(45)`);
+    await queryRunner.query(`ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS user_agent varchar(512)`);
+
+    // Backfill nulls for required columns
+    await queryRunner.query(`UPDATE audit_events SET organization_id = '00000000-0000-0000-0000-000000000000' WHERE organization_id IS NULL`);
+    await queryRunner.query(`UPDATE audit_events SET actor_user_id = COALESCE(user_id, '00000000-0000-0000-0000-000000000000') WHERE actor_user_id IS NULL`);
+    await queryRunner.query(`UPDATE audit_events SET actor_platform_role = 'SYSTEM' WHERE actor_platform_role IS NULL`);
+    await queryRunner.query(`UPDATE audit_events SET action = 'create' WHERE action IS NULL`);
+    await queryRunner.query(`UPDATE audit_events SET entity_id = '00000000-0000-0000-0000-000000000000' WHERE entity_id IS NULL`);
+
+    // Ensure NOT NULL constraints after backfill
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN organization_id SET NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN actor_user_id SET NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN actor_platform_role SET NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN action SET NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN entity_id SET NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+
+    // Ensure created_at is timestamptz
+    await queryRunner.query(`ALTER TABLE audit_events ALTER COLUMN created_at TYPE timestamptz USING created_at AT TIME ZONE 'UTC'`);
+    await queryRunner.query(`ALTER TABLE audit_events ALTER COLUMN created_at SET DEFAULT now()`);
+
+    // Make workspace_id nullable (Sprint 5 had it NOT NULL)
+    await queryRunner.query(`DO $$ BEGIN ALTER TABLE audit_events ALTER COLUMN workspace_id DROP NOT NULL; EXCEPTION WHEN others THEN NULL; END $$`);
+
+    // CHECK constraints (idempotent via DO $$ EXCEPTION)
     await queryRunner.query(`
       DO $$ BEGIN
         ALTER TABLE audit_events ADD CONSTRAINT "CHK_audit_events_entity_type"
@@ -43,7 +78,6 @@ export class AuditEvents18000000000008 implements MigrationInterface {
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `);
 
-    // CHECK: action
     await queryRunner.query(`
       DO $$ BEGIN
         ALTER TABLE audit_events ADD CONSTRAINT "CHK_audit_events_action"
@@ -56,7 +90,6 @@ export class AuditEvents18000000000008 implements MigrationInterface {
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `);
 
-    // CHECK: actor_platform_role
     await queryRunner.query(`
       DO $$ BEGIN
         ALTER TABLE audit_events ADD CONSTRAINT "CHK_audit_events_platform_role"
