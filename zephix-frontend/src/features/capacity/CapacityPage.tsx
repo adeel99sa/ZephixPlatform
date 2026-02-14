@@ -21,6 +21,7 @@ import {
   type UtilizationResult,
   type OverallocationResult,
   type LevelingResult,
+  type UserDailyUtilization,
 } from "./capacity.api";
 
 /** Check if user has admin or owner privileges */
@@ -111,8 +112,8 @@ export default function CapacityPage() {
 
   // Per-user daily breakdown
   const dailyByUser = useMemo(() => {
-    if (!utilization) return new Map<string, typeof utilization.perUserDaily>();
-    const map = new Map<string, typeof utilization.perUserDaily>();
+    if (!utilization) return new Map<string, UserDailyUtilization[]>();
+    const map = new Map<string, UserDailyUtilization[]>();
     for (const d of utilization.perUserDaily) {
       if (!map.has(d.userId)) map.set(d.userId, []);
       map.get(d.userId)!.push(d);
@@ -184,8 +185,8 @@ export default function CapacityPage() {
           <SummaryCard label="Total Demand" value={`${utilization.workspaceSummary.totalDemandHours}h`} />
           <SummaryCard
             label="Avg Utilization"
-            value={`${(utilization.workspaceSummary.averageUtilization * 100).toFixed(1)}%`}
-            color={utilizationColor(utilization.workspaceSummary.averageUtilization)}
+            value={`${((utilization.workspaceSummary.averageUtilization ?? 0) * 100).toFixed(1)}%`}
+            color={utilizationColor(utilization.workspaceSummary.averageUtilization ?? 0)}
           />
           <SummaryCard
             label="Overallocated Users"

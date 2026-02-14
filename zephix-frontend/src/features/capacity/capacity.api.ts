@@ -9,9 +9,9 @@ import { request } from "@/lib/api";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 function requireWorkspace(): string {
-  const ws = useWorkspaceStore.getState().activeWorkspace;
-  if (!ws?.id) throw new Error("No active workspace");
-  return ws.id;
+  const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+  if (!wsId) throw new Error("No active workspace");
+  return wsId;
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ export async function getCapacity(
   const res = await request.get(
     `/work/workspaces/${wsId}/capacity?${params}`,
   );
-  return res.data?.data ?? res.data ?? [];
+  return (res as any).data?.data ?? (res as any).data ?? [];
 }
 
 export async function setCapacity(
@@ -138,7 +138,7 @@ export async function getUtilization(
   const res = await request.get(
     `/work/workspaces/${wsId}/capacity/utilization?${params}`,
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function getOverallocations(
@@ -154,7 +154,7 @@ export async function getOverallocations(
   const res = await request.get(
     `/work/workspaces/${wsId}/capacity/overallocations?${params}`,
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function getRecommendations(
@@ -170,5 +170,5 @@ export async function getRecommendations(
   const res = await request.get(
     `/work/workspaces/${wsId}/capacity/leveling/recommendations?${params}`,
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }

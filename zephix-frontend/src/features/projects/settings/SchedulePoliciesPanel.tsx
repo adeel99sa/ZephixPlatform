@@ -64,9 +64,9 @@ export function SchedulePoliciesPanel({ projectId, isAdmin }: Props) {
         apiClient.get('/policies/resolved', { params: { workspaceId: '' } }),
         apiClient.get(`/policies/overrides/project/${projectId}`),
       ]);
-      const allResolved = (resolvedRes.data?.data ?? resolvedRes.data ?? []) as ResolvedPolicy[];
+      const allResolved = ((resolvedRes.data as any)?.data ?? (resolvedRes.data as any) ?? []) as ResolvedPolicy[];
       setResolved(allResolved.filter((p) => SCHEDULE_KEYS.includes(p.key)));
-      setOverrides((overridesRes.data?.data ?? overridesRes.data ?? []) as PolicyOverride[]);
+      setOverrides(((overridesRes.data as any)?.data ?? (overridesRes.data as any) ?? []) as PolicyOverride[]);
     } catch {
       // Fail silently — policies may not be seeded yet
     } finally {

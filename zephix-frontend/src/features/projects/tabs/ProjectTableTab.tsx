@@ -28,14 +28,12 @@ import {
 import { useWorkspaceStore } from '@/state/workspace.store';
 import {
   listTasks,
-  listTasksGrouped,
   createTask,
   updateTask,
   deleteTask as deleteTaskApi,
   type WorkTask,
   type WorkTaskStatus,
   type WorkTaskPriority,
-  type GroupBy,
 } from '@/features/work-management/workTasks.api';
 import { toast } from 'sonner';
 import { WorkItemDetailPanel } from '@/features/work-management/components/WorkItemDetailPanel';
@@ -110,7 +108,7 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
 
 interface TableToolbarConfig {
   search?: string;
-  groupBy?: GroupBy | null;
+  groupBy?: string | null;
   sortBy?: string | null;
   sortDir?: 'asc' | 'desc';
   visibleFields?: string[];
@@ -199,7 +197,7 @@ export const ProjectTableTab: React.FC = () => {
         headers: { 'x-workspace-id': activeWorkspaceId },
       })
       .then((res) => {
-        const views = res?.data?.data ?? res?.data ?? [];
+        const views = (res?.data as any)?.data ?? (res?.data as any) ?? [];
         const tableView = views.find(
           (v: any) => v.type === 'table' && (v.ownerId != null || v.ownerId === null),
         );
@@ -263,7 +261,7 @@ export const ProjectTableTab: React.FC = () => {
             { headers: { 'x-workspace-id': activeWorkspaceId } },
           )
           .then((res) => {
-            const view = res?.data?.data ?? res?.data;
+            const view = (res?.data as any)?.data ?? (res?.data as any);
             if (view?.id) setTableViewId(view.id);
           })
           .catch(() => {});
@@ -289,7 +287,7 @@ export const ProjectTableTab: React.FC = () => {
         headers: { 'x-workspace-id': activeWorkspaceId },
       })
       .then((res) => {
-        const plan = res?.data?.data ?? res?.data;
+        const plan = (res?.data as any)?.data ?? (res?.data as any);
         setPhases((plan?.phases ?? []).map((p: any) => ({ id: p.id, name: p.name })));
       })
       .catch(() => {});
@@ -311,20 +309,11 @@ export const ProjectTableTab: React.FC = () => {
         ...apiFilters,
       };
 
-      if (toolbarConfig.groupBy) {
-        const result = await listTasksGrouped({
-          ...baseParams,
-          groupBy: toolbarConfig.groupBy,
-        });
-        setGroups(result.groups);
-        setTasks(result.groups.flatMap((g) => g.items).filter((t) => !t.deletedAt));
-        setTotalCount(result.total);
-      } else {
-        const result = await listTasks(baseParams);
-        setTasks(result.items.filter((t) => !t.deletedAt));
-        setTotalCount(result.total);
-        setGroups(null);
-      }
+      // Grouping not yet implemented - use regular listTasks
+      const result = await listTasks(baseParams);
+      setTasks(result.items.filter((t) => !t.deletedAt));
+      setTotalCount(result.total);
+      setGroups(null);
       // Clear selection when data changes (filters or reload)
       setSelectedIds(new Set());
     } catch (err: any) {
@@ -412,7 +401,7 @@ export const ProjectTableTab: React.FC = () => {
         return;
       }
     }
-    if ((field === 'estimatedEffortHours' || field === 'remainingEffortHours') && value !== null) {
+    if ((field === 'estimateHours' || field === 'remainingHours') && value !== null) {
       const num = Number(value);
       if (isNaN(num) || num < 0) {
         setCommitError({ taskId, field, message: 'Effort cannot be negative' });
@@ -659,7 +648,7 @@ export const ProjectTableTab: React.FC = () => {
         {},
         { headers: { 'x-workspace-id': activeWorkspaceId } },
       );
-      const data = res?.data?.data ?? res?.data;
+      const data = (res?.data as any)?.data ?? (res?.data as any);
       toast.success(`Added ${data?.tasksCreated ?? 15} starter tasks`);
       // Reload to get the server-created tasks
       await loadData();
@@ -887,10 +876,10 @@ export const ProjectTableTab: React.FC = () => {
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onCommit(task.id, 'estimatedEffortHours', editValue ? Number(editValue) : null);
+                if (e.key === 'Enter') onCommit(task.id, 'estimateHours', editValue ? Number(editValue) : null);
                 if (e.key === 'Escape') setEditingCell(null);
               }}
-              onBlur={() => onCommit(task.id, 'estimatedEffortHours', editValue ? Number(editValue) : null)}
+              onBlur={() => onCommit(task.id, 'estimateHours', editValue ? Number(editValue) : null)}
               className={`w-16 text-xs px-1 py-0.5 border border-indigo-300 rounded focus:outline-none${errorBorder}`}
               autoFocus
             />
@@ -901,10 +890,10 @@ export const ProjectTableTab: React.FC = () => {
             className="text-xs text-slate-600 cursor-text"
             onDoubleClick={(e) => {
               e.stopPropagation();
-              startEdit(task.id, 'estimatedEffortHours', task.estimatedEffortHours != null ? String(task.estimatedEffortHours) : '');
+              startEdit(task.id, 'estimatedEffortHours', task.estimateHours != null ? String(task.estimateHours) : '');
             }}
           >
-            {task.estimatedEffortHours != null ? `${task.estimatedEffortHours}h` : <span className="text-slate-400">—</span>}
+            {task.estimateHours != null ? `${task.estimateHours}h` : <span className="text-slate-400">—</span>}
           </span>
         );
 
@@ -918,10 +907,10 @@ export const ProjectTableTab: React.FC = () => {
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') onCommit(task.id, 'remainingEffortHours', editValue ? Number(editValue) : null);
+                if (e.key === 'Enter') onCommit(task.id, 'remainingHours', editValue ? Number(editValue) : null);
                 if (e.key === 'Escape') setEditingCell(null);
               }}
-              onBlur={() => onCommit(task.id, 'remainingEffortHours', editValue ? Number(editValue) : null)}
+              onBlur={() => onCommit(task.id, 'remainingHours', editValue ? Number(editValue) : null)}
               className={`w-16 text-xs px-1 py-0.5 border border-indigo-300 rounded focus:outline-none${errorBorder}`}
               autoFocus
             />
@@ -932,10 +921,10 @@ export const ProjectTableTab: React.FC = () => {
             className="text-xs text-slate-600 cursor-text"
             onDoubleClick={(e) => {
               e.stopPropagation();
-              startEdit(task.id, 'remainingEffortHours', task.remainingEffortHours != null ? String(task.remainingEffortHours) : '');
+              startEdit(task.id, 'remainingEffortHours', task.remainingHours != null ? String(task.remainingHours) : '');
             }}
           >
-            {task.remainingEffortHours != null ? `${task.remainingEffortHours}h` : <span className="text-slate-400">—</span>}
+            {task.remainingHours != null ? `${task.remainingHours}h` : <span className="text-slate-400">—</span>}
           </span>
         );
 
@@ -943,8 +932,8 @@ export const ProjectTableTab: React.FC = () => {
         const sched = calculateScheduleInfo({
           startDate: task.startDate,
           dueDate: task.dueDate,
-          actualStartDate: task.actualStartDate,
-          actualEndDate: task.actualEndDate,
+          actualStartDate: task.actualStartDate ?? null,
+          actualEndDate: task.actualEndDate ?? null,
         });
         if (sched.plannedDurationDays == null) return <span className="text-xs text-slate-400">—</span>;
         const cfg = SCHEDULE_STATUS_CONFIG[sched.status];

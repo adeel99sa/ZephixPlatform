@@ -61,9 +61,9 @@ export function GuidedSetupPanel() {
   const navigate = useNavigate();
   const isAdmin =
     user?.platformRole === 'ADMIN' ||
-    user?.platformRole === 'OWNER' ||
-    user?.platformRole === 'admin' ||
-    user?.platformRole === 'owner';
+    (user?.platformRole as string) === 'OWNER' ||
+    (user?.platformRole as string) === 'admin' ||
+    (user?.platformRole as string) === 'owner';
 
   const [status, setStatus] = useState<WorkspaceSetupStatus | null>(null);
   const [loading, setLoading] = useState(true);

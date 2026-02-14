@@ -58,6 +58,7 @@ import {
   listTasks,
   type WorkTask as WorkTaskItem,
   type DependencyType,
+  type CreateTaskInput,
 } from '../workTasks.api';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
@@ -231,10 +232,10 @@ export function WorkItemDetailPanel({
         route: { pathname: `/projects/${projectId}/tasks/${taskId}` },
         entityContext: { projectId, taskId },
       });
-      const data: any = res?.data?.data ?? res?.data ?? {};
+      const data: any = (res as any)?.data?.data ?? (res as any)?.data ?? {};
       const all = [
-        ...(data.actions || []),
-        ...(data.suggestedTemplates || []),
+        ...(Array.isArray(data.actions) ? data.actions : []),
+        ...(Array.isArray(data.suggestedTemplates) ? data.suggestedTemplates : []),
       ];
       setActions(all);
     } catch {
@@ -340,11 +341,11 @@ export function WorkItemDetailPanel({
     if (!newSubtaskTitle.trim() || !detail) return;
     setCreatingSubtask(true);
     try {
-      await createSubtask({
+      const input: CreateTaskInput = {
         projectId: detail.task.projectId,
         title: newSubtaskTitle.trim(),
-        parentTaskId: taskId,
-      });
+      };
+      await createSubtask(input);
       setNewSubtaskTitle('');
       toast.success('Subtask created');
       await loadDetail();
@@ -709,7 +710,7 @@ export function WorkItemDetailPanel({
                 )}
               </select>
               <button
-                onClick={handleMoveTask}
+                onClick={() => handleMoveTask()}
                 disabled={moving || !moveStatus}
                 className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >

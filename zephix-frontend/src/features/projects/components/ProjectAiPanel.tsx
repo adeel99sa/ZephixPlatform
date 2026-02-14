@@ -116,7 +116,7 @@ export const ProjectAiPanel: React.FC<Props> = ({ projectId, className }) => {
           },
         );
 
-        const data = res?.data?.data ?? res?.data;
+        const data = (res?.data as any)?.data ?? (res?.data as any);
 
         // Normalize response into our result shape
         setResult({

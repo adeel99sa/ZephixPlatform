@@ -5,9 +5,9 @@ import { request } from "@/lib/api";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 function requireWorkspace(): string {
-  const ws = useWorkspaceStore.getState().activeWorkspace;
-  if (!ws?.id) throw new Error("No active workspace");
-  return ws.id;
+  const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+  if (!wsId) throw new Error("No active workspace");
+  return wsId;
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export interface ComputeResponse {
 export async function listScenarios(): Promise<ScenarioPlan[]> {
   const wsId = requireWorkspace();
   const res = await request.get(`/work/workspaces/${wsId}/scenarios`);
-  return res.data?.data ?? res.data ?? [];
+  return (res as any).data?.data ?? (res as any).data ?? [];
 }
 
 export async function createScenario(data: {
@@ -102,12 +102,12 @@ export async function createScenario(data: {
 }): Promise<ScenarioPlan> {
   const wsId = requireWorkspace();
   const res = await request.post(`/work/workspaces/${wsId}/scenarios`, data);
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function getScenario(id: string): Promise<ScenarioPlan> {
   const res = await request.get(`/work/scenarios/${id}`);
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function updateScenario(
@@ -115,7 +115,7 @@ export async function updateScenario(
   data: { name?: string; description?: string; status?: ScenarioStatus },
 ): Promise<ScenarioPlan> {
   const res = await request.patch(`/work/scenarios/${id}`, data);
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function deleteScenario(id: string): Promise<void> {
@@ -131,7 +131,7 @@ export async function addAction(
     actionType,
     payload,
   });
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function removeAction(
@@ -145,5 +145,5 @@ export async function computeScenario(
   scenarioId: string,
 ): Promise<ComputeResponse> {
   const res = await request.post(`/work/scenarios/${scenarioId}/compute`);
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
