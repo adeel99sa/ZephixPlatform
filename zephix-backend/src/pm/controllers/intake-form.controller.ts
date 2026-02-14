@@ -13,6 +13,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import {
   ApiTags,
   ApiOperation,
@@ -269,6 +270,7 @@ export class PublicIntakeController {
   }
 
   @Post(':slug/submit')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Submit intake form' })
   @ApiResponse({ status: 201, description: 'Submission created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })

@@ -26,6 +26,7 @@ import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
+import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { CreateTeamDto } from '../modules/teams/dto/create-team.dto';
 import { UpdateTeamDto } from '../modules/teams/dto/update-team.dto';
 import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
@@ -44,6 +45,7 @@ export class AdminController {
     private readonly organizationsService: OrganizationsService,
     private readonly workspacesService: WorkspacesService,
     private readonly teamsService: TeamsService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -1048,5 +1050,19 @@ export class AdminController {
       }
       throw new InternalServerErrorException('Failed to delete team');
     }
+  }
+
+  // ==================== Phase 3C: Attachment Retention Purge ====================
+
+  @Post('attachments/purge-expired')
+  @ApiOperation({ summary: 'Purge expired attachments (retention job)' })
+  @ApiResponse({ status: 200, description: 'Expired attachments purged' })
+  async purgeExpiredAttachments(
+    @Request() _req: AuthRequest,
+    @Body() body?: { limit?: number },
+  ) {
+    const limit = body?.limit ? Math.min(body.limit, 1000) : 500;
+    const result = await this.attachmentsService.purgeExpired(limit);
+    return { data: result };
   }
 }

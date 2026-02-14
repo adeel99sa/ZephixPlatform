@@ -1,0 +1,86 @@
+{
+  "seed": 300,
+  "scale": 0.1,
+  "repeat": 1,
+  "runs": [
+    {
+      "iteration": 1,
+      "runtimeMs": 27339,
+      "nodeMemoryRssMb": 657.63,
+      "nodeHeapUsedMb": 285.38,
+      "insertRateRowsPerSec": 8668,
+      "counts": {
+        "users": 50,
+        "projects": 100,
+        "work_tasks": 10000,
+        "workspaces": 5,
+        "attachments": 5000,
+        "audit_events": 200000,
+        "organizations": 1,
+        "workspace_members": 220,
+        "schedule_baselines": 20,
+        "user_organizations": 50,
+        "earned_value_snapshots": 240,
+        "work_task_dependencies": 14800,
+        "schedule_baseline_items": 2000,
+        "workspace_member_capacity": 4500
+      },
+      "detectedSchemaHash": "b9bd6c471dd6e627",
+      "skippedTables": []
+    }
+  ],
+  "explainPlans": [
+    {
+      "name": "work_tasks_by_project_status_rank",
+      "description": "Board column query — tasks by project + status ordered by rank",
+      "expectedIndex": "idx_work_tasks_board_column (project_id, status, rank) WHERE deleted_at IS NULL",
+      "planningTimeMs": 0.556,
+      "executionTimeMs": 0.153,
+      "rows": 27,
+      "planText": "Limit  (cost=101.93..102.00 rows=27 width=24) (actual time=0.121..0.128 rows=30 loops=1)\n  Buffers: shared hit=1 read=4\n  ->  Sort  (cost=101.93..102.00 rows=27 width=24) (actual time=0.119..0.122 rows=30 loops=1)\n        Sort Key: rank\n        Sort Method: quicksort  Memory: 27kB\n        Buffers: shared hit=1 read=4\n        ->  Bitmap Heap Scan on work_tasks  (cost=4.58..101.29 rows=27 width=24) (actual time=0.085..0.102 rows=30 loops=1)\n              Recheck Cond: ((project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid) AND (status = 'IN_PROGRESS'::work_tasks_status_enum) AND (deleted_at IS NULL))\n              Filter: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)\n              Heap Blocks: exact=2\n              Buffers: shared hit=1 read=4\n              ->  Bitmap Index Scan on idx_work_tasks_board_column  (cost=0.00..4.58 rows=29 width=0) (actual time=0.071..0.072 rows=30 loops=1)\n                    Index Cond: ((project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid) AND (status = 'IN_PROGRESS'::work_tasks_status_enum))\n                    Buffers: shared hit=1 read=2\nPlanning:\n  Buffers: shared hit=55\nPlanning Time: 0.556 ms\nExecution Time: 0.153 ms"
+    },
+    {
+      "name": "work_tasks_by_project_list_default",
+      "description": "Project task list default — all tasks for a project ordered by rank",
+      "expectedIndex": "idx_work_tasks_stats_project or idx_work_tasks_board_column",
+      "planningTimeMs": 0.48,
+      "executionTimeMs": 0.297,
+      "rows": 93,
+      "planText": "Limit  (cost=265.73..265.96 rows=93 width=39) (actual time=0.249..0.263 rows=100 loops=1)\n  Buffers: shared hit=5 read=2\n  ->  Sort  (cost=265.73..265.96 rows=93 width=39) (actual time=0.248..0.253 rows=100 loops=1)\n        Sort Key: rank\n        Sort Method: quicksort  Memory: 32kB\n        Buffers: shared hit=5 read=2\n        ->  Bitmap Heap Scan on work_tasks  (cost=5.06..262.69 rows=93 width=39) (actual time=0.138..0.195 rows=100 loops=1)\n              Recheck Cond: (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid)\n              Filter: ((deleted_at IS NULL) AND (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid))\n              Heap Blocks: exact=4\n              Buffers: shared hit=5 read=2\n              ->  Bitmap Index Scan on \"IDX_work_tasks_project_planned_end\"  (cost=0.00..5.04 rows=100 width=0) (actual time=0.126..0.127 rows=100 loops=1)\n                    Index Cond: (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid)\n                    Buffers: shared hit=2 read=1\nPlanning:\n  Buffers: shared hit=8\nPlanning Time: 0.480 ms\nExecution Time: 0.297 ms"
+    },
+    {
+      "name": "work_task_dependencies_by_project",
+      "description": "Dependencies for a project — Gantt view input",
+      "expectedIndex": "idx_work_task_deps_org_project (organization_id, project_id)",
+      "planningTimeMs": 0.316,
+      "executionTimeMs": 0.101,
+      "rows": 148,
+      "planText": "Index Scan using idx_work_task_deps_org_project on work_task_dependencies  (cost=0.29..248.10 rows=148 width=52) (actual time=0.029..0.075 rows=148 loops=1)\n  Index Cond: ((organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid) AND (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid))\n  Buffers: shared hit=5 read=1\nPlanning:\n  Buffers: shared hit=40 read=1\nPlanning Time: 0.316 ms\nExecution Time: 0.101 ms"
+    },
+    {
+      "name": "audit_events_by_org_created_desc",
+      "description": "Audit log newest — admin audit viewer default query",
+      "expectedIndex": "idx_audit_events_org_created_desc (organization_id, created_at DESC)",
+      "planningTimeMs": 0.446,
+      "executionTimeMs": 0.058,
+      "rows": 50,
+      "planText": "Limit  (cost=0.42..8.72 rows=50 width=42) (actual time=0.020..0.040 rows=50 loops=1)\n  Buffers: shared hit=5\n  ->  Index Scan using idx_audit_events_org_created_desc on audit_events  (cost=0.42..33197.08 rows=199988 width=42) (actual time=0.018..0.034 rows=50 loops=1)\n        Index Cond: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)\n        Buffers: shared hit=5\nPlanning:\n  Buffers: shared hit=81\nPlanning Time: 0.446 ms\nExecution Time: 0.058 ms"
+    },
+    {
+      "name": "projects_by_workspace_created_desc",
+      "description": "Projects list by workspace — workspace home page",
+      "expectedIndex": "idx_projects_org_created_at (organization_id, created_at DESC)",
+      "planningTimeMs": 0.256,
+      "executionTimeMs": 0.29,
+      "rows": 50,
+      "planText": "Limit  (cost=74.48..74.61 rows=50 width=50) (actual time=0.139..0.267 rows=50 loops=1)\n  Buffers: shared hit=69\n  ->  Sort  (cost=74.48..74.73 rows=100 width=50) (actual time=0.138..0.141 rows=50 loops=1)\n        Sort Key: created_at DESC\n        Sort Method: quicksort  Memory: 32kB\n        Buffers: shared hit=69\n        ->  Seq Scan on projects  (cost=0.00..71.16 rows=100 width=50) (actual time=0.091..0.113 rows=100 loops=1)\n              Filter: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)\n              Rows Removed by Filter: 73\n              Buffers: shared hit=69\nPlanning:\n  Buffers: shared hit=18\nPlanning Time: 0.256 ms\nExecution Time: 0.290 ms"
+    }
+  ],
+  "summary": {
+    "avgRuntimeMs": 27339,
+    "avgInsertRate": 8668,
+    "avgMemoryRssMb": 657.63,
+    "avgMemoryHeapMb": 285.38
+  },
+  "createdAt": "2026-02-14T06:43:05.126Z"
+}

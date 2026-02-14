@@ -134,7 +134,12 @@ export default function AdminOverviewPage() {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-500">TODO: Connect to projects API</p>
+            <button
+              onClick={() => { track("admin.projects.viewed", { source: "overview" }); navigate("/admin/projects"); }}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View projects →
+            </button>
           </div>
         </div>
       </div>
@@ -266,7 +271,7 @@ export default function AdminOverviewPage() {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-500">TODO: Add charts and detailed risk analysis</p>
+            <p className="text-xs text-gray-500">Risk analysis details available per project.</p>
           </div>
         </div>
       </div>

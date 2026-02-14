@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   BadRequestException,
   ConflictException,
@@ -26,6 +27,8 @@ interface AuthContext {
 
 @Injectable()
 export class TaskDependenciesService {
+  private readonly logger = new Logger(TaskDependenciesService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkTaskDependency))
     private readonly dependencyRepo: TenantAwareRepository<WorkTaskDependency>,
@@ -136,7 +139,7 @@ export class TaskDependenciesService {
         workspaceId,
       );
     } catch (error) {
-      console.warn('Failed to recalculate project health:', error);
+      this.logger.warn('Failed to recalculate project health:', error);
     }
 
     return saved;
@@ -234,7 +237,7 @@ export class TaskDependenciesService {
           workspaceId,
         );
       } catch (error) {
-        console.warn('Failed to recalculate project health:', error);
+        this.logger.warn('Failed to recalculate project health:', error);
       }
     }
   }

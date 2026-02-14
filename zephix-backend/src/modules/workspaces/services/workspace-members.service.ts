@@ -24,6 +24,8 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationDispatchService } from '../../notifications/notification-dispatch.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 
 @Injectable()
 export class WorkspaceMembersService {
@@ -41,6 +43,7 @@ export class WorkspaceMembersService {
     private readonly tenantContextService: TenantContextService,
     @Inject(forwardRef(() => NotificationDispatchService))
     private notificationDispatch: NotificationDispatchService,
+    private readonly auditService: AuditService,
   ) {}
 
   async list(
@@ -400,6 +403,23 @@ export class WorkspaceMembersService {
       oldRole,
       newRole: role,
       isLastOwner,
+    });
+
+    // Phase 3B: Audit role change
+    await this.auditService.record({
+      organizationId: ws.organizationId,
+      workspaceId,
+      actorUserId: actor.id,
+      actorPlatformRole: normalizePlatformRole(actor.orgRole),
+      entityType: AuditEntityType.WORKSPACE,
+      entityId: workspaceId,
+      action: AuditAction.ROLE_CHANGE,
+      metadata: {
+        targetUserId: userId,
+        fromRole: oldRole,
+        toRole: role,
+        source: AuditSource.ROLE_CHANGE,
+      },
     });
 
     // Feature 1D: Dispatch notification for role change

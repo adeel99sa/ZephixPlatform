@@ -13,6 +13,12 @@ describe('WorkspacesService', () => {
     const workspaceRepo = {
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => ({ id: 'ws-1', ...data })),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        withDeleted: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      }),
     };
     const memberRepo = {
       findOne: jest.fn(async () => null),
@@ -50,11 +56,12 @@ describe('WorkspacesService', () => {
       transaction: jest.fn(async (fn) => fn(manager)),
     } as unknown as DataSource;
 
+    const repoMock = { metadata: { columns: [], deleteDateColumn: null } };
     const service = new WorkspacesService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
+      repoMock as any,
+      repoMock as any,
+      repoMock as any,
+      repoMock as any,
       {} as ConfigService,
       dataSource,
       {} as TenantContextService,

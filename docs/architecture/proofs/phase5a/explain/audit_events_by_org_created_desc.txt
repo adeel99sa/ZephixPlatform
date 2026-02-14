@@ -1,0 +1,16 @@
+-- Query: audit_events_by_org_created_desc
+-- Description: Audit log newest — admin audit viewer default query
+-- Expected Index: idx_audit_events_org_created_desc (organization_id, created_at DESC)
+-- Seed: 300, Scale: 1
+-- Planning Time: 0.584ms
+-- Execution Time: 0.077ms
+-- Rows: 50
+Limit  (cost=0.43..6.30 rows=50 width=43) (actual time=0.024..0.056 rows=50 loops=1)
+  Buffers: shared hit=5
+  ->  Index Scan using idx_audit_events_org_created_desc on audit_events  (cost=0.43..234916.43 rows=1999950 width=43) (actual time=0.023..0.049 rows=50 loops=1)
+        Index Cond: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)
+        Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=71 read=8
+Planning Time: 0.584 ms
+Execution Time: 0.077 ms

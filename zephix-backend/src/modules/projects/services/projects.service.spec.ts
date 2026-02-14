@@ -21,6 +21,10 @@ describe('ProjectsService', () => {
       canAccessWorkspace: jest.fn().mockResolvedValue(false),
     } as unknown as WorkspaceAccessService;
 
+    const mockEntitlementService = {
+      assertWithinLimit: jest.fn().mockResolvedValue(undefined),
+    };
+
     const service = new ProjectsService(
       projectRepository,
       workspaceRepository,
@@ -29,6 +33,7 @@ describe('ProjectsService', () => {
       tenantContext,
       {} as ConfigService,
       workspaceAccessService,
+      mockEntitlementService as any,
     );
 
     const req = {

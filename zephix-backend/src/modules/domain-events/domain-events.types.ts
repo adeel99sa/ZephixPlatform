@@ -63,3 +63,22 @@ export interface CommentCreatedEvent extends DomainEvent {
     commentId: string;
   };
 }
+
+export interface ProjectClonedEvent extends DomainEvent {
+  name: 'project.cloned';
+  data: {
+    newProjectId: string;
+    sourceProjectId: string;
+    cloneMode: string;
+    targetWorkspaceId: string;
+    sourceWorkspaceId: string;
+    cloneDepth: number;
+    entityCounts: {
+      phases: number;
+      gateDefinitions: number;
+      kpiAssignments: number;
+      views: number;
+      workflowConfig: boolean;
+    };
+  };
+}

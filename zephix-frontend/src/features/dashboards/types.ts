@@ -13,7 +13,10 @@ export type WidgetType =
   | "program_summary"
   | "budget_variance"
   | "risk_summary"
-  | "kpi";
+  | "kpi"
+  // Phase 2B: Waterfall core
+  | "critical_path_risk"
+  | "earned_value_summary";
 
 export interface DashboardLayoutItem {
   i: string; // widget id

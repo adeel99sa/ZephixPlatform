@@ -1,0 +1,76 @@
+---
+description: Enterprise implementation guardrails for all Zephix changes — access control, scoping, error discipline, logging, performance, migrations, tests, and delivery format.
+alwaysApply: true
+---
+
+# Zephix Enterprise Guardrails
+
+## Non-Negotiables
+
+1. No new dependencies.
+2. No string literal roles or plan codes. Use enums or centralized constants.
+3. No inline entitlement logic in controllers. Use guards or services only.
+4. All DB reads/writes scoped by organizationId. If workspace-scoped, include workspaceId.
+5. No raw entities returned. Use DTOs.
+6. No secrets in logs. No presigned URLs logged or stored.
+7. No breaking API changes without backward-compatible defaults.
+8. Tests for every new guard, endpoint, migration, and modified business rule.
+9. Migrations idempotent. Up and down safe for rerun.
+10. Controllers thin. Logic in services.
+
+## Access Control
+
+- Every controller: `JwtAuthGuard` at class level.
+- Every endpoint: explicit gate — platform admin, workspace role gate, or entitlement gate.
+- Never rely on frontend gating for security.
+
+## Scoped Data Integrity
+
+- Every query includes `organizationId` in WHERE.
+- Workspace-owned entities include `workspaceId` in WHERE.
+- Filter `deletedAt IS NULL` when soft delete exists.
+- Never accept orgId or workspaceId from client body — use auth context and route params.
+
+## Error & Response Discipline
+
+- Use `AppException` with `ErrorCode` for new errors.
+- Never throw raw strings.
+- Return stable error codes and response shapes.
+- DTOs: explicit defaults, narrow types.
+
+## Logging & Observability
+
+- Use `AppLogger` with `{ action, ...context }`.
+- Log `elapsedMs` for compute/aggregation endpoints.
+- Warn on large workloads; do not block unless required.
+- Propagate `X-Request-Id`.
+
+## Performance
+
+- Aggregate queries for rollups. Avoid loading large graphs unless required.
+- Ensure indexes exist for frequent query patterns; add migration if needed.
+- Add performance header for large responses when thresholds exceeded.
+
+## Migrations
+
+- `CREATE TABLE IF NOT EXISTS`
+- `ADD COLUMN IF NOT EXISTS`
+- `CREATE INDEX IF NOT EXISTS`
+- `ADD CONSTRAINT` inside `DO $$ EXCEPTION WHEN duplicate_object THEN NULL; END $$`
+- Down migration uses `IF EXISTS`
+
+## Tests (Minimum per Change)
+
+- Backend: 1 service suite, 1 controller suite, plus impacted guard suites.
+- Frontend: role gating tests + render tests for critical UI.
+- Required types: role gating (401/403), org isolation, DTO shape, migration idempotency.
+
+## Refactor Control
+
+- Allowed: local constant extraction, DTO tightening, index additions.
+- Not allowed: large rewrites of stable services without written reason + extra tests.
+- If refactor exceeds local scope: output change proposal (why, files, tests) before proceeding.
+
+## Delivery Format
+
+When claiming done, output: (1) summary, (2) files created, (3) files modified, (4) endpoints added/changed, (5) migrations and why, (6) test suites + counts, (7) tsc outputs, (8) risks/follow-ups.

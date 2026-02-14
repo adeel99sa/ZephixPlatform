@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { WorkTasksService } from './work-tasks.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
+import { AuditService } from '../../audit/services/audit.service';
 import { WorkTask } from '../entities/work-task.entity';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
 import { TaskComment } from '../entities/task-comment.entity';
@@ -11,13 +12,17 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 import { TaskActivityService } from './task-activity.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { ProjectHealthService } from './project-health.service';
+import { WipLimitsService } from './wip-limits.service';
+import { Project } from '../../projects/entities/project.entity';
 import { TaskStatus } from '../enums/task.enums';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
-  let taskRepo: { findOne: jest.Mock; save: jest.Mock };
+  let taskRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let projectRepo: { findOne: jest.Mock };
+  let phaseRepo: { findOne: jest.Mock };
 
   const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
   const workspaceId = 'ws-1';
@@ -26,7 +31,10 @@ describe('WorkTasksService', () => {
     taskRepo = {
       findOne: jest.fn(),
       save: jest.fn(),
+      create: jest.fn().mockImplementation((data) => data),
     };
+    projectRepo = { findOne: jest.fn() };
+    phaseRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,8 +59,17 @@ describe('WorkTasksService', () => {
           provide: ProjectHealthService,
           useValue: { recalculateProjectHealth: jest.fn().mockResolvedValue(undefined) },
         },
-        { provide: getRepositoryToken(WorkPhase), useValue: { findOne: jest.fn() } },
+        {
+          provide: WipLimitsService,
+          useValue: { enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: getRepositoryToken(WorkPhase), useValue: phaseRepo },
+        { provide: getRepositoryToken(Project), useValue: projectRepo },
         { provide: DataSource, useValue: {} },
+        {
+          provide: AuditService,
+          useValue: { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) },
+        },
       ],
     }).compile();
 
@@ -225,6 +242,93 @@ describe('WorkTasksService', () => {
         currentStatus: TaskStatus.CANCELED,
         requestedStatus: TaskStatus.TODO,
       });
+    });
+  });
+
+  describe('createTask estimation mode enforcement (C1)', () => {
+    const projectId = 'proj-1';
+
+    beforeEach(() => {
+      // Auto-assign phase so createTask doesn't throw WORK_PLAN_INVALID
+      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      taskRepo.save.mockImplementation((t) =>
+        Promise.resolve({ id: 'new-task', ...t }),
+      );
+    });
+
+    it('rejects estimatePoints when estimationMode=hours_only', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        id: projectId,
+        estimationMode: 'hours_only',
+      });
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'Task with points on hours_only',
+          estimatePoints: 5,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({
+        code: 'ESTIMATION_MODE_VIOLATION',
+      });
+      expect(err.response.message).toContain('hours_only');
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects estimateHours when estimationMode=points_only', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        id: projectId,
+        estimationMode: 'points_only',
+      });
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'Task with hours on points_only',
+          estimateHours: 8,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({
+        code: 'ESTIMATION_MODE_VIOLATION',
+      });
+      expect(err.response.message).toContain('points_only');
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('allows estimatePoints when estimationMode=points_only', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        id: projectId,
+        estimationMode: 'points_only',
+      });
+
+      await service.createTask(auth, workspaceId, {
+        projectId,
+        title: 'Task with points on points_only',
+        estimatePoints: 3,
+      } as any);
+
+      expect(taskRepo.save).toHaveBeenCalled();
+    });
+
+    it('allows both estimates when estimationMode=both', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        id: projectId,
+        estimationMode: 'both',
+      });
+
+      await service.createTask(auth, workspaceId, {
+        projectId,
+        title: 'Task with both estimates',
+        estimatePoints: 5,
+        estimateHours: 8,
+      } as any);
+
+      expect(taskRepo.save).toHaveBeenCalled();
     });
   });
 });

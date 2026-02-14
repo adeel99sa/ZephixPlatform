@@ -14,7 +14,7 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus } from '../enums/task.enums';
 
-const SORT_BY_VALUES = ['dueDate', 'updatedAt', 'createdAt'] as const;
+const SORT_BY_VALUES = ['dueDate', 'updatedAt', 'createdAt', 'rank'] as const;
 const SORT_DIR_VALUES = ['asc', 'desc'] as const;
 
 export type SortBy = (typeof SORT_BY_VALUES)[number];
@@ -80,6 +80,35 @@ export class ListWorkTasksQueryDto {
   @IsOptional()
   @IsDateString()
   dueTo?: string;
+
+  @ApiProperty({ description: 'Filter by iteration ID', required: false })
+  @IsOptional()
+  @IsUUID()
+  iterationId?: string;
+
+  @ApiProperty({ description: 'Filter committed tasks only', required: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  committed?: boolean;
+
+  @ApiProperty({ description: 'Filter tasks with estimate points', required: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  hasEstimatePoints?: boolean;
+
+  @ApiProperty({ description: 'Filter tasks with estimate hours', required: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  hasEstimateHours?: boolean;
+
+  @ApiProperty({ description: 'Filter backlog tasks (no iteration)', required: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  backlog?: boolean;
 
   @ApiProperty({
     description: 'Include archived tasks',
