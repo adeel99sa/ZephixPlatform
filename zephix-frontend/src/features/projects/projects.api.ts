@@ -31,6 +31,16 @@ export interface ProjectSummary {
 
 export interface ProjectDetail extends ProjectSummary {
   definitionOfDone?: string[];
+  // Budget & Cost Lite
+  budget?: number;
+  actualCost?: number;
+  currency?: string;
+  flatLaborRatePerHour?: number;
+  costTrackingEnabled?: boolean;
+  // Template Enforcement
+  iterationsEnabled?: boolean;
+  estimationMode?: 'points_only' | 'hours_only' | 'both';
+  defaultIterationLengthDays?: number;
 }
 
 export interface Task {

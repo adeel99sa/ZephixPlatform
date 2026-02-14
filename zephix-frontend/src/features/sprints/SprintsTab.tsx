@@ -188,14 +188,19 @@ export function SprintsTab({ projectId, workspaceId }: Props) {
       </div>
 
       {/* Velocity summary */}
-      {velocity && velocity.rollingAverage > 0 && (
+      {velocity && (velocity.rollingAveragePoints > 0 || velocity.rollingAverage) && (
         <div className="flex items-center gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs">
           <TrendingUp className="h-4 w-4 text-green-600" />
           <span className="text-green-800 font-medium">
-            Rolling velocity: {velocity.rollingAverage} pts/sprint
+            Rolling velocity: {velocity.rollingAveragePoints ?? velocity.rollingAverage} pts/sprint
           </span>
+          {velocity.rollingAverageHours > 0 && (
+            <span className="text-green-700 font-medium ml-2">
+              {velocity.rollingAverageHours.toFixed(1)} hrs/sprint
+            </span>
+          )}
           <span className="text-green-600">
-            (last {velocity.sprints.length} sprints)
+            (last {(velocity.iterations ?? velocity.sprints)?.length ?? 0} sprints)
           </span>
         </div>
       )}
@@ -328,53 +333,81 @@ export function SprintsTab({ projectId, workspaceId }: Props) {
 
                   {/* Capacity panel */}
                   {capacity && capacity.sprintId === sprint.id && (
-                    <div className="grid grid-cols-3 gap-3" data-testid="capacity-panel">
-                      <div className="rounded border p-2 text-center">
-                        <p className="text-lg font-bold text-indigo-600">
-                          {capacity.committedPoints}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          Committed
-                        </p>
+                    <div data-testid="capacity-panel">
+                      {/* Points row */}
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Points</h4>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-indigo-600">
+                            {capacity.committedPoints}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Committed</p>
+                        </div>
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-green-600">
+                            {capacity.completedPoints}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Completed</p>
+                        </div>
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-amber-600">
+                            {capacity.remainingPoints}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Remaining</p>
+                        </div>
                       </div>
-                      <div className="rounded border p-2 text-center">
-                        <p className="text-lg font-bold text-green-600">
-                          {capacity.completedPoints}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          Completed
-                        </p>
+                      {/* Hours row */}
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Hours</h4>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-indigo-600">
+                            {capacity.committedHours ?? 0}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Committed</p>
+                        </div>
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-green-600">
+                            {capacity.actualHours ?? 0}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Actual</p>
+                        </div>
+                        <div className="rounded border p-2 text-center">
+                          <p className="text-lg font-bold text-amber-600">
+                            {capacity.remainingHours ?? 0}
+                          </p>
+                          <p className="text-[10px] text-gray-500">Remaining</p>
+                        </div>
                       </div>
-                      <div className="rounded border p-2 text-center">
-                        <p className="text-lg font-bold text-amber-600">
-                          {capacity.remainingPoints}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          Remaining
-                        </p>
-                      </div>
-                      <div className="col-span-3 flex justify-between text-xs text-gray-500 px-1">
+                      <div className="flex justify-between text-xs text-gray-500 px-1">
                         <span>Tasks: {capacity.taskCount}</span>
                         <span>Done: {capacity.doneTaskCount}</span>
+                        {capacity.capacityHours != null && (
+                          <span>Capacity: {capacity.capacityHours}h</span>
+                        )}
                         <span>Basis: {capacity.basis}</span>
                       </div>
                     </div>
                   )}
 
                   {/* Velocity panel */}
-                  {velocity && velocity.sprints.length > 0 && (
+                  {velocity && (velocity.iterations ?? velocity.sprints)?.length > 0 && (
                     <div data-testid="velocity-panel">
                       <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1">
                         Velocity History
                       </h4>
                       <div className="flex gap-2">
-                        {velocity.sprints.map((v) => (
+                        {(velocity.iterations ?? []).map((v) => (
                           <div
-                            key={v.id}
+                            key={v.iterationId}
                             className="rounded border px-2 py-1 text-xs"
                           >
                             <span className="font-medium">{v.name}</span>:{' '}
-                            {v.completedPoints}/{v.committedPoints}
+                            {v.completedPoints} pts
+                            {v.actualHours > 0 && (
+                              <span className="text-gray-500 ml-1">
+                                / {v.actualHours}h
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -18,6 +18,11 @@ import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
 // Commit 5: KPI Panel
 import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
+// C2: Budget & Cost Lite
+import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
+// Phase 2B: Waterfall core panels
+import { BaselinePanel } from '../components/BaselinePanel';
+import { EarnedValuePanel } from '../components/EarnedValuePanel';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -335,6 +340,27 @@ export const ProjectOverviewTab: React.FC = () => {
               </div>
             </dl>
           </div>
+
+          {/* Budget & Cost Panel */}
+          {projectId && <BudgetSummaryPanel projectId={projectId} />}
+
+          {/* Phase 2B: Baseline Panel */}
+          {projectId && project && (
+            <BaselinePanel
+              projectId={projectId}
+              baselinesEnabled={(project as any).baselinesEnabled ?? true}
+              workspaceRole={(project as any).workspaceRole}
+            />
+          )}
+
+          {/* Phase 2B: Earned Value Panel */}
+          {projectId && project && (
+            <EarnedValuePanel
+              projectId={projectId}
+              earnedValueEnabled={(project as any).earnedValueEnabled ?? false}
+              workspaceRole={(project as any).workspaceRole}
+            />
+          )}
 
           {/* KPI Panel */}
           {workspaceId && (

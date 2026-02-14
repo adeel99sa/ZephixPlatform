@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY ENTITY — Use work-management/entities/work-task.entity.ts instead.
+ * This entity is retained only for backward compatibility with existing migrations.
+ * Do NOT add new features or queries against this entity.
+ * Scheduled for removal in a future cleanup sprint.
+ */
 import {
   Entity,
   PrimaryGeneratedColumn,

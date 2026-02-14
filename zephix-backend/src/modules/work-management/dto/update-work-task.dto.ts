@@ -55,10 +55,35 @@ export class UpdateWorkTaskDto {
   @IsDateString()
   dueDate?: string;
 
-  @ApiProperty({ description: 'Estimated hours', required: false })
+  @ApiProperty({ description: 'Estimate in story points', required: false })
   @IsOptional()
   @IsNumber()
-  estimateHours?: number;
+  estimatePoints?: number | null;
+
+  @ApiProperty({ description: 'Estimate in hours', required: false })
+  @IsOptional()
+  @IsNumber()
+  estimateHours?: number | null;
+
+  @ApiProperty({ description: 'Remaining hours', required: false })
+  @IsOptional()
+  @IsNumber()
+  remainingHours?: number | null;
+
+  @ApiProperty({ description: 'Actual hours spent', required: false })
+  @IsOptional()
+  @IsNumber()
+  actualHours?: number | null;
+
+  @ApiProperty({ description: 'Iteration ID', required: false })
+  @IsOptional()
+  @IsUUID()
+  iterationId?: string | null;
+
+  @ApiProperty({ description: 'Committed to iteration', required: false })
+  @IsOptional()
+  @IsBoolean()
+  committed?: boolean;
 
   @ApiProperty({ description: 'Tags', required: false, type: [String] })
   @IsOptional()
@@ -80,6 +105,11 @@ export class UpdateWorkTaskDto {
   @IsOptional()
   @IsArray()
   acceptanceCriteria?: Array<{ text: string; done: boolean }>;
+
+  @ApiProperty({ description: 'Board rank for ordering within column', required: false })
+  @IsOptional()
+  @IsNumber()
+  rank?: number;
 
   @ApiProperty({
     description: 'Override WIP limit (admin only)',

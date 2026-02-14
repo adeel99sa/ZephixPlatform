@@ -18,20 +18,33 @@ export interface Sprint {
   status: SprintStatus;
   startedAt: string | null;
   completedAt: string | null;
+  capacityHours: number | null;
+  plannedPoints: number | null;
   committedPoints: number | null;
+  committedHours: number | null;
   completedPoints: number | null;
-  completedAtPointsFreeze: number | null;
+  completedHours: number | null;
   createdAt: string;
 }
 
 export interface VelocityResult {
-  sprints: Array<{
+  iterations: Array<{
+    iterationId: string;
+    name: string;
+    completedPoints: number;
+    actualHours: number;
+  }>;
+  rollingAveragePoints: number;
+  rollingAverageHours: number;
+  /** @deprecated alias for iterations */
+  sprints?: Array<{
     id: string;
     name: string;
     committedPoints: number;
     completedPoints: number;
   }>;
-  rollingAverage: number;
+  /** @deprecated alias for rollingAveragePoints */
+  rollingAverage?: number;
 }
 
 export interface CapacityResult {
@@ -39,6 +52,10 @@ export interface CapacityResult {
   committedPoints: number;
   completedPoints: number;
   remainingPoints: number;
+  committedHours: number;
+  actualHours: number;
+  remainingHours: number;
+  capacityHours: number | null;
   taskCount: number;
   doneTaskCount: number;
   basis: string;

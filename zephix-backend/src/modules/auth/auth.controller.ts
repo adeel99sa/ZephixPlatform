@@ -20,7 +20,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Throttle } from '@nestjs/throttler';
+// @Throttle removed — ThrottlerGuard is commented out globally (app.module.ts)
+// so @Throttle metadata was never enforced. Using RateLimiterGuard explicitly instead.
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
@@ -32,6 +33,7 @@ import {
 } from './dto/resend-verification.dto';
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -82,7 +84,7 @@ export class AuthController {
   @Post('register')
   @Post('signup') // Backward compatibility alias
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 requests per 15 minutes
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Register a new user and organization' })
   @ApiResponse({
     status: 200,
@@ -141,7 +143,7 @@ export class AuthController {
    */
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 requests per hour
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Resend email verification' })
   @ApiResponse({
     status: 200,
@@ -185,7 +187,7 @@ export class AuthController {
    */
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 requests per hour
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
     status: 200,
@@ -210,6 +212,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(RateLimiterGuard)
   async login(
     @Body() loginDto: LoginDto,
     @Request() req: ExpressRequest,
@@ -371,6 +374,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(RateLimiterGuard)
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,

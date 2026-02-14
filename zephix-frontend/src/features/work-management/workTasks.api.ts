@@ -73,6 +73,13 @@ export interface WorkTask {
   startDate: string | null;
   dueDate: string | null;
   completedAt: string | null;
+  // Estimation fields
+  estimatePoints: number | null;
+  estimateHours: number | null;
+  remainingHours: number | null;
+  actualHours: number | null;
+  iterationId: string | null;
+  committed: boolean;
   rank: number | null;
   tags: string[] | null;
   metadata: Record<string, unknown> | null;
@@ -90,7 +97,7 @@ export interface AcceptanceCriteriaItem {
   done: boolean;
 }
 
-export type SortBy = 'dueDate' | 'updatedAt' | 'createdAt';
+export type SortBy = 'dueDate' | 'updatedAt' | 'createdAt' | 'rank';
 export type SortDir = 'asc' | 'desc';
 
 export interface ListTasksParams {
@@ -108,6 +115,16 @@ export interface ListTasksParams {
   offset?: number;
   /** Include soft-deleted tasks. Admin/Member only. */
   includeDeleted?: boolean;
+  /** Filter by iteration ID */
+  iterationId?: string;
+  /** Filter committed tasks */
+  committed?: boolean;
+  /** Filter tasks with estimate points */
+  hasEstimatePoints?: boolean;
+  /** Filter tasks with estimate hours */
+  hasEstimateHours?: boolean;
+  /** Backlog tasks only (no iteration) */
+  backlog?: boolean;
 }
 
 export interface ListTasksResult {
@@ -124,6 +141,9 @@ export interface CreateTaskInput {
   dueDate?: string;
   priority?: WorkTaskPriority;
   tags?: string[];
+  estimatePoints?: number;
+  estimateHours?: number;
+  iterationId?: string;
 }
 
 export interface UpdateTaskPatch {
@@ -136,6 +156,13 @@ export interface UpdateTaskPatch {
   dueDate?: string | null;
   tags?: string[];
   acceptanceCriteria?: AcceptanceCriteriaItem[];
+  estimatePoints?: number | null;
+  estimateHours?: number | null;
+  remainingHours?: number | null;
+  actualHours?: number | null;
+  iterationId?: string | null;
+  committed?: boolean;
+  rank?: number;
 }
 
 export interface BulkUpdateInput {

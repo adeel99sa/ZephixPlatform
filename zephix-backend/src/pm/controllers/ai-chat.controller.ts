@@ -36,11 +36,10 @@ export interface ChatHistoryRequest {
 }
 
 @Controller('ai-chat')
-// @UseGuards(JwtAuthGuard) // Temporarily disabled for testing
+@UseGuards(JwtAuthGuard)
 export class AIChatController {
-  constructor(private readonly aiChatService: AIChatService) {
-    console.log('AIChatController initialized');
-  }
+  constructor(private readonly aiChatService: AIChatService) {}
+
 
   @Post('send-message')
   async sendMessage(
@@ -184,7 +183,6 @@ export class AIChatController {
   }
 
   @Get('capabilities')
-  @UseGuards() // Temporarily remove authentication for testing
   async getCapabilities(): Promise<{
     capabilities: string[];
     intents: string[];
@@ -236,7 +234,6 @@ export class AIChatController {
   }
 
   @Get('quick-actions')
-  @UseGuards() // Temporarily remove authentication for testing
   async getQuickActions(): Promise<{
     actions: Array<{
       id: string;

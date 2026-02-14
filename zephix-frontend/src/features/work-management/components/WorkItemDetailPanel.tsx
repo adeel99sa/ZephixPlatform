@@ -856,6 +856,39 @@ export function WorkItemDetailPanel({
                 )}
               </div>
 
+              {/* Estimation section */}
+              {(task.estimatePoints != null || task.estimateHours != null || task.actualHours != null || task.remainingHours != null) && (
+                <div className="border-t pt-3 mt-3 space-y-1">
+                  <span className={typography.muted + ' block text-xs font-semibold uppercase'}>Estimates</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {task.estimatePoints != null && (
+                      <div>
+                        <span className={typography.muted + ' block'}>Points</span>
+                        <span className="font-medium">{task.estimatePoints}</span>
+                      </div>
+                    )}
+                    {task.estimateHours != null && (
+                      <div>
+                        <span className={typography.muted + ' block'}>Est. Hours</span>
+                        <span className="font-medium">{task.estimateHours}h</span>
+                      </div>
+                    )}
+                    {task.remainingHours != null && (
+                      <div>
+                        <span className={typography.muted + ' block'}>Remaining</span>
+                        <span className="font-medium">{task.remainingHours}h</span>
+                      </div>
+                    )}
+                    {task.actualHours != null && (
+                      <div>
+                        <span className={typography.muted + ' block'}>Actual</span>
+                        <span className="font-medium">{task.actualHours}h</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Step 14: Schedule variance section */}
               {(() => {
                 const sched = detail.schedule

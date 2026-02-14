@@ -70,6 +70,18 @@ export default tseslint.config([
             'name': 'axios',
             'message': 'Use the shared axios instance from @/lib/api instead of direct axios imports.',
           },
+          {
+            'name': '@/components/layouts/admin-nav.config',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx buildAdminNavItems as single source.',
+          },
+          {
+            'name': '@/components/layouts/AdminLayout',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx as the canonical admin layout.',
+          },
+          {
+            'name': '@/pages/admin/AdminLayout',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx as the canonical admin layout.',
+          },
         ],
       }],
     },
@@ -94,6 +106,18 @@ export default tseslint.config([
             'message': 'DEPRECATED: Use @/lib/api instead. See import cleanup migration.',
           },
           // axios is allowed in lib/api files and type imports
+          {
+            'name': '@/components/layouts/admin-nav.config',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx buildAdminNavItems as single source.',
+          },
+          {
+            'name': '@/components/layouts/AdminLayout',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx as the canonical admin layout.',
+          },
+          {
+            'name': '@/pages/admin/AdminLayout',
+            'message': 'DELETED in Phase 4E: Use layouts/AdminLayout.tsx as the canonical admin layout.',
+          },
         ],
       }],
     },

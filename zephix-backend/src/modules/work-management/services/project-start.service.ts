@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ConflictException,
   NotFoundException,
   ForbiddenException,
@@ -22,6 +23,8 @@ export interface StartWorkResponseDto {
 
 @Injectable()
 export class ProjectStartService {
+  private readonly logger = new Logger(ProjectStartService.name);
+
   constructor(
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
@@ -179,7 +182,7 @@ export class ProjectStartService {
             workspaceId,
           );
         } catch (error) {
-          console.warn(
+          this.logger.warn(
             'Failed to recalculate project health after start:',
             error,
           );

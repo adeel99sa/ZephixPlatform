@@ -40,6 +40,8 @@ const SHARED_WIDGET_CONFIG_SCHEMA: Record<WidgetKey, WidgetConfigSchema> = {
   risk_summary: {},
   portfolio_summary: {},
   program_summary: {},
+  critical_path_risk: {},
+  earned_value_summary: {},
 };
 
 const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
@@ -51,6 +53,8 @@ const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
   risk_summary: [],
   portfolio_summary: [],
   program_summary: [],
+  critical_path_risk: [],
+  earned_value_summary: [],
 };
 const SQL_LIKE_PATTERN =
   /\b(select|insert|update|delete|drop|alter|create|truncate)\b/i;

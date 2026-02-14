@@ -274,6 +274,114 @@ export class StatusReportingService {
     }
   }
 
+  async getProjectRisks(
+    projectId: string,
+    severity?: string,
+    status?: string,
+  ): Promise<any> {
+    const riskMetrics = this.analyzeRiskMetrics([]);
+    return {
+      projectId,
+      risks: [],
+      summary: riskMetrics,
+    };
+  }
+
+  async getStakeholderViews(
+    projectId: string,
+    stakeholderType?: string,
+  ): Promise<any> {
+    return {
+      projectId,
+      stakeholderType: stakeholderType || 'all',
+      views: [],
+    };
+  }
+
+  async getProjectReports(
+    projectId: string,
+    startDate?: string,
+    endDate?: string,
+    status?: string,
+    format?: string,
+  ): Promise<any[]> {
+    const reports = await this.statusReportRepository.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
+    return reports;
+  }
+
+  async getReport(reportId: string): Promise<any> {
+    const report = await this.statusReportRepository.findOne({
+      where: { id: reportId },
+    });
+    if (!report) {
+      throw new Error('Report not found');
+    }
+    return report;
+  }
+
+  async configureAlerts(alertData: any): Promise<any> {
+    const alert = this.alertConfigurationRepository.create(alertData);
+    return this.alertConfigurationRepository.save(alert);
+  }
+
+  async getProjectAlerts(
+    projectId: string,
+    alertType?: string,
+    isActive?: boolean,
+  ): Promise<any[]> {
+    const where: any = { projectId };
+    if (alertType) where.alertType = alertType;
+    if (isActive !== undefined) where.isActive = isActive;
+    return this.alertConfigurationRepository.find({ where });
+  }
+
+  async updateAlert(
+    alertId: string,
+    updateData: any,
+  ): Promise<any> {
+    await this.alertConfigurationRepository.update(alertId, updateData);
+    return this.alertConfigurationRepository.findOne({
+      where: { id: alertId },
+    });
+  }
+
+  async deleteAlert(alertId: string): Promise<void> {
+    await this.alertConfigurationRepository.delete(alertId);
+  }
+
+  async createManualUpdate(updateData: any): Promise<any> {
+    const update = this.manualUpdateRepository.create(updateData);
+    return this.manualUpdateRepository.save(update);
+  }
+
+  async getManualUpdates(
+    projectId: string,
+    _projectId?: string,
+    category?: string,
+    impact?: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any[]> {
+    return this.manualUpdateRepository.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getProjectOverview(projectId: string): Promise<any> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+    });
+    const metrics = await this.getProjectMetrics(projectId);
+    return {
+      project,
+      metrics,
+    };
+  }
+
   private async collectProjectData(
     projectId: string,
     reportingPeriod: any,

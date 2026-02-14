@@ -15,30 +15,23 @@ jobs:
         with:
           fetch-depth: 0  # Get full history for git hash
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          cd zephix-frontend
-          pnpm i --frozen-lockfile
+        working-directory: zephix-frontend
+        run: npm ci
 
       - name: Build with version info
+        working-directory: zephix-frontend
         run: |
-          cd zephix-frontend
-          # Set build-time environment variables
           export VITE_GIT_HASH=$(git rev-parse --short HEAD)
           export VITE_BUILD_TAG=${GITHUB_REF_NAME:-dev}
           export VITE_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          pnpm build
+          npm run build
 
       - name: Create release artifact
         run: |

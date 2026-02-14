@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import {
   TenantAwareRepository,
   getTenantAwareRepositoryToken,
@@ -17,6 +17,8 @@ interface AuthContext {
 
 @Injectable()
 export class TaskActivityService {
+  private readonly logger = new Logger(TaskActivityService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(TaskActivity))
     private readonly activityRepo: TenantAwareRepository<TaskActivity>,
@@ -50,8 +52,8 @@ export class TaskActivityService {
 
     // projectId is required (non-nullable UUID) — skip recording if missing
     if (!projectId) {
-      console.warn(
-        `[TaskActivity] Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
+      this.logger.warn(
+        `Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
       );
       return null as any;
     }

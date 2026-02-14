@@ -30,6 +30,8 @@ import {
 } from '../../../shared/enums/platform-roles.enum';
 import { WorkspaceRole } from '../entities/workspace.entity';
 import { ConfigService } from '@nestjs/config';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 
 @Injectable()
 export class WorkspaceInviteService {
@@ -46,6 +48,7 @@ export class WorkspaceInviteService {
     private userOrgRepo: Repository<UserOrganization>,
     private dataSource: DataSource,
     private configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -274,6 +277,24 @@ export class WorkspaceInviteService {
     });
 
     await this.memberRepo.save(member);
+
+    // Phase 3B: Audit invitation acceptance
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const emailDomain = user?.email?.split('@')[1] || 'unknown';
+    await this.auditService.record({
+      organizationId: inviteLink.workspace.organizationId,
+      workspaceId: inviteLink.workspaceId,
+      actorUserId: userId,
+      actorPlatformRole: platformRole,
+      entityType: AuditEntityType.WORKSPACE,
+      entityId: inviteLink.workspaceId,
+      action: AuditAction.ACCEPT,
+      metadata: {
+        emailDomain,
+        assignedRole: defaultWorkspaceRole,
+        source: AuditSource.INVITE,
+      },
+    });
 
     return { workspaceId: inviteLink.workspaceId };
   }
