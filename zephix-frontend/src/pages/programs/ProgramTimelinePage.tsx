@@ -22,7 +22,7 @@ const ZOOM_TO_VIEW_MODE: Record<ZoomLevel, ViewMode> = {
   Day: ViewMode.Day,
   Week: ViewMode.Week,
   Month: ViewMode.Month,
-  Quarter: ViewMode.QuarterYear,
+  Quarter: ViewMode.Year,
 };
 
 type ScheduleFilterStatus = 'all' | 'ON_TRACK' | 'AT_RISK' | 'DELAYED';
@@ -58,7 +58,7 @@ export default function ProgramTimelinePage() {
   const { workspaceId, programId } = useParams<{ workspaceId: string; programId: string }>();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const navigate = useNavigate();
-  const wsId = workspaceId || activeWorkspaceId;
+  const wsId = workspaceId || activeWorkspaceId || undefined;
 
   const { data: rollup, isLoading, error } = useProgramRollup(wsId, programId);
 
@@ -172,7 +172,7 @@ export default function ProgramTimelinePage() {
   if (isLoading) {
     return (
       <div className="p-6">
-        <InlineLoadingState text="Loading program timeline..." />
+        <InlineLoadingState message="Loading program timeline..." />
       </div>
     );
   }

@@ -191,7 +191,7 @@ export const ExecutionEvidencePanel: React.FC<Props> = ({ scope, id }) => {
     (async () => {
       try {
         const res = await apiClient.get(`/work/evidence/${scope}/${id}`);
-        if (!cancelled) setEvidence(res.data?.data ?? res.data);
+        if (!cancelled) setEvidence((res as any).data?.data ?? (res as any).data);
       } catch (err: any) {
         if (!cancelled) setError(err?.response?.data?.message ?? 'Failed to load evidence');
       } finally {
@@ -213,13 +213,13 @@ export const ExecutionEvidencePanel: React.FC<Props> = ({ scope, id }) => {
 
       if (format === 'JSON') {
         const res = await apiClient.get(url);
-        const payload = res.data?.data ?? res.data;
+        const payload = (res as any).data?.data ?? (res as any).data;
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: opt.mime });
         downloadBlob(blob, `evidence-${id.slice(0, 8)}-${dateStamp()}.${opt.ext}`);
       } else {
         // Binary (CSV zip or PDF)
         const res = await apiClient.get(url, { responseType: 'blob' });
-        downloadBlob(res.data, `evidence-${id.slice(0, 8)}-${dateStamp()}.${opt.ext}`);
+        downloadBlob(res.data as Blob, `evidence-${id.slice(0, 8)}-${dateStamp()}.${opt.ext}`);
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? err?.message ?? 'Export failed';
@@ -334,7 +334,7 @@ export const ExecutionEvidencePanel: React.FC<Props> = ({ scope, id }) => {
         {/* Schedule */}
         <div className="bg-white border rounded-lg p-3">
           <SectionHeader icon={<Clock className="h-3.5 w-3.5 text-blue-600" />} title="Schedule">
-            <StatusBadge status={schedule.status} />
+            <StatusBadge onDark={false} />
           </SectionHeader>
           <div className="space-y-0.5">
             <InfoRow label="Planned" value={`${formatDate(schedule.plannedStartDate)} – ${formatDate(schedule.plannedEndDate)}`} />
@@ -424,7 +424,7 @@ export const ExecutionEvidencePanel: React.FC<Props> = ({ scope, id }) => {
       {/* Lifecycle */}
       <div className="bg-white border rounded-lg p-3">
         <SectionHeader icon={<Activity className="h-3.5 w-3.5 text-gray-600" />} title="Lifecycle">
-          <StatusBadge status={lifecycle.status} />
+          <StatusBadge onDark={false} />
         </SectionHeader>
         <div className="grid grid-cols-3 gap-4 text-xs">
           <InfoRow label="Started" value={formatDate(lifecycle.startedAt)} />

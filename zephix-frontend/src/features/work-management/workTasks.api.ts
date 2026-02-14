@@ -78,6 +78,8 @@ export interface WorkTask {
   estimateHours: number | null;
   remainingHours: number | null;
   actualHours: number | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
   iterationId: string | null;
   committed: boolean;
   rank: number | null;
@@ -284,6 +286,14 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     startDate: toStringOrNull(raw.startDate ?? raw.start_date),
     dueDate: toStringOrNull(raw.dueDate ?? raw.due_date),
     completedAt: toStringOrNull(raw.completedAt ?? raw.completed_at),
+    estimatePoints: raw.estimatePoints != null ? Number(raw.estimatePoints) : (raw.estimate_points != null ? Number(raw.estimate_points) : null),
+    estimateHours: raw.estimateHours != null ? Number(raw.estimateHours) : (raw.estimate_hours != null ? Number(raw.estimate_hours) : null),
+    remainingHours: raw.remainingHours != null ? Number(raw.remainingHours) : (raw.remaining_hours != null ? Number(raw.remaining_hours) : null),
+    actualHours: raw.actualHours != null ? Number(raw.actualHours) : (raw.actual_hours != null ? Number(raw.actual_hours) : null),
+    actualStartDate: toStringOrNull(raw.actualStartDate ?? raw.actual_start_date),
+    actualEndDate: toStringOrNull(raw.actualEndDate ?? raw.actual_end_date),
+    iterationId: toStringOrNull(raw.iterationId ?? raw.iteration_id),
+    committed: Boolean(raw.committed ?? false),
     rank: raw.rank != null ? Number(raw.rank) : null,
     tags: Array.isArray(raw.tags) ? raw.tags : null,
     metadata:
@@ -499,6 +509,24 @@ export async function removeDependency(
   const body: { predecessorTaskId: string; type?: DependencyType } = { predecessorTaskId };
   if (dependencyType) body.type = dependencyType;
   await request.delete(`/work/tasks/${taskId}/dependencies`, { data: body });
+}
+
+export async function updateComment(taskId: string, commentId: string, body: string): Promise<TaskComment> {
+  requireActiveWorkspace();
+  const x = await request.patch<Record<string, unknown>>(`/work/tasks/${taskId}/comments/${commentId}`, { body });
+  return {
+    id: String(x.id),
+    taskId: String(x.taskId ?? x.task_id ?? taskId),
+    body: String(x.body ?? body),
+    authorUserId: String(x.authorUserId ?? x.author_user_id ?? ''),
+    createdAt: String(x.createdAt ?? x.created_at ?? ''),
+    updatedAt: String(x.updatedAt ?? x.updated_at ?? ''),
+  };
+}
+
+export async function deleteComment(taskId: string, commentId: string): Promise<void> {
+  requireActiveWorkspace();
+  await request.delete(`/work/tasks/${taskId}/comments/${commentId}`);
 }
 
 // --- Phase API functions ---

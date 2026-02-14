@@ -5,9 +5,9 @@ import { request } from "@/lib/api";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 function requireWorkspace(): string {
-  const ws = useWorkspaceStore.getState().activeWorkspace;
-  if (!ws?.id) throw new Error("No active workspace");
-  return ws.id;
+  const wsId = useWorkspaceStore.getState().activeWorkspaceId;
+  if (!wsId) throw new Error("No active workspace");
+  return wsId;
 }
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ export async function createPresign(data: {
     `/work/workspaces/${wsId}/attachments/presign`,
     data,
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function completeUpload(
@@ -58,7 +58,7 @@ export async function completeUpload(
     `/work/workspaces/${wsId}/attachments/${attachmentId}/complete`,
     { checksumSha256 },
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function listAttachments(
@@ -70,7 +70,7 @@ export async function listAttachments(
     `/work/workspaces/${wsId}/attachments`,
     { params: { parentType, parentId } },
   );
-  return res.data?.data ?? res.data ?? [];
+  return (res as any).data?.data ?? (res as any).data ?? [];
 }
 
 export async function getDownloadUrl(
@@ -80,7 +80,7 @@ export async function getDownloadUrl(
   const res = await request.get(
     `/work/workspaces/${wsId}/attachments/${attachmentId}/download`,
   );
-  return res.data?.data ?? res.data;
+  return (res as any).data?.data ?? (res as any).data;
 }
 
 export async function deleteAttachment(

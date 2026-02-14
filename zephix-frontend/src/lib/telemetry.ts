@@ -63,6 +63,23 @@ export function page(name: string, properties?: Record<string, any>) {
   }
 }
 
+// Beta-specific telemetry tracking
+export function trackBeta(
+  event: TelemetryEvent,
+  workspaceId?: string,
+  props: TelemetryProps = {},
+) {
+  try {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[telemetry-beta]', event, { workspaceId, ...props });
+    }
+    // Add analytics vendor integration here when needed
+  } catch {
+    // Never throw from telemetry
+  }
+}
+
 // Object with methods for default import
-export const telemetry = { track, identify, page };
+export const telemetry = { track, identify, page, trackBeta };
 export default telemetry;

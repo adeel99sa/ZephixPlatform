@@ -19,7 +19,7 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/state/workspace.store', () => ({
   useWorkspaceStore: () => ({
-    activeWorkspaceSlug: 'test-workspace',
+    activeWorkspaceId: 'test-workspace',
   }),
 }));
 
