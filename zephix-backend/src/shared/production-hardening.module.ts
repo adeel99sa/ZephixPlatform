@@ -11,10 +11,11 @@
 import { Module } from '@nestjs/common';
 import { MetricsController } from './controllers/metrics.controller';
 import { BackupReadinessController } from './controllers/backup-readiness.controller';
+import { EnvProofController } from './controllers/env-proof.controller';
 import { PlanRateLimitGuard } from './guards/plan-rate-limit.guard';
 
 @Module({
-  controllers: [MetricsController, BackupReadinessController],
+  controllers: [MetricsController, BackupReadinessController, EnvProofController],
   providers: [PlanRateLimitGuard],
   exports: [PlanRateLimitGuard],
 })

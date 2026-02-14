@@ -1,0 +1,81 @@
+{
+  "capturedAt": "2026-02-14T22:34:41.410Z",
+  "purpose": "Pre-deploy staging freeze proof — captures env vars before redeploy",
+  "note": "DATABASE_URL was corrected from postgres.railway.internal to postgres-jj7b.railway.internal on 2026-02-14T22:12Z via Railway CLI",
+  "services": {
+    "staging/zephix-backend-v2": {
+      "CORS_ALLOWED_ORIGINS": "http://localhost:5173,https://zephix-frontend-staging.up.railway.app",
+      "_parsed_dbHost": "postgres-jj7b.railway.internal",
+      "_parsed_dbPort": "5432",
+      "_parsed_dbName": "railway",
+      "DATABASE_URL": "postgresql://postgres:[REDACTED]@postgres-jj7b.railway.internal:5432/railway",
+      "DB_SSL": "true",
+      "JWT_EXPIRES_IN": "15m",
+      "JWT_REFRESH_EXPIRES_IN": "7d",
+      "JWT_REFRESH_SECRET": "[REDACTED]",
+      "JWT_SECRET": "[REDACTED]",
+      "NODE_ENV": "staging",
+      "PORT": "3000",
+      "RAILWAY_ENVIRONMENT": "staging",
+      "RAILWAY_ENVIRONMENT_ID": "76e2f060-c0b1-4c57-8aa7-662504939261",
+      "RAILWAY_ENVIRONMENT_NAME": "staging",
+      "RAILWAY_PRIVATE_DOMAIN": "zephix-backend-v2.railway.internal",
+      "RAILWAY_PROJECT_ID": "8eded72a-33e6-4c57-9b47-2d33434ef80c",
+      "RAILWAY_PROJECT_NAME": "Zephix Application",
+      "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_SERVICE_ID": "bc71a9e6-d44b-41cf-8d5c-cca55e58fed9",
+      "RAILWAY_SERVICE_NAME": "zephix-backend-v2",
+      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL": "zephix-frontend-staging.up.railway.app",
+      "RAILWAY_STATIC_URL": "zephix-backend-v2-staging.up.railway.app",
+      "ZEPHIX_ENV": "staging"
+    },
+    "staging/zephix-frontend": {
+      "NODE_ENV": "production",
+      "RAILWAY_ENVIRONMENT": "staging",
+      "RAILWAY_ENVIRONMENT_ID": "76e2f060-c0b1-4c57-8aa7-662504939261",
+      "RAILWAY_ENVIRONMENT_NAME": "staging",
+      "RAILWAY_PRIVATE_DOMAIN": "zephix-frontend.railway.internal",
+      "RAILWAY_PROJECT_ID": "8eded72a-33e6-4c57-9b47-2d33434ef80c",
+      "RAILWAY_PROJECT_NAME": "Zephix Application",
+      "RAILWAY_PUBLIC_DOMAIN": "zephix-frontend-staging.up.railway.app",
+      "RAILWAY_SERVICE_ID": "cc41f500-b7d2-4530-bc8d-7b0cb7891cc3",
+      "RAILWAY_SERVICE_NAME": "zephix-frontend",
+      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL": "zephix-frontend-staging.up.railway.app",
+      "RAILWAY_STATIC_URL": "zephix-frontend-staging.up.railway.app",
+      "VITE_API_URL": "https://zephix-backend-v2-staging.up.railway.app",
+      "VITE_APP_NAME": "Zephix"
+    }
+  },
+  "databases": {
+    "production-env/zephixp-Postgres-staging": {
+      "_note": "Staging Postgres service lives in production environment (Railway shared project model)",
+      "PGHOST": "postgres-jj7b.railway.internal",
+      "PGPORT": "5432",
+      "POSTGRES_DB": "railway",
+      "DATABASE_URL": "postgresql://postgres:[REDACTED]@postgres-jj7b.railway.internal:5432/railway"
+    }
+  },
+  "dbServiceMapping": {
+    "staging/zephix-backend-v2": {
+      "linkedDbService": "zephixp-Postgres-staging",
+      "linkedDbHost": "postgres-jj7b.railway.internal",
+      "linkedDbPort": 5432,
+      "linkedDbName": "railway",
+      "previousDbHost_BEFORE_FIX": "postgres.railway.internal (PRODUCTION — corrected on 2026-02-14T22:12Z)"
+    },
+    "production/zephix-backend": {
+      "linkedDbService": "Postgres",
+      "linkedDbHost": "ballast.proxy.rlwy.net",
+      "linkedDbPort": 38318,
+      "linkedDbName": "railway"
+    },
+    "test/zephix-backend": {
+      "linkedDbService": "zephix-postgres-test",
+      "linkedDbHost": "yamabiko.proxy.rlwy.net",
+      "linkedDbPort": 26837,
+      "linkedDbName": "railway"
+    }
+  }
+}
