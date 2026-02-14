@@ -22,3 +22,9 @@ export const isResourcesEnabled = () => {
   const envValue = import.meta.env.VITE_FEATURE_RESOURCES;
   return envValue === '1' || envValue === 'true' || hasFlag('resourcesEnabled');
 };
+
+// Phase 2E: Capacity Engine feature flag
+export const isCapacityEngineEnabled = () => {
+  const envValue = import.meta.env.VITE_FEATURE_CAPACITY;
+  return envValue === '1' || envValue === 'true' || hasFlag('capacityEngine');
+};

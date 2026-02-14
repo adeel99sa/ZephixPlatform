@@ -4,10 +4,14 @@ import { AccountSettings } from "./components/AccountSettings";
 import { WorkspaceSettings } from "./components/WorkspaceSettings";
 import { OrganizationSettings } from "./components/OrganizationSettings";
 import BillingPage from "../billing/BillingPage";
+import { useAuth } from "@/state/AuthContext";
+import { isPlatformAdmin } from "@/utils/access";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = isPlatformAdmin(user);
   const [tab, setTab] = useState<"account"|"workspace"|"organization"|"billing"|"notifications"|"security">("account");
 
   // Sync tab with current route
@@ -42,7 +46,10 @@ export default function SettingsPage() {
         <button data-testid="settings-tab-account" onClick={()=>handleTabClick("account")} className={tab==="account"?"btn-primary":"btn"}>Account</button>
         <button data-testid="settings-tab-workspace" onClick={()=>setTab("workspace")} className={tab==="workspace"?"btn-primary":"btn"}>Workspace</button>
         <button data-testid="settings-tab-organization" onClick={()=>setTab("organization")} className={tab==="organization"?"btn-primary":"btn"}>Organization</button>
-        <button data-testid="settings-tab-billing" onClick={()=>setTab("billing")} className={tab==="billing"?"btn-primary":"btn"}>Billing & Plans</button>
+        {/* Phase 2A: Billing tab visible to platform admin only */}
+        {isAdmin && (
+          <button data-testid="settings-tab-billing" onClick={()=>setTab("billing")} className={tab==="billing"?"btn-primary":"btn"}>Billing & Plans</button>
+        )}
         <button data-testid="settings-tab-notifications" onClick={()=>handleTabClick("notifications")} className={tab==="notifications"?"btn-primary":"btn"}>Notifications</button>
         <button data-testid="settings-tab-security" onClick={()=>handleTabClick("security")} className={tab==="security"?"btn-primary":"btn"}>Security</button>
       </div>
@@ -53,7 +60,7 @@ export default function SettingsPage() {
           {tab==="account" && <AccountSettings />}
           {tab==="workspace" && <WorkspaceSettings />}
           {tab==="organization" && <OrganizationSettings />}
-          {tab==="billing" && <BillingPage />}
+          {tab==="billing" && isAdmin && <BillingPage />}
         </>
       )}
     </div>

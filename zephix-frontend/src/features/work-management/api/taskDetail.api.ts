@@ -31,6 +31,13 @@ export interface TaskDetailDto {
     createdAt: string;
     updatedAt: string;
     sprintId?: string;
+    // Estimation fields
+    estimatePoints?: number | null;
+    estimateHours?: number | null;
+    remainingHours?: number | null;
+    actualHours?: number | null;
+    iterationId?: string | null;
+    committed?: boolean;
   };
   /** System-derived lifecycle (Step 13) */
   lifecycle: TaskLifecycle;

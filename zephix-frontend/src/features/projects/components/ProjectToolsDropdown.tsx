@@ -77,11 +77,18 @@ function setPinnedTools(projectId: string, pins: string[]): void {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-interface Props {
-  className?: string;
+interface ProjectConfig {
+  iterationsEnabled?: boolean;
+  costTrackingEnabled?: boolean;
 }
 
-export const ProjectToolsDropdown: React.FC<Props> = ({ className }) => {
+interface Props {
+  className?: string;
+  /** Pass project config to conditionally show/hide tools */
+  project?: ProjectConfig;
+}
+
+export const ProjectToolsDropdown: React.FC<Props> = ({ className, project }) => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,6 +98,13 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className }) => {
     projectId ? getPinnedTools(projectId) : [],
   );
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Filter tools based on project config
+  const visibleTools = TOOL_ITEMS.filter((tool) => {
+    if (tool.id === 'sprints' && project && !project.iterationsEnabled) return false;
+    if (tool.id === 'budget' && project && !project.costTrackingEnabled) return false;
+    return true;
+  });
 
   // Sync pinned tools when project changes
   useEffect(() => {
@@ -134,7 +148,7 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className }) => {
 
   /* ---- derived ---- */
 
-  const pinnedTools = TOOL_ITEMS.filter((t) => pinnedIds.includes(t.id));
+  const pinnedTools = visibleTools.filter((t) => pinnedIds.includes(t.id));
 
   return (
     <div className={`flex items-center gap-1 ${className ?? ''}`} ref={menuRef}>
@@ -178,7 +192,7 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className }) => {
 
         {open && (
           <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
-            {TOOL_ITEMS.map((tool) => {
+            {visibleTools.map((tool) => {
               const Icon = tool.icon;
               const active = isToolActive(tool);
               const pinned = pinnedIds.includes(tool.id);
