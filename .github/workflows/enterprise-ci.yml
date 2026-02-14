@@ -283,9 +283,9 @@ jobs:
 
   # Deploy staging from release tags (v*)
   # Guardrails: backend tsc, backend tests, gating frontend tests, migration check
-  # Railway service names (verified 2026-02-14 from dashboard):
-  #   Backend:  zephix-backend   (staging env selected by RAILWAY_TOKEN_STAGING)
-  #   Frontend: zephix-frontend  (staging env selected by RAILWAY_TOKEN_STAGING)
+  # Railway service names (verified 2026-02-14 via `railway service` CLI):
+  #   Backend:  zephix-backend-v2  (staging has a separate service name)
+  #   Frontend: zephix-frontend    (same name across all envs)
   deploy-staging:
     name: Deploy to Staging
     needs: [security-scan, backend-test, frontend-test]
@@ -370,7 +370,7 @@ jobs:
       - name: Deploy Backend to Railway (Staging)
         uses: railway/deploy@v1
         with:
-          service: zephix-backend
+          service: zephix-backend-v2
           token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       # ── Wait for backend health before deploying frontend ──────────────
