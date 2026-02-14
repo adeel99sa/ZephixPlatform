@@ -3,8 +3,10 @@ name: Enterprise CI/CD Pipeline
 on:
   push:
     branches: [main, develop, feature/*]
+    tags: ['v*']
   pull_request:
     branches: [main, develop]
+  workflow_dispatch: # Manual trigger for production deploys
   schedule:
     - cron: '0 2 * * *' # Daily security scan at 2 AM
 
@@ -409,7 +411,7 @@ jobs:
           echo "Generated: $(date)" >> compliance-report.md
           echo "" >> compliance-report.md
           echo "### Vulnerabilities Found: ${{ needs.security-scan.result }}" >> compliance-report.md
-          echo "### Build Status: ${{ needs.build-and-deploy.result }}" >> compliance-report.md
+          echo "### Backend Tests: ${{ needs.backend-test.result }}" >> compliance-report.md
 
       - name: Upload compliance report
         uses: actions/upload-artifact@v4
