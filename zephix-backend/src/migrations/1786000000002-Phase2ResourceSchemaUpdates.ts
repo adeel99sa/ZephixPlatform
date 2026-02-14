@@ -15,7 +15,7 @@ import {
  * 4. Add organizationId to resource_conflicts
  * 5. Add indexes for common queries
  */
-export class Phase2ResourceSchemaUpdates1786000000000
+export class Phase2ResourceSchemaUpdates1786000000002
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {

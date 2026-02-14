@@ -4,9 +4,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Add deleted_by_user_id columns to work_tasks and work_phases
  * for soft delete audit trail.
  */
-export class AddDeletedByUserIdToWorkTasksAndPhases17980202500000
+export class AddDeletedByUserIdToWorkTasksAndPhases17980202500002
   implements MigrationInterface
 {
+  name = 'AddDeletedByUserIdToWorkTasksAndPhases17980202500002';
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add deleted_by_user_id to work_tasks
     await queryRunner.query(`

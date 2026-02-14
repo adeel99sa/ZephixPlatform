@@ -179,3 +179,4 @@ docs/build/
 
 # E2E smoke test generated data
 scripts/smoke/e2e-ids.json
+.tmp/

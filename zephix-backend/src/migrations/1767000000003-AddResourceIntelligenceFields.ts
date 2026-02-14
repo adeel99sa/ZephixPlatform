@@ -1,8 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddResourceIntelligenceFields1767000000001
+export class AddResourceIntelligenceFields1767000000003
   implements MigrationInterface
 {
+  name = 'AddResourceIntelligenceFields1767000000003';
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enum types for AllocationType and BookingSource
     await queryRunner.query(`
