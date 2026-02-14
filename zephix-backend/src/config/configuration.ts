@@ -81,6 +81,15 @@ export default () => ({
       path: process.env.METRICS_PATH || '/api/metrics',
     },
   },
+  storage: {
+    provider: process.env.STORAGE_PROVIDER || 's3',
+    bucket: process.env.STORAGE_BUCKET || 'zephix-attachments',
+    region: process.env.STORAGE_REGION || 'us-east-1',
+    endpoint: process.env.STORAGE_ENDPOINT || '', // S3-compatible endpoint (MinIO, R2, etc.)
+    accessKeyId: process.env.STORAGE_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY || '',
+    maxBytes: parseInt(process.env.ATTACHMENTS_MAX_BYTES || '52428800', 10), // 50 MB
+  },
   statusReporting: {
     // External integrations
     jira: {

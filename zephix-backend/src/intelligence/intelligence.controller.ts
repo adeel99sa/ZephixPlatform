@@ -1,8 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 
 @ApiTags('Intelligence')
 @Controller('intelligence')
+@UseGuards(JwtAuthGuard)
 export class IntelligenceController {
   @Get()
   @ApiOperation({

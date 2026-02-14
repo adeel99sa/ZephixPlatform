@@ -25,6 +25,11 @@ describe('RequireOrgRoleGuard', () => {
   describe('when no role requirement', () => {
     it('should allow access', () => {
       jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+      mockContext.switchToHttp().getRequest().user = {
+        id: 'user-1',
+        role: 'MEMBER',
+        organizationId: 'org-1',
+      };
 
       const result = guard.canActivate(mockContext);
 

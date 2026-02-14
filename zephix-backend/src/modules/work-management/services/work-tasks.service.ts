@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -32,6 +33,7 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   dueDate: 'task.dueDate',
   updatedAt: 'task.updatedAt',
   createdAt: 'task.createdAt',
+  rank: 'task.rank', // Phase 2H: Board column ordering
 };
 
 const VALID_STATUSES = new Set<string>(Object.values(TaskStatus));
@@ -102,6 +104,9 @@ import { Repository } from 'typeorm';
 import { ConflictException } from '@nestjs/common';
 import { ProjectHealthService } from './project-health.service';
 import { WipLimitsService } from './wip-limits.service';
+import { Project } from '../../projects/entities/project.entity';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 
 interface AuthContext {
   organizationId: string;
@@ -111,6 +116,8 @@ interface AuthContext {
 
 @Injectable()
 export class WorkTasksService {
+  private readonly logger = new Logger(WorkTasksService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
@@ -128,6 +135,9 @@ export class WorkTasksService {
     private readonly dataSource: DataSource,
     private readonly projectHealthService: ProjectHealthService,
     private readonly wipLimitsService: WipLimitsService,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    private readonly auditService: AuditService,
   ) {}
 
   // ============================================================
@@ -317,6 +327,27 @@ export class WorkTasksService {
       normalizedAC = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
     }
 
+    // C1 Fix: Estimation mode enforcement on task creation (mirrors updateTask validation)
+    if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
+      const project = await this.projectRepository.findOne({
+        where: { id: dto.projectId, organizationId },
+        select: ['id', 'estimationMode'],
+      });
+      const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && mode === 'hours_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Points estimation is disabled for this project (hours_only mode)',
+        });
+      }
+      if (dto.estimateHours !== undefined && mode === 'points_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Hours estimation is disabled for this project (points_only mode)',
+        });
+      }
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -333,6 +364,9 @@ export class WorkTasksService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: dto.tags || null,
       acceptanceCriteria: normalizedAC,
+      estimatePoints: dto.estimatePoints ?? null,
+      estimateHours: dto.estimateHours ?? null,
+      iterationId: dto.iterationId ?? null,
     });
 
     const saved = await this.taskRepo.save(task);
@@ -444,6 +478,31 @@ export class WorkTasksService {
       });
     }
 
+    // ── Iteration & estimation filters ──────────────────────────────
+    if (query.iterationId) {
+      qb.andWhere('task.iterationId = :iterationId', {
+        iterationId: query.iterationId,
+      });
+    }
+    if (query.committed !== undefined) {
+      qb.andWhere('task.committed = :committed', {
+        committed: query.committed,
+      });
+    }
+    if (query.hasEstimatePoints === true) {
+      qb.andWhere('task.estimatePoints IS NOT NULL');
+    } else if (query.hasEstimatePoints === false) {
+      qb.andWhere('task.estimatePoints IS NULL');
+    }
+    if (query.hasEstimateHours === true) {
+      qb.andWhere('task.estimateHours IS NOT NULL');
+    } else if (query.hasEstimateHours === false) {
+      qb.andWhere('task.estimateHours IS NULL');
+    }
+    if (query.backlog === true) {
+      qb.andWhere('task.iterationId IS NULL');
+    }
+
     if (query.search) {
       qb.andWhere('task.title ILIKE :search', { search: `%${query.search}%` });
     }
@@ -479,6 +538,7 @@ export class WorkTasksService {
     workspaceId: string,
     id: string,
     dto: UpdateWorkTaskDto,
+    auditSource?: string,
   ): Promise<WorkTask> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
@@ -541,14 +601,58 @@ export class WorkTasksService {
       task.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
       changedFields.push('dueDate');
     }
+    // Estimation mode enforcement (C4)
+    if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
+      const project = await this.projectRepository.findOne({
+        where: { id: task.projectId },
+        select: ['id', 'estimationMode'],
+      });
+      const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && mode === 'hours_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Points estimation is disabled for this project (hours_only mode)',
+        });
+      }
+      if (dto.estimateHours !== undefined && mode === 'points_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Hours estimation is disabled for this project (points_only mode)',
+        });
+      }
+    }
+    if (dto.estimatePoints !== undefined) {
+      task.estimatePoints = dto.estimatePoints;
+      changedFields.push('estimatePoints');
+    }
     if (dto.estimateHours !== undefined) {
-      // Note: estimateHours not in entity yet, skip for now
-      // Will be added in future migration if needed
+      task.estimateHours = dto.estimateHours;
       changedFields.push('estimateHours');
+    }
+    if (dto.remainingHours !== undefined) {
+      task.remainingHours = dto.remainingHours;
+      changedFields.push('remainingHours');
+    }
+    if (dto.actualHours !== undefined) {
+      task.actualHours = dto.actualHours;
+      changedFields.push('actualHours');
+    }
+    if (dto.iterationId !== undefined) {
+      task.iterationId = dto.iterationId;
+      changedFields.push('iterationId');
+    }
+    if (dto.committed !== undefined) {
+      task.committed = dto.committed;
+      changedFields.push('committed');
     }
     if (dto.tags !== undefined) {
       task.tags = dto.tags;
       changedFields.push('tags');
+    }
+    // Phase 2H: Board rank for ordering within column
+    if (dto.rank !== undefined) {
+      task.rank = dto.rank;
+      changedFields.push('rank');
     }
     if (dto.archived !== undefined) {
       // Note: archived not in entity yet, skip for now
@@ -637,8 +741,31 @@ export class WorkTasksService {
         );
       } catch (error) {
         // Log but don't fail the task update if health recalculation fails
-        console.warn('Failed to recalculate project health:', error);
+        this.logger.warn('Failed to recalculate project health:', error);
       }
+    }
+
+    // Phase 3B: Audit board moves (status/rank changes only)
+    const statusChanged = changedFields.includes('status');
+    const rankChanged = changedFields.includes('rank');
+    if ((statusChanged || rankChanged) && !auditSource) {
+      // Only emit if caller didn't already provide a source (prevents double-logging)
+      const oldRank = dto.rank !== undefined ? undefined : undefined; // can't capture old rank easily
+      await this.auditService.record({
+        organizationId,
+        workspaceId,
+        actorUserId: auth.userId,
+        actorPlatformRole: auth.platformRole || 'MEMBER',
+        entityType: AuditEntityType.WORK_TASK,
+        entityId: saved.id,
+        action: AuditAction.UPDATE,
+        metadata: {
+          ...(statusChanged ? { oldStatus, newStatus: saved.status } : {}),
+          ...(rankChanged ? { newRank: saved.rank } : {}),
+          changedFields,
+          source: AuditSource.BOARD,
+        },
+      });
     }
 
     return saved;
@@ -738,7 +865,7 @@ export class WorkTasksService {
           workspaceId,
         );
       } catch (error) {
-        console.warn('Failed to recalculate project health:', error);
+        this.logger.warn('Failed to recalculate project health:', error);
       }
     }
 

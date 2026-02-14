@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator';
 import { User } from '../../modules/users/entities/user.entity';
 import { InvitationService } from '../services/invitation.service';
@@ -127,6 +128,7 @@ export class InvitationAcceptanceController {
   }
 
   @Post(':token/accept-anonymous')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({
     summary: 'Check invitation for anonymous user',
     description: 'Returns invitation details and whether signup is required',

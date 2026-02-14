@@ -17,6 +17,7 @@ import { TemplateBlock } from '../templates/entities/template-block.entity';
 // Import all entities
 import { Project } from './entities/project.entity';
 import { ProjectView } from './entities/project-view.entity';
+import { ProjectCloneRequest } from './entities/project-clone-request.entity';
 // import { ProjectAssignment } from './entities/project-assignment.entity';
 // import { ProjectPhase } from './entities/project-phase.entity';
 import { Task } from './entities/task.entity';
@@ -28,12 +29,14 @@ import { ProjectMetrics } from '../../pm/entities/project-metrics.entity';
 
 // Import all services
 import { ProjectsService } from './services/projects.service';
+import { ProjectCloneService } from './services/project-clone.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
 import { TaskService } from './services/task.service';
 import { DependencyService } from './services/dependency.service';
 
 // Import all controllers
 import { ProjectsController } from './projects.controller';
+import { ProjectCloneController } from './controllers/project-clone.controller';
 import { TaskController } from './controllers/task.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller'; // PHASE 6: Workspace-scoped project routes
 
@@ -43,12 +46,16 @@ import { RequireProjectWorkspaceRoleGuard } from './guards/require-project-works
 // PHASE 6: Import for project linking
 import { ProgramsModule } from '../programs/programs.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module';
+// Project clone dependencies
+import { DomainEventsModule } from '../domain-events/domain-events.module';
+import { PoliciesModule } from '../policies/policies.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Project,
       ProjectView,
+      ProjectCloneRequest,
       // ProjectAssignment,
       // ProjectPhase,
       Task,
@@ -64,11 +71,14 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
     TenancyModule, // Required for TenantAwareRepository
     UsersModule, // This provides access to User entity for TaskService
     WorkspaceAccessModule, // Provides WorkspaceAccessService for membership filtering - breaks circular dependency
+    DomainEventsModule, // For ProjectCloneService event emission
+    PoliciesModule, // For ProjectCloneService policy gate
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
   ],
   controllers: [
     ProjectsController,
+    ProjectCloneController,
     TaskController,
     WorkspaceProjectsController,
   ], // PHASE 6: Added WorkspaceProjectsController
@@ -84,6 +94,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
     createTenantAwareRepositoryProvider(Workspace), // Required for RequireWorkspaceAccessGuard
     createTenantAwareRepositoryProvider(WorkspaceMember), // Required for RequireWorkspaceAccessGuard
     ProjectsService,
+    ProjectCloneService,
     // ProjectAssignmentService,
     TaskService,
     DependencyService,
@@ -91,6 +102,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
   ],
   exports: [
     ProjectsService,
+    ProjectCloneService,
     // ProjectAssignmentService,
     TaskService,
     DependencyService,

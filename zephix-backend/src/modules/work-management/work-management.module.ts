@@ -37,9 +37,14 @@ import { WorkPhasesController } from './controllers/work-phases.controller';
 import { WorkRisksController } from './controllers/work-risks.controller';
 import { WorkResourceAllocationsController } from './controllers/work-resource-allocations.controller';
 import { WorkflowConfigController } from './controllers/workflow-config.controller';
+import { IterationsController } from './controllers/iterations.controller';
 import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
 import { WorkflowConfigService } from './services/workflow-config.service';
 import { WipLimitsService } from './services/wip-limits.service';
+import { IterationsService } from './services/iterations.service';
+import { ProjectCostService } from './services/project-cost.service';
+import { ProjectCostController } from './controllers/project-cost.controller';
+import { Iteration } from './entities/iteration.entity';
 import { GateApprovalChainService } from './services/gate-approval-chain.service';
 import { GateApprovalEngineService } from './services/gate-approval-engine.service';
 import { GateApprovalChainController } from './controllers/gate-approval-chain.controller';
@@ -52,6 +57,31 @@ import { PhaseGateSubmissionDocument } from './entities/phase-gate-submission-do
 import { GateApprovalChain } from './entities/gate-approval-chain.entity';
 import { GateApprovalChainStep } from './entities/gate-approval-chain-step.entity';
 import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
+// Phase 2B: Waterfall core entities
+import { ScheduleBaseline } from './entities/schedule-baseline.entity';
+import { ScheduleBaselineItem } from './entities/schedule-baseline-item.entity';
+import { EarnedValueSnapshot } from './entities/earned-value-snapshot.entity';
+// Phase 2B: Waterfall core services
+import { CriticalPathEngineService } from './services/critical-path-engine.service';
+import { BaselineService } from './services/baseline.service';
+import { EarnedValueService } from './services/earned-value.service';
+import { ScheduleRescheduleService } from './services/schedule-reschedule.service';
+// Phase 2B: Waterfall core controllers
+import { ProjectScheduleController } from './controllers/project-schedule.controller';
+import { ScheduleBaselinesController } from './controllers/schedule-baselines.controller';
+import { EarnedValueController } from './controllers/earned-value.controller';
+// Phase 2C: Hardening controllers
+import { ProjectHealthController } from './controllers/project-health.controller';
+import { ScheduleIntegrityController } from './controllers/schedule-integrity.controller';
+// Phase 2E: Resource Capacity Engine
+import { WorkspaceMemberCapacity } from './entities/workspace-member-capacity.entity';
+import { CapacityCalendarService } from './services/capacity-calendar.service';
+import { DemandModelService } from './services/demand-model.service';
+import { CapacityAnalyticsService } from './services/capacity-analytics.service';
+import { CapacityLevelingService } from './services/capacity-leveling.service';
+import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
+import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
+import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -66,6 +96,7 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
       TaskActivity,
       AckToken,
       AuditEvent,
+      Iteration,
       Project,
       Program,
       WorkspaceMember,
@@ -77,6 +108,12 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
       GateApprovalChain,
       GateApprovalChainStep,
       GateApprovalDecision,
+      // Phase 2B: Waterfall entities
+      ScheduleBaseline,
+      ScheduleBaselineItem,
+      EarnedValueSnapshot,
+      // Phase 2E: Capacity calendar
+      WorkspaceMemberCapacity,
     ]),
     WorkspaceAccessModule,
     PoliciesModule,
@@ -91,6 +128,19 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     WorkflowConfigController,
     GateApprovalChainController,
     GateApprovalActionController,
+    IterationsController,
+    ProjectCostController,
+    // Phase 2B: Waterfall controllers
+    ProjectScheduleController,
+    ScheduleBaselinesController,
+    EarnedValueController,
+    // Phase 2C: Hardening controllers
+    ProjectHealthController,
+    ScheduleIntegrityController,
+    // Phase 2E: Capacity controllers
+    CapacityCalendarController,
+    CapacityAnalyticsController,
+    CapacityLevelingController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -119,6 +169,18 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     GateApprovalChainService,
     GateApprovalEngineService,
     PhaseGateEvaluatorService,
+    IterationsService,
+    ProjectCostService,
+    // Phase 2B: Waterfall services
+    CriticalPathEngineService,
+    BaselineService,
+    EarnedValueService,
+    ScheduleRescheduleService,
+    // Phase 2E: Capacity services
+    CapacityCalendarService,
+    DemandModelService,
+    CapacityAnalyticsService,
+    CapacityLevelingService,
   ],
   exports: [
     TypeOrmModule,
@@ -137,6 +199,18 @@ import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
     GateApprovalChainService,
     GateApprovalEngineService,
     PhaseGateEvaluatorService,
+    IterationsService,
+    ProjectCostService,
+    // Phase 2B exports
+    CriticalPathEngineService,
+    BaselineService,
+    EarnedValueService,
+    ScheduleRescheduleService,
+    // Phase 2E exports
+    CapacityCalendarService,
+    DemandModelService,
+    CapacityAnalyticsService,
+    CapacityLevelingService,
   ],
 })
 export class WorkManagementModule {}

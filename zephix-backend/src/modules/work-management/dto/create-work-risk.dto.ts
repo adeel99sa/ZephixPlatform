@@ -3,6 +3,9 @@ import {
   IsEnum,
   IsUUID,
   IsOptional,
+  IsInt,
+  Min,
+  Max,
   MaxLength,
   IsDateString,
 } from 'class-validator';
@@ -33,6 +36,25 @@ export class CreateWorkRiskDto {
   @IsOptional()
   @IsEnum(RiskStatus)
   status?: RiskStatus;
+
+  @ApiPropertyOptional({ description: 'Probability (1-5)', minimum: 1, maximum: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  probability?: number;
+
+  @ApiPropertyOptional({ description: 'Impact (1-5)', minimum: 1, maximum: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  impact?: number;
+
+  @ApiPropertyOptional({ description: 'Mitigation plan' })
+  @IsOptional()
+  @IsString()
+  mitigationPlan?: string;
 
   @ApiPropertyOptional({ description: 'Owner user ID' })
   @IsOptional()
