@@ -282,9 +282,13 @@ jobs:
           token: ${{ secrets.RAILWAY_TOKEN_TEST }}
 
   # Deploy staging from release tags (v*)
+  # Guardrails: backend tsc, backend tests, gating frontend tests, migration check
+  # Railway service names (verified 2026-02-10):
+  #   Backend:  zephix-backend-v2   (NOT zephix-backend-staging)
+  #   Frontend: zephix-frontend     (same service, staging env selected by token)
   deploy-staging:
     name: Deploy to Staging
-    needs: [security-scan, backend-test]
+    needs: [security-scan, backend-test, frontend-test]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     environment: staging
@@ -293,33 +297,137 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build backend
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ── Backend quality gates (staging requires all pass) ──────────────
+      - name: Backend install
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Backend typecheck
+        working-directory: zephix-backend
+        run: npx tsc --noEmit
+
+      - name: Backend build
+        working-directory: zephix-backend
+        run: npm run build
+
+      - name: Backend unit tests
+        working-directory: zephix-backend
+        run: npm run test:cov
+        env:
+          NODE_ENV: test
+          JWT_SECRET: staging-ci-secret
+
+      # ── Frontend quality gates (staging requires gating pass) ──────────
+      - name: Frontend install
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Frontend typecheck
+        working-directory: zephix-frontend
+        run: npx tsc --noEmit
+
+      - name: Frontend gating tests
+        working-directory: zephix-frontend
+        run: npm run test:gating
+
+      - name: Frontend build
+        working-directory: zephix-frontend
+        run: npm run build
+
+      # ── Migration readiness check (source + compiled) ──────────────────
+      - name: Migration readiness check
         working-directory: zephix-backend
         run: |
-          npm ci
-          npm run build
+          echo "=== Source migration check ==="
+          SRC_COUNT=$(ls -1 src/migrations/*.ts 2>/dev/null | wc -l | tr -d ' ')
+          echo "Source migration files: ${SRC_COUNT}"
+          if [ "$SRC_COUNT" -eq 0 ]; then
+            echo "::error::No source migration files found — schema drift risk"
+            exit 1
+          fi
 
-      - name: Build frontend
-        working-directory: zephix-frontend
-        run: |
-          npm ci
-          npm run build
+          echo "=== Compiled migration check ==="
+          DIST_COUNT=$(ls -1 dist/migrations/*.js 2>/dev/null | wc -l | tr -d ' ')
+          echo "Compiled migration files: ${DIST_COUNT}"
+          if [ "$DIST_COUNT" -eq 0 ]; then
+            echo "::error::Migrations exist in src/ but NOT in dist/ — build did not include migrations"
+            exit 1
+          fi
 
+          echo "=== Parity check ==="
+          echo "Source: ${SRC_COUNT} | Compiled: ${DIST_COUNT}"
+          if [ "$SRC_COUNT" -ne "$DIST_COUNT" ]; then
+            echo "::warning::Migration count mismatch: ${SRC_COUNT} source vs ${DIST_COUNT} compiled"
+          fi
+          echo "Migration readiness: OK"
+
+      # ── Deploy backend FIRST ───────────────────────────────────────────
       - name: Deploy Backend to Railway (Staging)
         uses: railway/deploy@v1
         with:
-          service: zephix-backend-staging
+          service: zephix-backend-v2
           token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
+      # ── Wait for backend health before deploying frontend ──────────────
+      - name: Wait for backend health (retry with backoff)
+        run: |
+          HEALTH_URL="${{ secrets.STAGING_API_URL }}/health/ready"
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+
+          MAX_ATTEMPTS=10
+          WAIT=10
+          echo "Waiting for backend at ${HEALTH_URL} (max ${MAX_ATTEMPTS} attempts, ${WAIT}s backoff)..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt ${i}/${MAX_ATTEMPTS} (waiting ${WAIT}s)..."
+            sleep $WAIT
+
+            HTTP_CODE=$(curl -s -o /tmp/health-response.txt -D /tmp/health-headers.txt -w "%{http_code}" -H "Accept: application/json" "$HEALTH_URL" 2>/dev/null || echo "000")
+            REQUEST_ID=$(grep -i 'x-request-id' /tmp/health-headers.txt 2>/dev/null | cut -d: -f2 | tr -d ' ' || echo "n/a")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Backend health check passed on attempt ${i} (HTTP ${HTTP_CODE})"
+              cat /tmp/health-response.txt 2>/dev/null || true
+              echo ""
+              break
+            fi
+
+            echo "  HTTP ${HTTP_CODE} — not ready yet (X-Request-Id: ${REQUEST_ID})"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Backend health check FAILED after ${MAX_ATTEMPTS} attempts"
+              echo "Last response (HTTP ${HTTP_CODE}):"
+              cat /tmp/health-response.txt 2>/dev/null || echo "(no response body)"
+              echo "X-Request-Id: ${REQUEST_ID}"
+              exit 1
+            fi
+
+            # Linear backoff with slight increase each round (total ~100-120s)
+            WAIT=$((WAIT + 2))
+          done
+
+      # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
         uses: railway/deploy@v1
         with:
-          service: zephix-frontend-staging
+          service: zephix-frontend
           token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
   # Production: manual dispatch only, requires approved tag
+  # Rule: requires 2 consecutive green staging smokes for same tag before promotion
+  # Railway service names (verified 2026-02-10):
+  #   Backend:  zephix-backend   (production env selected by RAILWAY_TOKEN_PROD)
+  #   Frontend: zephix-frontend  (production env selected by RAILWAY_TOKEN_PROD)
   deploy-production:
     name: Deploy to Production
+    needs: [deploy-staging]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v')
     environment: production
@@ -327,6 +435,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Verify tag is on main
         run: |
@@ -336,32 +451,85 @@ jobs:
             exit 1
           fi
 
-      - name: Build backend
+      - name: Verify tag format (must be release, not RC)
+        run: |
+          TAG="${{ github.ref_name }}"
+          if echo "$TAG" | grep -qE '(-rc|-(alpha|beta))'; then
+            echo "::error::Cannot deploy release candidate or pre-release tag ${TAG} to production. Tag a stable release (e.g., v0.6.0)."
+            exit 1
+          fi
+          echo "Tag ${TAG} is a stable release — OK"
+
+      - name: Backend build
         working-directory: zephix-backend
         run: |
           npm ci
           npm run build
 
-      - name: Build frontend
+      - name: Frontend build
         working-directory: zephix-frontend
         run: |
           npm ci
           npm run build
 
       - name: Backup readiness check
-        working-directory: zephix-backend
         run: |
           echo "Verifying backup readiness before production deploy..."
-          # This would hit the staging backup-readiness endpoint
-          # curl -sf $STAGING_URL/api/admin/system/backup-readiness || exit 1
-          echo "Backup readiness check placeholder - configure STAGING_URL"
+          if [ -n "${{ secrets.STAGING_API_URL }}" ]; then
+            curl -sf "${{ secrets.STAGING_API_URL }}/admin/system/backup-readiness" \
+              && echo "Backup readiness: OK" \
+              || { echo "::error::Backup readiness check failed on staging — aborting production deploy"; exit 1; }
+          else
+            echo "::warning::STAGING_API_URL not configured — skipping backup readiness check"
+          fi
 
+      # ── Deploy backend FIRST ───────────────────────────────────────────
       - name: Deploy Backend to Railway (Production)
         uses: railway/deploy@v1
         with:
           service: zephix-backend
           token: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
+      # ── Wait for backend health before deploying frontend ──────────────
+      - name: Wait for production backend health (retry with backoff)
+        run: |
+          HEALTH_URL="${{ secrets.PROD_API_URL }}/health/ready"
+          if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+            echo "::warning::PROD_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+
+          MAX_ATTEMPTS=10
+          WAIT=15
+          echo "Waiting for production backend at ${HEALTH_URL} (max ${MAX_ATTEMPTS} attempts)..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt ${i}/${MAX_ATTEMPTS} (waiting ${WAIT}s)..."
+            sleep $WAIT
+
+            HTTP_CODE=$(curl -s -o /tmp/health-response.txt -w "%{http_code}" -D /tmp/health-headers.txt -H "Accept: application/json" "$HEALTH_URL" 2>/dev/null || echo "000")
+            REQUEST_ID=$(grep -i 'x-request-id' /tmp/health-headers.txt 2>/dev/null | cut -d: -f2 | tr -d ' ' || echo "n/a")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Production backend health passed on attempt ${i} (HTTP ${HTTP_CODE})"
+              cat /tmp/health-response.txt 2>/dev/null || true
+              echo ""
+              break
+            fi
+
+            echo "  HTTP ${HTTP_CODE} — not ready yet (X-Request-Id: ${REQUEST_ID})"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Production backend health FAILED after ${MAX_ATTEMPTS} attempts"
+              echo "Last response (HTTP ${HTTP_CODE}):"
+              cat /tmp/health-response.txt 2>/dev/null || echo "(no response body)"
+              echo "X-Request-Id: ${REQUEST_ID}"
+              exit 1
+            fi
+
+            WAIT=$((WAIT + 3))
+          done
+
+      # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Production)
         uses: railway/deploy@v1
         with:
