@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
+import { AuditService } from '../../audit/services/audit.service';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
 
 describe('WorkspaceAccessService', () => {
   let service: WorkspaceAccessService;
-  let memberRepo: Repository<WorkspaceMember>;
   let configService: ConfigService;
 
   const mockMemberRepo = {
@@ -20,25 +20,34 @@ describe('WorkspaceAccessService', () => {
     get: jest.fn().mockReturnValue('1'), // Feature flag enabled
   };
 
+  const mockTenantContextService = {
+    assertOrganizationId: jest.fn().mockReturnValue('org-123'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WorkspaceAccessService,
         {
-          provide: getRepositoryToken(WorkspaceMember),
+          provide: getTenantAwareRepositoryToken(WorkspaceMember),
           useValue: mockMemberRepo,
         },
         {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: TenantContextService,
+          useValue: mockTenantContextService,
+        },
+        {
+          provide: AuditService,
+          useValue: { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) },
+        },
       ],
     }).compile();
 
     service = module.get<WorkspaceAccessService>(WorkspaceAccessService);
-    memberRepo = module.get<Repository<WorkspaceMember>>(
-      getRepositoryToken(WorkspaceMember),
-    );
     configService = module.get<ConfigService>(ConfigService);
   });
 
@@ -172,6 +181,7 @@ describe('WorkspaceAccessService', () => {
 
   describe('hasWorkspaceRoleAtLeast', () => {
     it('should return true when actual role satisfies required role', () => {
+      // hasWorkspaceRoleAtLeast(requiredRole, actualRole): owner satisfies viewer
       expect(
         service.hasWorkspaceRoleAtLeast('workspace_viewer', 'workspace_owner'),
       ).toBe(true);
@@ -179,16 +189,17 @@ describe('WorkspaceAccessService', () => {
         service.hasWorkspaceRoleAtLeast('workspace_member', 'workspace_member'),
       ).toBe(true);
       expect(
-        service.hasWorkspaceRoleAtLeast('workspace_owner', 'workspace_viewer'),
+        service.hasWorkspaceRoleAtLeast('workspace_viewer', 'workspace_owner'),
       ).toBe(true);
     });
 
     it('should return false when actual role does not satisfy required role', () => {
+      // required member, actual viewer -> false; required owner, actual member -> false
       expect(
-        service.hasWorkspaceRoleAtLeast('workspace_viewer', 'workspace_member'),
+        service.hasWorkspaceRoleAtLeast('workspace_member', 'workspace_viewer'),
       ).toBe(false);
       expect(
-        service.hasWorkspaceRoleAtLeast('workspace_member', 'workspace_owner'),
+        service.hasWorkspaceRoleAtLeast('workspace_owner', 'workspace_member'),
       ).toBe(false);
     });
 

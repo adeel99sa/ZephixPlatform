@@ -15,7 +15,7 @@ import {
   RiskSeverity,
   RiskStatus,
 } from '../entities/work-risk.entity';
-import { CreateWorkRiskDto, ListWorkRisksQueryDto } from '../dto';
+import { CreateWorkRiskDto, UpdateWorkRiskDto, ListWorkRisksQueryDto } from '../dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -171,15 +171,19 @@ export class WorkRisksService {
       description: dto.description || null,
       severity: dto.severity || RiskSeverity.MEDIUM,
       status: dto.status || RiskStatus.OPEN,
+      probability: dto.probability ?? 3,
+      impact: dto.impact ?? 3,
+      mitigationPlan: dto.mitigationPlan || null,
       ownerUserId: dto.ownerUserId || null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      createdBy: auth.userId,
     });
 
     return this.riskRepo.save(risk);
   }
 
   // ============================================================
-  // GET RISK BY ID (for future use)
+  // GET RISK BY ID
   // ============================================================
 
   async getRiskById(
@@ -207,5 +211,50 @@ export class WorkRisksService {
     }
 
     return risk;
+  }
+
+  // ============================================================
+  // UPDATE RISK
+  // ============================================================
+
+  async updateRisk(
+    auth: AuthContext,
+    workspaceId: string,
+    riskId: string,
+    dto: UpdateWorkRiskDto,
+  ): Promise<WorkRisk> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    await this.assertWriteAccess(auth, workspaceId);
+
+    const risk = await this.getRiskById(auth, workspaceId, riskId);
+
+    if (dto.title !== undefined) risk.title = dto.title;
+    if (dto.description !== undefined) risk.description = dto.description || null;
+    if (dto.severity !== undefined) risk.severity = dto.severity;
+    if (dto.status !== undefined) risk.status = dto.status;
+    if (dto.probability !== undefined) risk.probability = dto.probability;
+    if (dto.impact !== undefined) risk.impact = dto.impact;
+    if (dto.mitigationPlan !== undefined) risk.mitigationPlan = dto.mitigationPlan || null;
+    if (dto.ownerUserId !== undefined) risk.ownerUserId = dto.ownerUserId || null;
+    if (dto.dueDate !== undefined) risk.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+
+    return this.riskRepo.save(risk);
+  }
+
+  // ============================================================
+  // DELETE RISK (soft delete)
+  // ============================================================
+
+  async deleteRisk(
+    auth: AuthContext,
+    workspaceId: string,
+    riskId: string,
+  ): Promise<void> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    await this.assertWriteAccess(auth, workspaceId);
+
+    const risk = await this.getRiskById(auth, workspaceId, riskId);
+    risk.deletedAt = new Date();
+    await this.riskRepo.save(risk);
   }
 }

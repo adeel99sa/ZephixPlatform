@@ -2,9 +2,12 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   UseGuards,
   Req,
   Body,
+  Param,
   Query,
   Headers,
   ForbiddenException,
@@ -22,7 +25,7 @@ import { ResponseService } from '../../../shared/services/response.service';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { WorkRisksService } from '../services/work-risks.service';
-import { CreateWorkRiskDto, ListWorkRisksQueryDto } from '../dto';
+import { CreateWorkRiskDto, UpdateWorkRiskDto, ListWorkRisksQueryDto } from '../dto';
 import { RiskSeverity, RiskStatus } from '../entities/work-risk.entity';
 
 // UUID validation regex
@@ -103,5 +106,62 @@ export class WorkRisksController {
     const risk = await this.workRisksService.createRisk(auth, wsId, dto);
 
     return this.responseService.success(risk);
+  }
+
+  // GET /api/work/risks/:id
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a risk by ID' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiResponse({ status: 200, description: 'Risk found' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
+  async getRisk(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    const wsId = validateWorkspaceId(workspaceId);
+    const auth = getAuthContext(req);
+
+    const risk = await this.workRisksService.getRiskById(auth, wsId, id);
+    return this.responseService.success(risk);
+  }
+
+  // PATCH /api/work/risks/:id
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update a risk' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiResponse({ status: 200, description: 'Risk updated' })
+  @ApiResponse({ status: 403, description: 'Write access denied' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
+  async updateRisk(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkRiskDto,
+  ) {
+    const wsId = validateWorkspaceId(workspaceId);
+    const auth = getAuthContext(req);
+
+    const risk = await this.workRisksService.updateRisk(auth, wsId, id, dto);
+    return this.responseService.success(risk);
+  }
+
+  // DELETE /api/work/risks/:id
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a risk (soft delete)' })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiResponse({ status: 200, description: 'Risk deleted' })
+  @ApiResponse({ status: 403, description: 'Write access denied' })
+  @ApiResponse({ status: 404, description: 'Risk not found' })
+  async deleteRisk(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    const wsId = validateWorkspaceId(workspaceId);
+    const auth = getAuthContext(req);
+
+    await this.workRisksService.deleteRisk(auth, wsId, id);
+    return this.responseService.success(null, 'Risk deleted');
   }
 }

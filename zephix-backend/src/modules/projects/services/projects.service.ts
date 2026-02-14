@@ -28,6 +28,7 @@ import { WorkspaceAccessService } from '../../workspace-access/workspace-access.
 import { Template } from '../../templates/entities/template.entity';
 import { TemplateBlock } from '../../templates/entities/template-block.entity';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { EntitlementService } from '../../billing/entitlements/entitlement.service';
 import { bootLog } from '../../../common/utils/debug-boot';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 
@@ -67,6 +68,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly tenantContext: TenantContextService,
     private configService: ConfigService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly entitlementService: EntitlementService,
     // @InjectRepository(ProjectAssignment)
     // private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
     // @InjectRepository(ProjectPhase)
@@ -98,6 +100,16 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     try {
       this.logger.log(
         `Creating project for org: ${organizationId}, user: ${userId}`,
+      );
+
+      // Phase 3A: Enforce project count quota
+      const currentProjectCount = await this.projectRepository.count({
+        where: { organizationId },
+      });
+      await this.entitlementService.assertWithinLimit(
+        organizationId,
+        'max_projects',
+        currentProjectCount,
       );
 
       // Validate workspaceId is provided

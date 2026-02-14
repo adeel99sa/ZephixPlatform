@@ -5,6 +5,8 @@ import { SubscriptionsService } from './services/subscriptions.service';
 import { ForbiddenException, NotImplementedException } from '@nestjs/common';
 import { Plan, PlanType, BillingCycle } from './entities/plan.entity';
 import { Subscription, SubscriptionStatus } from './entities/subscription.entity';
+import { EntitlementService } from '../modules/billing/entitlements/entitlement.service';
+import { PlanCode } from '../modules/billing/entitlements/plan-code.enum';
 
 describe('BillingController - Contract Tests', () => {
   let controller: BillingController;
@@ -82,6 +84,24 @@ describe('BillingController - Contract Tests', () => {
             checkUsageLimit: jest.fn(),
             checkInternalManaged: jest.fn(),
             getMockedFreePlan: jest.fn(),
+          },
+        },
+        {
+          provide: EntitlementService,
+          useValue: {
+            getPlanCode: jest.fn().mockResolvedValue(PlanCode.ENTERPRISE),
+            resolve: jest.fn().mockResolvedValue({
+              capacity_engine: true,
+              what_if_scenarios: true,
+              portfolio_rollups: true,
+              attachments: true,
+              board_view: true,
+              max_projects: null,
+              max_portfolios: null,
+              max_scenarios: null,
+              max_storage_bytes: 100 * 1024 * 1024 * 1024,
+              api_rate_multiplier: 10,
+            }),
           },
         },
       ],

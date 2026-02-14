@@ -106,6 +106,52 @@ export class Project {
   })
   actualCost: number;
 
+  // ── Budget & Cost Lite ─────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 3, default: 'USD', nullable: true })
+  currency: string;
+
+  @Column({
+    name: 'labor_rate_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'flatRate',
+    nullable: true,
+  })
+  laborRateMode: string;
+
+  @Column({
+    name: 'flat_labor_rate_per_hour',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  flatLaborRatePerHour: number | null;
+
+  @Column({
+    name: 'cost_tracking_enabled',
+    type: 'boolean',
+    default: false,
+  })
+  costTrackingEnabled: boolean;
+
+  // ── Phase 2B: Waterfall governance fields ───────────────────────────
+  @Column({ name: 'waterfall_enabled', type: 'boolean', default: true })
+  waterfallEnabled: boolean;
+
+  @Column({ name: 'baselines_enabled', type: 'boolean', default: true })
+  baselinesEnabled: boolean;
+
+  @Column({ name: 'earned_value_enabled', type: 'boolean', default: false })
+  earnedValueEnabled: boolean;
+
+  // ── Phase 2E: Resource Capacity governance ──────────────────────────
+  @Column({ name: 'capacity_enabled', type: 'boolean', default: false })
+  capacityEnabled: boolean;
+
+  @Column({ name: 'capacity_mode', type: 'varchar', length: 20, default: 'both' })
+  capacityMode: string;
+
   @Column({
     name: 'risk_level',
     type: 'varchar',
@@ -256,7 +302,40 @@ export class Project {
   @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
   activeKpiIds: string[];
 
+  // ── Template Enforcement / Governance ─────────────────────────────
+  @Column({ name: 'iterations_enabled', type: 'boolean', default: false })
+  iterationsEnabled: boolean;
+
+  @Column({
+    name: 'estimation_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'both',
+    nullable: true,
+  })
+  estimationMode: string;
+
+  @Column({
+    name: 'default_iteration_length_days',
+    type: 'integer',
+    nullable: true,
+  })
+  defaultIterationLengthDays: number | null;
+
   /** Project-level Definition of Done: ordered list of short strings. */
   @Column({ type: 'jsonb', name: 'definition_of_done', nullable: true })
   definitionOfDone: string[] | null;
+
+  // Project clone lineage tracking
+  @Column({ type: 'uuid', name: 'source_project_id', nullable: true })
+  sourceProjectId: string | null;
+
+  @Column({ type: 'int', name: 'clone_depth', default: 0 })
+  cloneDepth: number;
+
+  @Column({ type: 'timestamptz', name: 'cloned_at', nullable: true })
+  clonedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'cloned_by', nullable: true })
+  clonedBy: string | null;
 }
