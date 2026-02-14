@@ -306,13 +306,13 @@ jobs:
       - name: Deploy Backend to Railway (Staging)
         uses: railway/deploy@v1
         with:
-          service: zephix-backend
+          service: zephix-backend-staging
           token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       - name: Deploy Frontend to Railway (Staging)
         uses: railway/deploy@v1
         with:
-          service: zephix-frontend
+          service: zephix-frontend-staging
           token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
   # Production: manual dispatch only, requires approved tag
