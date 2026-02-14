@@ -28,6 +28,8 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:foundation": "vitest run 'src/components/ui/**/*.test.*' 'src/lib/api/**/*.test.*' 'src/pages/projects/**/*.test.*' 'src/pages/dashboard/**/*.test.*' 'src/pages/settings/**/*.test.*' 'src/pages/templates/**/*.test.*'",
+    "test:gating": "vitest run --config vitest.gating.config.ts --reporter=dot",
+    "test:frontend:all": "vitest run --reporter=dot",
     "test:guardrails": "vitest run src/test/guardrails --reporter=dot",
     "test:smoke": "playwright test -g \"login -> hub\"",
     "test:smoke:e2e": "playwright test tests/smoke/ --reporter=list",
