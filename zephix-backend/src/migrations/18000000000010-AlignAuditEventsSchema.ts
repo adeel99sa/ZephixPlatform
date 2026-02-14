@@ -47,26 +47,36 @@ export class AlignAuditEventsSchema18000000000010 implements MigrationInterface 
         ADD COLUMN IF NOT EXISTS actor_workspace_role varchar(30)
     `);
 
-    // 3. Add metadata_json column (entity uses this name; DB has 'metadata')
+    // 3. Add metadata_json column (entity uses this name; DB may have legacy 'metadata')
     await queryRunner.query(`
       ALTER TABLE audit_events
         ADD COLUMN IF NOT EXISTS metadata_json jsonb
     `);
-    // Backfill from legacy 'metadata' column
+    // Backfill from legacy 'metadata' column if it exists
     await queryRunner.query(`
-      UPDATE audit_events SET metadata_json = metadata
-      WHERE metadata_json IS NULL AND metadata IS NOT NULL
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'audit_events' AND column_name = 'metadata') THEN
+          EXECUTE 'UPDATE audit_events SET metadata_json = metadata
+                   WHERE metadata_json IS NULL AND metadata IS NOT NULL';
+        END IF;
+      END $$
     `);
 
-    // 4. Add ip_address column (entity uses this name; DB has 'ip')
+    // 4. Add ip_address column (entity uses this name; DB may have legacy 'ip')
     await queryRunner.query(`
       ALTER TABLE audit_events
         ADD COLUMN IF NOT EXISTS ip_address varchar(45)
     `);
-    // Backfill from legacy 'ip' column
+    // Backfill from legacy 'ip' column if it exists
     await queryRunner.query(`
-      UPDATE audit_events SET ip_address = ip
-      WHERE ip_address IS NULL AND ip IS NOT NULL
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'audit_events' AND column_name = 'ip') THEN
+          EXECUTE 'UPDATE audit_events SET ip_address = ip
+                   WHERE ip_address IS NULL AND ip IS NOT NULL';
+        END IF;
+      END $$
     `);
 
     // 5. Make organization_id NOT NULL with safe default
@@ -104,10 +114,18 @@ export class AlignAuditEventsSchema18000000000010 implements MigrationInterface 
       END $$
     `);
 
-    // 8. Make actor_user_id NOT NULL (backfill from user_id)
+    // 8. Make actor_user_id NOT NULL (backfill from user_id if it exists)
     await queryRunner.query(`
-      UPDATE audit_events SET actor_user_id = COALESCE(user_id, '00000000-0000-0000-0000-000000000000')
-      WHERE actor_user_id IS NULL
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'audit_events' AND column_name = 'user_id') THEN
+          EXECUTE 'UPDATE audit_events SET actor_user_id = COALESCE(user_id, ''00000000-0000-0000-0000-000000000000'')
+                   WHERE actor_user_id IS NULL';
+        ELSE
+          EXECUTE 'UPDATE audit_events SET actor_user_id = ''00000000-0000-0000-0000-000000000000''
+                   WHERE actor_user_id IS NULL';
+        END IF;
+      END $$
     `);
     await queryRunner.query(`
       DO $$ BEGIN

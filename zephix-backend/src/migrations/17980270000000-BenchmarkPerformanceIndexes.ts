@@ -17,10 +17,18 @@ export class BenchmarkPerformanceIndexes17980270000000 implements MigrationInter
     // 1. Audit: admin audit viewer — ORDER BY created_at DESC
     // Note: idx_audit_events_org_time uses occurred_at, not created_at.
     // The audit controller and API sort by created_at, so this index is required.
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "idx_audit_events_org_created_desc"
-       ON "audit_events" ("organization_id", "created_at" DESC)`,
-    );
+    // Guard: only create if organization_id column exists (added in later migration)
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'audit_events' AND column_name = 'organization_id'
+        ) THEN
+          EXECUTE 'CREATE INDEX IF NOT EXISTS "idx_audit_events_org_created_desc"
+            ON "audit_events" ("organization_id", "created_at" DESC)';
+        END IF;
+      END $$
+    `);
 
     // 2. Board column: WHERE project_id AND status ORDER BY rank
     // Partial index excludes soft-deleted tasks.
@@ -31,10 +39,17 @@ export class BenchmarkPerformanceIndexes17980270000000 implements MigrationInter
     );
 
     // 3. Dependencies by project: Gantt view loads all deps for a project
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "idx_work_task_deps_org_project"
-       ON "work_task_dependencies" ("organization_id", "project_id")`,
-    );
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'work_task_dependencies' AND column_name = 'organization_id'
+        ) THEN
+          EXECUTE 'CREATE INDEX IF NOT EXISTS "idx_work_task_deps_org_project"
+            ON "work_task_dependencies" ("organization_id", "project_id")';
+        END IF;
+      END $$
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
