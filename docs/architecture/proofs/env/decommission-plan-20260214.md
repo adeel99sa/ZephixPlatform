@@ -2,65 +2,85 @@
 
 **Date**: 2026-02-14
 **Author**: Cursor (Solution Architect)
-**Status**: Ready for execution after staging and test verification
+**Status**: Ready for execution — ONLY after staging and test proofs pass
+
+## Prerequisites (all must be green before any decommission)
+
+- [ ] `staging-after.json` exists with: `zephixEnv=staging`, `dbHost=postgres-jj7b.railway.internal`, `/health/ready` 200
+- [ ] `test-after.json` exists with: `VITE_API_URL` pointing to test backend, no production domains
+- [ ] Production `/health/ready` returns 200 (getzephix.com unaffected)
 
 ## Services to Decommission
 
 ### Production Environment — Stray Staging Services
 
-| Service | Environment | Issue | Action |
-|---------|-------------|-------|--------|
-| `zephix-backend-staging` | production | Staging backend running inside production env | Scale to 0, remove domain, delete after 24h |
-| `zephix-frontend-staging` | production | Staging frontend running inside production env | Scale to 0, remove domain, delete after 24h |
-
-**Current domains to remove:**
-- `zephix-platform-staging-production.up.railway.app` (backend-staging in prod)
-- `zephix-frontend-staging-production.up.railway.app` (frontend-staging in prod)
+| Service | Environment | Current Domain | Issue |
+|---------|-------------|---------------|-------|
+| `zephix-backend-staging` | production | `zephix-platform-staging-production.up.railway.app` | Staging backend inside prod env |
+| `zephix-frontend-staging` | production | `zephix-frontend-staging-production.up.railway.app` | Staging frontend inside prod env |
 
 ### Test Environment — Stray Staging Services
 
-| Service | Environment | Issue | Action |
-|---------|-------------|-------|--------|
-| `zephix-backend-staging` | test | Orphaned staging backend in test env, uses staging DB | Delete |
-| `zephix-frontend-staging` | test | Orphaned staging frontend in test env | Delete |
+| Service | Environment | Issue |
+|---------|-------------|-------|
+| `zephix-backend-staging` | test | Orphaned staging backend, uses staging DB |
+| `zephix-frontend-staging` | test | Orphaned staging frontend |
 
-## Execution Steps (Manual — Railway Dashboard)
+## Execution Sequence (strict order)
 
-### Step 1: Verify staging and test are clean first
-- [ ] Staging backend `/health/ready` returns 200
-- [ ] Staging env-proof shows `dbHost=postgres-jj7b.railway.internal`
-- [ ] Test frontend calls test backend (not production)
+### Phase A: Production Environment Stray Services
 
-### Step 2: Decommission production/zephix-backend-staging
+**Step A1: Remove public domains first (reduces attack surface)**
 1. Open Railway dashboard → Production environment
-2. Select `zephix-backend-staging`
-3. Go to Settings → Networking → Remove public domain
-4. Go to Settings → Scale → Set instances to 0 (all regions)
-5. Wait 24 hours
+2. Select `zephix-backend-staging` → Settings → Networking → Remove domain `zephix-platform-staging-production.up.railway.app`
+3. Select `zephix-frontend-staging` → Settings → Networking → Remove domain `zephix-frontend-staging-production.up.railway.app`
 
-### Step 3: Decommission production/zephix-frontend-staging
-1. Same as Step 2 for `zephix-frontend-staging`
-2. Wait 24 hours
+**Step A2: Scale to zero**
+1. `zephix-backend-staging` → Settings → Scale → Set all regions to 0 instances
+2. `zephix-frontend-staging` → Settings → Scale → Set all regions to 0 instances
 
-### Step 4: Delete after 24h cooldown
+**Step A3: Wait 24 hours**
+- Monitor that production `getzephix.com` still works
+- Monitor that staging `zephix-backend-v2-staging.up.railway.app` still works
+- If anything breaks, domains and scale can be restored
+
+**Step A4: Delete (only after 24h cooldown)**
 1. Delete `zephix-backend-staging` from production environment
 2. Delete `zephix-frontend-staging` from production environment
 
-### Step 5: Delete stray services from test environment
+### Phase B: Test Environment Stray Services
+
+**Prerequisite**: Confirm nothing routes to these services.
+- Test frontend `VITE_API_URL` must point to `zephix-backend-test.up.railway.app`
+- No other service references `zephix-backend-staging` in test env
+
+**Step B1: Delete immediately** (these are orphaned, no cooldown needed)
 1. Delete `zephix-backend-staging` from test environment
 2. Delete `zephix-frontend-staging` from test environment
 
 ## Rollback
 
-If anything breaks after decommission:
-- The staging environment at `zephix-backend-v2` is the real staging backend
-- No code or data is lost — only wiring changes
-- To restore, recreate the service and set the original env vars (captured in `railway-inventory-20260214.json`)
+All env vars were captured in proof files:
+- `staging-before.json` — full staging env vars
+- `railway-inventory-20260214.json` — all services across all environments
 
-## Post-Decommission Service Map
+If any service needs to be restored:
+1. Recreate the service in Railway
+2. Apply the env vars from the proof file
+3. Restore the domain from the proof file
 
-| Environment | Backend Service | Frontend Service | Database |
-|-------------|----------------|-----------------|----------|
-| **production** | `zephix-backend` | `zephix-frontend` | `Postgres` (ballast.proxy.rlwy.net) |
-| **staging** | `zephix-backend-v2` | `zephix-frontend` | `zephixp-Postgres-staging` (postgres-jj7b.railway.internal) |
-| **test** | `zephix-backend` | `zephix-frontend` | `zephix-postgres-test` (yamabiko.proxy.rlwy.net) |
+## DB Service Mapping (for rollback reference)
+
+| Environment | Backend Service | Linked DB Service | DB Host | DB Port |
+|-------------|----------------|-------------------|---------|---------|
+| **production** | `zephix-backend` | `Postgres` | `ballast.proxy.rlwy.net` | 38318 |
+| **staging** | `zephix-backend-v2` | `zephixp-Postgres-staging` | `postgres-jj7b.railway.internal` | 5432 |
+| **test** | `zephix-backend` | `zephix-postgres-test` | `yamabiko.proxy.rlwy.net` | 26837 |
+
+## Post-Decommission Clean Service Map
+
+| Environment | Backend | Frontend | Database |
+|-------------|---------|----------|----------|
+| **production** | `zephix-backend` | `zephix-frontend` | `Postgres` |
+| **staging** | `zephix-backend-v2` | `zephix-frontend` | `zephixp-Postgres-staging` |
+| **test** | `zephix-backend` | `zephix-frontend` | `zephix-postgres-test` |

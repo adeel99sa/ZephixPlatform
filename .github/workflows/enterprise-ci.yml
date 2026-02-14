@@ -302,6 +302,47 @@ jobs:
             WAIT=$((WAIT + 2))
           done
 
+      # ── Post-deploy env-proof guard for test environment ───────────────
+      - name: "Test env-proof guard (block production DB)"
+        run: |
+          ENV_PROOF_URL="${{ secrets.TEST_API_URL }}/admin/system/env-proof"
+          if [ -z "${{ secrets.TEST_API_URL }}" ]; then
+            echo "::warning::TEST_API_URL not configured — skipping env-proof guard"
+            exit 0
+          fi
+
+          echo "Checking test env-proof at ${ENV_PROOF_URL}..."
+          RESPONSE=$(curl -sf -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ secrets.TEST_ADMIN_TOKEN }}" \
+            "$ENV_PROOF_URL" 2>/dev/null || echo '{"error":"env-proof unreachable"}')
+
+          echo "Response: ${RESPONSE}"
+
+          DB_HOST=$(echo "$RESPONSE" | jq -r '.data.dbHost // "unknown"' 2>/dev/null || echo "parse-error")
+          ZEPHIX_ENV=$(echo "$RESPONSE" | jq -r '.data.zephixEnv // "unknown"' 2>/dev/null || echo "parse-error")
+          SAFETY_OK=$(echo "$RESPONSE" | jq -r '.data.safetyCheck.safe // false' 2>/dev/null || echo "false")
+
+          echo "  zephixEnv: ${ZEPHIX_ENV}"
+          echo "  dbHost:    ${DB_HOST}"
+          echo "  safetyOk:  ${SAFETY_OK}"
+
+          # Hard fail: test must never connect to production
+          if [ "$DB_HOST" = "postgres.railway.internal" ] || [ "$DB_HOST" = "ballast.proxy.rlwy.net" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: dbHost is ${DB_HOST} (production Postgres)"
+            exit 1
+          fi
+          # Hard fail: test must never connect to staging
+          if [ "$DB_HOST" = "postgres-jj7b.railway.internal" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: dbHost is ${DB_HOST} (staging Postgres)"
+            exit 1
+          fi
+          if [ "$ZEPHIX_ENV" != "test" ] && [ "$ZEPHIX_ENV" != "unknown" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: zephixEnv is '${ZEPHIX_ENV}', expected 'test'"
+            exit 1
+          fi
+
+          echo "Test env-proof guard: PASSED"
+
       - name: Deploy Frontend to Railway (Test)
         uses: railway/deploy@v1
         with:
