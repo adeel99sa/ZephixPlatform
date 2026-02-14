@@ -1,5 +1,11 @@
 name: ci
-on: [push, pull_request]
+
+# Runs on PRs only — quality gate before merge.
+# Push-to-main and tag deploys are handled by enterprise-ci.yml.
+# This prevents duplicate runs (ci + enterprise) on every push.
+on:
+  pull_request:
+    branches: [main, develop]
 jobs:
   # Non-Docker C1 gates: build, lint, unit tests, placeholder check. No Postgres required.
   c1-gates:

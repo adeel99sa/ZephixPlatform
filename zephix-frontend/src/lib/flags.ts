@@ -28,3 +28,8 @@ export const isCapacityEngineEnabled = () => {
   const envValue = import.meta.env.VITE_FEATURE_CAPACITY;
   return envValue === '1' || envValue === 'true' || hasFlag('capacityEngine');
 };
+
+// Beta mode flag
+export const isBetaMode = () => {
+  return import.meta.env.VITE_BETA_MODE === '1' || import.meta.env.VITE_BETA_MODE === 'true' || hasFlag('betaMode');
+};

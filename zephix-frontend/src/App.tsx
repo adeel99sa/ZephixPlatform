@@ -107,7 +107,7 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const role = (user.platformRole || user.role || '').toUpperCase();
   const isAdmin =
     role === 'ADMIN' ||
-    (!Array.isArray(user.permissions) && user.permissions?.isAdmin === true);
+    (!Array.isArray(user.permissions) && (user.permissions as any)?.isAdmin === true);
   if (!isAdmin) return <Navigate to="/home" replace />;
   return children;
 }

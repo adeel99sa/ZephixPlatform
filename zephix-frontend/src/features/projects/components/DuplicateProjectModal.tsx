@@ -22,7 +22,7 @@ export function DuplicateProjectModal({
   workspaceId,
 }: Props) {
   const navigate = useNavigate();
-  const { activeWorkspaceSlug } = useWorkspaceStore();
+  const { activeWorkspaceId } = useWorkspaceStore();
   const cloneMutation = useCloneProject();
 
   const [newName, setNewName] = useState('');
@@ -51,7 +51,7 @@ export function DuplicateProjectModal({
       onClose();
 
       // Navigate to the new project
-      const slug = activeWorkspaceSlug || workspaceId;
+      const slug = activeWorkspaceId || workspaceId;
       navigate(`/w/${slug}/projects/${result.newProjectId}`);
     } catch (err: any) {
       const code = err?.response?.data?.code;
