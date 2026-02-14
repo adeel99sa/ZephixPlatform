@@ -1,9 +1,11 @@
 name: architecture-inventory
 
+# Runs on push to main (track inventory changes) and PRs to main only.
 on:
   push:
     branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
 
 jobs:
   generate:

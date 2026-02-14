@@ -254,9 +254,18 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       startDate: null,
       dueDate: dueDate || null,
       completedAt: null,
+      estimatePoints: null,
+      estimateHours: null,
+      remainingHours: null,
+      actualHours: null,
+      actualStartDate: null,
+      actualEndDate: null,
+      iterationId: null,
+      committed: false,
       rank: null,
       tags: ['__optimistic__'], // Marker to identify temp tasks, stripped on server replace
       metadata: { optimistic: true }, // Flag to prevent leaking to analytics
+      acceptanceCriteria: [],
       createdAt: nowIso,
       updatedAt: nowIso,
       deletedAt: null,

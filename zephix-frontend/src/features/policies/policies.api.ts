@@ -43,32 +43,32 @@ export interface PolicyResolution {
 // ─── API functions ──────────────────────────────────────────
 
 export async function listPolicyDefinitions(): Promise<PolicyDefinition[]> {
-  const res = await request('GET', '/policies/definitions');
-  return res.data ?? res;
+  const res = await request.get('/policies/definitions');
+  return (res as any).data ?? res;
 }
 
 export async function getResolvedPolicies(workspaceId?: string): Promise<PolicyResolution[]> {
   const qs = workspaceId ? `?workspaceId=${workspaceId}` : '';
-  const res = await request('GET', `/policies/resolved${qs}`);
-  return res.data ?? res;
+  const res = await request.get(`/policies/resolved${qs}`);
+  return (res as any).data ?? res;
 }
 
 export async function listOrgOverrides(): Promise<PolicyOverride[]> {
-  const res = await request('GET', '/policies/overrides/org');
-  return res.data ?? res;
+  const res = await request.get('/policies/overrides/org');
+  return (res as any).data ?? res;
 }
 
 export async function listWorkspaceOverrides(workspaceId: string): Promise<PolicyOverride[]> {
-  const res = await request('GET', `/policies/overrides/workspace/${workspaceId}`);
-  return res.data ?? res;
+  const res = await request.get(`/policies/overrides/workspace/${workspaceId}`);
+  return (res as any).data ?? res;
 }
 
 export async function upsertOrgOverride(
   key: string,
   value: unknown,
 ): Promise<PolicyOverride> {
-  const res = await request('PUT', '/policies/overrides/org', { key, value });
-  return res.data ?? res;
+  const res = await request.put('/policies/overrides/org', { key, value });
+  return (res as any).data ?? res;
 }
 
 export async function upsertWorkspaceOverride(
@@ -76,6 +76,6 @@ export async function upsertWorkspaceOverride(
   key: string,
   value: unknown,
 ): Promise<PolicyOverride> {
-  const res = await request('PUT', `/policies/overrides/workspace/${workspaceId}`, { key, value });
-  return res.data ?? res;
+  const res = await request.put(`/policies/overrides/workspace/${workspaceId}`, { key, value });
+  return (res as any).data ?? res;
 }

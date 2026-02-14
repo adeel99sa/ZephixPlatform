@@ -62,7 +62,7 @@ export const IntegrationCard: React.FC<IntegrationCardProps> = ({
             <p className={typography.muted}>{meta.description}</p>
           </div>
         </div>
-        <StatusBadge status={connection.enabled ? 'ACTIVE' : 'DISABLED'} />
+        <StatusBadge onDark={false} />
       </div>
 
       {/* Config details */}

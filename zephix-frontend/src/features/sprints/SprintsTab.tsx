@@ -53,9 +53,9 @@ export function SprintsTab({ projectId, workspaceId }: Props) {
   const { user } = useAuth();
   const isAdmin =
     user?.platformRole === 'ADMIN' ||
-    user?.platformRole === 'OWNER' ||
-    user?.platformRole === 'admin' ||
-    user?.platformRole === 'owner';
+    (user?.platformRole as string) === 'OWNER' ||
+    (user?.platformRole as string) === 'admin' ||
+    (user?.platformRole as string) === 'owner';
 
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
