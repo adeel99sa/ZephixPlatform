@@ -18,6 +18,9 @@ import {
   validateDbWiring,
 } from '../../common/utils/db-safety-guard';
 
+/** Captured once at module load — never changes per process lifecycle */
+const PROCESS_STARTED_AT = new Date().toISOString();
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin/system')
@@ -77,6 +80,10 @@ export class EnvProofController {
       nodeEnv,
       dbHost,
       dbName,
+      gitSha: process.env.RAILWAY_GIT_COMMIT_SHA
+        || process.env.GIT_COMMIT_SHA
+        || '(not set)',
+      startedAt: PROCESS_STARTED_AT,
       dbConnected,
       dbVersion,
       migrationCount,

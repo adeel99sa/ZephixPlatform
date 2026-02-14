@@ -86,6 +86,13 @@ function legacyDeprecationHeaders(
   next();
 }
 
+/** Stamp every response with X-Zephix-Env so operators can confirm env from any curl/browser. */
+function zephixEnvHeader(_req: Request, res: Response, next: NextFunction) {
+  const env = process.env.ZEPHIX_ENV || process.env.NODE_ENV || 'unknown';
+  res.setHeader('X-Zephix-Env', env);
+  next();
+}
+
 const debugBoot = process.env.DEBUG_BOOT === 'true';
 
 async function bootstrap() {
@@ -169,7 +176,8 @@ async function bootstrap() {
   if (debugBoot) console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
 
-  // Enterprise Foundation: /api/v1/* alias and legacy deprecation headers
+  // Enterprise Foundation: environment header, /api/v1/* alias, and legacy deprecation headers
+  app.use(zephixEnvHeader);
   app.use(legacyDeprecationHeaders);
   app.use(v1RewriteMiddleware);
 
