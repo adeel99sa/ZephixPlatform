@@ -28,6 +28,25 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ENVIRONMENT ↔ DATABASE SAFETY GUARD
+// Prevents staging from hitting production Postgres and vice versa.
+// Uses ZEPHIX_ENV (explicit) over NODE_ENV (overloaded by frameworks).
+// ═══════════════════════════════════════════════════════════════════════════
+import { validateDbWiring } from './common/utils/db-safety-guard';
+{
+  const zephixEnv = process.env.ZEPHIX_ENV || '';
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (zephixEnv && dbUrl) {
+    const result = validateDbWiring(zephixEnv, dbUrl);
+    if (!result.safe) {
+      console.error(`❌ DB SAFETY GUARD: ${result.message}`);
+      process.exit(1);
+    }
+    console.log(`✅ DB SAFETY GUARD: ${result.message}`);
+  }
+}
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DatabaseVerifyService } from './modules/database/database-verify.service';

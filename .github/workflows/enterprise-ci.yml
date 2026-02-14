@@ -269,11 +269,38 @@ jobs:
           name: sbom
           path: sbom.spdx.json
 
+      # ── Deploy backend FIRST, then frontend ──────────────────────────
+      # Railway test environment service names (verified 2026-02-14):
+      #   Backend:  zephix-backend
+      #   Frontend: zephix-frontend
       - name: Deploy Backend to Railway (Test)
         uses: railway/deploy@v1
         with:
           service: zephix-backend
           token: ${{ secrets.RAILWAY_TOKEN_TEST }}
+
+      - name: Wait for test backend health
+        run: |
+          HEALTH_URL="${{ secrets.TEST_API_URL }}/health/ready"
+          if [ -z "${{ secrets.TEST_API_URL }}" ]; then
+            echo "::warning::TEST_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+          MAX_ATTEMPTS=8
+          WAIT=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            sleep $WAIT
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Test backend health passed on attempt ${i}"
+              break
+            fi
+            echo "Attempt ${i}/${MAX_ATTEMPTS}: HTTP ${HTTP_CODE}"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::warning::Test backend health check did not pass after ${MAX_ATTEMPTS} attempts"
+            fi
+            WAIT=$((WAIT + 2))
+          done
 
       - name: Deploy Frontend to Railway (Test)
         uses: railway/deploy@v1
@@ -412,6 +439,47 @@ jobs:
             # Linear backoff with slight increase each round (total ~100-120s)
             WAIT=$((WAIT + 2))
           done
+
+      # ── Predeploy env-proof guard: fail if staging backend talks to production DB ──
+      - name: "Staging env-proof guard (block production DB)"
+        run: |
+          ENV_PROOF_URL="${{ secrets.STAGING_API_URL }}/admin/system/env-proof"
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping env-proof guard"
+            exit 0
+          fi
+
+          echo "Checking staging env-proof at ${ENV_PROOF_URL}..."
+          RESPONSE=$(curl -sf -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ secrets.STAGING_ADMIN_TOKEN }}" \
+            "$ENV_PROOF_URL" 2>/dev/null || echo '{"error":"env-proof unreachable"}')
+
+          echo "Response: ${RESPONSE}"
+
+          # Extract dbHost and zephixEnv from response
+          DB_HOST=$(echo "$RESPONSE" | jq -r '.data.dbHost // "unknown"' 2>/dev/null || echo "parse-error")
+          ZEPHIX_ENV=$(echo "$RESPONSE" | jq -r '.data.zephixEnv // "unknown"' 2>/dev/null || echo "parse-error")
+          SAFETY_OK=$(echo "$RESPONSE" | jq -r '.data.safetyCheck.safe // false' 2>/dev/null || echo "false")
+
+          echo "  zephixEnv: ${ZEPHIX_ENV}"
+          echo "  dbHost:    ${DB_HOST}"
+          echo "  safetyOk:  ${SAFETY_OK}"
+
+          # Hard fail conditions
+          if [ "$DB_HOST" = "postgres.railway.internal" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: dbHost is postgres.railway.internal (production Postgres)"
+            exit 1
+          fi
+          if [ "$ZEPHIX_ENV" != "staging" ] && [ "$ZEPHIX_ENV" != "unknown" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: zephixEnv is '${ZEPHIX_ENV}', expected 'staging'"
+            exit 1
+          fi
+          if [ "$SAFETY_OK" = "false" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: DB safety check failed"
+            exit 1
+          fi
+
+          echo "Staging env-proof guard: PASSED"
 
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
