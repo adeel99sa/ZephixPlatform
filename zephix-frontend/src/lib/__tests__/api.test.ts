@@ -151,16 +151,12 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     expect(isAuthUrl('/auth/login')).toBe(true);
     expect(isAuthUrl('/api/auth/refresh')).toBe(true);
     expect(isAuthUrl('/work/tasks')).toBe(false);
-  });
-
-  it('should skip workspace header for health routes', () => {
+  });  it('should skip workspace header for health routes', () => {
     expect(isHealthUrl('/health')).toBe(true);
     expect(isHealthUrl('/api/health')).toBe(true);
     expect(isHealthUrl('/version')).toBe(true);
     expect(isHealthUrl('/work/tasks')).toBe(false);
-  });
-
-  it('should throw WORKSPACE_REQUIRED for /work routes when activeWorkspaceId is null', () => {
+  });  it('should throw WORKSPACE_REQUIRED for /work routes when activeWorkspaceId is null', () => {
     // Simulate the interceptor logic
     const simulateInterceptor = (url: string, activeWorkspaceId: string | null) => {
       const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
@@ -208,4 +204,3 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     }
   });
 });
-

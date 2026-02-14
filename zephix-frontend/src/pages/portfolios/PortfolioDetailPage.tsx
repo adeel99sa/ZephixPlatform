@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { api } from '@/lib/api';
 import { isAdminUser } from '@/utils/roles';
+import { PortfolioExecutiveSummary } from '@/features/portfolios/components/PortfolioExecutiveSummary';
 
 type PortfolioRollup = {
   version: number;
@@ -190,6 +191,13 @@ export default function PortfolioDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Phase 2D: Executive Summary — EV-weighted analytics */}
+      {portfolioId && (
+        <div className="mb-6">
+          <PortfolioExecutiveSummary portfolioId={portfolioId} />
+        </div>
+      )}
 
       {/* Rollup Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

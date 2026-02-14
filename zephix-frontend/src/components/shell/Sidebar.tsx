@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { MoreHorizontal, ChevronRight, GripVertical, Star, Trash2 } from "lucide-react";
+import { MoreHorizontal, ChevronRight, Trash2 } from "lucide-react";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
@@ -13,6 +13,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/state/AuthContext";
 import { isAdminRole } from "@/types/roles";
 import { isPaidUser } from "@/utils/roles";
+import { isPlatformAdmin, isPlatformViewer } from "@/utils/access";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useProgramsPortfoliosEnabled } from "@/lib/features";
 
@@ -218,68 +219,39 @@ export function Sidebar() {
                   <ChevronRight className="h-4 w-4 text-gray-400" />
                 </button>
 
-                <button
-                  onClick={handleEditWorkspace}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                  data-testid="menu-edit-workspace"
-                  disabled={!activeWorkspaceId}
-                >
-                  <span>Edit workspace</span>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </button>
+                {/* Phase 2A: Edit and Delete workspace — hidden for guests */}
+                {!isPlatformViewer(user) && (
+                  <>
+                    <button
+                      onClick={handleEditWorkspace}
+                      className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
+                      data-testid="menu-edit-workspace"
+                      disabled={!activeWorkspaceId}
+                    >
+                      <span>Edit workspace</span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
 
-                <button
-                  onClick={() => {
-                    track('workspace.menu.sort', {});
-                    // TODO: Implement drag-and-drop sorting when backend endpoint exists
-                    addToast({
-                      type: 'info',
-                      title: 'Coming soon',
-                      message: 'Workspace sorting will be available soon.',
-                    });
-                  }}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                  data-testid="menu-sort-workspace"
-                >
-                  <span className="flex items-center gap-2">
-                    <GripVertical className="h-4 w-4" />
-                    Sort workspace
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    track('workspace.menu.save-template', {});
-                    addToast({
-                      type: 'info',
-                      title: 'Coming soon',
-                      message: 'Save workspace as template feature is coming soon.',
-                    });
-                  }}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                  data-testid="menu-save-template"
-                >
-                  <Star className="h-4 w-4" />
-                  <span>Save as template</span>
-                </button>
-
-                <button
-                  onClick={handleDeleteWorkspace}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-left text-red-600"
-                  data-testid="menu-delete-workspace"
-                  disabled={!activeWorkspaceId}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Delete workspace</span>
-                </button>
+                    {isPlatformAdmin(user) && (
+                      <button
+                        onClick={handleDeleteWorkspace}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-left text-red-600"
+                        data-testid="menu-delete-workspace"
+                        disabled={!activeWorkspaceId}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Delete workspace</span>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="border-t border-gray-200 my-1"></div>
 
               <div className="py-1">
-                {/* Phase 4: Only show create workspace for org admin/owner */}
-                {isAdminRole(user?.role) && (
+                {/* Phase 2A: Create workspace — admin only (uses platformRole) */}
+                {isPlatformAdmin(user) && (
                   <button
                     onClick={handleCreateWorkspace}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
@@ -297,14 +269,17 @@ export function Sidebar() {
                   Browse all workspaces
                 </button>
 
-                <button
-                  onClick={handleArchiveTrash}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                  data-testid="menu-view-archive"
-                >
-                  <span>View archive/trash</span>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                </button>
+                {/* Phase 2A: Only show archive/trash for platform admins */}
+                {isPlatformAdmin(user) && (
+                  <button
+                    onClick={handleArchiveTrash}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
+                    data-testid="menu-view-archive"
+                  >
+                    <span>View archive/trash</span>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -319,17 +294,17 @@ export function Sidebar() {
         {activeWorkspaceId && (
           <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
             <NavLink
-              data-testid="ws-nav-overview"
+              data-testid="ws-nav-dashboard"
               to={`/workspaces/${activeWorkspaceId}`}
               className={({ isActive }) =>
                 `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
               }
             >
-              Overview
+              Dashboard
             </NavLink>
             <NavLink
               data-testid="ws-nav-projects"
-              to={`/workspaces/${activeWorkspaceId}/projects`}
+              to="/projects"
               className={({ isActive }) =>
                 `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
               }
@@ -359,20 +334,23 @@ export function Sidebar() {
                 </NavLink>
               </>
             )}
-            {/* Phase 5.1: Hide out-of-scope items - Boards, Documents, Forms */}
-            <NavLink
-              data-testid="ws-nav-members"
-              to={`/workspaces/${activeWorkspaceId}/members`}
-              className={({ isActive }) =>
-                `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-              }
-            >
-              Members
-            </NavLink>
+            {/* Phase 2A: Members — hidden for guests */}
+            {!isPlatformViewer(user) && (
+              <NavLink
+                data-testid="ws-nav-members"
+                to={`/workspaces/${activeWorkspaceId}/members`}
+                className={({ isActive }) =>
+                  `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                }
+              >
+                Members
+              </NavLink>
+            )}
           </div>
         )}
 
-        {activeWorkspaceId && (
+        {/* Phase 2A: Template Center — hidden for guests */}
+        {activeWorkspaceId && !isPlatformViewer(user) && (
           <NavLink
             data-testid="nav-templates"
             to="/templates"
@@ -384,8 +362,6 @@ export function Sidebar() {
           </NavLink>
         )}
 
-        {/* Phase 5.1: Hide out-of-scope items - Resources, Analytics */}
-
         <NavLink
           data-testid="nav-settings"
           to="/settings"
@@ -395,6 +371,19 @@ export function Sidebar() {
         >
           Settings
         </NavLink>
+
+        {/* Phase 2A: Administration — platform admin only */}
+        {isPlatformAdmin(user) && (
+          <NavLink
+            data-testid="nav-administration"
+            to="/admin"
+            className={({ isActive }) =>
+              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+            }
+          >
+            Administration
+          </NavLink>
+        )}
       </nav>
 
       {/* Removed bottom account block; profile is handled at top-left */}

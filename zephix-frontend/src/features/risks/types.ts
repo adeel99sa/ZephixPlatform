@@ -4,7 +4,7 @@
 
 export type RiskSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
-export type RiskStatus = 'OPEN' | 'MITIGATED' | 'ACCEPTED';
+export type RiskStatus = 'OPEN' | 'MITIGATED' | 'ACCEPTED' | 'CLOSED';
 
 export interface Risk {
   id: string;
@@ -15,8 +15,13 @@ export interface Risk {
   description: string | null;
   severity: RiskSeverity;
   status: RiskStatus;
+  probability: number;
+  impact: number;
+  exposure: number;
+  mitigationPlan: string | null;
   ownerUserId: string | null;
   dueDate: string | null;
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -28,6 +33,21 @@ export interface CreateRiskInput {
   description?: string;
   severity?: RiskSeverity;
   status?: RiskStatus;
+  probability?: number;
+  impact?: number;
+  mitigationPlan?: string;
+  ownerUserId?: string;
+  dueDate?: string;
+}
+
+export interface UpdateRiskInput {
+  title?: string;
+  description?: string;
+  severity?: RiskSeverity;
+  status?: RiskStatus;
+  probability?: number;
+  impact?: number;
+  mitigationPlan?: string;
   ownerUserId?: string;
   dueDate?: string;
 }
@@ -60,4 +80,5 @@ export const STATUS_CONFIG: Record<RiskStatus, { label: string; color: string; b
   OPEN: { label: 'Open', color: 'text-red-700', bgColor: 'bg-red-100' },
   MITIGATED: { label: 'Mitigated', color: 'text-blue-700', bgColor: 'bg-blue-100' },
   ACCEPTED: { label: 'Accepted', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+  CLOSED: { label: 'Closed', color: 'text-green-700', bgColor: 'bg-green-100' },
 };

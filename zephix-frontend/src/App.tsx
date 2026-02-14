@@ -1,3 +1,4 @@
+import React from "react";
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -61,6 +62,12 @@ import PortfolioDetailPage from "@/pages/portfolios/PortfolioDetailPage";
 import FeaturesRoute from "@/routes/FeaturesRoute";
 // PHASE 7 MODULE 7.2: My Work
 import MyWorkPage from "@/pages/my-work/MyWorkPage";
+// Phase 2E: Capacity Engine
+import CapacityPage from "@/features/capacity/CapacityPage";
+// Phase 2F: What-If Scenarios
+import ScenarioPage from "@/features/scenarios/ScenarioPage";
+// Phase 4A: Organization Command Center
+import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
 
 // Admin pages
 import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
@@ -87,6 +94,35 @@ function RootRoute() {
   if (isLoading) return null; // wait for auth check
   if (user) return <Navigate to="/home" replace />;
   return <LandingPage />;
+}
+
+/**
+ * Phase 2A: Inline admin-only route guard for routes outside AdminLayout
+ * (e.g. /billing). Redirects non-admins to /home.
+ */
+function RequireAdminInline({ children }: { children: React.ReactElement }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  const role = (user.platformRole || user.role || '').toUpperCase();
+  const isAdmin =
+    role === 'ADMIN' ||
+    (!Array.isArray(user.permissions) && user.permissions?.isAdmin === true);
+  if (!isAdmin) return <Navigate to="/home" replace />;
+  return children;
+}
+
+/**
+ * Phase 2A: Inline paid-user guard — blocks VIEWER (guest) from accessing
+ * routes that require Admin or Member role (e.g. /templates, /workspaces/:id/members).
+ */
+function RequirePaidInline({ children }: { children: React.ReactElement }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  const role = (user.platformRole || user.role || '').toUpperCase();
+  if (role === 'VIEWER' || role === 'GUEST') return <Navigate to="/home" replace />;
+  return children;
 }
 
 export default function App() {
@@ -125,7 +161,8 @@ export default function App() {
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/billing" element={<BillingPage />} />
+              {/* Phase 2A: Billing restricted to platform admin */}
+              <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
 
               {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
               <Route element={<RequireWorkspace />}>
@@ -147,8 +184,10 @@ export default function App() {
                 <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />
                 <Route path="/workspaces/:workspaceId/home" element={<WorkspaceHomePage />} />
                 <Route path="/workspaces/:id" element={<WorkspaceView />} />
-                <Route path="/workspaces/:id/members" element={<WorkspaceMembersPage />} />
-                <Route path="/workspaces/:id/settings" element={<div>Workspace Settings</div>} />
+                {/* Phase 2A: Members page blocked for VIEWER at route level */}
+                <Route path="/workspaces/:id/members" element={<RequirePaidInline><WorkspaceMembersPage /></RequirePaidInline>} />
+                {/* Phase 2A: Workspace settings stub replaced with redirect to workspace home */}
+                <Route path="/workspaces/:id/settings" element={<Navigate to=".." replace />} />
                 <Route path="/workspaces/:id/heatmap" element={<ResourceHeatmapPage />} />
                 {/* PHASE 6 MODULE 3-4: Program and Portfolio routes - Gated by feature flag */}
                 <Route element={<FeaturesRoute feature="programsPortfolios" />}>
@@ -157,12 +196,17 @@ export default function App() {
                   <Route path="/workspaces/:workspaceId/portfolios" element={<PortfoliosListPage />} />
                   <Route path="/workspaces/:workspaceId/portfolios/:portfolioId" element={<PortfolioDetailPage />} />
                 </Route>
-                <Route path="/templates" element={<TemplateRouteSwitch />} />
+                {/* Phase 2A: Templates blocked for VIEWER at route level */}
+                <Route path="/templates" element={<RequirePaidInline><TemplateRouteSwitch /></RequirePaidInline>} />
                 <Route path="/docs/:docId" element={<DocsPage />} />
                 <Route path="/forms/:formId/edit" element={<FormsPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />
                 <Route path="/resources/:id/timeline" element={<ResourceTimelinePage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
+                {/* Phase 2E: Capacity Engine */}
+                <Route path="/capacity" element={<CapacityPage />} />
+                {/* Phase 2F: What-If Scenarios */}
+                <Route path="/scenarios" element={<ScenarioPage />} />
                 {/* Paid routes - Admin and Member only */}
                 <Route element={<PaidRoute />}>
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
@@ -186,6 +230,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminDashboardPage />} />
                 <Route path="/admin/home" element={<AdminDashboardPage />} />
                 <Route path="/admin/overview" element={<AdminOverviewPage />} />
+                <Route path="/org-dashboard" element={<OrgDashboardPage />} />
 
                 {/* Organization Section */}
                 <Route path="/admin/org" element={<AdminOrganizationPage />} />

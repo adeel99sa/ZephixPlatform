@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { MoreHorizontal, Copy } from 'lucide-react';
 import { getProject, listProjectViews } from '../api';
 import type { Project, ProjectView, ProjectViewType } from '../types';
 import { WorkItemListView } from './WorkItemListView';
 import { getErrorMessage } from '@/lib/api/errors';
+import { DuplicateProjectModal } from '../components/DuplicateProjectModal';
 
 export function ProjectShellPage() {
   const { workspaceId, projectId } = useParams<{ workspaceId: string; projectId: string }>();
@@ -14,6 +16,9 @@ export function ProjectShellPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [views, setViews] = useState<ProjectView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
 
   const enabledViews = useMemo(
     () => views.filter((v) => v.isEnabled).sort((a, b) => a.sortOrder - b.sortOrder),
@@ -65,18 +70,59 @@ export function ProjectShellPage() {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button
             type="button"
-            onClick={() => alert('Add view modal next')}
+            onClick={() => toast.info('Add view modal next')}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: 'white' }}
           >
             + View
           </button>
           <button
             type="button"
-            onClick={() => alert('Create work item shortcut next')}
+            onClick={() => toast.info('Create work item shortcut next')}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: 'white' }}
           >
             + Task
           </button>
+
+          {/* Overflow menu */}
+          <div style={{ position: 'relative' }} ref={overflowRef}>
+            <button
+              type="button"
+              onClick={() => setShowOverflowMenu((v) => !v)}
+              style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', background: 'white', cursor: 'pointer' }}
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="w-4 h-4 text-slate-500" />
+            </button>
+            {showOverflowMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 4,
+                  background: 'white',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 8,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  minWidth: 160,
+                  zIndex: 20,
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOverflowMenu(false);
+                    setShowDuplicateModal(true);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  Duplicate
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -118,6 +164,15 @@ export function ProjectShellPage() {
           </div>
         )}
       </div>
+
+      {/* Duplicate project modal */}
+      <DuplicateProjectModal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        projectId={projectId}
+        projectName={project.name}
+        workspaceId={workspaceId}
+      />
     </div>
   );
 }
