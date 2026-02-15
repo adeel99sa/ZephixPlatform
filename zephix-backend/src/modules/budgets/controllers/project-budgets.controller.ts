@@ -36,6 +36,9 @@ export class ProjectBudgetsController {
     @Req() req: AuthRequest,
   ) {
     const auth = getAuthContext(req);
+    // TODO: Replace with WorkspaceAccessService.getEffectiveWorkspaceRole()
+    // once workspace-level role resolution is available. Currently maps
+    // platformRole which is NOT the same as workspace membership role.
     const upper = (auth.platformRole ?? 'MEMBER').toUpperCase();
     let role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' = 'MEMBER';
     if (upper === 'ADMIN') role = 'ADMIN';

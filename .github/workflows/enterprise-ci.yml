@@ -122,7 +122,7 @@ jobs:
         working-directory: zephix-frontend
         run: npx tsc --noEmit
 
-      - name: Run gating tests (38 files)
+      - name: Run gating tests (41 files, 398 tests)
         working-directory: zephix-frontend
         run: npm run test:gating
         env:
