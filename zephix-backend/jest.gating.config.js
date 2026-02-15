@@ -11,7 +11,7 @@
  *
  * Run: npm run test:gating
  *
- * Excluded suites (21 as of 2026-02-15):
+ * Excluded suites (22 as of 2026-02-15):
  *   Fix order (by platform risk):
  *     P1: Boot/module wiring (app.module.compile)
  *     P2: Auth & sessions (auth-session-refresh, auth.integration, auth.routes)
@@ -59,6 +59,7 @@ module.exports = {
     'rollups-phase6-closeout\\.integration\\.spec\\.ts',
     'template-center\\.apply\\.integration\\.spec\\.ts',
     'dashboards-mutations\\.integration\\.spec\\.ts',
+    'dashboards-share\\.integration\\.spec\\.ts',
     'home\\.integration\\.spec\\.ts',
 
     // ── P8: AI & BRD ────────────────────────────────────────────
