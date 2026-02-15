@@ -339,7 +339,7 @@ jobs:
 
       - name: Deploy Backend to Railway (Test)
         working-directory: zephix-backend
-        run: railway up --service zephix-backend
+        run: railway up --service zephix-backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
 
@@ -433,7 +433,7 @@ jobs:
 
       - name: Deploy Frontend to Railway (Test)
         working-directory: zephix-frontend
-        run: railway up --service zephix-frontend
+        run: railway up --service zephix-frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
 
@@ -551,7 +551,7 @@ jobs:
 
       - name: Deploy Backend to Railway (Staging)
         working-directory: zephix-backend
-        run: railway up --service zephix-backend-v2
+        run: railway up --service zephix-backend-v2 --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
@@ -664,7 +664,7 @@ jobs:
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
         working-directory: zephix-frontend
-        run: railway up --service zephix-frontend
+        run: railway up --service zephix-frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
@@ -780,7 +780,7 @@ jobs:
 
       - name: Deploy Backend to Railway (Production)
         working-directory: zephix-backend
-        run: railway up --service zephix-backend
+        run: railway up --service zephix-backend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
@@ -887,7 +887,7 @@ jobs:
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Production)
         working-directory: zephix-frontend
-        run: railway up --service zephix-frontend
+        run: railway up --service zephix-frontend --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
