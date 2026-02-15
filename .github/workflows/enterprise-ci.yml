@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: '0 2 * * *' # Daily security scan at 2 AM
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   NODE_VERSION: '20.x'
   POSTGRES_VERSION: '15'
