@@ -11,5 +11,5 @@ healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-[env]
-NODE_ENV = "production"
+# NODE_ENV is set per-environment in Railway dashboard/CLI
+# Do not override here as it would force "production" for all envs
