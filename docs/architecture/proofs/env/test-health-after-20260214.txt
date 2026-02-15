@@ -1,0 +1,60 @@
+# Test Backend Health Check — Post-Fix Proof
+# Captured: 2026-02-15T05:26:57Z
+
+## curl -si https://zephix-backend-test.up.railway.app/api/health/ready
+
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Sun, 15 Feb 2026 05:26:58 GMT
+deprecation: true
+etag: W/"68-jKZ+S40dx23+E8JKgIBm+NFFK2c"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-05-16T05:26:57.920Z
+vary: Origin
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: Qt-e8A7CT3eP9GmGCx5-qw
+x-request-id: 02137b25-3c77-4eb4-84bb-e195b0ae85c0
+x-xss-protection: 0
+x-zephix-env: test
+content-length: 104
+
+{"status":"ok","ts":"2026-02-15T05:26:58.011Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}
+
+## curl -s https://zephix-backend-test.up.railway.app/api/system/identity
+
+{
+    "data": {
+        "zephixEnv": "test",
+        "nodeEnv": "test",
+        "dbHost": "yamabiko.proxy.rlwy.net",
+        "dbIdentity": {
+            "serverAddr": "10.250.22.150",
+            "serverPort": 5432,
+            "systemIdentifier": "7594731145983832100"
+        },
+        "migrationCount": 126,
+        "latestMigration": "AddDeletedByUserIdToWorkTasksAndPhases17980202500000",
+        "gitSha": "03e64db4b79df407d2659075a73212bb5fabfa79",
+        "startedAt": "2026-02-15T05:24:12.817Z",
+        "timestamp": "2026-02-15T05:26:58.216Z"
+    },
+    "meta": {
+        "timestamp": "2026-02-15T05:26:58.217Z",
+        "requestId": "b337dafd-cf59-4516-92b1-b57dba7dd186"
+    }
+}
