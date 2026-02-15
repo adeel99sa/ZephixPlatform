@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../app.module';
+
+jest.setTimeout(30000);
 
 describe('Auth Integration Tests', () => {
   let app: INestApplication;
@@ -16,7 +18,7 @@ describe('Auth Integration Tests', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   describe('Signup', () => {

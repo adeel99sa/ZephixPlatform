@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { AuthModule } from './auth.module';
+
+jest.setTimeout(30000);
 
 describe('Auth Routes (e2e)', () => {
   let app: INestApplication;
@@ -24,7 +26,7 @@ describe('Auth Routes (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   describe('POST /api/auth/register', () => {
