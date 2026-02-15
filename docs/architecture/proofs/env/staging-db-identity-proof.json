@@ -1,0 +1,37 @@
+{
+  "_description": "Live DB identity proof from staging backend (zephix-backend-v2) boot logs",
+  "_captured": "2026-02-15T00:51:46Z",
+  "_commit": "f92e11a801ddfaad36b2bedd0f7c4d869ce5e6d1",
+  "_source": "Railway deployment logs for zephix-backend-v2 in staging environment",
+
+  "bootLog": "✅ DB IDENTITY PROOF: database=railway serverAddr=fd12:c270:ca54:0:a000:32:4d:7c serverPort=5432 migrations=120 latest=AlignAuditEventsSchema18000000000010",
+  "safetyGuardLog": "✅ DB SAFETY GUARD: ZEPHIX_ENV=staging, dbHost=postgres.railway.internal (Railway internal, env-scoped) — OK",
+
+  "dbIdentity": {
+    "currentDatabase": "railway",
+    "serverAddr": "fd12:c270:ca54:0:a000:32:4d:7c",
+    "serverPort": 5432,
+    "migrationCount": 120,
+    "latestMigration": "AlignAuditEventsSchema18000000000010"
+  },
+
+  "environment": {
+    "zephixEnv": "staging",
+    "nodeEnv": "staging",
+    "dbHost": "postgres.railway.internal",
+    "port": 3000,
+    "railwayEnvironment": "staging"
+  },
+
+  "healthCheck": {
+    "url": "https://zephix-backend-v2-staging.up.railway.app/api/health/ready",
+    "httpCode": 200,
+    "xZephixEnv": "staging"
+  },
+
+  "version": {
+    "commitSha": "f92e11a801ddfaad36b2bedd0f7c4d869ce5e6d1",
+    "commitShaTrusted": true,
+    "environment": "staging"
+  }
+}
