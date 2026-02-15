@@ -1,0 +1,184 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ChangeRequestEntity } from '../entities/change-request.entity';
+import { CreateChangeRequestDto } from '../dto/create-change-request.dto';
+import { UpdateChangeRequestDto } from '../dto/update-change-request.dto';
+import { TransitionChangeRequestDto } from '../dto/transition-change-request.dto';
+import { ChangeRequestStatus } from '../types/change-request.enums';
+
+export type ActorContext = {
+  userId: string;
+  workspaceRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
+};
+
+@Injectable()
+export class ChangeRequestsService {
+  constructor(
+    @InjectRepository(ChangeRequestEntity)
+    private readonly repo: Repository<ChangeRequestEntity>,
+  ) {}
+
+  async list(workspaceId: string, projectId: string) {
+    return this.repo.find({
+      where: { workspaceId, projectId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async get(workspaceId: string, projectId: string, id: string) {
+    const row = await this.repo.findOne({
+      where: { id, workspaceId, projectId },
+    });
+    if (!row) throw new NotFoundException('CHANGE_REQUEST_NOT_FOUND');
+    return row;
+  }
+
+  async create(
+    workspaceId: string,
+    projectId: string,
+    dto: CreateChangeRequestDto,
+    actor: ActorContext,
+  ) {
+    const row = this.repo.create({
+      workspaceId,
+      projectId,
+      title: dto.title,
+      description: dto.description ?? null,
+      reason: dto.reason ?? null,
+      impactScope: dto.impactScope,
+      impactCost: dto.impactCost ?? null,
+      impactDays: dto.impactDays ?? null,
+      status: ChangeRequestStatus.DRAFT,
+      createdByUserId: actor.userId,
+      approvedByUserId: null,
+      approvedAt: null,
+      rejectedByUserId: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      implementedByUserId: null,
+      implementedAt: null,
+    });
+    return this.repo.save(row);
+  }
+
+  async update(
+    workspaceId: string,
+    projectId: string,
+    id: string,
+    dto: UpdateChangeRequestDto,
+  ) {
+    const row = await this.get(workspaceId, projectId, id);
+
+    if (row.status !== ChangeRequestStatus.DRAFT) {
+      throw new BadRequestException('CHANGE_REQUEST_NOT_EDITABLE');
+    }
+
+    if (dto.title !== undefined) row.title = dto.title;
+    if (dto.description !== undefined) row.description = dto.description;
+    if (dto.reason !== undefined) row.reason = dto.reason;
+    if (dto.impactScope !== undefined) row.impactScope = dto.impactScope;
+    if (dto.impactCost !== undefined) row.impactCost = dto.impactCost;
+    if (dto.impactDays !== undefined) row.impactDays = dto.impactDays;
+
+    return this.repo.save(row);
+  }
+
+  async submit(workspaceId: string, projectId: string, id: string) {
+    const row = await this.get(workspaceId, projectId, id);
+
+    if (row.status !== ChangeRequestStatus.DRAFT) {
+      throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
+    }
+
+    row.status = ChangeRequestStatus.SUBMITTED;
+    return this.repo.save(row);
+  }
+
+  async approve(
+    workspaceId: string,
+    projectId: string,
+    id: string,
+    actor: ActorContext,
+  ) {
+    this.requireApprover(actor);
+
+    const row = await this.get(workspaceId, projectId, id);
+    if (row.status !== ChangeRequestStatus.SUBMITTED) {
+      throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
+    }
+
+    row.status = ChangeRequestStatus.APPROVED;
+    row.approvedByUserId = actor.userId;
+    row.approvedAt = new Date();
+    row.rejectedByUserId = null;
+    row.rejectedAt = null;
+    row.rejectionReason = null;
+
+    return this.repo.save(row);
+  }
+
+  async reject(
+    workspaceId: string,
+    projectId: string,
+    id: string,
+    actor: ActorContext,
+    dto: TransitionChangeRequestDto,
+  ) {
+    this.requireApprover(actor);
+
+    const row = await this.get(workspaceId, projectId, id);
+    if (row.status !== ChangeRequestStatus.SUBMITTED) {
+      throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
+    }
+
+    row.status = ChangeRequestStatus.REJECTED;
+    row.rejectedByUserId = actor.userId;
+    row.rejectedAt = new Date();
+    row.rejectionReason = dto.reason ?? null;
+
+    return this.repo.save(row);
+  }
+
+  async implement(
+    workspaceId: string,
+    projectId: string,
+    id: string,
+    actor: ActorContext,
+  ) {
+    const row = await this.get(workspaceId, projectId, id);
+
+    if (row.status !== ChangeRequestStatus.APPROVED) {
+      throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
+    }
+
+    row.status = ChangeRequestStatus.IMPLEMENTED;
+    row.implementedByUserId = actor.userId;
+    row.implementedAt = new Date();
+
+    return this.repo.save(row);
+  }
+
+  async remove(workspaceId: string, projectId: string, id: string) {
+    const row = await this.get(workspaceId, projectId, id);
+
+    if (row.status !== ChangeRequestStatus.DRAFT) {
+      throw new BadRequestException('CHANGE_REQUEST_NOT_DELETABLE');
+    }
+
+    await this.repo.delete({ id: row.id, workspaceId, projectId });
+    return { deleted: true };
+  }
+
+  private requireApprover(actor: ActorContext) {
+    const role = actor.workspaceRole ?? 'MEMBER';
+    if (role !== 'OWNER' && role !== 'ADMIN') {
+      throw new ForbiddenException('INSUFFICIENT_ROLE');
+    }
+  }
+}

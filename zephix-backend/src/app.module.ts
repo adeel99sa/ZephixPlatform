@@ -67,6 +67,9 @@ import { ProductionHardeningModule } from './shared/production-hardening.module'
 import { SecurityHeadersMiddleware } from './shared/middleware/security-headers.middleware';
 import { RequestCorrelationMiddleware } from './shared/middleware/request-correlation.middleware';
 import { OrganizationAnalyticsModule } from './modules/organization-analytics/organization-analytics.module';
+import { ChangeRequestsModule } from './modules/change-requests/change-requests.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -148,6 +151,9 @@ if (!(global as any).crypto) {
           ScenariosModule,
           AttachmentsModule,
           OrganizationAnalyticsModule, // Phase 4A: Org command center
+          ChangeRequestsModule, // Wave 3A: Governance change requests
+          BudgetsModule, // Wave 3A: Project budget tracking
+          DocumentsModule, // Wave 3A: Standalone documents CRUD
         ]
       : [
           HealthModule, // Keep health module for basic health checks
