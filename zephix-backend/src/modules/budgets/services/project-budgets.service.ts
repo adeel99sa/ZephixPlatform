@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { IsOptional, IsString } from 'class-validator';
 import { ProjectBudgetEntity } from '../entities/project-budget.entity';
 
 export type BudgetActorContext = {
@@ -13,10 +14,24 @@ export type BudgetActorContext = {
 };
 
 export class UpdateProjectBudgetDto {
+  @IsOptional()
+  @IsString()
   baselineBudget?: string;
+
+  @IsOptional()
+  @IsString()
   revisedBudget?: string;
+
+  @IsOptional()
+  @IsString()
   contingency?: string;
+
+  @IsOptional()
+  @IsString()
   approvedChangeBudget?: string;
+
+  @IsOptional()
+  @IsString()
   forecastAtCompletion?: string;
 }
 
