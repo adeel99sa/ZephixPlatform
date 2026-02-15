@@ -1,0 +1,11 @@
+{
+    "user": {
+        "id": "d7b69fd3-ca9d-42c4-ba5b-1a0271d68500",
+        "email": "wave2final2dd9b536@test.zephix.dev",
+        "organizationId": "7e4f2933-78e1-4a90-894a-b1ad26e94f08",
+        "role": "ADMIN",
+        "platformRole": "ADMIN"
+    },
+    "loginStatus": "success",
+    "xZephixEnv": "staging"
+}
