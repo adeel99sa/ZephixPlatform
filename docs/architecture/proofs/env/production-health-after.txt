@@ -1,0 +1,31 @@
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Sun, 15 Feb 2026 04:38:32 GMT
+deprecation: true
+etag: W/"68-AQoWfaOasUQAMg8+PD4rRbkva5Y"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-05-16T04:38:32.035Z
+vary: Origin
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: C9Pg3c2tSdqeGp4xozsQ6Q
+x-request-id: 01eb84b8-5dd7-4f65-a38c-8ed06d16812b
+x-xss-protection: 0
+x-zephix-env: production
+content-length: 104
+
+{"status":"ok","ts":"2026-02-15T04:38:32.117Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}

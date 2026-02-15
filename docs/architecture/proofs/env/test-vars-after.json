@@ -1,0 +1,44 @@
+{
+  "_description": "Test environment vars after forbidden reference cleanup",
+  "_capturedAt": "2026-02-15T04:40:00Z",
+  "_commit": "eb5208aeedc56a1a783a7a8fb0ef54fa96cd47af",
+  "services": {
+    "zephix-backend": {
+      "totalVars": 45,
+      "forbiddenRefs": [
+        {
+          "key": "SENDGRID_FROM_EMAIL",
+          "value": "noreply@getzephix.com",
+          "match": "getzephix.com",
+          "riskLevel": "none",
+          "reason": "Email sender address, not a traffic path. EMAIL_PROVIDER=disabled in test."
+        }
+      ],
+      "wiringVars": {
+        "API_BASE_URL": "https://zephix-backend-test.up.railway.app",
+        "APP_BASE_URL": "https://zephix-frontend-test.up.railway.app",
+        "CORS_ALLOWED_ORIGINS": "https://zephix-frontend-test.up.railway.app,http://localhost:5173,http://localhost:3000",
+        "DATABASE_URL": "***host=yamabiko.proxy.rlwy.net***",
+        "FRONTEND_URL": "https://zephix-frontend-test.up.railway.app",
+        "NODE_ENV": "test",
+        "PORT": "8080",
+        "ZEPHIX_ENV": "test"
+      }
+    },
+    "zephix-frontend": {
+      "totalVars": 21,
+      "forbiddenRefs": [],
+      "wiringVars": {
+        "VITE_API_BASE": "https://zephix-backend-test.up.railway.app/api",
+        "VITE_API_URL": "https://zephix-backend-test.up.railway.app/api",
+        "NODE_ENV": "production"
+      }
+    }
+  },
+  "summary": {
+    "trafficPathForbiddenRefs": 0,
+    "nonTrafficRefs": 1,
+    "nonTrafficDetail": "SENDGRID_FROM_EMAIL uses getzephix.com domain (email sender, not API traffic)",
+    "verdict": "CLEAN — zero traffic-path production references"
+  }
+}
