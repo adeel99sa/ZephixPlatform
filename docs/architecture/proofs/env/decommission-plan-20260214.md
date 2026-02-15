@@ -53,10 +53,12 @@
 ### Phase B: Test Environment Stray Services
 
 **Prerequisite**: Confirm nothing routes to these services.
-- Test frontend `VITE_API_URL` must point to `zephix-backend-test.up.railway.app`
-- No other service references `zephix-backend-staging` in test env
+- [x] Test frontend `VITE_API_URL` → `zephix-backend-test.up.railway.app/api` ✅
+- [x] Test frontend `VITE_API_BASE` → `zephix-backend-test.up.railway.app/api` ✅
+- [x] No other service references production in test env ✅ (see `test-vars-after.json`)
+- [x] Test backend boots and serves health checks ✅ (boot hang fixed)
 
-**Step B1: Delete immediately** (these are orphaned, no cooldown needed)
+**Step B1: Delete after confirming no traffic** (pending — execute alongside Phase A4)
 1. Delete `zephix-backend-staging` from test environment
 2. Delete `zephix-frontend-staging` from test environment
 
