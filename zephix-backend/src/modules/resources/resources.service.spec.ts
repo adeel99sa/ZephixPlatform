@@ -4,11 +4,15 @@ import { Repository, DataSource } from 'typeorm';
 import { ResourcesService } from './resources.service';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { Resource } from './entities/resource.entity';
+import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { Project } from '../projects/entities/project.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { AllocationType } from './enums/allocation-type.enum';
 import { getResourceSettings } from '../../organizations/utils/resource-settings.util';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 
 // Mock the getResourceSettings function
 jest.mock('../../organizations/utils/resource-settings.util', () => ({
@@ -34,11 +38,11 @@ describe('ResourcesService - detectConflicts', () => {
       providers: [
         ResourcesService,
         {
-          provide: getRepositoryToken(Resource),
+          provide: getTenantAwareRepositoryToken(Resource),
           useValue: {},
         },
         {
-          provide: getRepositoryToken(ResourceAllocation),
+          provide: getTenantAwareRepositoryToken(ResourceAllocation),
           useValue: mockAllocationRepository,
         },
         {
@@ -46,7 +50,7 @@ describe('ResourcesService - detectConflicts', () => {
           useValue: {},
         },
         {
-          provide: getRepositoryToken(Project),
+          provide: getTenantAwareRepositoryToken(Project),
           useValue: {},
         },
         {
@@ -54,20 +58,31 @@ describe('ResourcesService - detectConflicts', () => {
           useValue: mockOrganizationRepository,
         },
         {
+          provide: getRepositoryToken(ResourceConflict),
+          useValue: {},
+        },
+        {
           provide: DataSource,
           useValue: {},
         },
         {
-          provide: 'WorkspaceAccessService',
+          provide: WorkspaceAccessService,
           useValue: {},
+        },
+        {
+          provide: TenantContextService,
+          useValue: {
+            assertOrganizationId: jest.fn().mockReturnValue('org-1'),
+            getWorkspaceId: jest.fn().mockReturnValue(null),
+          },
         },
       ],
     }).compile();
 
     service = module.get<ResourcesService>(ResourcesService);
-    allocationRepository = module.get<Repository<ResourceAllocation>>(
-      getRepositoryToken(ResourceAllocation),
-    );
+    allocationRepository = module.get(
+      getTenantAwareRepositoryToken(ResourceAllocation),
+    ) as Repository<ResourceAllocation>;
     organizationRepository = module.get<Repository<Organization>>(
       getRepositoryToken(Organization),
     );
