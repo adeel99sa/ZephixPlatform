@@ -1,0 +1,34 @@
+{
+  "_description": "Complete production DB identity proof with system_identifier",
+  "_captured": "2026-02-15T04:11:21Z",
+  "_commit": "eb5208aeedc56a1a783a7a8fb0ef54fa96cd47af",
+  "_source": "Railway deployment 5e0436dd boot logs",
+
+  "bootLog": "✅ DB IDENTITY PROOF: database=railway serverAddr=10.250.11.71 serverPort=5432 systemIdentifier=7538640741811494948 dbOid=16384 migrations=145 latest=AddDeletedByUserIdToWorkTasksAndPhases17980202500002",
+  "safetyGuardLog": "✅ DB SAFETY GUARD: ZEPHIX_ENV=production, dbHost=ballast.proxy.rlwy.net (correct proxy) — OK",
+
+  "dbIdentity": {
+    "currentDatabase": "railway",
+    "serverAddr": "10.250.11.71",
+    "serverPort": 5432,
+    "systemIdentifier": "7538640741811494948",
+    "dbOid": 16384,
+    "migrationCount": 145,
+    "latestMigration": "AddDeletedByUserIdToWorkTasksAndPhases17980202500002"
+  },
+
+  "environment": {
+    "zephixEnv": "production",
+    "nodeEnv": "production",
+    "dbHost": "ballast.proxy.rlwy.net",
+    "port": 8080,
+    "railwayEnvironmentName": "production",
+    "railwayServiceName": "zephix-backend"
+  },
+
+  "healthCheck": {
+    "url": "https://getzephix.com/api/health/ready",
+    "httpCode": 200,
+    "xZephixEnv": "production"
+  }
+}
