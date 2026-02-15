@@ -768,7 +768,7 @@ jobs:
             exit 1
           fi
 
-          EXPECTED_SYS_ID="${{ secrets.PROD_SYSTEM_IDENTIFIER }}"
+          EXPECTED_SYS_ID="${{ secrets.PRODUCTION_SYSTEM_IDENTIFIER }}"
           if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
             echo "::error::PRE-DEPLOY BLOCKED: production systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
             exit 1
@@ -863,7 +863,7 @@ jobs:
           fi
 
           # ── Hard fail: systemIdentifier must match expected cluster ──
-          EXPECTED_SYS_ID="${{ secrets.PROD_SYSTEM_IDENTIFIER }}"
+          EXPECTED_SYS_ID="${{ secrets.PRODUCTION_SYSTEM_IDENTIFIER }}"
           if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
             echo "::error::PRODUCTION DEPLOY BLOCKED: systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
             exit 1
