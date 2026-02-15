@@ -1,3 +1,22 @@
+import * as crypto from 'crypto';
+
+// Mock TokenHashUtil before any imports that load it (jest.mock is hoisted)
+// This avoids needing real REFRESH_TOKEN_PEPPER / TOKEN_HASH_SECRET env vars
+jest.mock('../../common/security/token-hash.util', () => {
+  const deterministicHash = (input: string): string =>
+    require('crypto').createHash('sha256').update(input).digest('hex');
+  return {
+    TokenHashUtil: {
+      hashRefreshToken: jest.fn((token: string) => deterministicHash(`refresh:${token}`)),
+      verifyRefreshToken: jest.fn(
+        (token: string, hash: string) => deterministicHash(`refresh:${token}`) === hash,
+      ),
+      hashToken: jest.fn((token: string) => deterministicHash(`token:${token}`)),
+      generateRawToken: jest.fn(() => 'mock-raw-token'),
+    },
+  };
+});
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +28,7 @@ import { AuthSession } from './entities/auth-session.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { Workspace } from '../workspaces/entities/workspace.entity';
 import { TokenHashUtil } from '../../common/security/token-hash.util';
 
 describe('AuthService - Refresh Token Security', () => {
@@ -64,6 +84,13 @@ describe('AuthService - Refresh Token Security', () => {
             findOne: jest.fn(),
             save: jest.fn(),
             create: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Workspace),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
           },
         },
         {
@@ -127,8 +154,9 @@ describe('AuthService - Refresh Token Security', () => {
         ...mockSession,
         currentRefreshTokenHash: oldHash,
       });
-      (jwtService.sign as jest.Mock).mockReturnValueOnce('access-token');
-      (jwtService.sign as jest.Mock).mockReturnValueOnce(newRefreshToken);
+      // AuthService calls generateRefreshToken FIRST, then generateToken
+      (jwtService.sign as jest.Mock).mockReturnValueOnce(newRefreshToken); // refresh token
+      (jwtService.sign as jest.Mock).mockReturnValueOnce('access-token');  // access token
       (authSessionRepo.save as jest.Mock).mockResolvedValue({
         ...mockSession,
         currentRefreshTokenHash: newHash,
