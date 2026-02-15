@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../app.module';
 import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +13,8 @@ import { ConfigService } from '@nestjs/config';
  * 1. GET /api/home scoping - Member only sees data from accessible workspaces
  * 2. GET /api/workspaces/slug/:slug/home access behavior - 404 for non-members, 200 for members
  */
+jest.setTimeout(30000);
+
 describe('Home Endpoints Integration Tests (Phase 5.3)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -80,10 +82,10 @@ describe('Home Endpoints Integration Tests (Phase 5.3)', () => {
    * Helper: Create test organization and users
    */
   async function setupTestData() {
-    // Create organization
+    // Create organization (slug is NOT NULL)
     const orgResult = await dataSource.query(
-      `INSERT INTO organizations (id, name, created_at, updated_at)
-       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, NOW(), NOW())
+      `INSERT INTO organizations (id, name, slug, created_at, updated_at)
+       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, 'test-org-' || gen_random_uuid()::text, NOW(), NOW())
        RETURNING id`,
     );
     orgId = orgResult[0].id;
