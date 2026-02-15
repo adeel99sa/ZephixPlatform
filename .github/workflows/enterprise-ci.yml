@@ -334,11 +334,14 @@ jobs:
       # Railway test environment service names (verified 2026-02-14):
       #   Backend:  zephix-backend
       #   Frontend: zephix-frontend
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
       - name: Deploy Backend to Railway (Test)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-backend
-          token: ${{ secrets.RAILWAY_TOKEN_TEST }}
+        working-directory: zephix-backend
+        run: railway up --service zephix-backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
 
       - name: Wait for test backend health
         run: |
@@ -429,10 +432,10 @@ jobs:
           echo "  Cluster: sysId=${SYS_ID}, addr=${SERVER_ADDR}, migrations=${MIGRATIONS}"
 
       - name: Deploy Frontend to Railway (Test)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-frontend
-          token: ${{ secrets.RAILWAY_TOKEN_TEST }}
+        working-directory: zephix-frontend
+        run: railway up --service zephix-frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
 
   # Deploy staging from release tags (v*)
   # Guardrails: backend tsc, backend tests, gating frontend tests, migration check
@@ -543,11 +546,14 @@ jobs:
           echo "Pre-deploy identity guard: PASSED"
 
       # ── Deploy backend FIRST ───────────────────────────────────────────
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
       - name: Deploy Backend to Railway (Staging)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-backend-v2
-          token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        working-directory: zephix-backend
+        run: railway up --service zephix-backend-v2
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       # ── Wait for backend health before deploying frontend ──────────────
       - name: Wait for backend health (retry with backoff)
@@ -657,10 +663,10 @@ jobs:
 
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-frontend
-          token: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        working-directory: zephix-frontend
+        run: railway up --service zephix-frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
   # Production: manual dispatch only, requires approved tag
   # Rule: requires 2 consecutive green staging smokes for same tag before promotion
@@ -769,11 +775,14 @@ jobs:
           echo "Pre-deploy identity guard: PASSED"
 
       # ── Deploy backend FIRST ───────────────────────────────────────────
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
       - name: Deploy Backend to Railway (Production)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-backend
-          token: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        working-directory: zephix-backend
+        run: railway up --service zephix-backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
       # ── Wait for backend health before deploying frontend ──────────────
       - name: Wait for production backend health (retry with backoff)
@@ -877,10 +886,10 @@ jobs:
 
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Production)
-        uses: railway/deploy@v1
-        with:
-          service: zephix-frontend
-          token: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        working-directory: zephix-frontend
+        run: railway up --service zephix-frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
   performance-test:
     name: Performance & Load Testing
