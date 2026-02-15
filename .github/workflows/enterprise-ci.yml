@@ -481,12 +481,27 @@ jobs:
             WAIT=$((WAIT + 2))
           done
 
-      # ── Predeploy env-proof guard: fail if staging backend talks to production DB ──
-      - name: "Staging env-proof guard (block production DB)"
+      # ── Post-deploy env-proof guard: verify staging identity ──────────
+      # NOTE: All Railway environments use postgres.railway.internal (env-scoped DNS).
+      # Hostname alone is NOT proof of which DB we connected to.
+      # We check: zephixEnv, forbidden proxy hosts, live DB identity, migration count.
+      - name: "Staging env-proof guard (verify DB identity)"
         run: |
           ENV_PROOF_URL="${{ secrets.STAGING_API_URL }}/admin/system/env-proof"
           if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
-            echo "::warning::STAGING_API_URL not configured — skipping env-proof guard"
+            echo "::warning::STAGING_API_URL not configured — falling back to header check"
+            # Fallback: check X-Zephix-Env header (no auth required)
+            HEALTH_URL="${{ secrets.STAGING_API_URL }}/health/ready"
+            if [ -z "$HEALTH_URL" ]; then
+              echo "::warning::No staging URL configured — skipping env-proof guard"
+              exit 0
+            fi
+            HEADER=$(curl -sI "$HEALTH_URL" 2>/dev/null | grep -i x-zephix-env | tr -d '\r' | cut -d: -f2 | tr -d ' ')
+            if [ "$HEADER" != "staging" ]; then
+              echo "::error::STAGING DEPLOY BLOCKED: X-Zephix-Env header is '${HEADER}', expected 'staging'"
+              exit 1
+            fi
+            echo "Header check passed: X-Zephix-Env: ${HEADER}"
             exit 0
           fi
 
@@ -495,32 +510,79 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.STAGING_ADMIN_TOKEN }}" \
             "$ENV_PROOF_URL" 2>/dev/null || echo '{"error":"env-proof unreachable"}')
 
+          # If env-proof is unreachable (401 / no admin token), fall back to header check
+          if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::warning::env-proof unreachable (may need STAGING_ADMIN_TOKEN) — falling back to header check"
+            HEALTH_URL="${{ secrets.STAGING_API_URL }}/health/ready"
+            HEADER=$(curl -sI "$HEALTH_URL" 2>/dev/null | grep -i x-zephix-env | tr -d '\r' | cut -d: -f2 | tr -d ' ')
+            if [ "$HEADER" != "staging" ]; then
+              echo "::error::STAGING DEPLOY BLOCKED: X-Zephix-Env header is '${HEADER}', expected 'staging'"
+              exit 1
+            fi
+            echo "Header check passed: X-Zephix-Env: ${HEADER}"
+            exit 0
+          fi
+
           echo "Response: ${RESPONSE}"
 
-          # Extract dbHost and zephixEnv from response
-          DB_HOST=$(echo "$RESPONSE" | jq -r '.data.dbHost // "unknown"' 2>/dev/null || echo "parse-error")
-          ZEPHIX_ENV=$(echo "$RESPONSE" | jq -r '.data.zephixEnv // "unknown"' 2>/dev/null || echo "parse-error")
-          SAFETY_OK=$(echo "$RESPONSE" | jq -r '.data.safetyCheck.safe // false' 2>/dev/null || echo "false")
+          # Extract identity fields
+          ZEPHIX_ENV=$(echo "$RESPONSE" | jq -r '.data.zephixEnv // "unknown"')
+          DB_HOST=$(echo "$RESPONSE" | jq -r '.data.dbHost // "unknown"')
+          SERVER_ADDR=$(echo "$RESPONSE" | jq -r '.data.dbIdentity.serverAddr // "unknown"')
+          CURRENT_DB=$(echo "$RESPONSE" | jq -r '.data.dbIdentity.currentDatabase // "unknown"')
+          MIGRATION_COUNT=$(echo "$RESPONSE" | jq -r '.data.migrationCount // 0')
+          LATEST_MIGRATION=$(echo "$RESPONSE" | jq -r '.data.latestMigration // "unknown"')
+          SAFETY_OK=$(echo "$RESPONSE" | jq -r '.data.safetyCheck.safe // false')
+          DB_CONNECTED=$(echo "$RESPONSE" | jq -r '.data.dbConnected // false')
 
-          echo "  zephixEnv: ${ZEPHIX_ENV}"
-          echo "  dbHost:    ${DB_HOST}"
-          echo "  safetyOk:  ${SAFETY_OK}"
+          echo "  zephixEnv:       ${ZEPHIX_ENV}"
+          echo "  dbHost:          ${DB_HOST}"
+          echo "  serverAddr:      ${SERVER_ADDR}"
+          echo "  currentDatabase: ${CURRENT_DB}"
+          echo "  migrationCount:  ${MIGRATION_COUNT}"
+          echo "  latestMigration: ${LATEST_MIGRATION}"
+          echo "  safetyOk:        ${SAFETY_OK}"
+          echo "  dbConnected:     ${DB_CONNECTED}"
 
-          # Hard fail conditions
-          if [ "$DB_HOST" = "postgres.railway.internal" ]; then
-            echo "::error::STAGING DEPLOY BLOCKED: dbHost is postgres.railway.internal (production Postgres)"
-            exit 1
-          fi
-          if [ "$ZEPHIX_ENV" != "staging" ] && [ "$ZEPHIX_ENV" != "unknown" ]; then
+          # ── Hard fail: zephixEnv must be staging ──
+          if [ "$ZEPHIX_ENV" != "staging" ]; then
             echo "::error::STAGING DEPLOY BLOCKED: zephixEnv is '${ZEPHIX_ENV}', expected 'staging'"
             exit 1
           fi
+
+          # ── Hard fail: dbHost must NOT be a production proxy ──
+          if [ "$DB_HOST" = "ballast.proxy.rlwy.net" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: dbHost is production proxy (ballast.proxy.rlwy.net)"
+            exit 1
+          fi
+
+          # ── Hard fail: DB must be connected ──
+          if [ "$DB_CONNECTED" != "true" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: database not connected"
+            exit 1
+          fi
+
+          # ── Hard fail: safety check must pass ──
           if [ "$SAFETY_OK" = "false" ]; then
             echo "::error::STAGING DEPLOY BLOCKED: DB safety check failed"
             exit 1
           fi
 
+          # ── Hard fail: serverAddr must be present (proves live DB connection) ──
+          if [ "$SERVER_ADDR" = "unknown" ] || [ "$SERVER_ADDR" = "null" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: inet_server_addr() returned null — cannot prove DB identity"
+            exit 1
+          fi
+
+          # ── Hard fail: migration count must be > 0 (proves schema initialized) ──
+          if [ "$MIGRATION_COUNT" -eq 0 ] 2>/dev/null; then
+            echo "::error::STAGING DEPLOY BLOCKED: migration count is 0 — schema may not be initialized"
+            exit 1
+          fi
+
+          echo ""
           echo "Staging env-proof guard: PASSED"
+          echo "  DB identity proven: addr=${SERVER_ADDR}, db=${CURRENT_DB}, migrations=${MIGRATION_COUNT}"
 
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
@@ -637,6 +699,64 @@ jobs:
 
             WAIT=$((WAIT + 3))
           done
+
+      # ── Post-deploy env-proof guard: verify production identity ────────
+      - name: "Production env-proof guard (verify DB identity)"
+        run: |
+          HEALTH_URL="${{ secrets.PROD_API_URL }}/health/ready"
+          if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+            echo "::warning::PROD_API_URL not configured — skipping env-proof guard"
+            exit 0
+          fi
+
+          # Check X-Zephix-Env header (no auth required)
+          HEADER=$(curl -sI "$HEALTH_URL" 2>/dev/null | grep -i x-zephix-env | tr -d '\r' | cut -d: -f2 | tr -d ' ')
+          echo "X-Zephix-Env header: ${HEADER}"
+
+          if [ "$HEADER" != "production" ]; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: X-Zephix-Env is '${HEADER}', expected 'production'"
+            exit 1
+          fi
+
+          # If admin token available, do full env-proof check
+          ENV_PROOF_URL="${{ secrets.PROD_API_URL }}/admin/system/env-proof"
+          RESPONSE=$(curl -sf -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ secrets.PROD_ADMIN_TOKEN }}" \
+            "$ENV_PROOF_URL" 2>/dev/null || echo '{"error":"env-proof unreachable"}')
+
+          if echo "$RESPONSE" | jq -e '.data.zephixEnv' >/dev/null 2>&1; then
+            ZEPHIX_ENV=$(echo "$RESPONSE" | jq -r '.data.zephixEnv')
+            DB_HOST=$(echo "$RESPONSE" | jq -r '.data.dbHost // "unknown"')
+            SERVER_ADDR=$(echo "$RESPONSE" | jq -r '.data.dbIdentity.serverAddr // "unknown"')
+            DB_CONNECTED=$(echo "$RESPONSE" | jq -r '.data.dbConnected // false')
+            MIGRATION_COUNT=$(echo "$RESPONSE" | jq -r '.data.migrationCount // 0')
+
+            echo "  zephixEnv:  ${ZEPHIX_ENV}"
+            echo "  dbHost:     ${DB_HOST}"
+            echo "  serverAddr: ${SERVER_ADDR}"
+            echo "  migrations: ${MIGRATION_COUNT}"
+
+            # Block staging/test proxy hosts in production
+            if [ "$DB_HOST" = "interchange.proxy.rlwy.net" ] || [ "$DB_HOST" = "shortline.proxy.rlwy.net" ] || [ "$DB_HOST" = "yamabiko.proxy.rlwy.net" ]; then
+              echo "::error::PRODUCTION DEPLOY BLOCKED: dbHost is a staging/test proxy (${DB_HOST})"
+              exit 1
+            fi
+
+            if [ "$ZEPHIX_ENV" != "production" ]; then
+              echo "::error::PRODUCTION DEPLOY BLOCKED: zephixEnv is '${ZEPHIX_ENV}', expected 'production'"
+              exit 1
+            fi
+
+            if [ "$DB_CONNECTED" != "true" ]; then
+              echo "::error::PRODUCTION DEPLOY BLOCKED: database not connected"
+              exit 1
+            fi
+
+            echo "Production env-proof guard: PASSED (addr=${SERVER_ADDR}, migrations=${MIGRATION_COUNT})"
+          else
+            echo "::warning::env-proof unreachable (may need PROD_ADMIN_TOKEN) — header check only"
+            echo "Production header guard: PASSED (X-Zephix-Env: ${HEADER})"
+          fi
 
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Production)

@@ -170,6 +170,30 @@ async function bootstrap() {
   if (process.env.SKIP_DATABASE !== 'true') {
     const verifier = app.get(DatabaseVerifyService);
     await verifier.verifyOnBoot();
+
+    // ─── POST-CONNECTION DB IDENTITY PROOF ─────────────────────────
+    // Log the ACTUAL database identity from the live connection.
+    // This is the only proof that matters — hostnames can be misleading.
+    try {
+      const { DataSource } = require('typeorm');
+      const ds = app.get(DataSource);
+      const identity = await ds.query(
+        `SELECT current_database() as db,
+                inet_server_addr() as addr,
+                inet_server_port() as port`,
+      );
+      const migrationCount = await ds.query(
+        `SELECT COUNT(*) as count FROM migrations`,
+      ).catch(() => [{ count: '0' }]);
+      const latestMigration = await ds.query(
+        `SELECT name FROM migrations ORDER BY id DESC LIMIT 1`,
+      ).catch(() => [{ name: '(none)' }]);
+
+      const id = identity?.[0] || {};
+      console.log(`✅ DB IDENTITY PROOF: database=${id.db} serverAddr=${id.addr} serverPort=${id.port} migrations=${migrationCount?.[0]?.count} latest=${latestMigration?.[0]?.name}`);
+    } catch (e) {
+      console.warn(`⚠️ DB IDENTITY PROOF: could not query — ${(e as Error)?.message}`);
+    }
   }
 
   // Health and all routes live under /api (e.g. /api/health/live, /api/health/ready). Smoke uses these paths.
