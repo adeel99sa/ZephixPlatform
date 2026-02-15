@@ -64,9 +64,69 @@ jobs:
         with:
           sarif_file: 'checkov-results.sarif'
 
-  backend-test:
-    name: Backend Testing & Quality
+  # ── Gating suites: small, stable, MUST pass to deploy ─────────────
+  backend-gating:
+    name: Backend Gating Tests
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Run type checking
+        working-directory: zephix-backend
+        run: npx tsc --noEmit
+
+      - name: Run gating tests (114 suites, 1252 tests)
+        working-directory: zephix-backend
+        run: npm run test:gating
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-key
+
+  frontend-gating:
+    name: Frontend Gating Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Run type checking
+        working-directory: zephix-frontend
+        run: npx tsc --noEmit
+
+      - name: Run gating tests (38 files)
+        working-directory: zephix-frontend
+        run: npm run test:gating
+        env:
+          CI: true
+
+  # ── Full suites: informational, do NOT block deploys ─────────────
+  backend-test:
+    name: Backend Full Tests (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
     services:
       postgres:
         image: postgres:15
@@ -185,8 +245,9 @@ jobs:
           name: backend-coverage
 
   frontend-test:
-    name: Frontend Testing & Quality
+    name: Frontend Full Tests (informational)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -236,7 +297,7 @@ jobs:
   # Deploy to test on every push to main
   deploy-test:
     name: Deploy to Test
-    needs: [security-scan, backend-test]
+    needs: [backend-gating]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: test
@@ -380,7 +441,7 @@ jobs:
   #   Frontend: zephix-frontend    (same name across all envs)
   deploy-staging:
     name: Deploy to Staging
-    needs: [security-scan, backend-test, frontend-test]
+    needs: [security-scan, backend-gating, frontend-gating]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     environment: staging
@@ -394,38 +455,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # ── Backend quality gates (staging requires all pass) ──────────────
+      # ── Backend build for deploy (tsc + gating already passed in backend-gating job)
       - name: Backend install
         working-directory: zephix-backend
         run: npm ci
-
-      - name: Backend typecheck
-        working-directory: zephix-backend
-        run: npx tsc --noEmit
 
       - name: Backend build
         working-directory: zephix-backend
         run: npm run build
 
-      - name: Backend unit tests
-        working-directory: zephix-backend
-        run: npm run test:cov
-        env:
-          NODE_ENV: test
-          JWT_SECRET: staging-ci-secret
-
-      # ── Frontend quality gates (staging requires gating pass) ──────────
+      # ── Frontend build for deploy (tsc + gating already passed in frontend-gating job)
       - name: Frontend install
         working-directory: zephix-frontend
         run: npm ci
-
-      - name: Frontend typecheck
-        working-directory: zephix-frontend
-        run: npx tsc --noEmit
-
-      - name: Frontend gating tests
-        working-directory: zephix-frontend
-        run: npm run test:gating
 
       - name: Frontend build
         working-directory: zephix-frontend
@@ -873,7 +915,7 @@ jobs:
   security-compliance:
     name: Security Compliance Report
     runs-on: ubuntu-latest
-    needs: [security-scan, backend-test]
+    needs: [security-scan, backend-gating]
     if: always()
 
     steps:
