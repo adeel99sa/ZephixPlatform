@@ -60,7 +60,7 @@ jobs:
         uses: bridgecrewio/checkov-action@master
         with:
           directory: .
-          framework: terraform,kubernetes,dockerfile,githubactions
+          framework: terraform,kubernetes,dockerfile,github_actions
           output_format: sarif
           output_file_path: checkov-results.sarif
 
