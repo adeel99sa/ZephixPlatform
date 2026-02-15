@@ -11,13 +11,13 @@
  *
  * Run: npm run test:gating
  *
- * Excluded suites (20 as of 2026-02-15):
+ * Excluded suites (18 as of 2026-02-15):
  *   Fix order (by platform risk):
  *     P1: RESOLVED — app.module.compile promoted to gating
  *     P2: auth-session-refresh RESOLVED — promoted to gating
  *         auth.integration + auth.routes: TS fixed, need DB (stay excluded)
  *     P3: Work management (work-item.service, work-items-bulk, my-work)
- *     P4: Resources & allocation (resources.service, resource-allocation.service)
+ *     P4: RESOLVED — resources.service + resource-allocation.service promoted to gating
  *     P5: Notifications (notifications-read-all)
  *     P6: Templates & workflows (templates.service, workflow-templates.service)
  *     P7: Integration suites requiring DB (rollups, template-center, dashboards, home)
@@ -50,9 +50,9 @@ module.exports = {
     'work-items-bulk\\.integration\\.spec\\.ts',
     'my-work\\.integration\\.spec\\.ts',
 
-    // ── P4: Resources & allocation ──────────────────────────────
-    'resources\\.service\\.spec\\.ts',
-    'resource-allocation\\.service\\.spec\\.ts',
+    // ── P4: RESOLVED — promoted to gating (2026-02-15) ─────────
+    // resources.service.spec.ts — Fixed: tenant-aware repo tokens + TenantContextService
+    // resource-allocation.service.spec.ts — Fixed: tenant-aware repos, qb mock, UnitsType
 
     // ── P5: Notifications ───────────────────────────────────────
     'notifications-read-all\\.spec\\.ts',

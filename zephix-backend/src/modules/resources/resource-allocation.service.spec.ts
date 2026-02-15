@@ -6,11 +6,16 @@ import { ResourceAllocationService } from './resource-allocation.service';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
 import { UserDailyCapacity } from './entities/user-daily-capacity.entity';
 import { Resource } from './entities/resource.entity';
+import { ResourceConflict } from './entities/resource-conflict.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { AllocationType } from './enums/allocation-type.enum';
+import { UnitsType } from './enums/units-type.enum';
 import { BookingSource } from './enums/booking-source.enum';
 import { getResourceSettings } from '../../organizations/utils/resource-settings.util';
+import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
+import { ResourceTimelineService } from './services/resource-timeline.service';
+import { TenantContextService } from '../tenancy/tenant-context.service';
 
 // Mock the getResourceSettings function
 jest.mock('../../organizations/utils/resource-settings.util', () => ({
@@ -29,6 +34,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
     findOne: jest.fn(),
     remove: jest.fn(),
     createQueryBuilder: jest.fn(),
+    qb: jest.fn(),
   };
 
   const mockOrganizationRepository = {
@@ -39,21 +45,28 @@ describe('ResourceAllocationService - validateGovernance', () => {
     createQueryRunner: jest.fn(),
   };
 
+  const mockResourceRepository = {
+    findOne: jest.fn().mockResolvedValue({
+      id: 'resource-1',
+      capacityHoursPerWeek: 40,
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ResourceAllocationService,
         {
-          provide: getRepositoryToken(ResourceAllocation),
+          provide: getTenantAwareRepositoryToken(ResourceAllocation),
           useValue: mockAllocationRepository,
         },
         {
-          provide: getRepositoryToken(UserDailyCapacity),
+          provide: getTenantAwareRepositoryToken(UserDailyCapacity),
           useValue: {},
         },
         {
-          provide: getRepositoryToken(Resource),
-          useValue: {},
+          provide: getTenantAwareRepositoryToken(Resource),
+          useValue: mockResourceRepository,
         },
         {
           provide: getRepositoryToken(Task),
@@ -64,8 +77,23 @@ describe('ResourceAllocationService - validateGovernance', () => {
           useValue: mockOrganizationRepository,
         },
         {
+          provide: getRepositoryToken(ResourceConflict),
+          useValue: {},
+        },
+        {
           provide: DataSource,
           useValue: mockDataSource,
+        },
+        {
+          provide: ResourceTimelineService,
+          useValue: { updateTimeline: jest.fn() },
+        },
+        {
+          provide: TenantContextService,
+          useValue: {
+            assertOrganizationId: jest.fn().mockReturnValue('org-1'),
+            getWorkspaceId: jest.fn().mockReturnValue(null),
+          },
         },
       ],
     }).compile();
@@ -73,9 +101,9 @@ describe('ResourceAllocationService - validateGovernance', () => {
     service = module.get<ResourceAllocationService>(
       ResourceAllocationService,
     );
-    allocationRepository = module.get<Repository<ResourceAllocation>>(
-      getRepositoryToken(ResourceAllocation),
-    );
+    allocationRepository = module.get(
+      getTenantAwareRepositoryToken(ResourceAllocation),
+    ) as Repository<ResourceAllocation>;
     organizationRepository = module.get<Repository<Organization>>(
       getRepositoryToken(Organization),
     );
@@ -107,6 +135,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // No error should be thrown
       await expect(
@@ -141,6 +170,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       existingAllocation.id = 'alloc-1';
       existingAllocation.type = AllocationType.HARD;
       existingAllocation.allocationPercentage = 30;
+      existingAllocation.unitsType = UnitsType.PERCENT;
 
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -151,6 +181,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // Projected total: 30 (existing) + 40 (new) = 70, below both thresholds
       await expect(
@@ -185,6 +216,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       existingAllocation.id = 'alloc-1';
       existingAllocation.type = AllocationType.HARD;
       existingAllocation.allocationPercentage = 100;
+      existingAllocation.unitsType = UnitsType.PERCENT;
 
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -195,6 +227,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // Projected total: 100 (existing) + 60 (new) = 160, exceeds hardCap of 150
       await expect(
@@ -229,6 +262,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       existingAllocation.id = 'alloc-1';
       existingAllocation.type = AllocationType.HARD;
       existingAllocation.allocationPercentage = 80;
+      existingAllocation.unitsType = UnitsType.PERCENT;
 
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -239,6 +273,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // Projected total: 80 (existing) + 30 (new) = 110, exceeds requireJustificationAbove of 100
       await expect(
@@ -271,6 +306,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       existingAllocation.id = 'alloc-1';
       existingAllocation.type = AllocationType.HARD;
       existingAllocation.allocationPercentage = 80;
+      existingAllocation.unitsType = UnitsType.PERCENT;
 
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -281,6 +317,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // Projected total: 80 (existing) + 30 (new) = 110, exceeds requireJustificationAbove of 100
       // But has justification, so should not throw
@@ -314,6 +351,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       existingAllocation.id = 'alloc-1';
       existingAllocation.type = AllocationType.HARD;
       existingAllocation.allocationPercentage = 80;
+      existingAllocation.unitsType = UnitsType.PERCENT;
 
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -324,6 +362,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       await expect(
         service['validateGovernance'](
@@ -367,6 +406,7 @@ describe('ResourceAllocationService - validateGovernance', () => {
       mockAllocationRepository.createQueryBuilder.mockReturnValue(
         mockQueryBuilder,
       );
+      mockAllocationRepository.qb.mockReturnValue(mockQueryBuilder);
 
       // Projected total: 0 (GHOST excluded) + 50 (new) = 50, should pass
       await expect(
