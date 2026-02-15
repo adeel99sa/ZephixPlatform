@@ -1,0 +1,60 @@
+{
+  "capturedAt": "2026-02-15T00:33:05Z",
+  "environment": "staging",
+  "service": "zephix-backend-v2",
+  "domain": "zephix-backend-v2-staging.up.railway.app",
+  "verification": {
+    "healthReady": {
+      "url": "https://zephix-backend-v2-staging.up.railway.app/api/health/ready",
+      "httpStatus": 200,
+      "response": {
+        "status": "ok",
+        "checks": {
+          "db": {"status": "ok"},
+          "schema": {"status": "ok"}
+        }
+      }
+    },
+    "headers": {
+      "x-zephix-env": "staging",
+      "x-railway-fallback": "NOT PRESENT (traffic reaches container)",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "version": {
+      "url": "https://zephix-backend-v2-staging.up.railway.app/api/version",
+      "httpStatus": 200,
+      "response": {
+        "version": "1.0.0",
+        "name": "Zephix Backend",
+        "environment": "staging",
+        "nodeVersion": "v20.18.1",
+        "commitSha": "330c956030c9a4e9a7a4b8ff95fda9365a516ac3",
+        "commitShaTrusted": true
+      }
+    },
+    "envProof": {
+      "url": "https://zephix-backend-v2-staging.up.railway.app/api/admin/system/env-proof",
+      "httpStatus": 401,
+      "note": "Admin-only endpoint correctly requires authentication"
+    },
+    "dbSafetyGuard": {
+      "result": "PASS",
+      "message": "ZEPHIX_ENV=staging, dbHost=postgres.railway.internal (Railway internal, env-scoped) — OK"
+    }
+  },
+  "configVerified": {
+    "ZEPHIX_ENV": "staging",
+    "NODE_ENV": "staging",
+    "PORT": 3000,
+    "DATABASE_URL_HOST": "postgres.railway.internal",
+    "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-v2-staging.up.railway.app"
+  },
+  "issuesResolved": [
+    "PORT mismatch: Railway networking expected 3000, app was set to 8080 — fixed to 3000",
+    "DATABASE_URL: changed from non-existent postgres-jj7b.railway.internal to env-scoped postgres.railway.internal",
+    "DB safety guard: rewritten to support Railway env-scoped internal DNS",
+    "Staging DB: reset from SQL-created Frankenstein schema to clean TypeORM migration chain",
+    "Missing env vars: INTEGRATION_ENCRYPTION_KEY and REFRESH_TOKEN_PEPPER added",
+    "Source: connected to GitHub (adeel99sa/ZephixPlatform) with root /zephix-backend, branch main"
+  ]
+}

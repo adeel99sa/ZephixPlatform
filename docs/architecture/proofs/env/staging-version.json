@@ -1,0 +1,20 @@
+{
+    "data": {
+        "version": "1.0.0",
+        "name": "Zephix Backend",
+        "environment": "staging",
+        "nodeVersion": "v20.18.1",
+        "commitSha": "330c956030c9a4e9a7a4b8ff95fda9365a516ac3",
+        "commitShaTrusted": true,
+        "timestamp": "2026-02-15T00:33:16.728Z",
+        "uptime": 51.144707511,
+        "memory": {
+            "used": 75,
+            "total": 78
+        }
+    },
+    "meta": {
+        "timestamp": "2026-02-15T00:33:16.728Z",
+        "requestId": "req-1771115596728-9e85lbeu4"
+    }
+}
