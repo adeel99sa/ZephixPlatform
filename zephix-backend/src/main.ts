@@ -173,24 +173,44 @@ async function bootstrap() {
 
     // ─── POST-CONNECTION DB IDENTITY PROOF ─────────────────────────
     // Log the ACTUAL database identity from the live connection.
-    // This is the only proof that matters — hostnames can be misleading.
+    // Hostname alone is NOT proof — we need inet_server_addr() and
+    // system_identifier to prove which Postgres cluster we connected to.
     try {
       const { DataSource } = require('typeorm');
       const ds = app.get(DataSource);
+
       const identity = await ds.query(
         `SELECT current_database() as db,
                 inet_server_addr() as addr,
                 inet_server_port() as port`,
       );
+
+      // system_identifier uniquely identifies the Postgres cluster
+      const cluster = await ds.query(
+        `SELECT system_identifier FROM pg_control_system()`,
+      ).catch(() => [{ system_identifier: '(unavailable)' }]);
+
+      // db_oid confirms correct database within the cluster
+      const dbOid = await ds.query(
+        `SELECT oid FROM pg_database WHERE datname = current_database()`,
+      ).catch(() => [{ oid: '(unavailable)' }]);
+
       const migrationCount = await ds.query(
         `SELECT COUNT(*) as count FROM migrations`,
       ).catch(() => [{ count: '0' }]);
+
       const latestMigration = await ds.query(
         `SELECT name FROM migrations ORDER BY id DESC LIMIT 1`,
       ).catch(() => [{ name: '(none)' }]);
 
       const id = identity?.[0] || {};
-      console.log(`✅ DB IDENTITY PROOF: database=${id.db} serverAddr=${id.addr} serverPort=${id.port} migrations=${migrationCount?.[0]?.count} latest=${latestMigration?.[0]?.name}`);
+      const sysId = cluster?.[0]?.system_identifier || '(unavailable)';
+      const oid = dbOid?.[0]?.oid || '(unavailable)';
+      console.log(
+        `✅ DB IDENTITY PROOF: database=${id.db} serverAddr=${id.addr} serverPort=${id.port} ` +
+        `systemIdentifier=${sysId} dbOid=${oid} ` +
+        `migrations=${migrationCount?.[0]?.count} latest=${latestMigration?.[0]?.name}`,
+      );
     } catch (e) {
       console.warn(`⚠️ DB IDENTITY PROOF: could not query — ${(e as Error)?.message}`);
     }

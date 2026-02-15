@@ -67,6 +67,8 @@ export class EnvProofController {
       currentDatabase: null,
       serverAddr: null,
       serverPort: null,
+      systemIdentifier: null,
+      dbOid: null,
     };
 
     try {
@@ -85,6 +87,31 @@ export class EnvProofController {
         dbIdentity.currentDatabase = identityResult[0].db;
         dbIdentity.serverAddr = identityResult[0].addr;
         dbIdentity.serverPort = parseInt(identityResult[0].port, 10) || null;
+      }
+
+      // ─── CLUSTER FINGERPRINT ───────────────────────────────────────
+      // system_identifier uniquely identifies the Postgres cluster.
+      // Two different Postgres instances will ALWAYS have different values.
+      // db_oid confirms we're reading from the expected database, not a template.
+      try {
+        const clusterResult = await this.dataSource.query(
+          `SELECT system_identifier FROM pg_control_system()`,
+        );
+        dbIdentity.systemIdentifier = clusterResult?.[0]?.system_identifier || null;
+      } catch {
+        // pg_control_system() requires pg >= 9.6 and may need superuser in some configs
+        dbIdentity.systemIdentifier = '(unavailable)';
+      }
+
+      try {
+        const oidResult = await this.dataSource.query(
+          `SELECT oid FROM pg_database WHERE datname = current_database()`,
+        );
+        dbIdentity.dbOid = oidResult?.[0]?.oid
+          ? parseInt(oidResult[0].oid, 10)
+          : null;
+      } catch {
+        dbIdentity.dbOid = '(unavailable)' as any;
       }
     } catch (e) {
       dbConnected = false;
