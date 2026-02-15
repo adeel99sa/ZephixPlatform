@@ -1,9 +1,11 @@
 import {
   extractDbHost,
   validateDbWiring,
+  isForbiddenProxy,
   PRODUCTION_PROXY_HOSTS,
   STAGING_PROXY_HOSTS,
   TEST_PROXY_HOSTS,
+  FORBIDDEN_PROXY_HOSTS,
 } from './db-safety-guard';
 
 describe('DB Safety Guard', () => {
@@ -218,6 +220,77 @@ describe('DB Safety Guard', () => {
       );
       expect(result.safe).toBe(true);
       expect(result.message).toContain('unknown env');
+    });
+  });
+
+  describe('isForbiddenProxy', () => {
+    it('returns true when staging tries production proxy', () => {
+      expect(isForbiddenProxy('staging', 'ballast.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns true when staging tries test proxy', () => {
+      expect(isForbiddenProxy('staging', 'yamabiko.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns false when staging uses staging proxy', () => {
+      expect(isForbiddenProxy('staging', 'interchange.proxy.rlwy.net')).toBe(false);
+    });
+
+    it('returns true when production tries staging proxy', () => {
+      expect(isForbiddenProxy('production', 'interchange.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns true when production tries test proxy', () => {
+      expect(isForbiddenProxy('production', 'yamabiko.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns false when production uses production proxy', () => {
+      expect(isForbiddenProxy('production', 'ballast.proxy.rlwy.net')).toBe(false);
+    });
+
+    it('returns true when test tries production proxy', () => {
+      expect(isForbiddenProxy('test', 'ballast.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns true when test tries staging proxy', () => {
+      expect(isForbiddenProxy('test', 'shortline.proxy.rlwy.net')).toBe(true);
+    });
+
+    it('returns false when test uses test proxy', () => {
+      expect(isForbiddenProxy('test', 'yamabiko.proxy.rlwy.net')).toBe(false);
+    });
+
+    it('returns false for unknown env (no forbidden list)', () => {
+      expect(isForbiddenProxy('preview', 'ballast.proxy.rlwy.net')).toBe(false);
+    });
+
+    it('returns false for non-proxy hosts', () => {
+      expect(isForbiddenProxy('staging', 'localhost')).toBe(false);
+    });
+
+    it('returns false for internal Railway hosts', () => {
+      expect(isForbiddenProxy('staging', 'postgres.railway.internal')).toBe(false);
+    });
+  });
+
+  describe('FORBIDDEN_PROXY_HOSTS', () => {
+    it('staging forbids production and test proxies', () => {
+      expect(FORBIDDEN_PROXY_HOSTS['staging']).toContain('ballast.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['staging']).toContain('yamabiko.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['staging']).not.toContain('interchange.proxy.rlwy.net');
+    });
+
+    it('production forbids staging and test proxies', () => {
+      expect(FORBIDDEN_PROXY_HOSTS['production']).toContain('interchange.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['production']).toContain('shortline.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['production']).toContain('yamabiko.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['production']).not.toContain('ballast.proxy.rlwy.net');
+    });
+
+    it('test forbids production and staging proxies', () => {
+      expect(FORBIDDEN_PROXY_HOSTS['test']).toContain('ballast.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['test']).toContain('interchange.proxy.rlwy.net');
+      expect(FORBIDDEN_PROXY_HOSTS['test']).not.toContain('yamabiko.proxy.rlwy.net');
     });
   });
 

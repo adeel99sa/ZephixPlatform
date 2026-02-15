@@ -1,9 +1,12 @@
 /**
  * Environment Proof Controller
  *
- * Admin-only endpoint that exposes environment wiring details.
+ * Admin-only endpoint that exposes environment wiring details
+ * plus LIVE database identity queries.
+ *
  * Used by CI and operators to verify correct env↔DB mapping
- * before and after deploys.
+ * before and after deploys. Hostname alone is NOT proof —
+ * we query the actual Postgres instance for its identity.
  *
  * GET /admin/system/env-proof
  */
@@ -55,24 +58,79 @@ export class EnvProofController {
       ? validateDbWiring(zephixEnv, databaseUrl)
       : { safe: true, message: 'ZEPHIX_ENV not set — guard skipped' };
 
-    // DB connectivity check
+    // ─── LIVE DATABASE IDENTITY ───────────────────────────────────
+    // These queries prove WHICH Postgres instance we are actually
+    // connected to. Hostname alone is not proof — DNS can lie.
     let dbConnected = false;
     let dbVersion = '(unknown)';
+    const dbIdentity: Record<string, string | number | null> = {
+      currentDatabase: null,
+      serverAddr: null,
+      serverPort: null,
+    };
+
     try {
-      const result = await this.dataSource.query('SELECT version()');
+      // DB connectivity + version
+      const versionResult = await this.dataSource.query('SELECT version()');
       dbConnected = true;
-      dbVersion = result?.[0]?.version?.split(' ').slice(0, 2).join(' ') || '(unknown)';
-    } catch {
+      dbVersion = versionResult?.[0]?.version?.split(' ').slice(0, 2).join(' ') || '(unknown)';
+
+      // Actual database identity from the running Postgres instance
+      const identityResult = await this.dataSource.query(
+        `SELECT current_database() as db,
+                inet_server_addr() as addr,
+                inet_server_port() as port`,
+      );
+      if (identityResult?.[0]) {
+        dbIdentity.currentDatabase = identityResult[0].db;
+        dbIdentity.serverAddr = identityResult[0].addr;
+        dbIdentity.serverPort = parseInt(identityResult[0].port, 10) || null;
+      }
+    } catch (e) {
       dbConnected = false;
+      this.logger.error(`DB identity query failed: ${(e as Error)?.message}`);
     }
 
-    // Migration count
+    // Migration count + latest migration name
     let migrationCount = 0;
+    let latestMigration = '(unknown)';
     try {
-      const result = await this.dataSource.query('SELECT COUNT(*) as count FROM migrations');
-      migrationCount = parseInt(result?.[0]?.count || '0', 10);
+      const countResult = await this.dataSource.query(
+        'SELECT COUNT(*) as count FROM migrations',
+      );
+      migrationCount = parseInt(countResult?.[0]?.count || '0', 10);
+
+      const latestResult = await this.dataSource.query(
+        'SELECT name FROM migrations ORDER BY id DESC LIMIT 1',
+      );
+      latestMigration = latestResult?.[0]?.name || '(none)';
     } catch {
       // migrations table may not exist
+    }
+
+    // Table count — helps distinguish fresh DB vs production
+    let tableCount = 0;
+    try {
+      const result = await this.dataSource.query(
+        `SELECT COUNT(*) as count FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+      );
+      tableCount = parseInt(result?.[0]?.count || '0', 10);
+    } catch {
+      // ignore
+    }
+
+    // Row counts in key tables for data fingerprinting
+    const dataFingerprint: Record<string, number | string> = {};
+    for (const table of ['users', 'organizations', 'projects']) {
+      try {
+        const result = await this.dataSource.query(
+          `SELECT COUNT(*) as count FROM "${table}"`,
+        );
+        dataFingerprint[table] = parseInt(result?.[0]?.count || '0', 10);
+      } catch {
+        dataFingerprint[table] = '(table missing)';
+      }
     }
 
     const proof = {
@@ -80,6 +138,7 @@ export class EnvProofController {
       nodeEnv,
       dbHost,
       dbName,
+      dbIdentity,
       gitSha: process.env.RAILWAY_GIT_COMMIT_SHA
         || process.env.GIT_COMMIT_SHA
         || '(not set)',
@@ -87,16 +146,23 @@ export class EnvProofController {
       dbConnected,
       dbVersion,
       migrationCount,
+      latestMigration,
+      tableCount,
+      dataFingerprint,
       safetyCheck: {
         safe: safetyCheck.safe,
         message: safetyCheck.message,
       },
       railwayServiceId: process.env.RAILWAY_SERVICE_ID || '(not set)',
-      railwayEnvironment: process.env.RAILWAY_ENVIRONMENT || '(not set)',
+      railwayEnvironmentName: process.env.RAILWAY_ENVIRONMENT_NAME || '(not set)',
+      railwayEnvironmentId: process.env.RAILWAY_ENVIRONMENT_ID || '(not set)',
       timestamp: new Date().toISOString(),
     };
 
-    this.logger.log(`ENV_PROOF requested: zephixEnv=${zephixEnv} dbHost=${dbHost} safe=${safetyCheck.safe}`);
+    this.logger.log(
+      `ENV_PROOF: zephixEnv=${zephixEnv} dbHost=${dbHost} dbAddr=${dbIdentity.serverAddr} ` +
+      `dbName=${dbIdentity.currentDatabase} migrations=${migrationCount} safe=${safetyCheck.safe}`,
+    );
 
     return { data: proof };
   }
