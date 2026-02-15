@@ -105,9 +105,12 @@ async function bootstrap() {
       DATABASE_URL_SET: Boolean(process.env.DATABASE_URL),
     });
   }
-  // Skip env validation in test mode (tests use Test.createTestingModule, not bootstrap)
-  if (process.env.NODE_ENV === 'test') {
-    // Tests don't call bootstrap, but guardrail in case they do
+  // Skip env validation in UNIT TEST mode only.
+  // Unit tests use Test.createTestingModule, not bootstrap().
+  // Railway's "test" environment (NODE_ENV=test) MUST boot normally.
+  // JEST_WORKER_ID is set by Jest; VITEST is set by Vitest.
+  if (process.env.JEST_WORKER_ID || process.env.VITEST) {
+    console.log('BOOT_SKIP: detected test runner (JEST_WORKER_ID or VITEST) — returning early');
     return;
   }
 
@@ -154,11 +157,11 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  if (debugBoot) console.log('🚀 Creating NestJS application...');
+  console.log('BOOT_BEFORE_NEST_CREATE', new Date().toISOString());
   const app = await NestFactory.create(AppModule, {
     logger: debugBoot
       ? ['log', 'warn', 'error', 'debug', 'verbose']
-      : ['error', 'warn'],
+      : ['error', 'warn', 'log'],
   });
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
 
