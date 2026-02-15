@@ -1,0 +1,59 @@
+# Staging Post-Deletion Health Proof
+# Captured: 2026-02-15T05:28:51Z
+# Command: curl -si https://zephix-backend-v2-staging.up.railway.app/api/health/ready
+
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Sun, 15 Feb 2026 05:28:52 GMT
+deprecation: true
+etag: W/"68-hUVjlZRlzubPJNvPSyQgLRtrreg"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-05-16T05:28:52.918Z
+vary: Origin
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: NEz9x9rCT6mj-K4-Aax-fw
+x-request-id: 0e802e36-f77e-4bfd-92d2-bf7d6f1c267a
+x-xss-protection: 0
+x-zephix-env: staging
+content-length: 104
+
+{"status":"ok","ts":"2026-02-15T05:28:52.976Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}
+
+# Identity: curl -s https://zephix-backend-v2-staging.up.railway.app/api/system/identity
+
+{
+    "data": {
+        "zephixEnv": "staging",
+        "nodeEnv": "staging",
+        "dbHost": "postgres.railway.internal",
+        "dbIdentity": {
+            "serverAddr": "fd12:c270:ca54:0:a000:32:4d:7c",
+            "serverPort": 5432,
+            "systemIdentifier": "7539754227597242404"
+        },
+        "migrationCount": 120,
+        "latestMigration": "AlignAuditEventsSchema18000000000010",
+        "gitSha": "03e64db4b79df407d2659075a73212bb5fabfa79",
+        "startedAt": "2026-02-15T05:24:28.357Z",
+        "timestamp": "2026-02-15T05:28:53.179Z"
+    },
+    "meta": {
+        "timestamp": "2026-02-15T05:28:53.179Z",
+        "requestId": "18899a96-e3f8-4efa-91af-12d413c43e25"
+    }
+}
