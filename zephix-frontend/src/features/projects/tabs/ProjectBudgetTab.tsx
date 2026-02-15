@@ -1,3 +1,11 @@
+/**
+ * ProjectBudgetTab
+ *
+ * Wrapper that delegates to the Sprint 5 BudgetTab component.
+ * The BudgetTab supports baselines, actuals, EV metrics, and policy thresholds.
+ */
+
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { BudgetTab } from '@/features/budget/BudgetTab';
 
@@ -10,3 +18,5 @@ export const ProjectBudgetTab: React.FC = () => {
 
   return <BudgetTab projectId={projectId} />;
 };
+
+export default ProjectBudgetTab;

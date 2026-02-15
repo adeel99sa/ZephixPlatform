@@ -10,7 +10,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, GitPullRequest, FileText, DollarSign } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -26,6 +26,9 @@ const PROJECT_TABS = [
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
   { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
+  { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
+  { id: 'documents', label: 'Documents', path: '/documents', icon: FileText },
+  { id: 'budget', label: 'Budget', path: '/budget', icon: DollarSign },
 ] as const;
 
 type TabId = typeof PROJECT_TABS[number]['id'];
@@ -62,7 +65,9 @@ export const ProjectPageLayout: React.FC = () => {
   // Determine active tab from current path
   const getActiveTab = (): TabId => {
     const path = location.pathname;
-    // Check for specific tab paths
+    if (path.includes('/change-requests')) return 'change-requests';
+    if (path.includes('/documents')) return 'documents';
+    if (path.includes('/budget')) return 'budget';
     if (path.includes('/plan')) return 'plan';
     if (path.includes('/tasks')) return 'tasks';
     if (path.includes('/board')) return 'board';
