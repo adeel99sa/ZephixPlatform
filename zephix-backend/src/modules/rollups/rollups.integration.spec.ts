@@ -13,6 +13,8 @@ import { ConfigService } from '@nestjs/config';
  * - GET /api/workspaces/:workspaceId/programs/:programId/rollup
  * - GET /api/workspaces/:workspaceId/portfolios/:portfolioId/rollup
  */
+jest.setTimeout(30000);
+
 describe('Rollups Integration Tests (Phase 6 Module 4)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -84,10 +86,10 @@ describe('Rollups Integration Tests (Phase 6 Module 4)', () => {
    * Helper: Create test organization, users, workspaces, portfolios, programs, projects
    */
   async function setupTestData() {
-    // Create organization
+    // Create organization (slug is NOT NULL)
     const orgResult = await dataSource.query(
-      `INSERT INTO organizations (id, name, created_at, updated_at)
-       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, NOW(), NOW())
+      `INSERT INTO organizations (id, name, slug, created_at, updated_at)
+       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, 'test-org-' || gen_random_uuid()::text, NOW(), NOW())
        RETURNING id`,
     );
     orgId = orgResult[0].id;

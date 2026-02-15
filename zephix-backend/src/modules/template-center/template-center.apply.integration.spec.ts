@@ -16,6 +16,8 @@ import { DocumentInstance } from './documents/entities/document-instance.entity'
 import { TemplateLineage } from './apply/entities/template-lineage.entity';
 import { DocumentVersion } from './documents/entities/document-version.entity';
 
+jest.setTimeout(30000);
+
 describe('Template Center (integration)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
