@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsEnum,
   IsNumber,
+  IsBoolean,
   Min,
   Max,
   IsUUID,
@@ -107,4 +108,28 @@ export class CreateProjectDto {
   @IsArray()
   @IsString({ each: true })
   definitionOfDone?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  costTrackingEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  earnedValueEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  waterfallEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  baselinesEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  capacityEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  iterationsEnabled?: boolean;
 }

@@ -2,49 +2,64 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
   Index,
 } from 'typeorm';
 
 /**
- * Audit events for work management operations
- * Tracks acknowledgements and phase updates
+ * Work-management audit event entity.
+ *
+ * MUST match the Phase 3B schema in modules/audit/entities/audit-event.entity.ts.
+ * Both entities point to the same `audit_events` table. Column names and
+ * types must be identical.
+ *
+ * Canonical source of truth: modules/audit/entities/audit-event.entity.ts
  */
 @Entity('audit_events')
-@Index(['workspaceId', 'projectId'])
-@Index(['userId', 'createdAt'])
-@Index(['eventType'])
+@Index('IDX_audit_events_org_created', ['organizationId', 'createdAt'])
+@Index('IDX_audit_events_org_entity', ['organizationId', 'entityType', 'entityId', 'createdAt'])
 export class AuditEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'uuid', name: 'organization_id' })
+  organizationId: string;
+
   @Column({ type: 'uuid', name: 'workspace_id', nullable: true })
   workspaceId: string | null;
 
-  @Column({ type: 'uuid', name: 'project_id', nullable: true })
-  projectId: string | null;
+  @Column({ type: 'uuid', name: 'actor_user_id' })
+  actorUserId: string;
 
-  @Column({ type: 'uuid', name: 'user_id' })
-  userId: string;
+  @Column({ name: 'actor_platform_role' })
+  actorPlatformRole: string;
 
-  @Column({ type: 'varchar', length: 50, name: 'event_type' })
-  eventType: string; // ACK_CONSUMED, PHASE_UPDATED_WITH_ACK, TEMPLATE_APPLIED, DOC_TRANSITION, GATE_DECIDE
+  @Column({ name: 'actor_workspace_role', nullable: true })
+  actorWorkspaceRole: string | null;
 
-  @Column({ type: 'varchar', length: 50, name: 'entity_type' })
-  entityType: string; // PHASE, TASK, PROJECT, TEMPLATE_LINEAGE, DOCUMENT_INSTANCE, GATE_APPROVAL
+  @Column({ name: 'entity_type' })
+  entityType: string;
 
-  @Column({ type: 'uuid', name: 'entity_id', nullable: true })
-  entityId: string | null;
+  @Column({ type: 'uuid', name: 'entity_id' })
+  entityId: string;
 
-  @Column({ type: 'jsonb', name: 'old_state', nullable: true })
-  oldState: Record<string, any> | null;
+  @Column()
+  action: string;
 
-  @Column({ type: 'jsonb', name: 'new_state', nullable: true })
-  newState: Record<string, any> | null;
+  @Column({ type: 'jsonb', name: 'before_json', nullable: true })
+  beforeJson: Record<string, any> | null;
 
-  @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any> | null;
+  @Column({ type: 'jsonb', name: 'after_json', nullable: true })
+  afterJson: Record<string, any> | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ type: 'jsonb', name: 'metadata_json', nullable: true })
+  metadataJson: Record<string, any> | null;
+
+  @Column({ name: 'ip_address', nullable: true })
+  ipAddress: string | null;
+
+  @Column({ name: 'user_agent', nullable: true })
+  userAgent: string | null;
+
+  @Column({ type: 'timestamptz', name: 'created_at', default: () => 'now()' })
   createdAt: Date;
 }
