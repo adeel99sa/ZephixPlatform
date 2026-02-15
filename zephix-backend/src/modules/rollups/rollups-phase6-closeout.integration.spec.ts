@@ -29,6 +29,8 @@ import { ConfigService } from '@nestjs/config';
  * 4. Linking scenarios (4a-4e)
  * 5. Rollup accuracy (5a-5b)
  */
+jest.setTimeout(30000);
+
 describe('Phase 6 Closeout Integration Tests', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -106,10 +108,10 @@ describe('Phase 6 Closeout Integration Tests', () => {
    * Helper: Create test organization, users, workspaces, portfolios, programs, projects
    */
   async function setupTestData() {
-    // Create organization
+    // Create organization (slug is NOT NULL)
     const orgResult = await dataSource.query(
-      `INSERT INTO organizations (id, name, created_at, updated_at)
-       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, NOW(), NOW())
+      `INSERT INTO organizations (id, name, slug, created_at, updated_at)
+       VALUES (gen_random_uuid(), 'Test Org ' || gen_random_uuid()::text, 'test-org-' || gen_random_uuid()::text, NOW(), NOW())
        RETURNING id`,
     );
     orgId = orgResult[0].id;

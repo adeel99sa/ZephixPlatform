@@ -34,9 +34,8 @@ import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { Workspace } from '../../modules/workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../../modules/workspaces/entities/workspace-member.entity';
-import { Dashboard } from '../entities/dashboard.entity';
-import { DashboardWidget } from '../entities/dashboard-widget.entity';
-import { DashboardVisibility } from '../entities/dashboard.entity';
+import { Dashboard, DashboardVisibility } from './entities/dashboard.entity';
+import { DashboardWidget } from './entities/dashboard-widget.entity';
 
 jest.setTimeout(60000);
 
