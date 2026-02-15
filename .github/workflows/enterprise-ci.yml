@@ -664,6 +664,45 @@ jobs:
           echo "Staging identity guard: PASSED"
           echo "  Cluster: sysId=${SYS_ID}, addr=${SERVER_ADDR}, migrations=${MIGRATIONS}"
 
+      # ── Post-deploy canary: health + identity saved as artifact ────────
+      - name: "Staging canary endpoint check"
+        run: |
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping canary"
+            exit 0
+          fi
+          mkdir -p staging-canary
+
+          echo "Canary: /api/health/ready"
+          HEALTH=$(curl -sf "${{ secrets.STAGING_API_URL }}/health/ready" 2>&1)
+          HEALTH_CODE=$?
+          echo "$HEALTH" | tee staging-canary/health.json
+          if [ $HEALTH_CODE -ne 0 ]; then
+            echo "::error::Staging canary FAILED: /api/health/ready returned non-200"
+            exit 1
+          fi
+
+          echo ""
+          echo "Canary: /api/system/identity"
+          IDENTITY=$(curl -sf "${{ secrets.STAGING_API_URL }}/system/identity" 2>&1)
+          IDENTITY_CODE=$?
+          echo "$IDENTITY" | tee staging-canary/identity.json
+          if [ $IDENTITY_CODE -ne 0 ]; then
+            echo "::error::Staging canary FAILED: /api/system/identity returned non-200"
+            exit 1
+          fi
+
+          echo ""
+          echo "Staging canary: PASSED (both endpoints 200 OK)"
+
+      - name: Upload staging canary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-canary-${{ github.sha }}
+          path: staging-canary/
+          retention-days: 30
+
       # ── Deploy frontend AFTER backend is healthy ───────────────────────
       - name: Deploy Frontend to Railway (Staging)
         run: railway up --service zephix-frontend --detach
