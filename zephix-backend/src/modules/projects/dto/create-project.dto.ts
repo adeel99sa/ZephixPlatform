@@ -132,4 +132,8 @@ export class CreateProjectDto {
   @IsOptional()
   @IsBoolean()
   iterationsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  changeManagementEnabled?: boolean;
 }

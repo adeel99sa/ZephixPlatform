@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { ProjectKpi } from './entities/project-kpi.entity';
 import { KpiValue } from './entities/kpi-value.entity';
-import { KpiDefinition } from './entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../../kpis/entities/kpi-definition.entity';
 import type { ProjectKpiDto } from './dto/kpi-values.dto';
 
 @Injectable()
