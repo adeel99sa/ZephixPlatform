@@ -302,9 +302,17 @@ export class Project {
   @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
   activeKpiIds: string[];
 
+  // ── Wave 4A: Change Management governance ─────────────────────────
+  @Column({ name: 'change_management_enabled', type: 'boolean', default: false })
+  changeManagementEnabled: boolean;
+
   // ── Template Enforcement / Governance ─────────────────────────────
   @Column({ name: 'iterations_enabled', type: 'boolean', default: false })
   iterationsEnabled: boolean;
+
+  // ── Wave 8: Governance source tracking ─────────────────────────────
+  @Column({ name: 'governance_source', type: 'text', nullable: true })
+  governanceSource: string | null; // USER | TEMPLATE | PORTFOLIO | LEGACY
 
   @Column({
     name: 'estimation_mode',

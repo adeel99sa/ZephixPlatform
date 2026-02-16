@@ -30,6 +30,11 @@ export enum PortfolioStatus {
   ARCHIVED = 'archived',
 }
 
+export enum PortfolioGovernanceMode {
+  PORTFOLIO_DEFAULTS = 'PORTFOLIO_DEFAULTS',
+  PROJECT_OVERRIDES_ALLOWED = 'PROJECT_OVERRIDES_ALLOWED',
+}
+
 @Entity('portfolios')
 @Index('idx_portfolio_org_workspace', ['organizationId', 'workspaceId'])
 export class Portfolio {
@@ -70,6 +75,29 @@ export class Portfolio {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by_id' })
   createdBy: User;
+
+  // ── Wave 8: Governance flags ────────────────────────────────────────
+
+  @Column({ name: 'cost_tracking_enabled', type: 'boolean', default: false })
+  costTrackingEnabled: boolean;
+
+  @Column({ name: 'baselines_enabled', type: 'boolean', default: false })
+  baselinesEnabled: boolean;
+
+  @Column({ name: 'iterations_enabled', type: 'boolean', default: false })
+  iterationsEnabled: boolean;
+
+  @Column({ name: 'change_management_enabled', type: 'boolean', default: false })
+  changeManagementEnabled: boolean;
+
+  @Column({
+    name: 'inherited_governance_mode',
+    type: 'text',
+    default: PortfolioGovernanceMode.PORTFOLIO_DEFAULTS,
+  })
+  inheritedGovernanceMode: PortfolioGovernanceMode;
+
+  // ── Relations ──────────────────────────────────────────────────────
 
   @OneToMany(() => Program, (program) => program.portfolio)
   programs: Program[];
