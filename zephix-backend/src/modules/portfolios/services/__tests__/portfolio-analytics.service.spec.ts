@@ -13,16 +13,19 @@ describe('PortfolioAnalyticsService', () => {
   const mockProjectRepo = { find: jest.fn() };
   const mockEVSnapshotRepo = { findOne: jest.fn() };
   const mockBaselineRepo = { findOne: jest.fn() };
+  const mockBudgetRepo = { find: jest.fn() };
   const mockBaselineService = { compareBaseline: jest.fn() };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBudgetRepo.find.mockResolvedValue([]);
     service = new PortfolioAnalyticsService(
       mockPortfolioRepo as any,
       mockPPRepo as any,
       mockProjectRepo as any,
       mockEVSnapshotRepo as any,
       mockBaselineRepo as any,
+      mockBudgetRepo as any,
       mockBaselineService as any,
     );
   });
@@ -202,6 +205,36 @@ describe('PortfolioAnalyticsService', () => {
       expect(mockPortfolioRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'pf-1', organizationId: 'org-other' },
       });
+    });
+
+    // ── Wave 8F: Budget source of truth ───────────────────────────────
+
+    it('prefers project_budgets baseline_budget over legacy project.budget', async () => {
+      mockPortfolioRepo.findOne.mockResolvedValue({ id: 'pf-1', name: 'PF' });
+      mockPPRepo.find.mockResolvedValue([{ projectId: 'p1' }]);
+      mockProjectRepo.find.mockResolvedValue([
+        { id: 'p1', name: 'P1', budget: 50000, actualCost: 10000 },
+      ]);
+      mockEVSnapshotRepo.findOne.mockResolvedValue(null);
+      mockBudgetRepo.find.mockResolvedValue([
+        { projectId: 'p1', baselineBudget: '120000' },
+      ]);
+
+      const result = await service.getPortfolioHealth('pf-1', orgId);
+      expect(result.totalBudget).toBe(120000);
+    });
+
+    it('falls back to legacy project.budget when no project_budgets entry', async () => {
+      mockPortfolioRepo.findOne.mockResolvedValue({ id: 'pf-1', name: 'PF' });
+      mockPPRepo.find.mockResolvedValue([{ projectId: 'p1' }]);
+      mockProjectRepo.find.mockResolvedValue([
+        { id: 'p1', name: 'P1', budget: 75000, actualCost: 30000 },
+      ]);
+      mockEVSnapshotRepo.findOne.mockResolvedValue(null);
+      mockBudgetRepo.find.mockResolvedValue([]);
+
+      const result = await service.getPortfolioHealth('pf-1', orgId);
+      expect(result.totalBudget).toBe(75000);
     });
   });
 

@@ -14,6 +14,7 @@ import { Project } from '../../projects/entities/project.entity';
 import { EarnedValueSnapshot } from '../../work-management/entities/earned-value-snapshot.entity';
 import { ScheduleBaseline } from '../../work-management/entities/schedule-baseline.entity';
 import { BaselineService, BaselineCompareResult } from '../../work-management/services/baseline.service';
+import { ProjectBudgetEntity } from '../../budgets/entities/project-budget.entity';
 
 // ── Configurable risk thresholds — no magic numbers ─────────────────────
 export const RISK_THRESHOLDS = {
@@ -96,6 +97,8 @@ export class PortfolioAnalyticsService {
     private readonly evSnapshotRepo: Repository<EarnedValueSnapshot>,
     @InjectRepository(ScheduleBaseline)
     private readonly baselineRepo: Repository<ScheduleBaseline>,
+    @InjectRepository(ProjectBudgetEntity)
+    private readonly budgetRepo: Repository<ProjectBudgetEntity>,
     private readonly baselineService: BaselineService,
   ) {}
 
@@ -128,6 +131,9 @@ export class PortfolioAnalyticsService {
       organizationId,
     );
 
+    // Wave 8F: Load budgets from project_budgets table (source of truth)
+    const budgetsMap = await this.loadProjectBudgets(projects.map((p) => p.id));
+
     let totalBudget = 0;
     let totalActualCost = 0;
     let weightedEV = 0;
@@ -140,7 +146,9 @@ export class PortfolioAnalyticsService {
     let evEligibleCount = 0;
 
     const projectHealths: PortfolioProjectHealth[] = projects.map((p) => {
-      const budget = Number(p.budget) || 0;
+      // Wave 8F: Prefer project_budgets table, fallback to legacy project.budget
+      const pb = budgetsMap.get(p.id);
+      const budget = pb ? parseFloat(pb.baselineBudget || '0') : (Number(p.budget) || 0);
       const actual = Number(p.actualCost) || 0;
       totalBudget += budget;
       totalActualCost += actual;
@@ -352,6 +360,24 @@ export class PortfolioAnalyticsService {
     return this.projectRepo.find({
       where: { id: In(projectIds), organizationId },
     });
+  }
+
+  /**
+   * Wave 8F: Load budgets from project_budgets table.
+   * Returns map of projectId -> budget entity.
+   */
+  private async loadProjectBudgets(
+    projectIds: string[],
+  ): Promise<Map<string, ProjectBudgetEntity>> {
+    if (projectIds.length === 0) return new Map();
+    const budgets = await this.budgetRepo.find({
+      where: { projectId: In(projectIds) },
+    });
+    const map = new Map<string, ProjectBudgetEntity>();
+    for (const b of budgets) {
+      map.set(b.projectId, b);
+    }
+    return map;
   }
 
   private async loadLatestSnapshots(

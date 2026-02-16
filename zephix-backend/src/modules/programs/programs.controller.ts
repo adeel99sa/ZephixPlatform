@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Query,
   UseGuards,
   Req,
   Body,
@@ -17,10 +18,12 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProgramsService } from './services/programs.service';
 import { ProgramsRollupService } from './services/programs-rollup.service';
+import { ProgramKpiRollupService } from './services/program-kpi-rollup.service';
 import { CreateProgramDto } from './dto/create-program.dto';
 import { UpdateProgramDto } from './dto/update-program.dto';
 import { ResponseService } from '../../shared/services/response.service';
@@ -48,6 +51,7 @@ export class ProgramsController {
   constructor(
     private readonly programsService: ProgramsService,
     private readonly programsRollupService: ProgramsRollupService,
+    private readonly programKpiRollupService: ProgramKpiRollupService,
     private readonly responseService: ResponseService,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
@@ -369,5 +373,51 @@ export class ProgramsController {
     );
 
     return this.responseService.success(rollup);
+  }
+
+  // WAVE 8D: GET /api/workspaces/:workspaceId/programs/:programId/kpis/rollup
+  @Get('programs/:programId/kpis/rollup')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'read')
+  @ApiOperation({ summary: 'Get program KPI rollup from project KPIs and budgets' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'programId', description: 'Program ID', type: String })
+  @ApiQuery({ name: 'asOf', required: false, description: 'As-of date (YYYY-MM-DD)' })
+  @ApiResponse({ status: 200, description: 'Program KPI rollup computed successfully' })
+  @ApiResponse({ status: 404, description: 'Program or workspace not found' })
+  async getKpiRollup(
+    @Param('workspaceId') workspaceId: string,
+    @Param('programId') programId: string,
+    @Query('asOf') asOf: string,
+    @Req() req: AuthRequest,
+  ) {
+    const featureEnabled = process.env.PROGRAM_KPI_ROLLUP_ENABLED === 'true';
+    if (!featureEnabled) {
+      throw new NotFoundException('Endpoint not available');
+    }
+
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const result = await this.programKpiRollupService.computeForProgram(
+      workspaceId,
+      programId,
+      organizationId,
+      asOf,
+    );
+
+    return this.responseService.success(result);
   }
 }
