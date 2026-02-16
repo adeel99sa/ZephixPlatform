@@ -25,6 +25,9 @@ export class Template {
   @Column({ length: 100 })
   name: string;
 
+  @Column({ name: 'template_code', type: 'varchar', length: 100, nullable: true })
+  templateCode?: string;
+
   // Phase 4: Extended fields
   @Column({ type: 'text', nullable: true })
   description?: string;
@@ -152,6 +155,46 @@ export class Template {
 
   @Column({ name: 'lock_policy', type: 'jsonb', nullable: true })
   lockPolicy?: Record<string, any>;
+
+  // ── Wave 6: Unified template fields (from project_templates) ──────
+
+  @Column({ name: 'delivery_method', type: 'text', nullable: true })
+  deliveryMethod?: string; // SCRUM, KANBAN, WATERFALL, HYBRID
+
+  @Column({ name: 'default_tabs', type: 'jsonb', nullable: true })
+  defaultTabs?: string[];
+
+  @Column({ name: 'default_governance_flags', type: 'jsonb', nullable: true })
+  defaultGovernanceFlags?: Record<string, boolean>;
+
+  @Column({ name: 'phases', type: 'jsonb', nullable: true })
+  phases?: Array<{
+    name: string;
+    description?: string;
+    order: number;
+    estimatedDurationDays?: number;
+  }>;
+
+  @Column({ name: 'task_templates', type: 'jsonb', nullable: true })
+  taskTemplates?: Array<{
+    name: string;
+    description?: string;
+    estimatedHours?: number;
+    phaseOrder?: number;
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+  }>;
+
+  @Column({ name: 'risk_presets', type: 'jsonb', default: [] })
+  riskPresets?: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    category?: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+  }>;
+
+  @Column({ name: 'is_published', type: 'boolean', default: true })
+  isPublished: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
