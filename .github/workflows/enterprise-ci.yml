@@ -693,6 +693,17 @@ jobs:
           fi
 
           echo ""
+          echo "Canary: /api/.../kpis/definitions (optional)"
+          if [ -n "${{ secrets.SEED_WORKSPACE_ID }}" ] && [ -n "${{ secrets.SEED_PROJECT_ID }}" ]; then
+            KPI_URL="${{ secrets.STAGING_API_URL }}/work/workspaces/${{ secrets.SEED_WORKSPACE_ID }}/projects/${{ secrets.SEED_PROJECT_ID }}/kpis/definitions"
+            KPI_DEFS=$(curl -sf "$KPI_URL" 2>&1 || true)
+            echo "$KPI_DEFS" | tee staging-canary/kpi-definitions.json || true
+            echo "KPI definitions canary: attempted"
+          else
+            echo "::notice::SEED_WORKSPACE_ID or SEED_PROJECT_ID not set — skipping KPI canary"
+          fi
+
+          echo ""
           echo "Staging canary: PASSED (both endpoints 200 OK)"
 
       - name: Upload staging canary artifact
