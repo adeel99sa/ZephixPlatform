@@ -10,7 +10,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, GitPullRequest, FileText, DollarSign } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, GitPullRequest, FileText, DollarSign, Activity } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -29,6 +29,7 @@ const PROJECT_TABS = [
   { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
   { id: 'documents', label: 'Documents', path: '/documents', icon: FileText },
   { id: 'budget', label: 'Budget', path: '/budget', icon: DollarSign },
+  { id: 'kpis', label: 'KPIs', path: '/kpis', icon: Activity },
 ] as const;
 
 type TabId = typeof PROJECT_TABS[number]['id'];
@@ -68,6 +69,7 @@ export const ProjectPageLayout: React.FC = () => {
     if (path.includes('/change-requests')) return 'change-requests';
     if (path.includes('/documents')) return 'documents';
     if (path.includes('/budget')) return 'budget';
+    if (path.includes('/kpis')) return 'kpis';
     if (path.includes('/plan')) return 'plan';
     if (path.includes('/tasks')) return 'tasks';
     if (path.includes('/board')) return 'board';
