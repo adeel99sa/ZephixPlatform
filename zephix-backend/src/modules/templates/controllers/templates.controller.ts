@@ -33,6 +33,7 @@ import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
 import { RecommendationsQueryDto } from '../dto/recommendations-query.dto';
 import { CreateTemplateDto as CreateTemplateLegacyDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/template.dto';
+import { UpdateOrgTemplateDto } from '../dto/update-org-template.dto';
 import { ApplyTemplateDto } from '../dto/apply-template.dto';
 import { TemplateListQueryDto, CreateTemplateDto } from '../dto/template.dto';
 import { TemplateLockGuard } from '../guards/template-lock.guard';
@@ -236,6 +237,19 @@ export class TemplatesController {
 
     return this.responseService.success(
       await this.templatesService.listV1(req, params, workspaceId),
+    );
+  }
+
+  /**
+   * Wave 6: GET /api/templates/published
+   * List only published templates (system + org).
+   * Used by project create modal for non-admin users.
+   */
+  @Get('published')
+  async listPublished(@Req() req: Request) {
+    const auth = getAuthContext(req as any);
+    return this.responseService.success(
+      await this.templatesService.findPublishedWithPreview(auth.organizationId),
     );
   }
 
@@ -832,27 +846,30 @@ export class AdminTemplatesController {
 
   /**
    * GET /admin/templates
-   * List active templates for the current organization
+   * List active templates for the current organization.
+   * Wave 6: Uses unified `templates` table with enriched preview.
    */
   @Get()
   @RequireOrgRole('admin')
   async findAll(@CurrentUser() user: UserJwt) {
-    return this.templatesService.findAll(user.organizationId);
+    return this.templatesService.findAllUnified(user.organizationId);
   }
 
   /**
    * GET /admin/templates/:id
-   * Fetch a single template by id scoped to organizationId
+   * Fetch a single template by id scoped to organizationId.
+   * Wave 6: Uses unified `templates` table.
    */
   @Get(':id')
   @RequireOrgRole('admin')
   async findOne(@Param('id') id: string, @CurrentUser() user: UserJwt) {
-    return this.templatesService.findOne(id, user.organizationId);
+    return this.templatesService.findOneUnified(id, user.organizationId);
   }
 
   /**
    * POST /admin/templates
-   * Create a new template (admin only)
+   * Create a new org template (admin only).
+   * Wave 6: Creates in `templates` table.
    */
   @Post()
   @RequireOrgRole('admin')
@@ -861,7 +878,7 @@ export class AdminTemplatesController {
     @CurrentUser() user: UserJwt,
   ) {
     return {
-      data: await this.templatesService.create(
+      data: await this.templatesService.createUnified(
         dto,
         user.id,
         user.organizationId,
@@ -870,48 +887,71 @@ export class AdminTemplatesController {
   }
 
   /**
+   * POST /admin/templates/:id/clone
+   * Clone a system template into an org-owned template.
+   */
+  @Post(':id/clone')
+  @RequireOrgRole('admin')
+  async clone(@Param('id') templateId: string, @CurrentUser() user: UserJwt) {
+    return this.templatesService.cloneSystemTemplateToOrg(
+      templateId,
+      user.organizationId,
+      user.id,
+    );
+  }
+
+  /**
+   * POST /admin/templates/:id/publish
+   * Publish an org template so PMs can use it.
+   */
+  @Post(':id/publish')
+  @RequireOrgRole('admin')
+  async publish(@Param('id') templateId: string, @CurrentUser() user: UserJwt) {
+    return this.templatesService.publishTemplate(
+      templateId,
+      user.organizationId,
+    );
+  }
+
+  /**
+   * POST /admin/templates/:id/unpublish
+   * Unpublish an org template.
+   */
+  @Post(':id/unpublish')
+  @RequireOrgRole('admin')
+  async unpublish(
+    @Param('id') templateId: string,
+    @CurrentUser() user: UserJwt,
+  ) {
+    return this.templatesService.unpublishTemplate(
+      templateId,
+      user.organizationId,
+    );
+  }
+
+  /**
    * PATCH /admin/templates/:id
-   * Update a template (admin only)
+   * Update an org template (admin only).
+   * Wave 6: Uses updateOrgTemplate on `templates` table.
    */
   @Patch(':id')
   @RequireOrgRole('admin')
   async update(
     @Param('id') id: string,
-    @Body() dto: UpdateTemplateDto,
-    @Req() req: AuthRequest,
+    @Body() dto: UpdateOrgTemplateDto,
+    @CurrentUser() user: UserJwt,
   ) {
-    const auth = getAuthContext(req);
-    // Load template directly using dataSource to avoid req dependency in getV1
-    const template = await this.dataSource.getRepository(Template).findOne({
-      where: [
-        { id, organizationId: auth.organizationId },
-        { id, templateScope: 'SYSTEM', organizationId: null },
-      ],
-    });
-    if (!template) {
-      throw new NotFoundException('Template not found');
-    }
-
-    // Admin controller - workspaceId validation not needed for admin
-    // Build context for updateV1
-    const ctx = {
-      organizationId: auth.organizationId,
-      userId: auth.userId,
-      platformRole: auth.platformRole,
-      workspaceId:
-        template.templateScope === 'WORKSPACE'
-          ? (req.headers['x-workspace-id'] as string | undefined) || null
-          : null,
-    };
-
-    return this.templatesService.updateV1(id, dto, ctx);
+    return this.templatesService.updateOrgTemplate(
+      id,
+      user.organizationId,
+      dto,
+    );
   }
 
   /**
    * POST /admin/templates/:id/apply
-   * Apply a template to create a new project with phases and tasks
-   * Must be before DELETE :id to avoid route conflict
-   * Returns 400 with clear error codes for validation failures
+   * Apply a template to create a new project.
+   * Wave 6: Uses `templates` table for correct KPI FK chain.
    */
   @Post(':id/apply')
   @RequireOrgRole('admin')
@@ -923,7 +963,6 @@ export class AdminTemplatesController {
   ) {
     const requestId = req?.headers?.['x-request-id'] || 'unknown';
 
-    // Validate required fields - return 400 with clear codes
     if (!dto.workspaceId) {
       throw new BadRequestException({
         code: 'MISSING_WORKSPACE_ID',
@@ -946,7 +985,7 @@ export class AdminTemplatesController {
     }
 
     try {
-      const project = await this.templatesService.applyTemplate(
+      const project = await this.templatesService.applyTemplateUnified(
         templateId,
         {
           name: dto.name,
@@ -958,7 +997,6 @@ export class AdminTemplatesController {
         user.id,
       );
 
-      // Log successful creation
       this.logger.log('Project created from template (admin apply)', {
         templateId,
         projectId: project.id,
@@ -969,14 +1007,12 @@ export class AdminTemplatesController {
         endpoint: 'POST /admin/templates/:id/apply',
       });
 
-      // Return project with id field for backward compatibility
       return {
         id: project.id,
         name: project.name,
         workspaceId: project.workspaceId,
       };
     } catch (error) {
-      // Re-throw validation errors (400, 403, 404) as-is
       if (
         error instanceof BadRequestException ||
         error instanceof ForbiddenException ||
@@ -985,7 +1021,6 @@ export class AdminTemplatesController {
         throw error;
       }
 
-      // Log unexpected errors and return 400 with structured error
       this.logger.error('Failed to apply template', {
         error: error instanceof Error ? error.message : String(error),
         errorClass: error instanceof Error ? error.constructor.name : 'Unknown',
@@ -1007,12 +1042,13 @@ export class AdminTemplatesController {
 
   /**
    * DELETE /admin/templates/:id
-   * Archive a template (admin only, soft delete via isActive)
+   * Archive a template (admin only, soft delete via isActive).
+   * Wave 6: Uses `templates` table.
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequireOrgRole('admin')
   async archive(@Param('id') id: string, @CurrentUser() user: UserJwt) {
-    await this.templatesService.archive(id, user.organizationId);
+    await this.templatesService.archiveUnified(id, user.organizationId);
   }
 }
