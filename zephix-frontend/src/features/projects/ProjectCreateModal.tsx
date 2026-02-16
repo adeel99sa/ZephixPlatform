@@ -14,8 +14,24 @@ interface Props {
   workspaceId?: string;
 }
 
+interface TemplateSummary {
+  id: string;
+  name: string;
+  deliveryMethod?: string;
+  boundKpiCount?: number;
+  description?: string;
+}
+
+const METHOD_ORDER = ['SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID'];
+const METHOD_LABELS: Record<string, string> = {
+  SCRUM: 'Scrum',
+  KANBAN: 'Kanban',
+  WATERFALL: 'Waterfall',
+  HYBRID: 'Hybrid',
+};
+
 function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
-  const [templates, setTemplates] = useState<{id:string; name:string}[]>([]);
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [value, setValue] = useState<string>("");
 
@@ -23,10 +39,16 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
     const loadTemplates = async () => {
       try {
         setLoading(true);
-        const { data } = await apiClient.get('/admin/templates');
-        const activeTemplates = (Array.isArray(data) ? data : [])
-          .filter((t: any) => t.isActive !== false)
-          .map((t: any) => ({ id: t.id, name: t.name }));
+        const { data } = await apiClient.get('/templates/published');
+        const raw = data?.data ?? data;
+        const activeTemplates = (Array.isArray(raw) ? raw : [])
+          .map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            deliveryMethod: t.deliveryMethod || null,
+            boundKpiCount: t.boundKpiCount || 0,
+            description: t.description || '',
+          }));
         setTemplates(activeTemplates);
       } catch (err) {
         console.error('Failed to load templates:', err);
@@ -38,9 +60,25 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
     loadTemplates();
   },[]);
 
+  // Group by delivery method
+  const grouped = new Map<string, TemplateSummary[]>();
+  const ungrouped: TemplateSummary[] = [];
+
+  for (const t of templates) {
+    if (t.deliveryMethod && METHOD_ORDER.includes(t.deliveryMethod)) {
+      const list = grouped.get(t.deliveryMethod) || [];
+      list.push(t);
+      grouped.set(t.deliveryMethod, list);
+    } else {
+      ungrouped.push(t);
+    }
+  }
+
+  const selected = templates.find(t => t.id === value);
+
   return (
-    <label className="grid mb-4">
-      <span className="block mb-2 text-sm">Template (optional)</span>
+    <div className="mb-4">
+      <label className="block mb-2 text-sm font-medium text-gray-700">Template (optional)</label>
       <select
         data-testid="project-template-select"
         className="w-full rounded border px-3 py-2"
@@ -49,10 +87,30 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
         disabled={loading}
       >
         <option value="">Start from scratch</option>
-        {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        {METHOD_ORDER.map(method => {
+          const list = grouped.get(method);
+          if (!list || list.length === 0) return null;
+          return (
+            <optgroup key={method} label={METHOD_LABELS[method] || method}>
+              {list.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.boundKpiCount ? ` (${t.boundKpiCount} KPIs)` : ''}
+                </option>
+              ))}
+            </optgroup>
+          );
+        })}
+        {ungrouped.length > 0 && (
+          <optgroup label="Other">
+            {ungrouped.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </optgroup>
+        )}
       </select>
       {loading && <span className="text-xs text-gray-500 mt-1">Loading templates...</span>}
-    </label>
+      {selected?.description && (
+        <p className="text-xs text-gray-500 mt-1">{selected.description}</p>
+      )}
+    </div>
   );
 }
 
