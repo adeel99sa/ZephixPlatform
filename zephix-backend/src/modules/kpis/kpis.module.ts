@@ -55,6 +55,7 @@ import { KpiDefinitionsController } from './controllers/kpi-definitions.controll
     KpiDefinitionsService,
     ProjectKpiConfigsService,
     ProjectKpiValuesService,
+    ProjectKpiComputeService, // Wave 10: Exported for async recompute workers
     TemplateKpisService, // Wave 4B: Exported for template instantiation hooks
   ],
 })
