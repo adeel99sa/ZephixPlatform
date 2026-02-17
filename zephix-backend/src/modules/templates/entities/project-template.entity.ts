@@ -155,6 +155,17 @@ export class ProjectTemplate {
     direction: 'higher_is_better' | 'lower_is_better';
   }>;
 
+  // ── Wave 5: Delivery method and template defaults ──────────────────
+
+  @Column({ name: 'delivery_method', type: 'text', nullable: true })
+  deliveryMethod?: string; // SCRUM, KANBAN, WATERFALL, HYBRID
+
+  @Column({ name: 'default_tabs', type: 'jsonb', nullable: true })
+  defaultTabs?: string[]; // Tab IDs enabled by default
+
+  @Column({ name: 'default_governance_flags', type: 'jsonb', nullable: true })
+  defaultGovernanceFlags?: Record<string, boolean>;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

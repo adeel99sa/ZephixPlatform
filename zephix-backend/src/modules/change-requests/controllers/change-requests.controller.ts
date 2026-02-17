@@ -130,7 +130,14 @@ export class ChangeRequestsController {
     return this.service.remove(workspaceId, projectId, id);
   }
 
-  /** Map platformRole to the ActorContext workspace role shape */
+  /**
+   * Map platformRole to the ActorContext workspace role shape.
+   * TODO: Replace with WorkspaceAccessService.getEffectiveWorkspaceRole()
+   * once workspace-level role resolution is available. Currently maps
+   * platformRole (ADMIN/MEMBER/VIEWER) which is NOT the same as workspace
+   * membership role. Acceptable for MVP since platform ADMIN is the only
+   * role that needs approve/reject access.
+   */
   private mapPlatformRole(
     platformRole: string,
   ): 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' {

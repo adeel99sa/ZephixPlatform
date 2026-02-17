@@ -5,7 +5,7 @@ import { TemplateDefinition } from './templates/entities/template-definition.ent
 import { TemplateVersion } from './templates/entities/template-version.entity';
 import { TemplatePolicy } from './templates/entities/template-policy.entity';
 import { TemplateComponent } from './templates/entities/template-component.entity';
-import { KpiDefinition } from './kpis/entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../kpis/entities/kpi-definition.entity';
 import { ProjectKpi } from './kpis/entities/project-kpi.entity';
 import { KpiValue } from './kpis/entities/kpi-value.entity';
 import { DocTemplate } from './documents/entities/doc-template.entity';

@@ -12,7 +12,7 @@ import { TemplateVersion } from '../templates/entities/template-version.entity';
 import { TemplateLineage } from './entities/template-lineage.entity';
 import { ProjectKpi } from '../kpis/entities/project-kpi.entity';
 import { DocumentInstance } from '../documents/entities/document-instance.entity';
-import { KpiDefinition } from '../kpis/entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../../kpis/entities/kpi-definition.entity';
 import { DocTemplate } from '../documents/entities/doc-template.entity';
 import { TemplateDefinitionsService } from '../templates/template-definitions.service';
 import { KpiLibraryService } from '../kpis/kpi-library.service';

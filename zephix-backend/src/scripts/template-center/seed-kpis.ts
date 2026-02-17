@@ -4,7 +4,7 @@
  * Run: npm run template-center:seed:kpis
  */
 import { DataSource } from 'typeorm';
-import { KpiDefinition } from '../../modules/template-center/kpis/entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../../modules/kpis/entities/kpi-definition.entity';
 import * as dotenv from 'dotenv';
 dotenv.config();
 

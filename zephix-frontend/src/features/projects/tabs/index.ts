@@ -9,3 +9,7 @@ export { ProjectBoardTab } from './ProjectBoardTab';
 export { ProjectGanttTab } from './ProjectGanttTab';
 export { ProjectRisksTab } from './ProjectRisksTab';
 export { ProjectResourcesTab } from './ProjectResourcesTab';
+export { ProjectChangeRequestsTab } from './ProjectChangeRequestsTab';
+export { ProjectDocumentsTab } from './ProjectDocumentsTab';
+export { ProjectBudgetTab } from './ProjectBudgetTab';
+export { ProjectKpisTab } from './ProjectKpisTab';
