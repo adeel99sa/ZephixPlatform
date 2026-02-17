@@ -1,0 +1,21 @@
+{
+  "data": {
+    "scopeType": "SYSTEM",
+    "entityType": "TASK",
+    "name": "Smoke Task Guards 1771363155",
+    "enforcementMode": "BLOCK",
+    "createdBy": null,
+    "organizationId": null,
+    "workspaceId": null,
+    "scopeId": null,
+    "description": null,
+    "id": "974060fb-eaba-4a6e-8965-225ec458fdd2",
+    "isActive": true,
+    "createdAt": "2026-02-17T21:19:15.368Z",
+    "updatedAt": "2026-02-17T21:19:15.368Z"
+  },
+  "meta": {
+    "timestamp": "2026-02-17T21:19:15.395Z",
+    "requestId": "bcdac7e7-352a-4a36-8350-5256f7bee90b"
+  }
+}
