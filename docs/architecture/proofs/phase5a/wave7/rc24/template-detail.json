@@ -1,0 +1,170 @@
+{
+  "data": {
+    "id": "d9017bf8-9467-4a74-9610-064f86fef1cd",
+    "name": "Hybrid M&A Integration",
+    "templateCode": "hybrid_ma_integration_v1",
+    "description": "Merger and acquisition integration program combining structured milestones with agile workstreams.",
+    "category": null,
+    "kind": "project",
+    "icon": null,
+    "isActive": true,
+    "isSystem": true,
+    "organizationId": null,
+    "templateScope": "SYSTEM",
+    "workspaceId": null,
+    "isDefault": false,
+    "lockState": "UNLOCKED",
+    "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+    "updatedById": null,
+    "publishedAt": null,
+    "archivedAt": null,
+    "metadata": null,
+    "methodology": "hybrid",
+    "structure": null,
+    "metrics": [],
+    "version": 1,
+    "defaultEnabledKPIs": [],
+    "workTypeTags": [
+      "ma",
+      "integration",
+      "merger",
+      "acquisition"
+    ],
+    "scopeTags": [],
+    "complexityBucket": null,
+    "durationMinDays": null,
+    "durationMaxDays": null,
+    "setupTimeBucket": "SHORT",
+    "structureSummary": null,
+    "lockPolicy": null,
+    "deliveryMethod": "HYBRID",
+    "defaultTabs": [
+      "overview",
+      "plan",
+      "tasks",
+      "board",
+      "budget",
+      "change-requests",
+      "documents",
+      "kpis",
+      "risks",
+      "resources"
+    ],
+    "defaultGovernanceFlags": {
+      "capacityEnabled": true,
+      "baselinesEnabled": false,
+      "waterfallEnabled": false,
+      "iterationsEnabled": true,
+      "earnedValueEnabled": false,
+      "costTrackingEnabled": true,
+      "changeManagementEnabled": true
+    },
+    "phases": [
+      {
+        "name": "Day 1 Readiness",
+        "order": 0,
+        "description": "Legal close requirements, communications, IT access",
+        "estimatedDurationDays": 15
+      },
+      {
+        "name": "First 100 Days",
+        "order": 1,
+        "description": "Critical integration milestones and quick wins",
+        "estimatedDurationDays": 100
+      },
+      {
+        "name": "Full Integration",
+        "order": 2,
+        "description": "Systems consolidation, process harmonization, org design",
+        "estimatedDurationDays": 90
+      },
+      {
+        "name": "Synergy Realization",
+        "order": 3,
+        "description": "Track and validate deal synergy targets",
+        "estimatedDurationDays": 60
+      }
+    ],
+    "taskTemplates": [
+      {
+        "name": "Day 1 communications",
+        "priority": "critical",
+        "phaseOrder": 0,
+        "description": "Prepare internal and external communications",
+        "estimatedHours": 16
+      },
+      {
+        "name": "IT access provisioning",
+        "priority": "critical",
+        "phaseOrder": 0,
+        "description": "Ensure acquired team has system access",
+        "estimatedHours": 8
+      },
+      {
+        "name": "Culture integration plan",
+        "priority": "high",
+        "phaseOrder": 1,
+        "description": "Plan culture alignment activities",
+        "estimatedHours": 8
+      },
+      {
+        "name": "Systems integration roadmap",
+        "priority": "high",
+        "phaseOrder": 1,
+        "description": "Define system consolidation sequence",
+        "estimatedHours": 16
+      },
+      {
+        "name": "Process harmonization",
+        "priority": "high",
+        "phaseOrder": 2,
+        "description": "Align key business processes across entities",
+        "estimatedHours": 24
+      },
+      {
+        "name": "Synergy tracking setup",
+        "priority": "high",
+        "phaseOrder": 3,
+        "description": "Define synergy metrics and tracking cadence",
+        "estimatedHours": 8
+      }
+    ],
+    "riskPresets": [
+      {
+        "id": "r1",
+        "title": "Key talent attrition",
+        "category": "people",
+        "severity": "critical",
+        "description": "Critical employees leave during integration"
+      },
+      {
+        "id": "r2",
+        "title": "Customer churn",
+        "category": "business",
+        "severity": "high",
+        "description": "Customers leave due to integration disruption"
+      },
+      {
+        "id": "r3",
+        "title": "Synergy shortfall",
+        "category": "financial",
+        "severity": "high",
+        "description": "Integration fails to deliver expected synergies"
+      },
+      {
+        "id": "r4",
+        "title": "Regulatory approval delay",
+        "category": "compliance",
+        "severity": "medium",
+        "description": "Post-close regulatory requirements delay integration"
+      }
+    ],
+    "isPublished": true,
+    "createdAt": "2026-02-17T19:08:42.860Z",
+    "updatedAt": "2026-02-17T19:08:42.860Z"
+  },
+  "meta": {
+    "timestamp": "2026-02-17T19:28:58.889Z",
+    "requestId": "ada6a0bd-cf2e-488e-9fd5-7e53340b53a4"
+  }
+}

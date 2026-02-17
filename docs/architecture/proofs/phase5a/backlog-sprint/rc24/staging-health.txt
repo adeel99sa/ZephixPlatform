@@ -1,0 +1,4 @@
+Captured: 2026-02-17T15:58:46Z
+Endpoint: GET /api/health/ready
+
+{"status":"ok","ts":"2026-02-17T15:58:46.078Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}

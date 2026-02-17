@@ -21,6 +21,7 @@ import { KPI_PACKS } from '../modules/kpis/engine/kpi-packs';
 import { KPI_REGISTRY_DEFAULTS } from '../modules/kpis/engine/kpi-registry-defaults';
 import { SYSTEM_TEMPLATE_DEFS } from '../modules/templates/data/system-template-definitions';
 
+
 async function ensureKpiDefinitions(dataSource: DataSource): Promise<Map<string, string>> {
   const defRepo = dataSource.getRepository(KpiDefinitionEntity);
   const codeToIdMap = new Map<string, string>();
@@ -118,18 +119,19 @@ async function main() {
     const orgRepo = dataSource.getRepository(Organization);
     const userRepo = dataSource.getRepository(User);
 
-    const org = await orgRepo.findOne({ where: {}, order: { createdAt: 'ASC' } });
-    if (!org) {
-      console.error('No organization found.');
-      process.exit(1);
-    }
-
+    // Find a user first, then derive org (avoids empty-org problem)
     const user = await userRepo.findOne({
-      where: { organizationId: org.id },
+      where: {},
       order: { createdAt: 'ASC' },
     });
     if (!user) {
-      console.error('No user found.');
+      console.error('No user found in the database.');
+      process.exit(1);
+    }
+
+    const org = await orgRepo.findOne({ where: { id: user.organizationId } });
+    if (!org) {
+      console.error(`No organization found for user ${user.email} (orgId=${user.organizationId}).`);
       process.exit(1);
     }
 
