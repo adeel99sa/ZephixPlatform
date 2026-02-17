@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Logger,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { Between, DataSource, In, Not } from 'typeorm';
 import { ResourceAllocation } from './entities/resource-allocation.entity';
@@ -27,6 +28,8 @@ import { TenantContextService } from '../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CapacityMathHelper } from './helpers/capacity-math.helper';
+import { DomainEventEmitterService } from '../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../kpi-queue/constants/queue.constants';
 
 @Injectable()
 export class ResourceAllocationService {
@@ -48,6 +51,8 @@ export class ResourceAllocationService {
     private dataSource: DataSource,
     private timelineService: ResourceTimelineService,
     private readonly tenantContextService: TenantContextService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
 
   // Standard CRUD methods for consistent API
@@ -255,6 +260,12 @@ export class ResourceAllocationService {
         console.error('Failed to update timeline:', error);
       });
 
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter && saved.projectId) {
+      this.emitAllocationEvent(DOMAIN_EVENTS.ALLOCATION_CREATED, organizationId, saved.projectId, saved.id)
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
+
     return saved;
   }
 
@@ -443,6 +454,12 @@ export class ResourceAllocationService {
         allocationPercentage: saved.allocationPercentage,
         // Do NOT log justification text (may contain PII)
       });
+    }
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter && saved.projectId) {
+      this.emitAllocationEvent(DOMAIN_EVENTS.ALLOCATION_UPDATED, organizationId, saved.projectId, saved.id)
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
     }
 
     return saved;
@@ -1253,5 +1270,31 @@ export class ResourceAllocationService {
     }
 
     return heatMap;
+  }
+
+  /**
+   * Wave 10: Emit allocation domain event with project's workspaceId resolved from DB.
+   */
+  private async emitAllocationEvent(
+    eventName: string,
+    organizationId: string,
+    projectId: string,
+    allocationId: string,
+  ): Promise<void> {
+    if (!this.domainEventEmitter) return;
+
+    const project = await this.dataSource
+      .getRepository(Project)
+      .findOne({ where: { id: projectId }, select: ['id', 'workspaceId'] });
+
+    if (!project?.workspaceId) return;
+
+    await this.domainEventEmitter.emit(eventName, {
+      workspaceId: project.workspaceId,
+      organizationId,
+      projectId,
+      entityId: allocationId,
+      entityType: 'ALLOCATION',
+    });
   }
 }
