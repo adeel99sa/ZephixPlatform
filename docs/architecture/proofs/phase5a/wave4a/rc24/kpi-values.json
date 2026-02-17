@@ -1,0 +1,139 @@
+{
+  "data": [
+    {
+      "id": "2ffe4c7f-3e14-40e0-a0f5-77dcae3b3092",
+      "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+      "projectId": "de38accb-d620-4a19-8229-d351af41d010",
+      "kpiDefinitionId": "e5d94f4e-86a1-4362-9670-d4f1d91836e1",
+      "asOfDate": "2026-02-17",
+      "valueNumeric": "0.0000",
+      "valueText": null,
+      "valueJson": {
+        "inputHash": "4f53cda18c2baa0c",
+        "statusFilter": "IN_PROGRESS",
+        "engineVersion": "1.0.0"
+      },
+      "sampleSize": 0,
+      "computedAt": "2026-02-17T19:54:09.750Z",
+      "kpiDefinition": {
+        "id": "e5d94f4e-86a1-4362-9670-d4f1d91836e1",
+        "code": "wip",
+        "name": "Work In Progress",
+        "description": "Count of tasks currently in progress",
+        "category": "DELIVERY",
+        "unit": "items",
+        "direction": "lower_better",
+        "rollupMethod": "sum",
+        "weightField": null,
+        "timeWindow": "current",
+        "formula": null,
+        "thresholds": null,
+        "isActive": true,
+        "lifecyclePhase": "EXECUTION",
+        "formulaType": "SIMPLE",
+        "dataSources": [
+          "tasks"
+        ],
+        "requiredGovernanceFlag": null,
+        "isLeading": true,
+        "isLagging": false,
+        "defaultEnabled": true,
+        "calculationStrategy": "wip",
+        "isSystem": true,
+        "organizationId": null,
+        "createdAt": "2026-02-17T18:05:39.954Z",
+        "updatedAt": "2026-02-17T18:05:39.954Z"
+      }
+    },
+    {
+      "id": "01956a01-72e5-483a-8af0-42aaf91742e6",
+      "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+      "projectId": "de38accb-d620-4a19-8229-d351af41d010",
+      "kpiDefinitionId": "d0cea077-4303-4868-b39d-03a543f95dfe",
+      "asOfDate": "2026-02-17",
+      "valueNumeric": null,
+      "valueText": null,
+      "valueJson": {
+        "reason": "no_eligible_tasks",
+        "inputHash": "4f53cda18c2baa0c",
+        "engineVersion": "1.0.0"
+      },
+      "sampleSize": 0,
+      "computedAt": "2026-02-17T19:54:09.733Z",
+      "kpiDefinition": {
+        "id": "d0cea077-4303-4868-b39d-03a543f95dfe",
+        "code": "cycle_time",
+        "name": "Cycle Time",
+        "description": "Average days from started to done for completed tasks (30-day window)",
+        "category": "DELIVERY",
+        "unit": "days",
+        "direction": "lower_better",
+        "rollupMethod": "sum",
+        "weightField": null,
+        "timeWindow": "current",
+        "formula": null,
+        "thresholds": null,
+        "isActive": true,
+        "lifecyclePhase": "EXECUTION",
+        "formulaType": "SIMPLE",
+        "dataSources": [
+          "tasks"
+        ],
+        "requiredGovernanceFlag": null,
+        "isLeading": true,
+        "isLagging": false,
+        "defaultEnabled": true,
+        "calculationStrategy": "cycle_time",
+        "isSystem": true,
+        "organizationId": null,
+        "createdAt": "2026-02-17T18:05:39.935Z",
+        "updatedAt": "2026-02-17T18:05:39.935Z"
+      }
+    },
+    {
+      "id": "e892154e-fe57-4aba-81cc-d0fb700456e9",
+      "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+      "projectId": "de38accb-d620-4a19-8229-d351af41d010",
+      "kpiDefinitionId": "654e1a62-d260-42fa-aa2d-2f020c46172b",
+      "asOfDate": "2026-02-17",
+      "valueNumeric": "0.0000",
+      "valueText": null,
+      "valueJson": {
+        "inputHash": "618de7d9f46f3f69",
+        "statusFilter": "OPEN",
+        "engineVersion": "1.0.0"
+      },
+      "sampleSize": 1,
+      "computedAt": "2026-02-17T19:54:09.712Z",
+      "kpiDefinition": {
+        "id": "654e1a62-d260-42fa-aa2d-2f020c46172b",
+        "code": "open_risk_count",
+        "name": "Open Risk Count",
+        "description": "Number of risks with status OPEN",
+        "category": "RISK",
+        "unit": "items",
+        "direction": "lower_better",
+        "rollupMethod": "sum",
+        "weightField": null,
+        "timeWindow": "current",
+        "formula": null,
+        "thresholds": null,
+        "isActive": true,
+        "lifecyclePhase": "MONITORING_CONTROL",
+        "formulaType": "SIMPLE",
+        "dataSources": [
+          "risks"
+        ],
+        "requiredGovernanceFlag": null,
+        "isLeading": true,
+        "isLagging": false,
+        "defaultEnabled": true,
+        "calculationStrategy": "open_risk_count",
+        "isSystem": true,
+        "organizationId": null,
+        "createdAt": "2026-02-17T18:05:40.028Z",
+        "updatedAt": "2026-02-17T18:05:40.028Z"
+      }
+    }
+  ]
+}
