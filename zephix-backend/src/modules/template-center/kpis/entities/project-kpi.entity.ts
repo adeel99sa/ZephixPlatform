@@ -8,7 +8,7 @@ import {
   Index,
   OneToMany,
 } from 'typeorm';
-import { KpiDefinition } from './kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../../../kpis/entities/kpi-definition.entity';
 import { KpiValue } from './kpi-value.entity';
 
 @Entity('project_kpis')

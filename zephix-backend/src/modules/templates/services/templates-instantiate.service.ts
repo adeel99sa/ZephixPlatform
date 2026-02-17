@@ -13,6 +13,7 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspacePermissionService } from '../../workspaces/services/workspace-permission.service';
 import { Risk } from '../../risks/entities/risk.entity';
 import { ProjectMetrics } from '../../../pm/entities/project-metrics.entity';
+import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
 
 /**
  * Phase 4: Template instantiation service
@@ -33,6 +34,7 @@ export class TemplatesInstantiateService {
     private taskRepository: Repository<Task>,
     private readonly dataSource: DataSource,
     private readonly workspacePermissionService: WorkspacePermissionService,
+    private readonly templateKpisService: TemplateKpisService,
   ) {}
 
   /**
@@ -225,6 +227,32 @@ export class TemplatesInstantiateService {
         this.logger.log(
           `Created ${template.kpiPresets.length} KPI metrics from template presets for project ${savedProject.id}`,
         );
+      }
+
+      // Wave 4B: Auto-activate template KPIs for the new project
+      let templateKpiActivationStatus: 'SUCCESS' | 'FAILED' | 'SKIPPED' = 'SKIPPED';
+      try {
+        const activatedKpis = await this.templateKpisService.autoActivateForProject(
+          templateId,
+          payload.workspaceId,
+          savedProject.id,
+        );
+        templateKpiActivationStatus = 'SUCCESS';
+        if (activatedKpis.length > 0) {
+          this.logger.log(
+            `Auto-activated ${activatedKpis.length} KPIs from template ${templateId} for project ${savedProject.id}`,
+          );
+        }
+      } catch (kpiError: any) {
+        templateKpiActivationStatus = 'FAILED';
+        this.logger.error({
+          context: 'TEMPLATE_KPI_ACTIVATION_FAILED',
+          projectId: savedProject.id,
+          templateId,
+          errorCode: kpiError?.code ?? kpiError?.name ?? 'UNKNOWN',
+          errorMessage: kpiError?.message ?? String(kpiError),
+          templateKpiActivationStatus,
+        });
       }
 
       return {

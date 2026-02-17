@@ -19,6 +19,7 @@ describe('Project governance boolean flags in DTO', () => {
     'baselinesEnabled',
     'capacityEnabled',
     'iterationsEnabled',
+    'changeManagementEnabled',
   ] as const;
 
   it('CreateProjectDto accepts all governance boolean flags', async () => {

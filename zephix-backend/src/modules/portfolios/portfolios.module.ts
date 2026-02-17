@@ -12,6 +12,10 @@ import { Risk } from '../risks/entities/risk.entity';
 import { PortfoliosService } from './services/portfolios.service';
 import { PortfoliosRollupService } from './services/portfolios-rollup.service';
 import { PortfolioAnalyticsService } from './services/portfolio-analytics.service';
+import { PortfolioKpiRollupService } from './services/portfolio-kpi-rollup.service';
+import { ProjectKpiValueEntity } from '../kpis/entities/project-kpi-value.entity';
+import { ProjectBudgetEntity } from '../budgets/entities/project-budget.entity';
+import { ChangeRequestEntity } from '../change-requests/entities/change-request.entity';
 import { PortfoliosController } from './portfolios.controller';
 import { PortfolioAnalyticsController } from './controllers/portfolio-analytics.controller';
 // Phase 2D: Waterfall entities for EV analytics
@@ -52,6 +56,10 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       ScheduleBaselineItem,
       WorkTask,
       WorkTaskDependency,
+      // Wave 8: KPI rollup dependencies
+      ProjectKpiValueEntity,
+      ProjectBudgetEntity,
+      ChangeRequestEntity,
     ]),
     TenancyModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency with WorkspacesModule
@@ -63,6 +71,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     PortfoliosService,
     PortfoliosRollupService,
     PortfolioAnalyticsService,
+    PortfolioKpiRollupService,
     // Phase 2D: Waterfall services needed by analytics
     CriticalPathEngineService,
     BaselineService,

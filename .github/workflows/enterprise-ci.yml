@@ -122,7 +122,7 @@ jobs:
         working-directory: zephix-frontend
         run: npx tsc --noEmit
 
-      - name: Run gating tests (38 files)
+      - name: Run gating tests (41 files, 398 tests)
         working-directory: zephix-frontend
         run: npm run test:gating
         env:
@@ -690,6 +690,17 @@ jobs:
           if [ $IDENTITY_CODE -ne 0 ]; then
             echo "::error::Staging canary FAILED: /api/system/identity returned non-200"
             exit 1
+          fi
+
+          echo ""
+          echo "Canary: /api/.../kpis/definitions (optional)"
+          if [ -n "${{ secrets.SEED_WORKSPACE_ID }}" ] && [ -n "${{ secrets.SEED_PROJECT_ID }}" ]; then
+            KPI_URL="${{ secrets.STAGING_API_URL }}/work/workspaces/${{ secrets.SEED_WORKSPACE_ID }}/projects/${{ secrets.SEED_PROJECT_ID }}/kpis/definitions"
+            KPI_DEFS=$(curl -sf "$KPI_URL" 2>&1 || true)
+            echo "$KPI_DEFS" | tee staging-canary/kpi-definitions.json || true
+            echo "KPI definitions canary: attempted"
+          else
+            echo "::notice::SEED_WORKSPACE_ID or SEED_PROJECT_ID not set — skipping KPI canary"
           fi
 
           echo ""

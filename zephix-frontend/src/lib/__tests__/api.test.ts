@@ -145,9 +145,7 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     expect(isProjectsUrl('/projects/123')).toBe(true);
     expect(isProjectsUrl('/api/projects/456/tasks')).toBe(true);
     expect(isProjectsUrl('/auth/login')).toBe(false);
-  });
-
-  it('should skip workspace header for auth routes', () => {
+  });  it('should skip workspace header for auth routes', () => {
     expect(isAuthUrl('/auth/login')).toBe(true);
     expect(isAuthUrl('/api/auth/refresh')).toBe(true);
     expect(isAuthUrl('/work/tasks')).toBe(false);

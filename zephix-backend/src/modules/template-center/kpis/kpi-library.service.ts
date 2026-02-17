@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { KpiDefinition } from './entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../../kpis/entities/kpi-definition.entity';
 
 export interface ListKpisQuery {
   category?: string;

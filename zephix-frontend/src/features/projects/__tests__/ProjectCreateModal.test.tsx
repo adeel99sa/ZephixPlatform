@@ -51,8 +51,16 @@ const renderWithQueryClient = (component: React.ReactElement) => {
 
 describe('ProjectCreateModal - Template Selection', () => {
   const mockTemplates = [
-    { id: '1', name: 'Web App Development' },
-    { id: '2', name: 'Marketing Campaign' },
+    { id: '1', name: 'Web App Development', isActive: true, deliveryMethod: null, boundKpiCount: 0 },
+    { id: '2', name: 'Marketing Campaign', isActive: true, deliveryMethod: null, boundKpiCount: 0 },
+  ];
+
+  const mockGroupedTemplates = [
+    { id: 'scrum-1', name: 'Scrum Project', isActive: true, deliveryMethod: 'SCRUM', boundKpiCount: 4, description: 'Sprint-based delivery' },
+    { id: 'kanban-1', name: 'Kanban Project', isActive: true, deliveryMethod: 'KANBAN', boundKpiCount: 4, description: 'Flow-based delivery' },
+    { id: 'wf-1', name: 'Waterfall Project', isActive: true, deliveryMethod: 'WATERFALL', boundKpiCount: 4, description: 'Plan-driven delivery' },
+    { id: 'hybrid-1', name: 'Hybrid Project', isActive: true, deliveryMethod: 'HYBRID', boundKpiCount: 5, description: 'Mixed delivery' },
+    { id: 'custom-1', name: 'Custom Template', isActive: true, deliveryMethod: null, boundKpiCount: 0 },
   ];
 
   const mockOnCreated = vi.fn();
@@ -210,6 +218,54 @@ describe('ProjectCreateModal - Template Selection', () => {
       expect(select).toBeInTheDocument();
       // Should only have "Start from scratch" option
       expect(select.querySelectorAll('option')).toHaveLength(1);
+    });
+  });
+
+  it('groups templates by delivery method with optgroups', async () => {
+    const { apiClient } = await import('@/lib/api/client');
+
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: mockGroupedTemplates,
+    });
+
+    renderWithQueryClient(
+      <ProjectCreateModal
+        open={true}
+        onClose={mockOnClose}
+        onCreated={mockOnCreated}
+        workspaceId="workspace1"
+      />
+    );
+
+    await waitFor(() => {
+      const select = screen.getByTestId('project-template-select');
+      // Has optgroups for Scrum, Kanban, Waterfall, Hybrid, Other
+      const optgroups = select.querySelectorAll('optgroup');
+      expect(optgroups.length).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  it('shows KPI count in template option label', async () => {
+    const { apiClient } = await import('@/lib/api/client');
+
+    vi.mocked(apiClient.get).mockResolvedValueOnce({
+      data: mockGroupedTemplates,
+    });
+
+    renderWithQueryClient(
+      <ProjectCreateModal
+        open={true}
+        onClose={mockOnClose}
+        onCreated={mockOnCreated}
+        workspaceId="workspace1"
+      />
+    );
+
+    await waitFor(() => {
+      const select = screen.getByTestId('project-template-select');
+      const options = select.querySelectorAll('option');
+      const scrumOption = Array.from(options).find(o => o.textContent?.includes('Scrum Project'));
+      expect(scrumOption?.textContent).toContain('4 KPIs');
     });
   });
 });

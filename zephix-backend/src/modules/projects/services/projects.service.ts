@@ -31,6 +31,11 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { EntitlementService } from '../../billing/entitlements/entitlement.service';
 import { bootLog } from '../../../common/utils/debug-boot';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
+import { Portfolio } from '../../portfolios/entities/portfolio.entity';
+import {
+  applyPortfolioGovernanceDefaults,
+  hasExplicitGovernanceFlags,
+} from '../helpers/governance-inheritance';
 
 type CreateProjectV1Input = {
   name: string;
@@ -153,7 +158,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       const { phases, ...projectData } = createProjectDto;
 
       // Convert string dates to Date objects
-      const processedData = {
+      const processedData: Record<string, any> = {
         ...projectData,
         startDate: projectData.startDate
           ? new Date(projectData.startDate)
@@ -169,15 +174,30 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         workspaceId: createProjectDto.workspaceId,
       };
 
-      const project = await this.create(processedData, organizationId);
+      // ── Wave 8B: Portfolio governance inheritance ──────────────────
+      if (processedData.portfolioId && !hasExplicitGovernanceFlags(createProjectDto)) {
+        try {
+          const portfolio = await this.dataSource.getRepository(Portfolio).findOne({
+            where: { id: processedData.portfolioId as string },
+          });
+          if (portfolio) {
+            applyPortfolioGovernanceDefaults(processedData, portfolio, { force: false });
+            this.logger.log(`Governance inherited from portfolio ${portfolio.id}`);
+          }
+        } catch (govErr) {
+          this.logger.warn('Portfolio governance lookup failed; using payload defaults', govErr);
+        }
+      }
 
-      // Auto-assign creator as owner
-      // await this.assignUser(
-      //   project.id,
-      //   userId,
-      //   'owner',
-      //   organizationId,
-      // );
+      // Track governance source
+      if (!processedData.governanceSource) {
+        if (hasExplicitGovernanceFlags(createProjectDto)) {
+          processedData.governanceSource = 'USER';
+        }
+        // TEMPLATE source is set by applyTemplateUnified path
+      }
+
+      const project = await this.create(processedData, organizationId);
 
       this.logger.log(
         `✅ Project created: ${project.id} in org: ${organizationId}`,
@@ -491,7 +511,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       const { phases, ...projectData } = updateProjectDto;
 
       // Convert string dates to Date objects
-      const processedData = {
+      const processedData: Record<string, any> = {
         ...projectData,
         startDate: projectData.startDate
           ? new Date(projectData.startDate)
@@ -504,6 +524,35 @@ export class ProjectsService extends TenantAwareRepository<Project> {
           : undefined,
         updatedAt: new Date(),
       };
+
+      // ── Wave 8B: Portfolio governance sync on assignment ──────────
+      if (processedData.portfolioId !== undefined) {
+        const syncGovernance = (updateProjectDto as any).syncGovernance === true;
+        if (processedData.portfolioId && syncGovernance) {
+          try {
+            const portfolio = await this.dataSource.getRepository(Portfolio).findOne({
+              where: { id: processedData.portfolioId as string },
+            });
+            if (portfolio) {
+              const applied = applyPortfolioGovernanceDefaults(
+                processedData,
+                portfolio,
+                { force: syncGovernance, onlyIfUnset: !syncGovernance },
+              );
+              if (applied) {
+                this.logger.log(`Governance synced from portfolio ${portfolio.id} to project ${id}`);
+              }
+            }
+          } catch (govErr) {
+            this.logger.warn('Portfolio governance sync failed during update', govErr);
+          }
+        }
+      }
+
+      // Track governance source on explicit flag edits
+      if (hasExplicitGovernanceFlags(updateProjectDto)) {
+        processedData.governanceSource = 'USER';
+      }
 
       const updatedProject = await this.update(
         id,
@@ -959,22 +1008,24 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       }
     }
 
-    // Priority 2: Check templateId and load template
+    // Priority 2: Check templateId and load template from unified `templates` table
     if (availableKPIs.length === 0 && project.templateId) {
       try {
-        // Use DataSource to get ProjectTemplate repository
-        // Note: ProjectTemplate is in templates module, so we use string name
-        const templateRepo = this.dataSource.getRepository('ProjectTemplate');
+        const templateRepo = this.dataSource.getRepository('Template');
         const template = await templateRepo.findOne({
-          where: { id: project.templateId, organizationId },
+          where: [
+            { id: project.templateId, organizationId },
+            { id: project.templateId, isSystem: true },
+          ],
         });
 
-        if (template && (template as any).availableKPIs) {
-          availableKPIs = (template as any).availableKPIs.map((kpi: any) => ({
-            id: kpi.id || kpi.name,
-            name: kpi.name || kpi.id,
-            ...kpi,
-          }));
+        if (template && (template as any).defaultEnabledKPIs) {
+          availableKPIs = (template as any).defaultEnabledKPIs.map(
+            (kpiId: string) => ({
+              id: kpiId,
+              name: kpiId,
+            }),
+          );
         }
       } catch (error) {
         this.logger.warn(

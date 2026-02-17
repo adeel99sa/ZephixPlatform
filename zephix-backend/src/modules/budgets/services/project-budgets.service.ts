@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, Matches } from 'class-validator';
 import { ProjectBudgetEntity } from '../entities/project-budget.entity';
 
 export type BudgetActorContext = {
@@ -13,25 +13,28 @@ export type BudgetActorContext = {
   workspaceRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
 };
 
+const DECIMAL_MSG = 'Must be a decimal number (e.g. "250000.00")';
+const DECIMAL_RE = /^\d+(\.\d{1,2})?$/;
+
 export class UpdateProjectBudgetDto {
   @IsOptional()
-  @IsString()
+  @Matches(DECIMAL_RE, { message: DECIMAL_MSG })
   baselineBudget?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(DECIMAL_RE, { message: DECIMAL_MSG })
   revisedBudget?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(DECIMAL_RE, { message: DECIMAL_MSG })
   contingency?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(DECIMAL_RE, { message: DECIMAL_MSG })
   approvedChangeBudget?: string;
 
   @IsOptional()
-  @IsString()
+  @Matches(DECIMAL_RE, { message: DECIMAL_MSG })
   forecastAtCompletion?: string;
 }
 

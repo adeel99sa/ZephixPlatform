@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PortfoliosService } from './services/portfolios.service';
 import { PortfoliosRollupService } from './services/portfolios-rollup.service';
+import { PortfolioKpiRollupService } from './services/portfolio-kpi-rollup.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 import { AddProjectsToPortfolioDto } from './dto/add-projects-to-portfolio.dto';
@@ -55,6 +56,7 @@ export class PortfoliosController {
   constructor(
     private readonly portfoliosService: PortfoliosService,
     private readonly portfoliosRollupService: PortfoliosRollupService,
+    private readonly portfolioKpiRollupService: PortfolioKpiRollupService,
     private readonly responseService: ResponseService,
     private readonly tenantContextService: TenantContextService,
     private readonly workspaceAccessService: WorkspaceAccessService,
@@ -339,5 +341,51 @@ export class PortfoliosController {
     );
 
     return this.responseService.success(rollup);
+  }
+
+  // WAVE 8C: GET /api/workspaces/:workspaceId/portfolios/:portfolioId/kpis/rollup
+  @Get(':portfolioId/kpis/rollup')
+  @UseGuards(RequireWorkspaceAccessGuard)
+  @SetMetadata('workspaceAccessMode', 'read')
+  @ApiOperation({ summary: 'Get portfolio KPI rollup from project KPIs and budgets' })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', type: String })
+  @ApiParam({ name: 'portfolioId', description: 'Portfolio ID', type: String })
+  @ApiQuery({ name: 'asOf', required: false, description: 'As-of date (YYYY-MM-DD)' })
+  @ApiResponse({ status: 200, description: 'Portfolio KPI rollup computed successfully' })
+  @ApiResponse({ status: 404, description: 'Portfolio or workspace not found' })
+  async getKpiRollup(
+    @Param('workspaceId') workspaceId: string,
+    @Param('portfolioId') portfolioId: string,
+    @Query('asOf') asOf: string,
+    @Req() req: AuthRequest,
+  ) {
+    const featureEnabled = process.env.PORTFOLIO_KPI_ROLLUP_ENABLED === 'true';
+    if (!featureEnabled) {
+      throw new NotFoundException('Endpoint not available');
+    }
+
+    const { organizationId, userId, platformRole } = getAuthContext(req);
+    if (!organizationId) {
+      throw new BadRequestException('Organization ID is required');
+    }
+
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+    if (!canAccess) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const result = await this.portfolioKpiRollupService.computeForPortfolio(
+      workspaceId,
+      portfolioId,
+      organizationId,
+      asOf,
+    );
+
+    return this.responseService.success(result);
   }
 }
