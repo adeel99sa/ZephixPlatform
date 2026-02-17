@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -11,10 +12,16 @@ import { CreateChangeRequestDto } from '../dto/create-change-request.dto';
 import { UpdateChangeRequestDto } from '../dto/update-change-request.dto';
 import { TransitionChangeRequestDto } from '../dto/transition-change-request.dto';
 import { ChangeRequestStatus } from '../types/change-request.enums';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 
 export type ActorContext = {
   userId: string;
+  organizationId?: string;
   workspaceRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
+  platformRole?: string;
 };
 
 @Injectable()
@@ -22,6 +29,10 @@ export class ChangeRequestsService {
   constructor(
     @InjectRepository(ChangeRequestEntity)
     private readonly repo: Repository<ChangeRequestEntity>,
+    @Optional()
+    private readonly governanceEngine?: GovernanceRuleEngineService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
 
   async list(workspaceId: string, projectId: string) {
@@ -97,7 +108,22 @@ export class ChangeRequestsService {
     }
 
     row.status = ChangeRequestStatus.SUBMITTED;
-    return this.repo.save(row);
+    const saved = await this.repo.save(row);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED, {
+          workspaceId,
+          organizationId: '',
+          projectId,
+          entityId: saved.id,
+          entityType: 'CHANGE_REQUEST',
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
 
   async approve(
@@ -113,6 +139,32 @@ export class ChangeRequestsService {
       throw new BadRequestException('CHANGE_REQUEST_INVALID_TRANSITION');
     }
 
+    // Governance rule evaluation
+    if (this.governanceEngine && actor.organizationId) {
+      const govResult =
+        await this.governanceEngine.evaluateChangeRequestStatusChange({
+          organizationId: actor.organizationId,
+          workspaceId,
+          crId: row.id,
+          fromStatus: row.status,
+          toStatus: ChangeRequestStatus.APPROVED,
+          changeRequest: row as any,
+          actor: {
+            userId: actor.userId,
+            platformRole: actor.platformRole ?? 'MEMBER',
+            workspaceRole: actor.workspaceRole,
+          },
+        });
+      if (govResult.decision === EvaluationDecision.BLOCK) {
+        throw new BadRequestException({
+          code: 'GOVERNANCE_RULE_BLOCKED',
+          message: 'Transition blocked by governance rules',
+          evaluationId: govResult.evaluationId,
+          reasons: govResult.reasons,
+        });
+      }
+    }
+
     row.status = ChangeRequestStatus.APPROVED;
     row.approvedByUserId = actor.userId;
     row.approvedAt = new Date();
@@ -120,7 +172,22 @@ export class ChangeRequestsService {
     row.rejectedAt = null;
     row.rejectionReason = null;
 
-    return this.repo.save(row);
+    const saved = await this.repo.save(row);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter && actor.organizationId) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED, {
+          workspaceId,
+          organizationId: actor.organizationId,
+          projectId,
+          entityId: saved.id,
+          entityType: 'CHANGE_REQUEST',
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
 
   async reject(
@@ -142,7 +209,22 @@ export class ChangeRequestsService {
     row.rejectedAt = new Date();
     row.rejectionReason = dto.reason ?? null;
 
-    return this.repo.save(row);
+    const saved = await this.repo.save(row);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter && actor.organizationId) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED, {
+          workspaceId,
+          organizationId: actor.organizationId,
+          projectId,
+          entityId: saved.id,
+          entityType: 'CHANGE_REQUEST',
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
 
   async implement(
@@ -161,7 +243,22 @@ export class ChangeRequestsService {
     row.implementedByUserId = actor.userId;
     row.implementedAt = new Date();
 
-    return this.repo.save(row);
+    const saved = await this.repo.save(row);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter && actor.organizationId) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.CHANGE_REQUEST_STATUS_CHANGED, {
+          workspaceId,
+          organizationId: actor.organizationId,
+          projectId,
+          entityId: saved.id,
+          entityType: 'CHANGE_REQUEST',
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
 
   async remove(workspaceId: string, projectId: string, id: string) {
