@@ -125,4 +125,13 @@ describe('GovernanceRulesController route registration', () => {
     const prefix = Reflect.getMetadata('path', GovernanceRulesController);
     expect(prefix.startsWith('api/')).toBe(false);
   });
+
+  it('controller has AdminGuard applied (security: admin-only access)', () => {
+    const guards = Reflect.getMetadata('__guards__', GovernanceRulesController);
+    expect(guards).toBeDefined();
+    expect(guards.length).toBeGreaterThanOrEqual(2);
+    const guardNames = guards.map((g: any) => g.name || g.constructor?.name);
+    expect(guardNames).toContain('JwtAuthGuard');
+    expect(guardNames).toContain('AdminGuard');
+  });
 });

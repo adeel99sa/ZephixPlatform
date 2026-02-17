@@ -10,6 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../../../admin/guards/admin.guard';
 import { GovernanceRulesAdminService } from '../services/governance-rules-admin.service';
 import {
   CreateRuleSetDto,
@@ -20,7 +21,7 @@ import {
 } from '../dto/governance-rules.dto';
 
 @Controller('admin/governance-rules')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class GovernanceRulesController {
   constructor(
     private readonly adminService: GovernanceRulesAdminService,
