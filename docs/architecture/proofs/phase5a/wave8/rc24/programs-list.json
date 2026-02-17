@@ -1,6 +1,35 @@
 {
-  "data": [],
+  "data": [
+    {
+      "id": "33996187-fcb7-45b9-ab89-a19a29ed87b6",
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+      "portfolioId": "ce14b9b9-3754-4741-b90a-6f4e2efe126a",
+      "name": "Smoke Program 1771363744",
+      "description": "Wave 8 test",
+      "status": "active",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "createdAt": "2026-02-17T21:29:04.706Z",
+      "updatedAt": "2026-02-17T21:29:04.706Z",
+      "portfolio": {
+        "id": "ce14b9b9-3754-4741-b90a-6f4e2efe126a",
+        "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+        "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+        "name": "Smoke Portfolio 1771363702",
+        "description": "Wave 8 test",
+        "status": "active",
+        "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+        "costTrackingEnabled": false,
+        "baselinesEnabled": false,
+        "iterationsEnabled": false,
+        "changeManagementEnabled": false,
+        "inheritedGovernanceMode": "PORTFOLIO_DEFAULTS",
+        "createdAt": "2026-02-17T21:28:22.440Z",
+        "updatedAt": "2026-02-17T21:28:22.440Z"
+      }
+    }
+  ],
   "meta": {
-    "timestamp": "2026-02-17T19:53:42.466Z"
+    "timestamp": "2026-02-17T21:29:17.164Z"
   }
 }

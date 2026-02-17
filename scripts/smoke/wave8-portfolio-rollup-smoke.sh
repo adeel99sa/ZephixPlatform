@@ -101,20 +101,24 @@ else
 fi
 
 ###############################################################################
-# 8. POST /programs - create program
+# 8. POST /portfolios/:id/programs - create program (scoped under portfolio)
 ###############################################################################
-log "Create program"
-resp=$(apicurl POST "/workspaces/$WS_ID/programs" \
-  -d "{\"name\":\"Smoke Program $(date +%s)\",\"description\":\"Wave 8 test\"}")
-parse_response "$resp"
-check_401_drift "POST /programs"
-save_proof "program-create" "$RESP_BODY"
+if [ -n "$PORTFOLIO_ID" ]; then
+  log "Create program under portfolio $PORTFOLIO_ID"
+  resp=$(apicurl POST "/workspaces/$WS_ID/portfolios/$PORTFOLIO_ID/programs" \
+    -d "{\"portfolioId\":\"$PORTFOLIO_ID\",\"name\":\"Smoke Program $(date +%s)\",\"description\":\"Wave 8 test\"}")
+  parse_response "$resp"
+  check_401_drift "POST /programs"
+  save_proof "program-create" "$RESP_BODY"
 
-PROGRAM_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
-if [ -n "$PROGRAM_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
-  pass "Program created: $PROGRAM_ID"
+  PROGRAM_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
+  if [ -n "$PROGRAM_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
+    pass "Program created: $PROGRAM_ID"
+  else
+    warn "Program create" "http=$RESP_HTTP (route: POST /portfolios/:id/programs)"
+  fi
 else
-  warn "Program create" "http=$RESP_HTTP id=$PROGRAM_ID"
+  skip "Program create" "no portfolio to nest program under"
 fi
 
 ###############################################################################
