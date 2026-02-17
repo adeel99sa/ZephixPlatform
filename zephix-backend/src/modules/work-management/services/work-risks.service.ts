@@ -1,6 +1,8 @@
 import {
   Injectable,
   Inject,
+  Optional,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -20,6 +22,8 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 
 interface AuthContext {
   organizationId: string;
@@ -29,6 +33,8 @@ interface AuthContext {
 
 @Injectable()
 export class WorkRisksService {
+  private readonly logger = new Logger(WorkRisksService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkRisk))
     private readonly riskRepo: TenantAwareRepository<WorkRisk>,
@@ -37,6 +43,8 @@ export class WorkRisksService {
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly workspaceRoleGuard: WorkspaceRoleGuardService,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
 
   // ============================================================
@@ -179,7 +187,22 @@ export class WorkRisksService {
       createdBy: auth.userId,
     });
 
-    return this.riskRepo.save(risk);
+    const saved = await this.riskRepo.save(risk);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.RISK_CREATED, {
+          workspaceId,
+          organizationId,
+          projectId: dto.projectId,
+          entityId: saved.id,
+          entityType: 'RISK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
+
+    return saved;
   }
 
   // ============================================================
@@ -238,7 +261,23 @@ export class WorkRisksService {
     if (dto.ownerUserId !== undefined) risk.ownerUserId = dto.ownerUserId || null;
     if (dto.dueDate !== undefined) risk.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
 
-    return this.riskRepo.save(risk);
+    const saved = await this.riskRepo.save(risk);
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.RISK_UPDATED, {
+          workspaceId,
+          organizationId,
+          projectId: risk.projectId,
+          entityId: saved.id,
+          entityType: 'RISK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
+
+    return saved;
   }
 
   // ============================================================

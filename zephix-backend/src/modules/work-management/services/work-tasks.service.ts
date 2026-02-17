@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Optional,
   Logger,
   NotFoundException,
   BadRequestException,
@@ -107,6 +108,10 @@ import { WipLimitsService } from './wip-limits.service';
 import { Project } from '../../projects/entities/project.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
+import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 
 interface AuthContext {
   organizationId: string;
@@ -138,6 +143,10 @@ export class WorkTasksService {
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
     private readonly auditService: AuditService,
+    @Optional()
+    private readonly governanceEngine?: GovernanceRuleEngineService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
 
   // ============================================================
@@ -385,6 +394,19 @@ export class WorkTasksService {
       },
     );
 
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.TASK_CREATED, {
+          workspaceId,
+          organizationId,
+          projectId: saved.projectId,
+          entityId: saved.id,
+          entityType: 'TASK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
+
     return saved;
   }
 
@@ -575,6 +597,32 @@ export class WorkTasksService {
         override: dto.wipOverride,
         overrideReason: dto.wipOverrideReason,
       });
+
+      // Governance rule evaluation
+      if (this.governanceEngine) {
+        const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+          organizationId,
+          workspaceId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          task: task as any,
+          actor: {
+            userId: auth.userId,
+            platformRole: auth.platformRole ?? 'MEMBER',
+          },
+          projectId: task.projectId,
+          overrideReason: (dto as any).governanceOverrideReason,
+        });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          throw new BadRequestException({
+            code: 'GOVERNANCE_RULE_BLOCKED',
+            message: 'Transition blocked by governance rules',
+            evaluationId: govResult.evaluationId,
+            reasons: govResult.reasons,
+          });
+        }
+      }
 
       task.status = dto.status;
       changedFields.push('status');
@@ -768,6 +816,23 @@ export class WorkTasksService {
       });
     }
 
+    // Wave 10: Emit domain events for KPI recompute
+    if (this.domainEventEmitter && changedFields.length > 0) {
+      const eventName = statusChanged
+        ? DOMAIN_EVENTS.TASK_STATUS_CHANGED
+        : DOMAIN_EVENTS.TASK_UPDATED;
+      this.domainEventEmitter
+        .emit(eventName, {
+          workspaceId,
+          organizationId,
+          projectId: saved.projectId,
+          entityId: saved.id,
+          entityType: 'TASK',
+          meta: { changedFields, oldStatus, newStatus: saved.status },
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
+
     return saved;
   }
 
@@ -913,6 +978,20 @@ export class WorkTasksService {
         deletedBy: auth.userId,
       },
     );
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.TASK_DELETED, {
+          workspaceId,
+          organizationId,
+          projectId: task.projectId,
+          entityId: id,
+          entityType: 'TASK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
   }
 
   /**
