@@ -1,0 +1,22 @@
+Captured: 2026-02-17T15:58:47Z
+Endpoint: GET /api/health/detailed
+
+{
+  "status": "healthy",
+  "timestamp": "2026-02-17T15:58:47.811Z",
+  "uptime": 53264.596,
+  "responseTime": "37ms",
+  "environment": "staging",
+  "version": "1.0.0",
+  "checks": [
+    { "name": "Database Connection", "status": "healthy", "critical": true },
+    { "name": "Table: users", "status": "healthy", "critical": true },
+    { "name": "Table: organizations", "status": "healthy", "critical": true },
+    { "name": "Table: projects", "status": "healthy", "critical": false },
+    { "name": "Table: roles", "status": "unhealthy", "critical": false, "error": "Table roles not found in public schema" },
+    { "name": "Foreign Key Constraints", "status": "healthy", "critical": false, "details": "142 foreign key constraints found" },
+    { "name": "memory", "status": "healthy", "critical": true, "details": "Usage: 91%" }
+  ],
+  "memory": { "used": 77, "total": 85, "external": 3 },
+  "system": { "platform": "linux", "arch": "x64", "nodeVersion": "v20.18.1", "pid": 15 }
+}

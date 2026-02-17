@@ -1,0 +1,21 @@
+{
+  "data": {
+    "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+    "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+    "name": "Smoke Portfolio 1771358021",
+    "description": "Wave 8 test",
+    "status": "active",
+    "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+    "id": "35f58d9f-6c3e-44cb-b1a1-959767e39f00",
+    "costTrackingEnabled": false,
+    "baselinesEnabled": false,
+    "iterationsEnabled": false,
+    "changeManagementEnabled": false,
+    "inheritedGovernanceMode": "PORTFOLIO_DEFAULTS",
+    "createdAt": "2026-02-17T19:53:42.038Z",
+    "updatedAt": "2026-02-17T19:53:42.038Z"
+  },
+  "meta": {
+    "timestamp": "2026-02-17T19:53:42.054Z"
+  }
+}

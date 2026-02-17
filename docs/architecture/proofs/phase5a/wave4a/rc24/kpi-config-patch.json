@@ -1,0 +1,4 @@
+{
+  "code": "KPI_GOVERNANCE_DISABLED",
+  "message": "Cannot enable KPI \"velocity\": governance flag \"iterationsEnabled\" is not enabled on this project"
+}

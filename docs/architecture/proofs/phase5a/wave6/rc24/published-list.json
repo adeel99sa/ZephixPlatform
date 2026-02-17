@@ -1,0 +1,320 @@
+{
+  "data": [
+    {
+      "id": "d9017bf8-9467-4a74-9610-064f86fef1cd",
+      "name": "Hybrid M&A Integration",
+      "description": "Merger and acquisition integration program combining structured milestones with agile workstreams.",
+      "deliveryMethod": "HYBRID",
+      "boundKpiCount": 5,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ]
+    },
+    {
+      "id": "195631ed-c61a-45ba-ae68-22979535e899",
+      "name": "Hybrid Enterprise Rollout",
+      "description": "Large-scale enterprise rollout with agile workstreams and waterfall milestones.",
+      "deliveryMethod": "HYBRID",
+      "boundKpiCount": 5,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "gantt",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ]
+    },
+    {
+      "id": "997b534a-319e-4054-9568-5738323adcdf",
+      "name": "Hybrid Program Delivery",
+      "description": "Mixed delivery combining agile execution with plan-driven governance. Tracks both flow metrics and financial KPIs.",
+      "deliveryMethod": "HYBRID",
+      "boundKpiCount": 5,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "budget",
+        "change-requests",
+        "kpis",
+        "risks"
+      ]
+    },
+    {
+      "id": "1a1f53a4-3dc3-4e72-b9ed-1fb81a0b08e6",
+      "name": "Waterfall Regulatory Program",
+      "description": "Plan-driven regulatory compliance program with formal documentation, baselines, and audit-ready evidence.",
+      "deliveryMethod": "WATERFALL",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks"
+      ]
+    },
+    {
+      "id": "1c73e407-5e13-49d6-9a38-ba0f0ed4fdae",
+      "name": "Waterfall Vendor Implementation",
+      "description": "Plan-driven vendor software implementation with formal scope, baselines, and change control.",
+      "deliveryMethod": "WATERFALL",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ]
+    },
+    {
+      "id": "e3ac82b3-fe31-4c42-b296-3ae38d969480",
+      "name": "Waterfall Infrastructure Migration",
+      "description": "Plan-driven infrastructure migration with earned value tracking, formal baselines, and change control.",
+      "deliveryMethod": "WATERFALL",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ]
+    },
+    {
+      "id": "1ed6d5ce-d168-40a1-8bd6-4684e6c58f68",
+      "name": "Kanban Risk and Compliance Tracking",
+      "description": "Flow-based risk register and compliance action tracking. Best for GRC teams managing ongoing audit findings and risk mitigations.",
+      "deliveryMethod": "KANBAN",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis",
+        "risks",
+        "documents"
+      ]
+    },
+    {
+      "id": "1d880cf1-5c5d-40dc-9bd4-a56922ed53f8",
+      "name": "Kanban Continuous Improvement",
+      "description": "Flow-based continuous improvement tracking. Ideal for teams running ongoing optimization initiatives without fixed sprints.",
+      "deliveryMethod": "KANBAN",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis"
+      ]
+    },
+    {
+      "id": "36484740-a252-4269-b613-f23ffb7c0cfc",
+      "name": "Kanban Service Desk Intake",
+      "description": "Flow-based service desk and ticket intake management. Best for teams handling continuous inbound requests with SLA targets.",
+      "deliveryMethod": "KANBAN",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis",
+        "risks"
+      ]
+    },
+    {
+      "id": "49ddbc25-7ecb-4f5b-8520-c7835437d5f4",
+      "name": "Scrum Operations Improvement",
+      "description": "Sprint-based continuous improvement for operations teams. Ideal for kaizen events, process optimization, and operational efficiency programs.",
+      "deliveryMethod": "SCRUM",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks"
+      ]
+    },
+    {
+      "id": "cc429280-aea1-45d6-973c-f87f9b935651",
+      "name": "Scrum Product Launch",
+      "description": "Sprint-based product launch execution. Ideal for cross-functional teams preparing market releases, beta programs, or go-to-market sprints.",
+      "deliveryMethod": "SCRUM",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks",
+        "documents"
+      ]
+    },
+    {
+      "id": "ebd68f29-b649-405f-b706-521bd82a5761",
+      "name": "Scrum Software Delivery",
+      "description": "Sprint-based software delivery with velocity tracking, WIP limits, and iterative planning. Best for development teams working in 1-4 week sprints.",
+      "deliveryMethod": "SCRUM",
+      "boundKpiCount": 4,
+      "isSystem": true,
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks"
+      ]
+    },
+    {
+      "id": "69d94902-9740-442b-9374-a56e1ddfbaec",
+      "name": "Custom Smoke 1771358854",
+      "description": "Wave 6 smoke test",
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis"
+      ]
+    },
+    {
+      "id": "31567851-e8a1-41e0-bd90-7e5a852dd4e4",
+      "name": "Task Debug Template",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "082cd7fa-3ea1-4bea-82e1-95415329981f",
+      "name": "Blank Debug Template",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "7b4c5432-007f-4a70-8efd-5a816df89777",
+      "name": "Wave4D Pack Test 1771357976",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 4,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "244f6817-671b-47d5-b58f-a4e4a3f44a1e",
+      "name": "Wave4C KPI Test 1771357967",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 2,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "4f01eaca-9a2f-44b7-94da-3a1b85e029fb",
+      "name": "W4B-KPI-Test-1771356572",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 2,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "d47a83e0-7810-4105-ac75-e50126fb43dd",
+      "name": "Wave4D Pack Test 1771351567",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 4,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "2e414354-779e-4fb0-8543-da72329152ec",
+      "name": "Wave4C KPI Test 1771351564",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 2,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "7bd1e197-6ab6-4136-a341-f58cad525987",
+      "name": "Wave4C KPI Test 1771345213",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "3a277af8-322b-48b2-941b-b6c4e75e81b4",
+      "name": "Wave4D Pack Test 1771345193",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": null
+    },
+    {
+      "id": "eff0c8c7-e674-40a4-83e7-ec23f6b2dcea",
+      "name": "Test Template Probe",
+      "description": null,
+      "deliveryMethod": null,
+      "boundKpiCount": 0,
+      "isSystem": false,
+      "defaultTabs": null
+    }
+  ],
+  "meta": {
+    "timestamp": "2026-02-17T20:07:35.121Z"
+  }
+}

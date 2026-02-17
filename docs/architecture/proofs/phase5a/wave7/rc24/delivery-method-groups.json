@@ -1,0 +1,18 @@
+[
+  {
+    "method": "HYBRID",
+    "count": 3
+  },
+  {
+    "method": "KANBAN",
+    "count": 3
+  },
+  {
+    "method": "SCRUM",
+    "count": 3
+  },
+  {
+    "method": "WATERFALL",
+    "count": 3
+  }
+]
