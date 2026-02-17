@@ -41,17 +41,17 @@ export class KpiDefinitionEntity {
   unit!: string;
 
   // ── Existing Template Center columns (mapped for completeness) ─────
-  @Column({ type: 'text', nullable: true })
-  direction!: string | null;
+  @Column({ type: 'text', default: 'higher_is_better' })
+  direction!: string;
 
-  @Column({ type: 'text', name: 'rollup_method', nullable: true })
-  rollupMethod!: string | null;
+  @Column({ type: 'text', name: 'rollup_method', default: 'sum' })
+  rollupMethod!: string;
 
   @Column({ type: 'text', name: 'weight_field', nullable: true })
   weightField!: string | null;
 
-  @Column({ type: 'text', name: 'time_window', nullable: true })
-  timeWindow!: string | null;
+  @Column({ type: 'text', name: 'time_window', default: 'current' })
+  timeWindow!: string;
 
   @Column({ type: 'jsonb', nullable: true })
   formula!: Record<string, any> | null;
