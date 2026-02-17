@@ -7,9 +7,9 @@
     "serverPort": 5432,
     "systemIdentifier": "7539754227597242404"
   },
-  "migrationCount": 136,
-  "latestMigration": "BackfillKpiDefinitionsRollupMethod18000000000011",
+  "migrationCount": 140,
+  "latestMigration": "AddTasksOrganizationIdAndAssignmentType18000000000012",
   "gitSha": "(not set)",
-  "startedAt": "2026-02-17T17:25:50.892Z",
-  "timestamp": "2026-02-17T19:53:41.310Z"
+  "startedAt": "2026-02-17T21:24:46.668Z",
+  "timestamp": "2026-02-17T21:29:16.159Z"
 }

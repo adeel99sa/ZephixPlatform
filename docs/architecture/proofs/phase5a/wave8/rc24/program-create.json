@@ -1,4 +1,17 @@
 {
-  "code": "NOT_FOUND",
-  "message": "Cannot POST /api/workspaces/dfbc9223-2846-48ff-bda1-c2afc1e6e6f9/programs"
+  "data": {
+    "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+    "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+    "portfolioId": "34a70062-5b5e-4e2f-a169-46be448fd0c7",
+    "name": "Smoke Program 1771363757",
+    "description": "Wave 8 test",
+    "status": "active",
+    "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+    "id": "5563d36a-c4ba-4bb5-a052-58a9923bc463",
+    "createdAt": "2026-02-17T21:29:17.325Z",
+    "updatedAt": "2026-02-17T21:29:17.325Z"
+  },
+  "meta": {
+    "timestamp": "2026-02-17T21:29:17.343Z"
+  }
 }
