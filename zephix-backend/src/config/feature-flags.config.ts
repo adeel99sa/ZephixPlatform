@@ -14,6 +14,12 @@ export interface FeatureFlags {
   adminPanel: boolean;
   workflows: boolean;
   workspaceMembershipV1: boolean;
+
+  // Wave 10: KPI async recompute and rollup flags
+  kpiAsyncRecomputeEnabled: boolean;
+  kpiSchedulerEnabled: boolean;
+  portfolioKpiSnapshotsEnabled: boolean;
+  programKpiSnapshotsEnabled: boolean;
 }
 
 export default registerAs(
@@ -32,5 +38,11 @@ export default registerAs(
     adminPanel: process.env.ENABLE_ADMIN === 'true',
     workflows: process.env.ENABLE_WORKFLOWS === 'true',
     workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
+
+    // Wave 10: KPI async recompute
+    kpiAsyncRecomputeEnabled: process.env.KPI_ASYNC_RECOMPUTE_ENABLED === 'true',
+    kpiSchedulerEnabled: process.env.KPI_SCHEDULER_ENABLED === 'true',
+    portfolioKpiSnapshotsEnabled: process.env.PORTFOLIO_KPI_SNAPSHOTS_ENABLED === 'true',
+    programKpiSnapshotsEnabled: process.env.PROGRAM_KPI_SNAPSHOTS_ENABLED === 'true',
   }),
 );

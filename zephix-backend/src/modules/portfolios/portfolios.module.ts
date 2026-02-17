@@ -85,6 +85,6 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     PortfoliosController,
     PortfolioAnalyticsController, // Phase 2D
   ],
-  exports: [PortfoliosService, PortfolioAnalyticsService],
+  exports: [PortfoliosService, PortfolioAnalyticsService, PortfolioKpiRollupService],
 })
 export class PortfoliosModule {}
