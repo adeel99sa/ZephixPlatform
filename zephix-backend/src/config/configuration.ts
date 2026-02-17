@@ -81,6 +81,12 @@ export default () => ({
       path: process.env.METRICS_PATH || '/api/metrics',
     },
   },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    maxRetriesPerRequest: null, // BullMQ requires this
+    enableReadyCheck: false,
+  },
   storage: {
     provider: process.env.STORAGE_PROVIDER || 's3',
     bucket: process.env.STORAGE_BUCKET || 'zephix-attachments',

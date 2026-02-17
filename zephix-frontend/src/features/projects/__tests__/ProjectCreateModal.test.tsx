@@ -66,20 +66,20 @@ describe('ProjectCreateModal - Template Selection', () => {
   const mockOnCreated = vi.fn();
   const mockOnClose = vi.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
 
-    const { useAuth } = require('@/state/AuthContext');
-    const { useWorkspaceStore } = require('@/state/workspace.store');
+    const { useAuth } = await import('@/state/AuthContext');
+    const { useWorkspaceStore } = await import('@/state/workspace.store');
 
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'user1', organizationId: 'org1' },
       isAuthenticated: true,
-    });
+    } as any);
 
     vi.mocked(useWorkspaceStore).mockReturnValue({
       activeWorkspaceId: 'workspace1',
-    });
+    } as any);
   });
 
   it('uses blank project path by default', async () => {

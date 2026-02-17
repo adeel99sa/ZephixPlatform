@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   NotFoundException,
   Logger,
   ForbiddenException,
@@ -36,6 +37,8 @@ import {
   applyPortfolioGovernanceDefaults,
   hasExplicitGovernanceFlags,
 } from '../helpers/governance-inheritance';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 
 type CreateProjectV1Input = {
   name: string;
@@ -74,6 +77,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private configService: ConfigService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly entitlementService: EntitlementService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
     // @InjectRepository(ProjectAssignment)
     // private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
     // @InjectRepository(ProjectPhase)
@@ -554,6 +559,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         processedData.governanceSource = 'USER';
       }
 
+      // Capture old portfolio/program IDs before update for event emission
+      const oldProject = await this.projectRepository.findOne({ where: { id, organizationId }, select: ['id', 'portfolioId', 'programId', 'workspaceId'] });
+      const oldPortfolioId = oldProject?.portfolioId;
+      const oldProgramId = oldProject?.programId;
+
       const updatedProject = await this.update(
         id,
         organizationId,
@@ -564,6 +574,39 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         throw new NotFoundException(
           `Project with ID ${id} not found or access denied`,
         );
+      }
+
+      // Wave 10: Emit portfolio/program assignment events
+      if (this.domainEventEmitter && oldProject?.workspaceId) {
+        const wsId = oldProject.workspaceId;
+        const newPortfolioId = processedData.portfolioId;
+        const newProgramId = processedData.programId;
+
+        if (newPortfolioId !== undefined && newPortfolioId !== oldPortfolioId) {
+          if (oldPortfolioId) {
+            this.domainEventEmitter.emit(DOMAIN_EVENTS.PROJECT_REMOVED_FROM_PORTFOLIO, {
+              workspaceId: wsId, organizationId, projectId: id, portfolioId: oldPortfolioId,
+            }).catch(() => {});
+          }
+          if (newPortfolioId) {
+            this.domainEventEmitter.emit(DOMAIN_EVENTS.PROJECT_ASSIGNED_TO_PORTFOLIO, {
+              workspaceId: wsId, organizationId, projectId: id, portfolioId: newPortfolioId,
+            }).catch(() => {});
+          }
+        }
+
+        if (newProgramId !== undefined && newProgramId !== oldProgramId) {
+          if (oldProgramId) {
+            this.domainEventEmitter.emit(DOMAIN_EVENTS.PROJECT_REMOVED_FROM_PROGRAM, {
+              workspaceId: wsId, organizationId, projectId: id, programId: oldProgramId,
+            }).catch(() => {});
+          }
+          if (newProgramId) {
+            this.domainEventEmitter.emit(DOMAIN_EVENTS.PROJECT_ASSIGNED_TO_PROGRAM, {
+              workspaceId: wsId, organizationId, projectId: id, programId: newProgramId,
+            }).catch(() => {});
+          }
+        }
       }
 
       this.logger.log(`✅ Project updated: ${id} in org: ${organizationId}`);
