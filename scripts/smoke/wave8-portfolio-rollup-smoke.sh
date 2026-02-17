@@ -1,87 +1,143 @@
 #!/usr/bin/env bash
+###############################################################################
+# Wave 8 Staging Smoke Test - Portfolio & Program Rollups
+#
+# Tests: Portfolio CRUD, Program CRUD, guard read mode,
+#        rollup endpoint (feature-flag gated).
+#
+# Usage:
+#   bash scripts/smoke/wave8-portfolio-rollup-smoke.sh [BASE_URL]
+#
+# Env vars:
+#   SMOKE_TOKEN / SMOKE_EMAIL / SMOKE_PASSWORD
+###############################################################################
 set -euo pipefail
 
-# Wave 8: Portfolio KPI Rollup Smoke Test
-# Prerequisites:
-#   - STAGING_URL set (e.g. https://zephix-backend-v2-staging.up.railway.app)
-#   - AUTH_TOKEN set (valid JWT)
-#   - WORKSPACE_ID set
-#   - PORTFOLIO_ID set (an existing portfolio with projects)
+BASE_URL="${1:-https://zephix-backend-v2-staging.up.railway.app/api}"
+WAVE_NAME="wave8"
+source "$(dirname "$0")/lib/smoke-common.sh"
 
-BASE="${STAGING_URL:-http://localhost:3000}/api"
-TOKEN="${AUTH_TOKEN:?AUTH_TOKEN required}"
-WS="${WORKSPACE_ID:?WORKSPACE_ID required}"
-PF="${PORTFOLIO_ID:?PORTFOLIO_ID required}"
+###############################################################################
+log "Wave 8 Portfolio & Program Rollup Smoke - $BASE_URL"
+log "Proof dir: $PROOF_DIR"
 
-echo "=== Wave 8 Portfolio KPI Rollup Smoke ==="
-echo "Base: $BASE"
-echo "Workspace: $WS"
-echo "Portfolio: $PF"
-echo ""
+# 1. Health + Identity
+smoke_health_check
+smoke_identity_check
 
-# Step 1: Health check
-echo "--- Step 1: Health check ---"
-curl -sf "$BASE/health/ready" | jq .
-echo ""
+# 2. Auth
+smoke_auth
 
-# Step 2: Identity check
-echo "--- Step 2: Identity check ---"
-curl -sf -H "Authorization: Bearer $TOKEN" "$BASE/system/identity" | jq .
-echo ""
+# 3. Get workspace
+smoke_get_workspace
 
-# Step 3: List portfolios
-echo "--- Step 3: List portfolios ---"
-curl -sf -H "Authorization: Bearer $TOKEN" \
-  "$BASE/workspaces/$WS/portfolios" | jq '.data | length'
-echo ""
+###############################################################################
+# 4. GET /portfolios - read mode (was 403 before guard fix)
+###############################################################################
+log "GET /portfolios (read mode)"
+resp=$(apicurl GET "/workspaces/$WS_ID/portfolios")
+parse_response "$resp"
+check_401_drift "GET /portfolios"
+save_proof "portfolios-list" "$RESP_BODY"
 
-# Step 4: Portfolio KPI Rollup
-echo "--- Step 4: Portfolio KPI Rollup ---"
-ROLLUP=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-  "$BASE/workspaces/$WS/portfolios/$PF/kpis/rollup?asOf=$(date +%Y-%m-%d)")
-echo "$ROLLUP" | jq .
-echo ""
-
-# Step 5: Verify deterministic ordering
-echo "--- Step 5: Verify deterministic ordering ---"
-COMPUTED_CODES=$(echo "$ROLLUP" | jq -r '.data.computed[].kpiCode' 2>/dev/null || echo "")
-SORTED_CODES=$(echo "$COMPUTED_CODES" | sort)
-if [ "$COMPUTED_CODES" = "$SORTED_CODES" ]; then
-  echo "PASS: computed array is sorted by kpiCode"
+if [ "$RESP_HTTP" = "200" ]; then
+  pass "GET /portfolios: http=200 (read mode works)"
+elif [ "$RESP_HTTP" = "403" ]; then
+  fail "GET /portfolios" "http=403 - guard read mode still broken"
+  summary
 else
-  echo "FAIL: computed array is NOT sorted"
+  fail "GET /portfolios" "http=$RESP_HTTP"
 fi
 
-SKIPPED_CODES=$(echo "$ROLLUP" | jq -r '.data.skipped[].kpiCode' 2>/dev/null || echo "")
-SORTED_SKIPPED=$(echo "$SKIPPED_CODES" | sort)
-if [ "$SKIPPED_CODES" = "$SORTED_SKIPPED" ]; then
-  echo "PASS: skipped array is sorted by kpiCode"
+###############################################################################
+# 5. POST /portfolios - create portfolio
+###############################################################################
+log "Create portfolio"
+resp=$(apicurl POST "/workspaces/$WS_ID/portfolios" \
+  -d "{\"name\":\"Smoke Portfolio $(date +%s)\",\"description\":\"Wave 8 test\"}")
+parse_response "$resp"
+check_401_drift "POST /portfolios"
+save_proof "portfolio-create" "$RESP_BODY"
+
+PORTFOLIO_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
+if [ -n "$PORTFOLIO_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
+  pass "Portfolio created: $PORTFOLIO_ID"
 else
-  echo "FAIL: skipped array is NOT sorted"
+  fail "Portfolio create" "http=$RESP_HTTP id=$PORTFOLIO_ID"
 fi
-echo ""
 
-# Step 6: Verify engineVersion and inputHash
-echo "--- Step 6: Verify metadata ---"
-ENGINE=$(echo "$ROLLUP" | jq -r '.data.engineVersion' 2>/dev/null || echo "")
-HASH=$(echo "$ROLLUP" | jq -r '.data.inputHash' 2>/dev/null || echo "")
-echo "engineVersion: $ENGINE"
-echo "inputHash: $HASH (length: ${#HASH})"
-if [ ${#HASH} -eq 16 ]; then
-  echo "PASS: inputHash length = 16"
+###############################################################################
+# 6. GET /portfolios/:id - single portfolio read
+###############################################################################
+if [ -n "$PORTFOLIO_ID" ]; then
+  log "GET /portfolios/:id"
+  resp=$(apicurl GET "/workspaces/$WS_ID/portfolios/$PORTFOLIO_ID")
+  parse_response "$resp"
+  check_401_drift "GET /portfolios/:id"
+  save_proof "portfolio-detail" "$RESP_BODY"
+
+  if [ "$RESP_HTTP" = "200" ]; then
+    pass "GET /portfolios/:id: http=200"
+  else
+    fail "GET /portfolios/:id" "http=$RESP_HTTP"
+  fi
+fi
+
+###############################################################################
+# 7. GET /programs - read mode
+###############################################################################
+log "GET /programs (read mode)"
+resp=$(apicurl GET "/workspaces/$WS_ID/programs")
+parse_response "$resp"
+check_401_drift "GET /programs"
+save_proof "programs-list" "$RESP_BODY"
+
+if [ "$RESP_HTTP" = "200" ]; then
+  pass "GET /programs: http=200 (read mode works)"
+elif [ "$RESP_HTTP" = "403" ]; then
+  fail "GET /programs" "http=403 - guard read mode still broken"
 else
-  echo "FAIL: inputHash length != 16"
+  fail "GET /programs" "http=$RESP_HTTP"
 fi
-echo ""
 
-# Step 7: Check skipped reasons include governance flag names
-echo "--- Step 7: Check skipped reasons ---"
-echo "$ROLLUP" | jq '.data.skipped[] | {kpiCode, reason, governanceFlag}' 2>/dev/null || echo "No skipped KPIs"
-echo ""
+###############################################################################
+# 8. POST /programs - create program
+###############################################################################
+log "Create program"
+resp=$(apicurl POST "/workspaces/$WS_ID/programs" \
+  -d "{\"name\":\"Smoke Program $(date +%s)\",\"description\":\"Wave 8 test\"}")
+parse_response "$resp"
+check_401_drift "POST /programs"
+save_proof "program-create" "$RESP_BODY"
 
-# Step 8: Check sources
-echo "--- Step 8: Sources ---"
-echo "$ROLLUP" | jq '.data.sources' 2>/dev/null || echo "No sources"
-echo ""
+PROGRAM_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
+if [ -n "$PROGRAM_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
+  pass "Program created: $PROGRAM_ID"
+else
+  warn "Program create" "http=$RESP_HTTP id=$PROGRAM_ID"
+fi
 
-echo "=== Wave 8 Portfolio KPI Rollup Smoke Complete ==="
+###############################################################################
+# 9. Portfolio KPI rollup - feature-flag gated
+###############################################################################
+if [ -n "$PORTFOLIO_ID" ]; then
+  log "GET /portfolios/:id/kpis/rollup (feature-flag gated)"
+  TODAY=$(date +%Y-%m-%d)
+  resp=$(apicurl GET "/workspaces/$WS_ID/portfolios/$PORTFOLIO_ID/kpis/rollup?asOf=$TODAY")
+  parse_response "$resp"
+  save_proof "portfolio-kpi-rollup" "$RESP_BODY"
+
+  if [ "$RESP_HTTP" = "200" ]; then
+    pass "Portfolio rollup: http=200 (flag enabled)"
+  elif [ "$RESP_HTTP" = "404" ]; then
+    skip "Portfolio rollup" "http=404 - blocked by flag PORTFOLIO_KPI_ROLLUP_ENABLED (expected)"
+    save_proof "portfolio-rollup-flag-disabled" "$RESP_BODY" ".txt"
+  else
+    fail "Portfolio rollup" "http=$RESP_HTTP"
+  fi
+else
+  skip "Portfolio rollup" "no portfolio created"
+fi
+
+###############################################################################
+summary

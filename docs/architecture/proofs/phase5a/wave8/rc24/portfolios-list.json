@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "82247a8a-22b0-4770-aa82-b6ad8e8c8e45",
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+      "name": "rc25-smoke-portfolio",
+      "description": "Smoke test portfolio for rc25 guard validation",
+      "status": "active",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "costTrackingEnabled": false,
+      "baselinesEnabled": false,
+      "iterationsEnabled": false,
+      "changeManagementEnabled": false,
+      "inheritedGovernanceMode": "PORTFOLIO_DEFAULTS",
+      "createdAt": "2026-02-17T18:07:55.787Z",
+      "updatedAt": "2026-02-17T18:07:55.787Z"
+    }
+  ],
+  "meta": {
+    "timestamp": "2026-02-17T19:53:41.832Z"
+  }
+}
