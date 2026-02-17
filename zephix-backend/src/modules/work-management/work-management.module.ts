@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkTask } from './entities/work-task.entity';
 import { WorkPhase } from './entities/work-phase.entity';
@@ -14,6 +14,8 @@ import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { PoliciesModule } from '../policies/policies.module';
+import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
+// KpiQueueModule is @Global() — DomainEventEmitterService available without import
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -117,6 +119,8 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     ]),
     WorkspaceAccessModule,
     PoliciesModule,
+    GovernanceRulesModule,
+    // KpiQueueModule is @Global(), no explicit import needed
     TenancyModule,
   ],
   controllers: [
