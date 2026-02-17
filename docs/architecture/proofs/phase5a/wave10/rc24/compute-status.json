@@ -1,0 +1,12 @@
+{
+  "data": {
+    "pending": false,
+    "jobId": null,
+    "lastComputedAt": {},
+    "lastFailure": null
+  },
+  "meta": {
+    "timestamp": "2026-02-17T21:27:13.709Z",
+    "requestId": "a8fc7979-3651-4515-bbd5-b639b5f09c2b"
+  }
+}
