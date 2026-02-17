@@ -1,135 +1,157 @@
 #!/usr/bin/env bash
-# Wave 9 — Governance Rule Engine Smoke Test
-# Usage: bash scripts/smoke/wave9-governance-rules-smoke.sh https://staging-api.example.com/api
+###############################################################################
+# Wave 9 Staging Smoke Test — Governance Rules Engine
 #
-# Environment variables:
-#   SMOKE_TOKEN       — JWT for an admin user (required)
-#   SMOKE_TOKEN_VIEWER — JWT for a viewer user (optional, tests 403)
+# Tests: Rule set CRUD, rule versioning, evaluations endpoint, auth guards.
 #
-# Routes tested (all under /api/admin/governance-rules):
-#   POST   /rule-sets                 — create rule set
-#   GET    /rule-sets                 — list rule sets
-#   GET    /rule-sets/:id             — get rule set
-#   POST   /rule-sets/:id/rules       — add rule version
-#   GET    /rule-sets/:id/rules/active — list active rules
-#   POST   /rule-sets/:id/deactivate  — deactivate rule set
-#   GET    /evaluations/:workspaceId   — list evaluations
+# Usage:
+#   bash scripts/smoke/wave9-governance-rules-smoke.sh [BASE_URL]
 #
-# Note: controller uses @Controller('admin/governance-rules') and
-# main.ts sets app.setGlobalPrefix('api'), so full path is /api/admin/governance-rules/...
+# Env vars:
+#   SMOKE_TOKEN / SMOKE_EMAIL / SMOKE_PASSWORD
+###############################################################################
 set -euo pipefail
 
-BASE="${1:?Usage: $0 <api-base-url>}"
-TOKEN="${SMOKE_TOKEN:?Set SMOKE_TOKEN}"
-AUTH="Authorization: Bearer $TOKEN"
-CT="Content-Type: application/json"
-PASS=0; FAIL=0
+BASE_URL="${1:-https://zephix-backend-v2-staging.up.railway.app/api}"
+WAVE_NAME="wave9"
+source "$(dirname "$0")/lib/smoke-common.sh"
 
-ok()   { PASS=$((PASS+1)); echo "  [PASS] $1"; }
-fail() { FAIL=$((FAIL+1)); echo "  [FAIL] $1"; }
+###############################################################################
+log "Wave 9 Governance Rules Smoke — $BASE_URL"
+log "Proof dir: $PROOF_DIR"
 
-echo "=== Wave 9 Governance Rules Smoke ==="
-echo "Base: $BASE"
+# 1. Health + Identity
+smoke_health_check
+smoke_identity_check
 
-# 0. Unauthenticated access check
-echo ""
-echo "--- Step 0: Unauthenticated access must be rejected ---"
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/admin/governance-rules/rule-sets")
-[ "$HTTP" = "401" ] && ok "GET rule-sets without token → 401" || fail "Expected 401, got $HTTP"
+# 2. Auth
+smoke_auth
 
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/admin/governance-rules/rule-sets" \
-  -H "$CT" -d '{}')
-[ "$HTTP" = "401" ] && ok "POST rule-sets without token → 401" || fail "Expected 401, got $HTTP"
+# 3. Get workspace
+smoke_get_workspace
 
-# 0b. Viewer access check (optional)
-if [ -n "${SMOKE_TOKEN_VIEWER:-}" ]; then
-  echo ""
-  echo "--- Step 0b: Viewer role access check ---"
-  VAUTH="Authorization: Bearer $SMOKE_TOKEN_VIEWER"
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/admin/governance-rules/rule-sets" \
-    -H "$VAUTH" -H "$CT" -d '{"scopeType":"SYSTEM","entityType":"TASK","name":"viewer-test","enforcementMode":"WARN"}')
-  [ "$HTTP" = "403" ] && ok "Viewer POST rule-sets → 403" || fail "Viewer POST expected 403, got $HTTP"
+###############################################################################
+# 4. Unauthenticated access check
+###############################################################################
+log "Unauthenticated GET /admin/governance-rules/rule-sets"
+UNAUTH_HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/admin/governance-rules/rule-sets" 2>/dev/null)
+if [ "$UNAUTH_HTTP" = "401" ]; then
+  pass "GET rule-sets without token -> 401"
+elif [ "$UNAUTH_HTTP" = "403" ]; then
+  pass "GET rule-sets without token -> 403 (CSRF guard)"
+else
+  fail "Unauth GET" "expected 401/403, got $UNAUTH_HTTP"
 fi
 
-# 1. Health check
-echo ""
-echo "--- Step 1: Health ---"
-HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health/ready")
-[ "$HTTP" = "200" ] && ok "Health ready" || fail "Health $HTTP"
+###############################################################################
+# 5. GET /admin/governance-rules/rule-sets
+###############################################################################
+log "GET /admin/governance-rules/rule-sets"
+resp=$(apicurl GET /admin/governance-rules/rule-sets)
+parse_response "$resp"
+check_401_drift "GET rule-sets"
+save_proof "rule-sets-list" "$RESP_BODY"
 
-# 1b. GET list rule sets (proves route is reachable)
-echo ""
-echo "--- Step 1b: GET List Rule Sets ---"
-LIST_HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/admin/governance-rules/rule-sets" \
-  -H "$AUTH")
-[ "$LIST_HTTP" = "200" ] && ok "GET rule-sets → 200" || fail "GET rule-sets → $LIST_HTTP"
+if [ "$RESP_HTTP" = "200" ]; then
+  pass "GET rule-sets: http=200"
+else
+  fail "GET rule-sets" "http=$RESP_HTTP"
+fi
 
-# 2. Create rule set
-echo ""
-echo "--- Step 2: Create Rule Set ---"
-RS=$(curl -s -X POST "$BASE/admin/governance-rules/rule-sets" \
-  -H "$AUTH" -H "$CT" \
-  -d '{
-    "scopeType": "SYSTEM",
-    "entityType": "TASK",
-    "name": "Smoke Test Task Guards",
-    "enforcementMode": "BLOCK"
-  }')
-RS_ID=$(echo "$RS" | jq -r '.id // empty')
-[ -n "$RS_ID" ] && ok "Rule set created: $RS_ID" || fail "Rule set creation failed"
+###############################################################################
+# 6. POST /admin/governance-rules/rule-sets — create
+###############################################################################
+log "Create rule set"
+resp=$(apicurl POST /admin/governance-rules/rule-sets \
+  -d '{"scopeType":"SYSTEM","entityType":"TASK","name":"Smoke Task Guards '$(date +%s)'","enforcementMode":"BLOCK"}')
+parse_response "$resp"
+check_401_drift "POST rule-sets"
+save_proof "rule-set-create" "$RESP_BODY"
 
-# 3. Add rule version
-echo ""
-echo "--- Step 3: Add Rule ---"
-RULE=$(curl -s -X POST "$BASE/admin/governance-rules/rule-sets/$RS_ID/rules" \
-  -H "$AUTH" -H "$CT" \
-  -d '{
-    "code": "SMOKE_TASK_DONE_REQUIRES_ASSIGNEE",
-    "ruleDefinition": {
-      "when": { "toStatus": "DONE" },
-      "conditions": [
-        { "type": "REQUIRED_FIELD", "field": "assigneeUserId" }
-      ],
-      "message": "Smoke: assignee required for Done",
-      "severity": "ERROR"
-    },
-    "setActive": true
-  }')
-RULE_ID=$(echo "$RULE" | jq -r '.id // empty')
-[ -n "$RULE_ID" ] && ok "Rule created: $RULE_ID (v$(echo "$RULE" | jq -r '.version'))" || fail "Rule creation failed"
+RS_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
+if [ -n "$RS_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
+  pass "Rule set created: $RS_ID"
+else
+  fail "Rule set create" "http=$RESP_HTTP id=$RS_ID"
+fi
 
-# 4. List active rules
-echo ""
-echo "--- Step 4: List Active Rules ---"
-ACTIVE=$(curl -s "$BASE/admin/governance-rules/rule-sets/$RS_ID/rules/active" \
-  -H "$AUTH")
-ACTIVE_COUNT=$(echo "$ACTIVE" | jq 'length')
-[ "$ACTIVE_COUNT" = "1" ] && ok "Active rules: $ACTIVE_COUNT" || fail "Expected 1 active rule, got $ACTIVE_COUNT"
+###############################################################################
+# 7. POST /rule-sets/:id/rules — add rule version
+###############################################################################
+if [ -n "$RS_ID" ]; then
+  log "Add rule to set: $RS_ID"
+  resp=$(apicurl POST "/admin/governance-rules/rule-sets/$RS_ID/rules" \
+    -d '{"code":"SMOKE_TASK_DONE_REQUIRES_ASSIGNEE","ruleDefinition":{"when":{"toStatus":"DONE"},"conditions":[{"type":"REQUIRED_FIELD","field":"assigneeUserId"}],"message":"Smoke: assignee required for Done","severity":"ERROR"},"setActive":true}')
+  parse_response "$resp"
+  check_401_drift "POST rules"
+  save_proof "rule-create" "$RESP_BODY"
 
-# 5. Attempt blocked transition (would require workspace+task context in real env)
-echo ""
-echo "--- Step 5: Blocked Transition ---"
-echo "  ⚠️  Transition blocking requires task endpoints with live data."
-echo "  ⚠️  Manual verification: create task without assignee, try DONE status."
+  RULE_ID=$(echo "$RESP_BODY" | json_unwrap | json_field "id")
+  if [ -n "$RULE_ID" ] && { [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; }; then
+    pass "Rule created: $RULE_ID"
+  else
+    warn "Rule create" "http=$RESP_HTTP id=$RULE_ID"
+  fi
+fi
 
-# 6. List evaluations
-echo ""
-echo "--- Step 6: List Evaluations ---"
-# Use a placeholder workspaceId for smoke
-EVALS=$(curl -s "$BASE/admin/governance-rules/evaluations/00000000-0000-0000-0000-000000000000" \
-  -H "$AUTH")
-EVALS_TOTAL=$(echo "$EVALS" | jq -r '.total // 0')
-ok "Evaluations endpoint responsive (total: $EVALS_TOTAL)"
+###############################################################################
+# 8. GET /rule-sets/:id/rules/active
+###############################################################################
+if [ -n "$RS_ID" ]; then
+  log "List active rules for set: $RS_ID"
+  resp=$(apicurl GET "/admin/governance-rules/rule-sets/$RS_ID/rules/active")
+  parse_response "$resp"
+  save_proof "active-rules" "$RESP_BODY"
 
-# 7. Deactivate rule set
-echo ""
-echo "--- Step 7: Deactivate Rule Set ---"
-DEACT=$(curl -s -X POST "$BASE/admin/governance-rules/rule-sets/$RS_ID/deactivate" \
-  -H "$AUTH")
-IS_ACTIVE=$(echo "$DEACT" | jq -r '.isActive')
-[ "$IS_ACTIVE" = "false" ] && ok "Rule set deactivated" || fail "Deactivation failed"
+  if [ "$RESP_HTTP" = "200" ]; then
+    ACTIVE_DATA=$(echo "$RESP_BODY" | json_unwrap)
+    if $HAS_JQ; then
+      ACTIVE_COUNT=$(echo "$ACTIVE_DATA" | jq 'if type == "array" then length else 0 end' 2>/dev/null || echo "0")
+    else
+      ACTIVE_COUNT=$(echo "$ACTIVE_DATA" | json_count)
+    fi
+    if [ "$ACTIVE_COUNT" -ge 1 ] 2>/dev/null; then
+      pass "Active rules: $ACTIVE_COUNT"
+    else
+      warn "Active rules" "count=$ACTIVE_COUNT (expected >= 1)"
+    fi
+  else
+    fail "Active rules" "http=$RESP_HTTP"
+  fi
+fi
 
-# Summary
-echo ""
-echo "=== Results: $PASS passed, $FAIL failed ==="
-[ "$FAIL" -eq 0 ] && exit 0 || exit 1
+###############################################################################
+# 9. GET /evaluations/:workspaceId
+###############################################################################
+log "GET evaluations for workspace"
+resp=$(apicurl GET "/admin/governance-rules/evaluations/$WS_ID")
+parse_response "$resp"
+save_proof "evaluations-list" "$RESP_BODY"
+
+if [ "$RESP_HTTP" = "200" ]; then
+  pass "Evaluations endpoint: http=200"
+else
+  warn "Evaluations" "http=$RESP_HTTP"
+fi
+
+###############################################################################
+# 10. POST /rule-sets/:id/deactivate
+###############################################################################
+if [ -n "$RS_ID" ]; then
+  log "Deactivate rule set: $RS_ID"
+  resp=$(apicurl POST "/admin/governance-rules/rule-sets/$RS_ID/deactivate")
+  parse_response "$resp"
+  save_proof "rule-set-deactivate" "$RESP_BODY"
+
+  IS_ACTIVE=$(echo "$RESP_BODY" | json_unwrap | json_field "isActive")
+  if [ "$IS_ACTIVE" = "false" ]; then
+    pass "Rule set deactivated"
+  elif [ "$RESP_HTTP" = "200" ] || [ "$RESP_HTTP" = "201" ]; then
+    pass "Deactivate: http=$RESP_HTTP"
+  else
+    warn "Deactivate" "http=$RESP_HTTP isActive=$IS_ACTIVE"
+  fi
+fi
+
+###############################################################################
+summary

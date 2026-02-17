@@ -1,0 +1,28 @@
+{
+  "data": {
+    "ruleSetId": "974060fb-eaba-4a6e-8965-225ec458fdd2",
+    "code": "SMOKE_TASK_DONE_REQUIRES_ASSIGNEE",
+    "version": 1,
+    "isActive": true,
+    "ruleDefinition": {
+      "when": {
+        "toStatus": "DONE"
+      },
+      "message": "Smoke: assignee required for Done",
+      "severity": "ERROR",
+      "conditions": [
+        {
+          "type": "REQUIRED_FIELD",
+          "field": "assigneeUserId"
+        }
+      ]
+    },
+    "createdBy": null,
+    "id": "8cd8d314-7409-4993-97ac-19cf1e18f204",
+    "createdAt": "2026-02-17T21:19:15.581Z"
+  },
+  "meta": {
+    "timestamp": "2026-02-17T21:19:15.627Z",
+    "requestId": "bd253cc8-6766-4097-ae6d-abd571b57f13"
+  }
+}
