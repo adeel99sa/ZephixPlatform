@@ -7,11 +7,12 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  SetMetadata,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RequireEmailVerifiedGuard } from '../guards/require-email-verified.guard';
+import { RateLimiterGuard } from '../../../common/guards/rate-limiter.guard';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { OrgInvitesService } from '../services/org-invites.service';
@@ -38,9 +39,9 @@ export class OrgInvitesController {
    * Requires verified email (Option B gating).
    */
   @Post(':orgId/invites')
-  @UseGuards(RequireEmailVerifiedGuard)
+  @UseGuards(RequireEmailVerifiedGuard, RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 3600000, max: 10 })
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 invites per hour
   @ApiOperation({ summary: 'Create organization invitation' })
   @ApiParam({ name: 'orgId', description: 'Organization ID' })
   @ApiResponse({
@@ -90,9 +91,9 @@ export class InvitesController {
    * Requires authentication (user must be logged in).
    */
   @Post('accept')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 3600000, max: 5 })
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 accepts per hour
   @ApiOperation({ summary: 'Accept organization invitation' })
   @ApiResponse({
     status: 200,

@@ -8,6 +8,7 @@
  */
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
@@ -32,6 +33,8 @@ import { TokenHashUtil } from '../../common/security/token-hash.util';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -301,10 +304,12 @@ export class AuthService {
         ? process.env.JWT_EXPIRES_IN || '7d' // 7 days for dev testing
         : process.env.JWT_EXPIRES_IN || '15m'; // 15 minutes for production
 
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn,
-    });
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is not set. Cannot sign tokens.');
+    }
+
+    return this.jwtService.sign(payload, { secret, expiresIn });
   }
 
   private async generateRefreshToken(
@@ -336,10 +341,12 @@ export class AuthService {
       sid: sessionId, // Session ID for binding
     };
 
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-      expiresIn: '7d',
-    });
+    const refreshSecret = process.env.JWT_REFRESH_SECRET;
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET environment variable is not set. Cannot sign refresh tokens.');
+    }
+
+    return this.jwtService.sign(payload, { secret: refreshSecret, expiresIn: '7d' });
   }
 
   sanitizeUser(user: User) {
@@ -393,13 +400,11 @@ export class AuthService {
     // For now, no platform super admin - can be added later if needed
     const isPlatformSuperAdmin = false;
 
-    // Debug logging in development
     if (process.env.NODE_ENV === 'development') {
       console.log('[buildUserResponse] admin check:', {
-        email: user.email,
-        orgRoleFromUserOrg,
+        userId: user.id,
+        orgRole: orgRoleFromUserOrg,
         isOrgAdmin,
-        isPlatformSuperAdmin,
         finalIsAdmin: isOrgAdmin || isPlatformSuperAdmin,
       });
     }
@@ -478,7 +483,7 @@ export class AuthService {
     try {
       // Decode the refresh token to get user ID and sessionId
       const decoded = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        secret: process.env.JWT_REFRESH_SECRET,
       });
       const user = await this.getUserById(decoded.sub);
 
@@ -568,12 +573,11 @@ export class AuthService {
     if (!targetSessionId && refreshToken) {
       try {
         const decoded = this.jwtService.verify(refreshToken, {
-          secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+          secret: process.env.JWT_REFRESH_SECRET,
         });
         targetSessionId = decoded.sid;
       } catch (error) {
-        // Invalid token - can't extract sessionId
-        console.log(`User ${userId} logged out (invalid refresh token)`);
+        this.logger.warn('Logout with invalid refresh token', { userId });
       }
     }
 
@@ -589,8 +593,7 @@ export class AuthService {
         await this.authSessionRepository.save(session);
       }
     } else {
-      // If no sessionId, log for audit but don't fail
-      console.log(`User ${userId} logged out (no sessionId provided)`);
+      this.logger.warn('Logout without sessionId', { userId });
     }
 
     return;
