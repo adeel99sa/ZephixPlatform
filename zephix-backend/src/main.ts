@@ -131,7 +131,28 @@ async function bootstrap() {
       description:
         'Pepper for refresh token hashing (min 32 chars); fail fast if missing or too short',
     },
+    JWT_SECRET: {
+      value: process.env.JWT_SECRET,
+      minLength: 32,
+      description:
+        'Secret for signing access tokens (min 32 chars)',
+    },
+    JWT_REFRESH_SECRET: {
+      value: process.env.JWT_REFRESH_SECRET,
+      minLength: 32,
+      description:
+        'Secret for signing refresh tokens (min 32 chars)',
+    },
   };
+
+  const WEAK_SECRET_PATTERNS = ['secret', 'password', '123', 'changeme', 'test', 'default', 'admin'];
+  for (const key of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    const val = requiredEnvVars[key]?.value?.toLowerCase();
+    if (val && WEAK_SECRET_PATTERNS.some(p => val === p || val.startsWith(p))) {
+      console.error(`❌ ${key} matches a known weak pattern. Use a cryptographically random value (e.g., openssl rand -hex 32).`);
+      process.exit(1);
+    }
+  }
 
   const missing: string[] = [];
   const invalid: string[] = [];

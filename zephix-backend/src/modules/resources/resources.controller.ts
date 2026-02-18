@@ -9,6 +9,7 @@ import {
   Body,
   BadRequestException,
   Param,
+  SetMetadata,
 } from '@nestjs/common';
 import { ResourceListQueryDto } from './dto/resource-list-query.dto';
 import {
@@ -17,8 +18,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { ResourceHeatMapService } from './services/resource-heat-map.service';
 import { HeatMapQueryDto } from './dto/heat-map-query.dto';
 import { CreateAllocationDto } from './dto/create-allocation.dto';
@@ -477,7 +478,8 @@ export class ResourcesController {
   }
 
   @Post('detect-conflicts')
-  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 50 checks per minute
+  @UseGuards(RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 60000, max: 50 })
   @ApiOperation({ summary: 'Detect resource conflicts for allocation' })
   @ApiResponse({ status: 200, description: 'Conflict detection completed' })
   async detectConflicts(@Body() dto: DetectConflictsDto) {
@@ -490,7 +492,8 @@ export class ResourcesController {
   }
 
   @Post('allocations')
-  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 creates per minute
+  @UseGuards(RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 60000, max: 20 })
   @ApiOperation({
     summary: 'Create resource allocation with audit and cache invalidation',
   })
@@ -657,13 +660,6 @@ export class ResourcesController {
       console.error('❌ Get skills facet error:', error);
       throw error;
     }
-  }
-
-  @Get('test')
-  @ApiOperation({ summary: 'Test endpoint for resources module' })
-  @ApiResponse({ status: 200, description: 'Resources module is working' })
-  async test() {
-    return { message: 'Resources module is working!', timestamp: new Date() };
   }
 
   @Get(':id/risk-score')
