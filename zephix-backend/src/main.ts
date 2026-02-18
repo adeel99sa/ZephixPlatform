@@ -240,16 +240,20 @@ async function bootstrap() {
   app.use(cookieParser());
 
   if (debugBoot) console.log('🌐 Configuring CORS...');
+  const isProduction = process.env.NODE_ENV === 'production';
   const corsOrigins: string[] = [
-    'https://getzephix.com', // Production frontend
-    'https://www.getzephix.com', // Production with www
-    'http://localhost:5173', // Vite local development
-    'http://localhost:3001', // Alternative frontend port
-    'http://localhost:3000', // Alternative frontend port
+    'https://getzephix.com',
+    'https://www.getzephix.com',
   ];
-  // Allow dynamic FRONTEND_URL for staging and other environments
+  if (!isProduction) {
+    corsOrigins.push('http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000');
+  }
   if (process.env.FRONTEND_URL && !corsOrigins.includes(process.env.FRONTEND_URL)) {
     corsOrigins.push(process.env.FRONTEND_URL);
+  }
+  const extraOrigins = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  for (const origin of extraOrigins) {
+    if (!corsOrigins.includes(origin)) corsOrigins.push(origin);
   }
   app.enableCors({
     origin: corsOrigins,
@@ -261,8 +265,8 @@ async function bootstrap() {
       'X-Request-Id',
       'x-org-id',
       'X-CSRF-Token',
-      'X-Workspace-Id', // Workspace header for multi-tenant requests
-      'x-workspace-id', // Lowercase variant
+      'X-Workspace-Id',
+      'x-workspace-id',
     ],
     exposedHeaders: ['X-Request-Id'],
   });

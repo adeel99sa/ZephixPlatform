@@ -6,8 +6,10 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { RateLimiterGuard } from '../../../common/guards/rate-limiter.guard';
 import { OrganizationSignupService } from '../services/organization-signup.service';
 import { OrganizationSignupDto } from '../dto/organization-signup.dto';
 
@@ -19,6 +21,7 @@ export class OrganizationSignupController {
   ) {}
 
   @Post('signup')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Sign up with new organization',
@@ -59,6 +62,7 @@ export class OrganizationSignupController {
   }
 
   @Get('check-slug')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({
     summary: 'Check organization slug availability',
     description: 'Checks if an organization slug is available for use',

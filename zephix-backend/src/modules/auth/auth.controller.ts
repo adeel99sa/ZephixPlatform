@@ -300,7 +300,7 @@ export class AuthController {
         orgRole = userOrg.role;
       } else if (process.env.NODE_ENV === 'development') {
         console.warn(
-          `[AuthController] No UserOrganization record found for user ${user.email} in org ${user.organizationId}. Falling back to user.role`,
+          `[AuthController] No UserOrganization record for userId=${user.id} orgId=${user.organizationId}. Falling back to user.role`,
         );
       }
 
@@ -333,6 +333,7 @@ export class AuthController {
   }
 
   @Get('csrf')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Get CSRF token' })
   @ApiResponse({
     status: 200,
@@ -367,22 +368,6 @@ export class AuthController {
     });
 
     return res.json({ csrfToken });
-  }
-
-  @Post('csrf-test')
-  @ApiOperation({ summary: 'CSRF test endpoint for Gate 1 proof' })
-  @ApiResponse({
-    status: 200,
-    description: 'CSRF protection working',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'CSRF token missing or invalid',
-  })
-  csrfTest(@Request() req: Request) {
-    // This endpoint exists only for Gate 1 proof
-    // CSRF guard will enforce token validation
-    return { message: 'CSRF protection verified', timestamp: new Date() };
   }
 
   @Post('refresh')

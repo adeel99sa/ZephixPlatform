@@ -27,6 +27,7 @@ export class InvitationAcceptanceController {
   constructor(private readonly invitationService: InvitationService) {}
 
   @Get(':token')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Get invitation details by token' })
   @ApiResponse({
     status: 200,

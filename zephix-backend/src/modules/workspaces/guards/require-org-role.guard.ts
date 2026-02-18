@@ -43,11 +43,8 @@ export class RequireOrgRoleGuard implements CanActivate {
     // Normalize required role (handle both new enum and legacy strings)
     const normalizedRequiredRole = normalizePlatformRole(requiredRole);
 
-    // Development logging for role debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `Guard role check, user role: ${user.role} -> ${userPlatformRole}, required: ${requiredRole} -> ${normalizedRequiredRole}`,
-      );
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_GUARDS === 'true') {
+      console.log(`Guard role check: userId=${user.id} resolved=${userPlatformRole} required=${normalizedRequiredRole}`);
     }
 
     // Role hierarchy: ADMIN > MEMBER > VIEWER
