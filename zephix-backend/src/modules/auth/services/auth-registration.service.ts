@@ -106,33 +106,25 @@ export class AuthRegistrationService {
       }
     }
 
-    // Use transaction for atomicity
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      const result = await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
         const orgRepo = manager.getRepository(Organization);
         const userOrgRepo = manager.getRepository(UserOrganization);
         const tokenRepo = manager.getRepository(EmailVerificationToken);
         const outboxRepo = manager.getRepository(AuthOutbox);
 
-        // Check if user exists (but don't reveal in error)
         const existingUser = await userRepo.findOne({
           where: { email: normalizedEmail },
         });
 
         if (existingUser) {
-          // Idempotency: if user exists, return neutral response
-          // This prevents account enumeration
           this.logger.warn(
             `Registration attempt for existing email: ${normalizedEmail}, requestId: ${requestId}`,
           );
-          return {
-            message:
-              'If an account with this email exists, you will receive a verification email.',
-          };
+          return { isExisting: true } as const;
         }
 
-        // Generate available slug with deterministic suffix retry
         const checkSlugExists = async (slug: string): Promise<boolean> => {
           const existing = await orgRepo.findOne({ where: { slug } });
           return !!existing;
@@ -151,7 +143,6 @@ export class AuthRegistrationService {
           );
         }
 
-        // Create organization with the available slug
         const organization = orgRepo.create({
           name: orgName.trim(),
           slug: availableSlug,
@@ -166,10 +157,8 @@ export class AuthRegistrationService {
         });
         const savedOrg = await orgRepo.save(organization);
 
-        // Hash password (OWASP: bcrypt with 12 rounds minimum)
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Parse fullName into firstName and lastName
         const nameParts = fullName.trim().split(/\s+/);
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
@@ -224,64 +213,78 @@ export class AuthRegistrationService {
         });
         await outboxRepo.save(outboxEvent);
 
-        await this.auditService.record({
-          organizationId: savedOrg.id,
-          actorUserId: savedUser.id,
-          actorPlatformRole: PlatformRole.ADMIN,
-          entityType: AuditEntityType.USER,
-          entityId: savedUser.id,
-          action: AuditAction.USER_REGISTERED,
-          after: {
-            email: normalizedEmail,
-            firstName,
-            lastName,
-            platformRole: PlatformRole.ADMIN,
-            isEmailVerified: false,
-          },
-          ipAddress: ip,
-          userAgent,
-        }, { manager });
+        return {
+          isExisting: false,
+          savedOrg,
+          savedUser,
+          verificationTokenId: verificationToken.id,
+          firstName,
+          lastName,
+          expiresAt,
+        } as const;
+      });
 
-        await this.auditService.record({
-          organizationId: savedOrg.id,
-          actorUserId: savedUser.id,
-          actorPlatformRole: PlatformRole.ADMIN,
-          entityType: AuditEntityType.ORGANIZATION,
-          entityId: savedOrg.id,
-          action: AuditAction.ORG_CREATED,
-          after: {
-            name: savedOrg.name,
-            slug: savedOrg.slug,
-            status: savedOrg.status,
-          },
-          ipAddress: ip,
-          userAgent,
-        }, { manager });
-
-        await this.auditService.record({
-          organizationId: savedOrg.id,
-          actorUserId: savedUser.id,
-          actorPlatformRole: PlatformRole.ADMIN,
-          entityType: AuditEntityType.EMAIL_VERIFICATION,
-          entityId: verificationToken.id,
-          action: AuditAction.EMAIL_VERIFICATION_SENT,
-          after: {
-            email: normalizedEmail,
-            expiresAt: expiresAt.toISOString(),
-          },
-          ipAddress: ip,
-          userAgent,
-        }, { manager });
-
-        this.logger.log(
-          `User registered: ${normalizedEmail}, org: ${savedOrg.id}, platformRole: ${PlatformRole.ADMIN}`,
-        );
-
+      if (result.isExisting) {
         return {
           message:
             'If an account with this email exists, you will receive a verification email.',
         };
+      }
+
+      // Audit writes outside the transaction — PostgreSQL transaction poisoning safe
+      const auditCtx = {
+        organizationId: result.savedOrg.id,
+        actorUserId: result.savedUser.id,
+        actorPlatformRole: PlatformRole.ADMIN,
+        ipAddress: ip,
+        userAgent,
+      };
+
+      await this.auditService.record({
+        ...auditCtx,
+        entityType: AuditEntityType.USER,
+        entityId: result.savedUser.id,
+        action: AuditAction.USER_REGISTERED,
+        after: {
+          email: normalizedEmail,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          platformRole: PlatformRole.ADMIN,
+          isEmailVerified: false,
+        },
       });
+
+      await this.auditService.record({
+        ...auditCtx,
+        entityType: AuditEntityType.ORGANIZATION,
+        entityId: result.savedOrg.id,
+        action: AuditAction.ORG_CREATED,
+        after: {
+          name: result.savedOrg.name,
+          slug: result.savedOrg.slug,
+          status: result.savedOrg.status,
+        },
+      });
+
+      await this.auditService.record({
+        ...auditCtx,
+        entityType: AuditEntityType.EMAIL_VERIFICATION,
+        entityId: result.verificationTokenId,
+        action: AuditAction.EMAIL_VERIFICATION_SENT,
+        after: {
+          email: normalizedEmail,
+          expiresAt: result.expiresAt.toISOString(),
+        },
+      });
+
+      this.logger.log(
+        `User registered: ${normalizedEmail}, org: ${result.savedOrg.id}, platformRole: ${PlatformRole.ADMIN}`,
+      );
+
+      return {
+        message:
+          'If an account with this email exists, you will receive a verification email.',
+      };
     } catch (error: any) {
       // Handle Postgres unique constraint violation (race condition)
       // Error code 23505 = unique_violation
