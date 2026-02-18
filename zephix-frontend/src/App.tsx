@@ -47,6 +47,7 @@ import InboxPage from "@/pages/InboxPage";
 import ResourcesPage from "@/pages/ResourcesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
+import CreateFirstWorkspacePage from "@/pages/onboarding/CreateFirstWorkspacePage";
 import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
 import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
@@ -148,6 +149,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             {/* Onboarding route (no layout) */}
             <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/setup/workspace" element={<CreateFirstWorkspacePage />} />
 
             {/* Main app routes with DashboardLayout */}
             <Route element={

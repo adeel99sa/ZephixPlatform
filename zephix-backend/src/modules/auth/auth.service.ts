@@ -11,6 +11,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -156,18 +157,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check password
-    console.log(`[DEBUG] Comparing password for ${email}`);
-    console.log(
-      `[DEBUG] Stored hash: ${user.password ? user.password.substring(0, 20) + '...' : 'null'}`,
-    );
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log(`[DEBUG] Password valid: ${isPasswordValid}`);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Update last login
+    if (!user.isEmailVerified && !user.emailVerifiedAt) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address before logging in. Check your inbox for the verification link.',
+        email: user.email,
+      });
+    }
+
     await this.userRepository.update(user.id, {
       lastLoginAt: new Date(),
     });
