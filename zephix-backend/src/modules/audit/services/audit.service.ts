@@ -80,15 +80,12 @@ export class AuditService {
       }
       return await this.repo.save(event);
     } catch (err) {
-      // Audit must never break the business flow
-      this.logger.error({
-        context: 'AUDIT_WRITE_FAILED',
-        entityType: input.entityType,
-        entityId: input.entityId,
-        action: input.action,
-        error: (err as Error).message,
-      });
-      return event; // Return unsaved event — caller does not fail
+      const error = err as Error;
+      this.logger.error(
+        `AUDIT_WRITE_FAILED | action=${input.action} entityType=${input.entityType} entityId=${input.entityId} org=${input.organizationId} actor=${input.actorUserId} | ${error.message}`,
+        error.stack,
+      );
+      return event;
     }
   }
 
