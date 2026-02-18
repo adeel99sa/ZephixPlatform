@@ -46,11 +46,6 @@ export class ProjectsController {
     bootLog('ProjectsController constructor called');
   }
 
-  @Get('test')
-  async test() {
-    return { message: 'Projects controller is working', timestamp: new Date() };
-  }
-
   @Post()
   @UseGuards(RequireProjectWorkspaceRoleGuard)
   @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })

@@ -9,7 +9,6 @@ import { CsrfGuard } from './modules/auth/guards/csrf.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 
@@ -99,13 +98,6 @@ if (!(global as any).crypto) {
       global: true,
     }),
 
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 60 seconds in milliseconds
-        limit: 100, // CHANGE FROM 10 TO 100 requests per minute
-      },
-    ]),
-
     ScheduleModule.forRoot(), // Required for @Cron decorators (e.g., OutboxProcessorService)
 
     ...(process.env.SKIP_DATABASE !== 'true'
@@ -184,10 +176,6 @@ if (!(global as any).crypto) {
     //     transform: true,
     //     transformOptions: { enableImplicitConversion: true },
     //   }),
-    // },
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: ThrottlerGuard,
     // },
     {
       provide: APP_GUARD,
