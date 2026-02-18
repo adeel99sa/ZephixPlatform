@@ -10,6 +10,8 @@ import { User } from '../../users/entities/user.entity';
 import { EmailVerificationToken } from '../entities/email-verification-token.entity';
 import { AuthOutbox } from '../entities/auth-outbox.entity';
 import { TokenHashUtil } from '../../../common/security/token-hash.util';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
 
 @Injectable()
 export class EmailVerificationService {
@@ -23,6 +25,7 @@ export class EmailVerificationService {
     @InjectRepository(AuthOutbox)
     private authOutboxRepository: Repository<AuthOutbox>,
     private dataSource: DataSource,
+    private auditService: AuditService,
   ) {}
 
   /**
@@ -114,11 +117,22 @@ export class EmailVerificationService {
         usedAt: new Date(),
       });
 
-      // Mark user email as verified
       await userRepo.update(token.userId, {
         isEmailVerified: true,
         emailVerifiedAt: new Date(),
       });
+
+      const user = await userRepo.findOne({ where: { id: token.userId } });
+
+      await this.auditService.record({
+        organizationId: user?.organizationId || '',
+        actorUserId: token.userId,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.USER,
+        entityId: token.userId,
+        action: AuditAction.EMAIL_VERIFIED,
+        after: { isEmailVerified: true, emailVerifiedAt: new Date().toISOString() },
+      }, { manager });
 
       this.logger.log(`Email verified for user: ${token.userId}`);
 

@@ -10,8 +10,6 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
-import { Workspace } from '../../workspaces/entities/workspace.entity';
-import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { EmailVerificationToken } from '../entities/email-verification-token.entity';
 import { AuthOutbox } from '../entities/auth-outbox.entity';
 import { TokenHashUtil } from '../../../common/security/token-hash.util';
@@ -20,6 +18,9 @@ import {
   slugify,
   generateAvailableSlug,
 } from '../../../common/utils/slug.util';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
+import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
 
 export interface RegisterSelfServeInput {
   email: string;
@@ -47,22 +48,20 @@ export class AuthRegistrationService {
     private organizationRepository: Repository<Organization>,
     @InjectRepository(UserOrganization)
     private userOrgRepository: Repository<UserOrganization>,
-    @InjectRepository(Workspace)
-    private workspaceRepository: Repository<Workspace>,
-    @InjectRepository(WorkspaceMember)
-    private workspaceMemberRepository: Repository<WorkspaceMember>,
     @InjectRepository(EmailVerificationToken)
     private emailVerificationTokenRepository: Repository<EmailVerificationToken>,
     @InjectRepository(AuthOutbox)
     private authOutboxRepository: Repository<AuthOutbox>,
     private dataSource: DataSource,
+    private auditService: AuditService,
   ) {}
 
   /**
    * Register a new user with self-serve organization creation
    *
    * This method:
-   * - Creates user, org, user_organizations, workspace, token, and outbox event in one transaction
+   * - Creates user, org, user_organizations, token, and outbox event in one transaction
+   * - Does NOT create workspace or workspace membership (enterprise: explicit setup)
    * - Never reveals if email already exists (neutral response)
    * - Supports idempotency (if user exists, still returns neutral response)
    * - Stores verification token as hash only
@@ -113,8 +112,6 @@ export class AuthRegistrationService {
         const userRepo = manager.getRepository(User);
         const orgRepo = manager.getRepository(Organization);
         const userOrgRepo = manager.getRepository(UserOrganization);
-        const workspaceRepo = manager.getRepository(Workspace);
-        const workspaceMemberRepo = manager.getRepository(WorkspaceMember);
         const tokenRepo = manager.getRepository(EmailVerificationToken);
         const outboxRepo = manager.getRepository(AuthOutbox);
 
@@ -141,11 +138,18 @@ export class AuthRegistrationService {
           return !!existing;
         };
 
-        const availableSlug = await generateAvailableSlug(
-          finalSlug,
-          checkSlugExists,
-          10, // max attempts
-        );
+        let availableSlug: string;
+        try {
+          availableSlug = await generateAvailableSlug(
+            finalSlug,
+            checkSlugExists,
+            10,
+          );
+        } catch {
+          throw new ConflictException(
+            'This organization name is too common. Please choose a more unique name or provide a custom slug.',
+          );
+        }
 
         // Create organization with the available slug
         const organization = orgRepo.create({
@@ -170,7 +174,6 @@ export class AuthRegistrationService {
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        // Create user (email not verified yet)
         const user = userRepo.create({
           email: normalizedEmail,
           password: hashedPassword,
@@ -179,48 +182,25 @@ export class AuthRegistrationService {
           organizationId: savedOrg.id,
           isEmailVerified: false,
           emailVerifiedAt: null,
-          role: 'admin', // First user is admin
+          role: PlatformRole.ADMIN,
           isActive: true,
         });
         const savedUser = await userRepo.save(user);
 
-        // Create UserOrganization record (org_owner role)
         const userOrg = userOrgRepo.create({
           userId: savedUser.id,
           organizationId: savedOrg.id,
-          role: 'owner', // First user becomes org_owner
+          role: 'owner',
           isActive: true,
           joinedAt: new Date(),
         });
         await userOrgRepo.save(userOrg);
 
-        // Create default workspace
-        const workspace = workspaceRepo.create({
-          name: 'Default Workspace',
-          slug: 'default',
-          organizationId: savedOrg.id,
-          createdBy: savedUser.id,
-          ownerId: savedUser.id,
-          isPrivate: false,
-        });
-        const savedWorkspace = await workspaceRepo.save(workspace);
-
-        // Create workspace membership
-        const workspaceMember = workspaceMemberRepo.create({
-          workspaceId: savedWorkspace.id,
-          userId: savedUser.id,
-          role: 'workspace_owner',
-          createdBy: savedUser.id,
-        });
-        await workspaceMemberRepo.save(workspaceMember);
-
-        // Generate and hash verification token (deterministic HMAC-SHA256)
         const rawToken = TokenHashUtil.generateRawToken();
         const tokenHash = TokenHashUtil.hashToken(rawToken);
         const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24); // 24 hour expiry
+        expiresAt.setHours(expiresAt.getHours() + 24);
 
-        // Create verification token record (hash only)
         const verificationToken = tokenRepo.create({
           userId: savedUser.id,
           tokenHash,
@@ -230,13 +210,12 @@ export class AuthRegistrationService {
         });
         await tokenRepo.save(verificationToken);
 
-        // Create outbox event for email delivery
         const outboxEvent = outboxRepo.create({
           type: 'auth.email_verification.requested',
           payloadJson: {
             userId: savedUser.id,
             email: normalizedEmail,
-            token: rawToken, // Only in outbox, never in DB
+            token: rawToken,
             fullName,
             orgName,
           },
@@ -245,12 +224,59 @@ export class AuthRegistrationService {
         });
         await outboxRepo.save(outboxEvent);
 
-        // Audit log
+        await this.auditService.record({
+          organizationId: savedOrg.id,
+          actorUserId: savedUser.id,
+          actorPlatformRole: PlatformRole.ADMIN,
+          entityType: AuditEntityType.USER,
+          entityId: savedUser.id,
+          action: AuditAction.USER_REGISTERED,
+          after: {
+            email: normalizedEmail,
+            firstName,
+            lastName,
+            platformRole: PlatformRole.ADMIN,
+            isEmailVerified: false,
+          },
+          ipAddress: ip,
+          userAgent,
+        }, { manager });
+
+        await this.auditService.record({
+          organizationId: savedOrg.id,
+          actorUserId: savedUser.id,
+          actorPlatformRole: PlatformRole.ADMIN,
+          entityType: AuditEntityType.ORGANIZATION,
+          entityId: savedOrg.id,
+          action: AuditAction.ORG_CREATED,
+          after: {
+            name: savedOrg.name,
+            slug: savedOrg.slug,
+            status: savedOrg.status,
+          },
+          ipAddress: ip,
+          userAgent,
+        }, { manager });
+
+        await this.auditService.record({
+          organizationId: savedOrg.id,
+          actorUserId: savedUser.id,
+          actorPlatformRole: PlatformRole.ADMIN,
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: verificationToken.id,
+          action: AuditAction.EMAIL_VERIFICATION_SENT,
+          after: {
+            email: normalizedEmail,
+            expiresAt: expiresAt.toISOString(),
+          },
+          ipAddress: ip,
+          userAgent,
+        }, { manager });
+
         this.logger.log(
-          `User registered: ${normalizedEmail}, org: ${savedOrg.id}, workspace: ${savedWorkspace.id}`,
+          `User registered: ${normalizedEmail}, org: ${savedOrg.id}, platformRole: ${PlatformRole.ADMIN}`,
         );
 
-        // Always return neutral response (no account enumeration)
         return {
           message:
             'If an account with this email exists, you will receive a verification email.',
@@ -328,10 +354,7 @@ export class AuthRegistrationService {
           errorMessage.includes('"organizations"') ||
           // Fallback: if we're in registration and see slug constraint, assume org
           (tableName === '' && errorDetailLower.includes('(slug)'));
-        const isWorkspaceTable =
-          tableNameLower === 'workspaces' ||
-          errorMessage.includes('workspaces') ||
-          errorMessage.includes('"workspaces"');
+        const isWorkspaceTable = false;
 
         // Check for slug/name mentions in detail (most reliable)
         // PostgreSQL detail format: "Key (slug)=(value) already exists."

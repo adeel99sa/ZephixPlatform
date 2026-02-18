@@ -13,6 +13,7 @@ import {
   Request,
   Response,
   Query,
+  SetMetadata,
   UnauthorizedException,
   BadRequestException,
   HttpCode,
@@ -20,8 +21,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-// @Throttle removed — ThrottlerGuard is commented out globally (app.module.ts)
-// so @Throttle metadata was never enforced. Using RateLimiterGuard explicitly instead.
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
@@ -42,6 +41,8 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/audit.constants';
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
@@ -69,6 +70,7 @@ export class AuthController {
     private userRepository: Repository<User>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -144,6 +146,7 @@ export class AuthController {
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
+  @SetMetadata('rateLimit', { windowMs: 3600000, max: 5, message: 'Too many resend requests. Please try again later.' })
   @ApiOperation({ summary: 'Resend email verification' })
   @ApiResponse({
     status: 200,
@@ -159,20 +162,29 @@ export class AuthController {
     const ip = (req as any).ip || req.headers['x-forwarded-for'] || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Find user by email (but don't reveal if not found)
     const user = await this.userRepository.findOne({
       where: { email: dto.email.toLowerCase() },
     });
     if (user && !user.isEmailVerified) {
-      // Create new token and outbox event (service handles outbox creation)
       await this.emailVerificationService.createToken(
         user.id,
         typeof ip === 'string' ? ip : ip[0],
         userAgent,
       );
+
+      await this.auditService.record({
+        organizationId: user.organizationId || '',
+        actorUserId: user.id,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.EMAIL_VERIFICATION,
+        entityId: user.id,
+        action: AuditAction.RESEND_VERIFICATION,
+        after: { email: dto.email.toLowerCase() },
+        ipAddress: typeof ip === 'string' ? ip : ip[0],
+        userAgent,
+      });
     }
 
-    // Always return neutral response (no account enumeration)
     return {
       message:
         'If an account with this email exists, you will receive a verification email.',

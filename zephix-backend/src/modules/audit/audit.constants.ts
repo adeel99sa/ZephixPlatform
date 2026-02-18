@@ -22,6 +22,8 @@ export enum AuditEntityType {
   ENTITLEMENT = 'entitlement',
   WEBHOOK = 'webhook',
   BOARD_MOVE = 'board_move',
+  USER = 'user',
+  EMAIL_VERIFICATION = 'email_verification',
 }
 
 export enum AuditAction {
@@ -43,6 +45,11 @@ export enum AuditAction {
   PLAN_STATUS_BLOCK = 'plan_status_block',
   WIP_OVERRIDE = 'wip_override',
   ROLE_CHANGE = 'role_change',
+  USER_REGISTERED = 'user_registered',
+  ORG_CREATED = 'org_created',
+  EMAIL_VERIFICATION_SENT = 'email_verification_sent',
+  EMAIL_VERIFIED = 'email_verified',
+  RESEND_VERIFICATION = 'resend_verification',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

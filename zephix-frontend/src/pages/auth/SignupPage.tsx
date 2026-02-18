@@ -75,13 +75,13 @@ export const SignupPage: React.FC = () => {
     } catch (error: any) {
       console.error('Signup error:', error);
 
-      // Handle validation errors
       if (error.response?.status === 400) {
         const errorMessage = error.response?.data?.message || 'Please check your input';
         setErrors({ email: errorMessage });
+      } else if (error.response?.status === 409) {
+        setErrors({ orgName: error.response?.data?.message || 'Organization name already taken. Please choose a different name.' });
       } else {
-        // For other errors, still show success (neutral response)
-        setSubmitSuccess(true);
+        setErrors({ email: 'Something went wrong. Please try again.' });
       }
     } finally {
       setIsSubmitting(false);
