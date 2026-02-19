@@ -71,6 +71,9 @@ export class WorkPhase {
   @Column({ type: 'boolean', name: 'is_locked', default: false })
   isLocked: boolean;
 
+  @Column({ type: 'varchar', length: 20, name: 'status', default: 'active' })
+  status: string; // 'active' | 'completed'
+
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;
 

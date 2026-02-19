@@ -1,7 +1,9 @@
 import {
   applyPortfolioGovernanceDefaults,
   hasExplicitGovernanceFlags,
+  hasMethodologySyncFields,
   GOV_FLAG_KEYS,
+  METHODOLOGY_SYNC_TRIGGER_KEYS,
 } from '../governance-inheritance';
 import { PortfolioGovernanceMode } from '../../../portfolios/entities/portfolio.entity';
 
@@ -150,6 +152,46 @@ describe('governance-inheritance', () => {
 
     it('returns false when governance flags are undefined', () => {
       expect(hasExplicitGovernanceFlags({ costTrackingEnabled: undefined })).toBe(false);
+    });
+  });
+
+  describe('METHODOLOGY_SYNC_TRIGGER_KEYS', () => {
+    it('is a superset of GOV_FLAG_KEYS', () => {
+      for (const key of GOV_FLAG_KEYS) {
+        expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain(key);
+      }
+    });
+
+    it('includes additional methodology-related fields', () => {
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('waterfallEnabled');
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('earnedValueEnabled');
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('capacityEnabled');
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('estimationMode');
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('defaultIterationLengthDays');
+      expect(METHODOLOGY_SYNC_TRIGGER_KEYS).toContain('methodology');
+    });
+  });
+
+  describe('hasMethodologySyncFields', () => {
+    it('returns true when any sync-triggering field is present', () => {
+      expect(hasMethodologySyncFields({ iterationsEnabled: false })).toBe(true);
+      expect(hasMethodologySyncFields({ waterfallEnabled: true })).toBe(true);
+      expect(hasMethodologySyncFields({ earnedValueEnabled: false })).toBe(true);
+      expect(hasMethodologySyncFields({ capacityEnabled: true })).toBe(true);
+      expect(hasMethodologySyncFields({ estimationMode: 'hours' })).toBe(true);
+      expect(hasMethodologySyncFields({ defaultIterationLengthDays: 14 })).toBe(true);
+      expect(hasMethodologySyncFields({ methodology: 'kanban' })).toBe(true);
+    });
+
+    it('returns false when no sync-triggering fields are present', () => {
+      expect(hasMethodologySyncFields({ name: 'Test' })).toBe(false);
+      expect(hasMethodologySyncFields({ status: 'active' })).toBe(false);
+      expect(hasMethodologySyncFields({})).toBe(false);
+    });
+
+    it('returns false when sync fields are undefined', () => {
+      expect(hasMethodologySyncFields({ methodology: undefined })).toBe(false);
+      expect(hasMethodologySyncFields({ iterationsEnabled: undefined })).toBe(false);
     });
   });
 });

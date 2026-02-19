@@ -54,6 +54,7 @@ export class IterationsService {
   /**
    * Enforces that iterations are enabled for the project.
    * Throws BadRequestException if iterationsEnabled is false.
+   * Checks methodology_config.sprint.enabled first, falls back to iterationsEnabled flag.
    */
   private async assertIterationsEnabled(
     organizationId: string,
@@ -61,13 +62,18 @@ export class IterationsService {
   ): Promise<void> {
     const project = await this.projectRepo.findOne({
       where: { id: projectId, organizationId },
-      select: ['id', 'iterationsEnabled'],
+      select: ['id', 'iterationsEnabled', 'methodologyConfig'],
     });
-    if (project && !project.iterationsEnabled) {
+    if (!project) return;
+
+    const config = project.methodologyConfig as any;
+    const sprintEnabled = config?.sprint?.enabled ?? project.iterationsEnabled;
+
+    if (!sprintEnabled) {
       throw new BadRequestException({
         code: 'ITERATIONS_DISABLED',
         message:
-          'Iterations are not enabled for this project. Enable them in project settings or template.',
+          'Sprints are not enabled for this project methodology. Update the methodology configuration to enable iterations.',
       });
     }
   }
@@ -143,6 +149,7 @@ export class IterationsService {
     iterationId: string,
   ): Promise<Iteration> {
     const iteration = await this.findOne(organizationId, iterationId);
+    await this.assertIterationsEnabled(organizationId, iteration.projectId);
     if (iteration.status !== IterationStatus.PLANNING) {
       throw new BadRequestException(
         `Cannot start iteration in status ${iteration.status}`,
@@ -177,6 +184,7 @@ export class IterationsService {
     iterationId: string,
   ): Promise<Iteration> {
     const iteration = await this.findOne(organizationId, iterationId);
+    await this.assertIterationsEnabled(organizationId, iteration.projectId);
     if (iteration.status !== IterationStatus.ACTIVE) {
       throw new BadRequestException(
         `Cannot complete iteration in status ${iteration.status}`,
@@ -197,6 +205,7 @@ export class IterationsService {
     iterationId: string,
   ): Promise<Iteration> {
     const iteration = await this.findOne(organizationId, iterationId);
+    await this.assertIterationsEnabled(organizationId, iteration.projectId);
     if (iteration.status === IterationStatus.COMPLETED) {
       throw new BadRequestException('Cannot cancel a completed iteration');
     }
@@ -211,7 +220,8 @@ export class IterationsService {
     iterationId: string,
     taskId: string,
   ): Promise<void> {
-    await this.findOne(organizationId, iterationId);
+    const iteration = await this.findOne(organizationId, iterationId);
+    await this.assertIterationsEnabled(organizationId, iteration.projectId);
     await this.workTaskRepo.update(
       { id: taskId, organizationId },
       { iterationId },

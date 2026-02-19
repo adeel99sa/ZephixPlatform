@@ -417,4 +417,46 @@ export class WorkPhasesController {
 
     return this.responseService.success(restored);
   }
+
+  @Post(':phaseId/complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Complete a phase',
+    description:
+      'Marks a phase as completed. If the project methodology requires gate approval, verifies that an approved gate submission exists for this phase before allowing completion.',
+  })
+  @ApiHeader({ name: 'x-workspace-id', required: true })
+  @ApiParam({ name: 'phaseId', description: 'Phase ID' })
+  @ApiResponse({ status: 200, description: 'Phase completed' })
+  @ApiResponse({
+    status: 403,
+    description: 'Gate approval required but not found',
+  })
+  @ApiResponse({ status: 404, description: 'Phase not found' })
+  async completePhase(
+    @Req() req: AuthRequest,
+    @Param('phaseId') phaseId: string,
+    @Headers('x-workspace-id') workspaceId: string,
+  ) {
+    const auth = getAuthContext(req);
+    if (!workspaceId) {
+      return this.responseService.error(
+        'WORKSPACE_REQUIRED',
+        'Workspace ID is required',
+      );
+    }
+
+    await this.workspaceRoleGuard.requireWorkspaceWrite(
+      workspaceId,
+      auth.userId,
+    );
+
+    const completed = await this.phasesService.completePhase(
+      auth,
+      workspaceId,
+      phaseId,
+    );
+
+    return this.responseService.success(completed);
+  }
 }

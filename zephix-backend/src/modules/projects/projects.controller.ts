@@ -18,6 +18,7 @@ import {
   ForbiddenException,
   SetMetadata,
 } from '@nestjs/common';
+import { ProjectDetailResponseDto } from './dto/project.response.dto';
 import { Request } from 'express';
 import { ProjectsService } from './services/projects.service';
 // import { ProjectAssignmentService } from './services/project-assignment.service';
@@ -249,8 +250,8 @@ export class ProjectsController {
         tenant.userId,
         tenant.userRole,
       );
-      // Standardized response contract: { data: Project | null }
-      return { data: project || null };
+      if (!project) return { data: null };
+      return { data: ProjectDetailResponseDto.fromEntity(project) };
     } catch (error) {
       // Never throw 500 - return null for not found
       const requestId = req?.headers['x-request-id'] || 'unknown';
@@ -477,5 +478,29 @@ export class ProjectsController {
       tenant.organizationId,
       tenant.userId,
     );
+  }
+
+  /**
+   * PATCH /api/projects/:id/methodology-config
+   * Partial update to methodology_config. Merges patch with stored config.
+   * Syncs legacy governance flags from merged config (config → flags direction).
+   */
+  @Patch(':id/methodology-config')
+  @UseGuards(RequireProjectWorkspaceRoleGuard)
+  @RequireWorkspaceRole('workspace_member', { allowAdminOverride: true })
+  async updateMethodologyConfig(
+    @Param('id') id: string,
+    @Body() patch: Record<string, any>,
+    @GetTenant() tenant: TenantContext,
+  ) {
+    this.logger.log(
+      `Updating methodology config for project ${id} in org ${tenant.organizationId}`,
+    );
+    const config = await this.projectsService.updateMethodologyConfig(
+      id,
+      tenant.organizationId,
+      patch,
+    );
+    return { data: { methodologyConfig: config } };
   }
 }

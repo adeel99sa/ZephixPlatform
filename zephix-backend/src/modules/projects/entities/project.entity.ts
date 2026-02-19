@@ -334,6 +334,14 @@ export class Project {
   @Column({ type: 'jsonb', name: 'definition_of_done', nullable: true })
   definitionOfDone: string[] | null;
 
+  /**
+   * Methodology configuration — drives all methodology-specific behavior.
+   * Populated at template-apply time; backfilled for existing projects.
+   * Service code reads fields like sprint.enabled, phases.gateRequired, etc.
+   */
+  @Column({ type: 'jsonb', name: 'methodology_config', nullable: true })
+  methodologyConfig: Record<string, any> | null;
+
   // Project clone lineage tracking
   @Column({ type: 'uuid', name: 'source_project_id', nullable: true })
   sourceProjectId: string | null;

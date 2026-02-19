@@ -49,6 +49,7 @@ import { PortfoliosModule } from '../portfolios/portfolios.module';
 // Project clone dependencies
 import { DomainEventsModule } from '../domain-events/domain-events.module';
 import { PoliciesModule } from '../policies/policies.module';
+import { MethodologyModule } from '../methodology/methodology.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { PoliciesModule } from '../policies/policies.module';
     PoliciesModule, // For ProjectCloneService policy gate
     forwardRef(() => ProgramsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For project linking
+    MethodologyModule,
   ],
   controllers: [
     ProjectsController,

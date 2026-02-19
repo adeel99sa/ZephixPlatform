@@ -29,6 +29,30 @@ export interface ProjectSummary {
   updatedAt: string;
 }
 
+export interface MethodologyConfigUI {
+  tabs: string[];
+}
+
+export interface MethodologyConfig {
+  lifecycleType: string;
+  methodologyCode: string;
+  sprint: { enabled: boolean; defaultLengthDays: number };
+  phases: { gateRequired: boolean; minPhases: number; minGates: number };
+  wip: { enabled: boolean; enforcement: string; defaultLimit: number | null; perStatusLimits: Record<string, number> | null };
+  estimation: { type: string };
+  governance: {
+    iterationsEnabled: boolean;
+    costTrackingEnabled: boolean;
+    baselinesEnabled: boolean;
+    earnedValueEnabled: boolean;
+    capacityEnabled: boolean;
+    changeManagementEnabled: boolean;
+    waterfallEnabled: boolean;
+  };
+  kpiPack: { packCode: string; overrideTargets: Record<string, number> | null };
+  ui: MethodologyConfigUI;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   definitionOfDone?: string[];
   // Budget & Cost Lite
@@ -41,6 +65,8 @@ export interface ProjectDetail extends ProjectSummary {
   iterationsEnabled?: boolean;
   estimationMode?: 'points_only' | 'hours_only' | 'both';
   defaultIterationLengthDays?: number;
+  // Methodology configuration
+  methodologyConfig?: MethodologyConfig;
 }
 
 export interface Task {

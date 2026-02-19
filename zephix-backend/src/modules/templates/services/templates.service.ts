@@ -523,8 +523,9 @@ export class TemplatesService {
   }
 
   /**
-   * Wave 6: Apply a template from `templates` table to create a project.
-   * This replaces the legacy `applyTemplate` for admin use.
+   * @deprecated Use ProjectFromTemplateService.create() instead.
+   * This method creates legacy Task entities. All active controllers now use the unified path.
+   * Retained only for backward compatibility — will be removed in next major version.
    */
   async applyTemplateUnified(
     templateId: string,

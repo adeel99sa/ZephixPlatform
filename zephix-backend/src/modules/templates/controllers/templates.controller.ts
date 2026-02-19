@@ -19,6 +19,7 @@ import {
   Req,
   ValidationPipe,
   GoneException,
+  Optional,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -46,6 +47,7 @@ import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { Headers } from '@nestjs/common';
 import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { ProjectFromTemplateService } from '../../methodology/services/project-from-template.service';
 import {
   PlatformRole,
   normalizePlatformRole,
@@ -112,8 +114,9 @@ export class TemplatesController {
 
   constructor(
     private readonly templatesService: TemplatesService,
-    private readonly instantiateService: TemplatesInstantiateService,
-    private readonly instantiateV51Service: TemplatesInstantiateV51Service,
+    @Optional() private readonly _legacyInstantiateService: TemplatesInstantiateService,
+    @Optional() private readonly _legacyInstantiateV51Service: TemplatesInstantiateV51Service,
+    private readonly projectFromTemplateService: ProjectFromTemplateService,
     private readonly recommendationService: TemplatesRecommendationService,
     private readonly previewV51Service: TemplatesPreviewV51Service,
     private readonly responseService: ResponseService,
@@ -686,22 +689,32 @@ export class TemplatesController {
     const workspaceId = this.validateWorkspaceId(workspaceIdHeader);
     const auth = getAuthContext(req);
 
-    // Sprint 6: Require write access
     await this.workspaceRoleGuard.requireWorkspaceWrite(
       workspaceId,
       auth.userId,
     );
 
-    const result = await this.instantiateV51Service.instantiateV51(
+    // Unified apply path: creates project + phases + tasks + gates + WIP config + KPIs in one transaction
+    const result = await this.projectFromTemplateService.create({
       templateId,
-      dto,
+      name: dto.projectName || `Project from template`,
       workspaceId,
-      auth.organizationId,
-      auth.userId,
-      auth.platformRole,
-    );
+      organizationId: auth.organizationId,
+      userId: auth.userId,
+    });
 
-    return this.responseService.success(result);
+    return this.responseService.success({
+      projectId: result.projectId,
+      projectName: result.projectName,
+      methodology: result.methodology,
+      state: 'DRAFT',
+      structureLocked: false,
+      phaseCount: result.phaseCount,
+      taskCount: result.taskCount,
+      kpiCount: result.kpiCount,
+      gateCount: result.gateCount,
+      wipConfigCreated: result.wipConfigCreated,
+    });
   }
 
   /**
@@ -840,6 +853,7 @@ export class AdminTemplatesController {
 
   constructor(
     private readonly templatesService: TemplatesService,
+    private readonly projectFromTemplateService: ProjectFromTemplateService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -950,8 +964,9 @@ export class AdminTemplatesController {
 
   /**
    * POST /admin/templates/:id/apply
-   * Apply a template to create a new project.
-   * Wave 6: Uses `templates` table for correct KPI FK chain.
+   * @deprecated Use POST /api/templates/:templateId/instantiate-v5_1 instead.
+   * This endpoint now routes through the unified ProjectFromTemplateService
+   * which creates WorkPhases + WorkTasks (not legacy Task entities).
    */
   @Post(':id/apply')
   @RequireOrgRole('admin')
@@ -961,8 +976,6 @@ export class AdminTemplatesController {
     @CurrentUser() user: UserJwt,
     @Req() req: Request,
   ) {
-    const requestId = req?.headers?.['x-request-id'] || 'unknown';
-
     if (!dto.workspaceId) {
       throw new BadRequestException({
         code: 'MISSING_WORKSPACE_ID',
@@ -985,32 +998,29 @@ export class AdminTemplatesController {
     }
 
     try {
-      const project = await this.templatesService.applyTemplateUnified(
+      const result = await this.projectFromTemplateService.create({
         templateId,
-        {
-          name: dto.name,
-          workspaceId: dto.workspaceId,
-          startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-          description: dto.description,
-        },
-        user.organizationId,
-        user.id,
-      );
-
-      this.logger.log('Project created from template (admin apply)', {
-        templateId,
-        projectId: project.id,
+        name: dto.name,
         workspaceId: dto.workspaceId,
         organizationId: user.organizationId,
         userId: user.id,
-        requestId,
+        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+        description: dto.description,
+      });
+
+      this.logger.log('Project created from template (admin apply → unified path)', {
+        templateId,
+        projectId: result.projectId,
+        workspaceId: dto.workspaceId,
+        organizationId: user.organizationId,
+        userId: user.id,
         endpoint: 'POST /admin/templates/:id/apply',
       });
 
       return {
-        id: project.id,
-        name: project.name,
-        workspaceId: project.workspaceId,
+        id: result.projectId,
+        name: result.projectName,
+        workspaceId: dto.workspaceId,
       };
     } catch (error) {
       if (
@@ -1021,14 +1031,13 @@ export class AdminTemplatesController {
         throw error;
       }
 
-      this.logger.error('Failed to apply template', {
+      this.logger.error('Failed to apply template (unified path)', {
         error: error instanceof Error ? error.message : String(error),
         errorClass: error instanceof Error ? error.constructor.name : 'Unknown',
         templateId,
         workspaceId: dto.workspaceId,
         organizationId: user.organizationId,
         userId: user.id,
-        requestId,
         endpoint: 'POST /admin/templates/:id/apply',
       });
 
