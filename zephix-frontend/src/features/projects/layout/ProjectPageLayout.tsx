@@ -8,22 +8,24 @@
  * - Consistent spacing and structure
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, GitPullRequest, FileText, DollarSign, Activity } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Folder, LayoutDashboard, ListTodo, AlertTriangle, Users, LayoutGrid, BarChart3, GitPullRequest, FileText, DollarSign, Activity, Timer } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { projectsApi, type ProjectDetail } from '../projects.api';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 
 /**
- * Tab configuration for project pages
+ * All possible project tabs. Visibility is controlled by
+ * project.methodologyConfig.ui.tabs from the backend.
  */
-const PROJECT_TABS = [
+const ALL_PROJECT_TABS = [
   { id: 'overview', label: 'Overview', path: '', icon: LayoutDashboard },
   { id: 'plan', label: 'Plan', path: '/plan', icon: Folder },
   { id: 'tasks', label: 'Tasks', path: '/tasks', icon: ListTodo },
   { id: 'board', label: 'Board', path: '/board', icon: LayoutGrid },
   { id: 'gantt', label: 'Gantt', path: '/gantt', icon: BarChart3 },
+  { id: 'sprints', label: 'Sprints', path: '/sprints', icon: Timer },
   { id: 'risks', label: 'Risks', path: '/risks', icon: AlertTriangle },
   { id: 'resources', label: 'Resources', path: '/resources', icon: Users },
   { id: 'change-requests', label: 'Change Requests', path: '/change-requests', icon: GitPullRequest },
@@ -32,7 +34,7 @@ const PROJECT_TABS = [
   { id: 'kpis', label: 'KPIs', path: '/kpis', icon: Activity },
 ] as const;
 
-type TabId = typeof PROJECT_TABS[number]['id'];
+type TabId = typeof ALL_PROJECT_TABS[number]['id'];
 
 interface ProjectContextValue {
   project: ProjectDetail | null;
@@ -70,6 +72,7 @@ export const ProjectPageLayout: React.FC = () => {
     if (path.includes('/documents')) return 'documents';
     if (path.includes('/budget')) return 'budget';
     if (path.includes('/kpis')) return 'kpis';
+    if (path.includes('/sprints')) return 'sprints';
     if (path.includes('/plan')) return 'plan';
     if (path.includes('/tasks')) return 'tasks';
     if (path.includes('/board')) return 'board';
@@ -80,6 +83,15 @@ export const ProjectPageLayout: React.FC = () => {
   };
 
   const activeTab = getActiveTab();
+
+  // Filter tabs based on methodology config; show all if no config present (permissive)
+  const visibleTabs = useMemo(() => {
+    const configTabs = (project as any)?.methodologyConfig?.ui?.tabs as string[] | undefined;
+    if (!configTabs || configTabs.length === 0) return ALL_PROJECT_TABS;
+    return ALL_PROJECT_TABS.filter(
+      (tab) => tab.id === 'overview' || configTabs.includes(tab.id),
+    );
+  }, [project]);
 
   // Load project data
   const loadProject = async () => {
@@ -215,10 +227,10 @@ export const ProjectPageLayout: React.FC = () => {
               </div>
             </div>
 
-            {/* Tab Navigation */}
+            {/* Tab Navigation — driven by project.methodologyConfig.ui.tabs */}
             <div className="mt-6 -mb-px">
               <nav className="flex gap-6" aria-label="Project sections">
-                {PROJECT_TABS.map((tab) => {
+                {visibleTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (

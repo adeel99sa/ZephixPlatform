@@ -12,6 +12,23 @@ const GOV_FLAG_KEYS = [
 
 type GovFlagKey = (typeof GOV_FLAG_KEYS)[number];
 
+/**
+ * All fields that, when changed on a project, require syncing
+ * legacy columns → methodology_config. Superset of GOV_FLAG_KEYS.
+ */
+const METHODOLOGY_SYNC_TRIGGER_KEYS = [
+  'costTrackingEnabled',
+  'baselinesEnabled',
+  'iterationsEnabled',
+  'changeManagementEnabled',
+  'waterfallEnabled',
+  'earnedValueEnabled',
+  'capacityEnabled',
+  'estimationMode',
+  'defaultIterationLengthDays',
+  'methodology',
+] as const;
+
 interface ApplyOptions {
   force?: boolean;
   onlyIfUnset?: boolean;
@@ -64,4 +81,16 @@ export function hasExplicitGovernanceFlags(
   return GOV_FLAG_KEYS.some((key) => payload[key] !== undefined);
 }
 
-export { GOV_FLAG_KEYS };
+/**
+ * Returns true if the payload contains any field that requires
+ * syncing legacy columns → methodology_config.
+ */
+export function hasMethodologySyncFields(
+  payload: Record<string, any>,
+): boolean {
+  return METHODOLOGY_SYNC_TRIGGER_KEYS.some(
+    (key) => payload[key] !== undefined,
+  );
+}
+
+export { GOV_FLAG_KEYS, METHODOLOGY_SYNC_TRIGGER_KEYS };

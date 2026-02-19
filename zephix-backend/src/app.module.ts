@@ -72,6 +72,8 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { KpisModule } from './modules/kpis/kpis.module';
 import { GovernanceRulesModule } from './modules/governance-rules/governance-rules.module';
 import { KpiQueueModule } from './modules/kpi-queue/kpi-queue.module';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
+import { MethodologyModule } from './modules/methodology/methodology.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -104,6 +106,7 @@ if (!(global as any).crypto) {
       ? [TypeOrmModule.forRoot(databaseConfig), DatabaseModule]
       : []),
 
+    RateLimitModule, // Must be early — provides Redis-backed rate limit store globally
     SharedModule,
     TenancyModule, // Must be imported early for global tenant context
     WorkspaceAccessModule, // Must be imported early - provides WorkspaceAccessService used by many modules
@@ -152,6 +155,7 @@ if (!(global as any).crypto) {
           KpisModule, // Wave 4A: KPI Foundation Layer
           GovernanceRulesModule, // Wave 9: Governance rule engine
           KpiQueueModule, // Wave 10: BullMQ KPI recompute, rollups, scheduling
+          MethodologyModule, // Methodology config: presets, validator, resolver, constraints
         ]
       : [
           HealthModule, // Keep health module for basic health checks

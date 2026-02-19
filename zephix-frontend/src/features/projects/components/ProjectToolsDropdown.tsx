@@ -36,17 +36,15 @@ export interface ToolItem {
 }
 
 export const TOOL_ITEMS: ToolItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard, routeSuffix: 'overview' },
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard, routeSuffix: '' },
   { id: 'plan', label: 'Plan', icon: Folder, routeSuffix: 'plan' },
   { id: 'sprints', label: 'Sprints', icon: Repeat, routeSuffix: 'sprints' },
   { id: 'budget', label: 'Budget', icon: DollarSign, routeSuffix: 'budget' },
   { id: 'risks', label: 'Risks', icon: AlertTriangle, routeSuffix: 'risks' },
-  { id: 'changes', label: 'Changes', icon: FileText, routeSuffix: 'changes' },
-  { id: 'docs', label: 'Docs', icon: Paperclip, routeSuffix: 'docs' },
-  { id: 'workflow', label: 'Doc Workflow', icon: FileText, routeSuffix: 'workflow' },
-  { id: 'team', label: 'Team', icon: Users, routeSuffix: 'team' },
-  { id: 'ai', label: 'AI Assistant', icon: Sparkles, routeSuffix: 'ai' },
-  { id: 'evidence', label: 'Evidence', icon: Shield, routeSuffix: 'evidence' },
+  { id: 'change-requests', label: 'Changes', icon: FileText, routeSuffix: 'change-requests' },
+  { id: 'documents', label: 'Docs', icon: Paperclip, routeSuffix: 'documents' },
+  { id: 'resources', label: 'Resources', icon: Users, routeSuffix: 'resources' },
+  { id: 'kpis', label: 'KPIs', icon: Shield, routeSuffix: 'kpis' },
 ];
 
 const MAX_PINS = 3;
@@ -80,6 +78,11 @@ function setPinnedTools(projectId: string, pins: string[]): void {
 interface ProjectConfig {
   iterationsEnabled?: boolean;
   costTrackingEnabled?: boolean;
+  methodologyConfig?: {
+    sprint?: { enabled?: boolean };
+    governance?: { costTrackingEnabled?: boolean; changeManagementEnabled?: boolean };
+    ui?: { tabs?: string[] };
+  };
 }
 
 interface Props {
@@ -99,10 +102,16 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className, project }) =>
   );
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Filter tools based on project config
+  // Filter tools based on methodology config (falls back to legacy flags)
   const visibleTools = TOOL_ITEMS.filter((tool) => {
-    if (tool.id === 'sprints' && project && !project.iterationsEnabled) return false;
-    if (tool.id === 'budget' && project && !project.costTrackingEnabled) return false;
+    if (!project) return true;
+    const configTabs = project.methodologyConfig?.ui?.tabs;
+    if (configTabs && configTabs.length > 0) {
+      return tool.id === 'overview' || configTabs.includes(tool.id);
+    }
+    // Legacy fallback
+    if (tool.id === 'sprints' && !project.iterationsEnabled) return false;
+    if (tool.id === 'budget' && !project.costTrackingEnabled) return false;
     return true;
   });
 
@@ -124,8 +133,12 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className, project }) =>
 
   /* ---- helpers ---- */
 
-  const isToolActive = (tool: ToolItem) =>
-    location.pathname.includes(`/tools/${tool.routeSuffix}`);
+  const isToolActive = (tool: ToolItem) => {
+    if (tool.routeSuffix === '') {
+      return location.pathname === `/projects/${projectId}` || location.pathname === `/projects/${projectId}/`;
+    }
+    return location.pathname.includes(`/${tool.routeSuffix}`);
+  };
 
   const togglePin = (toolId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,7 +155,10 @@ export const ProjectToolsDropdown: React.FC<Props> = ({ className, project }) =>
   };
 
   const navigateToTool = (tool: ToolItem) => {
-    navigate(`/projects/${projectId}/tools/${tool.routeSuffix}`);
+    const path = tool.routeSuffix
+      ? `/projects/${projectId}/${tool.routeSuffix}`
+      : `/projects/${projectId}`;
+    navigate(path);
     setOpen(false);
   };
 

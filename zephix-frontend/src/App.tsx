@@ -38,7 +38,7 @@ import DocsPage from "@/pages/docs/DocsPage";
 import FormsPage from "@/pages/forms/FormsPage";
 import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
 import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab, ProjectChangeRequestsTab, ProjectDocumentsTab, ProjectBudgetTab, ProjectKpisTab } from "@/features/projects/tabs";
+import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab, ProjectChangeRequestsTab, ProjectDocumentsTab, ProjectBudgetTab, ProjectKpisTab, ProjectSprintsTab } from "@/features/projects/tabs";
 import ProjectsPage from "@/pages/projects/ProjectsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
@@ -185,6 +185,7 @@ export default function App() {
                   <Route path="documents" element={<ProjectDocumentsTab />} />
                   <Route path="budget" element={<ProjectBudgetTab />} />
                   <Route path="kpis" element={<ProjectKpisTab />} />
+                  <Route path="sprints" element={<ProjectSprintsTab />} />
                 </Route>
                 {/* Legacy route redirect for backwards compatibility */}
                 <Route path="/work/projects/:projectId/plan" element={<ProjectPlanView />} />

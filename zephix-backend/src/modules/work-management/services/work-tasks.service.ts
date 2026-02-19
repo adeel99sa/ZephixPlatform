@@ -912,6 +912,35 @@ export class WorkTasksService {
       );
     }
 
+    // Governance rule evaluation for each task (matches single-task enforcement)
+    if (this.governanceEngine) {
+      for (const task of tasks) {
+        const govResult =
+          await this.governanceEngine.evaluateTaskStatusChange({
+            organizationId,
+            workspaceId,
+            taskId: task.id,
+            fromStatus: task.status,
+            toStatus: dto.status,
+            task: task as any,
+            actor: {
+              userId: auth.userId,
+              platformRole: auth.platformRole ?? 'MEMBER',
+            },
+            projectId: task.projectId,
+          });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          throw new BadRequestException({
+            code: 'GOVERNANCE_RULE_BLOCKED',
+            message: `Bulk transition blocked by governance rules for task ${task.id}`,
+            taskId: task.id,
+            evaluationId: govResult.evaluationId,
+            reasons: govResult.reasons,
+          });
+        }
+      }
+    }
+
     // Update all tasks
     await this.taskRepo
       .qb('task')

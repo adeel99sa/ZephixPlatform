@@ -668,4 +668,120 @@ export class WorkPhasesService {
     });
     await this.auditRepo.save(auditEvent);
   }
+
+  /**
+   * Complete a phase. If the project's methodology config requires gate approval,
+   * verifies that an approved PhaseGateSubmission exists for this phase.
+   */
+  async completePhase(
+    auth: AuthContext,
+    workspaceId: string,
+    phaseId: string,
+  ): Promise<WorkPhase> {
+    const organizationId = this.tenantContext.assertOrganizationId();
+
+    const hasAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      auth.userId,
+      auth.platformRole,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Access denied to workspace',
+      });
+    }
+
+    const phase = await this.phaseRepo.findOne({
+      where: { id: phaseId, workspaceId, deletedAt: IsNull() },
+    });
+
+    if (!phase) {
+      throw new NotFoundException({
+        code: 'PHASE_NOT_FOUND',
+        message: 'Phase not found',
+      });
+    }
+
+    if (phase.status === 'completed') {
+      throw new BadRequestException({
+        code: 'PHASE_ALREADY_COMPLETED',
+        message: 'Phase is already completed',
+      });
+    }
+
+    // Load project to check methodology config
+    const project = await this.dataSource.query(
+      `SELECT methodology_config FROM projects WHERE id = $1 AND organization_id = $2`,
+      [phase.projectId, organizationId],
+    );
+
+    const config = project?.[0]?.methodology_config;
+
+    if (config?.phases?.gateRequired) {
+      // Find active gate definitions for this phase
+      const gateDefinitions = await this.dataSource.query(
+        `SELECT id FROM phase_gate_definitions
+         WHERE phase_id = $1 AND status = 'ACTIVE'`,
+        [phaseId],
+      );
+
+      if (gateDefinitions.length === 0) {
+        throw new ForbiddenException({
+          errorCode: 'PHASE_GATE_REQUIRED',
+          message:
+            'This project methodology requires a phase gate definition, but none exists for this phase. Create a gate definition first.',
+        });
+      }
+
+      // For each active gate definition, verify an APPROVED submission exists.
+      // Ignore CANCELLED and REJECTED submissions — only APPROVED counts.
+      const gateDefIds = gateDefinitions.map((g: any) => g.id);
+      const approvedGates = await this.dataSource.query(
+        `SELECT DISTINCT gate_definition_id
+         FROM phase_gate_submissions
+         WHERE gate_definition_id = ANY($1)
+           AND status = 'APPROVED'`,
+        [gateDefIds],
+      );
+
+      const approvedDefIds = new Set(
+        approvedGates.map((g: any) => g.gate_definition_id),
+      );
+      const unapproved = gateDefIds.filter(
+        (id: string) => !approvedDefIds.has(id),
+      );
+
+      if (unapproved.length > 0) {
+        throw new ForbiddenException({
+          errorCode: 'PHASE_GATE_REQUIRED',
+          message: `This project methodology requires approved gate submissions before completing a phase. ${unapproved.length} gate(s) still require approval.`,
+          unapprovedGateDefinitionIds: unapproved,
+        });
+      }
+    }
+
+    phase.status = 'completed';
+    const completed = await this.phaseRepo.save(phase);
+
+    const auditEvent = this.auditRepo.create({
+      organizationId: auth.organizationId,
+      workspaceId,
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole || 'MEMBER',
+      action: 'PHASE_COMPLETED',
+      entityType: 'PHASE',
+      entityId: phaseId,
+      metadataJson: {
+        name: phase.name,
+        projectId: phase.projectId,
+        gateRequired: !!config?.phases?.gateRequired,
+      },
+    });
+    await this.auditRepo.save(auditEvent);
+
+    return completed;
+  }
 }
