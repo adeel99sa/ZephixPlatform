@@ -33,6 +33,7 @@ import { AdminAuthToolsController } from './controllers/admin-auth-tools.control
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
+import { RateLimitModule } from '../../common/rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { CsrfService } from './services/csrf.service';
       inject: [ConfigService],
     }),
     NotificationsModule,
+    RateLimitModule,
   ],
   controllers: [
     AuthController,
