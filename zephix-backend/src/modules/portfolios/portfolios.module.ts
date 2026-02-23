@@ -24,8 +24,6 @@ import { ScheduleBaseline } from '../work-management/entities/schedule-baseline.
 import { ScheduleBaselineItem } from '../work-management/entities/schedule-baseline-item.entity';
 import { WorkTask } from '../work-management/entities/work-task.entity';
 import { WorkTaskDependency } from '../work-management/entities/task-dependency.entity';
-import { CriticalPathEngineService } from '../work-management/services/critical-path-engine.service';
-import { BaselineService } from '../work-management/services/baseline.service';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -33,6 +31,8 @@ import {
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
 import { WorkspacesModule } from '../workspaces/workspaces.module'; // PHASE 7.4.3: Fix DI - Import to get RequireWorkspaceAccessGuard and its dependencies
 import { ProjectsModule } from '../projects/projects.module';
+import { MethodologyModule } from '../methodology/methodology.module';
+import { WorkManagementModule } from '../work-management/work-management.module';
 import { Workspace } from '../workspaces/entities/workspace.entity'; // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'; // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
 
@@ -63,6 +63,8 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     ]),
     TenancyModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency with WorkspacesModule
+    MethodologyModule,
+    WorkManagementModule,
     forwardRef(() => WorkspacesModule), // PHASE 7.4.3: Fix DI - Import with forwardRef to get RequireWorkspaceAccessGuard and its dependencies
     forwardRef(() => ProjectsModule), // PHASE 6: For project linking
     // SharedModule is @Global(), so ResponseService is available without import
@@ -72,9 +74,6 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     PortfoliosRollupService,
     PortfolioAnalyticsService,
     PortfolioKpiRollupService,
-    // Phase 2D: Waterfall services needed by analytics
-    CriticalPathEngineService,
-    BaselineService,
     // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs these repositories in PortfoliosModule context
     createTenantAwareRepositoryProvider(Workspace),
     createTenantAwareRepositoryProvider(WorkspaceMember),
