@@ -40,27 +40,39 @@ class ApiClient {
     this.setupInterceptors();
   }
 
-  /** Read the XSRF-TOKEN cookie set by the backend */
-  private getCsrfCookie(): string | null {
-    const match = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('XSRF-TOKEN='));
-    return match ? decodeURIComponent(match.split('=')[1]) : null;
+  /** Keep CSRF token in-memory for cross-host staging setups. */
+  private csrfTokenCache: string | null = null;
+  private clearCsrfTokenCache(): void {
+    this.csrfTokenCache = null;
   }
 
-  /** Fetch a fresh CSRF token from the backend if cookie is missing */
+  private isCsrfError(error: AxiosError): boolean {
+    const status = error.response?.status;
+    const code = (error.response?.data as any)?.code;
+    return (
+      status === 403 &&
+      (code === 'CSRF_TOKEN_MISSING' ||
+        code === 'CSRF_INVALID' ||
+        code === 'CSRF_TOKEN_MISMATCH')
+    );
+  }
+
+  /** Fetch a fresh CSRF token from backend response body. */
   private csrfFetchPromise: Promise<string | null> | null = null;
   private async ensureCsrfToken(): Promise<string | null> {
-    const existing = this.getCsrfCookie();
-    if (existing) return existing;
+    if (this.csrfTokenCache) return this.csrfTokenCache;
 
     if (this.csrfFetchPromise) return this.csrfFetchPromise;
 
     this.csrfFetchPromise = (async () => {
       try {
         const baseURL = this.instance.defaults.baseURL || '/api';
-        await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-        return this.getCsrfCookie();
+        const response = await axios.get(`${baseURL}/auth/csrf`, {
+          withCredentials: true,
+        });
+        const token = (response.data as any)?.token || (response.data as any)?.csrfToken || null;
+        this.csrfTokenCache = typeof token === 'string' && token.length > 0 ? token : null;
+        return this.csrfTokenCache;
       } catch {
         return null;
       } finally {
@@ -104,11 +116,16 @@ class ApiClient {
         const method = (config.method || 'get').toLowerCase();
         const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
         const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+        const isCsrfBootstrapEndpoint = url.includes('/auth/csrf');
 
-        if (ApiClient.MUTATING_METHODS.includes(method) && !isAuthEndpoint && !isHealthEndpoint) {
+        if (
+          ApiClient.MUTATING_METHODS.includes(method) &&
+          !isHealthEndpoint &&
+          !isCsrfBootstrapEndpoint
+        ) {
           const csrfToken = await this.ensureCsrfToken();
           if (csrfToken) {
-            config.headers['x-csrf-token'] = csrfToken;
+            config.headers['X-CSRF-Token'] = csrfToken;
           }
         }
 
@@ -158,7 +175,24 @@ class ApiClient {
         return response;
       },
       async (error: AxiosError) => {
-        const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+        const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean; _csrfRetry?: boolean };
+        const originalMethod = String(originalRequest?.method || '').toLowerCase();
+        const originalUrl = String(originalRequest?.url || '');
+        const isMutating = ApiClient.MUTATING_METHODS.includes(originalMethod);
+        const isCsrfBootstrapEndpoint = originalUrl.includes('/auth/csrf');
+
+        // CSRF token can rotate/expire. Refresh once, then retry one time.
+        if (
+          isMutating &&
+          !isCsrfBootstrapEndpoint &&
+          this.isCsrfError(error) &&
+          !originalRequest?._csrfRetry
+        ) {
+          originalRequest._csrfRetry = true;
+          this.clearCsrfTokenCache();
+          await this.ensureCsrfToken();
+          return this.instance(originalRequest);
+        }
 
         // Handle 401 - try to refresh token (but not on auth routes)
         const isAuthRoute = (url: string) =>

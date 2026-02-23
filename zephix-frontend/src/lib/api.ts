@@ -19,27 +19,31 @@ export const api = axios.create({
 
 /* ─── CSRF Token helpers ──────────────────────────────────────── */
 
-/** Read the XSRF-TOKEN cookie set by the backend */
-function getCsrfCookie(): string | null {
-  const match = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("XSRF-TOKEN="));
-  return match ? decodeURIComponent(match.split("=")[1]) : null;
+/** Keep CSRF token in-memory for cross-host staging setups. */
+let csrfTokenCache: string | null = null;
+
+/** Fetch a fresh CSRF token from the backend (also sets cookie server-side). */
+let csrfFetchPromise: Promise<string | null> | null = null;
+function clearCsrfTokenCache(): void {
+  csrfTokenCache = null;
 }
 
-/** Fetch a fresh CSRF token from the backend (sets the cookie too) */
-let csrfFetchPromise: Promise<string | null> | null = null;
+export function resetCsrfTokenCache(): void {
+  clearCsrfTokenCache();
+}
+
 async function ensureCsrfToken(): Promise<string | null> {
-  const existing = getCsrfCookie();
-  if (existing) return existing;
+  if (csrfTokenCache) return csrfTokenCache;
 
   // Deduplicate concurrent calls
   if (csrfFetchPromise) return csrfFetchPromise;
 
   csrfFetchPromise = (async () => {
     try {
-      await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-      return getCsrfCookie();
+      const response = await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
+      const token = response?.data?.token || response?.data?.csrfToken || null;
+      csrfTokenCache = typeof token === "string" && token.length > 0 ? token : null;
+      return csrfTokenCache;
     } catch {
       return null;
     } finally {
@@ -52,6 +56,17 @@ async function ensureCsrfToken(): Promise<string | null> {
 
 const MUTATING_METHODS = ["post", "put", "patch", "delete"];
 
+function isCsrfError(err: any): boolean {
+  const status = err?.response?.status;
+  const code = err?.response?.data?.code;
+  return (
+    status === 403 &&
+    (code === "CSRF_TOKEN_MISSING" ||
+      code === "CSRF_INVALID" ||
+      code === "CSRF_TOKEN_MISMATCH")
+  );
+}
+
 /* ─── URL classification ─────────────────────────────────────── */
 
 function isAuthUrl(url: string) {
@@ -60,6 +75,10 @@ function isAuthUrl(url: string) {
 
 function isHealthUrl(url: string) {
   return url.includes("/health") || url.includes("/version");
+}
+
+function isCsrfBootstrapUrl(url: string) {
+  return url.includes("/auth/csrf");
 }
 
 function isWorkUrl(url: string) {
@@ -80,10 +99,14 @@ api.interceptors.request.use(async (cfg) => {
 
   // ── CSRF: attach token on every mutating request ──
   const method = (cfg.method || "get").toLowerCase();
-  if (MUTATING_METHODS.includes(method) && !isAuthUrl(url) && !isHealthUrl(url)) {
+  if (
+    MUTATING_METHODS.includes(method) &&
+    !isHealthUrl(url) &&
+    !isCsrfBootstrapUrl(url)
+  ) {
     const token = await ensureCsrfToken();
     if (token) {
-      (cfg.headers as any)["x-csrf-token"] = token;
+      (cfg.headers as any)["X-CSRF-Token"] = token;
     }
   }
 
@@ -115,7 +138,19 @@ api.interceptors.response.use(
     if (data && typeof data === "object" && "data" in data) return (data as any).data;
     return data;
   },
-  (err) => {
+  async (err) => {
+    const original = err?.config as any;
+    const method = String(original?.method || "").toLowerCase();
+    const url = String(original?.url || "");
+    const isMutating = MUTATING_METHODS.includes(method);
+
+    if (isMutating && !isCsrfBootstrapUrl(url) && isCsrfError(err) && !original?._csrfRetry) {
+      original._csrfRetry = true;
+      clearCsrfTokenCache();
+      await ensureCsrfToken();
+      return api.request(original);
+    }
+
     throw err;
   }
 );

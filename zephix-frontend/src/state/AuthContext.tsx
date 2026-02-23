@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { request } from "@/lib/api";
+import { request, resetCsrfTokenCache } from "@/lib/api";
 import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 
 type PlatformRole = "ADMIN" | "MEMBER" | "VIEWER" | "GUEST";
@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setUser(null);
       cleanupLegacyAuthStorage();
+      resetCsrfTokenCache();
       // Note: Workspace state should be cleared by the calling component
       // using useWorkspaceStore().clearActiveWorkspace() after logout
       setIsLoading(false);

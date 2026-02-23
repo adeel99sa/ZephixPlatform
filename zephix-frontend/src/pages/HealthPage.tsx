@@ -11,7 +11,7 @@ interface HealthInfo {
 export default function HealthPage() {
   const healthInfo: HealthInfo = {
     buildTag: import.meta.env.VITE_BUILD_TAG || 'dev',
-    gitHash: import.meta.env.VITE_GIT_HASH || 'unknown',
+    gitHash: import.meta.env.VITE_GIT_SHA || import.meta.env.VITE_GIT_HASH || 'unknown',
     buildTime: import.meta.env.VITE_BUILD_TIME || new Date().toISOString(),
     environment: import.meta.env.MODE || 'development',
     version: import.meta.env.VITE_APP_VERSION || '0.1.0',
