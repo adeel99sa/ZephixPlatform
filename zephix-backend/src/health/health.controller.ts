@@ -136,25 +136,14 @@ export class HealthController {
   @ApiResponse({ status: 200, description: 'Version information' })
   async version() {
     const commitShaResult = resolveCommitSha();
+    const gitSha = process.env.GIT_SHA || commitShaResult.commitSha || 'unknown';
+    const buildTime = process.env.BUILD_TIME || 'unknown';
     return {
-      data: {
-        version: process.env.npm_package_version || '0.0.1',
-        name: 'Zephix Backend',
-        environment: process.env.NODE_ENV || 'development',
-        nodeVersion: process.version,
-        commitSha: commitShaResult.commitSha,
-        commitShaTrusted: commitShaResult.commitShaTrusted,
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        },
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      },
+      gitSha,
+      buildTime,
+      zephixEnv: process.env.ZEPHIX_ENV || 'unknown',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      commitShaTrusted: commitShaResult.commitShaTrusted,
     };
   }
 
