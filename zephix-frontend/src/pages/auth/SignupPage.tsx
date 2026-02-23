@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Mail, Lock, User, Building2 } from 'lucide-react';
+import { Zap, Mail, Lock, User, Building2, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface SignupFormData {
@@ -21,6 +21,7 @@ export const SignupPage: React.FC = () => {
   const [errors, setErrors] = useState<Partial<SignupFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<SignupFormData> = {};
@@ -230,7 +231,7 @@ export const SignupPage: React.FC = () => {
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
                   value={formData.password}
@@ -240,6 +241,18 @@ export const SignupPage: React.FC = () => {
                   } rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
                   placeholder="SecurePass123!@#"
                 />
+                <button
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
               </div>
               {errors.password && (
                 <p className="mt-2 text-sm text-red-600">{errors.password}</p>

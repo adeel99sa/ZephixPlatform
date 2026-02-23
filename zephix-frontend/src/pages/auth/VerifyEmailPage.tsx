@@ -20,7 +20,7 @@ export const VerifyEmailPage: React.FC = () => {
 
     const verifyEmail = async () => {
       try {
-        const response = await api.post('/auth/verify-email', { token });
+        await api.get('/auth/verify-email', { params: { token } });
         setStatus('success');
         setMessage('Email verified successfully! You can now log in.');
 

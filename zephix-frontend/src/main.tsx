@@ -36,6 +36,19 @@ if (!isProductionBuild && VITE_API_URL) {
 // Cleanup legacy auth tokens on app startup
 cleanupLegacyAuthStorage();
 
+const isStagingHost =
+  typeof window !== 'undefined' &&
+  window.location.hostname.includes('staging.up.railway.app');
+if (import.meta.env.MODE === 'production' && isStagingHost) {
+  console.info('[ZEPHIX STAGING BUILD]', {
+    gitSha:
+      import.meta.env.VITE_GIT_SHA ||
+      import.meta.env.VITE_GIT_HASH ||
+      'unknown',
+    buildTime: import.meta.env.VITE_BUILD_TIME || 'unknown',
+  });
+}
+
 // Initialize analytics
 // initializeAnalytics(); // Temporarily disabled for debugging
 

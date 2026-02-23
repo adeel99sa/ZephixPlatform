@@ -7,8 +7,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 import { api } from '../api';
 
-vi.mock('axios');
-
 describe('API envelope unwrapping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -27,20 +25,9 @@ describe('API envelope unwrapping', () => {
       },
     };
 
-    (axios.create as any).mockReturnValue({
-      interceptors: {
-        response: {
-          use: vi.fn((onFulfilled) => {
-            // Simulate the interceptor being called
-            onFulfilled(mockResponse);
-          }),
-        },
-      },
-    });
-
     // The test verifies that the interceptor in api.ts
     // correctly unwraps the envelope structure
-    expect(mockData).toEqual({ id: '123', name: 'test' });
+    expect(mockResponse.data.data).toEqual({ id: '123', name: 'test' });
   });
 
   it('should handle flat responses without envelope', async () => {
@@ -131,9 +118,7 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
 
   const isHealthUrl = (url: string): boolean => {
     return url.includes('/health') || url.includes('/version');
-  };
-
-  it('should identify /work/* routes as requiring workspace', () => {
+  };  it('should identify /work/* routes as requiring workspace', () => {
     expect(isWorkUrl('/work/tasks')).toBe(true);
     expect(isWorkUrl('/work/projects/123/plan')).toBe(true);
     expect(isWorkUrl('/api/work/tasks')).toBe(true);
@@ -200,5 +185,75 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
       expect(e.code).toBe('WORKSPACE_REQUIRED');
       expect(e.meta).toEqual({ url: '/work/tasks' });
     }
+  });
+});
+
+describe('CSRF token flow (cross-host safe)', () => {
+  it('attaches X-CSRF-Token from /auth/csrf response body', async () => {
+    const getSpy = vi.spyOn(axios, 'get').mockResolvedValue({
+      data: { token: 'csrf-from-body' },
+    } as any);
+
+    const requestFulfilled = (api.interceptors.request as any).handlers[0].fulfilled;
+    const cfg = await requestFulfilled({
+      url: '/auth/register',
+      method: 'post',
+      headers: {},
+    });
+
+    expect(getSpy).toHaveBeenCalledWith('/api/auth/csrf', { withCredentials: true });
+    expect((cfg.headers as any)['X-CSRF-Token']).toBe('csrf-from-body');
+  });
+
+  it('refreshes CSRF and retries once on CSRF_TOKEN_MISSING', async () => {
+    vi.spyOn(axios, 'get').mockResolvedValue({
+      data: { token: 'fresh-csrf-token' },
+    } as any);
+    const requestSpy = vi.spyOn(api, 'request').mockResolvedValue({ data: { ok: true } } as any);
+
+    const responseRejected = (api.interceptors.response as any).handlers[0].rejected;
+    const result = await responseRejected({
+      config: {
+        url: '/auth/register',
+        method: 'post',
+        headers: {},
+      },
+      response: {
+        status: 403,
+        data: {
+          code: 'CSRF_TOKEN_MISSING',
+          message: 'CSRF token is required',
+        },
+      },
+    });
+
+    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect((requestSpy.mock.calls[0][0] as any)._csrfRetry).toBe(true);
+    expect(result).toEqual({ data: { ok: true } });
+  });
+
+  it('does not retry when _csrfRetry is already set', async () => {
+    const requestSpy = vi.spyOn(api, 'request').mockResolvedValue({ data: { ok: true } } as any);
+    const responseRejected = (api.interceptors.response as any).handlers[0].rejected;
+
+    await expect(
+      responseRejected({
+        config: {
+          url: '/auth/register',
+          method: 'post',
+          _csrfRetry: true,
+          headers: {},
+        },
+        response: {
+          status: 403,
+          data: {
+            code: 'CSRF_TOKEN_MISSING',
+            message: 'CSRF token is required',
+          },
+        },
+      }),
+    ).rejects.toBeTruthy();
+
+    expect(requestSpy).not.toHaveBeenCalled();
   });
 });

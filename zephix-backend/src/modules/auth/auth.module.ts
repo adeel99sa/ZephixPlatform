@@ -15,6 +15,7 @@ import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { OrgInvitesService } from './services/org-invites.service';
 import { OutboxProcessorService } from './services/outbox-processor.service';
+import { AdminAuthToolsService } from './services/admin-auth-tools.service';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
@@ -28,8 +29,10 @@ import { AuthSession } from './entities/auth-session.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
+import { AdminAuthToolsController } from './controllers/admin-auth-tools.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
+import { CsrfService } from './services/csrf.service';
 
 @Module({
   imports: [
@@ -64,6 +67,7 @@ import { CsrfGuard } from './guards/csrf.guard';
     OrgInvitesController,
     InvitesController,
     SessionsController,
+    AdminAuthToolsController,
   ],
   providers: [
     AuthService,
@@ -75,6 +79,8 @@ import { CsrfGuard } from './guards/csrf.guard';
     OutboxProcessorService,
     EmailService,
     CsrfGuard,
+    CsrfService,
+    AdminAuthToolsService,
   ],
   exports: [AuthService, JwtStrategy, EmailVerificationService],
 })

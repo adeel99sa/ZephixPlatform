@@ -20,6 +20,7 @@ import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
 // System pages
 import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
+import HealthPage from "@/pages/HealthPage";
 
 // Views
 import OrgHomePage from "@/pages/home/OrgHomePage";
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/version" element={<HealthPage />} />
           <Route path="/invites/accept" element={<InviteAcceptPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/join/workspace" element={<JoinWorkspacePage />} />
