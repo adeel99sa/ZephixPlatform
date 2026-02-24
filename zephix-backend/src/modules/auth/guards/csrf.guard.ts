@@ -9,7 +9,7 @@ import { Request, Response } from 'express';
 /**
  * CSRF Guard
  * Validates CSRF token for mutating requests (POST, PATCH, DELETE)
- * Reads XSRF-TOKEN cookie and X-CSRF-Token header
+ * Reads XSRF-TOKEN cookie and X-CSRF-Token/X-XSRF-TOKEN header
  * Returns 403 if missing or mismatch
  */
 @Injectable()
@@ -52,7 +52,9 @@ export class CsrfGuard implements CanActivate {
     const cookieToken = request.cookies?.['XSRF-TOKEN'];
 
     // Get CSRF token from header
-    const headerToken = request.headers['x-csrf-token'] as string;
+    const headerToken =
+      (request.headers['x-csrf-token'] as string) ||
+      (request.headers['x-xsrf-token'] as string);
 
     // Both must be present and match
     if (!cookieToken || !headerToken) {
