@@ -30,6 +30,7 @@ import {
   normalizePlatformRole,
 } from '../../shared/enums/platform-roles.enum';
 import { TokenHashUtil } from '../../common/security/token-hash.util';
+import { isSkipEmailVerificationEnabled } from './utils/email-verification-policy';
 
 @Injectable()
 export class AuthService {
@@ -165,7 +166,22 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isEmailVerified && !user.emailVerifiedAt) {
+    const skipEmailVerification = isSkipEmailVerificationEnabled();
+    if (
+      skipEmailVerification &&
+      !user.isEmailVerified &&
+      !user.emailVerifiedAt
+    ) {
+      const verifiedAt = new Date();
+      await this.userRepository.update(user.id, {
+        isEmailVerified: true,
+        emailVerifiedAt: verifiedAt,
+      });
+      user.isEmailVerified = true;
+      user.emailVerifiedAt = verifiedAt;
+    }
+
+    if (!skipEmailVerification && !user.isEmailVerified && !user.emailVerifiedAt) {
       throw new ForbiddenException({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Please verify your email address before logging in. Check your inbox for the verification link.',
