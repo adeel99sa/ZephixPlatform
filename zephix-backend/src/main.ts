@@ -56,6 +56,7 @@ const cookieParser = require('cookie-parser');
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
+import { buildCorsAllowedHeaders } from './common/http/cors-headers';
 
 /** Rewrite /api/v1/* to /api/* so existing controllers serve v1 without path changes. */
 function v1RewriteMiddleware(req: Request, _res: Response, next: NextFunction) {
@@ -280,15 +281,7 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-Id',
-      'x-org-id',
-      'X-CSRF-Token',
-      'X-Workspace-Id',
-      'x-workspace-id',
-    ],
+    allowedHeaders: buildCorsAllowedHeaders(),
     exposedHeaders: ['X-Request-Id'],
   });
 

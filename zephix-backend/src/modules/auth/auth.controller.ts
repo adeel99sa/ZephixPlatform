@@ -57,6 +57,20 @@ function isLocalhostHost(host: string): boolean {
   );
 }
 
+function resolveSameSite(host: string): 'lax' | 'strict' | 'none' {
+  if (isLocalhostHost(host)) return 'lax';
+  return String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging'
+    ? 'none'
+    : 'strict';
+}
+
+function resolveSecureCookie(host: string, isHttps: boolean): boolean {
+  if (isLocalhostHost(host)) return false;
+  return String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging'
+    ? true
+    : isHttps;
+}
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -246,19 +260,19 @@ export class AuthController {
     const hostHeader =
       (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
+    const secureCookie = resolveSecureCookie(host, isHttps);
+    const sameSite = resolveSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', loginResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -267,7 +281,7 @@ export class AuthController {
     res.cookie('zephix_session', loginResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
@@ -350,19 +364,20 @@ export class AuthController {
     const hostHeader =
       (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
+    const isStaging = String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging';
+    const secureCookie = resolveSecureCookie(host, isHttps);
+    const sameSite = resolveSameSite(host);
 
     // Set CSRF token in cookie (readable by JS, not HttpOnly)
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('XSRF-TOKEN', csrfToken, {
       httpOnly: false, // Must be readable by browser JS
-      secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      secure: isStaging ? true : secureCookie,
+      sameSite,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/',
     });
@@ -394,19 +409,19 @@ export class AuthController {
     const hostHeader =
       (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
+    const secureCookie = resolveSecureCookie(host, isHttps);
+    const sameSite = resolveSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', refreshResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -415,7 +430,7 @@ export class AuthController {
     res.cookie('zephix_session', refreshResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
