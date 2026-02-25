@@ -2,7 +2,7 @@
 # Simplified configuration to avoid conflicts
 
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake", "pkg-config"]
 
 [phases.install]
 cmds = ["npm ci --legacy-peer-deps"]
