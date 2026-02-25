@@ -11,8 +11,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
-import { resolveCommitSha } from '../common/utils/commit-sha.resolver';
 import { DatabaseVerifyService } from '../modules/database/database-verify.service';
+import {
+  resolveBuildTime,
+  resolveCommitShaDetails,
+} from '../common/version/commit-sha';
 
 // Define the health check interface
 interface HealthCheck {
@@ -135,15 +138,26 @@ export class HealthController {
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
   async version() {
-    const commitShaResult = resolveCommitSha();
+    const commit = resolveCommitShaDetails();
+    const { buildTime, railwayDeploymentId } = resolveBuildTime();
+
+    const zephixEnv = process.env.ZEPHIX_ENV ?? process.env.NODE_ENV ?? 'unknown';
+    const nodeEnv = process.env.NODE_ENV ?? 'unknown';
+    const commitSha = commit.commitSha ?? 'unknown';
+    const commitShaTrusted = commit.commitShaTrusted === true;
+
     return {
       data: {
-        version: process.env.npm_package_version || '0.0.1',
+        commitSha,
+        commitShaTrusted,
+        buildTime: buildTime ?? null,
+        zephixEnv,
+        nodeEnv,
+        railwayDeploymentId: railwayDeploymentId ?? null,
+        version: process.env.npm_package_version ?? '0.0.1',
         name: 'Zephix Backend',
-        environment: process.env.NODE_ENV || 'development',
+        environment: nodeEnv,
         nodeVersion: process.version,
-        commitSha: commitShaResult.commitSha,
-        commitShaTrusted: commitShaResult.commitShaTrusted,
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         memory: {
@@ -151,6 +165,13 @@ export class HealthController {
           total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         },
       },
+      gitSha: commitSha,
+      commitSha,
+      commitShaTrusted,
+      buildTime: buildTime ?? null,
+      zephixEnv,
+      nodeEnv,
+      railwayDeploymentId: railwayDeploymentId ?? null,
       meta: {
         timestamp: new Date().toISOString(),
         requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

@@ -21,5 +21,5 @@
     "types": ["node"],
     "resolveJsonModule": true
   },
-  "exclude": ["node_modules", "dist", "scripts", "test", "**/*spec.ts", "backup/**/*", "temp-disabled/**/*", "src/test/**/*"]
+  "exclude": ["node_modules", "dist", "./scripts", "test", "**/*spec.ts", "backup/**/*", "temp-disabled/**/*", "src/test/**/*"]
 }
