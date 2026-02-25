@@ -14,7 +14,7 @@
       "start:dev": "npm run dev:killport && nest start --watch",
       "start:debug": "nest start --debug --watch",
       "start:prod": "node dist/main.js",
-      "start:railway": "node dist/main.js",
+      "start:railway": "node dist/src/main.js",
       "db:migrate": "node node_modules/typeorm/cli.js migration:run -d dist/src/config/data-source-migrate.js",
       "db:show": "node dist/src/scripts/db/show.js",
       "db:verify": "node dist/src/scripts/db/verify.js",
