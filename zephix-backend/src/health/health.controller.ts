@@ -203,11 +203,13 @@ export class HealthController {
     }
 
     const schema = await this.checkSchema();
-    // In production, do not block readiness on schema verify so deploys can go green.
+    // In production-like environments, do not block readiness on schema verify so deploys can go green.
     // Schema is still checked and included in response for visibility; fix schema separately.
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProductionLike =
+      process.env.NODE_ENV === 'production' ||
+      process.env.NODE_ENV === 'staging';
     const blockOnSchema =
-      !isProduction || process.env.READINESS_REQUIRE_SCHEMA === 'true';
+      !isProductionLike || process.env.READINESS_REQUIRE_SCHEMA === 'true';
 
     if (blockOnSchema && schema.status !== 'ok') {
       return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
