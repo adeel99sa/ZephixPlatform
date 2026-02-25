@@ -107,6 +107,7 @@ export class DatabaseVerifyService {
 
   async verifyOnBoot(): Promise<void> {
     const env = process.env.NODE_ENV || 'development';
+    const isProductionLike = env === 'production' || env === 'staging';
     const auto = process.env.AUTO_MIGRATE === 'true';
     const lockId = 193847561; // stable constant
     const timeoutMs = Number(process.env.MIGRATION_LOCK_TIMEOUT_MS || 60000);
@@ -141,9 +142,9 @@ export class DatabaseVerifyService {
     if (!result.ok) {
       this.logger.error(`schema_verify_failed env=${env}`);
       this.logger.error(JSON.stringify(result));
-      // In production, do not exit: keep server running so /api/health/ready returns 503 with details.
+      // In production-like environments, do not exit on schema drift. Keep server booted and surface details in readiness.
       const failFast = process.env.FAIL_FAST_SCHEMA_VERIFY === 'true';
-      if (failFast || env !== 'production') {
+      if (failFast || !isProductionLike) {
         throw new Error('Schema verification failed');
       }
       this.logger.warn(
