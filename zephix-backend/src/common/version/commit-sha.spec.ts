@@ -45,6 +45,7 @@ describe('resolveCommitSha', () => {
       buildMetaPath(),
       JSON.stringify({
         commitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        commitShaTrusted: true,
         buildTime: '2026-02-25T00:00:00.000Z',
       }),
     );
@@ -68,6 +69,7 @@ describe('resolveCommitSha', () => {
       path.join(backendDist, 'build-meta.json'),
       JSON.stringify({
         commitSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        commitShaTrusted: true,
         buildTime: '2026-02-25T00:00:00.000Z',
       }),
     );
@@ -87,6 +89,28 @@ describe('resolveCommitSha', () => {
 
     process.chdir(originalCwd);
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+
+  it('does not trust build-meta commit when commitShaTrusted is false', () => {
+    fs.mkdirSync(path.dirname(buildMetaPath()), { recursive: true });
+    fs.writeFileSync(
+      buildMetaPath(),
+      JSON.stringify({
+        commitSha: 'cccccccccccccccccccccccccccccccccccccccc',
+        commitShaTrusted: false,
+        buildTime: '2026-02-25T00:00:00.000Z',
+      }),
+    );
+    process.env.COMMIT_SHA = 'dddddddddddddddddddddddddddddddddddddddd';
+
+    expect(resolveCommitShaDetails()).toEqual(
+      expect.objectContaining({
+        commitSha: 'dddddddddddddddddddddddddddddddddddddddd',
+        commitShaTrusted: true,
+        sourceType: 'operator',
+        sourceKey: 'COMMIT_SHA',
+      }),
+    );
   });
 
   it('returns trusted commit SHA from COMMIT_SHA when value is valid 40-hex', () => {

@@ -39,10 +39,14 @@ function resolveFromBuildMeta(paths: string[]): string | null {
         continue;
       }
       const raw = fs.readFileSync(candidate, 'utf8');
-      const parsed = JSON.parse(raw) as { commitSha?: string };
+      const parsed = JSON.parse(raw) as {
+        commitSha?: string;
+        commitShaTrusted?: boolean;
+      };
       const commitSha =
         typeof parsed.commitSha === 'string' ? parsed.commitSha.trim() : '';
-      if (EXACT_SHA_PATTERN.test(commitSha)) {
+      const trusted = parsed.commitShaTrusted === true;
+      if (EXACT_SHA_PATTERN.test(commitSha) && trusted) {
         return commitSha;
       }
     } catch {
