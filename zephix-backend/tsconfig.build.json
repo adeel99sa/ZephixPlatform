@@ -12,7 +12,7 @@
     "**/*spec.ts",
     "**/*test.ts",
     "backup/**",
-    "scripts/**",
+    "./scripts/**",
     "temp-disabled/**",
     "src/architecture/**"
   ]
