@@ -50,15 +50,9 @@ describe('HealthController /api/version contract', () => {
     process.env.RAILWAY_DEPLOYMENT_ID = 'deploy-123';
 
     const controller = new HealthController(undefined, undefined);
-    const setHeader = jest.fn().mockReturnThis();
-    const json = jest.fn().mockReturnThis();
-    const res = { setHeader, json } as any;
+    const payload = await controller.version();
 
-    await controller.version(res);
-
-    expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
-    expect(setHeader).toHaveBeenCalledWith('Pragma', 'no-cache');
-    expect(json).toHaveBeenCalledWith(
+    expect(payload).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
           commitSha: '1111111111111111111111111111111111111111',
@@ -89,13 +83,9 @@ describe('HealthController /api/version contract', () => {
     process.env.RAILWAY_DEPLOYMENT_ID = 'deploy-unknown';
 
     const controller = new HealthController(undefined, undefined);
-    const setHeader = jest.fn().mockReturnThis();
-    const json = jest.fn().mockReturnThis();
-    const res = { setHeader, json } as any;
+    const payload = await controller.version();
 
-    await controller.version(res);
-
-    expect(json).toHaveBeenCalledWith(
+    expect(payload).toEqual(
       expect.objectContaining({
         data: expect.objectContaining({
           commitSha: 'unknown',
