@@ -11,8 +11,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
-import { resolveCommitSha } from '../common/utils/commit-sha.resolver';
 import { DatabaseVerifyService } from '../modules/database/database-verify.service';
+import {
+  resolveBuildTime,
+  resolveCommitShaDetails,
+} from '../common/version/commit-sha';
 
 // Define the health check interface
 interface HealthCheck {
@@ -134,17 +137,43 @@ export class HealthController {
   @Get(['version', 'api/version'])
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
-  async version() {
-    const commitShaResult = resolveCommitSha();
-    const gitSha = process.env.GIT_SHA || commitShaResult.commitSha || 'unknown';
-    const buildTime = process.env.BUILD_TIME || 'unknown';
-    return {
-      gitSha,
-      buildTime,
-      zephixEnv: process.env.ZEPHIX_ENV || 'unknown',
-      nodeEnv: process.env.NODE_ENV || 'development',
-      commitShaTrusted: commitShaResult.commitShaTrusted,
-    };
+  async version(@Res() res: Response) {
+    const resolvedCommit = resolveCommitShaDetails();
+    const commitSha = resolvedCommit.commitSha || 'unknown';
+    const commitShaTrusted = resolvedCommit.commitShaTrusted;
+    const { buildTime: resolvedBuildTime, railwayDeploymentId } =
+      resolveBuildTime();
+    const buildTime = resolvedBuildTime || 'unknown';
+    const zephixEnv = process.env.ZEPHIX_ENV || 'unknown';
+    const includeVersionDebug =
+      zephixEnv === 'staging' && process.env.STAGING_VERSION_DEBUG === 'true';
+    const debugData = includeVersionDebug
+      ? { buildMetaLookupPaths: resolvedCommit.attemptedBuildMetaPaths }
+      : {};
+
+    return res
+      .setHeader('Cache-Control', 'no-store')
+      .setHeader('Pragma', 'no-cache')
+      .json({
+        // Canonical contract
+        data: {
+          commitSha,
+          commitShaTrusted,
+          buildTime,
+          zephixEnv,
+          nodeEnv: process.env.NODE_ENV || 'development',
+          railwayDeploymentId,
+          ...debugData,
+        },
+        // Legacy aliases kept for backward compatibility
+        gitSha: commitSha,
+        commitSha,
+        commitShaTrusted,
+        buildTime,
+        zephixEnv,
+        nodeEnv: process.env.NODE_ENV || 'development',
+        railwayDeploymentId,
+      });
   }
 
   @Get(['live', 'api/health/live', 'health/live'])
