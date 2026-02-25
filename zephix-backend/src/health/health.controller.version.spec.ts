@@ -97,4 +97,37 @@ describe('HealthController /api/version contract', () => {
       }),
     );
   });
+
+  it('ignores untrusted build-meta commit and falls back to trusted COMMIT_SHA', async () => {
+    fs.mkdirSync(path.dirname(buildMetaPath), { recursive: true });
+    fs.writeFileSync(
+      buildMetaPath,
+      JSON.stringify({
+        commitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        commitShaTrusted: false,
+        buildTime: '2026-02-24T00:00:00.000Z',
+      }),
+    );
+    process.env.COMMIT_SHA = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    process.env.ZEPHIX_ENV = 'staging';
+    process.env.NODE_ENV = 'staging';
+
+    const controller = new HealthController(undefined, undefined);
+    const setHeader = jest.fn().mockReturnThis();
+    const json = jest.fn().mockReturnThis();
+    const res = { setHeader, json } as any;
+
+    await controller.version(res);
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commitSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          commitShaTrusted: true,
+        }),
+        commitSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        commitShaTrusted: true,
+      }),
+    );
+  });
 });
