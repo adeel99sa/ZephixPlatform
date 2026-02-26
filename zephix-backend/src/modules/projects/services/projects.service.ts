@@ -36,9 +36,15 @@ import { Portfolio } from '../../portfolios/entities/portfolio.entity';
 import {
   applyPortfolioGovernanceDefaults,
   hasExplicitGovernanceFlags,
+  hasMethodologySyncFields,
 } from '../helpers/governance-inheritance';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
+import { MethodologyConfigSyncService } from '../../methodology/services/methodology-config-sync.service';
+import { MethodologyConfigValidatorService } from '../../methodology/services/methodology-config-validator.service';
+import { MethodologyConstraintsService } from '../../methodology/services/methodology-constraints.service';
+import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
+import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 
 type CreateProjectV1Input = {
   name: string;
@@ -79,13 +85,63 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly entitlementService: EntitlementService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
-    // @InjectRepository(ProjectAssignment)
-    // private readonly projectAssignmentRepository: Repository<ProjectAssignment>,
-    // @InjectRepository(ProjectPhase)
-    // private readonly projectPhaseRepository: Repository<ProjectPhase>,
+    @Optional()
+    private readonly methodologyConfigSync?: MethodologyConfigSyncService,
+    @Optional()
+    private readonly methodologyConfigValidator?: MethodologyConfigValidatorService,
+    @Optional()
+    private readonly methodologyConstraints?: MethodologyConstraintsService,
+    @Optional()
+    @InjectRepository(ChangeRequestEntity)
+    private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
   ) {
     bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
+  }
+
+  private static readonly SCOPE_FIELDS = new Set([
+    'startDate',
+    'endDate',
+    'estimatedEndDate',
+    'budget',
+    'actualCost',
+  ]);
+
+  /**
+   * When changeManagementEnabled is true and the update touches scope fields,
+   * enforce that an approved change request is referenced.
+   * The service loads the CR itself — callers only pass the ID.
+   */
+  private async assertChangeRequestForScopeUpdate(
+    dto: UpdateProjectDto,
+    project: Project,
+  ): Promise<void> {
+    if (!this.methodologyConstraints) return;
+
+    const touchesScope = Object.keys(dto).some((k) =>
+      ProjectsService.SCOPE_FIELDS.has(k),
+    );
+    if (!touchesScope) return;
+
+    const cmEnabled = this.methodologyConstraints.resolveCapability(
+      project,
+      (c) => c?.governance?.changeManagementEnabled,
+      project.changeManagementEnabled,
+    );
+    if (!cmEnabled) return;
+
+    const crId = (dto as any).changeRequestId as string | undefined;
+    let crStatus: string | undefined;
+
+    if (crId && this.changeRequestRepo) {
+      const cr = await this.changeRequestRepo.findOne({
+        where: { id: crId },
+        select: ['id', 'status'],
+      });
+      crStatus = cr?.status;
+    }
+
+    this.methodologyConstraints.assertChangeRequestRequired(cmEnabled, crId, crStatus);
   }
 
   private getOrgId(req: Request): string {
@@ -97,6 +153,42 @@ export class ProjectsService extends TenantAwareRepository<Project> {
   private getUserId(req: Request): string | undefined {
     const user: any = (req as any).user;
     return user?.id;
+  }
+
+  private async ensureDefaultPhaseIfMissing(
+    manager: DataSource['manager'],
+    project: Pick<Project, 'id' | 'organizationId' | 'workspaceId'>,
+    createdByUserId: string,
+  ): Promise<void> {
+    const phaseRepo = manager.getRepository(WorkPhase);
+    const phaseCount = await phaseRepo.count({
+      where: {
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId as string,
+        projectId: project.id,
+      },
+    });
+    if (phaseCount > 0) return;
+
+    const defaultPhase = phaseRepo.create({
+      organizationId: project.organizationId,
+      workspaceId: project.workspaceId as string,
+      projectId: project.id,
+      programId: null,
+      name: 'Execution',
+      sortOrder: 1,
+      reportingKey: 'PHASE-1',
+      isMilestone: false,
+      startDate: null,
+      dueDate: null,
+      sourceTemplatePhaseId: null,
+      isLocked: false,
+      status: 'active',
+      createdByUserId,
+      deletedAt: null,
+      deletedByUserId: null,
+    });
+    await phaseRepo.save(defaultPhase);
   }
 
   /**
@@ -203,6 +295,14 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       }
 
       const project = await this.create(processedData, organizationId);
+
+      // Sync legacy flags → methodology_config on newly created projects
+      if (this.methodologyConfigSync) {
+        await this.methodologyConfigSync.syncConfigFromLegacyFlags(
+          project.id,
+          organizationId,
+        );
+      }
 
       this.logger.log(
         `✅ Project created: ${project.id} in org: ${organizationId}`,
@@ -559,21 +659,62 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         processedData.governanceSource = 'USER';
       }
 
-      // Capture old portfolio/program IDs before update for event emission
-      const oldProject = await this.projectRepository.findOne({ where: { id, organizationId }, select: ['id', 'portfolioId', 'programId', 'workspaceId'] });
+      // Capture old project state for event emission and CR enforcement
+      const oldProject = await this.projectRepository.findOne({
+        where: { id, organizationId },
+        select: ['id', 'portfolioId', 'programId', 'workspaceId', 'methodologyConfig', 'changeManagementEnabled'],
+      });
       const oldPortfolioId = oldProject?.portfolioId;
       const oldProgramId = oldProject?.programId;
 
-      const updatedProject = await this.update(
-        id,
-        organizationId,
-        processedData,
-      );
+      if (oldProject) {
+        await this.assertChangeRequestForScopeUpdate(updateProjectDto, oldProject);
+      }
 
-      if (!updatedProject) {
-        throw new NotFoundException(
-          `Project with ID ${id} not found or access denied`,
-        );
+      const needsMethodologySync =
+        hasMethodologySyncFields(updateProjectDto) && !!this.methodologyConfigSync;
+
+      let updatedProject: Project | null;
+
+      if (needsMethodologySync) {
+        // Both writes in one transaction via the same QueryRunner.
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+          // Update project columns through the qr, not the default repository connection
+          await qr.manager.update(
+            Project,
+            { id, organizationId },
+            { ...processedData, organizationId },
+          );
+          // Sync direction: legacy flags → config. Same qr.
+          await this.methodologyConfigSync!.syncConfigFromLegacyFlags(
+            id,
+            organizationId,
+            qr,
+          );
+          await qr.commitTransaction();
+        } catch (txErr) {
+          await qr.rollbackTransaction();
+          throw txErr;
+        } finally {
+          await qr.release();
+        }
+        // Re-read the committed state
+        updatedProject = await this.findById(id, organizationId);
+        if (!updatedProject) {
+          throw new NotFoundException(
+            `Project with ID ${id} not found or access denied`,
+          );
+        }
+      } else {
+        updatedProject = await this.update(id, organizationId, processedData);
+        if (!updatedProject) {
+          throw new NotFoundException(
+            `Project with ID ${id} not found or access denied`,
+          );
+        }
       }
 
       // Wave 10: Emit portfolio/program assignment events
@@ -609,11 +750,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         }
       }
 
-      this.logger.log(`✅ Project updated: ${id} in org: ${organizationId}`);
+      this.logger.log(`Project updated: ${id} in org: ${organizationId}`);
       return updatedProject;
     } catch (error) {
       this.logger.error(
-        `❌ Failed to update project ${id} for org ${organizationId}:`,
+        `Failed to update project ${id} for org ${organizationId}:`,
         error,
       );
       throw error;
@@ -866,7 +1007,127 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       project.definitionOfDone = this.normalizeDoD(dto.definitionOfDone);
     }
 
+    const needsSync = dto.methodology !== undefined && !!this.methodologyConfigSync;
+
+    if (needsSync) {
+      const qr = this.dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.manager.save(project);
+        await this.methodologyConfigSync!.syncConfigFromLegacyFlags(
+          projectId,
+          organizationId,
+          qr,
+        );
+        await qr.commitTransaction();
+      } catch (txErr) {
+        await qr.rollbackTransaction();
+        throw txErr;
+      } finally {
+        await qr.release();
+      }
+      const fresh = await this.projectRepository.findOne({
+        where: { id: projectId, organizationId },
+      });
+      return fresh ?? project;
+    }
+
     return this.projectRepository.save(project);
+  }
+
+  /**
+   * Update methodology_config on a project.
+   * Merges patch into stored config, validates, persists, then syncs legacy flags.
+   * Sync direction: config → legacy flags. Never calls syncConfigFromLegacyFlags.
+   * Both writes happen in a single transaction.
+   */
+  async updateMethodologyConfig(
+    projectId: string,
+    organizationId: string,
+    patch: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, organizationId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const current = project.methodologyConfig ?? {};
+    const merged = this.deepMerge(current, patch);
+
+    if (this.methodologyConfigValidator) {
+      this.methodologyConfigValidator.validateOrThrow(merged as any);
+    }
+
+    const canSync =
+      this.methodologyConfigSync &&
+      merged.governance &&
+      merged.sprint &&
+      merged.estimation &&
+      merged.methodologyCode;
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.query(
+        `UPDATE projects SET methodology_config = $1, updated_at = NOW() WHERE id = $2 AND organization_id = $3`,
+        [JSON.stringify(merged), projectId, organizationId],
+      );
+
+      if (canSync) {
+        await this.methodologyConfigSync!.syncLegacyFlags(projectId, merged as any, qr);
+      }
+
+      await qr.commitTransaction();
+    } catch (txErr) {
+      await qr.rollbackTransaction();
+      throw txErr;
+    } finally {
+      await qr.release();
+    }
+
+    this.logger.log({
+      action: 'METHODOLOGY_CONFIG_UPDATED',
+      projectId,
+      organizationId,
+      patchKeys: Object.keys(patch),
+      before: {
+        methodologyCode: current.methodologyCode,
+        sprintEnabled: current.sprint?.enabled,
+        gateRequired: current.phases?.gateRequired,
+        estimationType: current.estimation?.type,
+      },
+      after: {
+        methodologyCode: merged.methodologyCode,
+        sprintEnabled: merged.sprint?.enabled,
+        gateRequired: merged.phases?.gateRequired,
+        estimationType: merged.estimation?.type,
+      },
+    });
+
+    return merged;
+  }
+
+  private deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+    const result = { ...target };
+    for (const key of Object.keys(source)) {
+      if (
+        source[key] !== null &&
+        typeof source[key] === 'object' &&
+        !Array.isArray(source[key]) &&
+        typeof result[key] === 'object' &&
+        result[key] !== null &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = this.deepMerge(result[key], source[key]);
+      } else {
+        result[key] = source[key];
+      }
+    }
+    return result;
   }
 
   /** Normalize and validate Definition of Done items. */
@@ -1002,6 +1263,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         const projectRepo = manager.getRepository(Project);
         const project: Project = projectRepo.create(projectData);
         const saved: Project = await projectRepo.save(project);
+        await this.ensureDefaultPhaseIfMissing(manager, saved, userId);
         return saved;
       },
     );

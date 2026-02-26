@@ -13,7 +13,6 @@ import {
   Request,
   Response,
   Query,
-  SetMetadata,
   UnauthorizedException,
   BadRequestException,
   HttpCode,
@@ -33,6 +32,8 @@ import {
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
+import { RateLimit } from '../../common/rate-limit/rate-limit-policy.decorator';
+import { RateLimitPolicy } from '../../common/rate-limit/rate-limit.constants';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -41,14 +42,15 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { CsrfService } from './services/csrf.service';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
+import { isStagingRuntime } from '../../common/utils/runtime-env';
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from 'express';
 
-// Helper function to detect localhost hosts
 function isLocalhostHost(host: string): boolean {
   return (
     host.includes('localhost') ||
@@ -57,18 +59,22 @@ function isLocalhostHost(host: string): boolean {
   );
 }
 
-function resolveSameSite(host: string): 'lax' | 'strict' | 'none' {
-  if (isLocalhostHost(host)) return 'lax';
-  return String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging'
-    ? 'none'
-    : 'strict';
+function resolveSessionSameSite(host: string): 'lax' | 'strict' | 'none' {
+  if (isLocalhostHost(host)) {
+    return 'lax';
+  }
+  const isStaging = isStagingRuntime();
+  return isStaging ? 'none' : 'strict';
 }
 
-function resolveSecureCookie(host: string, isHttps: boolean): boolean {
-  if (isLocalhostHost(host)) return false;
-  return String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging'
-    ? true
-    : isHttps;
+function resolveSessionSecureCookie(host: string, isHttps: boolean): boolean {
+  if (isLocalhostHost(host)) {
+    return false;
+  }
+  if (isStagingRuntime()) {
+    return true;
+  }
+  return isHttps;
 }
 
 @ApiTags('auth')
@@ -85,6 +91,7 @@ export class AuthController {
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     private readonly auditService: AuditService,
+    private readonly csrfService: CsrfService,
   ) {}
 
   /**
@@ -101,6 +108,7 @@ export class AuthController {
   @Post('signup') // Backward compatibility alias
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
+  @RateLimit(RateLimitPolicy.AUTH_REGISTER)
   @ApiOperation({ summary: 'Register a new user and organization' })
   @ApiResponse({
     status: 200,
@@ -113,7 +121,7 @@ export class AuthController {
     @Body() dto: RegisterDto | SignupDto,
     @Request() req: Request,
   ): Promise<RegisterResponseDto> {
-    const ip = (req as any).ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     // Handle both DTO formats (RegisterDto or SignupDto)
@@ -160,7 +168,7 @@ export class AuthController {
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
-  @SetMetadata('rateLimit', { windowMs: 3600000, max: 5, message: 'Too many resend requests. Please try again later.' })
+  @RateLimit(RateLimitPolicy.AUTH_RESEND)
   @ApiOperation({ summary: 'Resend email verification' })
   @ApiResponse({
     status: 200,
@@ -173,7 +181,7 @@ export class AuthController {
     @Body() dto: ResendVerificationDto,
     @Request() req: Request,
   ): Promise<ResendVerificationResponseDto> {
-    const ip = (req as any).ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     const user = await this.userRepository.findOne({
@@ -214,6 +222,7 @@ export class AuthController {
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
+  @RateLimit(RateLimitPolicy.AUTH_VERIFY)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
     status: 200,
@@ -239,16 +248,13 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(RateLimiterGuard)
+  @RateLimit(RateLimitPolicy.AUTH_LOGIN)
   async login(
     @Body() loginDto: LoginDto,
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
   ) {
-    // Extract IP and userAgent with x-forwarded-for support
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      (req as any).ip ||
-      'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const loginResult = await this.authService.login(
       loginDto,
@@ -264,8 +270,8 @@ export class AuthController {
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = resolveSecureCookie(host, isHttps);
-    const sameSite = resolveSameSite(host);
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
@@ -348,6 +354,7 @@ export class AuthController {
 
   @Get('csrf')
   @UseGuards(RateLimiterGuard)
+  @RateLimit(RateLimitPolicy.AUTH_CSRF)
   @ApiOperation({ summary: 'Get CSRF token' })
   @ApiResponse({
     status: 200,
@@ -357,46 +364,20 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
   ) {
-    // Generate CSRF token
-    const csrfToken = require('crypto').randomBytes(32).toString('hex');
-
-    // Determine secure cookie setting based on request origin
-    const hostHeader =
-      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
-    const host = String(hostHeader);
-    const xfProto = String(
-      (req as any).headers?.['x-forwarded-proto'] ?? '',
-    ).toLowerCase();
-    const isHttps = xfProto === 'https';
-    const isStaging = String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging';
-    const secureCookie = resolveSecureCookie(host, isHttps);
-    const sameSite = resolveSameSite(host);
-
-    // Set CSRF token in cookie (readable by JS, not HttpOnly)
-    // Use 'lax' for localhost (works better with proxies), 'strict' for production
-    res.cookie('XSRF-TOKEN', csrfToken, {
-      httpOnly: false, // Must be readable by browser JS
-      secure: isStaging ? true : secureCookie,
-      sameSite,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/',
-    });
-
-    return res.json({ csrfToken });
+    const csrfToken = this.csrfService.generateToken();
+    this.csrfService.setCsrfCookie(req, res, csrfToken);
+    return res.json({ token: csrfToken, csrfToken });
   }
 
   @Post('refresh')
   @UseGuards(RateLimiterGuard)
+  @RateLimit(RateLimitPolicy.AUTH_REFRESH)
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
     @Body() body: { refreshToken: string; sessionId?: string },
   ) {
-    // Extract IP and userAgent with x-forwarded-for support
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      (req as any).ip ||
-      'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const refreshResult = await this.authService.refreshToken(
       body.refreshToken,
@@ -413,8 +394,8 @@ export class AuthController {
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = resolveSecureCookie(host, isHttps);
-    const sameSite = resolveSameSite(host);
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production

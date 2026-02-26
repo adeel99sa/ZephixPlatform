@@ -117,6 +117,25 @@ type WorkspaceHomeData = {
   executionSummary?: ExecutionSummary; // PHASE 7 MODULE 7.3: Execution signals
 };
 
+function normalizeExecutionSummary(summary?: Partial<ExecutionSummary>): ExecutionSummary | undefined {
+  if (!summary) return undefined;
+  return {
+    version: summary.version ?? 1,
+    counts: {
+      activeProjects: summary.counts?.activeProjects ?? 0,
+      totalWorkItems: summary.counts?.totalWorkItems ?? 0,
+      overdueWorkItems: summary.counts?.overdueWorkItems ?? 0,
+      dueSoon7Days: summary.counts?.dueSoon7Days ?? 0,
+      inProgress: summary.counts?.inProgress ?? 0,
+      doneLast7Days: summary.counts?.doneLast7Days ?? 0,
+    },
+    topOverdue: Array.isArray(summary.topOverdue) ? summary.topOverdue : [],
+    recentActivity: Array.isArray(summary.recentActivity)
+      ? summary.recentActivity
+      : [],
+  };
+}
+
 // Use the Member type from workspace.api.ts
 type Member = WorkspaceMember;
 
@@ -231,15 +250,21 @@ export default function WorkspaceHome() {
       let homeData: WorkspaceHomeData | null = null;
       if (slug) {
         try {
-          const homePayload = await request.get<
-            WorkspaceHomeData | { data: WorkspaceHomeData }
-          >(`/workspaces/slug/${slug}/home`);
+          const homePayload = await request.get<WorkspaceHomeData | { data: WorkspaceHomeData }>(
+            `/workspaces/slug/${slug}/home`,
+          );
           homeData =
             homePayload &&
             typeof homePayload === 'object' &&
             'data' in (homePayload as Record<string, unknown>)
               ? ((homePayload as { data: WorkspaceHomeData }).data ?? null)
               : (homePayload as WorkspaceHomeData);
+          if (homeData) {
+            homeData = {
+              ...homeData,
+              executionSummary: normalizeExecutionSummary(homeData.executionSummary),
+            };
+          }
           setWorkspaceHomeData(homeData);
           if (homeData?.workspace) {
             const ws: Workspace = {

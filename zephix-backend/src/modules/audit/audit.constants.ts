@@ -49,6 +49,7 @@ export enum AuditAction {
   ORG_CREATED = 'org_created',
   EMAIL_VERIFICATION_SENT = 'email_verification_sent',
   EMAIL_VERIFIED = 'email_verified',
+  EMAIL_VERIFICATION_BYPASSED = 'email_verification_bypassed',
   RESEND_VERIFICATION = 'resend_verification',
 }
 

@@ -1,17 +1,13 @@
-import { DataSource } from 'typeorm';
-import { AuthRegistrationService } from './services/auth-registration.service';
 import { AuthService } from './auth.service';
-import { User } from '../users/entities/user.entity';
-import { Organization } from '../../organizations/entities/organization.entity';
-import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { EmailVerificationToken } from './entities/email-verification-token.entity';
-import { AuthOutbox } from './entities/auth-outbox.entity';
+import { ForbiddenException } from '@nestjs/common';
+import {
+  assertStagingEmailVerificationBypassGuardrails,
+  shouldBypassEmailVerificationForEmail,
+} from './services/staging-email-verification-bypass';
 
 jest.mock('bcrypt', () => ({
-  hash: jest.fn().mockResolvedValue('hashed'),
   compare: jest.fn().mockResolvedValue(true),
 }));
-
 jest.mock('../../common/security/token-hash.util', () => ({
   TokenHashUtil: {
     hashRefreshToken: jest.fn().mockReturnValue('hashed-refresh-token'),
@@ -19,107 +15,28 @@ jest.mock('../../common/security/token-hash.util', () => ({
   },
 }));
 
-describe('skip email verification policy (staging)', () => {
-  it('registration marks user verified and skips token/outbox in staging', async () => {
-    const prevEnv = process.env.ZEPHIX_ENV;
-    const prevSkip = process.env.SKIP_EMAIL_VERIFICATION;
+describe('AuthService login (skip email verification)', () => {
+  it('allows login for unverified user when skip flag is enabled', async () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+    const prevDomains = process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS;
+    const prevJwtSecret = process.env.JWT_SECRET;
+    const prevJwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
     process.env.ZEPHIX_ENV = 'staging';
-    process.env.SKIP_EMAIL_VERIFICATION = 'true';
-
-    const userRepo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((v) => v),
-      save: jest.fn().mockResolvedValue({
-        id: 'user-1',
-        organizationId: 'org-1',
-      }),
-    };
-    const orgRepo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((v) => v),
-      save: jest.fn().mockResolvedValue({
-        id: 'org-1',
-        name: 'Staging Org',
-        slug: 'staging-org',
-        status: 'trial',
-      }),
-    };
-    const userOrgRepo = {
-      create: jest.fn((v) => v),
-      save: jest.fn().mockResolvedValue({ id: 'user-org-1' }),
-    };
-    const tokenRepo = {
-      create: jest.fn((v) => v),
-      save: jest.fn(),
-    };
-    const outboxRepo = {
-      create: jest.fn((v) => v),
-      save: jest.fn(),
-    };
-
-    const manager = {
-      getRepository: jest.fn((entity: unknown) => {
-        if (entity === User) return userRepo;
-        if (entity === Organization) return orgRepo;
-        if (entity === UserOrganization) return userOrgRepo;
-        if (entity === EmailVerificationToken) return tokenRepo;
-        if (entity === AuthOutbox) return outboxRepo;
-        throw new Error('Unexpected repository request');
-      }),
-    };
-    const dataSource = {
-      transaction: jest.fn(async (cb: any) => cb(manager)),
-    } as unknown as DataSource;
-
-    const service = new AuthRegistrationService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      dataSource,
-      { record: jest.fn().mockResolvedValue(undefined) } as any,
-    );
-
-    await service.registerSelfServe({
-      email: 'staging-test-01@zephix.local',
-      password: 'ZephixTest123!',
-      fullName: 'Staging Test',
-      orgName: 'Staging Org',
-    });
-
-    expect(userRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isEmailVerified: true,
-        emailVerifiedAt: expect.any(Date),
-      }),
-    );
-    expect(tokenRepo.save).not.toHaveBeenCalled();
-    expect(outboxRepo.save).not.toHaveBeenCalled();
-
-    process.env.ZEPHIX_ENV = prevEnv;
-    process.env.SKIP_EMAIL_VERIFICATION = prevSkip;
-  });
-
-  it('login allows unverified existing user and flips verified in staging', async () => {
-    const prevEnv = process.env.ZEPHIX_ENV;
-    const prevSkip = process.env.SKIP_EMAIL_VERIFICATION;
-    const prevJwt = process.env.JWT_SECRET;
-    const prevRefresh = process.env.JWT_REFRESH_SECRET;
-    process.env.ZEPHIX_ENV = 'staging';
-    process.env.SKIP_EMAIL_VERIFICATION = 'true';
-    process.env.JWT_SECRET =
-      process.env.JWT_SECRET || 'test-jwt-secret-32-bytes-minimum';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'true';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = 'example.com,zephix.local';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-32-bytes-minimum';
     process.env.JWT_REFRESH_SECRET =
       process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-32-bytes-minimum';
 
     const userRepository = {
       findOne: jest.fn().mockResolvedValue({
         id: 'user-1',
-        email: 'staging-test-01@zephix.local',
-        password: 'hashed',
-        firstName: 'Staging',
-        lastName: 'Test',
+        email: 'user@example.com',
+        password:
+          '$2b$10$Xy5QvQh19sqMZWfByz1FHefLldm8rsQqP8c8QiUXQ8KyyfXJJM4Q.', // TestPass123!
+        firstName: 'Test',
+        lastName: 'User',
         role: 'member',
         organizationId: null,
         isEmailVerified: false,
@@ -138,6 +55,10 @@ describe('skip email verification policy (staging)', () => {
     const jwtService = {
       sign: jest.fn().mockReturnValue('signed-token'),
     };
+    const rateLimitStore = {
+      recordAuthFailure: jest.fn().mockResolvedValue(undefined),
+      clearAuthFailures: jest.fn().mockResolvedValue(undefined),
+    };
 
     const service = new AuthService(
       userRepository as any,
@@ -147,27 +68,164 @@ describe('skip email verification policy (staging)', () => {
       {} as any,
       jwtService as any,
       {} as any,
+      rateLimitStore as any,
     );
 
     const result = await service.login({
-      email: 'staging-test-01@zephix.local',
-      password: 'ZephixTest123!',
+      email: 'user@example.com',
+      password: 'TestPass123!',
     });
 
     expect(result.accessToken).toBe('signed-token');
     expect(result.refreshToken).toBe('signed-token');
+    expect(result.sessionId).toBe('session-1');
+    expect(rateLimitStore.clearAuthFailures).toHaveBeenCalled();
     expect(userRepository.update).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({
         isEmailVerified: true,
-        emailVerifiedAt: expect.any(Date),
       }),
     );
 
-    process.env.ZEPHIX_ENV = prevEnv;
-    process.env.SKIP_EMAIL_VERIFICATION = prevSkip;
-    process.env.JWT_SECRET = prevJwt;
-    process.env.JWT_REFRESH_SECRET = prevRefresh;
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = prevDomains;
+    process.env.JWT_SECRET = prevJwtSecret;
+    process.env.JWT_REFRESH_SECRET = prevJwtRefreshSecret;
+  });
+
+  it('rejects unverified user login in staging when bypass flag is disabled', async () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+    const prevDomains = process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS;
+    process.env.ZEPHIX_ENV = 'staging';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'false';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = 'example.com';
+
+    const userRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'user-2',
+        email: 'user@example.com',
+        password:
+          '$2b$10$Xy5QvQh19sqMZWfByz1FHefLldm8rsQqP8c8QiUXQ8KyyfXJJM4Q.',
+        role: 'member',
+        organizationId: 'org-1',
+        isEmailVerified: false,
+        emailVerifiedAt: null,
+      }),
+      update: jest.fn(),
+    };
+
+    const service = new AuthService(
+      userRepository as any,
+      {} as any,
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      { create: jest.fn(), save: jest.fn() } as any,
+      {} as any,
+      { sign: jest.fn().mockReturnValue('token') } as any,
+      {} as any,
+      {
+        recordAuthFailure: jest.fn(),
+        clearAuthFailures: jest.fn(),
+      } as any,
+    );
+
+    await expect(
+      service.login({
+        email: 'user@example.com',
+        password: 'TestPass123!',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = prevDomains;
+  });
+
+  it('parses allowlist with spaces and case-insensitive domains', () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+    const prevDomains = process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS;
+    process.env.ZEPHIX_ENV = 'staging';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'true';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS =
+      ' example.com , ZEPHIX.LOCAL ';
+
+    expect(
+      shouldBypassEmailVerificationForEmail('USER@EXAMPLE.COM'),
+    ).toBe(true);
+    expect(
+      shouldBypassEmailVerificationForEmail('proof@zephix.local'),
+    ).toBe(true);
+
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = prevDomains;
+  });
+
+  it('rejects unverified user login when bypass flag is enabled but domain is not allowed', async () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+    const prevDomains = process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS;
+    process.env.ZEPHIX_ENV = 'staging';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'true';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = 'example.com';
+
+    const userRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'user-3',
+        email: 'user@unauthorized.dev',
+        password:
+          '$2b$10$Xy5QvQh19sqMZWfByz1FHefLldm8rsQqP8c8QiUXQ8KyyfXJJM4Q.',
+        role: 'member',
+        organizationId: 'org-1',
+        isEmailVerified: false,
+        emailVerifiedAt: null,
+      }),
+      update: jest.fn(),
+    };
+
+    const service = new AuthService(
+      userRepository as any,
+      {} as any,
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      { create: jest.fn(), save: jest.fn() } as any,
+      {} as any,
+      { sign: jest.fn().mockReturnValue('token') } as any,
+      {} as any,
+      {
+        recordAuthFailure: jest.fn(),
+        clearAuthFailures: jest.fn(),
+      } as any,
+    );
+
+    await expect(
+      service.login({
+        email: 'user@unauthorized.dev',
+        password: 'TestPass123!',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = prevDomains;
+  });
+
+  it('throws on startup guardrail when bypass flag is enabled outside staging', () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+
+    process.env.ZEPHIX_ENV = 'production';
+    process.env.NODE_ENV = 'production';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'true';
+
+    expect(() => assertStagingEmailVerificationBypassGuardrails()).toThrow(
+      'STAGING_SKIP_EMAIL_VERIFICATION=true is only allowed when runtime environment is staging',
+    );
+
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.NODE_ENV = prevNodeEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
   });
 });
-
