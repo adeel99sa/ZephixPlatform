@@ -8,6 +8,7 @@
  */
 import {
   Injectable,
+  Inject,
   Logger,
   Optional,
   UnauthorizedException,
@@ -37,6 +38,8 @@ import { AuditAction, AuditEntityType } from '../audit/audit.constants';
 import {
   shouldBypassEmailVerificationForEmail,
 } from './services/staging-email-verification-bypass';
+import { AUTH_RATE_LIMIT_STORE } from './tokens';
+import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
 
 @Injectable()
 export class AuthService {
@@ -55,10 +58,9 @@ export class AuthService {
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
-    private rateLimitStore: {
-      recordAuthFailure(emailHash: string): Promise<number>;
-      clearAuthFailures(emailHash: string): Promise<void>;
-    },
+    @Optional()
+    @Inject(AUTH_RATE_LIMIT_STORE)
+    private readonly rateLimitStore: AuthRateLimitStore | null,
     @Optional()
     private readonly auditService?: AuditService,
   ) {}
@@ -173,13 +175,13 @@ export class AuthService {
     });
 
     if (!user) {
-      await this.rateLimitStore.recordAuthFailure(emailHash);
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      await this.rateLimitStore.recordAuthFailure(emailHash);
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -298,7 +300,8 @@ export class AuthService {
       }
     }
 
-    await this.rateLimitStore.clearAuthFailures(emailHash);
+    // Optional store: no-op store means auth remains allowed if not configured.
+    await this.rateLimitStore?.hit(`auth:success:${emailHash}`, 60, 1_000_000);
 
     return {
       user: userResponse,

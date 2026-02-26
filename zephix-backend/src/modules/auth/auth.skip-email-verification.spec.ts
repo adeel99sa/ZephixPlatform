@@ -56,8 +56,9 @@ describe('AuthService login (skip email verification)', () => {
       sign: jest.fn().mockReturnValue('signed-token'),
     };
     const rateLimitStore = {
-      recordAuthFailure: jest.fn().mockResolvedValue(undefined),
-      clearAuthFailures: jest.fn().mockResolvedValue(undefined),
+      hit: jest
+        .fn()
+        .mockResolvedValue({ allowed: true, remaining: Number.MAX_SAFE_INTEGER }),
     };
 
     const service = new AuthService(
@@ -79,7 +80,11 @@ describe('AuthService login (skip email verification)', () => {
     expect(result.accessToken).toBe('signed-token');
     expect(result.refreshToken).toBe('signed-token');
     expect(result.sessionId).toBe('session-1');
-    expect(rateLimitStore.clearAuthFailures).toHaveBeenCalled();
+    expect(rateLimitStore.hit).toHaveBeenCalledWith(
+      expect.stringContaining('auth:success:'),
+      60,
+      1_000_000,
+    );
     expect(userRepository.update).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({
@@ -125,8 +130,7 @@ describe('AuthService login (skip email verification)', () => {
       { sign: jest.fn().mockReturnValue('token') } as any,
       {} as any,
       {
-        recordAuthFailure: jest.fn(),
-        clearAuthFailures: jest.fn(),
+        hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
       } as any,
     );
 
@@ -194,8 +198,7 @@ describe('AuthService login (skip email verification)', () => {
       { sign: jest.fn().mockReturnValue('token') } as any,
       {} as any,
       {
-        recordAuthFailure: jest.fn(),
-        clearAuthFailures: jest.fn(),
+        hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }),
       } as any,
     );
 
