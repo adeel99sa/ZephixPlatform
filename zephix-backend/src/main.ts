@@ -212,7 +212,7 @@ async function bootstrap() {
     process.env.AUTO_MIGRATE = 'false';
   }
 
-  if (process.env.SKIP_DATABASE !== 'true') {
+  const runDbVerification = async () => {
     const verifier = app.get(DatabaseVerifyService);
     await verifier.verifyOnBoot();
 
@@ -259,7 +259,7 @@ async function bootstrap() {
     } catch (e) {
       console.warn(`⚠️ DB IDENTITY PROOF: could not query — ${(e as Error)?.message}`);
     }
-  }
+  };
 
   // Trust proxy — Railway (and most PaaS) sits behind a reverse proxy.
   // TRUST_PROXY_DEPTH controls how Express resolves req.ip via x-forwarded-for.
@@ -409,6 +409,21 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0'); // Bind to all interfaces for Railway
   console.log('BOOT_LISTENING', { port });
   console.log(`BOOT_READY port=${port}`);
+
+  // Keep production fail-fast, but avoid staging deploy failures caused by
+  // long pre-listen verification work racing Railway readiness windows.
+  if (process.env.SKIP_DATABASE !== 'true') {
+    if (isStagingRuntime()) {
+      void runDbVerification()
+        .then(() => console.log('DB_VERIFY_POST_LISTEN_OK'))
+        .catch((err) => {
+          console.error('DB_VERIFY_POST_LISTEN_FAILED', err);
+        });
+    } else {
+      await runDbVerification();
+      console.log('DB_VERIFY_PRE_LISTEN_OK');
+    }
+  }
 
   if (debugBoot) {
     console.log('✅ Application is running on:', `http://localhost:${port}`);
