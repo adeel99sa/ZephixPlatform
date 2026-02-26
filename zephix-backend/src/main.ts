@@ -103,6 +103,8 @@ function zephixEnvHeader(_req: Request, res: Response, next: NextFunction) {
 }
 
 const debugBoot = process.env.DEBUG_BOOT === 'true';
+let appInstance: { close: () => Promise<void> } | null = null;
+let isShuttingDown = false;
 
 async function bootstrap() {
   console.log('BOOT_START', new Date().toISOString());
@@ -196,6 +198,7 @@ async function bootstrap() {
       : ['error', 'warn', 'log'],
   });
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
+  appInstance = app;
 
   const env = process.env.NODE_ENV || 'development';
   if (isStagingRuntime()) {
@@ -438,16 +441,28 @@ bootstrap().catch((err) => {
   process.exit(1);
 });
 
-// CRITICAL: Railway container fixes
-// Handle graceful shutdown for SIGTERM
+async function gracefulShutdown(signal: 'SIGTERM' | 'SIGINT'): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`🚨 ${signal} received, shutting down gracefully`);
+  try {
+    if (appInstance) {
+      await appInstance.close();
+    }
+  } catch (error) {
+    console.error(`⚠️ Error during ${signal} shutdown:`, error);
+  } finally {
+    process.exit(0);
+  }
+}
+
+// Handle graceful shutdown for Railway/container stops.
 process.on('SIGTERM', () => {
-  console.log('🚨 SIGTERM received, shutting down gracefully');
-  process.exit(0);
+  void gracefulShutdown('SIGTERM');
 });
 
 process.on('SIGINT', () => {
-  console.log('🚨 SIGINT received, shutting down gracefully');
-  process.exit(0);
+  void gracefulShutdown('SIGINT');
 });
 
 // Monitor memory usage to prevent Railway container kills (log only when DEBUG_BOOT or high)
@@ -471,14 +486,35 @@ setInterval(() => {
 }, 30000); // Check every 30 seconds
 
 // Monitor for uncaught exceptions and unhandled rejections
-process.on('uncaughtException', (error) => {
-  console.error('🚨 Uncaught Exception:', error);
+function handleRuntimeFailure(
+  type: 'uncaughtException' | 'unhandledRejection',
+  payload: unknown,
+): void {
+  const failFastRuntimeErrors = isTrue(process.env.FAIL_FAST_RUNTIME_ERRORS);
+  if (type === 'uncaughtException') {
+    console.error('🚨 Uncaught Exception:', payload);
+  } else {
+    console.error('🚨 Unhandled Rejection:', payload);
+  }
+
+  // In staging, default to logging and continuing to avoid restart loops
+  // from transient async failures during gate runs.
+  if (isStagingRuntime() && !failFastRuntimeErrors) {
+    console.error(
+      '⚠️ Runtime failure logged without forced exit (staging, FAIL_FAST_RUNTIME_ERRORS=false)',
+    );
+    return;
+  }
+
   process.exit(1);
+}
+
+process.on('uncaughtException', (error) => {
+  handleRuntimeFailure('uncaughtException', error);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+process.on('unhandledRejection', (reason) => {
+  handleRuntimeFailure('unhandledRejection', reason);
 });
 
 // Log Railway environment information (only when DEBUG_BOOT)
