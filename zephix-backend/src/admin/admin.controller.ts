@@ -32,6 +32,8 @@ import { UpdateTeamDto } from '../modules/teams/dto/update-team.dto';
 import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
 import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
+import { AuditService } from '../modules/audit/services/audit.service';
+import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -46,6 +48,7 @@ export class AdminController {
     private readonly workspacesService: WorkspacesService,
     private readonly teamsService: TeamsService,
     private readonly attachmentsService: AttachmentsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -299,6 +302,41 @@ export class AdminController {
         },
       };
     }
+  }
+
+  @Get('audit')
+  @ApiOperation({ summary: 'Get recent admin audit events' })
+  @ApiResponse({
+    status: 200,
+    description: 'Admin audit events retrieved successfully',
+  })
+  async getAudit(
+    @Request() req: AuthRequest,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('action') action?: string,
+    @Query('userId') userId?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(limit || '50', 10) || 50));
+    const { organizationId } = getAuthContext(req);
+
+    const result = await this.auditService.query({
+      organizationId,
+      action,
+      actorUserId: userId,
+      page: pageNum,
+      pageSize,
+    });
+
+    return {
+      data: result.items.map(toAuditEventDto),
+      meta: {
+        page: pageNum,
+        limit: pageSize,
+        total: result.total,
+      },
+    };
   }
 
   @Get('users')
