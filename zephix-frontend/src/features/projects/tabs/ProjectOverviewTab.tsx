@@ -23,6 +23,7 @@ import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
 // Phase 2B: Waterfall core panels
 import { BaselinePanel } from '../components/BaselinePanel';
 import { EarnedValuePanel } from '../components/EarnedValuePanel';
+import { useProjectCapabilities } from '../hooks/useProjectCapabilities';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -55,6 +56,28 @@ interface ProjectOverview {
   nextActions: NeedsAttentionItem[];
 }
 
+function normalizeOverview(payload: unknown): ProjectOverview | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const raw = payload as Partial<ProjectOverview>;
+  return {
+    projectId: raw.projectId ?? '',
+    projectName: raw.projectName ?? '',
+    projectState: raw.projectState ?? 'DRAFT',
+    structureLocked: Boolean(raw.structureLocked),
+    startedAt: raw.startedAt ?? null,
+    deliveryOwnerUserId: raw.deliveryOwnerUserId ?? null,
+    dateRange: {
+      startDate: raw.dateRange?.startDate ?? null,
+      dueDate: raw.dateRange?.dueDate ?? null,
+    },
+    healthCode: raw.healthCode ?? 'HEALTHY',
+    healthLabel: raw.healthLabel ?? 'Healthy',
+    behindTargetDays: raw.behindTargetDays ?? null,
+    needsAttention: Array.isArray(raw.needsAttention) ? raw.needsAttention : [],
+    nextActions: Array.isArray(raw.nextActions) ? raw.nextActions : [],
+  };
+}
+
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
   AT_RISK: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: AlertCircle },
@@ -68,6 +91,7 @@ export const ProjectOverviewTab: React.FC = () => {
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const { isReadOnly, canWrite } = useWorkspaceRole(workspaceId);
   const { project, refresh: refreshProject } = useProjectContext();
+  const capabilities = useProjectCapabilities(project);
 
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +122,11 @@ export const ProjectOverviewTab: React.FC = () => {
       const response = await api.get(`/work/projects/${projectId}/overview`, {
         headers: { 'x-workspace-id': workspaceId },
       });
-      setOverview(response.data.data);
+      const unwrapped =
+        response && typeof response === 'object' && 'data' in (response as Record<string, unknown>)
+          ? (response as { data: unknown }).data
+          : response;
+      setOverview(normalizeOverview(unwrapped));
     } catch (err: any) {
       console.error('Failed to load project overview:', err);
       setError(err.response?.data?.message || 'Failed to load project overview');
@@ -348,7 +376,7 @@ export const ProjectOverviewTab: React.FC = () => {
           {projectId && project && (
             <BaselinePanel
               projectId={projectId}
-              baselinesEnabled={(project as any).baselinesEnabled ?? true}
+              baselinesEnabled={capabilities.baselinesEnabled}
               workspaceRole={(project as any).workspaceRole}
             />
           )}
@@ -357,7 +385,7 @@ export const ProjectOverviewTab: React.FC = () => {
           {projectId && project && (
             <EarnedValuePanel
               projectId={projectId}
-              earnedValueEnabled={(project as any).earnedValueEnabled ?? false}
+              earnedValueEnabled={capabilities.earnedValueEnabled}
               workspaceRole={(project as any).workspaceRole}
             />
           )}

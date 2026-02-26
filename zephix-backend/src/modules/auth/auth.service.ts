@@ -9,6 +9,7 @@
 import {
   Injectable,
   Logger,
+  Optional,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
@@ -30,6 +31,13 @@ import {
   normalizePlatformRole,
 } from '../../shared/enums/platform-roles.enum';
 import { TokenHashUtil } from '../../common/security/token-hash.util';
+import { RateLimitStoreService } from '../../common/rate-limit/rate-limit-store.service';
+import { createHash } from 'crypto';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../audit/audit.constants';
+import {
+  shouldBypassEmailVerificationForEmail,
+} from './services/staging-email-verification-bypass';
 
 @Injectable()
 export class AuthService {
@@ -48,6 +56,9 @@ export class AuthService {
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
+    private rateLimitStore: RateLimitStoreService,
+    @Optional()
+    private readonly auditService?: AuditService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -150,22 +161,58 @@ export class AuthService {
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
     const { email, password } = loginDto;
+    const emailHash = createHash('sha256')
+      .update(email.toLowerCase().trim())
+      .digest('hex')
+      .slice(0, 16);
 
-    // Find user with organization
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
 
     if (!user) {
+      await this.rateLimitStore.recordAuthFailure(emailHash);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      await this.rateLimitStore.recordAuthFailure(emailHash);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isEmailVerified && !user.emailVerifiedAt) {
+    const bypassVerification = shouldBypassEmailVerificationForEmail(
+      user.email,
+    );
+    if (bypassVerification && !user.isEmailVerified) {
+      const verifiedAt = new Date();
+      await this.userRepository.update(user.id, {
+        isEmailVerified: true,
+        emailVerifiedAt: verifiedAt,
+      });
+      user.isEmailVerified = true;
+      user.emailVerifiedAt = verifiedAt;
+
+      if (this.auditService && user.organizationId) {
+        await this.auditService.record({
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          actorPlatformRole: user.role || 'ADMIN',
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: user.id,
+          action: AuditAction.EMAIL_VERIFICATION_BYPASSED,
+          metadata: {
+            source: 'staging_email_bypass',
+            trigger: 'login',
+            reason: 'staging_bypass',
+            allowlistedDomain: true,
+            emailDomain: user.email.split('@').pop()?.toLowerCase() || '',
+          },
+        });
+      }
+    }
+
+    if (!bypassVerification && !user.isEmailVerified && !user.emailVerifiedAt) {
       throw new ForbiddenException({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Please verify your email address before logging in. Check your inbox for the verification link.',
@@ -249,14 +296,16 @@ export class AuthService {
       }
     }
 
+    await this.rateLimitStore.clearAuthFailures(emailHash);
+
     return {
       user: userResponse,
       accessToken,
       refreshToken,
-      sessionId: savedSession.id, // Feature 2B: Return sessionId
+      sessionId: savedSession.id,
       organizationId: user.organizationId,
-      defaultWorkspaceSlug, // Default workspace slug for redirect
-      expiresIn: 900, // 15 minutes in seconds
+      defaultWorkspaceSlug,
+      expiresIn: 900,
     };
   }
 

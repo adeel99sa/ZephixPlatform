@@ -21,6 +21,7 @@ import {
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
+import { shouldBypassEmailVerificationForEmail } from './staging-email-verification-bypass';
 
 export interface RegisterSelfServeInput {
   email: string;
@@ -107,6 +108,8 @@ export class AuthRegistrationService {
     }
 
     try {
+      const skipEmailVerification =
+        shouldBypassEmailVerificationForEmail(normalizedEmail);
       const result = await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
         const orgRepo = manager.getRepository(Organization);
@@ -169,8 +172,8 @@ export class AuthRegistrationService {
           firstName,
           lastName,
           organizationId: savedOrg.id,
-          isEmailVerified: false,
-          emailVerifiedAt: null,
+          isEmailVerified: skipEmailVerification,
+          emailVerifiedAt: skipEmailVerification ? new Date() : null,
           role: PlatformRole.ADMIN,
           isActive: true,
         });
@@ -185,42 +188,47 @@ export class AuthRegistrationService {
         });
         await userOrgRepo.save(userOrg);
 
-        const rawToken = TokenHashUtil.generateRawToken();
-        const tokenHash = TokenHashUtil.hashToken(rawToken);
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        let verificationToken: EmailVerificationToken | null = null;
+        let expiresAt: Date | null = null;
+        if (!skipEmailVerification) {
+          const rawToken = TokenHashUtil.generateRawToken();
+          const tokenHash = TokenHashUtil.hashToken(rawToken);
+          expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 24);
 
-        const verificationToken = tokenRepo.create({
-          userId: savedUser.id,
-          tokenHash,
-          expiresAt,
-          ip: ip || null,
-          userAgent: userAgent || null,
-        });
-        await tokenRepo.save(verificationToken);
-
-        const outboxEvent = outboxRepo.create({
-          type: 'auth.email_verification.requested',
-          payloadJson: {
+          verificationToken = tokenRepo.create({
             userId: savedUser.id,
-            email: normalizedEmail,
-            token: rawToken,
-            fullName,
-            orgName,
-          },
-          status: 'pending',
-          attempts: 0,
-        });
-        await outboxRepo.save(outboxEvent);
+            tokenHash,
+            expiresAt,
+            ip: ip || null,
+            userAgent: userAgent || null,
+          });
+          await tokenRepo.save(verificationToken);
+
+          const outboxEvent = outboxRepo.create({
+            type: 'auth.email_verification.requested',
+            payloadJson: {
+              userId: savedUser.id,
+              email: normalizedEmail,
+              token: rawToken,
+              fullName,
+              orgName,
+            },
+            status: 'pending',
+            attempts: 0,
+          });
+          await outboxRepo.save(outboxEvent);
+        }
 
         return {
           isExisting: false,
           savedOrg,
           savedUser,
-          verificationTokenId: verificationToken.id,
+          verificationTokenId: verificationToken?.id || null,
           firstName,
           lastName,
           expiresAt,
+          skipEmailVerification,
         } as const;
       });
 
@@ -250,7 +258,7 @@ export class AuthRegistrationService {
           firstName: result.firstName,
           lastName: result.lastName,
           platformRole: PlatformRole.ADMIN,
-          isEmailVerified: false,
+          isEmailVerified: result.skipEmailVerification,
         },
       });
 
@@ -266,16 +274,34 @@ export class AuthRegistrationService {
         },
       });
 
-      await this.auditService.record({
-        ...auditCtx,
-        entityType: AuditEntityType.EMAIL_VERIFICATION,
-        entityId: result.verificationTokenId,
-        action: AuditAction.EMAIL_VERIFICATION_SENT,
-        after: {
-          email: normalizedEmail,
-          expiresAt: result.expiresAt.toISOString(),
-        },
-      });
+      if (!result.skipEmailVerification && result.verificationTokenId && result.expiresAt) {
+        await this.auditService.record({
+          ...auditCtx,
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: result.verificationTokenId,
+          action: AuditAction.EMAIL_VERIFICATION_SENT,
+          after: {
+            email: normalizedEmail,
+            expiresAt: result.expiresAt.toISOString(),
+          },
+        });
+      }
+
+      if (result.skipEmailVerification) {
+        await this.auditService.record({
+          ...auditCtx,
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: result.savedUser.id,
+          action: AuditAction.EMAIL_VERIFICATION_BYPASSED,
+          metadata: {
+            source: 'staging_email_bypass',
+            trigger: 'register',
+            reason: 'staging_bypass',
+            allowlistedDomain: true,
+            emailDomain: normalizedEmail.split('@').pop()?.toLowerCase() || '',
+          },
+        });
+      }
 
       this.logger.log(
         `User registered: ${normalizedEmail}, org: ${result.savedOrg.id}, platformRole: ${PlatformRole.ADMIN}`,

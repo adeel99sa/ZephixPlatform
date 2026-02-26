@@ -16,6 +16,10 @@ import {
   resolveBuildTime,
   resolveCommitShaDetails,
 } from '../common/version/commit-sha';
+import {
+  isProductionRuntime,
+  isStagingRuntime,
+} from '../common/utils/runtime-env';
 
 // Define the health check interface
 interface HealthCheck {
@@ -146,7 +150,7 @@ export class HealthController {
     const buildTime = resolvedBuildTime || 'unknown';
     const zephixEnv = process.env.ZEPHIX_ENV || 'unknown';
     const includeVersionDebug =
-      zephixEnv === 'staging' && process.env.STAGING_VERSION_DEBUG === 'true';
+      isStagingRuntime() && process.env.STAGING_VERSION_DEBUG === 'true';
     const debugData = includeVersionDebug
       ? { buildMetaLookupPaths: resolvedCommit.attemptedBuildMetaPaths }
       : {};
@@ -203,8 +207,7 @@ export class HealthController {
     // In production-like environments, do not block readiness on schema verify so deploys can go green.
     // Schema is still checked and included in response for visibility; fix schema separately.
     const isProductionLike =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
+      isProductionRuntime() || isStagingRuntime();
     const blockOnSchema =
       !isProductionLike || process.env.READINESS_REQUIRE_SCHEMA === 'true';
 
