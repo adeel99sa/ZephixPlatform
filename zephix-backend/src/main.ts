@@ -57,9 +57,14 @@ import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import {
-  buildCorsAllowedHeaders,
-  buildCorsExposedHeaders,
+  CORS_ALLOWED_HEADERS,
+  CORS_EXPOSED_HEADERS,
 } from './common/http/cors-headers';
+import {
+  assertStagingEmailVerificationBypassGuardrails,
+  isStagingEmailVerificationBypassFlagEnabled,
+} from './modules/auth/services/staging-email-verification-bypass';
+import { isStagingRuntime } from './common/utils/runtime-env';
 
 /** Rewrite /api/v1/* to /api/* so existing controllers serve v1 without path changes. */
 function v1RewriteMiddleware(req: Request, _res: Response, next: NextFunction) {
@@ -117,6 +122,8 @@ async function bootstrap() {
     console.log('BOOT_SKIP: detected test runner (JEST_WORKER_ID or VITEST) — returning early');
     return;
   }
+
+  assertStagingEmailVerificationBypassGuardrails();
 
   // Validate required environment variables at startup
   const requiredEnvVars: Record<
@@ -191,6 +198,13 @@ async function bootstrap() {
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
 
   const env = process.env.NODE_ENV || 'development';
+  if (isStagingRuntime()) {
+    const skipEmailVerification =
+      isStagingEmailVerificationBypassFlagEnabled();
+    console.log(
+      `EMAIL_VERIFICATION_POLICY staging bypassEnabled=${skipEmailVerification}`,
+    );
+  }
   if (env === 'production' || env === 'staging') {
     process.env.AUTO_MIGRATE = 'false';
   }
@@ -244,6 +258,15 @@ async function bootstrap() {
     }
   }
 
+  // Trust proxy — Railway (and most PaaS) sits behind a reverse proxy.
+  // TRUST_PROXY_DEPTH controls how Express resolves req.ip via x-forwarded-for.
+  const { validateTrustProxyDepth } = require('./common/rate-limit/ip-resolver');
+  const trustProxyDepth = parseInt(process.env.TRUST_PROXY_DEPTH || '1', 10);
+  validateTrustProxyDepth(trustProxyDepth);
+  if (trustProxyDepth > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyDepth);
+  }
+
   // Health and all routes live under /api (e.g. /api/health/live, /api/health/ready). Smoke uses these paths.
   if (debugBoot) console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
@@ -266,10 +289,13 @@ async function bootstrap() {
 
   if (debugBoot) console.log('🌐 Configuring CORS...');
   const isProduction = process.env.NODE_ENV === 'production';
-  const corsOrigins: string[] = [
-    'https://getzephix.com',
-    'https://www.getzephix.com',
-  ];
+  const isStaging = String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging';
+  const corsOrigins: string[] = [];
+  if (isStaging) {
+    corsOrigins.push('https://zephix-frontend-staging.up.railway.app');
+  } else {
+    corsOrigins.push('https://getzephix.com', 'https://www.getzephix.com');
+  }
   if (!isProduction) {
     corsOrigins.push('http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000');
   }
@@ -284,16 +310,20 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: buildCorsAllowedHeaders(),
-    exposedHeaders: buildCorsExposedHeaders(),
+    allowedHeaders: [...CORS_ALLOWED_HEADERS],
+    exposedHeaders: [...CORS_EXPOSED_HEADERS],
   });
 
   if (debugBoot) console.log('🆔 Configuring request ID middleware...');
   app.use((req, res, next) => {
     const rid = req.headers['x-request-id'] || crypto.randomUUID();
+    const cid = req.headers['x-correlation-id'] || rid;
     res.setHeader('X-Request-Id', String(rid));
+    res.setHeader('X-Correlation-Id', String(cid));
     // @ts-ignore
     req.id = rid;
+    // @ts-ignore
+    req.correlationId = cid;
     next();
   });
 

@@ -21,7 +21,7 @@ import {
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../../audit/audit.constants';
 import { PlatformRole } from '../../../shared/enums/platform-roles.enum';
-import { isSkipEmailVerificationEnabled } from '../utils/email-verification-policy';
+import { shouldBypassEmailVerificationForEmail } from './staging-email-verification-bypass';
 
 export interface RegisterSelfServeInput {
   email: string;
@@ -108,7 +108,8 @@ export class AuthRegistrationService {
     }
 
     try {
-      const skipEmailVerification = isSkipEmailVerificationEnabled();
+      const skipEmailVerification =
+        shouldBypassEmailVerificationForEmail(normalizedEmail);
       const result = await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
         const orgRepo = manager.getRepository(Organization);
@@ -282,6 +283,22 @@ export class AuthRegistrationService {
           after: {
             email: normalizedEmail,
             expiresAt: result.expiresAt.toISOString(),
+          },
+        });
+      }
+
+      if (result.skipEmailVerification) {
+        await this.auditService.record({
+          ...auditCtx,
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: result.savedUser.id,
+          action: AuditAction.EMAIL_VERIFICATION_BYPASSED,
+          metadata: {
+            source: 'staging_email_bypass',
+            trigger: 'register',
+            reason: 'staging_bypass',
+            allowlistedDomain: true,
+            emailDomain: normalizedEmail.split('@').pop()?.toLowerCase() || '',
           },
         });
       }

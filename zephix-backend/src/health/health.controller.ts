@@ -16,6 +16,10 @@ import {
   resolveBuildTime,
   resolveCommitShaDetails,
 } from '../common/version/commit-sha';
+import {
+  isProductionRuntime,
+  isStagingRuntime,
+} from '../common/utils/runtime-env';
 
 // Define the health check interface
 interface HealthCheck {
@@ -137,46 +141,43 @@ export class HealthController {
   @Get(['version', 'api/version'])
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
-  async version() {
-    const commit = resolveCommitShaDetails();
-    const { buildTime, railwayDeploymentId } = resolveBuildTime();
+  async version(@Res() res: Response) {
+    const resolvedCommit = resolveCommitShaDetails();
+    const commitSha = resolvedCommit.commitSha || 'unknown';
+    const commitShaTrusted = resolvedCommit.commitShaTrusted;
+    const { buildTime: resolvedBuildTime, railwayDeploymentId } =
+      resolveBuildTime();
+    const buildTime = resolvedBuildTime || 'unknown';
+    const zephixEnv = process.env.ZEPHIX_ENV || 'unknown';
+    const includeVersionDebug =
+      isStagingRuntime() && process.env.STAGING_VERSION_DEBUG === 'true';
+    const debugData = includeVersionDebug
+      ? { buildMetaLookupPaths: resolvedCommit.attemptedBuildMetaPaths }
+      : {};
 
-    const zephixEnv = process.env.ZEPHIX_ENV ?? process.env.NODE_ENV ?? 'unknown';
-    const nodeEnv = process.env.NODE_ENV ?? 'unknown';
-    const commitSha = commit.commitSha ?? 'unknown';
-    const commitShaTrusted = commit.commitShaTrusted === true;
-
-    return {
-      data: {
+    return res
+      .setHeader('Cache-Control', 'no-store')
+      .setHeader('Pragma', 'no-cache')
+      .json({
+        // Canonical contract
+        data: {
+          commitSha,
+          commitShaTrusted,
+          buildTime,
+          zephixEnv,
+          nodeEnv: process.env.NODE_ENV || 'development',
+          railwayDeploymentId,
+          ...debugData,
+        },
+        // Legacy aliases kept for backward compatibility
+        gitSha: commitSha,
         commitSha,
         commitShaTrusted,
-        buildTime: buildTime ?? null,
+        buildTime,
         zephixEnv,
-        nodeEnv,
-        railwayDeploymentId: railwayDeploymentId ?? null,
-        version: process.env.npm_package_version ?? '0.0.1',
-        name: 'Zephix Backend',
-        environment: nodeEnv,
-        nodeVersion: process.version,
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        },
-      },
-      gitSha: commitSha,
-      commitSha,
-      commitShaTrusted,
-      buildTime: buildTime ?? null,
-      zephixEnv,
-      nodeEnv,
-      railwayDeploymentId: railwayDeploymentId ?? null,
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      },
-    };
+        nodeEnv: process.env.NODE_ENV || 'development',
+        railwayDeploymentId,
+      });
   }
 
   @Get(['live', 'api/health/live', 'health/live'])
@@ -206,8 +207,7 @@ export class HealthController {
     // In production-like environments, do not block readiness on schema verify so deploys can go green.
     // Schema is still checked and included in response for visibility; fix schema separately.
     const isProductionLike =
-      process.env.NODE_ENV === 'production' ||
-      process.env.NODE_ENV === 'staging';
+      isProductionRuntime() || isStagingRuntime();
     const blockOnSchema =
       !isProductionLike || process.env.READINESS_REQUIRE_SCHEMA === 'true';
 
