@@ -102,6 +102,14 @@ function zephixEnvHeader(_req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function validateTrustProxyDepth(depth: number): void {
+  if (!Number.isInteger(depth) || depth < 0 || depth > 10) {
+    throw new Error(
+      `Invalid TRUST_PROXY_DEPTH: ${depth}. Expected an integer between 0 and 10.`,
+    );
+  }
+}
+
 const debugBoot = process.env.DEBUG_BOOT === 'true';
 let appInstance: { close: () => Promise<void> } | null = null;
 let isShuttingDown = false;
@@ -263,7 +271,6 @@ async function bootstrap() {
 
   // Trust proxy — Railway (and most PaaS) sits behind a reverse proxy.
   // TRUST_PROXY_DEPTH controls how Express resolves req.ip via x-forwarded-for.
-  const { validateTrustProxyDepth } = require('./common/rate-limit/ip-resolver');
   const trustProxyDepth = parseInt(process.env.TRUST_PROXY_DEPTH || '1', 10);
   validateTrustProxyDepth(trustProxyDepth);
   if (trustProxyDepth > 0) {
