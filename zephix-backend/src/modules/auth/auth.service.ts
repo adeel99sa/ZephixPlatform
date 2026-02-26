@@ -31,7 +31,6 @@ import {
   normalizePlatformRole,
 } from '../../shared/enums/platform-roles.enum';
 import { TokenHashUtil } from '../../common/security/token-hash.util';
-import { RateLimitStoreService } from '../../common/rate-limit/rate-limit-store.service';
 import { createHash } from 'crypto';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditAction, AuditEntityType } from '../audit/audit.constants';
@@ -56,7 +55,10 @@ export class AuthService {
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
-    private rateLimitStore: RateLimitStoreService,
+    private rateLimitStore: {
+      recordAuthFailure(emailHash: string): Promise<number>;
+      clearAuthFailures(emailHash: string): Promise<void>;
+    },
     @Optional()
     private readonly auditService?: AuditService,
   ) {}

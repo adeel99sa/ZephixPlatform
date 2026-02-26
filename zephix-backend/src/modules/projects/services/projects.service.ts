@@ -40,9 +40,6 @@ import {
 } from '../helpers/governance-inheritance';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
-import { MethodologyConfigSyncService } from '../../methodology/services/methodology-config-sync.service';
-import { MethodologyConfigValidatorService } from '../../methodology/services/methodology-config-validator.service';
-import { MethodologyConstraintsService } from '../../methodology/services/methodology-constraints.service';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 
@@ -86,11 +83,11 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
     @Optional()
-    private readonly methodologyConfigSync?: MethodologyConfigSyncService,
+    private readonly methodologyConfigSync?: any,
     @Optional()
-    private readonly methodologyConfigValidator?: MethodologyConfigValidatorService,
+    private readonly methodologyConfigValidator?: any,
     @Optional()
-    private readonly methodologyConstraints?: MethodologyConstraintsService,
+    private readonly methodologyConstraints?: any,
     @Optional()
     @InjectRepository(ChangeRequestEntity)
     private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
@@ -183,7 +180,6 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       dueDate: null,
       sourceTemplatePhaseId: null,
       isLocked: false,
-      status: 'active',
       createdByUserId,
       deletedAt: null,
       deletedByUserId: null,
@@ -662,7 +658,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       // Capture old project state for event emission and CR enforcement
       const oldProject = await this.projectRepository.findOne({
         where: { id, organizationId },
-        select: ['id', 'portfolioId', 'programId', 'workspaceId', 'methodologyConfig', 'changeManagementEnabled'],
+        select: ['id', 'portfolioId', 'programId', 'workspaceId', 'changeManagementEnabled'],
       });
       const oldPortfolioId = oldProject?.portfolioId;
       const oldProgramId = oldProject?.programId;
@@ -1054,7 +1050,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       throw new NotFoundException('Project not found');
     }
 
-    const current = project.methodologyConfig ?? {};
+    const current = ((project as any).methodologyConfig ?? {}) as Record<string, any>;
     const merged = this.deepMerge(current, patch);
 
     if (this.methodologyConfigValidator) {

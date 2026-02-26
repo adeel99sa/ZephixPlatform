@@ -12,6 +12,19 @@ const GOV_FLAG_KEYS = [
 
 type GovFlagKey = (typeof GOV_FLAG_KEYS)[number];
 
+const METHODOLOGY_SYNC_TRIGGER_KEYS = [
+  'costTrackingEnabled',
+  'baselinesEnabled',
+  'iterationsEnabled',
+  'changeManagementEnabled',
+  'waterfallEnabled',
+  'earnedValueEnabled',
+  'capacityEnabled',
+  'estimationMode',
+  'defaultIterationLengthDays',
+  'methodology',
+] as const;
+
 interface ApplyOptions {
   force?: boolean;
   onlyIfUnset?: boolean;
@@ -64,4 +77,10 @@ export function hasExplicitGovernanceFlags(
   return GOV_FLAG_KEYS.some((key) => payload[key] !== undefined);
 }
 
-export { GOV_FLAG_KEYS };
+export function hasMethodologySyncFields(payload: Record<string, any>): boolean {
+  return METHODOLOGY_SYNC_TRIGGER_KEYS.some(
+    (key) => payload[key] !== undefined,
+  );
+}
+
+export { GOV_FLAG_KEYS, METHODOLOGY_SYNC_TRIGGER_KEYS };
