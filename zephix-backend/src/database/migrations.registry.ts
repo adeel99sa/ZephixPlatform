@@ -7,27 +7,19 @@ function isProductionLikeRuntime(): boolean {
 
 function resolveRuntimeRoots(): {
   runtimeSrcRoot: string;
-  runtimeDistRoot: string;
 } {
   // src: <repo>/src/database
   // dist: <repo>/dist/src/database
   const runtimeSrcRoot = resolve(__dirname, '..');
-  const runtimeDistRoot = resolve(runtimeSrcRoot, '..');
-  return { runtimeSrcRoot, runtimeDistRoot };
+  return { runtimeSrcRoot };
 }
 
 export function getMigrationsForRuntime(): string[] {
-  const { runtimeSrcRoot, runtimeDistRoot } = resolveRuntimeRoots();
+  const { runtimeSrcRoot } = resolveRuntimeRoots();
   if (isProductionLikeRuntime()) {
-    return [
-      resolve(runtimeSrcRoot, 'migrations', '*.js'),
-      resolve(runtimeDistRoot, 'migrations', '*.js'),
-    ];
+    return [resolve(runtimeSrcRoot, 'migrations', '*.js')];
   }
 
-  return [
-    resolve(runtimeSrcRoot, 'migrations', '*.ts'),
-    resolve(runtimeDistRoot, 'migrations', '*.ts'),
-  ];
+  return [resolve(runtimeSrcRoot, 'migrations', '*.ts')];
 }
 
