@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { getMigrationsForRuntime } from '../database/migrations.registry';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
@@ -79,7 +80,7 @@ const AppDataSource = new DataSource({
     KpiDefinitionEntity,
     TemplateKpiEntity,
   ],
-  migrations: ['src/migrations/*.ts'],
+  migrations: getMigrationsForRuntime(),
   synchronize: false,
 });
 

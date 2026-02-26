@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { join } from 'path';
+import { getMigrationsForRuntime } from '../database/migrations.registry';
 
 const url = process.env.DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
 if (!url) {
@@ -15,10 +15,7 @@ const dataSource = new DataSource({
     (url || '').includes('railway')
       ? { rejectUnauthorized: false }
       : false,
-  migrations: [
-    join(process.cwd(), 'dist/src/migrations/*.js'),
-    join(process.cwd(), 'dist/migrations/*.js'),
-  ],
+  migrations: getMigrationsForRuntime(),
   migrationsTableName: 'migrations',
 });
 
