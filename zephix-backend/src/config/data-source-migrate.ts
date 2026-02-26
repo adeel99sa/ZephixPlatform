@@ -17,6 +17,7 @@ const dataSource = new DataSource({
       : false,
   migrations: [
     join(process.cwd(), 'dist/src/migrations/*.js'),
+    join(process.cwd(), 'dist/migrations/*.js'),
   ],
   migrationsTableName: 'migrations',
 });
