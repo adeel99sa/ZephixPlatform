@@ -1,3 +1,14 @@
+import { CORS_ALLOWED_HEADERS } from './cors-headers';
+
+describe('CORS_ALLOWED_HEADERS', () => {
+  it('includes lowercase x-correlation-id', () => {
+    expect(CORS_ALLOWED_HEADERS).toContain('x-correlation-id');
+  });
+
+  it('includes uppercase X-Correlation-Id', () => {
+    expect(CORS_ALLOWED_HEADERS).toContain('X-Correlation-Id');
+  });
+});
 import { buildCorsAllowedHeaders } from './cors-headers';
 
 describe('buildCorsAllowedHeaders', () => {

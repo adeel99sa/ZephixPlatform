@@ -83,4 +83,93 @@ describe('WorkspacesService', () => {
       }),
     );
   });
+
+  it('createWithOwners always adds creator as workspace_owner even when omitted', async () => {
+    const workspaceRepo = {
+      create: jest.fn((data) => data),
+      save: jest.fn(async (data) => ({ id: 'ws-2', ...data })),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        withDeleted: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      }),
+    };
+    const memberRepo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((data) => data),
+      save: jest.fn(async (data) => data),
+    };
+    const userRepo = {
+      find: jest.fn(async () => [
+        { id: 'user-1', organizationId: 'org-1', role: 'member' },
+        { id: 'user-2', organizationId: 'org-1', role: 'member' },
+      ]),
+    };
+    const userOrgRepo = {
+      find: jest.fn(async () => [
+        {
+          userId: 'user-1',
+          organizationId: 'org-1',
+          isActive: true,
+          role: 'member',
+        },
+        {
+          userId: 'user-2',
+          organizationId: 'org-1',
+          isActive: true,
+          role: 'member',
+        },
+      ]),
+      create: jest.fn((data) => data),
+      save: jest.fn(async (data) => data),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === Workspace) return workspaceRepo;
+        if (entity === WorkspaceMember) return memberRepo;
+        if (entity === User) return userRepo;
+        if (entity === UserOrganization) return userOrgRepo;
+        return {};
+      }),
+    };
+    const dataSource = {
+      transaction: jest.fn(async (fn) => fn(manager)),
+    } as unknown as DataSource;
+
+    const repoMock = { metadata: { columns: [], deleteDateColumn: null } };
+    const service = new WorkspacesService(
+      repoMock as any,
+      repoMock as any,
+      repoMock as any,
+      repoMock as any,
+      {} as ConfigService,
+      dataSource,
+      {} as TenantContextService,
+      {} as WorkspaceAccessService,
+    );
+
+    await service.createWithOwners({
+      name: 'Workspace 2',
+      slug: 'workspace-2',
+      organizationId: 'org-1',
+      createdBy: 'user-1',
+      ownerUserIds: ['user-2'],
+    });
+
+    expect(memberRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'ws-2',
+        userId: 'user-1',
+        role: 'workspace_owner',
+      }),
+    );
+    expect(memberRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'ws-2',
+        userId: 'user-2',
+        role: 'workspace_owner',
+      }),
+    );
+  });
 });

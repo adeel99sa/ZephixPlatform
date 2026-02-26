@@ -47,11 +47,24 @@ type Permissions = {
   capabilities?: Record<string, Record<string, boolean>>;
 };
 
+function unwrapData<T>(payload: unknown): T {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'data' in (payload as Record<string, unknown>)
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
 export async function getWorkspace(id: string): Promise<Workspace | null> {
   try {
-    const response = await api.get<{ data: Workspace | null }>(`/workspaces/${id}`);
-    // Backend returns { data: Workspace | null }
-    return response?.data?.data ?? (response?.data as unknown as Workspace) ?? null;
+    const payload = await api.get<Workspace | { data: Workspace | null } | null>(
+      `/workspaces/${id}`,
+    );
+    const workspace = unwrapData<Workspace | null>(payload);
+    return workspace ?? null;
   } catch (error: any) {
     // Re-throw 403 (access denied) so caller can handle it
     if (error?.response?.status === 403) {
@@ -94,13 +107,18 @@ export async function listOrgUsers(): Promise<any[]> {
 
 export async function listWorkspaceMembers(workspaceId: string): Promise<Member[]> {
   try {
-    const response = await api.get<{ data: Member[] }>(`/workspaces/${workspaceId}/members`);
-    // Backend returns { data: Member[] }
-    if (response?.data?.data) {
-      return response.data.data;
+    const payload = await api.get<Member[] | { data: Member[] }>(
+      `/workspaces/${workspaceId}/members`,
+    );
+    const unwrapped = unwrapData<Member[] | { data: Member[] }>(payload);
+    if (Array.isArray(unwrapped)) {
+      return unwrapped;
     }
-    // Fallback to old format
-    return Array.isArray(response?.data) ? response.data : [];
+    const nested =
+      unwrapped && typeof unwrapped === 'object'
+        ? (unwrapped as { data?: Member[] }).data
+        : undefined;
+    return Array.isArray(nested) ? nested : [];
   } catch (error) {
     console.error('Failed to fetch workspace members:', error);
     return [];
@@ -242,14 +260,25 @@ export async function getKpiSummary(id: string): Promise<any | null> {
 
 export async function listProjects(id: string): Promise<any[]> {
   try {
-    const response = await api.get<{ data: { projects: any[]; total: number; page: number; totalPages: number } }>(`/projects?workspaceId=${id}`);
-    // Backend returns { data: { projects, total, page, totalPages } }, extract projects array
-    if (response?.data?.data?.projects) {
-      return response.data.data.projects;
+    const payload = await api.get<
+      any[] | { projects?: any[] } | { data?: { projects?: any[] } }
+    >(`/projects?workspaceId=${id}`);
+    const unwrapped = unwrapData<
+      any[] | { projects?: any[] } | { data?: { projects?: any[] } }
+    >(payload);
+    if (Array.isArray(unwrapped)) {
+      return unwrapped;
     }
-    // Fallback to old format
-    if (Array.isArray(response?.data)) {
-      return response.data;
+    if (unwrapped && typeof unwrapped === 'object') {
+      const directProjects = (unwrapped as { projects?: any[] }).projects;
+      if (Array.isArray(directProjects)) {
+        return directProjects;
+      }
+      const nestedProjects = (unwrapped as { data?: { projects?: any[] } }).data
+        ?.projects;
+      if (Array.isArray(nestedProjects)) {
+        return nestedProjects;
+      }
     }
     return [];
   } catch (error) {
