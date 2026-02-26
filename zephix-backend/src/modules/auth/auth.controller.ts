@@ -32,8 +32,6 @@ import {
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
-import { RateLimit } from '../../common/rate-limit/rate-limit-policy.decorator';
-import { RateLimitPolicy } from '../../common/rate-limit/rate-limit.constants';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -42,10 +40,10 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
-import { CsrfService } from './services/csrf.service';
 import { AuditService } from '../audit/services/audit.service';
 import { AuditEntityType, AuditAction } from '../audit/audit.constants';
 import { isStagingRuntime } from '../../common/utils/runtime-env';
+import { randomBytes } from 'crypto';
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
@@ -91,7 +89,6 @@ export class AuthController {
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
     private readonly auditService: AuditService,
-    private readonly csrfService: CsrfService,
   ) {}
 
   /**
@@ -108,7 +105,6 @@ export class AuthController {
   @Post('signup') // Backward compatibility alias
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_REGISTER)
   @ApiOperation({ summary: 'Register a new user and organization' })
   @ApiResponse({
     status: 200,
@@ -168,7 +164,6 @@ export class AuthController {
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_RESEND)
   @ApiOperation({ summary: 'Resend email verification' })
   @ApiResponse({
     status: 200,
@@ -222,7 +217,6 @@ export class AuthController {
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_VERIFY)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
     status: 200,
@@ -248,7 +242,6 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_LOGIN)
   async login(
     @Body() loginDto: LoginDto,
     @Request() req: ExpressRequest,
@@ -354,7 +347,6 @@ export class AuthController {
 
   @Get('csrf')
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_CSRF)
   @ApiOperation({ summary: 'Get CSRF token' })
   @ApiResponse({
     status: 200,
@@ -364,14 +356,26 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
   ) {
-    const csrfToken = this.csrfService.generateToken();
-    this.csrfService.setCsrfCookie(req, res, csrfToken);
+    const csrfToken = randomBytes(32).toString('hex');
+    const hostHeader = req.headers?.host ?? req.get?.('host') ?? '';
+    const host = String(hostHeader);
+    const isLocal = isLocalhostHost(host);
+    const xfProto = String(req.headers?.['x-forwarded-proto'] ?? '').toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = isLocal ? 'lax' : isStagingRuntime() ? 'none' : 'strict';
+    res.cookie('XSRF-TOKEN', csrfToken, {
+      httpOnly: false,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    });
     return res.json({ token: csrfToken, csrfToken });
   }
 
   @Post('refresh')
   @UseGuards(RateLimiterGuard)
-  @RateLimit(RateLimitPolicy.AUTH_REFRESH)
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
