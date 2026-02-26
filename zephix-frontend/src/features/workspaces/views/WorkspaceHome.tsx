@@ -231,8 +231,15 @@ export default function WorkspaceHome() {
       let homeData: WorkspaceHomeData | null = null;
       if (slug) {
         try {
-          const response = await request.get<{ data: WorkspaceHomeData }>(`/workspaces/slug/${slug}/home`);
-          homeData = response.data;
+          const homePayload = await request.get<
+            WorkspaceHomeData | { data: WorkspaceHomeData }
+          >(`/workspaces/slug/${slug}/home`);
+          homeData =
+            homePayload &&
+            typeof homePayload === 'object' &&
+            'data' in (homePayload as Record<string, unknown>)
+              ? ((homePayload as { data: WorkspaceHomeData }).data ?? null)
+              : (homePayload as WorkspaceHomeData);
           setWorkspaceHomeData(homeData);
           if (homeData?.workspace) {
             const ws: Workspace = {
