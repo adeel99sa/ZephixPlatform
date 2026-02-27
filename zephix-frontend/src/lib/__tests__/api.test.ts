@@ -202,3 +202,25 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     }
   });
 });
+
+describe('Auth bootstrap contract', () => {
+  it('resolves null for GET /auth/me 401 without throwing', async () => {
+    const responseRejected = (api.interceptors.response as any).handlers[0].rejected;
+
+    const result = await responseRejected({
+      config: {
+        url: '/auth/me',
+        method: 'get',
+        headers: {},
+      },
+      response: {
+        status: 401,
+        data: {
+          message: 'Unauthorized',
+        },
+      },
+    });
+
+    expect(result).toBeNull();
+  });
+});
