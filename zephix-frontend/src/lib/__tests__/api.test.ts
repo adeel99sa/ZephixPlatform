@@ -189,6 +189,26 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
 });
 
 describe('CSRF token flow (cross-host safe)', () => {
+  it('resolves null for GET /auth/me 401 without throwing', async () => {
+    const responseRejected = (api.interceptors.response as any).handlers[0].rejected;
+
+    const result = await responseRejected({
+      config: {
+        url: '/auth/me',
+        method: 'get',
+        headers: {},
+      },
+      response: {
+        status: 401,
+        data: {
+          message: 'Unauthorized',
+        },
+      },
+    });
+
+    expect(result).toBeNull();
+  });
+
   it('attaches X-CSRF-Token from /auth/csrf response body', async () => {
     const getSpy = vi.spyOn(axios, 'get').mockResolvedValue({
       data: { token: 'csrf-from-body' },
@@ -203,6 +223,7 @@ describe('CSRF token flow (cross-host safe)', () => {
 
     expect(getSpy).toHaveBeenCalledWith('/api/auth/csrf', { withCredentials: true });
     expect((cfg.headers as any)['X-CSRF-Token']).toBe('csrf-from-body');
+    expect((cfg.headers as any)['X-XSRF-TOKEN']).toBe('csrf-from-body');
   });
 
   it('refreshes CSRF and retries once on CSRF_TOKEN_MISSING', async () => {
