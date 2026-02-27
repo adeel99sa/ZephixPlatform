@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { AuthController } from './auth.controller';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 
 /**
  * Verify that security guards are correctly applied to auth endpoints.
@@ -44,11 +45,11 @@ describe('AuthController — Security Guard Enforcement', () => {
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  // ── Authenticated endpoints MUST have JwtAuthGuard ────────────────
+  // ── Authenticated endpoints MUST have guard enforcement ────────────────
 
-  it('GET /auth/me has JwtAuthGuard', () => {
+  it('GET /auth/me has OptionalJwtAuthGuard', () => {
     const guards = getMethodGuards(proto, 'getProfile');
-    expect(guards).toContain(JwtAuthGuard);
+    expect(guards).toContain(OptionalJwtAuthGuard);
   });
 
   it('POST /auth/logout has JwtAuthGuard', () => {
