@@ -1,11 +1,13 @@
 import axios from "axios";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import {
+  recordNetworkFailure,
+  recordNetworkRequest,
+} from "@/lib/staging/debug-capture";
+import { resolveRuntimeApiBase } from "@/lib/runtime-api-base";
 
-const PROD_DEFAULT = "https://zephix-backend-production.up.railway.app/api";
-
-const baseURL = import.meta.env.PROD
-  ? (String(import.meta.env.VITE_API_URL || PROD_DEFAULT).replace(/\/+$/, ""))
-  : "/api";
+const runtimeApi = resolveRuntimeApiBase();
+const baseURL = runtimeApi.resolvedApiUrl;
 
 export const api = axios.create({
   baseURL,
@@ -41,7 +43,13 @@ async function ensureCsrfToken(): Promise<string | null> {
   csrfFetchPromise = (async () => {
     try {
       const response = await axios.get(`${baseURL}/auth/csrf`, { withCredentials: true });
-      const token = response?.data?.token || response?.data?.csrfToken || null;
+      const payload = response?.data;
+      const token =
+        payload?.token ||
+        payload?.csrfToken ||
+        payload?.data?.token ||
+        payload?.data?.csrfToken ||
+        null;
       csrfTokenCache = typeof token === "string" && token.length > 0 ? token : null;
       return csrfTokenCache;
     } catch {
@@ -73,6 +81,10 @@ function isAuthUrl(url: string) {
   return url.includes("/auth/");
 }
 
+function isAuthMeUrl(url: string) {
+  return url.endsWith("/auth/me") || url.includes("/auth/me?");
+}
+
 function isHealthUrl(url: string) {
   return url.includes("/health") || url.includes("/version");
 }
@@ -93,6 +105,18 @@ function isProjectsUrl(url: string) {
 
 api.interceptors.request.use(async (cfg) => {
   const url = String(cfg.url || "");
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const correlationId = `corr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  (cfg.headers as any)["x-request-id"] = requestId;
+  (cfg.headers as any)["x-correlation-id"] = correlationId;
+  (cfg as any).metadata = {
+    startTime: Date.now(),
+    requestId,
+    correlationId,
+    method: String(cfg.method || "get").toUpperCase(),
+    url,
+  };
+
   const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
 
   if (!cfg.headers) cfg.headers = {} as any;
@@ -107,6 +131,7 @@ api.interceptors.request.use(async (cfg) => {
     const token = await ensureCsrfToken();
     if (token) {
       (cfg.headers as any)["X-CSRF-Token"] = token;
+      (cfg.headers as any)["X-XSRF-TOKEN"] = token;
     }
   }
 
@@ -134,6 +159,19 @@ api.interceptors.request.use(async (cfg) => {
 
 api.interceptors.response.use(
   (res) => {
+    recordNetworkRequest({
+      timestamp: new Date().toISOString(),
+      method: String((res.config as any)?.metadata?.method || res.config?.method || "GET"),
+      url: String((res.config as any)?.metadata?.url || res.config?.url || ""),
+      status: res.status,
+      ok: true,
+      requestId:
+        String(res.headers?.["x-request-id"] || "") ||
+        String((res.config as any)?.metadata?.requestId || ""),
+      correlationId:
+        String(res.headers?.["x-correlation-id"] || "") ||
+        String((res.config as any)?.metadata?.correlationId || ""),
+    });
     const data = res?.data;
     if (data && typeof data === "object" && "data" in data) return (data as any).data;
     return data;
@@ -143,6 +181,45 @@ api.interceptors.response.use(
     const method = String(original?.method || "").toLowerCase();
     const url = String(original?.url || "");
     const isMutating = MUTATING_METHODS.includes(method);
+    const status = err?.response?.status;
+
+    // Treat auth bootstrap 401 as a normal "not logged in" state.
+    // Keep all other 401 handling unchanged.
+    if (status === 401 && method === "get" && isAuthMeUrl(url)) {
+      return null;
+    }
+
+    recordNetworkRequest({
+      timestamp: new Date().toISOString(),
+      method: String(original?.metadata?.method || method || "GET").toUpperCase(),
+      url: String(original?.metadata?.url || url || ""),
+      status: status || null,
+      ok: false,
+      requestId:
+        String(err?.response?.headers?.["x-request-id"] || "") ||
+        String(original?.metadata?.requestId || ""),
+      correlationId:
+        String(err?.response?.headers?.["x-correlation-id"] || "") ||
+        String(original?.metadata?.correlationId || ""),
+    });
+    recordNetworkFailure({
+      timestamp: new Date().toISOString(),
+      method: String(original?.metadata?.method || method || "GET").toUpperCase(),
+      url: String(original?.metadata?.url || url || ""),
+      status: status || null,
+      requestId:
+        String(err?.response?.headers?.["x-request-id"] || "") ||
+        String(original?.metadata?.requestId || ""),
+      correlationId:
+        String(err?.response?.headers?.["x-correlation-id"] || "") ||
+        String(original?.metadata?.correlationId || ""),
+      responseSnippet: (() => {
+        const body = err?.response?.data;
+        if (!body) return null;
+        const raw = typeof body === "string" ? body : JSON.stringify(body);
+        return raw.slice(0, 400);
+      })(),
+    });
 
     if (isMutating && !isCsrfBootstrapUrl(url) && isCsrfError(err) && !original?._csrfRetry) {
       original._csrfRetry = true;
