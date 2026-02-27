@@ -31,6 +31,7 @@ import {
 } from './dto/resend-verification.dto';
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
@@ -288,9 +289,13 @@ export class AuthController {
     return res.json(loginResult);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('me')
   async getProfile(@Request() req: AuthRequest) {
+    if (!(req as any).user) {
+      return { user: null };
+    }
+
     // Fetch full user from database to return complete user object
     const { userId } = getAuthContext(req);
     const user = await this.authService.getUserById(userId);
