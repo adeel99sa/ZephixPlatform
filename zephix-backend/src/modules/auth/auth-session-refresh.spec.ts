@@ -58,6 +58,9 @@ describe('AuthService - Refresh Token Security', () => {
   };
 
   beforeEach(async () => {
+    process.env.JWT_SECRET = 'test-jwt-secret-key-min-32-chars-long';
+    process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key-min-32-chars';
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
