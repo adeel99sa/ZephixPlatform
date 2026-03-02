@@ -23,7 +23,6 @@ import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
 // Phase 2B: Waterfall core panels
 import { BaselinePanel } from '../components/BaselinePanel';
 import { EarnedValuePanel } from '../components/EarnedValuePanel';
-import { useProjectCapabilities } from '../hooks/useProjectCapabilities';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -91,7 +90,8 @@ export const ProjectOverviewTab: React.FC = () => {
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const { isReadOnly, canWrite } = useWorkspaceRole(workspaceId);
   const { project, refresh: refreshProject } = useProjectContext();
-  const capabilities = useProjectCapabilities(project);
+  // Keep panels feature-gated off until capability hook is restored.
+  const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
 
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [loading, setLoading] = useState(true);
