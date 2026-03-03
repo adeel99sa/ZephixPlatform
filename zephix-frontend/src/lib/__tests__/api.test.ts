@@ -7,7 +7,41 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 import { api } from '../api';
 
-vi.mock('axios');
+const { mockApiInstance } = vi.hoisted(() => {
+  const requestHandlers: Array<{ fulfilled?: unknown; rejected?: unknown }> = [];
+  const responseHandlers: Array<{ fulfilled?: unknown; rejected?: unknown }> = [];
+  const instance = {
+    interceptors: {
+      request: {
+        handlers: requestHandlers,
+        use: vi.fn((fulfilled, rejected) => {
+          requestHandlers.push({ fulfilled, rejected });
+          return requestHandlers.length - 1;
+        }),
+      },
+      response: {
+        handlers: responseHandlers,
+        use: vi.fn((fulfilled, rejected) => {
+          responseHandlers.push({ fulfilled, rejected });
+          return responseHandlers.length - 1;
+        }),
+      },
+    },
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  };
+  return { mockApiInstance: instance };
+});
+
+vi.mock('axios', () => ({
+  default: {
+    create: vi.fn(() => mockApiInstance),
+    get: vi.fn(),
+  },
+}));
 
 describe('API envelope unwrapping', () => {
   beforeEach(() => {
@@ -27,20 +61,12 @@ describe('API envelope unwrapping', () => {
       },
     };
 
-    (axios.create as any).mockReturnValue({
-      interceptors: {
-        response: {
-          use: vi.fn((onFulfilled) => {
-            // Simulate the interceptor being called
-            onFulfilled(mockResponse);
-          }),
-        },
-      },
-    });
+    const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
+    const unwrapped = responseHandler?.(mockResponse);
 
     // The test verifies that the interceptor in api.ts
     // correctly unwraps the envelope structure
-    expect(mockData).toEqual({ id: '123', name: 'test' });
+    expect(unwrapped).toEqual({ id: '123', name: 'test' });
   });
 
   it('should handle flat responses without envelope', async () => {
