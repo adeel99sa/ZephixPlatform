@@ -58,6 +58,9 @@ describe('AuthService - Refresh Token Security', () => {
   };
 
   beforeEach(async () => {
+    process.env.JWT_SECRET = `unit_jwt_${crypto.randomBytes(24).toString('hex')}`;
+    process.env.JWT_REFRESH_SECRET = `unit_refresh_${crypto.randomBytes(24).toString('hex')}`;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
