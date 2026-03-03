@@ -35,6 +35,20 @@ import { getAuthContext } from '../common/http/get-auth-context';
 import { AuditService } from '../modules/audit/services/audit.service';
 import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
 
+type AdminUserRow = {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  isActive?: boolean | null;
+  organizationId?: string | null;
+  lastActive?: string | Date | null;
+  joinedAt?: string | Date | null;
+  lastLoginAt?: string | Date | null;
+  createdAt?: string | Date | null;
+};
+
 @ApiTags('Admin')
 @ApiBearerAuth()
 @Controller('admin')
@@ -368,7 +382,7 @@ export class AdminController {
       // Apply role and status filters client-side for now
       let filteredUsers = result.users;
       if (_role && _role !== 'all') {
-        filteredUsers = filteredUsers.filter((u: any) => u.role === _role);
+        filteredUsers = filteredUsers.filter((u: AdminUserRow) => u.role === _role);
       }
       if (_status && _status !== 'all') {
         // Map status based on isActive or other criteria
@@ -379,8 +393,8 @@ export class AdminController {
       const totalPages = Math.ceil(result.total / limitNum);
 
       return {
-        users: filteredUsers.map((u: any) => ({
-          id: u.id,
+        users: filteredUsers.map((u: AdminUserRow) => ({
+          id: String(u.id),
           email: u.email,
           firstName: u.firstName || '',
           lastName: u.lastName || '',
@@ -434,7 +448,7 @@ export class AdminController {
         organizationId,
         { limit: 1000, offset: 0 },
       );
-      const user = result.users.find((u: any) => u.id === userId);
+      const user = result.users.find((u: AdminUserRow) => u.id === userId);
       if (!user) {
         throw new InternalServerErrorException('User not found');
       }
