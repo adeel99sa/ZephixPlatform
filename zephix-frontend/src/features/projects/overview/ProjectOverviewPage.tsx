@@ -123,10 +123,8 @@ export const ProjectOverviewPage: React.FC = () => {
           'x-workspace-id': workspaceId,
         },
       });
-      const unwrapped =
-        response && typeof response === 'object' && 'data' in (response as Record<string, unknown>)
-          ? (response as { data: unknown }).data
-          : response;
+      const payload = (response as any)?.data ?? response;
+      const unwrapped = (payload as any)?.data ?? payload;
       setOverview(normalizeOverview(unwrapped));
     } catch (err: any) {
       console.error('Failed to load project overview:', err);
@@ -143,10 +141,8 @@ export const ProjectOverviewPage: React.FC = () => {
       const response = await apiClient.get<{ data: { projects: any[] } }>(
         `/projects?workspaceId=${workspaceId}`
       );
-      const unwrapped =
-        response && typeof response === 'object' && 'data' in (response as Record<string, unknown>)
-          ? (response as { data: { projects?: any[] } }).data
-          : response;
+      const payload = (response as any)?.data ?? response;
+      const unwrapped = (payload as any)?.data ?? payload;
       const projects = Array.isArray((unwrapped as { projects?: any[] })?.projects)
         ? (unwrapped as { projects: any[] }).projects
         : [];
