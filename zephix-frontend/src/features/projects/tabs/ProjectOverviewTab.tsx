@@ -122,11 +122,9 @@ export const ProjectOverviewTab: React.FC = () => {
       const response = await api.get(`/work/projects/${projectId}/overview`, {
         headers: { 'x-workspace-id': workspaceId },
       });
-      const unwrapped =
-        response && typeof response === 'object' && 'data' in (response as Record<string, unknown>)
-          ? (response as { data: unknown }).data
-          : response;
-      setOverview(normalizeOverview(unwrapped));
+      const payload = (response as any)?.data ?? response;
+      const data = (payload as any)?.data ?? payload;
+      setOverview(normalizeOverview(data));
     } catch (err: any) {
       console.error('Failed to load project overview:', err);
       setError(err.response?.data?.message || 'Failed to load project overview');
