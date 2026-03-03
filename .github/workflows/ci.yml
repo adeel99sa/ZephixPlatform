@@ -24,15 +24,23 @@ jobs:
       - name: Backend dist/migrations guardrail
         working-directory: zephix-backend
         run: |
-          if [ ! -d dist/migrations ] || [ -z "$(ls -A dist/migrations 2>/dev/null)" ]; then
-            echo "::error::dist/migrations is empty or missing"
+          MIG_DIR=""
+          if [ -d dist/src/migrations ] && [ -n "$(ls -A dist/src/migrations 2>/dev/null)" ]; then
+            MIG_DIR="dist/src/migrations"
+          elif [ -d dist/migrations ] && [ -n "$(ls -A dist/migrations 2>/dev/null)" ]; then
+            MIG_DIR="dist/migrations"
+          fi
+
+          if [ -z "$MIG_DIR" ]; then
+            echo "::error::dist/src/migrations and dist/migrations are both empty or missing"
             exit 1
           fi
-          if ! ls dist/migrations | grep -qE '17980202500000|UserOrganizationsSnakeCaseColumns'; then
-            echo "::error::dist/migrations missing expected snake_case migration"
+
+          if ! ls "$MIG_DIR" | grep -qE '17980202500000|UserOrganizationsSnakeCaseColumns'; then
+            echo "::error::$MIG_DIR missing expected snake_case migration"
             exit 1
           fi
-          echo "dist/migrations OK"
+          echo "$MIG_DIR OK"
       - name: Backend git guardrail
         run: |
           set -euo pipefail
