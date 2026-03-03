@@ -16,10 +16,16 @@ function resolveRuntimeRoots(): {
 
 export function getMigrationsForRuntime(): string[] {
   const { runtimeSrcRoot } = resolveRuntimeRoots();
+  // Support both compiled and source runtimes:
+  // - start:prod can run with NODE_ENV=development in CI jobs
+  // - start:dev/ts-node uses source .ts migrations
   if (isProductionLikeRuntime()) {
     return [resolve(runtimeSrcRoot, 'migrations', '*.js')];
   }
 
-  return [resolve(runtimeSrcRoot, 'migrations', '*.ts')];
+  return [
+    resolve(runtimeSrcRoot, 'migrations', '*.js'),
+    resolve(runtimeSrcRoot, 'migrations', '*.ts'),
+  ];
 }
 
