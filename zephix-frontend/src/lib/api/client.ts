@@ -1,9 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 // InternalAxiosRequestConfig is extended below via module augmentation (no import needed)
 
-import { ApiResponse, StandardError, ApiClientConfig } from './types';
+import { StandardError, ApiClientConfig } from './types';
 
 import { useWorkspaceStore } from '@/state/workspace.store';
+
+function unwrapOneDataLayer(body: unknown): unknown {
+  if (!body || typeof body !== 'object') return body;
+  if ('data' in (body as Record<string, unknown>)) {
+    return (body as Record<string, unknown>).data;
+  }
+  return body;
+}
 
 
 // Extend Axios types to include our custom metadata
@@ -288,29 +296,29 @@ class ApiClient {
   }
 
   // Public API methods
-  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<any> {
     const response = await this.instance.get(url, config);
-    return response.data;
+    return unwrapOneDataLayer(response.data) as T;
   }
 
-  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
     const response = await this.instance.post(url, data, config);
-    return response.data;
+    return unwrapOneDataLayer(response.data) as T;
   }
 
-  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
     const response = await this.instance.put(url, data, config);
-    return response.data;
+    return unwrapOneDataLayer(response.data) as T;
   }
 
-  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
     const response = await this.instance.patch(url, data, config);
-    return response.data;
+    return unwrapOneDataLayer(response.data) as T;
   }
 
-  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<any> {
     const response = await this.instance.delete(url, config);
-    return response.data;
+    return unwrapOneDataLayer(response.data) as T;
   }
 
   // Removed token utility methods - using cookies only
