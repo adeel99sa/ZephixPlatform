@@ -50,7 +50,11 @@ describe('HealthController /api/version contract', () => {
     process.env.RAILWAY_DEPLOYMENT_ID = 'deploy-123';
 
     const controller = new HealthController(undefined, undefined);
-    const payload = await controller.version();
+    const setHeader = jest.fn().mockReturnThis();
+    const json = jest.fn().mockReturnThis();
+    const res = { setHeader, json } as any;
+    await controller.version(res);
+    const payload = json.mock.calls[0]?.[0];
 
     expect(payload).toEqual(
       expect.objectContaining({
@@ -83,7 +87,11 @@ describe('HealthController /api/version contract', () => {
     process.env.RAILWAY_DEPLOYMENT_ID = 'deploy-unknown';
 
     const controller = new HealthController(undefined, undefined);
-    const payload = await controller.version();
+    const setHeader = jest.fn().mockReturnThis();
+    const json = jest.fn().mockReturnThis();
+    const res = { setHeader, json } as any;
+    await controller.version(res);
+    const payload = json.mock.calls[0]?.[0];
 
     expect(payload).toEqual(
       expect.objectContaining({
