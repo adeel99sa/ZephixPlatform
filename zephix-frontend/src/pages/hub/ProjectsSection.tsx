@@ -64,7 +64,7 @@ export default function ProjectsSection() {
         <div className="text-sm text-gray-500">No projects found</div>
       ) : (
         <div className="space-y-2">
-          {projects.slice(0, 5).map((project) => (
+          {projects.slice(0, 5).map((project: Project) => (
             <div key={project.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
               <div>
                 <div className="font-medium text-sm">{project.name}</div>
