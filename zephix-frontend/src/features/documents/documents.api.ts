@@ -2,6 +2,9 @@ import { request } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import type { Document, CreateDocumentInput, UpdateDocumentInput } from './types';
 
+// Backward-compatible alias for legacy consumers.
+export type DocumentItem = Document;
+
 function requireWorkspace(): string {
   const wsId = useWorkspaceStore.getState().activeWorkspaceId;
   if (!wsId) throw new Error('WORKSPACE_REQUIRED');

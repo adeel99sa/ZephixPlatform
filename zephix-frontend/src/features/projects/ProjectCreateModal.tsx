@@ -39,8 +39,9 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
     const loadTemplates = async () => {
       try {
         setLoading(true);
-        const { data } = await apiClient.get('/templates/published');
-        const raw = data?.data ?? data;
+        const response = await apiClient.get('/templates/published');
+        const payload = (response as any)?.data ?? response;
+        const raw = (payload as any)?.data ?? payload;
         const activeTemplates = (Array.isArray(raw) ? raw : [])
           .map((t: any) => ({
             id: t.id,
