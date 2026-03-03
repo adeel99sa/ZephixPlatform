@@ -4,6 +4,8 @@ import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
+import { AttachmentsService } from '../modules/attachments/services/attachments.service';
+import { AuditService } from '../modules/audit/services/audit.service';
 
 // Jest types are available via @types/jest in package.json
 
@@ -42,6 +44,14 @@ describe('AdminController - Contract Tests', () => {
         },
         {
           provide: TeamsService,
+          useValue: {},
+        },
+        {
+          provide: AttachmentsService,
+          useValue: {},
+        },
+        {
+          provide: AuditService,
           useValue: {},
         },
       ],

@@ -102,11 +102,11 @@ export function PhaseGatePanel({
       const [def, subs, docs] = await Promise.all([
         getGateDefinition(projectId, phaseId),
         listGateSubmissions(projectId, { phaseId }),
-        listDocuments(projectId, {}),
+        listDocuments(projectId),
       ]);
       setDefinition(def);
       setSubmissions(subs?.items || []);
-      setProjectDocs(docs?.items || []);
+      setProjectDocs(Array.isArray(docs) ? docs : []);
 
       if (def) {
         setEditName(def.name);
@@ -960,7 +960,7 @@ export function PhaseGatePanel({
                                 setSelectedDocIds(next);
                               }}
                             />
-                            <span className="truncate">{doc.title || doc.fileName}</span>
+                            <span className="truncate">{doc.title || 'Untitled document'}</span>
                           </li>
                         ))}
                       </ul>
