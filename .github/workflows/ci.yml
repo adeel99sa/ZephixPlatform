@@ -488,15 +488,22 @@ jobs:
       - name: Build backend
         working-directory: zephix-backend
         run: npm ci && npm run build
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Start app (AUTO_MIGRATE=true) + demo bootstrap + smoke
         working-directory: zephix-backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
           NODE_ENV: development
           AUTO_MIGRATE: "true"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
-          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
-          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           (npm run start:prod &)
           sleep 15
@@ -544,6 +551,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
         run: node dist/src/scripts/db/verify.js
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Start app (AUTO_MIGRATE=false) + smoke
         working-directory: zephix-backend
         env:
@@ -551,9 +564,10 @@ jobs:
           DATABASE_SSL: "false"
           NODE_ENV: production
           AUTO_MIGRATE: "false"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
-          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
-          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           (npm run start:prod &)
           sleep 15
@@ -636,6 +650,12 @@ jobs:
           echo "Running db:verify..."
           node dist/src/scripts/db/verify.js
           echo "✅ Gate 2 passed: migrations idempotent"
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       # Gate 3: Health endpoint responds after deploy simulation
       - name: "Gate 3: Health ready endpoint"
@@ -645,9 +665,10 @@ jobs:
           DATABASE_SSL: "false"
           NODE_ENV: production
           AUTO_MIGRATE: "false"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
-          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
-          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           echo "Starting app for health check..."
           (npm run start:prod &)
