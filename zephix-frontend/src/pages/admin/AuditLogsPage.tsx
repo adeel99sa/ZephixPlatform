@@ -8,7 +8,10 @@ export default function AuditLogsPage() {
     queryKey: ['admin','audit-logs'],
     queryFn: async () => {
       const response = await apiClient.get('/admin/audit', { params: { limit: 50 } });
-      const rows = Array.isArray(response?.data?.data) ? response.data.data : [];
+      const payload = (response as any)?.data ?? response;
+      const body = (payload as any)?.data ?? payload;
+      const items = (body as any)?.items ?? body ?? [];
+      const rows = Array.isArray(items) ? items : [];
       return rows.map((row: any) => ({
         id: String(row?.id ?? ''),
         at: String(row?.createdAt ?? new Date().toISOString()),
