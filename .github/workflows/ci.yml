@@ -486,7 +486,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
           NODE_ENV: development
           AUTO_MIGRATE: "true"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
+          JWT_SECRET: ci_jwt_secret_6f7d9b2c3a4e5f60123456789abcdeff
+          JWT_REFRESH_SECRET: ci_refresh_secret_9e8d7c6b5a4f32100123456789abcdeff
           REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
           INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
         run: |
