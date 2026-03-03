@@ -98,15 +98,15 @@ describe('api wrappers contract', () => {
     expect(result).toBeNull();
   });
 
-  it('apiClient wrapper returns response.data without unwrapping', async () => {
+  it('apiClient wrapper unwraps one top-level data envelope like request', async () => {
     const { mod, instance } = await loadApiClientModule();
     instance.get.mockResolvedValue({ data: { data: { user: null } } });
 
     const result = await mod.apiClient.get('/auth/me');
-    expect(result).toEqual({ data: { user: null } });
+    expect(result).toEqual({ user: null });
   });
 
-  it('proves drift: request and apiClient produce different /auth/me outputs', async () => {
+  it('request and apiClient now match for /auth/me', async () => {
     const { responseHandlers } = await loadApiModule();
     const requestFulfilled = responseHandlers[0]?.fulfilled;
     expect(typeof requestFulfilled).toBe('function');
@@ -117,7 +117,22 @@ describe('api wrappers contract', () => {
     const clientResult = await mod.apiClient.get('/auth/me');
 
     expect(requestResult).toEqual({ user: null });
-    expect(clientResult).toEqual({ data: { user: null } });
-    expect(clientResult).not.toEqual(requestResult);
+    expect(clientResult).toEqual({ user: null });
+    expect(clientResult).toEqual(requestResult);
+  });
+
+  it('request and apiClient now match for collection payloads', async () => {
+    const { responseHandlers } = await loadApiModule();
+    const requestFulfilled = responseHandlers[0]?.fulfilled;
+    expect(typeof requestFulfilled).toBe('function');
+    const requestResult = requestFulfilled?.({ data: { data: { items: [] } } });
+
+    const { mod, instance } = await loadApiClientModule();
+    instance.get.mockResolvedValue({ data: { data: { items: [] } } });
+    const clientResult = await mod.apiClient.get('/work/items');
+
+    expect(requestResult).toEqual({ items: [] });
+    expect(clientResult).toEqual({ items: [] });
+    expect(clientResult).toEqual(requestResult);
   });
 });
