@@ -30,6 +30,7 @@ import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
+import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
 
@@ -77,6 +78,7 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
     OutboxProcessorService,
     EmailService,
     CsrfGuard,
+    SmokeKeyGuard,
     { provide: AUTH_RATE_LIMIT_STORE, useClass: NoopAuthRateLimitStore },
   ],
   exports: [

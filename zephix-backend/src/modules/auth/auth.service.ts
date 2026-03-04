@@ -185,9 +185,40 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const bypassVerification = shouldBypassEmailVerificationForEmail(
-      user.email,
-    );
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  async smokeLogin(email: string, ip?: string, userAgent?: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 16);
+
+    if (!shouldBypassEmailVerificationForEmail(normalizedEmail)) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Smoke login requires staging bypass allowlist and enabled skip flag.',
+        email: normalizedEmail,
+      });
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+    if (!user) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  private async ensureEmailVerificationAllowed(user: User): Promise<void> {
+    const bypassVerification = shouldBypassEmailVerificationForEmail(user.email);
     if (bypassVerification && !user.isEmailVerified) {
       const verifiedAt = new Date();
       await this.userRepository.update(user.id, {
@@ -223,7 +254,14 @@ export class AuthService {
         email: user.email,
       });
     }
+  }
 
+  private async createLoginResult(
+    user: User,
+    emailHash: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
     await this.userRepository.update(user.id, {
       lastLoginAt: new Date(),
     });
