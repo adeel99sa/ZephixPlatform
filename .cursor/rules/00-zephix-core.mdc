@@ -46,3 +46,5 @@ Execute steps with stop rules
 Provide proof outputs
 
 Commit only after validation
+
+When tasks touch auth, tenancy, module wiring, shared libs, migrations, staging workflows, the agent must load the architecture-memory skill and reference docs/ai/ARCHITECTURE_MEMORY.md in the runbook.
