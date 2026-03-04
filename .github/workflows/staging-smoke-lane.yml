@@ -47,8 +47,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/smoke/staging/')
     runs-on: ubuntu-latest
     env:
-      EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
-      PASS: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+      STAGING_SMOKE_KEY: ${{ secrets.STAGING_SMOKE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,8 +58,8 @@ jobs:
         run: npm install
       - name: Validate smoke secrets exist
         run: |
-          if [ -z "${EMAIL}" ] || [ -z "${PASS}" ]; then
-            echo "::error::Missing STAGING_SMOKE_EMAIL or STAGING_SMOKE_PASSWORD secret"
+          if [ -z "${STAGING_SMOKE_KEY}" ]; then
+            echo "::error::Missing STAGING_SMOKE_KEY secret"
             exit 1
           fi
       - name: Run staging onboarding smoke
