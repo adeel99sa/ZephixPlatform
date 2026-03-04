@@ -6,7 +6,13 @@
 
 import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import type { Risk, CreateRiskInput, ListRisksParams, ListRisksResponse } from './types';
+import type {
+  Risk,
+  CreateRiskInput,
+  ListRisksParams,
+  ListRisksResponse,
+  UpdateRiskInput,
+} from './types';
 
 // --- Workspace invariant helper ---
 
@@ -34,8 +40,7 @@ export async function listRisks(params: ListRisksParams): Promise<ListRisksRespo
   if (params.severity) queryParams.set('severity', params.severity);
   if (params.status) queryParams.set('status', params.status);
 
-  const res = await api.get(`/work/risks?${queryParams.toString()}`);
-  return res.data;
+  return api.get(`/work/risks?${queryParams.toString()}`);
 }
 
 /**
@@ -45,8 +50,16 @@ export async function listRisks(params: ListRisksParams): Promise<ListRisksRespo
 export async function createRisk(input: CreateRiskInput): Promise<Risk> {
   requireActiveWorkspace();
 
-  const res = await api.post('/work/risks', input);
-  return res.data;
+  return api.post('/work/risks', input);
+}
+
+/**
+ * Update an existing risk.
+ */
+export async function updateRisk(riskId: string, input: UpdateRiskInput): Promise<Risk> {
+  requireActiveWorkspace();
+
+  return api.patch(`/work/risks/${riskId}`, input);
 }
 
 /**
