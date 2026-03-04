@@ -8,6 +8,13 @@ Instructions
 
 Always validate /api/health/ready and /api/version.
 
+Always use scripts/smoke/staging-onboarding.sh for staging proof.
+
+Never paste Railway domains into docs outside docs/ai/environments.
+
+When a domain changes, update docs/ai/environments/staging.env and rerun:
+scripts/smoke/sync-staging-env.sh, then scripts/smoke/staging-onboarding.sh.
+
 For signup flow, verify cookie session and /auth/me.
 
 Collect evidence bundle under docs or scripts proofs only when requested.
