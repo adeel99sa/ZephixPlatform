@@ -41,7 +41,10 @@ CORS_ALLOWED_ORIGINS=https://zephix-frontend-production.up.railway.app,https://g
 
 #### Staging Frontend
 ```bash
-VITE_API_URL=https://zephix-backend-staging.up.railway.app/api
+# Canonical source of truth:
+# docs/ai/environments/staging.env
+# STAGING_BACKEND_API=...
+VITE_API_URL=$STAGING_BACKEND_API
 VITE_STRICT_JWT=false
 VITE_SENTRY_ENVIRONMENT=staging
 VITE_SENTRY_RELEASE=$npm_package_version
@@ -104,11 +107,14 @@ cd zephix-frontend
 
 ### Staging Smoke Tests
 ```bash
+# Source canonical staging endpoints
+source docs/ai/environments/staging.env
+
 # Health Check
-curl -i https://zephix-backend-staging.up.railway.app/api/health
+curl -i "$STAGING_BACKEND_API/health"
 
 # Login Test
-curl -s -X POST https://zephix-backend-staging.up.railway.app/api/auth/login \
+curl -s -X POST "$STAGING_BACKEND_API/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"demo@zephix.com","password":"YOURPASS"}' | jq .
 

@@ -5,11 +5,20 @@
 ###############################################################################
 set -euo pipefail
 
-STAGING_URL="${1:-https://zephix-backend-v2-staging.up.railway.app/api}"
+STAGING_URL="${1:-}"
 EMAIL="${SMOKE_EMAIL:-demo@zephix.ai}"
 PASSWORD="${SMOKE_PASSWORD:-demo123456}"
 COOKIE_JAR="$(mktemp)"
 PROOF_DIR="$(cd "$(dirname "$0")" && cd ../../docs/architecture/proofs/phase5a/wave3b/rc23 && pwd)"
+ENV_FILE="$(cd "$(dirname "$0")"/../.. && pwd)/docs/ai/environments/staging.env"
+
+if [ -z "$STAGING_URL" ] && [ -f "$ENV_FILE" ]; then
+  STAGING_URL="$(rg '^STAGING_BACKEND_API=' "$ENV_FILE" -N | head -n 1 | sed 's/^STAGING_BACKEND_API=//')"
+fi
+if [ -z "$STAGING_URL" ]; then
+  echo "STAGING_URL not provided and STAGING_BACKEND_API missing in docs/ai/environments/staging.env"
+  exit 1
+fi
 
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
