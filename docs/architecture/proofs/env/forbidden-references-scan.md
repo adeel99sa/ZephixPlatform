@@ -18,7 +18,7 @@
 - **Zero forbidden references**
 
 ### staging/zephix-frontend (15 vars) — CLEAN
-- `VITE_API_URL`: `https://zephix-backend-v2-staging.up.railway.app`
+- `VITE_API_URL`: `https://zephix-backend-staging-staging.up.railway.app`
 - `NODE_ENV`: `production` (normal for frontend builds)
 - **Zero forbidden references**
 
@@ -71,7 +71,7 @@ it will silently call production.
 
 ### production/zephix-frontend-staging (22 vars) — STRAY SERVICE
 - `VITE_API_BASE`: `https://zephix-backend-production.up.railway.app/api` (FORBIDDEN)
-- `VITE_API_URL`: `https://zephix-platform-staging-production.up.railway.app/api`
+- `VITE_API_URL`: `https://zephix-backend-staging-staging.up.railway.app/api`
 - Points to the stray staging backend, not the proper staging env
 
 ---

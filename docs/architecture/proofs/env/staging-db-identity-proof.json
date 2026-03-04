@@ -24,7 +24,7 @@
   },
 
   "healthCheck": {
-    "url": "https://zephix-backend-v2-staging.up.railway.app/api/health/ready",
+    "url": "https://zephix-backend-staging-staging.up.railway.app/api/health/ready",
     "httpCode": 200,
     "xZephixEnv": "staging"
   },

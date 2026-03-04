@@ -22,12 +22,12 @@
       "RAILWAY_PRIVATE_DOMAIN": "zephix-backend-v2.railway.internal",
       "RAILWAY_PROJECT_ID": "8eded72a-33e6-4c57-9b47-2d33434ef80c",
       "RAILWAY_PROJECT_NAME": "Zephix Application",
-      "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-staging-staging.up.railway.app",
       "RAILWAY_SERVICE_ID": "bc71a9e6-d44b-41cf-8d5c-cca55e58fed9",
       "RAILWAY_SERVICE_NAME": "zephix-backend-v2",
-      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-staging-staging.up.railway.app",
       "RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL": "zephix-frontend-staging.up.railway.app",
-      "RAILWAY_STATIC_URL": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_STATIC_URL": "zephix-backend-staging-staging.up.railway.app",
       "ZEPHIX_ENV": "staging"
     },
     "staging/zephix-frontend": {
@@ -41,10 +41,10 @@
       "RAILWAY_PUBLIC_DOMAIN": "zephix-frontend-staging.up.railway.app",
       "RAILWAY_SERVICE_ID": "cc41f500-b7d2-4530-bc8d-7b0cb7891cc3",
       "RAILWAY_SERVICE_NAME": "zephix-frontend",
-      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-v2-staging.up.railway.app",
+      "RAILWAY_SERVICE_ZEPHIX_BACKEND_V2_URL": "zephix-backend-staging-staging.up.railway.app",
       "RAILWAY_SERVICE_ZEPHIX_FRONTEND_URL": "zephix-frontend-staging.up.railway.app",
       "RAILWAY_STATIC_URL": "zephix-frontend-staging.up.railway.app",
-      "VITE_API_URL": "https://zephix-backend-v2-staging.up.railway.app",
+      "VITE_API_URL": "https://zephix-backend-staging-staging.up.railway.app",
       "VITE_APP_NAME": "Zephix"
     }
   },
