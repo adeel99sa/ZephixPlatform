@@ -15,6 +15,7 @@ import {
   Query,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, RegisterResponseDto } from './dto/register.dto';
+import { SmokeLoginDto } from './dto/smoke-login.dto';
 import {
   ResendVerificationDto,
   ResendVerificationResponseDto,
@@ -33,6 +35,7 @@ import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
+import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -287,6 +290,57 @@ export class AuthController {
     });
 
     return res.json(loginResult);
+  }
+
+  @Post('smoke-login')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(RateLimiterGuard, SmokeKeyGuard)
+  @ApiOperation({ summary: 'Staging-only smoke login with key auth' })
+  @ApiResponse({ status: 204, description: 'Smoke login successful' })
+  async smokeLogin(
+    @Body() dto: SmokeLoginDto,
+    @Request() req: ExpressRequest,
+    @Response() res: ExpressResponse,
+  ) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    if (!normalizedEmail.endsWith('@zephix.dev')) {
+      throw new ForbiddenException('Smoke login requires a zephix.dev email');
+    }
+
+    const ip = (req as any).ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const loginResult = await this.authService.smokeLogin(
+      normalizedEmail,
+      ip as string,
+      userAgent,
+    );
+
+    const hostHeader =
+      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
+    const host = String(hostHeader);
+    const xfProto = String(
+      (req as any).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
+
+    res.cookie('zephix_refresh', loginResult.refreshToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    res.cookie('zephix_session', loginResult.accessToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 15 * 60 * 1000,
+      path: '/',
+    });
+
+    return res.status(HttpStatus.NO_CONTENT).send();
   }
 
   @UseGuards(OptionalJwtAuthGuard)

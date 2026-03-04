@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { SmokeKeyGuard } from './guards/smoke-key.guard';
 
 /**
  * Verify that security guards are correctly applied to auth endpoints.
@@ -38,6 +39,12 @@ describe('AuthController — Security Guard Enforcement', () => {
   it('POST /auth/login has RateLimiterGuard', () => {
     const guards = getMethodGuards(proto, 'login');
     expect(guards).toContain(RateLimiterGuard);
+  });
+
+  it('POST /auth/smoke-login has RateLimiterGuard and SmokeKeyGuard', () => {
+    const guards = getMethodGuards(proto, 'smokeLogin');
+    expect(guards).toContain(RateLimiterGuard);
+    expect(guards).toContain(SmokeKeyGuard);
   });
 
   it('POST /auth/refresh has RateLimiterGuard', () => {
