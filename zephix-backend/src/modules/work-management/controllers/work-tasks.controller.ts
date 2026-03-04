@@ -691,7 +691,7 @@ export class WorkTasksController {
 
   // 13. GET /api/work/tasks/stats/completion
   // Unified stats endpoint - uses header for workspace, optional query for project
-  @Get('tasks/stats/completion')
+  @Get('stats/completion')
   @ApiOperation({
     summary: 'Get task completion stats (workspace or project scoped)',
   })
