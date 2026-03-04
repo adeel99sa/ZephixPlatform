@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_SRC="zephix-backend/src"
 FAILURES=0
 
@@ -14,6 +15,15 @@ pass() {
 }
 
 echo "=== Zephix Security Regression Gates ==="
+echo ""
+
+# 0. Staging domain drift guard
+if "${ROOT_DIR}/scripts/guard/no-stale-staging-domains.sh"; then
+  pass "No stale staging domain drift"
+else
+  fail "Stale staging domain drift detected"
+fi
+
 echo ""
 
 # 1. No PII or token data in logs (email, password, token, html in log statements)
