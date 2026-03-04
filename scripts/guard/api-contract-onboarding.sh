@@ -83,14 +83,15 @@ route_call() {
       ;;
   esac
 
-  printf "%s" "${out}" | tail -n 1 | tr -d '\r'
+  ROUTE_STATUS="$(printf "%s" "${out}" | tail -n 1 | tr -d '\r')"
 }
 
 while IFS=$'\t' read -r method path allowed_csv; do
   if [[ -z "${method}" ]]; then
     continue
   fi
-  status="$(route_call "${method}" "${path}")"
+  route_call "${method}" "${path}"
+  status="${ROUTE_STATUS}"
   if check_allowed "${status}" "${allowed_csv}"; then
     echo "Checking ${method} ${path} -> ${status} OK"
   else
