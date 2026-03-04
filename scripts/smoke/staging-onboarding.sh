@@ -10,11 +10,23 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
-source "${ENV_FILE}"
+read_env() {
+  local key="$1"
+  rg "^${key}=" "${ENV_FILE}" -N | head -n 1 | sed "s/^${key}=//"
+}
 
-: "${STAGING_BACKEND_BASE:?STAGING_BACKEND_BASE missing in ${ENV_FILE}}"
-: "${STAGING_BACKEND_API:?STAGING_BACKEND_API missing in ${ENV_FILE}}"
+STAGING_BACKEND_BASE="$(read_env STAGING_BACKEND_BASE)"
+STAGING_BACKEND_API="$(read_env STAGING_BACKEND_API)"
+
+if [[ -z "${STAGING_BACKEND_BASE}" ]]; then
+  echo "STAGING_BACKEND_BASE missing in ${ENV_FILE}"
+  exit 1
+fi
+
+if [[ -z "${STAGING_BACKEND_API}" ]]; then
+  echo "STAGING_BACKEND_API missing in ${ENV_FILE}"
+  exit 1
+fi
 
 EMAIL="${EMAIL:-staging+smoke@zephix.dev}"
 PASS="${PASS:-Password123!}"
