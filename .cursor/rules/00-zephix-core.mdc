@@ -21,3 +21,8 @@ Code style
 - Follow existing patterns in the repo.
 - Avoid introducing new abstractions unless required.
 - Prefer explicit names over cleverness.
+
+Skills
+- Skills live under .cursor/skills
+- Use skills for procedural workflows
+- Use rules for standards
