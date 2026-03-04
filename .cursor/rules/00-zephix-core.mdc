@@ -27,3 +27,22 @@ Skills
 - Use skills for procedural workflows
 - Use rules for standards
 Before any code edits, select one primary skill from .cursor/skills and follow its instructions.
+
+Runbook Execution
+
+All implementation tasks must follow the runbook template.
+
+Reference
+docs/ai/CURSOR_RUNBOOK_TEMPLATE.md
+
+Workflow
+
+Select the appropriate skill from .cursor/skills
+
+Produce a runbook plan
+
+Execute steps with stop rules
+
+Provide proof outputs
+
+Commit only after validation
