@@ -5,6 +5,7 @@ usage() {
   cat <<'EOF'
 Usage:
   scripts/smoke/run.sh guard
+  scripts/smoke/run.sh contract
   scripts/smoke/run.sh staging-onboarding
 EOF
 }
@@ -17,6 +18,9 @@ fi
 case "$1" in
   guard)
     bash scripts/guard/no-stale-staging-domains.sh
+    ;;
+  contract)
+    bash scripts/guard/api-contract-onboarding.sh
     ;;
   staging-onboarding)
     bash scripts/smoke/staging-onboarding.sh
