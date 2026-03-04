@@ -8,6 +8,7 @@ PATTERN='zephix-backend-staging\.up\.railway\.app|zephix-backend-v2-staging\.up\
 ACTIVE_HITS="$(rg -n "${PATTERN}" "${ROOT_DIR}" \
   -g '!docs/archive/**' \
   -g '!docs/architecture/proofs/**' \
+  -g '!docs/architecture/proofs/signup-e2e/**' \
   -g '!scripts/guard/no-stale-staging-domains.sh' || true)"
 
 STAGING_PROOF_HITS="$(rg -n "${PATTERN}" "${ROOT_DIR}/docs/architecture/proofs/staging" || true)"
