@@ -29,3 +29,6 @@ Use for staging validation, signup flow checks, health, version.
 
 documentation-proofs
 Use for KT, runbooks, and evidence bundles.
+
+runbook-smoke-rule
+Always validate `/api/version` and record `railwayDeploymentId` before running signup or login.

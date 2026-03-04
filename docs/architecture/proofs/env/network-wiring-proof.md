@@ -8,7 +8,7 @@
 | Environment | Frontend VITE_API_URL | Expected Backend | Match |
 |---|---|---|---|
 | **production** | `https://zephix-backend-production.up.railway.app/api` | production backend | YES |
-| **staging** | `https://zephix-backend-v2-staging.up.railway.app` | staging backend | YES |
+| **staging** | `https://zephix-backend-staging-staging.up.railway.app` | staging backend | YES |
 | **test** | `https://zephix-backend-test.up.railway.app/api` | test backend | YES |
 
 ## Backend Identity (from /api/system/identity)
