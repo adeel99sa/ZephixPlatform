@@ -1,0 +1,12 @@
+{
+  "basePath": "/api",
+  "routes": [
+    { "method": "GET", "path": "/health/ready", "status": 200 },
+    { "method": "GET", "path": "/version", "status": 200 },
+    { "method": "GET", "path": "/auth/csrf", "status": 200 },
+    { "method": "POST", "path": "/auth/register", "status": [200, 409] },
+    { "method": "POST", "path": "/auth/login", "status": [200, 201, 403] },
+    { "method": "GET", "path": "/auth/me", "status": [200, 401] },
+    { "method": "POST", "path": "/workspaces", "status": [201, 403] }
+  ]
+}
