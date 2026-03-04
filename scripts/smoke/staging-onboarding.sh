@@ -29,11 +29,14 @@ if [[ -z "${STAGING_BACKEND_API}" ]]; then
 fi
 
 EMAIL="${EMAIL:-staging+smoke@zephix.dev}"
-PASS="${PASS:-Password123!}"
-FULL_NAME="${FULL_NAME:-Staging Smoke}"
-ORG_NAME="${ORG_NAME:-Staging Smoke Org}"
+STAGING_SMOKE_KEY="${STAGING_SMOKE_KEY:-$(read_env STAGING_SMOKE_KEY)}"
 WS_NAME="${WS_NAME:-Smoke Workspace}"
 WS_SLUG="${WS_SLUG:-smoke-workspace-$(date +%s)}"
+
+if [[ -z "${STAGING_SMOKE_KEY}" || "${STAGING_SMOKE_KEY}" == "replace_me" ]]; then
+  echo "STAGING_SMOKE_KEY missing. Export it or set a real value in ${ENV_FILE}"
+  exit 1
+fi
 
 mkdir -p "${OUT_DIR}"
 rm -f "${OUT_DIR}/cookiejar.txt"
@@ -83,32 +86,26 @@ fi
 curl -i -b "${OUT_DIR}/cookiejar.txt" -c "${OUT_DIR}/cookiejar.txt" \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${CSRF}" \
-  -X POST "${STAGING_BACKEND_API}/auth/register" \
-  -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASS}\",\"fullName\":\"${FULL_NAME}\",\"orgName\":\"${ORG_NAME}\"}" \
-  > "${OUT_DIR}/04-auth-register.txt"
-require_status "${OUT_DIR}/04-auth-register.txt" 200 201 409
-
-curl -i -b "${OUT_DIR}/cookiejar.txt" -c "${OUT_DIR}/cookiejar.txt" \
-  -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: ${CSRF}" \
-  -X POST "${STAGING_BACKEND_API}/auth/login" \
-  -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASS}\"}" \
-  > "${OUT_DIR}/05-auth-login.txt"
-require_status "${OUT_DIR}/05-auth-login.txt" 200 201
+  -H "X-Zephix-Env: staging" \
+  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -X POST "${STAGING_BACKEND_API}/auth/smoke-login" \
+  -d "{\"email\":\"${EMAIL}\"}" \
+  > "${OUT_DIR}/04-auth-smoke-login.txt"
+require_status "${OUT_DIR}/04-auth-smoke-login.txt" 204
 
 curl -i -b "${OUT_DIR}/cookiejar.txt" -c "${OUT_DIR}/cookiejar.txt" \
   -H "X-CSRF-Token: ${CSRF}" \
   "${STAGING_BACKEND_API}/auth/me" \
-  > "${OUT_DIR}/06-auth-me.txt"
-require_status "${OUT_DIR}/06-auth-me.txt" 200 201
+  > "${OUT_DIR}/05-auth-me.txt"
+require_status "${OUT_DIR}/05-auth-me.txt" 200 201
 
 curl -i -b "${OUT_DIR}/cookiejar.txt" -c "${OUT_DIR}/cookiejar.txt" \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${CSRF}" \
   -X POST "${STAGING_BACKEND_API}/workspaces" \
   -d "{\"name\":\"${WS_NAME}\",\"slug\":\"${WS_SLUG}\"}" \
-  > "${OUT_DIR}/07-workspaces-create.txt"
-require_status "${OUT_DIR}/07-workspaces-create.txt" 200 201
+  > "${OUT_DIR}/06-workspaces-create.txt"
+require_status "${OUT_DIR}/06-workspaces-create.txt" 200 201
 
 echo "railwayDeploymentId=${RAILWAY_DEPLOYMENT_ID}"
 echo "proof_dir=${OUT_DIR}"
