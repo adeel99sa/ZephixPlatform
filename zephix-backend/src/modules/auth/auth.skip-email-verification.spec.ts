@@ -16,6 +16,71 @@ jest.mock('../../common/security/token-hash.util', () => ({
 }));
 
 describe('AuthService login (skip email verification)', () => {
+  it('allows smokeLogin without password when bypass policy allows domain', async () => {
+    const prevZephixEnv = process.env.ZEPHIX_ENV;
+    const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
+    const prevDomains = process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS;
+    const prevJwtSecret = process.env.JWT_SECRET;
+    const prevJwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+    process.env.ZEPHIX_ENV = 'staging';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = 'true';
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = 'zephix.dev';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-32-bytes-minimum';
+    process.env.JWT_REFRESH_SECRET =
+      process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-32-bytes-minimum';
+
+    const userRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'user-smoke',
+        email: 'staging+smoke@zephix.dev',
+        password:
+          '$2b$10$Xy5QvQh19sqMZWfByz1FHefLldm8rsQqP8c8QiUXQ8KyyfXJJM4Q.',
+        role: 'member',
+        organizationId: null,
+        isEmailVerified: false,
+        emailVerifiedAt: null,
+      }),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const authSessionRepository = {
+      create: jest.fn((v) => ({ ...v })),
+      save: jest
+        .fn()
+        .mockResolvedValueOnce({ id: 'session-smoke' })
+        .mockResolvedValueOnce({ id: 'session-smoke' }),
+    };
+    const jwtService = {
+      sign: jest.fn().mockReturnValue('signed-token'),
+    };
+
+    const service = new AuthService(
+      userRepository as any,
+      {} as any,
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      authSessionRepository as any,
+      {} as any,
+      jwtService as any,
+      {} as any,
+      { hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }) } as any,
+    );
+
+    const result = await service.smokeLogin('staging+smoke@zephix.dev');
+
+    expect(result.accessToken).toBe('signed-token');
+    expect(result.refreshToken).toBe('signed-token');
+    expect(result.sessionId).toBe('session-smoke');
+    expect(userRepository.update).toHaveBeenCalledWith(
+      'user-smoke',
+      expect.objectContaining({ isEmailVerified: true }),
+    );
+
+    process.env.ZEPHIX_ENV = prevZephixEnv;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION = prevSkipFlag;
+    process.env.STAGING_SKIP_EMAIL_VERIFICATION_ALLOWED_DOMAINS = prevDomains;
+    process.env.JWT_SECRET = prevJwtSecret;
+    process.env.JWT_REFRESH_SECRET = prevJwtRefreshSecret;
+  });
+
   it('allows login for unverified user when skip flag is enabled', async () => {
     const prevZephixEnv = process.env.ZEPHIX_ENV;
     const prevSkipFlag = process.env.STAGING_SKIP_EMAIL_VERIFICATION;
