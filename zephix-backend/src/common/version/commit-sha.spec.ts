@@ -25,6 +25,11 @@ describe('resolveCommitSha', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_HASH;
+    delete process.env.RAILWAY_GIT_SHA;
+    delete process.env.GIT_COMMIT_SHA;
+    delete process.env.GITHUB_SHA;
     delete process.env.GIT_SHA;
     delete process.env.SOURCE_VERSION;
     delete process.env.BUILD_TIME;
@@ -127,6 +132,20 @@ describe('resolveCommitSha', () => {
     );
   });
 
+  it('returns trusted commit SHA from Railway provider key when value is valid 40-hex', () => {
+    process.env.RAILWAY_GIT_COMMIT_SHA =
+      '2222222222222222222222222222222222222222';
+
+    expect(resolveCommitShaDetails()).toEqual(
+      expect.objectContaining({
+        commitSha: '2222222222222222222222222222222222222222',
+        commitShaTrusted: true,
+        sourceKey: 'RAILWAY_GIT_COMMIT_SHA',
+        sourceType: 'operator',
+      }),
+    );
+  });
+
   it('returns untrusted commit SHA from fallback key when only fallback exists', () => {
     process.env.GIT_SHA = '3333333333333333333333333333333333333333';
 
@@ -150,9 +169,13 @@ describe('resolveCommitSha', () => {
     );
   });
 
-  it('contains no guessed RAILWAY_GIT_* keys in resolver source', () => {
+  it('contains trusted provider commit keys in resolver source', () => {
     const source = fs.readFileSync(path.join(__dirname, 'commit-sha.ts'), 'utf8');
-    expect(source).not.toContain('RAILWAY_GIT_');
+    expect(source).toContain('RAILWAY_GIT_COMMIT_SHA');
+    expect(source).toContain('RAILWAY_GIT_COMMIT_HASH');
+    expect(source).toContain('RAILWAY_GIT_SHA');
+    expect(source).toContain('GIT_COMMIT_SHA');
+    expect(source).toContain('GITHUB_SHA');
   });
 
   it('returns null from resolveCommitSha when no key is available', () => {

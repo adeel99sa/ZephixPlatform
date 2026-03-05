@@ -1,12 +1,11 @@
 {
-  "basePath": "/api",
-  "routes": [
-    { "method": "GET", "path": "/health/ready", "status": 200 },
-    { "method": "GET", "path": "/version", "status": 200 },
-    { "method": "GET", "path": "/auth/csrf", "status": 200 },
-    { "method": "POST", "path": "/auth/register", "status": [200, 409] },
-    { "method": "POST", "path": "/auth/login", "status": [200, 201, 403] },
-    { "method": "GET", "path": "/auth/me", "status": [200, 401] },
-    { "method": "POST", "path": "/workspaces", "status": [201, 403] }
+  "flow": [
+    { "step": "health_ready", "method": "GET", "path": "/health/ready", "status": [200] },
+    { "step": "version", "method": "GET", "path": "/version", "status": [200] },
+    { "step": "csrf", "method": "GET", "path": "/auth/csrf", "status": [200] },
+    { "step": "smoke_probe", "method": "POST", "path": "/auth/smoke-login", "status": [400, 401, 403, 415, 422] },
+    { "step": "smoke_login", "method": "POST", "path": "/auth/smoke-login", "status": [204] },
+    { "step": "auth_me", "method": "GET", "path": "/auth/me", "status": [200] },
+    { "step": "workspace_create", "method": "POST", "path": "/workspaces", "status": [201] }
   ]
 }

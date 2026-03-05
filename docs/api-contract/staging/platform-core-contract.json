@@ -1,0 +1,16 @@
+{
+  "flow": [
+    { "step": "health_ready", "method": "GET", "path": "/health/ready", "status": [200] },
+    { "step": "version", "method": "GET", "path": "/version", "status": [200] },
+    { "step": "csrf", "method": "GET", "path": "/auth/csrf", "status": [200] },
+    { "step": "smoke_login", "method": "POST", "path": "/auth/smoke-login", "status": [204] },
+    { "step": "auth_me", "method": "GET", "path": "/auth/me", "status": [200] },
+    { "step": "workspaces_list", "method": "GET", "path": "/workspaces", "status": [200] },
+    { "step": "projects_list", "method": "GET", "path": "/projects", "status": [200] },
+    { "step": "project_create", "method": "POST", "path": "/projects", "status": [201] },
+    { "step": "task_create", "method": "POST", "path": "/work/tasks", "status": [201] },
+    { "step": "tasks_list", "method": "GET", "path": "/work/tasks", "status": [200] },
+    { "step": "task_delete", "method": "DELETE", "path": "/work/tasks/{taskId}", "status": [200, 204, 404], "optional": true, "gateEnv": "SMOKE_CLEANUP" },
+    { "step": "project_delete", "method": "DELETE", "path": "/projects/{projectId}", "status": [200, 204, 404], "optional": true, "gateEnv": "SMOKE_CLEANUP_PROJECT" }
+  ]
+}
