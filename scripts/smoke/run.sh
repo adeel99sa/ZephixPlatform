@@ -10,10 +10,12 @@ Usage:
   scripts/smoke/run.sh contract-platform-core
   scripts/smoke/run.sh contract-programs-portfolios
   scripts/smoke/run.sh contract-programs-portfolios-linkage
+  scripts/smoke/run.sh contract-org-invites
   scripts/smoke/run.sh staging-onboarding
   scripts/smoke/run.sh platform-core
   scripts/smoke/run.sh programs-portfolios
   scripts/smoke/run.sh programs-portfolios-linkage
+  scripts/smoke/run.sh org-invites
 EOF
 }
 
@@ -42,6 +44,9 @@ case "$1" in
   contract-programs-portfolios-linkage)
     bash scripts/guard/api-contract-programs-portfolios-linkage.sh
     ;;
+  contract-org-invites)
+    bash scripts/guard/api-contract-org-invites.sh
+    ;;
   staging-onboarding)
     bash scripts/smoke/staging-onboarding.sh
     ;;
@@ -53,6 +58,9 @@ case "$1" in
     ;;
   programs-portfolios-linkage)
     bash scripts/smoke/staging-programs-portfolios-linkage.sh
+    ;;
+  org-invites)
+    bash scripts/smoke/staging-org-invites.sh
     ;;
   *)
     usage
