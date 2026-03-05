@@ -11,19 +11,30 @@
 #   - Must be on 'main' branch (override with ALLOW_NON_MAIN=true)
 #   - Working tree must be clean (no uncommitted changes)
 #   - Railway project context must reference zephix-backend-staging
+#   - STAGING_BACKEND_BASE domain must include the expected staging hostname
 #
 # STAGING_BASE is read from docs/ai/environments/staging.env.
 # After deploy, polls /api/version until commitSha matches local HEAD.
 # Writes proof artifact to docs/architecture/proofs/staging/.
+#
+# Requires: jq (brew install jq)
 
 set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 STAGING_ENV_FILE="$REPO_ROOT/docs/ai/environments/staging.env"
 EXPECTED_SERVICE="zephix-backend-staging"
+EXPECTED_ENVIRONMENT="staging"
+EXPECTED_STAGING_HOST="zephix-backend-staging-staging.up.railway.app"
 PROOF_DIR="$REPO_ROOT/docs/architecture/proofs/staging"
 POLL_TIMEOUT_SECONDS=180
 POLL_INTERVAL_SECONDS=10
+
+# ─── REQUIRE jq ─────────────────────────────────────────────────────────────────
+if ! command -v jq >/dev/null 2>&1; then
+  echo "FAIL: jq is required but not found. Install with: brew install jq"
+  exit 1
+fi
 
 # ─── LOAD STAGING BASE FROM staging.env ─────────────────────────────────────────
 if [ ! -f "$STAGING_ENV_FILE" ]; then
@@ -35,8 +46,17 @@ if [ -z "$STAGING_BASE" ]; then
   echo "FAIL: STAGING_BACKEND_BASE not set in $STAGING_ENV_FILE"
   exit 1
 fi
-echo "=== Config ==="
-echo "STAGING_BASE (from staging.env): $STAGING_BASE"
+
+# ─── PREFLIGHT: Validate STAGING_BASE domain ────────────────────────────────────
+echo "=== Preflight: STAGING_BASE domain validation ==="
+if ! echo "$STAGING_BASE" | grep -q "$EXPECTED_STAGING_HOST"; then
+  echo "FAIL: STAGING_BASE domain does not match expected staging hostname."
+  echo "  Got:      $STAGING_BASE"
+  echo "  Expected: must contain '$EXPECTED_STAGING_HOST'"
+  echo "  Fix STAGING_BACKEND_BASE in docs/ai/environments/staging.env"
+  exit 1
+fi
+echo "PASS: STAGING_BASE domain confirmed: $STAGING_BASE"
 echo ""
 
 # ─── PREFLIGHT: Railway authentication ─────────────────────────────────────────
@@ -58,7 +78,12 @@ if [ "$CURRENT_BRANCH" != "main" ] && [ "$ALLOW_NON_MAIN" != "true" ]; then
   echo "  To override: ALLOW_NON_MAIN=true bash scripts/deploy-staging.sh"
   exit 1
 fi
-echo "PASS: Branch is '$CURRENT_BRANCH'"
+if [ "$CURRENT_BRANCH" = "main" ]; then
+  echo "PASS: Branch is 'main'"
+else
+  echo "PASS (OVERRIDE): Branch is '$CURRENT_BRANCH' [ALLOW_NON_MAIN=true, main guard bypassed]"
+  echo "  WARNING: Deploying from non-main branch. Proof will record branch name."
+fi
 echo ""
 
 # ─── PREFLIGHT: Dirty-tree guard ────────────────────────────────────────────────
@@ -95,14 +120,15 @@ echo "=== Deploy Summary ==="
 echo "Branch:      $CURRENT_BRANCH"
 echo "Commit SHA:  $COMMIT_SHA"
 echo "Service:     $EXPECTED_SERVICE"
+echo "Environment: $EXPECTED_ENVIRONMENT"
 echo "Target:      $STAGING_BASE"
 echo ""
 
 # ─── CAPTURE PRE-DEPLOY VERSION ─────────────────────────────────────────────────
 echo "=== Capturing pre-deploy /api/version ==="
 PRE_DEPLOY_RESPONSE=$(curl -sS --max-time 10 "$STAGING_BASE/api/version" 2>/dev/null || echo "{}")
-PRE_DEPLOY_DEPLOYMENT_ID=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
-PRE_DEPLOY_COMMIT=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"commitSha":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+PRE_DEPLOY_DEPLOYMENT_ID=$(echo "$PRE_DEPLOY_RESPONSE" | jq -r '.railwayDeploymentId // .data.railwayDeploymentId // "unknown"')
+PRE_DEPLOY_COMMIT=$(echo "$PRE_DEPLOY_RESPONSE" | jq -r '.commitSha // .data.commitSha // "unknown"')
 echo "Pre-deploy commitSha:           $PRE_DEPLOY_COMMIT"
 echo "Pre-deploy railwayDeploymentId: $PRE_DEPLOY_DEPLOYMENT_ID"
 echo ""
@@ -111,13 +137,20 @@ echo ""
 # COMMIT_SHA must be set as a Railway service variable — not a local shell export.
 # Local shell env vars do not propagate to Railway's cloud build environment.
 echo "=== Setting COMMIT_SHA Railway variable ==="
-railway variables --set "COMMIT_SHA=$COMMIT_SHA" --service "$EXPECTED_SERVICE" --skip-deploys
-echo "PASS: COMMIT_SHA=$COMMIT_SHA set in Railway service '$EXPECTED_SERVICE'"
+railway variables \
+  --set "COMMIT_SHA=$COMMIT_SHA" \
+  --service "$EXPECTED_SERVICE" \
+  --environment "$EXPECTED_ENVIRONMENT" \
+  --skip-deploys
+echo "PASS: COMMIT_SHA=$COMMIT_SHA set in Railway service '$EXPECTED_SERVICE' env '$EXPECTED_ENVIRONMENT'"
 echo ""
 
 # ─── DEPLOY ──────────────────────────────────────────────────────────────────────
 echo "=== Deploying to Railway ==="
-railway up --service "$EXPECTED_SERVICE" --detach
+railway up \
+  --service "$EXPECTED_SERVICE" \
+  --environment "$EXPECTED_ENVIRONMENT" \
+  --detach
 echo ""
 echo "Deploy queued. Polling $STAGING_BASE/api/version for commit propagation..."
 echo ""
@@ -134,10 +167,10 @@ while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
   ELAPSED=$((ELAPSED + POLL_INTERVAL_SECONDS))
 
   RESPONSE=$(curl -sS --max-time 10 "$STAGING_BASE/api/version" 2>/dev/null || echo "{}")
-  REMOTE_COMMIT=$(echo "$RESPONSE" | grep -o '"commitSha":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-  REMOTE_TRUSTED=$(echo "$RESPONSE" | grep -o '"commitShaTrusted":[a-z]*' | head -1 | cut -d':' -f2 || echo "false")
-  REMOTE_DEPLOY_ID=$(echo "$RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-  REMOTE_ENV=$(echo "$RESPONSE" | grep -o '"zephixEnv":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+  REMOTE_COMMIT=$(echo "$RESPONSE"   | jq -r '.commitSha         // .data.commitSha         // ""')
+  REMOTE_TRUSTED=$(echo "$RESPONSE"  | jq -r '.commitShaTrusted  // .data.commitShaTrusted  // false')
+  REMOTE_DEPLOY_ID=$(echo "$RESPONSE"| jq -r '.railwayDeploymentId // .data.railwayDeploymentId // ""')
+  REMOTE_ENV=$(echo "$RESPONSE"      | jq -r '.zephixEnv         // .data.zephixEnv         // ""')
 
   echo "  [${ELAPSED}s] commitSha=$REMOTE_COMMIT trusted=$REMOTE_TRUSTED zephixEnv=$REMOTE_ENV deploymentId=$REMOTE_DEPLOY_ID"
 
@@ -150,7 +183,10 @@ while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
     exit 1
   fi
 
-  if [ "$REMOTE_COMMIT" = "$COMMIT_SHA" ] && [ "$REMOTE_TRUSTED" = "true" ] && [ -n "$REMOTE_DEPLOY_ID" ] && [ "$REMOTE_ENV" = "staging" ]; then
+  if [ "$REMOTE_COMMIT" = "$COMMIT_SHA" ] \
+    && [ "$REMOTE_TRUSTED" = "true" ] \
+    && [ -n "$REMOTE_DEPLOY_ID" ] \
+    && [ "$REMOTE_ENV" = "staging" ]; then
     POST_DEPLOY_COMMIT="$REMOTE_COMMIT"
     POST_DEPLOY_TRUSTED="$REMOTE_TRUSTED"
     POST_DEPLOY_DEPLOYMENT_ID="$REMOTE_DEPLOY_ID"
@@ -186,6 +222,7 @@ cat > "$PROOF_FILE" <<EOF
 # Deploy proof — written by scripts/deploy-staging.sh
 date_utc: $DATE_UTC
 branch: $CURRENT_BRANCH
+allow_non_main_override: $ALLOW_NON_MAIN
 local_head: $COMMIT_SHA
 
 pre_deploy:
