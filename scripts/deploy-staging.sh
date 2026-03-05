@@ -101,8 +101,8 @@ echo ""
 # ─── CAPTURE PRE-DEPLOY VERSION ─────────────────────────────────────────────────
 echo "=== Capturing pre-deploy /api/version ==="
 PRE_DEPLOY_RESPONSE=$(curl -sS --max-time 10 "$STAGING_BASE/api/version" 2>/dev/null || echo "{}")
-PRE_DEPLOY_DEPLOYMENT_ID=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
-PRE_DEPLOY_COMMIT=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"commitSha":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+PRE_DEPLOY_DEPLOYMENT_ID=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+PRE_DEPLOY_COMMIT=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"commitSha":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
 echo "Pre-deploy commitSha:           $PRE_DEPLOY_COMMIT"
 echo "Pre-deploy railwayDeploymentId: $PRE_DEPLOY_DEPLOYMENT_ID"
 echo ""
@@ -126,10 +126,10 @@ while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
   ELAPSED=$((ELAPSED + POLL_INTERVAL_SECONDS))
 
   RESPONSE=$(curl -sS --max-time 10 "$STAGING_BASE/api/version" 2>/dev/null || echo "{}")
-  REMOTE_COMMIT=$(echo "$RESPONSE" | grep -o '"commitSha":"[^"]*"' | cut -d'"' -f4 || echo "")
-  REMOTE_TRUSTED=$(echo "$RESPONSE" | grep -o '"commitShaTrusted":[a-z]*' | cut -d':' -f2 || echo "false")
-  REMOTE_DEPLOY_ID=$(echo "$RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | cut -d'"' -f4 || echo "")
-  REMOTE_ENV=$(echo "$RESPONSE" | grep -o '"zephixEnv":"[^"]*"' | cut -d'"' -f4 || echo "")
+  REMOTE_COMMIT=$(echo "$RESPONSE" | grep -o '"commitSha":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+  REMOTE_TRUSTED=$(echo "$RESPONSE" | grep -o '"commitShaTrusted":[a-z]*' | head -1 | cut -d':' -f2 || echo "false")
+  REMOTE_DEPLOY_ID=$(echo "$RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+  REMOTE_ENV=$(echo "$RESPONSE" | grep -o '"zephixEnv":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
 
   echo "  [${ELAPSED}s] commitSha=$REMOTE_COMMIT trusted=$REMOTE_TRUSTED zephixEnv=$REMOTE_ENV deploymentId=$REMOTE_DEPLOY_ID"
 
