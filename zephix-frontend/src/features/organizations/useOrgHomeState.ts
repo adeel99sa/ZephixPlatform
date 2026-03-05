@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getOnboardingStatus, type OnboardingStatus } from "./onboarding.api";
 import { useAuth } from "@/state/AuthContext";
-
-type PlatformRole = "ADMIN" | "MEMBER" | "VIEWER" | "GUEST";
+import { platformRoleFromUser } from "@/utils/roles";
 
 export type OrgHomeState = {
   isLoading: boolean;
@@ -30,10 +29,10 @@ export function useOrgHomeState(): OrgHomeState {
   const mustOnboard = Boolean(status?.mustOnboard ?? false);
   const skipped = Boolean(status?.skipped ?? false);
 
-  const platformRole = (user?.platformRole ?? user?.role) as PlatformRole | undefined;
+  const platformRole = platformRoleFromUser(user);
   const isAdmin = platformRole === "ADMIN";
   const isMember = platformRole === "MEMBER";
-  const isViewer = platformRole === "VIEWER" || platformRole === "GUEST";
+  const isViewer = platformRole === "VIEWER";
 
   return {
     isLoading: q.isLoading,
