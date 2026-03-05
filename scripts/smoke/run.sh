@@ -4,6 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
+  scripts/smoke/run.sh deploy-staging
   scripts/smoke/run.sh guard
   scripts/smoke/run.sh contract
   scripts/smoke/run.sh contract-platform-core
@@ -22,6 +23,9 @@ if [[ $# -ne 1 ]]; then
 fi
 
 case "$1" in
+  deploy-staging)
+    bash scripts/deploy-staging.sh
+    ;;
   guard)
     bash scripts/guard/no-stale-staging-domains.sh
     ;;
