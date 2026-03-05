@@ -183,3 +183,4 @@ scripts/smoke/e2e-ids.json
 
 # staging smoke generated output
 /docs/architecture/proofs/staging/onboarding-latest/
+/docs/architecture/proofs/staging/platform-core-latest/

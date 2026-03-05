@@ -6,7 +6,9 @@ usage() {
 Usage:
   scripts/smoke/run.sh guard
   scripts/smoke/run.sh contract
+  scripts/smoke/run.sh contract-platform-core
   scripts/smoke/run.sh staging-onboarding
+  scripts/smoke/run.sh platform-core
 EOF
 }
 
@@ -22,8 +24,14 @@ case "$1" in
   contract)
     bash scripts/guard/api-contract-onboarding.sh
     ;;
+  contract-platform-core)
+    bash scripts/guard/api-contract-platform-core.sh
+    ;;
   staging-onboarding)
     bash scripts/smoke/staging-onboarding.sh
+    ;;
+  platform-core)
+    bash scripts/smoke/staging-platform-core.sh
     ;;
   *)
     usage

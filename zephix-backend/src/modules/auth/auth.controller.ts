@@ -15,7 +15,6 @@ import {
   Query,
   UnauthorizedException,
   BadRequestException,
-  ForbiddenException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -304,7 +303,7 @@ export class AuthController {
   ) {
     const normalizedEmail = dto.email.toLowerCase().trim();
     if (!normalizedEmail.endsWith('@zephix.dev')) {
-      throw new ForbiddenException('Smoke login requires a zephix.dev email');
+      throw new BadRequestException('Smoke login requires a zephix.dev email');
     }
 
     const ip = (req as any).ip || 'unknown';

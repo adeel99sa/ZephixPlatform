@@ -9,7 +9,14 @@ export interface CommitShaResolution {
   attemptedBuildMetaPaths: string[];
 }
 
-const OPERATOR_TRUSTED_COMMIT_KEYS = ['COMMIT_SHA'] as const;
+const OPERATOR_TRUSTED_COMMIT_KEYS = [
+  'COMMIT_SHA',
+  'RAILWAY_GIT_COMMIT_SHA',
+  'RAILWAY_GIT_COMMIT_HASH',
+  'RAILWAY_GIT_SHA',
+  'GIT_COMMIT_SHA',
+  'GITHUB_SHA',
+] as const;
 const FALLBACK_COMMIT_KEYS = ['GIT_SHA', 'SOURCE_VERSION'] as const;
 const EXACT_SHA_PATTERN = /^[0-9a-f]{40}$/i;
 
