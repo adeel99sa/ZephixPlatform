@@ -107,6 +107,14 @@ echo "Pre-deploy commitSha:           $PRE_DEPLOY_COMMIT"
 echo "Pre-deploy railwayDeploymentId: $PRE_DEPLOY_DEPLOYMENT_ID"
 echo ""
 
+# ─── SET COMMIT_SHA AS RAILWAY SERVICE VARIABLE ──────────────────────────────────
+# COMMIT_SHA must be set as a Railway service variable — not a local shell export.
+# Local shell env vars do not propagate to Railway's cloud build environment.
+echo "=== Setting COMMIT_SHA Railway variable ==="
+railway variables set "COMMIT_SHA=$COMMIT_SHA" --service "$EXPECTED_SERVICE"
+echo "PASS: COMMIT_SHA=$COMMIT_SHA set in Railway service '$EXPECTED_SERVICE'"
+echo ""
+
 # ─── DEPLOY ──────────────────────────────────────────────────────────────────────
 echo "=== Deploying to Railway ==="
 railway up --service "$EXPECTED_SERVICE" --detach
