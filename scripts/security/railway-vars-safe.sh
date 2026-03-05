@@ -19,9 +19,9 @@ echo "=== Railway Variable Keys (values hidden) ==="
 
 if [ -n "$FILTER" ]; then
   echo "Filter: $FILTER"
-  railway variables --json | jq --arg f "$FILTER" '[.[] | select(.key | ascii_downcase | contains($f | ascii_downcase)) | {key: .key}]'
+  railway variables --json | jq --arg f "$FILTER" '[keys[] | select(ascii_downcase | contains($f | ascii_downcase))]'
 else
-  railway variables --json | jq '[.[] | {key: .key}]'
+  railway variables --json | jq 'keys'
 fi
 
 echo ""
