@@ -10,19 +10,34 @@
 #   - Must be authenticated with Railway (railway whoami)
 #   - Must be on 'main' branch (override with ALLOW_NON_MAIN=true)
 #   - Working tree must be clean (no uncommitted changes)
-#   - Railway project must be zephix-backend-staging
+#   - Railway project context must reference zephix-backend-staging
 #
+# STAGING_BASE is read from docs/ai/environments/staging.env.
 # After deploy, polls /api/version until commitSha matches local HEAD.
 # Writes proof artifact to docs/architecture/proofs/staging/.
 
 set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-STAGING_BASE="https://zephix-backend-staging-staging.up.railway.app"
+STAGING_ENV_FILE="$REPO_ROOT/docs/ai/environments/staging.env"
 EXPECTED_SERVICE="zephix-backend-staging"
 PROOF_DIR="$REPO_ROOT/docs/architecture/proofs/staging"
 POLL_TIMEOUT_SECONDS=180
 POLL_INTERVAL_SECONDS=10
+
+# ─── LOAD STAGING BASE FROM staging.env ─────────────────────────────────────────
+if [ ! -f "$STAGING_ENV_FILE" ]; then
+  echo "FAIL: staging.env not found at $STAGING_ENV_FILE"
+  exit 1
+fi
+STAGING_BASE=$(grep -E '^STAGING_BACKEND_BASE=' "$STAGING_ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
+if [ -z "$STAGING_BASE" ]; then
+  echo "FAIL: STAGING_BACKEND_BASE not set in $STAGING_ENV_FILE"
+  exit 1
+fi
+echo "=== Config ==="
+echo "STAGING_BASE (from staging.env): $STAGING_BASE"
+echo ""
 
 # ─── PREFLIGHT: Railway authentication ─────────────────────────────────────────
 echo "=== Preflight: Railway auth ==="
@@ -56,16 +71,20 @@ fi
 echo "PASS: Working tree is clean"
 echo ""
 
-# ─── PREFLIGHT: Railway service verification ────────────────────────────────────
-echo "=== Preflight: Railway service verification ==="
+# ─── PREFLIGHT: Railway context verification (hard fail) ────────────────────────
+echo "=== Preflight: Railway context verification ==="
 RAILWAY_STATUS=$(railway status 2>/dev/null || true)
 if ! echo "$RAILWAY_STATUS" | grep -qi "$EXPECTED_SERVICE"; then
-  echo "WARN: Could not confirm service is '$EXPECTED_SERVICE' from railway status."
+  echo "FAIL: Railway context does not reference '$EXPECTED_SERVICE'."
+  echo "  This means you are linked to a different project or service."
   echo "  railway status output:"
   echo "$RAILWAY_STATUS"
-  echo "  Proceeding with explicit --service flag to ensure correct target."
+  echo ""
+  echo "  Fix: run 'railway link' and select the correct project/service,"
+  echo "  or ensure your working directory has a .railway config linking to $EXPECTED_SERVICE."
+  exit 1
 fi
-echo "Pinned service: $EXPECTED_SERVICE"
+echo "PASS: Railway context confirms service '$EXPECTED_SERVICE'"
 echo ""
 
 # ─── RESOLVE COMMIT SHA ──────────────────────────────────────────────────────────
@@ -84,20 +103,19 @@ echo "=== Capturing pre-deploy /api/version ==="
 PRE_DEPLOY_RESPONSE=$(curl -sS --max-time 10 "$STAGING_BASE/api/version" 2>/dev/null || echo "{}")
 PRE_DEPLOY_DEPLOYMENT_ID=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
 PRE_DEPLOY_COMMIT=$(echo "$PRE_DEPLOY_RESPONSE" | grep -o '"commitSha":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
-echo "Pre-deploy commitSha:          $PRE_DEPLOY_COMMIT"
+echo "Pre-deploy commitSha:           $PRE_DEPLOY_COMMIT"
 echo "Pre-deploy railwayDeploymentId: $PRE_DEPLOY_DEPLOYMENT_ID"
 echo ""
 
 # ─── DEPLOY ──────────────────────────────────────────────────────────────────────
 echo "=== Deploying to Railway ==="
-railway up --service "$EXPECTED_SERVICE"
+railway up --service "$EXPECTED_SERVICE" --detach
 echo ""
-echo "Deploy submitted. Polling /api/version for commit propagation..."
+echo "Deploy queued. Polling $STAGING_BASE/api/version for commit propagation..."
 echo ""
 
 # ─── POLL FOR PROPAGATION ────────────────────────────────────────────────────────
 ELAPSED=0
-POST_DEPLOY_RESPONSE="{}"
 POST_DEPLOY_COMMIT=""
 POST_DEPLOY_TRUSTED=""
 POST_DEPLOY_DEPLOYMENT_ID=""
@@ -114,7 +132,6 @@ while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
   echo "  [${ELAPSED}s] commitSha=$REMOTE_COMMIT trusted=$REMOTE_TRUSTED deploymentId=$REMOTE_DEPLOY_ID"
 
   if [ "$REMOTE_COMMIT" = "$COMMIT_SHA" ] && [ "$REMOTE_TRUSTED" = "true" ] && [ -n "$REMOTE_DEPLOY_ID" ]; then
-    POST_DEPLOY_RESPONSE="$RESPONSE"
     POST_DEPLOY_COMMIT="$REMOTE_COMMIT"
     POST_DEPLOY_TRUSTED="$REMOTE_TRUSTED"
     POST_DEPLOY_DEPLOYMENT_ID="$REMOTE_DEPLOY_ID"
@@ -140,6 +157,11 @@ mkdir -p "$PROOF_DIR"
 DATE_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 PROOF_FILE="$PROOF_DIR/version-after-deploy.txt"
 
+DEPLOYMENT_ID_CHANGED="false"
+if [ "$PRE_DEPLOY_DEPLOYMENT_ID" != "$POST_DEPLOY_DEPLOYMENT_ID" ]; then
+  DEPLOYMENT_ID_CHANGED="true"
+fi
+
 cat > "$PROOF_FILE" <<EOF
 # Deploy proof — written by scripts/deploy-staging.sh
 date_utc: $DATE_UTC
@@ -155,7 +177,7 @@ post_deploy:
   commitShaTrusted: $POST_DEPLOY_TRUSTED
   railwayDeploymentId: $POST_DEPLOY_DEPLOYMENT_ID
 
-deployment_id_changed: $([ "$PRE_DEPLOY_DEPLOYMENT_ID" != "$POST_DEPLOY_DEPLOYMENT_ID" ] && echo "true" || echo "false")
+deployment_id_changed: $DEPLOYMENT_ID_CHANGED
 EOF
 
 echo "Written: $PROOF_FILE"
