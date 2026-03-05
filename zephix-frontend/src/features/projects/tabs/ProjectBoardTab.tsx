@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
+import { platformRoleFromUser } from '@/utils/roles';
 import {
   listTasks,
   updateTask,
@@ -35,9 +36,8 @@ const BOARD_COLUMNS: { status: WorkTaskStatus; label: string; color: string; bg:
 /* ─── Permission Helper ─────────────────────────────────────────────── */
 
 function canDragTask(platformRole?: string): boolean {
-  if (!platformRole) return false;
-  const role = platformRole.toUpperCase();
-  return role === 'ADMIN' || role === 'OWNER' || role === 'MEMBER';
+  // VIEWER cannot drag; ADMIN and MEMBER can
+  return platformRole === 'ADMIN' || platformRole === 'MEMBER';
 }
 
 /* ─── Board Component ───────────────────────────────────────────────── */
@@ -46,8 +46,7 @@ export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
-  const platformRole = user?.platformRole;
-  const isDragAllowed = canDragTask(platformRole);
+  const isDragAllowed = canDragTask(platformRoleFromUser(user));
 
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [loading, setLoading] = useState(true);
