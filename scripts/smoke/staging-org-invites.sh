@@ -46,6 +46,7 @@ API_BASE="${STAGING_BACKEND_BASE}/api"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-staging+smoke@zephix.dev}"
 INVITEE_EMAIL="$(printf 'staging+invitee+%s@zephix.dev' "${RUN_ID}" | tr '[:upper:]' '[:lower:]')"
+INVITEE_EMAIL_ENC="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "${INVITEE_EMAIL}")"
 
 
 mkdir -p "${OUT_DIR}"
@@ -311,11 +312,11 @@ require_status_csv "${OUT_DIR}/10-invitee-smoke-login.txt" "$(contract_field inv
 INVITE_TOKEN_RAW_FILE="$(mktemp)"
 curl -s \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
-  "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL}" \
+  "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL_ENC}" \
   > "${INVITE_TOKEN_RAW_FILE}"
 INVITE_TOKEN_READ_STATUS_TEMP="$(curl -o /dev/null -s -w "%{http_code}" \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
-  "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL}")"
+  "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL_ENC}")"
 
 # Parse token without echoing it
 INVITE_TOKEN="$(node -e "
@@ -323,7 +324,7 @@ const fs=require('fs');
 const raw=fs.readFileSync(process.argv[1],'utf8');
 try{
   const j=JSON.parse(raw);
-  process.stdout.write(String(j.token||''));
+  process.stdout.write(String(j.token||(j.data&&j.data.token)||''));
 }catch(e){process.stdout.write('')}
 " "${INVITE_TOKEN_RAW_FILE}")"
 rm -f "${INVITE_TOKEN_RAW_FILE}"

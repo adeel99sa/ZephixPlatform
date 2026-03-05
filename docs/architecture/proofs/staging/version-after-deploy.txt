@@ -1,17 +1,17 @@
 # Deploy proof — written by scripts/deploy-staging.sh
-date_utc: 2026-03-05T16:17:24Z
+date_utc: 2026-03-05T16:29:27Z
 branch: chore/mcp-and-skills
 allow_non_main_override: true
-local_head: 76fd6b790eb33f8b7cdca1f836cd1b4ff96674fb
+local_head: afe993fdd360857c7d37a19b815fa526f4afaa8d
 
 pre_deploy:
-  commitSha: df8fe9651341500b0d325571a9ad93d08c2fbc32
-  railwayDeploymentId: 42eb359b-92d7-4a7e-8c42-424723b7a877
+  commitSha: 76fd6b790eb33f8b7cdca1f836cd1b4ff96674fb
+  railwayDeploymentId: 2b98e2e1-657a-40aa-90f9-098c0f322be2
 
 post_deploy:
-  commitSha: 76fd6b790eb33f8b7cdca1f836cd1b4ff96674fb
+  commitSha: afe993fdd360857c7d37a19b815fa526f4afaa8d
   commitShaTrusted: true
   zephixEnv: staging
-  railwayDeploymentId: 2b98e2e1-657a-40aa-90f9-098c0f322be2
+  railwayDeploymentId: c2648718-b288-42e1-9fb0-c2eb809ae46a
 
 deployment_id_changed: true
