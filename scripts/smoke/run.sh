@@ -28,6 +28,7 @@ case "$1" in
     ;;
   guard)
     bash scripts/guard/no-stale-staging-domains.sh
+    bash scripts/guard/no-dead-home-files.sh
     ;;
   contract)
     bash scripts/guard/api-contract-onboarding.sh

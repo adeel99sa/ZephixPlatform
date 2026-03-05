@@ -119,6 +119,7 @@ ELAPSED=0
 POST_DEPLOY_COMMIT=""
 POST_DEPLOY_TRUSTED=""
 POST_DEPLOY_DEPLOYMENT_ID=""
+POST_DEPLOY_ENV=""
 
 while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
   sleep "$POLL_INTERVAL_SECONDS"
@@ -128,13 +129,24 @@ while [ "$ELAPSED" -lt "$POLL_TIMEOUT_SECONDS" ]; do
   REMOTE_COMMIT=$(echo "$RESPONSE" | grep -o '"commitSha":"[^"]*"' | cut -d'"' -f4 || echo "")
   REMOTE_TRUSTED=$(echo "$RESPONSE" | grep -o '"commitShaTrusted":[a-z]*' | cut -d':' -f2 || echo "false")
   REMOTE_DEPLOY_ID=$(echo "$RESPONSE" | grep -o '"railwayDeploymentId":"[^"]*"' | cut -d'"' -f4 || echo "")
+  REMOTE_ENV=$(echo "$RESPONSE" | grep -o '"zephixEnv":"[^"]*"' | cut -d'"' -f4 || echo "")
 
-  echo "  [${ELAPSED}s] commitSha=$REMOTE_COMMIT trusted=$REMOTE_TRUSTED deploymentId=$REMOTE_DEPLOY_ID"
+  echo "  [${ELAPSED}s] commitSha=$REMOTE_COMMIT trusted=$REMOTE_TRUSTED zephixEnv=$REMOTE_ENV deploymentId=$REMOTE_DEPLOY_ID"
 
-  if [ "$REMOTE_COMMIT" = "$COMMIT_SHA" ] && [ "$REMOTE_TRUSTED" = "true" ] && [ -n "$REMOTE_DEPLOY_ID" ]; then
+  # Env guard: refuse to accept version response from a non-staging service
+  if [ -n "$REMOTE_ENV" ] && [ "$REMOTE_ENV" != "staging" ]; then
+    echo ""
+    echo "FAIL: /api/version returned zephixEnv='$REMOTE_ENV' — expected 'staging'."
+    echo "  The Railway service at $STAGING_BASE is not the staging service."
+    echo "  Check Railway project linking and STAGING_BACKEND_BASE in staging.env."
+    exit 1
+  fi
+
+  if [ "$REMOTE_COMMIT" = "$COMMIT_SHA" ] && [ "$REMOTE_TRUSTED" = "true" ] && [ -n "$REMOTE_DEPLOY_ID" ] && [ "$REMOTE_ENV" = "staging" ]; then
     POST_DEPLOY_COMMIT="$REMOTE_COMMIT"
     POST_DEPLOY_TRUSTED="$REMOTE_TRUSTED"
     POST_DEPLOY_DEPLOYMENT_ID="$REMOTE_DEPLOY_ID"
+    POST_DEPLOY_ENV="$REMOTE_ENV"
     echo ""
     echo "PASS: Deploy propagated successfully."
     break
@@ -175,6 +187,7 @@ pre_deploy:
 post_deploy:
   commitSha: $POST_DEPLOY_COMMIT
   commitShaTrusted: $POST_DEPLOY_TRUSTED
+  zephixEnv: $POST_DEPLOY_ENV
   railwayDeploymentId: $POST_DEPLOY_DEPLOYMENT_ID
 
 deployment_id_changed: $DEPLOYMENT_ID_CHANGED
