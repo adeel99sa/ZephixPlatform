@@ -5,34 +5,20 @@ import { SmokeInvitesController } from './smoke-invites.controller';
 import { SmokeKeyGuard } from '../guards/smoke-key.guard';
 import { AuthOutbox } from '../entities/auth-outbox.entity';
 
-// Minimal fake query builder that mirrors the chained API used in the controller
-function makeQueryBuilder(rawResult: { token: string } | null) {
-  const qb: any = {
-    select: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    getRawOne: jest.fn().mockResolvedValue(rawResult),
-  };
-  return qb;
-}
-
 describe('SmokeInvitesController', () => {
   let controller: SmokeInvitesController;
-  let mockCreateQueryBuilder: jest.Mock;
+  let mockManagerQuery: jest.Mock;
 
   const originalNodeEnv = process.env.NODE_ENV;
   const originalZephixEnv = process.env.ZEPHIX_ENV;
   const originalSmokeKey = process.env.STAGING_SMOKE_KEY;
 
   beforeEach(async () => {
-    // Set staging runtime so SmokeKeyGuard passes
     process.env.NODE_ENV = 'staging';
     process.env.ZEPHIX_ENV = 'staging';
     process.env.STAGING_SMOKE_KEY = 'test-smoke-key';
 
-    mockCreateQueryBuilder = jest.fn().mockReturnValue(makeQueryBuilder(null));
+    mockManagerQuery = jest.fn().mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SmokeInvitesController],
@@ -40,7 +26,7 @@ describe('SmokeInvitesController', () => {
         {
           provide: getRepositoryToken(AuthOutbox),
           useValue: {
-            createQueryBuilder: mockCreateQueryBuilder,
+            manager: { query: mockManagerQuery },
           },
         },
         SmokeKeyGuard,
@@ -127,7 +113,7 @@ describe('SmokeInvitesController', () => {
     });
 
     it('throws 404 when no outbox entry found', async () => {
-      mockCreateQueryBuilder.mockReturnValue(makeQueryBuilder(null));
+      mockManagerQuery.mockResolvedValue([]);
 
       await expect(
         controller.getLatestToken('smoke+invitee@zephix.dev'),
@@ -136,9 +122,7 @@ describe('SmokeInvitesController', () => {
 
     it('returns { token } only when outbox entry exists', async () => {
       const fakeToken = 'fake-raw-invite-token-abc123';
-      mockCreateQueryBuilder.mockReturnValue(
-        makeQueryBuilder({ token: fakeToken }),
-      );
+      mockManagerQuery.mockResolvedValue([{ token: fakeToken }]);
 
       const result = await controller.getLatestToken('smoke+invitee@zephix.dev');
 
@@ -147,20 +131,16 @@ describe('SmokeInvitesController', () => {
       expect(Object.keys(result)).toEqual(['token']);
     });
 
-    it('normalizes email to lowercase before query', async () => {
+    it('normalizes email to lowercase before querying', async () => {
       const fakeToken = 'token-xyz';
-      const qb = makeQueryBuilder({ token: fakeToken });
-      mockCreateQueryBuilder.mockReturnValue(qb);
+      mockManagerQuery.mockResolvedValue([{ token: fakeToken }]);
 
       await controller.getLatestToken('SMOKE+Invitee@ZEPHIX.DEV');
 
-      // Verify andWhere was called with lowercase email
-      const andWhereCalls = qb.andWhere.mock.calls;
-      const emailCall = andWhereCalls.find(
-        (c: any[]) => typeof c[1] === 'object' && 'email' in c[1],
+      expect(mockManagerQuery).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining(['smoke+invitee@zephix.dev']),
       );
-      expect(emailCall).toBeDefined();
-      expect(emailCall[1].email).toBe('smoke+invitee@zephix.dev');
     });
   });
 });

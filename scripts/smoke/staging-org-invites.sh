@@ -45,8 +45,8 @@ fi
 API_BASE="${STAGING_BACKEND_BASE}/api"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-staging+smoke@zephix.dev}"
-INVITEE_EMAIL="staging+invitee+${RUN_ID}@zephix.dev"
-INVITEE_EMAIL="${INVITEE_EMAIL,,}"  # lowercase
+INVITEE_EMAIL="$(printf 'staging+invitee+%s@zephix.dev' "${RUN_ID}" | tr '[:upper:]' '[:lower:]')"
+
 
 mkdir -p "${OUT_DIR}"
 rm -f "${OUT_DIR}/admin-cookiejar.txt" "${OUT_DIR}/invitee-cookiejar.txt"
@@ -220,7 +220,7 @@ ORG_ID="$(body_from_http_file "${OUT_DIR}/05-admin-auth-me.txt" | node -e "
 let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
   try{
     const j=JSON.parse(d);
-    const u=j.user||j.data?.user||j;
+    const u=j.user||j.data?.user||j.data||j;
     process.stdout.write(String(u.organizationId||u.orgId||u.organization?.id||''));
   }catch(e){process.stdout.write('')}
 })")"
@@ -238,7 +238,7 @@ curl -i \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${ADMIN_CSRF}" \
   -X POST "${API_BASE}/workspaces" \
-  -d "{\"name\":\"${WORKSPACE_NAME}\",\"organizationId\":\"${ORG_ID}\"}" \
+  -d "{\"name\":\"${WORKSPACE_NAME}\"}" \
   > "${OUT_DIR}/06-workspace-create.txt"
 require_status_csv "${OUT_DIR}/06-workspace-create.txt" "$(contract_field workspace_create status)"
 WORKSPACE_ID="$(body_from_http_file "${OUT_DIR}/06-workspace-create.txt" | node -e "
@@ -268,10 +268,13 @@ INVITE_CREATE_STATUS="$(status_code "${OUT_DIR}/07-invite-create.txt")"
 require_status_csv "${OUT_DIR}/07-invite-create.txt" "$(contract_field invite_create status)"
 
 # ─── 08 INVITEE REGISTER ─────────────────────────────────────────────────────
+# Uses admin cookiejar for CSRF cookie; register endpoint is public but requires CSRF.
 
 INVITEE_PASSWORD="Smoke!${RUN_ID:0:8}Zx"
 curl -i \
+  -b "${OUT_DIR}/admin-cookiejar.txt" \
   -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${ADMIN_CSRF}" \
   -X POST "${API_BASE}/auth/register" \
   -d "{\"email\":\"${INVITEE_EMAIL}\",\"password\":\"${INVITEE_PASSWORD}\",\"fullName\":\"Smoke Invitee ${RUN_ID}\",\"orgName\":\"SmokeInvOrg${RUN_ID}\"}" \
   > "${OUT_DIR}/08-invitee-register.txt"

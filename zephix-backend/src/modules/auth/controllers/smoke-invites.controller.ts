@@ -65,17 +65,19 @@ export class SmokeInvitesController {
       });
     }
 
-    // Query auth_outbox for most recent invite event for this email
-    // Uses JSONB field access to match on payloadJson.email and extract payloadJson.token
-    const row = await this.authOutboxRepository
-      .createQueryBuilder('outbox')
-      .select(`outbox.payload_json->>'token'`, 'token')
-      .where('outbox.type = :type', { type: INVITE_EVENT_TYPE })
-      .andWhere(`outbox.payload_json->>'email' = :email`, { email: normalized })
-      .andWhere(`outbox.payload_json->>'token' IS NOT NULL`)
-      .orderBy('outbox.created_at', 'DESC')
-      .limit(1)
-      .getRawOne<{ token: string }>();
+    // Query auth_outbox for most recent invite event for this email.
+    // Uses manager.query() with parameterized raw SQL to reliably access JSONB fields.
+    const rows = await this.authOutboxRepository.manager.query<{ token: string }[]>(
+      `SELECT payload_json->>'token' AS token
+       FROM auth_outbox
+       WHERE type = $1
+         AND payload_json->>'email' = $2
+         AND payload_json->>'token' IS NOT NULL
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [INVITE_EVENT_TYPE, normalized],
+    );
+    const row = rows[0] ?? null;
 
     if (!row || !row.token) {
       throw new NotFoundException({
