@@ -244,3 +244,56 @@ jobs:
           name: programs-portfolios-linkage-latest-${{ github.run_id }}
           path: docs/architecture/proofs/staging/programs-portfolios-linkage-latest
           retention-days: 14
+
+  api-contract-org-invites:
+    name: api-contract-org-invites
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      STAGING_SMOKE_KEY: ${{ secrets.STAGING_SMOKE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Validate smoke secrets exist
+        run: |
+          if [ -z "${STAGING_SMOKE_KEY}" ]; then
+            echo "Missing STAGING_SMOKE_KEY"
+            exit 1
+          fi
+      - name: Run org-invites API contract check
+        run: bash scripts/smoke/run.sh contract-org-invites
+
+  staging-org-invites-smoke:
+    name: staging-org-invites-smoke
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      STAGING_SMOKE_KEY: ${{ secrets.STAGING_SMOKE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Validate smoke secrets exist
+        run: |
+          if [ -z "${STAGING_SMOKE_KEY}" ]; then
+            echo "Missing STAGING_SMOKE_KEY"
+            exit 1
+          fi
+      - name: Run staging org-invites smoke
+        run: bash scripts/smoke/run.sh org-invites
+      - name: Upload org-invites proof bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: org-invites-latest-${{ github.run_id }}
+          path: docs/architecture/proofs/staging/org-invites-latest
+          retention-days: 14
