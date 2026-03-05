@@ -1,0 +1,16 @@
+# Deploy proof — written by scripts/deploy-staging.sh
+date_utc: 2026-03-05T14:51:19Z
+branch: chore/mcp-and-skills
+local_head: 190069ebb9d9015a348a879d1634c06c805c6acf
+
+pre_deploy:
+  commitSha: 8dcc35c646bbf88f2ec7f35867079e895926eb94
+  railwayDeploymentId: 438c1715-ebf2-4bd0-a072-2996aec53da3
+
+post_deploy:
+  commitSha: 190069ebb9d9015a348a879d1634c06c805c6acf
+  commitShaTrusted: true
+  zephixEnv: staging
+  railwayDeploymentId: cf021e2e-9a38-41ef-9b58-37ecf4636c36
+
+deployment_id_changed: true
