@@ -34,6 +34,7 @@ export function normalizePlatformRole(role: string | undefined | null): Platform
   const legacyMapping: Record<string, PlatformRole> = {
     'owner': 'ADMIN',
     'admin': 'ADMIN',
+    'manager': 'MEMBER',
     'pm': 'MEMBER',
     'project_manager': 'MEMBER',
     'member': 'MEMBER',
