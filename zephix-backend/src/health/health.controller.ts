@@ -204,12 +204,12 @@ export class HealthController {
     }
 
     const schema = await this.checkSchema();
-    // In production-like environments, do not block readiness on schema verify so deploys can go green.
-    // Schema is still checked and included in response for visibility; fix schema separately.
-    const isProductionLike =
-      isProductionRuntime() || isStagingRuntime();
+    // Staging and production always block readiness on schema drift.
+    // A 200 from a drifted schema is a false signal — smoke lanes and Railway health
+    // gates depend on readiness meaning "schema is correct, service is safe to route to".
+    // To bypass (e.g. emergency hotfix): set READINESS_SKIP_SCHEMA_BLOCK=true in Railway vars.
     const blockOnSchema =
-      !isProductionLike || process.env.READINESS_REQUIRE_SCHEMA === 'true';
+      process.env.READINESS_SKIP_SCHEMA_BLOCK !== 'true';
 
     if (blockOnSchema && schema.status !== 'ok') {
       return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({

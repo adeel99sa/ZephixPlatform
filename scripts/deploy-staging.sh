@@ -145,6 +145,28 @@ railway variables \
 echo "PASS: COMMIT_SHA=$COMMIT_SHA set in Railway service '$EXPECTED_SERVICE' env '$EXPECTED_ENVIRONMENT'"
 echo ""
 
+# ─── RUN STAGING MIGRATIONS ──────────────────────────────────────────────────────
+# Migrations MUST run before deploy so schema is correct before traffic shifts.
+# DATABASE_URL is required. Fetch it once and export before calling this script:
+#
+#   export DATABASE_URL=$(railway variables get DATABASE_URL \
+#     --service zephix-backend-staging --environment staging)
+#
+# Do not echo DATABASE_URL; redirect to variable only.
+echo "=== Running staging migrations ==="
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "FAIL: DATABASE_URL is not set. Cannot run migrations before deploy."
+  echo ""
+  echo "  Fetch and export it (no echo, no log):"
+  echo "    export DATABASE_URL=\$(railway variables get DATABASE_URL \\"
+  echo "      --service zephix-backend-staging --environment staging)"
+  echo ""
+  echo "  Then re-run: bash scripts/deploy-staging.sh"
+  exit 1
+fi
+ZEPHIX_ENV=staging bash "$REPO_ROOT/scripts/migrations/run-staging.sh"
+echo ""
+
 # ─── DEPLOY ──────────────────────────────────────────────────────────────────────
 echo "=== Deploying to Railway ==="
 railway up \

@@ -48,11 +48,33 @@ export enum WorkspaceVisibility {
  * - These provide granular permissions that Linear and Monday don't have
  */
 export type WorkspaceRole =
-  | 'workspace_owner' // Internal: Workspace Owner access
+  | 'workspace_owner'  // Legacy DB value — use workspace_admin in new code
+  | 'workspace_admin'  // Canonical alias for workspace_owner (DB still stores workspace_owner)
   | 'workspace_member' // Internal: Workspace Member access
   | 'workspace_viewer' // Internal: Workspace Viewer access
-  | 'delivery_owner' // Project-scoped: DO NOT MIGRATE - remains project-level
-  | 'stakeholder'; // Project-scoped: DO NOT MIGRATE - remains project-level
+  | 'delivery_owner'   // Project-scoped: DO NOT MIGRATE - remains project-level
+  | 'stakeholder';     // Project-scoped: DO NOT MIGRATE - remains project-level
+
+/**
+ * Normalize a raw workspace role string.
+ * Maps the legacy DB value workspace_owner → canonical workspace_admin.
+ * All other values are returned unchanged.
+ * Backward compatibility: workspace_owner is still accepted everywhere.
+ */
+export function normalizeWorkspaceRole(
+  role: string | null | undefined,
+): WorkspaceRole | null {
+  if (!role) return null;
+  if (role === 'workspace_owner') return 'workspace_admin';
+  const valid: WorkspaceRole[] = [
+    'workspace_admin',
+    'workspace_member',
+    'workspace_viewer',
+    'delivery_owner',
+    'stakeholder',
+  ];
+  return valid.includes(role as WorkspaceRole) ? (role as WorkspaceRole) : null;
+}
 
 @Entity('workspaces')
 export class Workspace {
