@@ -2,9 +2,12 @@
 
 date_utc: 2026-03-06T20:25:30Z
 remediation_date_utc: 2026-03-06T21:00:00Z
+doc_sync_date_utc: 2026-03-06T21:25:00Z
 branch: main
 commit_sha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-final_proof_commit: 8e135c8b78c8f141e192710848984416e379b8ed
+current_main_head: 4aba3459da57bff2d746316075ca5bca6efe044f
+current_origin_main_head: 4aba3459da57bff2d746316075ca5bca6efe044f
+proof_reference_policy: stable_pin_to_rbac_code_commit
 staging_deploy_id: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
 assessed_by: Claude (automated proof pipeline)
 
@@ -82,7 +85,7 @@ Rollback: redeploy previous `railwayDeploymentId` captured in Phase 2.
 |------|------|----------|
 | 0 | `00-preflight.txt` | clean tree (main), Node 20.20.0, guard PASS, contract-all PASS — all gates explicit PASS |
 | 1 | `01-merge-scope.md` | 56 commits on chore/mcp-and-skills, 6 merge conflicts resolved |
-| 2 | `02-merge.txt` | merge commit 3d5432c4, push + final-doc commit 8e135c8b, push status per phase |
+| 2 | `02-merge.txt` | merge commit pinned at 3d5432c4 (stable RBAC code reference); live HEAD tracked separately |
 | 3 | `03-deploy-inputs.txt` | Railway auth PASS, DATABASE_PUBLIC_URL present, all deploy scripts present |
 | 4 | `04-version-after-deploy.txt` | pre/post deploy SHA comparison, deploymentId change verified |
 | 5 | `05-live-version.json` | live /api/version — commitSha, trusted, deploymentId |
