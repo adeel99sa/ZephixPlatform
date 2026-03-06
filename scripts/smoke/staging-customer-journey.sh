@@ -200,11 +200,12 @@ echo "03 csrf: token length=${#ADMIN_CSRF}"
 # ─── 04 ORG SIGNUP (fresh admin registration) ────────────────────────────────
 
 ADMIN_ORG_NAME="JourneyOrg${RUN_ID:0:8}"
+# Use smoke/users/create to bypass /auth/register rate limiter (5 req / 15 min per IP)
 curl -i \
-  -b "${OUT_DIR}/admin-cookiejar.txt" \
   -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: ${ADMIN_CSRF}" \
-  -X POST "${API_BASE}/auth/register" \
+  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
+  -X POST "${API_BASE}/smoke/users/create" \
   -d "{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASSWORD}\",\"fullName\":\"Journey Admin\",\"orgName\":\"${ADMIN_ORG_NAME}\"}" \
   > "${OUT_DIR}/04-org-signup.txt"
 require_status_csv "${OUT_DIR}/04-org-signup.txt" "$(contract_field org_signup status)"
@@ -413,11 +414,12 @@ fi
 
 INVITEE_PASSWORD="Journey!${RUN_ID:0:8}Zx"
 INVITEE_ORG_NAME="JourneyInvOrg${RUN_ID:0:8}"
+# Use smoke/users/create to bypass /auth/register rate limiter (5 req / 15 min per IP)
 curl -i \
-  -b "${OUT_DIR}/invitee-cookiejar.txt" \
   -H "Content-Type: application/json" \
-  -H "X-CSRF-Token: ${INVITEE_CSRF}" \
-  -X POST "${API_BASE}/auth/register" \
+  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
+  -X POST "${API_BASE}/smoke/users/create" \
   -d "{\"email\":\"${INVITEE_EMAIL}\",\"password\":\"${INVITEE_PASSWORD}\",\"fullName\":\"Journey Invitee\",\"orgName\":\"${INVITEE_ORG_NAME}\"}" \
   > "${OUT_DIR}/17-invitee-register.txt"
 require_status_csv "${OUT_DIR}/17-invitee-register.txt" "$(contract_field invitee_register status)"
@@ -485,10 +487,45 @@ curl -i \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${INVITEE_CSRF}" \
   -X POST "${API_BASE}/invites/accept" \
-  -d "{\"email\":\"${INVITEE_EMAIL}\",\"token\":\"${INVITE_TOKEN}\"}" \
+  -d "{\"token\":\"${INVITE_TOKEN}\"}" \
   > "${OUT_DIR}/20-invite-accept.txt"
 require_status_csv "${OUT_DIR}/20-invite-accept.txt" "$(contract_field invite_accept status)"
 echo "20 invite_accept: $(status_code "${OUT_DIR}/20-invite-accept.txt")"
+
+# ─── 20b SET PRIMARY ORG → point invitee's organizationId to admin org ────────
+# Without this, smokeLogin creates a JWT from the invitee's own self-registered
+# org (where they are ADMIN), not the invited org (where they are MEMBER/VIEWER).
+
+curl -i \
+  -H "Content-Type: application/json" \
+  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
+  -X POST "${API_BASE}/smoke/users/set-primary-org" \
+  -d "{\"email\":\"${INVITEE_EMAIL}\",\"orgId\":\"${ORG_ID}\"}" \
+  > "${OUT_DIR}/20b-set-primary-org.txt"
+SET_PRIMARY_STATUS="$(status_code "${OUT_DIR}/20b-set-primary-org.txt")"
+if [[ "${SET_PRIMARY_STATUS}" != "200" ]]; then
+  echo "FAIL: step=20b-set-primary-org — expected 200, got ${SET_PRIMARY_STATUS}"
+  cat "${OUT_DIR}/20b-set-primary-org.txt"; exit 1
+fi
+echo "20b set_primary_org: 200 invitee=${INVITEE_EMAIL} orgId=${ORG_ID}"
+
+# Re-run invitee smoke-login to refresh JWT with new org context
+curl -i \
+  -b "${OUT_DIR}/invitee-cookiejar.txt" -c "${OUT_DIR}/invitee-cookiejar.txt" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${INVITEE_CSRF}" \
+  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
+  -X POST "${API_BASE}/auth/smoke-login" \
+  -d "{\"email\":\"${INVITEE_EMAIL}\"}" \
+  > "${OUT_DIR}/20c-invitee-smoke-relogin.txt"
+RELOGIN_STATUS="$(status_code "${OUT_DIR}/20c-invitee-smoke-relogin.txt")"
+if [[ "${RELOGIN_STATUS}" != "204" ]]; then
+  echo "FAIL: step=20c-invitee-smoke-relogin — expected 204, got ${RELOGIN_STATUS}"
+  cat "${OUT_DIR}/20c-invitee-smoke-relogin.txt"; exit 1
+fi
+echo "20c invitee_smoke_relogin: 204 (JWT refreshed with org context)"
 
 # ─── 21 INVITEE AUTH ME → verify orgId matches ───────────────────────────────
 
@@ -529,7 +566,7 @@ process.stdin.on('data',c=>d+=c).on('end',()=>{
       :Array.isArray(j.items)?j.items
       :Array.isArray(j.workspaces)?j.workspaces
       :Array.isArray(j)?j:[];
-    const found=pool.some(w=>String(w.id||w.workspaceId||'')===process.argv[2]);
+    const found=pool.some(w=>String(w.id||w.workspaceId||'')===process.argv[1]);
     process.stdout.write(found?'yes':'no');
   }catch(e){process.stdout.write('no')}
 })" "${WORKSPACE_ID}")"
