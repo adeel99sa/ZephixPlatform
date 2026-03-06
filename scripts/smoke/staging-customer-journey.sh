@@ -199,7 +199,7 @@ echo "03 csrf: token length=${#ADMIN_CSRF}"
 
 # ─── 04 ORG SIGNUP (fresh admin registration) ────────────────────────────────
 
-ADMIN_ORG_NAME="JourneyOrg${RUN_ID:0:8}"
+ADMIN_ORG_NAME="JourneyOrg${RUN_ID//T/}"
 # Use smoke/users/create to bypass /auth/register rate limiter (5 req / 15 min per IP)
 curl -i \
   -H "Content-Type: application/json" \
@@ -413,7 +413,7 @@ fi
 # ─── 17 INVITEE REGISTER ─────────────────────────────────────────────────────
 
 INVITEE_PASSWORD="Journey!${RUN_ID:0:8}Zx"
-INVITEE_ORG_NAME="JourneyInvOrg${RUN_ID:0:8}"
+INVITEE_ORG_NAME="JourneyInvOrg${RUN_ID//T/}"
 # Use smoke/users/create to bypass /auth/register rate limiter (5 req / 15 min per IP)
 curl -i \
   -H "Content-Type: application/json" \
