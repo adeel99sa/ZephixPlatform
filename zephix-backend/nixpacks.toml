@@ -11,7 +11,11 @@ cmds = ["npm ci --legacy-peer-deps"]
 cmds = ["npm run build"]
 
 [start]
-# Run pending migrations before starting the app.
-# migration:run is idempotent — safe to run on every boot.
+# Run pending migrations before starting the app using compiled dist/ output.
+# db:migrate uses node + dist/src/config/data-source-migrate.js so that the
+# migrations glob resolves to dist/src/migrations/*.js (not src/migrations/*.js
+# which is the broken path when migration:run uses typeorm-ts-node-commonjs with
+# NODE_ENV=staging — ts-node sets __dirname to src/database/ and only *.js are
+# searched, matching nothing). db:migrate is idempotent — safe to run on every boot.
 # If the migration fails, the app will not start (desired behavior).
-cmd = "npm run migration:run && npm run start:railway"
+cmd = "npm run db:migrate && npm run start:railway"
