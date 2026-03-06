@@ -5,10 +5,10 @@ remediation_date_utc: 2026-03-06T21:00:00Z
 doc_sync_date_utc: 2026-03-06T21:25:00Z
 branch: main
 commit_sha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-current_main_head: 4aba3459da57bff2d746316075ca5bca6efe044f
-current_origin_main_head: 4aba3459da57bff2d746316075ca5bca6efe044f
 proof_reference_policy: stable_pin_to_rbac_code_commit
+note_live_head: not tracked — main HEAD moves with doc commits; verify via git rev-parse origin/main
 staging_deploy_id: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
+staging_deploy_id_note: historical snapshot — this was the deploymentId at time of smoke lane runs; current-live deploymentId will differ
 assessed_by: Claude (automated proof pipeline)
 
 ---
