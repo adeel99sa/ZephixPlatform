@@ -1,0 +1,17 @@
+{
+    "data": {
+        "commitSha": "afe993fdd360857c7d37a19b815fa526f4afaa8d",
+        "commitShaTrusted": true,
+        "buildTime": "unknown",
+        "zephixEnv": "staging",
+        "nodeEnv": "staging",
+        "railwayDeploymentId": "90e2e2a3-6b5b-4120-98cc-96ea634a95de"
+    },
+    "gitSha": "afe993fdd360857c7d37a19b815fa526f4afaa8d",
+    "commitSha": "afe993fdd360857c7d37a19b815fa526f4afaa8d",
+    "commitShaTrusted": true,
+    "buildTime": "unknown",
+    "zephixEnv": "staging",
+    "nodeEnv": "staging",
+    "railwayDeploymentId": "90e2e2a3-6b5b-4120-98cc-96ea634a95de"
+}

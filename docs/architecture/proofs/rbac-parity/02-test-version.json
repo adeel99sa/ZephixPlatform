@@ -1,0 +1,17 @@
+{
+    "data": {
+        "commitSha": "unknown",
+        "commitShaTrusted": false,
+        "buildTime": "unknown",
+        "zephixEnv": "test",
+        "nodeEnv": "test",
+        "railwayDeploymentId": "4b71927a-0548-4de6-bc46-2142d5d6855f"
+    },
+    "gitSha": "unknown",
+    "commitSha": "unknown",
+    "commitShaTrusted": false,
+    "buildTime": "unknown",
+    "zephixEnv": "test",
+    "nodeEnv": "test",
+    "railwayDeploymentId": "4b71927a-0548-4de6-bc46-2142d5d6855f"
+}
