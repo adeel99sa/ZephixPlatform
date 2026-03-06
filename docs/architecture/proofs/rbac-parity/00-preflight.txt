@@ -1,13 +1,11 @@
 === Preflight ===
-date_utc: 2026-03-06T18:16:02Z
+date_utc: 2026-03-06T19:08:40Z
 branch: chore/mcp-and-skills
-head_sha: 364493285b979529f728708eea625c3c20cd8b66
+head_sha: 884b194fa0be00301ad657a8ab42b4ac2b71d131
 
 === git status ===
- M docs/ai/environments/staging.env
-?? docs/architecture/proofs/rbac-parity/
-?? zephix-backend/src/modules/work-management/services/__tests__/work-tasks.bulk-update.spec.ts
-?? zephix-frontend/playwright-acceptance-report/
+ M docs/architecture/proofs/rbac-parity/00-preflight.txt
+ M docs/architecture/proofs/rbac-parity/07-test-smoke-route-probes.txt
 
 === node version ===
 v24.3.0
