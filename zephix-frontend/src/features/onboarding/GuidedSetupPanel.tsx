@@ -1,3 +1,4 @@
+import { isAdminRole } from '@/utils/roles';
 // ─────────────────────────────────────────────────────────────────────────────
 // Guided Setup Panel — Phase 4.8
 //
@@ -59,11 +60,7 @@ export function GuidedSetupPanel() {
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
   const navigate = useNavigate();
-  const isAdmin =
-    user?.platformRole === 'ADMIN' ||
-    (user?.platformRole as string) === 'OWNER' ||
-    (user?.platformRole as string) === 'admin' ||
-    (user?.platformRole as string) === 'owner';
+  const isAdmin = isAdminRole(user?.platformRole ?? user?.role);
 
   const [status, setStatus] = useState<WorkspaceSetupStatus | null>(null);
   const [loading, setLoading] = useState(true);

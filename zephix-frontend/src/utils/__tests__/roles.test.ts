@@ -86,4 +86,11 @@ describe('platformRoleFromUser', () => {
   it('normalizes legacy admin role from user.platformRole → ADMIN', () => {
     expect(platformRoleFromUser({ platformRole: 'admin' })).toBe('ADMIN');
   });
+  it('VIEWER-platformRole takes precedence over ADMIN role — prevents privilege escalation', () => {
+    expect(platformRoleFromUser({ platformRole: 'VIEWER', role: 'admin' })).toBe('VIEWER');
+  });
+
+  it('null platformRole falls back to role (not treated as VIEWER override)', () => {
+    expect(platformRoleFromUser({ platformRole: null, role: 'admin' })).toBe('ADMIN');
+  });
 });
