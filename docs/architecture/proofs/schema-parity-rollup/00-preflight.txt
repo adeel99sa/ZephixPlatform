@@ -1,0 +1,24 @@
+=== Step 0: Preflight ===
+date_utc: 2026-03-06T11:40:00Z
+branch: chore/mcp-and-skills
+
+git_status: CLEAN (after committing pre-existing hardening changes)
+  Remaining dirty (acceptable):
+    - docs/ai/environments/staging.env (secrets, never committed)
+    - zephix-backend/src/modules/work-management/services/__tests__/work-tasks.bulk-update.spec.ts (untracked test)
+    - zephix-frontend/playwright-acceptance-report/ (generated, gitignored)
+
+node_version: v24.3.0
+guard_lane: PASS
+  ✅ No stale staging domains in active paths
+  PASS: No dead home files found.
+
+version_check: PASS
+  commitShaTrusted: true
+  zephixEnv: staging
+  railwayDeploymentId: 1159193e-b739-4dfd-8870-add841a26b13
+
+pre-existing changes committed as:
+  commit: 49323416 — chore(hardening): guard consolidation, schema-blocking readiness, workspace_admin alias, work-tasks bulk-update fix
+
+PREFLIGHT: PASS — proceeding to Step 1

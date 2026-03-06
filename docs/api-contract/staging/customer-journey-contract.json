@@ -114,10 +114,8 @@
       "method": "GET",
       "path": "/workspaces/{workspaceId}/portfolios/{portfolioId}/rollup",
       "status": [
-        200,
-        500
-      ],
-      "known_issue": "DB schema missing resolved_by_user_id column"
+        200
+      ]
     },
     {
       "step": "invite_create",
