@@ -3,14 +3,13 @@ Push of merge commit: SUCCESS — origin/main was at 3d5432c403ebd7a5b3a34b8b400
 Conflicts resolved: 6 files, all took chore/mcp-and-skills version
 date_utc: 2026-03-06T19:42:01Z
 
---- Remediation note (2026-03-06T21:00:00Z) ---
-Final proof-doc commit: 8e135c8b78c8f141e192710848984416e379b8ed
-  Message: "docs(rbac): add prod-readiness-final proofs and GO verdict for RBAC V2 rollout"
-  Status at remediation time: local main = 8e135c8b, origin/main = 3d5432c4 (1 commit ahead, not yet pushed)
-  Resolution: push to origin/main is executed in Phase 6 of this remediation run.
+--- Final authoritative state (2026-03-06T21:15:00Z) ---
+Commits on main after merge:
+  8e135c8b  docs(rbac): add prod-readiness-final proofs and GO verdict for RBAC V2 rollout
+  50fb563a  docs(rbac): remediate prod-readiness-final proof package to protocol compliance
 
-Branch ancestry (authoritative refs):
-  local main HEAD:  8e135c8b78c8f141e192710848984416e379b8ed
-  origin/main HEAD: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-  merge commit:     3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2 (parent: Merge branch 'chore/mcp-and-skills')
+Branch refs (verified post-remediation push):
+  local main HEAD:  50fb563a4ac11ea339e651373de77b584342e450
+  origin/main HEAD: 50fb563a4ac11ea339e651373de77b584342e450  (local == remote)
+  merge commit:     3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
   chore branch tip: 364493285b979529f728708eea625c3c20cd8b66 (pre-merge local HEAD on chore branch)
