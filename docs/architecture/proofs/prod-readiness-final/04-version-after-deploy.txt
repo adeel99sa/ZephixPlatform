@@ -1,0 +1,23 @@
+=== Version After Deploy ===
+date_utc: 2026-03-06T20:20:00Z
+staging_backend: https://zephix-backend-staging-staging.up.railway.app
+
+pre_deploy:
+  commitSha: afe993fdd360857c7d37a19b815fa526f4afaa8d
+  railwayDeploymentId: 7b9f2a9d-5fc9-45b3-bdd0-e60518432db5
+
+post_deploy:
+  commitSha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+  commitShaTrusted: true
+  zephixEnv: staging
+  nodeEnv: staging
+  railwayDeploymentId: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
+
+deployment_id_changed: true
+
+--- Gate checks ---
+PASS: commitSha matches local main HEAD (3d5432c4)
+PASS: commitShaTrusted = true
+PASS: zephixEnv = staging
+PASS: railwayDeploymentId changed from pre-deploy value
+PASS: health/ready = 200, db+schema ok
