@@ -25,13 +25,13 @@ staging_backend: https://zephix-backend-staging-staging.up.railway.app
 
 ## Smoke Lane Results
 
-| Lane | Steps | Result | Proof |
-|------|-------|--------|-------|
-| guard | 6/6 guards | PASS | scripts/guard/*.sh |
-| contract-all | 6/6 contracts | PASS | scripts/smoke/run.sh contract-all |
-| org-invites | 14/14 contract steps | PASS | docs/architecture/proofs/staging/org-invites-latest/ |
-| customer-journey | 22/22 runner steps | PASS | docs/architecture/proofs/staging/customer-journey-latest/ |
-| ui-acceptance | 15/15 tests | PASS | docs/architecture/proofs/staging/ui-acceptance-latest/ |
+| Lane | Steps | Result | Canonical Proof File |
+|------|-------|--------|----------------------|
+| guard | 6/6 guards | PASS | 00-preflight.txt (guard section) |
+| contract-all | 6/6 contracts | PASS | 00-preflight.txt (contract-all section) |
+| org-invites | 14/14 contract steps | PASS | 07-org-invites-rerun.txt |
+| customer-journey | 22/22 runner steps | PASS | 08-customer-journey-rerun.txt |
+| ui-acceptance | 15/15 tests | PASS | 09-ui-acceptance-rerun.txt |
 
 ---
 

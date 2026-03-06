@@ -1,0 +1,40 @@
+=== UI Acceptance Smoke Lane Rerun ===
+date_utc: 2026-03-06T20:26:02Z
+run_id: 20260306t202503
+staging_backend: https://zephix-backend-staging-staging.up.railway.app
+staging_frontend: https://zephix-frontend-staging.up.railway.app
+railwayDeploymentId: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
+commitSha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+
+--- Tests (15/15) ---
+ 1 PASS: 00-preflight: version endpoint returns commitShaTrusted=true and env=staging
+ 2 PASS: 00b-preflight: health/ready returns 200
+ 3 PASS: 10-signup: signup page renders with all required input fields
+ 4 PASS: 11-login-owner: create admin org via API, smoke-login via page.request, assert /auth/me 200
+ 5 PASS: 12-create-workspace: create first workspace via UI form, assert redirect to /w/:slug/home
+ 6 PASS: 13-14-portfolio-program: create portfolio + program if programsPortfolios flag is on
+ 7 PASS: 15-create-project: create project via API, navigate to /projects, assert appears in list
+ 8 PASS: 17-create-task-board: create task via page.request, board page loads without 500
+ 9 PASS: 18-invite-user: /admin/invite accessible for admin without 403
+10 PASS: 19-register-invitees: create member + viewer invites, register both invitees
+11 PASS: 20-accept-invite: member accepts invite via UI with token from token bridge
+12 PASS: 20b-accept-viewer-invite: viewer accepts invite via UI with token bridge
+13 PASS: 21-rbac-viewer: viewer cannot access /admin, /templates, or /workspaces/:id/members
+14 PASS: 22-rbac-member: member cannot access /admin or /billing, can access /projects
+15 PASS: final: mark run PASS
+
+--- Result ---
+PASS: 15/15 tests
+first_failure: none
+duration: 59.5s
+
+--- RBAC assertions verified ---
+PASS: viewer denied /admin (redirect/403)
+PASS: viewer denied /templates (redirect)
+PASS: viewer denied workspace members page
+PASS: member denied /admin
+PASS: member denied /billing
+PASS: member can access /projects
+PASS: admin has full access (invite, workspace, project management)
+
+Full proof bundle: docs/architecture/proofs/staging/ui-acceptance-latest/ (gitignored, ephemeral)

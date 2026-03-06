@@ -1,8 +1,10 @@
 # RBAC V2 Production Rollout — GO / NO-GO Verdict
 
 date_utc: 2026-03-06T20:25:30Z
+remediation_date_utc: 2026-03-06T21:00:00Z
 branch: main
 commit_sha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+final_proof_commit: 8e135c8b78c8f141e192710848984416e379b8ed
 staging_deploy_id: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
 assessed_by: Claude (automated proof pipeline)
 
@@ -74,20 +76,23 @@ Rollback: redeploy previous `railwayDeploymentId` captured in Phase 2.
 
 ---
 
-## Proof File Index
+## Proof File Index (canonical — all 13 protocol steps covered)
 
-| File | Contents |
-|------|----------|
-| `00-preflight.txt` | guard PASS, contract-all PASS, clean tree (from Step 0) |
-| `01-merge-scope.md` | 56 commits on chore/mcp-and-skills, 6 merge conflicts resolved |
-| `02-merge.txt` | merge commit 3d5432c4, push to origin/main SUCCESS |
-| `03-deploy-inputs.txt` | Railway auth confirmed, DATABASE_URL resolved from Postgres service |
-| `04-post-deploy-version.json` | live /api/version after deploy — commitSha, trusted, deploymentId |
-| `05-post-deploy-health.txt` | live /api/health/ready after deploy — 200, db+schema ok |
-| `10-live-rbac-summary.md` | full smoke lane results, RBAC assertions, deployment trust chain |
-| `PRODUCTION_RBAC_GO_NO_GO.md` | this file |
+| Step | File | Contents |
+|------|------|----------|
+| 0 | `00-preflight.txt` | clean tree (main), Node 20.20.0, guard PASS, contract-all PASS — all gates explicit PASS |
+| 1 | `01-merge-scope.md` | 56 commits on chore/mcp-and-skills, 6 merge conflicts resolved |
+| 2 | `02-merge.txt` | merge commit 3d5432c4, push + final-doc commit 8e135c8b, push status per phase |
+| 3 | `03-deploy-inputs.txt` | Railway auth PASS, DATABASE_PUBLIC_URL present, all deploy scripts present |
+| 4 | `04-version-after-deploy.txt` | pre/post deploy SHA comparison, deploymentId change verified |
+| 5 | `05-live-version.json` | live /api/version — commitSha, trusted, deploymentId |
+| 6 | `06-live-health.txt` | live /api/health/ready — HTTP 200, db+schema ok |
+| 7 | `07-org-invites-rerun.txt` | org-invites 14/14 PASS, deploymentId b58379d4, trust anchor verified |
+| 8 | `08-customer-journey-rerun.txt` | customer-journey 22/22 PASS, portfolio_rollup 200, trust anchor verified |
+| 9 | `09-ui-acceptance-rerun.txt` | ui-acceptance 15/15 PASS, RBAC viewer/member/admin assertions |
+| 10 | `10-live-rbac-summary.md` | full smoke lane results, RBAC assertions, deployment trust chain |
+| 11–13 | `PRODUCTION_RBAC_GO_NO_GO.md` | this file — verdict, rollout sequence, rollback plan |
 
-Staging smoke lane proofs:
-- `docs/architecture/proofs/staging/org-invites-latest/` — 14/14 PASS, deploymentId b58379d4
-- `docs/architecture/proofs/staging/customer-journey-latest/` — 22/22 PASS, deploymentId b58379d4
-- `docs/architecture/proofs/staging/ui-acceptance-latest/` — 15/15 PASS
+Legacy files (retained, superseded by canonical names above):
+- `04-post-deploy-version.json` — superseded by 05-live-version.json
+- `05-post-deploy-health.txt` — superseded by 06-live-health.txt

@@ -1,13 +1,16 @@
-=== Preflight ===
-date_utc: 2026-03-06T19:34:29Z
-branch: chore/mcp-and-skills
-head_sha: b9cc3c272ae1b8cb91213d90ce333f245bf8c673
+=== Preflight (REMEDIATED) ===
+original_date_utc: 2026-03-06T19:34:29Z
+remediation_date_utc: 2026-03-06T20:58:53Z
+branch: main
+head_sha: 8e135c8b78c8f141e192710848984416e379b8ed
 
 === git status ===
-?? docs/architecture/proofs/prod-readiness-final/
+PASS: working tree clean (git status --short produced no output)
+note: original run was on chore/mcp-and-skills with untracked prod-readiness-final/ — FAIL gate was violated; remediated on main with clean tree
 
 === node version ===
-v24.3.0
+v20.20.0 (via nvm use 20)
+note: original run used v24.3.0 (system default) — Node major 20 gate was violated; remediated with nvm-activated v20.20.0
 
 === guard ===
 ✅ No stale staging domains in active paths
@@ -131,8 +134,15 @@ invitee_workspaces_list	GET	/workspaces	200
 PASS: All 21 required steps present in customer-journey-contract.json
 PASS: No staging auto-migrate found in source
 
-=== MERGE AND PUSH ===
+=== GATE SUMMARY ===
+PASS: working tree clean (main branch, main-sync worktree)
+PASS: node major 20 (v20.20.0)
+PASS: guard suite (exit 0)
+PASS: contract-all (exit 0, all 21 required steps present)
+
+ALL PREFLIGHT GATES PASS — proceed to Phase 2
+
+=== MERGE AND PUSH (at time of original Step 0 run) ===
 merge_commit: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-push_to_origin: SUCCESS
-local_main_head: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-remote_main_head: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+push_to_origin: SUCCESS (at that time)
+note: final proof-doc commit (8e135c8b) was added after; push to origin/main is addressed in Phase 6
