@@ -36,6 +36,24 @@ jobs:
       - name: Run staging domain guard
         run: bash scripts/smoke/run.sh guard
 
+  rbac-no-import-drift:
+    name: rbac-no-import-drift
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify normalizePlatformRole defined only in canonical module
+        run: bash scripts/guard/no-import-drift.sh
+
+  rbac-no-role-drift:
+    name: rbac-no-role-drift
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for direct user.role comparisons outside canonical/test/migration files
+        run: bash scripts/guard/no-role-drift.sh
+
   api-contract-onboarding:
     name: api-contract-onboarding
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
@@ -283,6 +301,8 @@ jobs:
         run: bash scripts/smoke/run.sh org-invites
       - name: Guard - no token leaks in proof artifacts
         run: bash scripts/guard/no-token-in-proof-artifacts.sh docs/architecture/proofs/staging/org-invites-latest
+      - name: Guard - deployment trust anchor
+        run: bash scripts/guard/smoke-proof-deployment-trust.sh docs/architecture/proofs/staging/org-invites-latest
       - name: Upload org-invites proof bundle
         if: always()
         uses: actions/upload-artifact@v4
@@ -345,6 +365,8 @@ jobs:
         run: bash scripts/smoke/run.sh customer-journey
       - name: Guard - no token leaks in proof artifacts
         run: bash scripts/guard/no-token-in-proof-artifacts.sh docs/architecture/proofs/staging/customer-journey-latest
+      - name: Guard - deployment trust anchor
+        run: bash scripts/guard/smoke-proof-deployment-trust.sh docs/architecture/proofs/staging/customer-journey-latest
       - name: Upload customer journey proof bundle
         if: always()
         uses: actions/upload-artifact@v4

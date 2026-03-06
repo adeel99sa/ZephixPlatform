@@ -20,13 +20,15 @@ Pre-work SHA: afe993fdd360857c7d37a19b815fa526f4afaa8d
 | `scripts/smoke/run.sh guard` | PASS |
 | `scripts/smoke/run.sh contract-all` | PASS (exit 0) |
 
-### Staging (deployment 90e2e2a3)
+### Staging (deployment 90e2e2a3, commitShaTrusted=true)
 
-| Smoke Lane | Result | Steps |
-|------------|--------|-------|
-| staging-onboarding | PASS | smoke-login=204, auth/me=200 |
-| org-invites | PASS | 11/11 steps, token never written to disk |
-| customer-journey | PASS | 22/22 steps, token never written to disk |
+| Smoke Lane | Contract Steps | Runner Result |
+|------------|---------------|---------------|
+| staging-onboarding | 7-step contract verified | PASS — smoke-login=204, auth/me=200 |
+| org-invites | 14-step contract verified | PASS — 14 contract steps + token never written to disk |
+| customer-journey | 21-step contract verified | PASS — 22 runner steps (incl. infra), token never written to disk |
+
+Note: "contract steps" = steps enforced by `api-contract-*.sh` guards; "runner steps" = steps executed by the smoke script (may include infra steps not in contract, e.g. `set_primary_org`).
 
 ---
 
@@ -76,7 +78,7 @@ Pre-work SHA: afe993fdd360857c7d37a19b815fa526f4afaa8d
 - DB schema unchanged (no migration)
 - API response shapes unchanged
 - Auth contract unchanged (`/auth/login`, `/auth/me`, `/auth/register`)
-- Staging staging behavior identical to pre-RBAC-V2 (22/22, 11/11 PASS)
+- Staging behavior identical to pre-RBAC-V2 (customer-journey 22/22 runner steps, org-invites 14/14 contract steps)
 - No feature flags added or changed
 - Archived components untouched
 - Billing module untouched

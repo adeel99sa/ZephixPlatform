@@ -6,6 +6,9 @@ usage() {
 Usage:
   scripts/smoke/run.sh deploy-staging
   scripts/smoke/run.sh guard
+  scripts/smoke/run.sh guard-no-import-drift
+  scripts/smoke/run.sh guard-no-role-drift
+  scripts/smoke/run.sh guard-smoke-proof-trust <proof-dir>
   scripts/smoke/run.sh contract                   # run ALL contract guards
   scripts/smoke/run.sh contract-all               # alias for contract
   scripts/smoke/run.sh contract-onboarding
@@ -26,7 +29,7 @@ Usage:
 EOF
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -lt 1 ]]; then
   usage
   exit 1
 fi
@@ -49,6 +52,21 @@ case "$1" in
     bash scripts/guard/no-dead-home-files.sh
     bash scripts/guard/contract-runner-parity.sh
     bash scripts/guard/no-token-in-proof-artifacts.sh
+    bash scripts/guard/no-import-drift.sh
+    bash scripts/guard/no-role-drift.sh
+    ;;
+  guard-no-import-drift)
+    bash scripts/guard/no-import-drift.sh
+    ;;
+  guard-no-role-drift)
+    bash scripts/guard/no-role-drift.sh
+    ;;
+  guard-smoke-proof-trust)
+    if [[ $# -ne 2 ]]; then
+      echo "Usage: scripts/smoke/run.sh guard-smoke-proof-trust <proof-dir>"
+      exit 1
+    fi
+    bash scripts/guard/smoke-proof-deployment-trust.sh "$2"
     ;;
   contract|contract-all)
     _run_all_contracts
