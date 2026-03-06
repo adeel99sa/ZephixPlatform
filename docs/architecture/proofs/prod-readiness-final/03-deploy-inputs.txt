@@ -1,0 +1,20 @@
+=== Deploy Prerequisites Check ===
+date_utc: 2026-03-06T19:48:20Z
+
+=== Railway CLI auth ===
+Logged in as adeel99sa@yahoo.com 👋
+
+=== DATABASE_URL ===
+DATABASE_URL_PRESENT=no
+
+=== STAGING_SMOKE_KEY ===
+STAGING_SMOKE_KEY_PRESENT=no (will load from staging.env)
+
+=== Staging env file ===
+ENV_FILE=PRESENT
+
+=== STAGING_BACKEND_BASE from env ===
+STAGING_BACKEND_BASE=https://zephix-backend-staging-staging.up.railway.app
+
+=== Deploy script ===
+DEPLOY_SCRIPT=PRESENT
