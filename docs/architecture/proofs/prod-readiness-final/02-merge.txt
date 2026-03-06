@@ -3,13 +3,20 @@ Push of merge commit: SUCCESS — origin/main was at 3d5432c403ebd7a5b3a34b8b400
 Conflicts resolved: 6 files, all took chore/mcp-and-skills version
 date_utc: 2026-03-06T19:42:01Z
 
---- Final authoritative state (2026-03-06T21:15:00Z) ---
-Commits on main after merge:
-  8e135c8b  docs(rbac): add prod-readiness-final proofs and GO verdict for RBAC V2 rollout
-  50fb563a  docs(rbac): remediate prod-readiness-final proof package to protocol compliance
+--- Authoritative RBAC code commit ---
+RBAC V2 code commit (stable, does not change):
+  merge commit: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+  chore branch tip: 364493285b979529f728708eea625c3c20cd8b66
 
-Branch refs (verified post-remediation push):
-  local main HEAD:  50fb563a4ac11ea339e651373de77b584342e450
-  origin/main HEAD: 50fb563a4ac11ea339e651373de77b584342e450  (local == remote)
-  merge commit:     3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
-  chore branch tip: 364493285b979529f728708eea625c3c20cd8b66 (pre-merge local HEAD on chore branch)
+All commits after 3d5432c4 are documentation artifacts only.
+RBAC code state is fixed at 3d5432c4. This file does not track live HEAD
+to avoid self-referential doc drift (each HEAD-tracking update creates a
+new stale SHA requiring another update).
+
+Documentation commits on main (for reference — not RBAC code):
+  8e135c8b  docs(rbac): add prod-readiness-final proofs and GO verdict
+  50fb563a  docs(rbac): remediate prod-readiness-final proof package
+  1891b0b7  docs(rbac): update 02-merge.txt to final 50fb563a sync state
+  (any further doc commits — verify via: git log --oneline 3d5432c4..main)
+
+To verify current origin/main state: git rev-parse origin/main
