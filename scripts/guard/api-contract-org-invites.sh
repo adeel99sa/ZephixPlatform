@@ -15,6 +15,8 @@ REQUIRED_STEPS=(
   csrf
   smoke_login
   auth_me
+  org_signup
+  workspace_create
   invite_create
   invitee_register
   invitee_smoke_login
