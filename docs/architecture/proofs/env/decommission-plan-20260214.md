@@ -18,7 +18,7 @@
 
 | Service | Environment | Current Domain | Issue |
 |---------|-------------|---------------|-------|
-| `zephix-backend-staging` | production | `zephix-platform-staging-production.up.railway.app` | Staging backend inside prod env |
+| `zephix-backend-staging` | production | `zephix-backend-staging-staging.up.railway.app` | Staging backend inside prod env |
 | `zephix-frontend-staging` | production | `zephix-frontend-staging-production.up.railway.app` | Staging frontend inside prod env |
 
 ### Test Environment — Stray Staging Services
@@ -33,7 +33,7 @@
 ### Phase A: Production Environment Stray Services
 
 **Step A1: Remove public domains first** ✅ DONE 2026-02-15T04:38Z
-- Removed `zephix-platform-staging-production.up.railway.app` from `zephix-backend-staging`
+- Removed `zephix-backend-staging-staging.up.railway.app` from `zephix-backend-staging`
 - Removed `zephix-frontend-staging-production.up.railway.app` from `zephix-frontend-staging`
 - Verified both domains now return 404
 

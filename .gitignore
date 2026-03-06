@@ -180,3 +180,12 @@ docs/build/
 # E2E smoke test generated data
 scripts/smoke/e2e-ids.json
 .tmp/
+
+# staging smoke generated output
+/docs/architecture/proofs/staging/onboarding-latest/
+/docs/architecture/proofs/staging/platform-core-latest/
+/docs/architecture/proofs/staging/programs-portfolios-latest/
+/docs/architecture/proofs/staging/programs-portfolios-linkage-latest/
+/docs/architecture/proofs/staging/org-invites-latest/
+/docs/architecture/proofs/staging/customer-journey-latest/
+/docs/architecture/proofs/staging/ui-acceptance-latest/

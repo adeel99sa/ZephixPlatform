@@ -1,0 +1,40 @@
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id,x-request-id,X-Correlation-Id,x-correlation-id,Set-Cookie
+cache-control: no-store
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+deprecation: true
+etag: W/"1d6-RakDxJUmToKYMeLYMOGR0nn3Z/U"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+pragma: no-cache
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-06-02T18:30:18.000Z
+x-content-type-options: nosniff
+x-correlation-id: 731615e7-41d8-4b8f-9971-b2ecef9059a3
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: vZ6hK7uaQMS_LNn6Cx5-qw
+x-request-id: 0879424a-3f3f-41a9-a13b-1ce50239ada8
+x-xss-protection: 0
+x-zephix-env: staging
+accept-ranges: bytes
+date: Wed, 04 Mar 2026 18:30:18 GMT
+via: 1.1 varnish
+x-cache: MISS
+x-cache-hits: 0
+x-timer: S1772649018.926298,VS0,VE86
+vary: Origin, Accept-Encoding
+x-railway-cdn-edge: fastly/cache-chi-klot8100084-CHI
+content-length: 470
+
+{"data":{"commitSha":"890e5c188a79a066955a5a695c098d4c004c8601","commitShaTrusted":true,"buildTime":"unknown","zephixEnv":"staging","nodeEnv":"staging","railwayDeploymentId":"cc435d4f-d4f0-4a32-af46-e06374722125"},"gitSha":"890e5c188a79a066955a5a695c098d4c004c8601","commitSha":"890e5c188a79a066955a5a695c098d4c004c8601","commitShaTrusted":true,"buildTime":"unknown","zephixEnv":"staging","nodeEnv":"staging","railwayDeploymentId":"cc435d4f-d4f0-4a32-af46-e06374722125"}

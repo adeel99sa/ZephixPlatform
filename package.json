@@ -39,6 +39,9 @@
     "typeorm": "^0.3.26"
   },
   "devDependencies": {
+    "@modelcontextprotocol/server-filesystem": "2026.1.14",
+    "@modelcontextprotocol/server-github": "2025.4.8",
+    "@railway/mcp-server": "0.1.8",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/helmet": "^0.0.48",

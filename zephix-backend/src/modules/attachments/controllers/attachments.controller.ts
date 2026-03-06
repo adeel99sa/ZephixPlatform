@@ -4,7 +4,6 @@ import {
   Post,
   Patch,
   Delete,
-  UseGuards,
   Req,
   Param,
   Query,
@@ -13,7 +12,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { ResponseService } from '../../../shared/services/response.service';
@@ -28,7 +26,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 @ApiTags('attachments')
 @ApiBearerAuth()
 @Controller('work/workspaces/:workspaceId/attachments')
-@UseGuards(JwtAuthGuard)
 @RequireEntitlement('attachments')
 export class AttachmentsController {
   constructor(

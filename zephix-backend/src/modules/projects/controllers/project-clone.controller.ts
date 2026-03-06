@@ -19,6 +19,7 @@ type UserJwt = {
   id: string;
   organizationId: string;
   role: string;
+  platformRole?: string;
 };
 
 @Controller('workspaces/:workspaceId/projects')
@@ -40,7 +41,7 @@ export class ProjectCloneController {
       dto,
       user.id,
       user.organizationId,
-      user.role,
+      user.platformRole ?? user.role,
     );
     return formatResponse(result);
   }

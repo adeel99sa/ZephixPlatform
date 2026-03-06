@@ -11,6 +11,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/state/AuthContext";
+import { platformRoleFromUser } from "@/utils/roles";
 import {
   listScenarios,
   createScenario,
@@ -24,10 +25,9 @@ import {
   type ScenarioActionType,
 } from "./scenarios.api";
 
-function isOwnerOrAdmin(role?: string): boolean {
+function isAdminPlatformRole(role?: string): boolean {
   if (!role) return false;
-  const r = role.toUpperCase();
-  return r === "ADMIN" || r === "OWNER";
+  return role === "ADMIN";
 }
 
 function deltaColor(val: number): string {
@@ -51,8 +51,8 @@ const ACTION_TYPES: { value: ScenarioActionType; label: string }[] = [
 
 export default function ScenarioPage() {
   const { user } = useAuth();
-  const role = (user?.platformRole || user?.role || "VIEWER").toUpperCase();
-  const canWrite = isOwnerOrAdmin(role);
+  const role = platformRoleFromUser(user);
+  const canWrite = isAdminPlatformRole(role);
 
   const [scenarios, setScenarios] = useState<ScenarioPlan[]>([]);
   const [selected, setSelected] = useState<ScenarioPlan | null>(null);

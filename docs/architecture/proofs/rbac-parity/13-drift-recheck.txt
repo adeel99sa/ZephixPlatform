@@ -1,0 +1,67 @@
+=== RBAC V2 Drift Recheck
+date_utc: 2026-03-06T18:00:00Z
+branch: chore/mcp-and-skills
+command: grep -rn "user.role|workspace_owner|AdminGuard|AdminOnlyGuard" zephix-backend/src zephix-frontend/src
+
+=== guard results ===
+
+bash scripts/guard/no-import-drift.sh    PASS (normalizePlatformRole in canonical module only)
+bash scripts/guard/no-role-drift.sh      PASS (no direct user.role === 'admin' comparisons)
+
+=== backend: user.role ===
+
+All user.role reads in business-auth code use correct precedence:
+  user.platformRole ?? user.role  (canonical pattern)
+  user.platformRole || user.role  (acceptable fallback)
+
+EXCEPTION: forms.controller.ts uses user.role || user.platformRole (wrong precedence order)
+  Classification: RESIDUAL_DRIFT (non-RBAC-critical, forms module, out of scope for V2)
+  Risk: LOW — forms module is not a security boundary
+  Action: NON_BLOCKING for V2 rollout; schedule in future cleanup pass
+
+=== backend: workspace_owner ===
+
+All workspace_owner references are in:
+  - Migrations (DB constraint values — intentional)
+  - Seed scripts (dev-seed.ts — non-production)
+  - Integration test fixtures (test files)
+  - Type definitions (workspace.entity.ts WorkspaceRole)
+  - work-item-permissions.helper.ts (reads from DB — correct)
+  - workspace-role-guard.service.ts writeRoles includes both workspace_owner and workspace_admin (V2 fix confirmed)
+
+No new workspace_owner drift introduced.
+
+=== backend: AdminGuard ===
+
+  - shared/guards/admin.guard.ts     KEPT (legacy, AuditService dep, no new usages)
+  - admin/guards/admin.guard.ts      KEPT (admin module controllers, uses canonical platformRole ?? role)
+  - Used by: admin.controller, waitlist.controller, env-proof.controller, backup-readiness.controller
+
+No new AdminGuard usages introduced by V2 cleanup.
+
+=== backend: AdminOnlyGuard ===
+
+  - Only in admin-only.guard.spec.ts (test file — intentional, spec for deprecated guard)
+  - NOT used in any controller (migrated to PlatformAdminGuard per V2 cleanup)
+
+=== frontend: user.role ===
+
+  - AdminRoute.tsx:                   NON_BUSINESS (display/logging)
+  - enterpriseAuth.service.ts:        INTENTIONAL_FALLBACK (API response mapping)
+  - utils/roles.ts:                   DOCUMENTED INTENTIONAL_FALLBACK (last-resort in isAdminUser)
+  - archived-admin-components/:       OUT_OF_SCOPE (archived per V2 doc)
+  - CommandPalette.tsx:               RESIDUAL_DRIFT (isAdminRole(user.role) without platformRole — UI only, non-security)
+  - WorkspacesIndexPage.tsx:          RESIDUAL_DRIFT (normalizePlatformRole(user.role) — display only)
+  - AdminUsersPage.tsx, UsersListPage.tsx: NON_BUSINESS (role filter/display)
+
+All V2 MUST_FIX items confirmed fixed:
+  - hooks/useAuth.ts                          uses platformRoleFromUser(store.user) CONFIRMED
+  - features/budget/BudgetTab.tsx             uses isAdminRole(user?.platformRole ?? user?.role) CONFIRMED
+  - features/onboarding/GuidedSetupPanel.tsx  same fix CONFIRMED
+  - features/admin/utils/getOrgUsers.ts       uses normalizePlatformRole(user.platformRole ?? user.role) CONFIRMED
+
+=== verdict ===
+
+NO NEW DRIFT INTRODUCED BY RBAC V2 CLEANUP.
+All MUST_FIX items confirmed fixed.
+Remaining residual drift items pre-date V2 and are classified as low-risk, out of scope, or intentional fallbacks.

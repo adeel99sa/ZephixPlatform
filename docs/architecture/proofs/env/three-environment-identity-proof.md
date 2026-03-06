@@ -30,7 +30,7 @@
 | `PORT` | `3000` | `8080` | `8080` |
 | Railway service | `zephix-backend-v2` | `zephix-backend` | `zephix-backend` |
 | Railway env name | `staging` | `production` | `test` |
-| Public domain | `zephix-backend-v2-staging.up.railway.app` | `getzephix.com` | `zephix-backend-test.up.railway.app` |
+| Public domain | `zephix-backend-staging-staging.up.railway.app` | `getzephix.com` | `zephix-backend-test.up.railway.app` |
 
 ---
 

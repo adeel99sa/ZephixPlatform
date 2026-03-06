@@ -1,0 +1,13 @@
+RBAC V2 Preflight — 2026-03-06
+
+branch: chore/mcp-and-skills
+working tree: clean (staging.env modified, untracked test file and playwright report)
+node: v24.3.0
+guard: PASS
+contract-all: PASS
+
+version endpoint:
+commitShaTrusted: true
+zephixEnv: staging
+commitSha: afe993fdd360857c7d37a19b815fa526f4afaa8d
+railwayDeploymentId: 7dd7069c-1fc8-4dfd-b056-0030cbb033e2

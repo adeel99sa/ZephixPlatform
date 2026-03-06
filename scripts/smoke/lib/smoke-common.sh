@@ -4,7 +4,7 @@
 #
 # Usage: source this file from any wave smoke script.
 #
-#   BASE_URL="${1:-https://zephix-backend-v2-staging.up.railway.app/api}"
+#   BASE_URL="${1:-}"
 #   WAVE_NAME="wave5"
 #   source "$(dirname "$0")/lib/smoke-common.sh"
 #
@@ -24,8 +24,29 @@
 
 set -euo pipefail
 
-: "${BASE_URL:?BASE_URL must be set (positional arg or env)}"
 : "${WAVE_NAME:?WAVE_NAME must be set before sourcing smoke-common.sh}"
+
+resolve_default_base_url() {
+  local script_dir repo_root env_file api_url
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+  repo_root="$(cd "${script_dir}/../.." && pwd)"
+  env_file="${repo_root}/docs/ai/environments/staging.env"
+  if [[ ! -f "${env_file}" ]]; then
+    echo ""
+    return 0
+  fi
+  api_url="$(rg '^STAGING_BACKEND_API=' "${env_file}" -N | head -n 1 | sed 's/^STAGING_BACKEND_API=//')"
+  echo "${api_url}"
+}
+
+if [[ -z "${BASE_URL:-}" ]]; then
+  BASE_URL="$(resolve_default_base_url)"
+fi
+
+if [[ -z "${BASE_URL:-}" ]]; then
+  echo "BASE_URL not provided and STAGING_BACKEND_API missing in docs/ai/environments/staging.env" >&2
+  exit 1
+fi
 
 ###############################################################################
 # Proof directory

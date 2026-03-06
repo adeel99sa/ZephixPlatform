@@ -1,0 +1,187 @@
+{
+  "flow": [
+    {
+      "step": "health_ready",
+      "method": "GET",
+      "path": "/health/ready",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "version",
+      "method": "GET",
+      "path": "/version",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "csrf",
+      "method": "GET",
+      "path": "/auth/csrf",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "org_signup",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": [
+        200,
+        201
+      ],
+      "override": true,
+      "overrideReason": "POST /auth/register is rate-limited (5 req/15 min per IP) on staging. Smoke runner calls /smoke/users/create which bypasses the rate limiter via AuthRegistrationService directly.",
+      "overridePath": "/smoke/users/create",
+      "overrideMethod": "POST"
+    },
+    {
+      "step": "smoke_login",
+      "method": "POST",
+      "path": "/auth/smoke-login",
+      "status": [
+        204
+      ]
+    },
+    {
+      "step": "auth_me",
+      "method": "GET",
+      "path": "/auth/me",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "workspace_create",
+      "method": "POST",
+      "path": "/workspaces",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "portfolio_create",
+      "method": "POST",
+      "path": "/workspaces/{workspaceId}/portfolios",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "program_create",
+      "method": "POST",
+      "path": "/workspaces/{workspaceId}/portfolios/{portfolioId}/programs",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "project_create",
+      "method": "POST",
+      "path": "/projects",
+      "status": [
+        201
+      ]
+    },
+    {
+      "step": "project_link",
+      "method": "PATCH",
+      "path": "/workspaces/{workspaceId}/projects/{projectId}/link",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "project_get",
+      "method": "GET",
+      "path": "/projects/{projectId}",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "task_create",
+      "method": "POST",
+      "path": "/work/tasks",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "portfolio_rollup",
+      "method": "GET",
+      "path": "/workspaces/{workspaceId}/portfolios/{portfolioId}/rollup",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invite_create",
+      "method": "POST",
+      "path": "/orgs/{orgId}/invites",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "invitee_register",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": [
+        200,
+        201
+      ],
+      "override": true,
+      "overrideReason": "POST /auth/register is rate-limited (5 req/15 min per IP) on staging. Smoke runner calls /smoke/users/create which bypasses the rate limiter via AuthRegistrationService directly.",
+      "overridePath": "/smoke/users/create",
+      "overrideMethod": "POST"
+    },
+    {
+      "step": "invitee_smoke_login",
+      "method": "POST",
+      "path": "/auth/smoke-login",
+      "status": [
+        204
+      ]
+    },
+    {
+      "step": "invite_token_read",
+      "method": "GET",
+      "path": "/smoke/invites/latest-token",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invite_accept",
+      "method": "POST",
+      "path": "/invites/accept",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invitee_auth_me",
+      "method": "GET",
+      "path": "/auth/me",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invitee_workspaces_list",
+      "method": "GET",
+      "path": "/workspaces",
+      "status": [
+        200
+      ]
+    }
+  ]
+}

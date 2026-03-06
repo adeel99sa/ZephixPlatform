@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -16,10 +17,12 @@ import {
   normalizePlatformRole,
   PlatformRole,
   isAdminRole,
-} from '../../../shared/enums/platform-roles.enum';
+} from '../../../common/auth/platform-roles';
 
 @Injectable()
 export class RequireWorkspaceRoleGuard implements CanActivate {
+  private readonly logger = new Logger(RequireWorkspaceRoleGuard.name);
+
   constructor(
     private reflector: Reflector,
     private accessService: WorkspaceAccessService,
@@ -75,11 +78,14 @@ export class RequireWorkspaceRoleGuard implements CanActivate {
       return true;
     }
 
-    // Check if user is platform admin
-    // Use normalizePlatformRole and isAdminRole helper, with fallback to permissions.isAdmin
-    const normalizedRole = normalizePlatformRole(userRole);
+    // Resolve platform role using platformRole (org-context) with fallback to legacy role field.
+    const normalizedRole = normalizePlatformRole(user.platformRole ?? userRole);
     const isAdmin =
       isAdminRole(normalizedRole) || (user.permissions?.isAdmin ?? false);
+
+    this.logger.debug(
+      `RBAC check user=${userId} platformRole=${user.platformRole} role=${userRole} resolvedRole=${normalizedRole} isAdmin=${isAdmin}`,
+    );
 
     // If admin override is enabled and user is admin, allow
     if (allowAdminOverride && isAdmin) {

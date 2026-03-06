@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { normalizePlatformRole } from '../../shared/enums/platform-roles.enum';
+import { normalizePlatformRole, PlatformRole } from '../../common/auth/platform-roles';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -9,17 +9,9 @@ export class AdminGuard implements CanActivate {
 
     if (!user) return false;
 
-    // Check if user is admin or owner (both have admin privileges)
-    // Support both legacy role strings and new PlatformRole enum
-    const normalizedRole = normalizePlatformRole(
-      user.platformRole || user.role,
-    );
-    const isAdmin =
-      user.email === 'admin@zephix.ai' ||
-      normalizedRole === 'ADMIN' ||
-      user.role === 'admin' ||
-      user.role === 'owner';
-
-    return isAdmin;
+    // Resolve using platformRole (org-context) with fallback to legacy role field.
+    // Email-based bypass removed — identity must be expressed via role, not email address.
+    const normalizedRole = normalizePlatformRole(user.platformRole ?? user.role);
+    return normalizedRole === PlatformRole.ADMIN;
   }
 }

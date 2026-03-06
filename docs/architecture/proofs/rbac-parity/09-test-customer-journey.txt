@@ -1,0 +1,41 @@
+BLOCKED — cannot run customer-journey smoke lane against test environment
+
+date_utc: 2026-03-06T18:00:00Z
+blocker_step: precondition check (before lane execution)
+
+===
+
+Blocker: Smoke infrastructure unavailable in test
+
+The customer-journey smoke runner (scripts/smoke/staging-customer-journey.sh) requires:
+  1. POST /smoke/users/create          — creates admin + invitee users (bypasses rate limiter)
+  2. POST /smoke/users/set-primary-org — updates user.organizationId to target org post-invite
+  3. POST /auth/smoke-login            — cookie-based login bypass for @zephix.dev emails
+  4. GET  /smoke/invites/latest-token  — reads raw invite token from auth_outbox
+
+All four routes return 404 or 403 in test environment.
+
+Root cause: SmokeKeyGuard hard-gates smoke routes to `nodeEnv === 'staging' && zephixEnv === 'staging'`.
+This is intentional security design.
+
+===
+
+The customer-journey lane verifies the critical RBAC negative assertion (step 21):
+  POST /orgs/:orgId/invites with invitee token → must return 403 (VIEWER cannot invite)
+
+This step uses OrgInvitesService which calls getAuthContext() to read platformRole.
+Without smoke-login, the invitee session cannot be established with the correct platformRole.
+
+===
+
+What IS verified:
+- Test backend health: PASS (200, db+schema ok)
+- Staging customer-journey lane: PASS (22/22 runner steps including infra, 21/21 contract steps)
+- RBAC negative assertion (step 21) in staging: PASS — VIEWER returns 403 on invite-create
+- See docs/architecture/proofs/staging/customer-journey-latest/README.md
+
+===
+
+To unblock full customer-journey parity in test:
+  Same options as org-invites (see 08-test-org-invites.txt).
+  Recommendation: Staging is the authoritative parity gate.

@@ -1,0 +1,31 @@
+=== Step 2: Code Path Analysis ===
+date_utc: 2026-03-06T11:50:00Z
+
+Error reproduced:
+  HTTP 500 — {"code":"INTERNAL_ERROR","message":"column ResourceConflict.resolved_by_user_id does not exist"}
+
+Rollup endpoint:
+  GET /api/workspaces/:workspaceId/portfolios/:portfolioId/rollup
+  Controller: zephix-backend/src/modules/portfolios/controllers/portfolio-analytics.controller.ts
+  Service:    zephix-backend/src/modules/portfolios/services/portfolio-analytics.service.ts
+
+Entity referencing missing column:
+  zephix-backend/src/modules/resources/entities/resource-conflict.entity.ts
+  Table: resource_conflicts
+  Missing columns: resolved_by_user_id (uuid, nullable), resolution_note (text, nullable)
+
+Chain: rollup endpoint → portfolio-analytics.service → resources.service → ResourceConflict entity query → DB error (column does not exist)
+
+Root cause:
+  Migration 1767376476696-AddConflictLifecycleFields adds resolved_by_user_id and resolution_note
+  to resource_conflicts table. This migration exists locally but was never applied to staging DB.
+
+Note on DB connectivity:
+  Railway staging PostgreSQL uses internal hostname (postgres.railway.internal) only accessible
+  from within Railway's private network. TCP proxy not configured. Migration must run inside
+  the Railway container on deploy.
+
+Fix strategy:
+  Update nixpacks.toml start command to: "npm run migration:run && npm run start:railway"
+  Deploy to staging — migration runs on container boot with access to internal DB.
+  migration:run is idempotent — checks column existence before adding.
