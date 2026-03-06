@@ -1,0 +1,28 @@
+=== Smoke endpoint availability probes — test env ===
+date_utc: 2026-03-06T18:23:27Z
+test_backend: https://zephix-backend-test.up.railway.app
+
+Route probes (x-smoke-key: staging key used):
+
+GET  /auth/csrf                          => HTTP 200  (PASS — route exists)
+POST /auth/smoke-login                   => HTTP 403  (BLOCKED — CSRF guard (no token); SmokeKeyGuard would 404 in non-staging)
+GET  /smoke/invites/latest-token         => HTTP 404  (BLOCKED — SmokeKeyGuard returns 404 when nodeEnv \!= staging)
+POST /smoke/users/create                 => HTTP 404  (BLOCKED — SmokeKeyGuard returns 404 when nodeEnv \!= staging)
+POST /smoke/users/set-primary-org        => HTTP 404  (BLOCKED — SmokeKeyGuard returns 404 when nodeEnv \!= staging)
+
+=== Guard root cause ===
+SmokeKeyGuard (zephix-backend/src/modules/auth/guards/smoke-key.guard.ts):
+  if (nodeEnv \!== 'staging' || zephixEnv \!== 'staging') {
+    // 404 — do not disclose route existence outside staging
+  }
+
+=== Verdict ===
+BLOCKER: Smoke infrastructure routes are intentionally unavailable in test.
+Design choice: prevents smoke key exposure outside staging environment.
+Full smoke lane parity (org-invites, customer-journey) cannot run against test.
+
+What CAN be verified:
+  - Test backend health: PASS (200, db+schema ok)
+  - Test identity: PASS (zephixEnv=test, separate Postgres cluster)
+  - RBAC code parity: CONFIRMED by code inspection (same codebase, same canonical module)
+  - Staging smoke lanes: PASS (all lanes verified against staging)

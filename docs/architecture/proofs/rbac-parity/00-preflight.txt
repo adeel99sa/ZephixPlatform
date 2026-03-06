@@ -1,0 +1,137 @@
+=== Preflight ===
+date_utc: 2026-03-06T18:16:02Z
+branch: chore/mcp-and-skills
+head_sha: 364493285b979529f728708eea625c3c20cd8b66
+
+=== git status ===
+ M docs/ai/environments/staging.env
+?? docs/architecture/proofs/rbac-parity/
+?? zephix-backend/src/modules/work-management/services/__tests__/work-tasks.bulk-update.spec.ts
+?? zephix-frontend/playwright-acceptance-report/
+
+=== node version ===
+v24.3.0
+
+=== guard ===
+✅ No stale staging domains in active paths
+=== Dead Home Files Guard ===
+PASS: No dead home files found.
+
+=== RESULT: PASS ===
+=== Contract-Runner Parity Guard ===
+--- customer-journey ---
+PASS: [health_ready] GET /health/ready
+PASS: [version] GET /version
+PASS: [csrf] GET /auth/csrf
+PASS: [org_signup] override => /smoke/users/create (canonical: /auth/register)
+PASS: [auth_me] GET /auth/me
+PASS: [workspace_create] POST /workspaces
+PASS: [portfolio_create] POST /workspaces/{workspaceId}/portfolios
+PASS: [program_create] POST /workspaces/{workspaceId}/portfolios/{portfolioId}/programs
+PASS: [project_create] POST /projects
+PASS: [project_link] PATCH /workspaces/{workspaceId}/projects/{projectId}/link
+PASS: [project_get] GET /projects/{projectId}
+PASS: [task_create] POST /work/tasks
+PASS: [portfolio_rollup] GET /workspaces/{workspaceId}/portfolios/{portfolioId}/rollup
+PASS: [invite_create] POST /orgs/{orgId}/invites
+PASS: [invitee_register] override => /smoke/users/create (canonical: /auth/register)
+PASS: [invite_accept] POST /invites/accept
+PASS: [invitee_auth_me] GET /auth/me
+PASS: [invitee_workspaces_list] GET /workspaces
+--- org-invites ---
+PASS: [health_ready] GET /health/ready
+PASS: [version] GET /version
+PASS: [csrf] GET /auth/csrf
+PASS: [auth_me] GET /auth/me
+PASS: [org_signup] override (step skipped by runner)
+PASS: [workspace_create] POST /workspaces
+PASS: [invite_create] POST /orgs/{orgId}/invites
+PASS: [invitee_register] POST /auth/register
+PASS: [invite_accept] POST /invites/accept
+PASS: [invitee_auth_me] GET /auth/me
+PASS: [invitee_workspaces_list] GET /workspaces
+
+=== RESULT: PASS ===
+=== Token Artifact Guard ===
+Scanning: /Users/malikadeel/Downloads/ZephixApp/docs/architecture/proofs/staging
+PASS: No token leaks in proof artifacts
+=== Import-Drift Guard: normalizePlatformRole ===
+Canonical module: zephix-backend/src/common/auth/platform-roles.ts
+
+PASS: zephix-backend/src/common/auth/platform-roles.ts (canonical definition)
+
+=== RESULT: PASS ===
+=== Role-Drift Guard: direct user.role comparisons ===
+
+PASS: no direct user.role comparisons found
+
+=== RESULT: PASS ===
+
+=== contract-all ===
+health_ready	GET	/health/ready	200
+version	GET	/version	200
+csrf	GET	/auth/csrf	200
+smoke_probe	POST	/auth/smoke-login	400,401,403,415,422
+smoke_login	POST	/auth/smoke-login	204
+auth_me	GET	/auth/me	200
+workspace_create	POST	/workspaces	201
+health_ready	GET	/health/ready	200
+version	GET	/version	200
+csrf	GET	/auth/csrf	200
+smoke_login	POST	/auth/smoke-login	204
+auth_me	GET	/auth/me	200
+workspaces_list	GET	/workspaces	200
+projects_list	GET	/projects	200
+project_create	POST	/projects	201
+task_create	POST	/work/tasks	201
+tasks_list	GET	/work/tasks	200
+task_delete	DELETE	/work/tasks/{taskId}	200,204,404
+project_delete	DELETE	/projects/{projectId}	200,204,404
+health_ready	GET	/health/ready	200
+version	GET	/version	200
+csrf	GET	/auth/csrf	200
+smoke_login	POST	/auth/smoke-login	204
+auth_me	GET	/auth/me	200
+workspaces_list	GET	/workspaces	200
+program_create	POST	/workspaces/{workspaceId}/portfolios/{portfolioId}/programs	200,201
+programs_list	GET	/workspaces/{workspaceId}/programs	200
+portfolio_create	POST	/workspaces/{workspaceId}/portfolios	200,201
+portfolios_list	GET	/workspaces/{workspaceId}/portfolios	200
+project_create	POST	/projects	201
+projects_list	GET	/projects	200
+task_delete	DELETE	/work/tasks/{taskId}	200,204,404
+project_delete	DELETE	/projects/{projectId}	200,204,404
+program_archive	POST	/workspaces/{workspaceId}/programs/{programId}/archive	200,201,404
+portfolio_archive	POST	/workspaces/{workspaceId}/portfolios/{portfolioId}/archive	200,201,404
+health_ready	GET	/health/ready	200
+version	GET	/version	200
+csrf	GET	/auth/csrf	200
+smoke_login	POST	/auth/smoke-login	204
+auth_me	GET	/auth/me	200
+workspaces_list	GET	/workspaces	200
+portfolio_create	POST	/workspaces/{workspaceId}/portfolios	200,201
+program_create	POST	/workspaces/{workspaceId}/portfolios/{portfolioId}/programs	200,201
+project_create	POST	/projects	201
+project_link	PATCH	/workspaces/{workspaceId}/projects/{projectId}/link	200
+project_get	GET	/projects/{projectId}	200
+project_delete	DELETE	/projects/{projectId}	200,204,404
+program_archive	POST	/workspaces/{workspaceId}/programs/{programId}/archive	200,201,404
+portfolio_archive	POST	/workspaces/{workspaceId}/portfolios/{portfolioId}/archive	200,201,404
+health_ready	GET	/health/ready	200
+version	GET	/version	200
+csrf	GET	/auth/csrf	200
+smoke_login	POST	/auth/smoke-login	204
+auth_me	GET	/auth/me	200
+org_signup	POST	/auth/organization/signup	201
+workspace_create	POST	/workspaces	201
+invite_create	POST	/orgs/{orgId}/invites	200,201
+invitee_register	POST	/auth/register	200
+invitee_smoke_login	POST	/auth/smoke-login	204
+invite_token_read	GET	/smoke/invites/latest-token	200
+invite_accept	POST	/invites/accept	200,201
+invitee_auth_me	GET	/auth/me	200
+invitee_workspaces_list	GET	/workspaces	200
+PASS: All 21 required steps present in customer-journey-contract.json
+PASS: No staging auto-migrate found in source
+
+=== PREFLIGHT RESULT: PASS ===

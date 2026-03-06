@@ -1,0 +1,32 @@
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id,x-request-id,X-Correlation-Id,x-correlation-id,Set-Cookie
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Fri, 06 Mar 2026 18:16:42 GMT
+deprecation: true
+etag: W/"68-XC37MCEq8nBcciCUyWS18zOHWz4"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-06-04T18:16:42.816Z
+vary: Origin
+x-content-type-options: nosniff
+x-correlation-id: 64a42ea3-6bf9-4d96-87d6-959d885d31bb
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: D2KbFyv0TJ6BPSwAO8poTA
+x-request-id: 3fb92d6d-51cb-4613-abac-474bbb97f578
+x-xss-protection: 0
+x-zephix-env: test
+content-length: 104
+
+{"status":"ok","ts":"2026-03-06T18:16:42.887Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}
