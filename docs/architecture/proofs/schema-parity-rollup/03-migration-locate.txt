@@ -1,0 +1,22 @@
+=== Step 3: Migration Location ===
+date_utc: 2026-03-06T11:50:00Z
+
+Migration file: zephix-backend/src/migrations/1767376476696-AddConflictLifecycleFields.ts
+Class name:     AddConflictLifecycleFields1767376476696
+Timestamp:      1767376476696
+
+Columns added by migration:
+  - resolved_by_user_id: uuid, nullable, FK → users(id) ON DELETE SET NULL
+  - resolution_note:     text, nullable
+
+Table:          resource_conflicts
+
+Migration guard (idempotent):
+  if (!conflictsTable) return;  (skips if table doesn't exist)
+  if (!resolvedByUserIdColumn) { addColumn... }  (skips if column already exists)
+  if (!resolutionNoteColumn) { addColumn... }    (skips if column already exists)
+
+Status: MIGRATION EXISTS LOCALLY. Not applied to staging DB (confirmed by 500 error referencing missing column).
+
+Deploy strategy: nixpacks.toml cmd updated to "npm run migration:run && npm run start:railway"
+  so migration runs on container boot (has access to postgres.railway.internal).
