@@ -440,19 +440,17 @@ require_status_csv "${OUT_DIR}/18-invitee-smoke-login.txt" "$(contract_field inv
 echo "18 invitee_smoke_login: $(status_code "${OUT_DIR}/18-invitee-smoke-login.txt")"
 
 # ─── 19 INVITE TOKEN READ ────────────────────────────────────────────────────
-# Raw body saved (gitignored dir). Token never printed to stdout. Redacted copy saved.
+# Token never written to disk in any form. Redacted proof in 19-invite-token-read.json.
 
 curl -i \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
   "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL_ENC}" \
   > "${OUT_DIR}/19-invite-token-read-full.txt"
+INVITE_TOKEN_STATUS="$(status_code "${OUT_DIR}/19-invite-token-read-full.txt")"
 require_status_csv "${OUT_DIR}/19-invite-token-read-full.txt" "$(contract_field invite_token_read status)"
 INVITE_TOKEN_BODY="$(body_from_http_file "${OUT_DIR}/19-invite-token-read-full.txt")"
 
-# Save raw (proof of wire shape — gitignored by OUT_DIR pattern)
-printf "%s" "${INVITE_TOKEN_BODY}" > "${OUT_DIR}/19-invite-token-read.raw.json"
-
-# Extract token — never echo
+# Extract token into variable — never echo, never write to disk
 INVITE_TOKEN="$(printf "%s" "${INVITE_TOKEN_BODY}" | node -e "
 let d='';
 process.stdin.on('data',c=>d+=c).on('end',()=>{
@@ -462,7 +460,7 @@ process.stdin.on('data',c=>d+=c).on('end',()=>{
   }catch(e){process.stdout.write('')}
 })")"
 
-# Save redacted copy (token replaced)
+# Write redacted proof (token value replaced with [REDACTED], shape preserved)
 printf "%s" "${INVITE_TOKEN_BODY}" | node -e "
 let d='';
 process.stdin.on('data',c=>d+=c).on('end',()=>{
@@ -473,6 +471,12 @@ process.stdin.on('data',c=>d+=c).on('end',()=>{
     process.stdout.write(r);
   }catch(e){process.stdout.write(d)}
 })" > "${OUT_DIR}/19-invite-token-read.json"
+
+# Build clean proof file (status + redacted body), then delete raw HTTP response
+printf "HTTP/1.1 %s OK\r\n\r\n" "${INVITE_TOKEN_STATUS}" \
+  > "${OUT_DIR}/19-invite-token-read.txt"
+cat "${OUT_DIR}/19-invite-token-read.json" >> "${OUT_DIR}/19-invite-token-read.txt"
+rm -f "${OUT_DIR}/19-invite-token-read-full.txt"
 
 if [[ -z "${INVITE_TOKEN}" ]]; then
   echo "FAIL: Could not extract invite token from smoke endpoint"
@@ -612,7 +616,7 @@ cat > "${OUT_DIR}/README.md" <<EOF
 | 16 | invitee_csrf | 200 |
 | 17 | invitee_register | $(status_code "${OUT_DIR}/17-invitee-register.txt") |
 | 18 | invitee_smoke_login | $(status_code "${OUT_DIR}/18-invitee-smoke-login.txt") |
-| 19 | invite_token_read | $(status_code "${OUT_DIR}/19-invite-token-read-full.txt") |
+| 19 | invite_token_read | ${INVITE_TOKEN_STATUS} |
 | 20 | invite_accept | $(status_code "${OUT_DIR}/20-invite-accept.txt") |
 | 21 | invitee_auth_me | $(status_code "${OUT_DIR}/21-invitee-auth-me.txt") |
 | 22 | invitee_workspaces_list | $(status_code "${OUT_DIR}/22-invitee-workspaces-list.txt") |
@@ -633,6 +637,8 @@ cat > "${OUT_DIR}/README.md" <<EOF
 
 Stored only in runtime variable. Redacted proof in 19-invite-token-read.json.
 EOF
+
+bash "${ROOT_DIR}/scripts/guard/no-token-in-proof-artifacts.sh" "${OUT_DIR}"
 
 echo ""
 echo "=== Customer Journey PASS: ${RUN_ID} ==="

@@ -31,7 +31,11 @@
       "status": [
         200,
         201
-      ]
+      ],
+      "override": true,
+      "overrideReason": "POST /auth/register is rate-limited (5 req/15 min per IP) on staging. Smoke runner calls /smoke/users/create which bypasses the rate limiter via AuthRegistrationService directly.",
+      "overridePath": "/smoke/users/create",
+      "overrideMethod": "POST"
     },
     {
       "step": "smoke_login",
@@ -133,7 +137,11 @@
       "status": [
         200,
         201
-      ]
+      ],
+      "override": true,
+      "overrideReason": "POST /auth/register is rate-limited (5 req/15 min per IP) on staging. Smoke runner calls /smoke/users/create which bypasses the rate limiter via AuthRegistrationService directly.",
+      "overridePath": "/smoke/users/create",
+      "overrideMethod": "POST"
     },
     {
       "step": "invitee_smoke_login",
