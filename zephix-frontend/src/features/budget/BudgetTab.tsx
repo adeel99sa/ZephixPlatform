@@ -1,3 +1,4 @@
+import { isAdminRole } from '@/utils/roles';
 // ─────────────────────────────────────────────────────────────────────────────
 // Budget Tab — Sprint 5
 //
@@ -67,11 +68,7 @@ const FORECAST_STATUS_CONFIG: Record<
 
 export function BudgetTab({ projectId }: Props) {
   const { user } = useAuth();
-  const isAdmin =
-    user?.platformRole === 'ADMIN' ||
-    (user?.platformRole as string) === 'OWNER' ||
-    (user?.platformRole as string) === 'admin' ||
-    (user?.platformRole as string) === 'owner';
+  const isAdmin = isAdminRole(user?.platformRole ?? user?.role);
 
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [policy, setPolicy] = useState<EffectiveBudgetPolicy | null>(null);

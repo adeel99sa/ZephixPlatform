@@ -122,6 +122,9 @@ export class DatabaseVerifyService {
     const last = names[names.length - 1] ?? '(none)';
     this.logger.log(`migrations_loaded=${count} first=${first} last=${last}`);
 
+    // Allow auto-migrate in development only when AUTO_MIGRATE=true.
+    // Production and staging never auto-migrate on boot.
+    // Staging migrations are applied via scripts/migrations/run-staging.sh before railway up.
     if (env === 'development' && auto) {
       await this.lock.withLock(
         lockId,
@@ -129,7 +132,7 @@ export class DatabaseVerifyService {
           const pre = await this.verify(0);
           if (pre.pendingMigrations.length > 0) {
             this.logger.warn(
-              `pending_migrations=${pre.pendingMigrations.length} running=true`,
+              `pending_migrations=${pre.pendingMigrations.length} running=true env=${env}`,
             );
             await this.dataSource.runMigrations({ transaction: 'all' });
           }

@@ -15,7 +15,7 @@
 ###############################################################################
 set -euo pipefail
 
-BASE_URL="${1:-https://zephix-backend-v2-staging.up.railway.app/api}"
+BASE_URL="${1:-}"
 WAVE_NAME="wave4c"
 source "$(dirname "$0")/lib/smoke-common.sh"
 

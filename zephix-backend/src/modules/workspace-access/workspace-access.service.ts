@@ -221,6 +221,7 @@ export class WorkspaceAccessService {
 
     const roleHierarchy: Record<WorkspaceRole, number> = {
       workspace_owner: 4,
+      workspace_admin: 4, // canonical alias for workspace_owner — same privilege level
       delivery_owner: 3,
       workspace_member: 2,
       workspace_viewer: 1,

@@ -21,3 +21,30 @@ Code style
 - Follow existing patterns in the repo.
 - Avoid introducing new abstractions unless required.
 - Prefer explicit names over cleverness.
+
+Skills
+- Skills live under .cursor/skills
+- Use skills for procedural workflows
+- Use rules for standards
+Before any code edits, select one primary skill from .cursor/skills and follow its instructions.
+
+Runbook Execution
+
+All implementation tasks must follow the runbook template.
+
+Reference
+docs/ai/CURSOR_RUNBOOK_TEMPLATE.md
+
+Workflow
+
+Select the appropriate skill from .cursor/skills
+
+Produce a runbook plan
+
+Execute steps with stop rules
+
+Provide proof outputs
+
+Commit only after validation
+
+When tasks touch auth, tenancy, module wiring, shared libs, migrations, staging workflows, the agent must load the architecture-memory skill and reference docs/ai/ARCHITECTURE_MEMORY.md in the runbook.

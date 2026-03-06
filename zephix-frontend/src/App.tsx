@@ -7,6 +7,7 @@ import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
+import { platformRoleFromUser } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
 
@@ -105,9 +106,8 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  const role = (user.platformRole || user.role || '').toUpperCase();
   const isAdmin =
-    role === 'ADMIN' ||
+    platformRoleFromUser(user) === 'ADMIN' ||
     (!Array.isArray(user.permissions) && (user.permissions as any)?.isAdmin === true);
   if (!isAdmin) return <Navigate to="/home" replace />;
   return children;
@@ -121,8 +121,7 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  const role = (user.platformRole || user.role || '').toUpperCase();
-  if (role === 'VIEWER' || role === 'GUEST') return <Navigate to="/home" replace />;
+  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/home" replace />;
   return children;
 }
 

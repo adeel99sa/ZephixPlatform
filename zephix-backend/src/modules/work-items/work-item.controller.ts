@@ -49,12 +49,13 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { Inject } from '@nestjs/common';
-import { AdminOnlyGuard } from '../../shared/guards/admin-only.guard';
+import { PlatformAdminGuard } from '../../common/auth/platform-admin.guard';
 
 type UserJwt = {
   id: string;
   organizationId: string;
   role: 'admin' | 'member' | 'guest';
+  platformRole?: string;
 };
 
 function resolveWorkspaceId(params: {
@@ -139,7 +140,7 @@ export class WorkItemController {
     @CurrentUser() user: UserJwt,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
-    blockGuestWrite(user.role);
+    blockGuestWrite(user.platformRole ?? user.role);
 
     const resolvedWorkspaceId = resolveWorkspaceId({
       header: workspaceIdHeader,
@@ -151,7 +152,7 @@ export class WorkItemController {
       workspaceId: resolvedWorkspaceId || dto.workspaceId,
       organizationId: tenant.organizationId,
       createdBy: user.id,
-      platformRole: user.role,
+      platformRole: user.platformRole ?? user.role,
     });
   }
 
@@ -171,7 +172,7 @@ export class WorkItemController {
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
-    blockGuestWrite(user.role);
+    blockGuestWrite(user.platformRole ?? user.role);
 
     const resolvedWorkspaceId = resolveWorkspaceId({
       header: workspaceIdHeader,
@@ -190,7 +191,7 @@ export class WorkItemController {
     const canEdit = await canEditWorkItem(
       workItem,
       user.id,
-      user.role,
+      user.platformRole ?? user.role,
       this.workspaceAccessService,
       this.workspaceMemberRepo,
     );
@@ -216,7 +217,7 @@ export class WorkItemController {
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
-    blockGuestWrite(user.role);
+    blockGuestWrite(user.platformRole ?? user.role);
 
     const resolvedWorkspaceId = resolveWorkspaceId({
       header: workspaceIdHeader,
@@ -235,7 +236,7 @@ export class WorkItemController {
     const canEdit = await canEditWorkItem(
       workItem,
       user.id,
-      user.role,
+      user.platformRole ?? user.role,
       this.workspaceAccessService,
       this.workspaceMemberRepo,
     );
@@ -292,7 +293,7 @@ export class WorkItemController {
     @Query('projectId') projectId?: string,
   ) {
     // PHASE 7 MODULE 7.1 FIX: Block Guest writes
-    blockGuestWrite(user.role);
+    blockGuestWrite(user.platformRole ?? user.role);
 
     const resolvedWorkspaceId = resolveWorkspaceId({
       header: workspaceIdHeader,
@@ -448,7 +449,7 @@ export class WorkItemController {
   // PHASE 7 MODULE 7.4: Bulk delete work items (Admin only)
   @Post('bulk/delete')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AdminOnlyGuard)
+  @UseGuards(PlatformAdminGuard)
   async bulkDelete(
     @GetTenant() tenant: TenantContext,
     @Body() dto: BulkDeleteWorkItemsDto,

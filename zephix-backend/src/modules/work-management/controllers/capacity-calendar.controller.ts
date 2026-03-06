@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Put,
-  UseGuards,
   Req,
   Param,
   Query,
@@ -11,7 +10,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { ResponseService } from '../../../shared/services/response.service';
@@ -32,7 +30,6 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 @ApiTags('capacity')
 @ApiBearerAuth()
 @Controller('work/workspaces/:workspaceId/capacity')
-@UseGuards(JwtAuthGuard)
 @RequireEntitlement('capacity_engine')
 export class CapacityCalendarController {
   constructor(

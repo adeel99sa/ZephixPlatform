@@ -2,10 +2,10 @@
   "capturedAt": "2026-02-15T00:33:05Z",
   "environment": "staging",
   "service": "zephix-backend-v2",
-  "domain": "zephix-backend-v2-staging.up.railway.app",
+  "domain": "zephix-backend-staging-staging.up.railway.app",
   "verification": {
     "healthReady": {
-      "url": "https://zephix-backend-v2-staging.up.railway.app/api/health/ready",
+      "url": "https://zephix-backend-staging-staging.up.railway.app/api/health/ready",
       "httpStatus": 200,
       "response": {
         "status": "ok",
@@ -21,7 +21,7 @@
       "content-type": "application/json; charset=utf-8"
     },
     "version": {
-      "url": "https://zephix-backend-v2-staging.up.railway.app/api/version",
+      "url": "https://zephix-backend-staging-staging.up.railway.app/api/version",
       "httpStatus": 200,
       "response": {
         "version": "1.0.0",
@@ -33,7 +33,7 @@
       }
     },
     "envProof": {
-      "url": "https://zephix-backend-v2-staging.up.railway.app/api/admin/system/env-proof",
+      "url": "https://zephix-backend-staging-staging.up.railway.app/api/admin/system/env-proof",
       "httpStatus": 401,
       "note": "Admin-only endpoint correctly requires authentication"
     },
@@ -47,7 +47,7 @@
     "NODE_ENV": "staging",
     "PORT": 3000,
     "DATABASE_URL_HOST": "postgres.railway.internal",
-    "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-v2-staging.up.railway.app"
+    "RAILWAY_PUBLIC_DOMAIN": "zephix-backend-staging-staging.up.railway.app"
   },
   "issuesResolved": [
     "PORT mismatch: Railway networking expected 3000, app was set to 8080 — fixed to 3000",

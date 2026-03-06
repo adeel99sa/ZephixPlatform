@@ -1,6 +1,6 @@
 # Staging Post-Deletion Health Proof
 # Captured: 2026-02-15T05:28:51Z
-# Command: curl -si https://zephix-backend-v2-staging.up.railway.app/api/health/ready
+# Command: curl -si https://zephix-backend-staging-staging.up.railway.app/api/health/ready
 
 HTTP/2 200 
 access-control-allow-credentials: true
@@ -34,7 +34,7 @@ content-length: 104
 
 {"status":"ok","ts":"2026-02-15T05:28:52.976Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}
 
-# Identity: curl -s https://zephix-backend-v2-staging.up.railway.app/api/system/identity
+# Identity: curl -s https://zephix-backend-staging-staging.up.railway.app/api/system/identity
 
 {
     "data": {

@@ -216,7 +216,10 @@ async function bootstrap() {
       `EMAIL_VERIFICATION_POLICY staging bypassEnabled=${skipEmailVerification}`,
     );
   }
-  if (env === 'production' || env === 'staging') {
+  if (env === 'production' || isStagingRuntime()) {
+    // Production and staging: always disable auto-migrate on boot.
+    // Staging migrations are applied explicitly via scripts/migrations/run-staging.sh
+    // which runs before railway up in deploy-staging.sh.
     process.env.AUTO_MIGRATE = 'false';
   }
 

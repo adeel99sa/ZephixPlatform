@@ -912,14 +912,15 @@ export class WorkTasksService {
       );
     }
 
-    // Update all tasks
-    await this.taskRepo
-      .qb('task')
-      .update()
-      .set({ status: dto.status })
-      .where('task.id IN (:...taskIds)', { taskIds: dto.taskIds })
-      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
-      .execute();
+    // Update all tasks.
+    // Uses TenantAwareRepository.update() instead of qb().update() to avoid
+    // the SQL alias error that occurs when SelectQueryBuilder.update() generates
+    // 'UPDATE "work_tasks" "task" SET ... WHERE "task"."workspaceId"' — TypeORM
+    // does not always resolve alias.propertyName to column names in UPDATE context.
+    await this.taskRepo.update(
+      { id: In(dto.taskIds), workspaceId, deletedAt: IsNull() } as any,
+      { status: dto.status } as any,
+    );
 
     // Trigger health recalculation for affected projects
     for (const projectId of projectIds) {

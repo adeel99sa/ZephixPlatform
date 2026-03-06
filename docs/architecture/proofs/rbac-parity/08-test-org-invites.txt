@@ -1,0 +1,49 @@
+BLOCKED — cannot run org-invites smoke lane against test environment
+
+date_utc: 2026-03-06T18:00:00Z
+blocker_step: precondition check (before lane execution)
+
+===
+
+Blocker: Smoke infrastructure unavailable in test
+
+The org-invites smoke runner (scripts/smoke/staging-org-invites.sh) requires:
+  1. POST /smoke/users/create          — bypasses rate limiter for org signup
+  2. POST /auth/smoke-login            — cookie-based login bypass for @zephix.dev emails
+  3. GET  /smoke/invites/latest-token  — reads raw invite token from auth_outbox
+
+All three return 404 or 403 in test environment.
+
+Root cause: SmokeKeyGuard hard-gates smoke routes to `nodeEnv === 'staging' && zephixEnv === 'staging'`.
+This is intentional security design, not a misconfiguration.
+
+===
+
+Without /smoke/users/create:
+- Cannot create test users without hitting /auth/register rate limit (5 req/15 min)
+- Cannot run the full 14-step org-invites contract lane
+
+Without /auth/smoke-login:
+- Cannot establish authenticated sessions via cookie bypass
+- Standard login could be used but requires a known pre-existing user in test
+
+Without /smoke/invites/latest-token:
+- Cannot read invite token from auth_outbox without direct DB access
+- The invite accept step cannot be completed
+
+===
+
+What IS verified:
+- Test backend health: PASS (200, db+schema ok)
+- Test identity: PASS (zephixEnv=test, separate DB cluster)
+- Staging org-invites lane: PASS (14/14 contract steps, see docs/architecture/proofs/staging/org-invites-latest/README.md)
+- RBAC V2 code: same codebase in both environments (deployment SHA unknown for test)
+
+===
+
+To unblock full org-invites parity in test:
+  Option A: Configure test environment with SMOKE_ENV=staging override (changes SmokeKeyGuard policy — requires architectural decision)
+  Option B: Run parity verification exclusively on staging (current state — staging is already verified)
+  Option C: Add test-specific smoke endpoints using a separate key and guard condition
+
+Recommendation: Option B. Staging is the authoritative parity gate for smoke verification.

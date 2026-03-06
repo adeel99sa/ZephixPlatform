@@ -10,6 +10,8 @@ import {
   OrgInvitesController,
   InvitesController,
 } from './controllers/org-invites.controller';
+import { SmokeInvitesController } from './controllers/smoke-invites.controller';
+import { SmokeUsersController } from './controllers/smoke-users.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
@@ -67,6 +69,8 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
     OrgInvitesController,
     InvitesController,
     SessionsController,
+    SmokeInvitesController,
+    SmokeUsersController,
   ],
   providers: [
     AuthService,

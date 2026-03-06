@@ -1,18 +1,29 @@
 {
   "mcpServers": {
     "railway-mcp": {
-      "command": "npx",
-      "args": ["-y", "@railway/mcp-server"],
+      "command": "node",
+      "args": ["${workspaceFolder}/node_modules/@railway/mcp-server/dist/index.js"],
       "env": {
         "RAILWAY_TOKEN": "${env:RAILWAY_TOKEN}"
       }
     },
-    "filesystem-mcp": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+    "github-mcp": {
+      "command": "node",
+      "args": ["${workspaceFolder}/node_modules/@modelcontextprotocol/server-github/dist/index.js"],
       "env": {
-        "MCP_FILESYSTEM_ROOT": "${workspaceFolder}"
+        "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
       }
+    },
+    "filesystem-mcp": {
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js",
+        "${workspaceFolder}/zephix-backend",
+        "${workspaceFolder}/zephix-frontend",
+        "${workspaceFolder}/docs",
+        "${workspaceFolder}/scripts",
+        "${workspaceFolder}/.cursor"
+      ]
     }
   }
 }

@@ -1,0 +1,38 @@
+HTTP/2 201 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id,x-request-id,X-Correlation-Id,x-correlation-id,Set-Cookie
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+deprecation: true
+etag: W/"d5-lmf+CXXLQFlhqaIfz+PAr/dq0bU"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-06-02T18:30:18.953Z
+x-content-type-options: nosniff
+x-correlation-id: 4a29dad0-b49e-478b-b964-386c35c616d3
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: otGXQVPhTS2W81c_Aax-fw
+x-request-id: 0ad4f861-4e44-45a1-8916-2860731d6e83
+x-xss-protection: 0
+x-zephix-env: staging
+accept-ranges: bytes
+date: Wed, 04 Mar 2026 18:30:19 GMT
+via: 1.1 varnish
+x-cache: MISS
+x-cache-hits: 0
+x-timer: S1772649019.939942,VS0,VE62
+vary: Origin
+x-railway-cdn-edge: fastly/cache-chi-klot8100170-CHI
+content-length: 213
+
+{"data":{"id":"fc89bec7-e3e7-4bcb-a8a7-9e3b8e7582ae","workspaceId":"fc89bec7-e3e7-4bcb-a8a7-9e3b8e7582ae","name":"Smoke Workspace","slug":"smoke-workspace-1772649017","visibility":"OPEN","role":"workspace_owner"}}

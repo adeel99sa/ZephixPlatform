@@ -1,0 +1,38 @@
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id,x-request-id,X-Correlation-Id,x-correlation-id,Set-Cookie
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+deprecation: true
+etag: W/"68-LpcABY0ZgPL1662Ya3oxra1+9Uw"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-06-02T18:30:17.732Z
+x-content-type-options: nosniff
+x-correlation-id: 1ab211be-7933-4170-b5d5-1ab3ebac92d3
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: PnEGmBIuQH61YotT8u2xcg
+x-request-id: 55b68e82-4b37-457c-a8e5-57c8bb0a1e00
+x-xss-protection: 0
+x-zephix-env: staging
+accept-ranges: bytes
+date: Wed, 04 Mar 2026 18:30:17 GMT
+via: 1.1 varnish
+x-cache: MISS
+x-cache-hits: 0
+x-timer: S1772649018.656414,VS0,VE196
+vary: Origin
+x-railway-cdn-edge: fastly/cache-chi-klot8100089-CHI
+content-length: 104
+
+{"status":"ok","ts":"2026-03-04T18:30:17.841Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}

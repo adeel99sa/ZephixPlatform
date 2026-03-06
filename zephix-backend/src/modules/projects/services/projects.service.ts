@@ -15,6 +15,7 @@ import {
   In,
   DataSource,
   DeepPartial,
+  IsNull,
 } from 'typeorm';
 import { Request } from 'express';
 import { Project, ProjectStatus } from '../entities/project.entity';
@@ -42,6 +43,7 @@ import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
+import { WorkTask } from '../../work-management/entities/work-task.entity';
 
 type CreateProjectV1Input = {
   name: string;
@@ -358,7 +360,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     workspaceId: string,
   ): Promise<number> {
     const count = await this.projectRepository.count({
-      where: { organizationId, workspaceId: workspaceId as any },
+      where: { organizationId, workspaceId: workspaceId as any, deletedAt: IsNull() as any },
     });
     return count;
   }
@@ -405,7 +407,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         );
 
       // Build where clause with MANDATORY org filter
-      const whereClause: any = { organizationId };
+      const whereClause: any = { organizationId, deletedAt: IsNull() };
 
       // If workspace membership is enforced and user has limited access
       if (
@@ -448,6 +450,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         const queryBuilder = this.projectRepository
           .createQueryBuilder('project')
           .where('project.organizationId = :orgId', { orgId: organizationId })
+          .andWhere('project.deletedAt IS NULL')
           .andWhere(
             '(project.name ILIKE :search OR project.description ILIKE :search)',
             { search: `%${search}%` },
@@ -525,6 +528,9 @@ export class ProjectsService extends TenantAwareRepository<Project> {
 
       if (!project) {
         // Return null if not found (controller will handle response format)
+        return null;
+      }
+      if (project.deletedAt) {
         return null;
       }
 
@@ -770,13 +776,60 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         `Deleting project ${id} for org: ${organizationId}, user: ${userId}`,
       );
 
-      const deleted = await this.delete(id, organizationId);
+      await this.dataSource.transaction(async (manager) => {
+        const projectRepo = manager.getRepository(Project);
+        const workTaskRepo = manager.getRepository(WorkTask);
+        const now = new Date();
+        const workspaceScope = this.tenantContext.getWorkspaceId();
 
-      if (!deleted) {
-        throw new NotFoundException(
-          `Project with ID ${id} not found or access denied`,
-        );
-      }
+        const projectWhere: Record<string, unknown> = {
+          id,
+          organizationId,
+          deletedAt: IsNull() as any,
+        };
+        if (workspaceScope) {
+          projectWhere.workspaceId = workspaceScope;
+        }
+
+        const project = await projectRepo.findOne({
+          where: projectWhere as any,
+          select: ['id', 'organizationId', 'workspaceId', 'name', 'deletedAt'],
+        });
+        if (!project) {
+          throw new NotFoundException(
+            `Project with ID ${id} not found or access denied`,
+          );
+        }
+        if (!project.workspaceId) {
+          throw new BadRequestException(
+            'Project workspace scope is required for delete',
+          );
+        }
+
+        await workTaskRepo
+          .createQueryBuilder()
+          .update(WorkTask)
+          .set({ deletedAt: now, deletedByUserId: userId })
+          .where('project_id = :projectId', { projectId: id })
+          .andWhere('organization_id = :organizationId', { organizationId })
+          .andWhere('workspace_id = :workspaceId', {
+            workspaceId: project.workspaceId,
+          })
+          .andWhere('deleted_at IS NULL')
+          .execute();
+
+        await projectRepo
+          .createQueryBuilder()
+          .update(Project)
+          .set({ deletedAt: now })
+          .where('id = :projectId', { projectId: id })
+          .andWhere('organization_id = :organizationId', { organizationId })
+          .andWhere('workspace_id = :workspaceId', {
+            workspaceId: project.workspaceId,
+          })
+          .andWhere('deleted_at IS NULL')
+          .execute();
+      });
 
       this.logger.log(`✅ Project deleted: ${id} from org: ${organizationId}`);
     } catch (error) {

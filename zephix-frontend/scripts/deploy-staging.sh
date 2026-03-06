@@ -5,6 +5,18 @@
 
 set -e
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+ENV_FILE="${ROOT_DIR}/docs/ai/environments/staging.env"
+if [ ! -f "${ENV_FILE}" ]; then
+    echo "❌ Missing canonical staging env file: ${ENV_FILE}"
+    exit 1
+fi
+STAGING_BACKEND_API="$(rg '^STAGING_BACKEND_API=' "${ENV_FILE}" -N | head -n 1 | sed 's/^STAGING_BACKEND_API=//')"
+if [ -z "${STAGING_BACKEND_API}" ]; then
+    echo "❌ Missing STAGING_BACKEND_API in ${ENV_FILE}"
+    exit 1
+fi
+
 echo "🚀 Deploying Zephix Frontend to Staging..."
 
 # Build the application
@@ -25,7 +37,7 @@ railway up --service zephix-frontend-staging
 
 echo "✅ Staging deployment completed!"
 echo "🌐 Frontend URL: https://zephix-frontend-staging.up.railway.app"
-echo "🔗 Backend API: https://zephix-backend-staging.up.railway.app/api"
+echo "🔗 Backend API: ${STAGING_BACKEND_API}"
 
 # Run smoke tests
 echo "🧪 Running smoke tests..."

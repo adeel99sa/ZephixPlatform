@@ -26,3 +26,7 @@ dist/
 
 *storybook.log
 storybook-static
+
+# Playwright generated reports
+playwright-report/
+playwright-acceptance-report/
