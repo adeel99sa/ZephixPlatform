@@ -11,4 +11,7 @@ cmds = ["npm ci --legacy-peer-deps"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npm run start:railway"
+# Run pending migrations before starting the app.
+# migration:run is idempotent — safe to run on every boot.
+# If the migration fails, the app will not start (desired behavior).
+cmd = "npm run migration:run && npm run start:railway"
