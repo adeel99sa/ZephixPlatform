@@ -314,9 +314,7 @@ curl -i \
 require_status_csv "${OUT_DIR}/10-invitee-smoke-login.txt" "$(contract_field invitee_smoke_login status)"
 
 # ─── 11 INVITE TOKEN READ (token never printed to stdout) ─────────────────────
-# Captures full HTTP response for shape evidence.
-# Raw body (with real token) → 11-invite-token-read.raw.json (gitignored dir)
-# Redacted body (token replaced) → 11-invite-token-read.json
+# Token never written to disk in any form. Redacted proof in 11-invite-token-read.json.
 # Token stored only in INVITE_TOKEN variable, never echoed.
 
 curl -i \
@@ -325,9 +323,6 @@ curl -i \
   > "${OUT_DIR}/11-invite-token-read-full.txt"
 INVITE_TOKEN_READ_STATUS="$(status_code "${OUT_DIR}/11-invite-token-read-full.txt")"
 INVITE_TOKEN_READ_BODY="$(body_from_http_file "${OUT_DIR}/11-invite-token-read-full.txt")"
-
-# Save raw response body (proof of actual wire shape; dir is gitignored)
-printf "%s" "${INVITE_TOKEN_READ_BODY}" > "${OUT_DIR}/11-invite-token-read.raw.json"
 
 # Extract token into variable — never passed to echo or printf
 INVITE_TOKEN="$(printf "%s" "${INVITE_TOKEN_READ_BODY}" | node -e "
@@ -351,10 +346,11 @@ process.stdin.on('data',c=>d+=c).on('end',()=>{
   }catch(e){process.stdout.write(d)}
 })" > "${OUT_DIR}/11-invite-token-read.json"
 
-# Write standard proof file (HTTP status line + redacted body)
+# Write clean proof file (status + redacted body), then delete raw HTTP response
 printf "HTTP/1.1 %s OK\r\n\r\n" "${INVITE_TOKEN_READ_STATUS}" \
   > "${OUT_DIR}/11-invite-token-read.txt"
 cat "${OUT_DIR}/11-invite-token-read.json" >> "${OUT_DIR}/11-invite-token-read.txt"
+rm -f "${OUT_DIR}/11-invite-token-read-full.txt"
 
 if [[ "${INVITE_TOKEN_READ_STATUS}" != "200" ]]; then
   echo "FAIL: invite_token_read returned ${INVITE_TOKEN_READ_STATUS} (expected 200)"
@@ -477,7 +473,7 @@ cat > "${OUT_DIR}/README.md" <<EOF
 - workspace_create_status: ${WORKSPACE_CREATE_STATUS}
 - invite_create_status: ${INVITE_CREATE_STATUS}
 - invite_token_read_status: ${INVITE_TOKEN_READ_STATUS}
-- invite_token_read_shape: see 11-invite-token-read.json (redacted) and 11-invite-token-read.raw.json (full shape)
+- invite_token_read_shape: see 11-invite-token-read.json (redacted; token never written to disk)
 - negative_auth_check_status: ${ADMIN_ACCEPT_NEGATIVE_STATUS} (admin-accept rejected, expected non-200)
 - invalid_token_check_status: ${INVALID_TOKEN_STATUS} (garbage token rejected, expected 400)
 - invite_accept_status: ${INVITE_ACCEPT_STATUS}
@@ -486,6 +482,8 @@ cat > "${OUT_DIR}/README.md" <<EOF
 - invitee_workspaces_list_status: ${INVITEE_WORKSPACES_LIST_STATUS}
 - result: PASS
 EOF
+
+bash "${ROOT_DIR}/scripts/guard/no-token-in-proof-artifacts.sh" "${OUT_DIR}"
 
 echo ""
 echo "railwayDeploymentId=${RAILWAY_DEPLOYMENT_ID}"

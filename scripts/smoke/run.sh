@@ -47,6 +47,8 @@ case "$1" in
   guard)
     bash scripts/guard/no-stale-staging-domains.sh
     bash scripts/guard/no-dead-home-files.sh
+    bash scripts/guard/contract-runner-parity.sh
+    bash scripts/guard/no-token-in-proof-artifacts.sh
     ;;
   contract|contract-all)
     _run_all_contracts
