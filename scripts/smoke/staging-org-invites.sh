@@ -43,7 +43,11 @@ if [[ -z "${STAGING_SMOKE_KEY}" ]]; then
 fi
 
 API_BASE="${STAGING_BACKEND_BASE}/api"
-RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+# RUN_ID is always auto-generated — never accept an override.
+# Email uniqueness (staging+invitee+{RUN_ID}@zephix.dev) is the sole safety mechanism
+# preventing token cross-contamination across runs. A user-supplied RUN_ID could
+# collide with a prior run and return the wrong outbox token.
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 ADMIN_EMAIL="${ADMIN_EMAIL:-staging+smoke@zephix.dev}"
 INVITEE_EMAIL="$(printf 'staging+invitee+%s@zephix.dev' "${RUN_ID}" | tr '[:upper:]' '[:lower:]')"
 INVITEE_EMAIL_ENC="$(node -e "process.stdout.write(encodeURIComponent(process.argv[1]))" "${INVITEE_EMAIL}")"
@@ -199,6 +203,7 @@ curl -i \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${ADMIN_CSRF}" \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
   -X POST "${API_BASE}/auth/smoke-login" \
   -d "{\"email\":\"${ADMIN_EMAIL}\"}" \
   > "${OUT_DIR}/04-admin-smoke-login.txt"
@@ -302,46 +307,110 @@ curl -i \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: ${INVITEE_CSRF}" \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
+  -H "x-zephix-env: staging" \
   -X POST "${API_BASE}/auth/smoke-login" \
   -d "{\"email\":\"${INVITEE_EMAIL}\"}" \
   > "${OUT_DIR}/10-invitee-smoke-login.txt"
 require_status_csv "${OUT_DIR}/10-invitee-smoke-login.txt" "$(contract_field invitee_smoke_login status)"
 
-# ─── 11 INVITE TOKEN READ (never printed) ────────────────────────────────────
+# ─── 11 INVITE TOKEN READ (token never printed to stdout) ─────────────────────
+# Captures full HTTP response for shape evidence.
+# Raw body (with real token) → 11-invite-token-read.raw.json (gitignored dir)
+# Redacted body (token replaced) → 11-invite-token-read.json
+# Token stored only in INVITE_TOKEN variable, never echoed.
 
-INVITE_TOKEN_RAW_FILE="$(mktemp)"
-curl -s \
+curl -i \
   -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
   "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL_ENC}" \
-  > "${INVITE_TOKEN_RAW_FILE}"
-INVITE_TOKEN_READ_STATUS_TEMP="$(curl -o /dev/null -s -w "%{http_code}" \
-  -H "X-Smoke-Key: ${STAGING_SMOKE_KEY}" \
-  "${API_BASE}/smoke/invites/latest-token?email=${INVITEE_EMAIL_ENC}")"
+  > "${OUT_DIR}/11-invite-token-read-full.txt"
+INVITE_TOKEN_READ_STATUS="$(status_code "${OUT_DIR}/11-invite-token-read-full.txt")"
+INVITE_TOKEN_READ_BODY="$(body_from_http_file "${OUT_DIR}/11-invite-token-read-full.txt")"
 
-# Parse token without echoing it
-INVITE_TOKEN="$(node -e "
-const fs=require('fs');
-const raw=fs.readFileSync(process.argv[1],'utf8');
-try{
-  const j=JSON.parse(raw);
-  process.stdout.write(String(j.token||(j.data&&j.data.token)||''));
-}catch(e){process.stdout.write('')}
-" "${INVITE_TOKEN_RAW_FILE}")"
-rm -f "${INVITE_TOKEN_RAW_FILE}"
+# Save raw response body (proof of actual wire shape; dir is gitignored)
+printf "%s" "${INVITE_TOKEN_READ_BODY}" > "${OUT_DIR}/11-invite-token-read.raw.json"
 
-# Write sanitised proof (status only, no token value)
-printf "HTTP/1.1 %s OK\r\n\r\n{\"token\":\"[REDACTED]\"}" "${INVITE_TOKEN_READ_STATUS_TEMP}" \
+# Extract token into variable — never passed to echo or printf
+INVITE_TOKEN="$(printf "%s" "${INVITE_TOKEN_READ_BODY}" | node -e "
+let d='';
+process.stdin.on('data',c=>d+=c).on('end',()=>{
+  try{
+    const j=JSON.parse(d);
+    process.stdout.write(String(j.token||(j.data&&j.data.token)||''));
+  }catch(e){process.stdout.write('')}
+})")"
+
+# Write redacted body — token value replaced with [REDACTED], shape preserved
+printf "%s" "${INVITE_TOKEN_READ_BODY}" | node -e "
+let d='';
+process.stdin.on('data',c=>d+=c).on('end',()=>{
+  try{
+    const j=JSON.parse(d);
+    const redacted=JSON.stringify(j,null,2)
+      .replace(/\"token\":\s*\"[^\"]+\"/g,'\"token\": \"[REDACTED]\"');
+    process.stdout.write(redacted);
+  }catch(e){process.stdout.write(d)}
+})" > "${OUT_DIR}/11-invite-token-read.json"
+
+# Write standard proof file (HTTP status line + redacted body)
+printf "HTTP/1.1 %s OK\r\n\r\n" "${INVITE_TOKEN_READ_STATUS}" \
   > "${OUT_DIR}/11-invite-token-read.txt"
+cat "${OUT_DIR}/11-invite-token-read.json" >> "${OUT_DIR}/11-invite-token-read.txt"
 
-INVITE_TOKEN_READ_STATUS="${INVITE_TOKEN_READ_STATUS_TEMP}"
 if [[ "${INVITE_TOKEN_READ_STATUS}" != "200" ]]; then
   echo "FAIL: invite_token_read returned ${INVITE_TOKEN_READ_STATUS} (expected 200)"
+  cat "${OUT_DIR}/11-invite-token-read.json"
   exit 1
 fi
 if [[ -z "${INVITE_TOKEN}" ]]; then
   echo "FAIL: Invite token was empty after reading from outbox"
+  cat "${OUT_DIR}/11-invite-token-read.json"
   exit 1
 fi
+
+# ─── 11b NEGATIVE AUTH: admin cannot accept invitee token ─────────────────────
+# Proves principal binding in acceptInvite.
+# The service validates user.email === invite.email (org-invites.service.ts:230).
+# Admin (staging+smoke@zephix.dev) calling accept with invitee's token gets 400
+# (BadRequestException: "Invitation email does not match your account email").
+# A 200/201 here means the principal check is broken — treat as FAIL.
+
+curl -i \
+  -b "${OUT_DIR}/admin-cookiejar.txt" -c "${OUT_DIR}/admin-cookiejar.txt" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${ADMIN_CSRF}" \
+  -X POST "${API_BASE}/invites/accept" \
+  -d "{\"token\":\"${INVITE_TOKEN}\"}" \
+  > "${OUT_DIR}/11b-admin-accept-negative.txt"
+ADMIN_ACCEPT_NEGATIVE_STATUS="$(status_code "${OUT_DIR}/11b-admin-accept-negative.txt")"
+
+if [[ "${ADMIN_ACCEPT_NEGATIVE_STATUS}" == "200" || "${ADMIN_ACCEPT_NEGATIVE_STATUS}" == "201" ]]; then
+  echo "FAIL: negative auth check — admin accepted invitee token (status ${ADMIN_ACCEPT_NEGATIVE_STATUS})"
+  echo "  Principal binding is broken: acceptInvite did not reject wrong-principal caller"
+  sed -n '1,40p' "${OUT_DIR}/11b-admin-accept-negative.txt"
+  exit 1
+fi
+echo "negative_auth_check_status=${ADMIN_ACCEPT_NEGATIVE_STATUS} (non-200, principal binding confirmed)"
+
+# ─── 11c NEGATIVE: invitee cannot accept with garbage token ───────────────────
+# Proves token hash lookup fails for unknown tokens.
+# Service throws BadRequestException('Invalid invitation token') → 400.
+
+curl -i \
+  -b "${OUT_DIR}/invitee-cookiejar.txt" -c "${OUT_DIR}/invitee-cookiejar.txt" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: ${INVITEE_CSRF}" \
+  -X POST "${API_BASE}/invites/accept" \
+  -d '{"token":"smoke-garbage-token-aaa000bbb111"}' \
+  > "${OUT_DIR}/11c-invalid-token-negative.txt"
+INVALID_TOKEN_STATUS="$(status_code "${OUT_DIR}/11c-invalid-token-negative.txt")"
+
+if [[ "${INVALID_TOKEN_STATUS}" != "400" ]]; then
+  echo "FAIL: invalid token check returned ${INVALID_TOKEN_STATUS} (expected 400)"
+  echo "  Service must reject garbage tokens with BadRequestException('Invalid invitation token')"
+  sed -n '1,40p' "${OUT_DIR}/11c-invalid-token-negative.txt"
+  exit 1
+fi
+echo "invalid_token_check_status=${INVALID_TOKEN_STATUS} (400 confirmed, token validation working)"
 
 # ─── 12 INVITE ACCEPT (invitee) ──────────────────────────────────────────────
 
@@ -408,6 +477,9 @@ cat > "${OUT_DIR}/README.md" <<EOF
 - workspace_create_status: ${WORKSPACE_CREATE_STATUS}
 - invite_create_status: ${INVITE_CREATE_STATUS}
 - invite_token_read_status: ${INVITE_TOKEN_READ_STATUS}
+- invite_token_read_shape: see 11-invite-token-read.json (redacted) and 11-invite-token-read.raw.json (full shape)
+- negative_auth_check_status: ${ADMIN_ACCEPT_NEGATIVE_STATUS} (admin-accept rejected, expected non-200)
+- invalid_token_check_status: ${INVALID_TOKEN_STATUS} (garbage token rejected, expected 400)
 - invite_accept_status: ${INVITE_ACCEPT_STATUS}
 - invitee_smoke_login_status: ${INVITEE_SMOKE_LOGIN_STATUS}
 - invitee_auth_me_status: ${INVITEE_AUTH_ME_STATUS}

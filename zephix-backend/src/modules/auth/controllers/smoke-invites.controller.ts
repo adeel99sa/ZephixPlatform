@@ -44,7 +44,8 @@ export class SmokeInvitesController {
   @ApiOperation({ summary: 'Staging-only: retrieve latest org invite token for smoke email' })
   @ApiResponse({ status: 200, description: 'Token returned' })
   @ApiResponse({ status: 400, description: 'Missing or invalid email' })
-  @ApiResponse({ status: 403, description: 'Invalid smoke key or not staging' })
+  @ApiResponse({ status: 403, description: 'Invalid smoke key' })
+  @ApiResponse({ status: 404, description: 'Not found (returned when not in staging to hide route existence)' })
   @ApiResponse({ status: 404, description: 'No invite token found for email' })
   async getLatestToken(
     @Query('email') email: string | undefined,

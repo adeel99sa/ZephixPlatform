@@ -33,7 +33,8 @@ export class CsrfGuard implements CanActivate {
       path.includes('/auth/csrf') ||
       path.includes('/health') ||
       path.includes('/api/health') ||
-      path.includes('/organizations/onboarding')
+      path.includes('/organizations/onboarding') ||
+      path.includes('/smoke/')  // Smoke endpoints are protected by SmokeKeyGuard
     ) {
       return true;
     }

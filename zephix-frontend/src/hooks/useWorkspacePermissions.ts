@@ -52,8 +52,11 @@ export function useWorkspacePermissions(): WorkspacePermissions {
   const { user } = useAuth();
 
   return useMemo(() => {
-    // Get platform role
-    const platformRole = user?.role ? normalizePlatformRole(user.role) : null;
+    // Get platform role.
+    // Prefer platformRole (the org-context role set at login) over the base user.role field.
+    const platformRole = user?.platformRole
+      ? normalizePlatformRole(user.platformRole)
+      : normalizePlatformRole(user?.role);
 
     // PROMPT 6 D1: Hard rule - If platformRole is Guest, force Guest workspace access
     if (platformRole === 'VIEWER') {
@@ -116,5 +119,5 @@ export function useWorkspacePermissions(): WorkspacePermissions {
       canEditWork,
       isReadOnly,
     };
-  }, [workspaceRole, user?.role]);
+  }, [workspaceRole, user?.platformRole, user?.role]);
 }
