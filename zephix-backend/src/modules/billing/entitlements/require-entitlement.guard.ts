@@ -10,22 +10,25 @@ import { Reflector } from '@nestjs/core';
 import { EntitlementService } from './entitlement.service';
 import { EntitlementKey } from './entitlement.registry';
 import { getAuthContext } from '../../../common/http/get-auth-context';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 const ENTITLEMENT_KEY = 'requiredEntitlement';
 
 /**
- * Phase 3A: Decorator to require a boolean entitlement on a controller or route.
+ * Decorator to require a boolean entitlement on a controller or route.
  *
  * Usage:
  *   @RequireEntitlement('capacity_engine')
  *   @Controller('work/workspaces/:workspaceId/capacity')
  *
- * Stacks with JwtAuthGuard and role guards — entitlement is an additional layer.
+ * Always applies JwtAuthGuard before EntitlementGuard so unauthenticated
+ * requests receive 401 before the entitlement check runs, regardless of
+ * how the controller's own guard decorators are ordered.
  */
 export function RequireEntitlement(key: EntitlementKey) {
   return applyDecorators(
     SetMetadata(ENTITLEMENT_KEY, key),
-    UseGuards(EntitlementGuard),
+    UseGuards(JwtAuthGuard, EntitlementGuard),
   );
 }
 
@@ -45,12 +48,11 @@ export class EntitlementGuard implements CanActivate {
     if (!key) return true; // No entitlement required
 
     const request = context.switchToHttp().getRequest();
+    // JwtAuthGuard (applied by RequireEntitlement before this guard) guarantees
+    // req.user is populated. getAuthContext throws 401 if user is missing,
+    // which is the correct behaviour — an unauthenticated request must never
+    // reach a paid endpoint without rejection.
     const { organizationId } = getAuthContext(request);
-
-    if (!organizationId) {
-      // No org context — let JwtAuthGuard handle this
-      return true;
-    }
 
     // This throws 403 ENTITLEMENT_REQUIRED if not allowed
     await this.entitlementService.assertFeature(organizationId, key);

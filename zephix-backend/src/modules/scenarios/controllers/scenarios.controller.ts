@@ -4,7 +4,6 @@ import {
   Post,
   Patch,
   Delete,
-  UseGuards,
   Req,
   Param,
   Body,
@@ -13,7 +12,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../../../common/http/auth-request';
 import { getAuthContext } from '../../../common/http/get-auth-context';
 import { ResponseService } from '../../../shared/services/response.service';
@@ -59,7 +57,6 @@ function requireWriteRole(role: PlatformRole): void {
 @Controller()
 @ApiTags('scenarios')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @RequireEntitlement('what_if_scenarios')
 export class ScenariosController {
   constructor(
