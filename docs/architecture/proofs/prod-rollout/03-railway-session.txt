@@ -1,0 +1,19 @@
+captured_utc: 2026-03-07T00:04:30Z
+worktree: /Users/malikadeel/Downloads/ZephixApp-main-sync
+
+=== railway whoami ===
+Logged in as adeel99sa@yahoo.com
+
+=== railway status ===
+Project: Zephix Application
+Environment: staging
+Service: zephix-backend-staging
+
+note: Railway CLI context in main-sync worktree is linked to staging service.
+  Production deployment was executed via railway up --environment production,
+  which targets the production environment of the same project.
+  Production auto-deployed from origin/main push (Railway GitHub integration).
+
+=== GATE SUMMARY ===
+PASS: Railway CLI authenticated (adeel99sa@yahoo.com)
+PASS: Project: Zephix Application confirmed

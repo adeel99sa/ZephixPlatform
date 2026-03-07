@@ -1,0 +1,15 @@
+captured_utc: 2026-03-07T00:21:29Z
+url: https://getzephix.com/api/health/ready
+
+HTTP/2 200
+x-zephix-env: production
+x-railway-edge: railway/us-east4-eqdc4a
+x-correlation-id: 26287b63-c267-47c8-861d-191ff3eb9108
+
+{"status":"ok","ts":"2026-03-07T00:21:29.951Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}
+
+=== ACCEPTANCE ===
+PASS: HTTP 200
+PASS: zephixEnv=production (x-zephix-env: production)
+PASS: db status ok
+PASS: schema status ok

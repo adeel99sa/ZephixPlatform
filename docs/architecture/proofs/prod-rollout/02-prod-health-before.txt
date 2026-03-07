@@ -1,0 +1,9 @@
+captured_utc: 2026-03-07T00:04:15Z
+url: https://getzephix.com/api/health/ready
+note: Baseline health capture. Production was already running RBAC V2 code.
+
+HTTP/2 200
+x-zephix-env: production
+x-railway-edge: railway/us-east4-eqdc4a
+
+{"status":"ok","ts":"2026-03-07T00:04:15.730Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}

@@ -1,0 +1,72 @@
+=== Production Rollout Preflight ===
+date_utc: 2026-03-06T22:00:00Z
+worktree: /Users/malikadeel/Downloads/ZephixApp-main-sync
+head_state: detached HEAD
+
+=== git rev-parse HEAD ===
+3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+
+=== git status ===
+PASS: working tree clean (no output from git status --short)
+
+=== node version ===
+v20.20.0 (via nvm use 20)
+
+=== guard ===
+✅ No stale staging domains in active paths
+=== Dead Home Files Guard ===
+PASS: No dead home files found.
+=== RESULT: PASS ===
+
+=== Contract-Runner Parity Guard ===
+--- customer-journey ---
+PASS: [health_ready] GET /health/ready
+PASS: [version] GET /version
+PASS: [csrf] GET /auth/csrf
+PASS: [org_signup] override => /smoke/users/create (canonical: /auth/register)
+PASS: [auth_me] GET /auth/me
+PASS: [workspace_create] POST /workspaces
+PASS: [portfolio_create] POST /workspaces/{workspaceId}/portfolios
+PASS: [program_create] POST /workspaces/{workspaceId}/portfolios/{portfolioId}/programs
+PASS: [project_create] POST /projects
+PASS: [project_link] PATCH /workspaces/{workspaceId}/projects/{projectId}/link
+PASS: [project_get] GET /projects/{projectId}
+PASS: [task_create] POST /work/tasks
+PASS: [portfolio_rollup] GET /workspaces/{workspaceId}/portfolios/{portfolioId}/rollup
+PASS: [invite_create] POST /orgs/{orgId}/invites
+PASS: [invitee_register] override => /smoke/users/create (canonical: /auth/register)
+PASS: [invite_accept] POST /invites/accept
+PASS: [invitee_auth_me] GET /auth/me
+PASS: [invitee_workspaces_list] GET /workspaces
+--- org-invites ---
+PASS: [health_ready] GET /health/ready
+PASS: [version] GET /version
+PASS: [csrf] GET /auth/csrf
+PASS: [auth_me] GET /auth/me
+PASS: [org_signup] override (step skipped by runner)
+PASS: [workspace_create] POST /workspaces
+PASS: [invite_create] POST /orgs/{orgId}/invites
+PASS: [invitee_register] POST /auth/register
+PASS: [invite_accept] POST /invites/accept
+PASS: [invitee_auth_me] GET /auth/me
+PASS: [invitee_workspaces_list] GET /workspaces
+=== RESULT: PASS ===
+
+=== Token Artifact Guard ===
+PASS: No token leaks in proof artifacts
+
+=== Import-Drift Guard ===
+PASS: zephix-backend/src/common/auth/platform-roles.ts (canonical definition)
+=== RESULT: PASS ===
+
+=== Role-Drift Guard ===
+PASS: no direct user.role comparisons found
+=== RESULT: PASS ===
+
+=== GATE SUMMARY ===
+PASS: HEAD = 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2 (pinned RBAC V2 code commit)
+PASS: working tree clean (detached HEAD, no staged or unstaged changes)
+PASS: node major 20 (v20.20.0 via nvm)
+PASS: guard suite (exit 0)
+
+ALL PREFLIGHT GATES PASS — proceed to Step 1
