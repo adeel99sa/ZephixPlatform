@@ -515,7 +515,7 @@ export default function WorkspaceHome() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate(`/workspaces/${workspaceId}/settings`)}
+                onClick={() => navigate('/settings')}
                 className="px-4 py-2"
               >
                 Settings

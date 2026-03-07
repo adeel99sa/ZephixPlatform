@@ -9,20 +9,19 @@ import {
   BadRequestException,
   UnauthorizedException,
   Logger,
-  Inject,
   RawBodyRequest,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { IntegrationConnection } from './entities/integration-connection.entity';
 import { IntegrationEncryptionService } from './services/integration-encryption.service';
 import { formatResponse } from '../../shared/helpers/response.helper';
-import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
-import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 
 /**
  * Webhook controller for Jira integration
@@ -35,8 +34,8 @@ export class IntegrationsWebhookController {
   private readonly logger = new Logger(IntegrationsWebhookController.name);
 
   constructor(
-    @Inject(getTenantAwareRepositoryToken(IntegrationConnection))
-    private connectionRepository: TenantAwareRepository<IntegrationConnection>,
+    @InjectDataSource()
+    private dataSource: DataSource,
     private encryptionService: IntegrationEncryptionService,
     private configService: ConfigService,
   ) {}
@@ -80,10 +79,11 @@ export class IntegrationsWebhookController {
     @Headers('x-zephix-signature') signatureHeader?: string,
     @Req() req?: Request,
   ) {
-    // Load connection
-    const connection = await this.connectionRepository.findOne({
-      where: { id: connectionId },
-    });
+    // Load connection without tenant context — inbound webhooks are unauthenticated.
+    // Signature verification below establishes trust before any tenant-scoped processing.
+    const connection = await this.dataSource
+      .getRepository(IntegrationConnection)
+      .findOne({ where: { id: connectionId } });
 
     if (!connection) {
       throw new BadRequestException('Integration connection not found');
