@@ -5,6 +5,7 @@ export * from './bulk-status-update.dto';
 export * from './add-dependency.dto';
 export * from './remove-dependency.dto';
 export * from './add-comment.dto';
+export * from './update-comment.dto';
 export * from './create-work-risk.dto';
 export * from './update-work-risk.dto';
 export * from './list-work-risks.query';

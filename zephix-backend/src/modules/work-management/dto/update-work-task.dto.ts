@@ -45,6 +45,11 @@ export class UpdateWorkTaskDto {
   @IsUUID()
   assigneeUserId?: string;
 
+  @ApiProperty({ description: 'Parent task ID for subtask relationship', required: false })
+  @IsOptional()
+  @IsUUID()
+  parentTaskId?: string | null;
+
   @ApiProperty({ description: 'Start date (ISO 8601)', required: false })
   @IsOptional()
   @IsDateString()

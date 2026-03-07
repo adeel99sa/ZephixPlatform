@@ -39,6 +39,7 @@ describe('WorkTasksService', () => {
     take: jest.Mock;
     skip: jest.Mock;
     getManyAndCount: jest.Mock;
+    getMany: jest.Mock;
   };
 
   const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
@@ -52,6 +53,7 @@ describe('WorkTasksService', () => {
       take: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      getMany: jest.fn().mockResolvedValue([]),
     };
 
     taskRepo = {
@@ -481,6 +483,14 @@ describe('WorkTasksService', () => {
       expect(hasArchivedFilter).toBe(false);
     });
 
+    it('applies priority filter when provided', async () => {
+      await service.listTasks(auth, workspaceId, { priority: 'HIGH' } as any);
+
+      expect(qbMock.andWhere).toHaveBeenCalledWith('task.priority = :priority', {
+        priority: 'HIGH',
+      });
+    });
+
     it('archive action does not soft-delete task', async () => {
       const task = {
         id: 'task-archive-1',
@@ -555,6 +565,97 @@ describe('WorkTasksService', () => {
 
       expect(task.metadata).toMatchObject({ archived: true });
       expect(task.deletedAt).toBeInstanceOf(Date);
+    });
+
+    it('createTask accepts parentTaskId in same project', async () => {
+      const projectId = 'proj-subtask-1';
+      const parentId = 'parent-task-1';
+      const parentTask = {
+        id: parentId,
+        workspaceId,
+        projectId,
+        deletedAt: null,
+      } as WorkTask;
+      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      taskRepo.findOne.mockResolvedValueOnce(parentTask);
+      taskRepo.save.mockImplementation(async (savedTask) => ({
+        id: 'new-subtask',
+        ...savedTask,
+      }));
+
+      const created = await service.createTask(auth, workspaceId, {
+        projectId,
+        title: 'subtask',
+        parentTaskId: parentId,
+      } as any);
+
+      expect(created.parentTaskId).toBe(parentId);
+    });
+
+    it('createTask rejects parentTaskId from different project', async () => {
+      const projectId = 'proj-subtask-1';
+      const parentId = 'parent-task-1';
+      const parentTask = {
+        id: parentId,
+        workspaceId,
+        projectId: 'other-project',
+        deletedAt: null,
+      } as WorkTask;
+      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      taskRepo.findOne.mockResolvedValueOnce(parentTask);
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'invalid subtask',
+          parentTaskId: parentId,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({ code: 'TASK_PARENT_INVALID' });
+    });
+
+    it('updateTask rejects self-parent assignment', async () => {
+      const task = {
+        id: 'task-self-parent',
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'self parent',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+        parentTaskId: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+
+      const err = await service
+        .updateTask(auth, workspaceId, task.id, {
+          parentTaskId: task.id,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response).toMatchObject({ code: 'TASK_PARENT_INVALID' });
+    });
+
+    it('listSubtasks excludes deleted and archived subtasks by default', async () => {
+      const parentTask = {
+        id: 'parent-task-list',
+        workspaceId,
+        projectId: 'proj-1',
+        deletedAt: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(parentTask);
+
+      await service.listSubtasks(auth, workspaceId, parentTask.id);
+
+      expect(qbMock.andWhere).toHaveBeenCalledWith('task.deletedAt IS NULL');
+      expect(qbMock.andWhere).toHaveBeenCalledWith(
+        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
+      );
     });
   });
 });
