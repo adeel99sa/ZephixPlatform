@@ -102,3 +102,14 @@ This is the append-only evidence ledger for the Week 3 controlled pilot.
 - day_decision: TBC
 - rationale: TBC
 - next_day_focus: TBC
+
+---
+
+## Lane Update - WM-L1-DATA-INTEGRITY-001-L1.1
+
+- date_utc: 2026-03-07T05:33:08Z
+- change_id: WM-L1-DATA-INTEGRITY-001-L1.1
+- scope: assignee validation
+- tests: pass
+- smoke: pass
+- decision: continue lane

@@ -112,6 +112,8 @@ import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
+import { User } from '../../users/entities/user.entity';
+import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 
 interface AuthContext {
   organizationId: string;
@@ -252,6 +254,50 @@ export class WorkTasksService {
     return task;
   }
 
+  private async validateAssigneeOrThrow(
+    organizationId: string,
+    workspaceId: string,
+    assigneeUserId: string,
+  ): Promise<void> {
+    const userRepository = this.dataSource.getRepository(User);
+    const workspaceMemberRepository =
+      this.dataSource.getRepository(WorkspaceMember);
+
+    const assignee = await userRepository.findOne({
+      where: { id: assigneeUserId },
+      select: ['id', 'organizationId'],
+    });
+
+    if (!assignee) {
+      throw new NotFoundException({
+        code: 'TASK_ASSIGNEE_NOT_FOUND',
+        message: 'Assignee user not found',
+      });
+    }
+
+    if (assignee.organizationId !== organizationId) {
+      throw new ForbiddenException({
+        code: 'TASK_ASSIGNEE_INVALID',
+        message: 'Assignee must belong to the same organization and workspace',
+      });
+    }
+
+    const workspaceMembership = await workspaceMemberRepository.findOne({
+      where: {
+        workspaceId,
+        userId: assigneeUserId,
+      },
+      select: ['id'],
+    });
+
+    if (!workspaceMembership) {
+      throw new ForbiddenException({
+        code: 'TASK_ASSIGNEE_INVALID',
+        message: 'Assignee must belong to the same organization and workspace',
+      });
+    }
+  }
+
   // ============================================================
   // STATUS TRANSITION VALIDATION
   // ============================================================
@@ -355,6 +401,14 @@ export class WorkTasksService {
           message: 'Hours estimation is disabled for this project (points_only mode)',
         });
       }
+    }
+
+    if (dto.assigneeUserId) {
+      await this.validateAssigneeOrThrow(
+        organizationId,
+        workspaceId,
+        dto.assigneeUserId,
+      );
     }
 
     const task = this.taskRepo.create({
@@ -638,6 +692,13 @@ export class WorkTasksService {
       dto.assigneeUserId !== undefined &&
       dto.assigneeUserId !== task.assigneeUserId
     ) {
+      if (dto.assigneeUserId) {
+        await this.validateAssigneeOrThrow(
+          organizationId,
+          workspaceId,
+          dto.assigneeUserId,
+        );
+      }
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
     }
