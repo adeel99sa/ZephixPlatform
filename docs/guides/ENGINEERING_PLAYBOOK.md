@@ -85,6 +85,9 @@ export async function listProjects(params?: { q?: string }) {
 
 ## Working Style and Safety Rules
 
+Before starting implementation, complete:
+- `docs/guides/IMPLEMENTATION_CHANGE_TEMPLATE.md`
+
 ### Scan and Plan
 * Use search and code navigation to understand existing design
 * Look for related patterns and call sites
