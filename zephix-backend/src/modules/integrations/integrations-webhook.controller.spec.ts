@@ -1,13 +1,12 @@
 import 'reflect-metadata';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { IntegrationsWebhookController } from './integrations-webhook.controller';
 import { IntegrationConnection } from './entities/integration-connection.entity';
 import { IntegrationEncryptionService } from './services/integration-encryption.service';
-import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
 
 describe('IntegrationsWebhookController — Guard Enforcement', () => {
@@ -55,6 +54,9 @@ describe('IntegrationsWebhookController - Security Tests', () => {
   const mockRepository = {
     findOne: jest.fn(),
   };
+  const mockDataSource = {
+    getRepository: jest.fn().mockReturnValue(mockRepository),
+  };
 
   const mockEncryptionService = {
     decrypt: jest.fn(),
@@ -73,8 +75,8 @@ describe('IntegrationsWebhookController - Security Tests', () => {
       controllers: [IntegrationsWebhookController],
       providers: [
         {
-          provide: getTenantAwareRepositoryToken(IntegrationConnection),
-          useValue: mockRepository,
+          provide: DataSource,
+          useValue: mockDataSource,
         },
         {
           provide: IntegrationEncryptionService,
@@ -92,6 +94,7 @@ describe('IntegrationsWebhookController - Security Tests', () => {
     );
 
     jest.clearAllMocks();
+    mockDataSource.getRepository.mockReturnValue(mockRepository);
   });
 
   describe('POST /api/integrations/jira/webhook/:connectionId', () => {

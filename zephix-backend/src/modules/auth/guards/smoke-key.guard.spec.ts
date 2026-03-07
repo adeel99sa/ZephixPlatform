@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { SmokeKeyGuard } from './smoke-key.guard';
 
 describe('SmokeKeyGuard', () => {
@@ -47,7 +47,7 @@ describe('SmokeKeyGuard', () => {
           'x-smoke-key': 'smoke-key-123',
         }),
       ),
-    ).toThrow(ForbiddenException);
+    ).toThrow(NotFoundException);
 
   });
 
@@ -62,7 +62,7 @@ describe('SmokeKeyGuard', () => {
           'x-smoke-key': 'smoke-key-123',
         }),
       ),
-    ).toThrow(ForbiddenException);
+    ).toThrow(NotFoundException);
   });
 
   it('rejects invalid smoke key', () => {
