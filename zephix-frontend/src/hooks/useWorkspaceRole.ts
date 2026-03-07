@@ -18,18 +18,8 @@ export function useWorkspaceRole(workspaceId: string | null | undefined) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  if (!workspaceId) {
-    return {
-      role: null,
-      canWrite: false,
-      isReadOnly: true,
-      loading: false,
-      error: null,
-    };
-  }
-
   useEffect(() => {
-    if (!user?.id) return;
+    if (!workspaceId || !user?.id) return;
 
     setLoading(true);
     setError(null);

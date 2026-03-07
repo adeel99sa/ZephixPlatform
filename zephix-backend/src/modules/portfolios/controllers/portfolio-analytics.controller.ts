@@ -17,8 +17,10 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PortfolioAnalyticsService } from '../services/portfolio-analytics.service';
 import { PortfoliosService } from '../services/portfolios.service';
 import {
@@ -35,6 +37,7 @@ function requireAdmin(platformRole: string): void {
 }
 
 @Controller('portfolios')
+@UseGuards(JwtAuthGuard)
 @RequireEntitlement('portfolio_rollups')
 export class PortfolioAnalyticsController {
   private readonly logger = new Logger(PortfolioAnalyticsController.name);
