@@ -125,6 +125,11 @@ interface AuthContext {
 export class WorkTasksService {
   private readonly logger = new Logger(WorkTasksService.name);
 
+  private isArchivedTask(task: Pick<WorkTask, 'metadata'>): boolean {
+    const archived = task?.metadata?.archived;
+    return archived === true || archived === 'true';
+  }
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
@@ -489,6 +494,12 @@ export class WorkTasksService {
       qb.andWhere('task.deletedAt IS NULL');
     }
 
+    if (!query.includeArchived) {
+      qb.andWhere(
+        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
+      );
+    }
+
     if (query.projectId) {
       qb.andWhere('task.projectId = :projectId', {
         projectId: query.projectId,
@@ -764,9 +775,14 @@ export class WorkTasksService {
       changedFields.push('rank');
     }
     if (dto.archived !== undefined) {
-      // Note: archived not in entity yet, skip for now
-      // Will be added in future migration if needed
-      changedFields.push('archived');
+      const currentlyArchived = this.isArchivedTask(task);
+      if (dto.archived !== currentlyArchived) {
+        task.metadata = {
+          ...(task.metadata || {}),
+          archived: dto.archived,
+        };
+        changedFields.push('archived');
+      }
     }
     if (dto.acceptanceCriteria !== undefined) {
       const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);

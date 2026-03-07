@@ -113,3 +113,14 @@ This is the append-only evidence ledger for the Week 3 controlled pilot.
 - tests: pass
 - smoke: pass
 - decision: continue lane
+
+---
+
+## Lane Update - WM-L1-DATA-INTEGRITY-001-L1.3
+
+- date_utc: 2026-03-07T06:03:27Z
+- change_id: WM-L1-DATA-INTEGRITY-001-L1.3
+- scope: archive semantics cleanup
+- tests: pass
+- smoke: pass
+- decision: lane complete
