@@ -17,6 +17,11 @@ describe('HealthController /api/version contract', () => {
   const originalEnv = {
     GIT_SHA: process.env.GIT_SHA,
     COMMIT_SHA: process.env.COMMIT_SHA,
+    RAILWAY_GIT_COMMIT_SHA: process.env.RAILWAY_GIT_COMMIT_SHA,
+    RAILWAY_GIT_COMMIT_HASH: process.env.RAILWAY_GIT_COMMIT_HASH,
+    RAILWAY_GIT_SHA: process.env.RAILWAY_GIT_SHA,
+    GIT_COMMIT_SHA: process.env.GIT_COMMIT_SHA,
+    GITHUB_SHA: process.env.GITHUB_SHA,
     SOURCE_VERSION: process.env.SOURCE_VERSION,
     BUILD_TIME: process.env.BUILD_TIME,
     ZEPHIX_ENV: process.env.ZEPHIX_ENV,
@@ -31,6 +36,11 @@ describe('HealthController /api/version contract', () => {
   afterEach(() => {
     process.env.GIT_SHA = originalEnv.GIT_SHA;
     process.env.COMMIT_SHA = originalEnv.COMMIT_SHA;
+    process.env.RAILWAY_GIT_COMMIT_SHA = originalEnv.RAILWAY_GIT_COMMIT_SHA;
+    process.env.RAILWAY_GIT_COMMIT_HASH = originalEnv.RAILWAY_GIT_COMMIT_HASH;
+    process.env.RAILWAY_GIT_SHA = originalEnv.RAILWAY_GIT_SHA;
+    process.env.GIT_COMMIT_SHA = originalEnv.GIT_COMMIT_SHA;
+    process.env.GITHUB_SHA = originalEnv.GITHUB_SHA;
     process.env.SOURCE_VERSION = originalEnv.SOURCE_VERSION;
     process.env.BUILD_TIME = originalEnv.BUILD_TIME;
     process.env.ZEPHIX_ENV = originalEnv.ZEPHIX_ENV;
@@ -80,6 +90,11 @@ describe('HealthController /api/version contract', () => {
   it('returns unknown commit markers when no commit env vars are set', async () => {
     delete process.env.GIT_SHA;
     delete process.env.COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_HASH;
+    delete process.env.RAILWAY_GIT_SHA;
+    delete process.env.GIT_COMMIT_SHA;
+    delete process.env.GITHUB_SHA;
     delete process.env.SOURCE_VERSION;
     process.env.BUILD_TIME = '';
     process.env.ZEPHIX_ENV = 'staging';
