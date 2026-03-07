@@ -775,8 +775,14 @@ jobs:
       - name: Backup readiness check
         run: |
           echo "Verifying backup readiness before production deploy..."
+          if [ -z "${{ secrets.ADMIN_AUTH_TOKEN }}" ]; then
+            echo "::error::ADMIN_AUTH_TOKEN secret is not configured — backup readiness probe requires admin auth"
+            exit 1
+          fi
           if [ -n "${{ secrets.STAGING_API_URL }}" ]; then
-            curl -sf "${{ secrets.STAGING_API_URL }}/admin/system/backup-readiness" \
+            curl -sf \
+              -H "Authorization: Bearer ${{ secrets.ADMIN_AUTH_TOKEN }}" \
+              "${{ secrets.STAGING_API_URL }}/admin/system/backup-readiness" \
               && echo "Backup readiness: OK" \
               || { echo "::error::Backup readiness check failed on staging — aborting production deploy"; exit 1; }
           else

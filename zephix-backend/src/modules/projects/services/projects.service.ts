@@ -638,7 +638,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         if (processedData.portfolioId && syncGovernance) {
           try {
             const portfolio = await this.dataSource.getRepository(Portfolio).findOne({
-              where: { id: processedData.portfolioId as string },
+              where: { id: processedData.portfolioId as string, organizationId },
             });
             if (portfolio) {
               const applied = applyPortfolioGovernanceDefaults(

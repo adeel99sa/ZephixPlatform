@@ -79,11 +79,30 @@ Pilot tracking required:
 
 ---
 
+## Post-Memo Issue Closure
+
+Two issues were identified and closed after initial publication:
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | Update-path portfolio governance lookup missing `organizationId` scope in `projects.service.ts` | P0 | **CLOSED** — fixed + 7/7 regression tests PASS |
+| 2 | `enterprise-ci.yml` backup-readiness probe unauthenticated against guarded endpoint | P1 | **CLOSED** — added `Authorization: Bearer` header + fail-fast on missing secret |
+
+Full closure evidence: `STABILIZATION_ISSUE_CLOSURE_ADDENDUM.md`
+
+**open_issues = 0** as of 2026-03-07T03:00:00Z.
+
+Post-closure validation: tsc backend 0 errors, frontend 0 errors, lint:new 0 errors,
+regression tests 7/7 PASS, all 4 smoke lanes PASS (guard, org-invites, customer-journey, ui-acceptance 15/15).
+
+---
+
 ## Final Verdict
 
 **GO — proceed to Week 3 pilot launch**
 
 All P0 backend correctness fixes shipped and type-check clean.
 All P1 UX trust fixes shipped and smoke lanes green.
+Post-memo issues found, fixed, tested, and smoke-verified on main.
 No open P0/P1 defects.
-Full smoke proof package current as of 2026-03-07T02:00:00Z.
+Full smoke proof package current as of 2026-03-07T03:00:00Z.
