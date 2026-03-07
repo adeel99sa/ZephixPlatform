@@ -97,12 +97,18 @@ export class AttachmentAccessService {
     taskId: string,
   ): Promise<void> {
     const task = await this.taskRepo.findOne({
-      where: { id: taskId, organizationId, deletedAt: null as any },
+      where: {
+        id: taskId,
+        organizationId,
+        workspaceId,
+        deletedAt: null as any,
+      },
     });
     if (!task) {
-      throw new NotFoundException('Parent task not found');
+      throw new NotFoundException({
+        code: 'TASK_NOT_FOUND',
+        message: 'Parent task not found',
+      });
     }
-    // WorkTask has workspaceId via project — verify project's workspace matches
-    // For MVP, the org scope check above is sufficient because all queries include organizationId
   }
 }

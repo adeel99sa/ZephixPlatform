@@ -25,7 +25,7 @@ describe('AttachmentAccessService', () => {
 
   describe('assertCanReadParent', () => {
     it('allows VIEWER with workspace read', async () => {
-      mockTaskRepo.findOne.mockResolvedValue({ id: 't1' });
+      mockTaskRepo.findOne.mockResolvedValue({ id: 't1', workspaceId: wsId });
       await expect(
         service.assertCanReadParent(
           { userId: 'u1', organizationId: orgId, platformRole: 'VIEWER' },
@@ -43,14 +43,18 @@ describe('AttachmentAccessService', () => {
     });
 
     it('verifies task scope for work_task parent', async () => {
-      mockTaskRepo.findOne.mockResolvedValue({ id: 't1' });
+      mockTaskRepo.findOne.mockResolvedValue({ id: 't1', workspaceId: wsId });
       await service.assertCanReadParent(
         { userId: 'u1', organizationId: orgId, platformRole: 'MEMBER' },
         wsId, 'work_task', 't1',
       );
       expect(mockTaskRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: 't1', organizationId: orgId }),
+          where: expect.objectContaining({
+            id: 't1',
+            organizationId: orgId,
+            workspaceId: wsId,
+          }),
         }),
       );
     });
@@ -63,6 +67,60 @@ describe('AttachmentAccessService', () => {
           wsId, 'work_task', 't-missing',
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('denies read when parent task belongs to a different workspace', async () => {
+      mockTaskRepo.findOne.mockResolvedValue(null);
+
+      const err = await service
+        .assertCanReadParent(
+          { userId: 'u1', organizationId: orgId, platformRole: 'MEMBER' },
+          wsId,
+          'work_task',
+          't-foreign-workspace',
+        )
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_NOT_FOUND',
+      });
+    });
+
+    it('denies read for cross-organization parent task', async () => {
+      mockTaskRepo.findOne.mockResolvedValue(null);
+
+      const err = await service
+        .assertCanReadParent(
+          { userId: 'u1', organizationId: 'org-2', platformRole: 'MEMBER' },
+          wsId,
+          'work_task',
+          't-org-1',
+        )
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_NOT_FOUND',
+      });
+    });
+
+    it('denies read for invalid parent task id', async () => {
+      mockTaskRepo.findOne.mockResolvedValue(null);
+
+      const err = await service
+        .assertCanReadParent(
+          { userId: 'u1', organizationId: orgId, platformRole: 'MEMBER' },
+          wsId,
+          'work_task',
+          'nonexistent-task-id',
+        )
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_NOT_FOUND',
+      });
     });
   });
 
@@ -77,7 +135,7 @@ describe('AttachmentAccessService', () => {
     });
 
     it('allows ADMIN without workspace write check', async () => {
-      mockTaskRepo.findOne.mockResolvedValue({ id: 't1' });
+      mockTaskRepo.findOne.mockResolvedValue({ id: 't1', workspaceId: wsId });
       await expect(
         service.assertCanWriteParent(
           { userId: 'u1', organizationId: orgId, platformRole: 'ADMIN' },
