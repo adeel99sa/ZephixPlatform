@@ -153,7 +153,7 @@ const EXPLORE_TILES: ExploreTile[] = [
     description: "Notifications and updates — needs a workspace to populate",
     icon: <Inbox className="h-5 w-5" />,
     color: "bg-amber-50 text-amber-600",
-    route: "/notifications",
+    route: "/inbox",
     requiresWorkspace: true,
   },
   {
