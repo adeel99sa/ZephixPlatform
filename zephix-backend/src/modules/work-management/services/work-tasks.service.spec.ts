@@ -17,12 +17,16 @@ import { Project } from '../../projects/entities/project.entity';
 import { TaskStatus } from '../enums/task.enums';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { User } from '../../users/entities/user.entity';
+import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
   let taskRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
   let projectRepo: { findOne: jest.Mock };
   let phaseRepo: { findOne: jest.Mock };
+  let userRepo: { findOne: jest.Mock };
+  let workspaceMemberRepo: { findOne: jest.Mock };
 
   const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
   const workspaceId = 'ws-1';
@@ -35,6 +39,8 @@ describe('WorkTasksService', () => {
     };
     projectRepo = { findOne: jest.fn() };
     phaseRepo = { findOne: jest.fn() };
+    userRepo = { findOne: jest.fn() };
+    workspaceMemberRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,7 +71,16 @@ describe('WorkTasksService', () => {
         },
         { provide: getRepositoryToken(WorkPhase), useValue: phaseRepo },
         { provide: getRepositoryToken(Project), useValue: projectRepo },
-        { provide: DataSource, useValue: {} },
+        {
+          provide: DataSource,
+          useValue: {
+            getRepository: jest.fn((entity: unknown) => {
+              if (entity === User) return userRepo;
+              if (entity === WorkspaceMember) return workspaceMemberRepo;
+              return {};
+            }),
+          },
+        },
         {
           provide: AuditService,
           useValue: { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) },
@@ -329,6 +344,98 @@ describe('WorkTasksService', () => {
       } as any);
 
       expect(taskRepo.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('assignee validation', () => {
+    const projectId = 'proj-1';
+    const assigneeUserId = 'assignee-1';
+
+    beforeEach(() => {
+      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      taskRepo.save.mockImplementation((t) =>
+        Promise.resolve({ id: 'new-task', ...t }),
+      );
+      userRepo.findOne.mockResolvedValue({
+        id: assigneeUserId,
+        organizationId: 'org-1',
+      });
+      workspaceMemberRepo.findOne.mockResolvedValue({ id: 'wm-1' });
+    });
+
+    it('allows assignment for same org and same workspace', async () => {
+      const result = await service.createTask(auth, workspaceId, {
+        projectId,
+        title: 'Assigned task',
+        assigneeUserId,
+      } as any);
+
+      expect(result.assigneeUserId).toBe(assigneeUserId);
+      expect(userRepo.findOne).toHaveBeenCalledWith({
+        where: { id: assigneeUserId },
+        select: ['id', 'organizationId'],
+      });
+      expect(workspaceMemberRepo.findOne).toHaveBeenCalledWith({
+        where: { workspaceId, userId: assigneeUserId },
+        select: ['id'],
+      });
+    });
+
+    it('rejects assignment when assignee lacks workspace access', async () => {
+      workspaceMemberRepo.findOne.mockResolvedValue(null);
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'No workspace membership',
+          assigneeUserId,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(ForbiddenException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_ASSIGNEE_INVALID',
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects assignment when assignee is in a different organization', async () => {
+      userRepo.findOne.mockResolvedValue({
+        id: assigneeUserId,
+        organizationId: 'org-2',
+      });
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'Cross org assignment',
+          assigneeUserId,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(ForbiddenException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_ASSIGNEE_INVALID',
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects assignment when assignee user does not exist', async () => {
+      userRepo.findOne.mockResolvedValue(null);
+
+      const err = await service
+        .createTask(auth, workspaceId, {
+          projectId,
+          title: 'Missing assignee',
+          assigneeUserId,
+        } as any)
+        .then(() => null, (e) => e);
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect(err.response).toMatchObject({
+        code: 'TASK_ASSIGNEE_NOT_FOUND',
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
     });
   });
 });
