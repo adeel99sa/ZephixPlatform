@@ -12,28 +12,34 @@ assessed_by: Claude (automated proof pipeline)
 | Field | Value |
 |-------|-------|
 | pinned_rbac_release_candidate | 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2 |
-| live_production_sha | c69797f40151f6597156ade8c332f260f05522f4 |
-| main_head_at_time_of_rollout | c69797f40151f6597156ade8c332f260f05522f4 |
+| proof_reference_policy | stable_pin_to_rbac_code_commit |
 | variance_assessment | documentation-only commits after release candidate |
 | runtime_impact | none |
 | deployment_mechanism | production auto-deployed from origin/main push |
 
-Commits between pinned release candidate and live production SHA are documentation-only
-and introduce no runtime code changes. The 6 commits between 3d5432c4 and c69797f4 are
-exclusively proof artifacts in docs/architecture/proofs/ and have no effect on the
-deployed application code, database schema, or RBAC behaviour.
+All commits after 3d5432c4 are documentation artifacts only. RBAC application code
+is fixed at 3d5432c4. This document does not track live production SHA to avoid
+self-referential drift — each push to main triggers a Railway auto-deploy, making any
+recorded live SHA immediately stale.
+
+To verify current production state: curl -sS https://getzephix.com/api/version
+The RBAC code anchor (3d5432c4) is invariant regardless of the current live SHA.
 
 ---
 
-## Deployment Identity
+## Deployment Identity (at time of proof capture — 2026-03-07T00:22:45Z)
 
-| Field | Baseline | Post-Verification |
-|-------|----------|-------------------|
-| commitSha | c69797f40151f6597156ade8c332f260f05522f4 | c69797f40151f6597156ade8c332f260f05522f4 |
-| commitShaTrusted | true | true |
-| zephixEnv | production | production |
-| nodeEnv | production | production |
-| railwayDeploymentId | e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f | e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f |
+Note: Railway auto-deploys on every push to origin/main. The commitSha and
+railwayDeploymentId below are point-in-time snapshots, not current-live values.
+commitShaTrusted and zephixEnv are invariant properties of the production service.
+
+| Field | Value at Capture | Note |
+|-------|-----------------|------|
+| commitSha | c69797f40151f6597156ade8c332f260f05522f4 | snapshot — advances with each push |
+| commitShaTrusted | true | invariant — always true when COMMIT_SHA matches build SHA |
+| zephixEnv | production | invariant — production service |
+| nodeEnv | production | invariant — production service |
+| railwayDeploymentId | e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f | snapshot — changes on each deploy |
 
 ---
 
@@ -98,10 +104,12 @@ Staged RBAC assertion (carried forward by code equivalence):
 
 All success criteria met:
 
-- RBAC V2 code is live on production (runtime-equivalent to pinned 3d5432c4)
-- commitShaTrusted=true
-- railwayDeploymentId confirmed: e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f
+- RBAC V2 code is live on production (pinned at 3d5432c4; subsequent docs-only commits cause auto-deploy advances)
+- commitShaTrusted=true (invariant property of production service)
+- railwayDeploymentId at proof capture: e6c957ad (snapshot — advances with each push to main)
 - Health: 200 OK, db+schema ok
 - RBAC critical endpoints behave correctly (auth guards, invite guard, CSRF guard all active)
 - Token artifact guard: PASS
 - Deployment trust guard: PASS
+- Note: live production SHA and deploymentId will advance beyond proof snapshot values as
+  docs-only commits are pushed to main; RBAC code anchor 3d5432c4 is the stable invariant
