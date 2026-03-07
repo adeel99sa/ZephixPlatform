@@ -22,20 +22,43 @@ import { WorkspaceMember } from '../../workspaces/entities/workspace-member.enti
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
-  let taskRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let taskRepo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    qb: jest.Mock;
+  };
   let projectRepo: { findOne: jest.Mock };
   let phaseRepo: { findOne: jest.Mock };
   let userRepo: { findOne: jest.Mock };
   let workspaceMemberRepo: { findOne: jest.Mock };
+  let qbMock: {
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    orderBy: jest.Mock;
+    take: jest.Mock;
+    skip: jest.Mock;
+    getManyAndCount: jest.Mock;
+  };
 
   const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
   const workspaceId = 'ws-1';
 
   beforeEach(async () => {
+    qbMock = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+
     taskRepo = {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn().mockImplementation((data) => data),
+      qb: jest.fn().mockReturnValue(qbMock),
     };
     projectRepo = { findOne: jest.fn() };
     phaseRepo = { findOne: jest.fn() };
@@ -436,6 +459,102 @@ describe('WorkTasksService', () => {
         code: 'TASK_ASSIGNEE_NOT_FOUND',
       });
       expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('archive semantics', () => {
+    it('default list excludes soft-deleted and archived tasks', async () => {
+      await service.listTasks(auth, workspaceId, {} as any);
+
+      expect(qbMock.andWhere).toHaveBeenCalledWith('task.deletedAt IS NULL');
+      expect(qbMock.andWhere).toHaveBeenCalledWith(
+        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
+      );
+    });
+
+    it('explicit includeArchived query includes archived tasks', async () => {
+      await service.listTasks(auth, workspaceId, { includeArchived: true } as any);
+
+      const hasArchivedFilter = qbMock.andWhere.mock.calls.some(([clause]) =>
+        String(clause).includes(`metadata ->> 'archived'`),
+      );
+      expect(hasArchivedFilter).toBe(false);
+    });
+
+    it('archive action does not soft-delete task', async () => {
+      const task = {
+        id: 'task-archive-1',
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'archive me',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+        deletedByUserId: null,
+        metadata: null,
+      } as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
+
+      const result = await service.updateTask(auth, workspaceId, task.id, {
+        archived: true,
+      } as any);
+
+      expect(result.metadata).toMatchObject({ archived: true });
+      expect(result.deletedAt).toBeNull();
+    });
+
+    it('delete action soft-deletes task', async () => {
+      const task = {
+        id: 'task-delete-1',
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'delete me',
+        deletedAt: null,
+        deletedByUserId: null,
+        metadata: { archived: false },
+      } as unknown as WorkTask;
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
+
+      await service.deleteTask(auth, workspaceId, task.id);
+
+      expect(task.deletedAt).toBeInstanceOf(Date);
+      expect(task.deletedByUserId).toBe(auth.userId);
+    });
+
+    it('archived and deleted states remain distinct', async () => {
+      const task = {
+        id: 'task-archive-delete-1',
+        workspaceId,
+        projectId: 'proj-1',
+        status: TaskStatus.TODO,
+        title: 'archive then delete',
+        assigneeUserId: null,
+        completedAt: null,
+        dueDate: null,
+        deletedAt: null,
+        deletedByUserId: null,
+        metadata: null,
+      } as WorkTask;
+
+      taskRepo.findOne.mockResolvedValue(task);
+      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
+
+      await service.updateTask(auth, workspaceId, task.id, {
+        archived: true,
+      } as any);
+
+      expect(task.metadata).toMatchObject({ archived: true });
+      expect(task.deletedAt).toBeNull();
+
+      await service.deleteTask(auth, workspaceId, task.id);
+
+      expect(task.metadata).toMatchObject({ archived: true });
+      expect(task.deletedAt).toBeInstanceOf(Date);
     });
   });
 });
