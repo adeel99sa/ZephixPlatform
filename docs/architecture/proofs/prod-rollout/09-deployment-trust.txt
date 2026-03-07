@@ -1,0 +1,10 @@
+captured_utc: 2026-03-07T00:22:45Z
+command: bash scripts/guard/smoke-proof-deployment-trust.sh docs/architecture/proofs/prod-rollout
+
+=== Smoke Proof Deployment Trust Guard ===
+Proof dir: docs/architecture/proofs/prod-rollout
+
+PASS: railway deployment ID = e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f
+PASS: commit_trusted = true
+
+=== RESULT: PASS — deployment trust anchor verified ===

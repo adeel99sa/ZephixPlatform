@@ -1,0 +1,13 @@
+{
+  "captured_utc": "2026-03-07T00:04:15Z",
+  "url": "https://getzephix.com/api/version",
+  "note": "Baseline capture before rollout verification. Production was already running RBAC V2 code (auto-deployed from origin/main push). No deploy step was executed.",
+  "response": {
+    "commitSha": "c69797f40151f6597156ade8c332f260f05522f4",
+    "commitShaTrusted": true,
+    "buildTime": "unknown",
+    "zephixEnv": "production",
+    "nodeEnv": "production",
+    "railwayDeploymentId": "e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f"
+  }
+}
