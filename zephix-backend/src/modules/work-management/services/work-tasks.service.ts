@@ -416,10 +416,21 @@ export class WorkTasksService {
       );
     }
 
+    if (dto.parentTaskId) {
+      const parentTask = await this.getActiveTaskOrFail(workspaceId, dto.parentTaskId);
+      if (parentTask.projectId !== dto.projectId) {
+        throw new BadRequestException({
+          code: 'TASK_PARENT_INVALID',
+          message: 'Parent task must belong to the same project',
+        });
+      }
+    }
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
       projectId: dto.projectId,
+      parentTaskId: dto.parentTaskId ?? null,
       phaseId,
       title: dto.title,
       description: dto.description || null,
@@ -563,6 +574,10 @@ export class WorkTasksService {
       qb.andWhere('task.assigneeUserId = :assigneeUserId', {
         assigneeUserId: query.assigneeUserId,
       });
+    }
+
+    if (query.priority) {
+      qb.andWhere('task.priority = :priority', { priority: query.priority });
     }
 
     // ── Iteration & estimation filters ──────────────────────────────
@@ -712,6 +727,25 @@ export class WorkTasksService {
       }
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
+    }
+    if (dto.parentTaskId !== undefined && dto.parentTaskId !== task.parentTaskId) {
+      if (dto.parentTaskId === task.id) {
+        throw new BadRequestException({
+          code: 'TASK_PARENT_INVALID',
+          message: 'Task cannot be its own parent',
+        });
+      }
+      if (dto.parentTaskId) {
+        const parentTask = await this.getActiveTaskOrFail(workspaceId, dto.parentTaskId);
+        if (parentTask.projectId !== task.projectId) {
+          throw new BadRequestException({
+            code: 'TASK_PARENT_INVALID',
+            message: 'Parent task must belong to the same project',
+          });
+        }
+      }
+      task.parentTaskId = dto.parentTaskId;
+      changedFields.push('parentTaskId');
     }
     if (dto.startDate !== undefined) {
       task.startDate = dto.startDate ? new Date(dto.startDate) : null;
@@ -1166,5 +1200,23 @@ export class WorkTasksService {
       total > 0 ? Math.round((completed / total) * 10000) / 10000 : 0;
 
     return { completed, total, ratio };
+  }
+
+  async listSubtasks(
+    auth: AuthContext,
+    workspaceId: string,
+    parentTaskId: string,
+  ): Promise<WorkTask[]> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    await this.getActiveTaskOrFail(workspaceId, parentTaskId);
+
+    return this.taskRepo
+      .qb('task')
+      .where('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.parentTaskId = :parentTaskId', { parentTaskId })
+      .andWhere('task.deletedAt IS NULL')
+      .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+      .orderBy('task.createdAt', 'ASC')
+      .getMany();
   }
 }

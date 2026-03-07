@@ -39,6 +39,7 @@ import {
   AddDependencyDto,
   RemoveDependencyDto,
   AddCommentDto,
+  UpdateCommentDto,
 } from '../dto';
 
 // UUID validation regex
@@ -98,6 +99,11 @@ export class WorkTasksController {
     ],
   })
   @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
+  @ApiQuery({
+    name: 'priority',
+    required: false,
+    enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+  })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({
     name: 'dueFrom',
@@ -463,6 +469,66 @@ export class WorkTasksController {
     return this.responseService.success(result);
   }
 
+  // 7b. PATCH /api/work/tasks/:id/comments/:commentId
+  @Patch(':id/comments/:commentId')
+  @ApiOperation({ summary: 'Edit a comment on a task' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiParam({ name: 'commentId', description: 'Comment ID' })
+  @ApiResponse({ status: 200, description: 'Comment updated successfully' })
+  async updateComment(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') taskId: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    const comment = await this.taskCommentsService.updateComment(
+      auth,
+      workspaceId,
+      taskId,
+      commentId,
+      dto,
+    );
+    return this.responseService.success(comment);
+  }
+
+  // 7c. DELETE /api/work/tasks/:id/comments/:commentId
+  @Delete(':id/comments/:commentId')
+  @ApiOperation({ summary: 'Delete a comment from a task' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiParam({ name: 'commentId', description: 'Comment ID' })
+  @ApiResponse({ status: 200, description: 'Comment deleted successfully' })
+  async deleteComment(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') taskId: string,
+    @Param('commentId') commentId: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.taskCommentsService.deleteComment(
+      auth,
+      workspaceId,
+      taskId,
+      commentId,
+    );
+    return this.responseService.success({ message: 'Comment deleted' });
+  }
+
   // 8. GET /api/work/tasks/:id/activity
   @Get(':id/activity')
   @ApiOperation({ summary: 'List activity feed for a task' })
@@ -541,6 +607,32 @@ export class WorkTasksController {
       taskId,
     );
     return this.responseService.success(task);
+  }
+
+  // 9b. GET /api/work/tasks/:id/subtasks
+  @Get(':id/subtasks')
+  @ApiOperation({ summary: 'List subtasks for a parent task' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'id', description: 'Parent task ID' })
+  @ApiResponse({ status: 200, description: 'Subtasks retrieved successfully' })
+  async listSubtasks(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('id') taskId: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    const subtasks = await this.workTasksService.listSubtasks(
+      auth,
+      workspaceId,
+      taskId,
+    );
+    return this.responseService.success(subtasks);
   }
 
   // 10. PATCH /api/work/tasks/:id

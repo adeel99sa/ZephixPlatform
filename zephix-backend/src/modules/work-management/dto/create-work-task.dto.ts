@@ -21,6 +21,14 @@ export class CreateWorkTaskDto {
   projectId: string;
 
   @ApiProperty({
+    description: 'Parent task ID for subtask relationship',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  parentTaskId?: string;
+
+  @ApiProperty({
     description: 'Phase ID (optional, auto-assigned if missing)',
     required: false,
   })

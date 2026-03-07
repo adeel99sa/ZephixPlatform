@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { TaskStatus } from '../enums/task.enums';
+import { TaskPriority, TaskStatus } from '../enums/task.enums';
 
 const SORT_BY_VALUES = ['dueDate', 'updatedAt', 'createdAt', 'rank'] as const;
 const SORT_DIR_VALUES = ['asc', 'desc'] as const;
@@ -57,6 +57,15 @@ export class ListWorkTasksQueryDto {
   @IsOptional()
   @IsUUID()
   assigneeUserId?: string;
+
+  @ApiProperty({
+    description: 'Filter by priority',
+    enum: TaskPriority,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
 
   @ApiProperty({ description: 'Text search on title', required: false })
   @IsOptional()
