@@ -16,6 +16,20 @@ git tag v0.3-enterprise && git push --tags
 
 ---
 
+## Pilot Mode Operations (Week 3)
+
+For controlled pilot execution, use the dedicated pilot package:
+
+- `docs/guides/PILOT_WEEK3_RUNBOOK.md`
+- `docs/guides/PILOT_SUCCESS_CRITERIA.md`
+- `docs/guides/PILOT_DAILY_MONITORING_CHECKLIST.md`
+- `docs/guides/PILOT_ISSUE_TRIAGE_MODEL.md`
+- `docs/architecture/proofs/pilot/WEEK3_PILOT_EXECUTION_LOG.md`
+
+Pilot mode keeps launch risk bounded by requiring daily guard + contract + smoke evidence before continuation decisions.
+
+---
+
 ## Go-Live Verification
 
 ### Health + Build Metadata
