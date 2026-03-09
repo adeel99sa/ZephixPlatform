@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
-import { api } from "@/lib/api";
+import { request } from "@/lib/api";
 
 function safeReturnUrl(v: string | null) {
   if (!v) return null;
@@ -34,17 +34,22 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      const wsResp = await api.get("/workspaces");
-      const workspaces = wsResp?.data?.data || wsResp?.data || [];
-      if (Array.isArray(workspaces) && workspaces.length > 0) {
-        const slug = workspaces[0].slug;
-        nav(returnUrl || `/w/${slug}/home`, { replace: true });
-      } else {
-        nav("/setup/workspace", { replace: true });
+      try {
+        const workspaces = await request.get<any[]>("/workspaces");
+        const list = Array.isArray(workspaces) ? workspaces : [];
+        if (list.length > 0) {
+          const slug = list[0].slug;
+          nav(returnUrl || `/w/${slug}/home`, { replace: true });
+        } else {
+          nav("/setup/workspace", { replace: true });
+        }
+      } catch {
+        // Login must not fail because post-login workspace bootstrap failed.
+        nav(returnUrl || "/home", { replace: true });
       }
     } catch (e: any) {
       const code = e?.response?.data?.code;
-      if (code === "EMAIL_NOT_VERIFIED" || e?.response?.status === 403) {
+      if (code === "EMAIL_NOT_VERIFIED") {
         setEmailNotVerified(true);
         setErr(null);
       } else {
@@ -63,7 +68,7 @@ export default function LoginPage() {
     if (resendCooldown || !email) return;
     setResendMessage(null);
     try {
-      await api.post("/auth/resend-verification", { email });
+      await request.post("/auth/resend-verification", { email });
       setResendMessage("Verification email sent. Please check your inbox.");
       setResendCooldown(true);
       setTimeout(() => setResendCooldown(false), 60000);
