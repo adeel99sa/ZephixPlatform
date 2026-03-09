@@ -8,6 +8,7 @@ import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
+import { useLastVisitedRouteTracker } from '@/hooks/useLastVisitedRouteTracker';
 
 /**
  * DashboardLayout — always renders the app shell (Sidebar + Header).
@@ -35,6 +36,9 @@ export default function DashboardLayout() {
   useWorkspaceValidation({
     enabled: onboardingComplete && Boolean(activeWorkspaceId),
   });
+
+  // Persist last visited in-app route for post-login resume.
+  useLastVisitedRouteTracker();
 
   // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
   usePhase5_1Redirect();

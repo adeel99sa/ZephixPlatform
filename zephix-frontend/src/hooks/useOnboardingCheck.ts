@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { onboardingApi } from '@/services/onboardingApi';
 import { useAuth } from '@/state/AuthContext';
+import {
+  hasCompletedUserOnboarding,
+} from '@/features/onboarding/user-onboarding-state';
 
 export interface OnboardingCheckState {
   /** True while checking onboarding status */
@@ -47,11 +50,28 @@ export function useOnboardingCheck(): OnboardingCheckState {
       return;
     }
 
-    // Non-admin users skip the onboarding redirect entirely.
-    // They see org-home which handles zero-workspace state per role.
+    // Role-aware user onboarding:
+    // - ADMIN: org-level onboarding via backend status
+    // - MEMBER/VIEWER: user-level onboarding shown once per user+role
     const platformRole = user.platformRole ?? (user as any).role;
     const isAdmin = platformRole === "ADMIN";
     if (!isAdmin) {
+      const role = (platformRole || "MEMBER") as
+        | "MEMBER"
+        | "VIEWER"
+        | "GUEST";
+      const completed = hasCompletedUserOnboarding(user.id, role);
+      if (!completed) {
+        if (location.pathname !== "/onboarding") {
+          navigate('/onboarding', { replace: true });
+        }
+        setState({
+          checking: false,
+          onboardingComplete: false,
+          error: null,
+        });
+        return;
+      }
       setState({
         checking: false,
         onboardingComplete: true,
