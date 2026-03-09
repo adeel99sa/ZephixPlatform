@@ -2,10 +2,8 @@ import React from "react";
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
-import AdminRoute from "@/routes/AdminRoute";
 import PaidRoute from "@/routes/PaidRoute";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
-import { AdminLayout } from "@/layouts/AdminLayout";
 import { AuthProvider, useAuth } from "@/state/AuthContext";
 import { platformRoleFromUser } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
@@ -70,25 +68,15 @@ import CapacityPage from "@/features/capacity/CapacityPage";
 import ScenarioPage from "@/features/scenarios/ScenarioPage";
 // Phase 4A: Organization Command Center
 import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
-
-// Admin pages
-import AdminDashboardPage from "@/pages/admin/AdminDashboardPage";
-import AdminOrganizationPage from "@/pages/admin/AdminOrganizationPage";
-import AdminUsersPage from "@/pages/admin/AdminUsersPage";
-import AdminTeamsPage from "@/pages/admin/AdminTeamsPage";
-import AdminRolesPage from "@/pages/admin/AdminRolesPage";
-import AdminInvitePage from "@/pages/admin/AdminInvitePage";
-import AdminTemplatesPage from "@/pages/admin/AdminTemplatesPage";
-import AdminWorkspacesPage from "@/pages/admin/AdminWorkspacesPage";
-import AdminProjectsPage from "@/pages/admin/AdminProjectsPage";
-import AdminArchivePage from "@/pages/admin/AdminArchivePage";
-import AdminTrashPage from "@/pages/admin/AdminTrashPage";
-import AdminBillingPage from "@/pages/admin/AdminBillingPage";
-import AdminUsagePage from "@/pages/admin/AdminUsagePage";
-import AdminSecurityPage from "@/pages/admin/AdminSecurityPage";
-import AdminTemplateBuilderPage from "@/pages/admin/AdminTemplateBuilderPage";
-import AdminCustomFieldsPage from "@/pages/admin/AdminCustomFieldsPage";
-import AdminOverviewPage from "@/pages/admin/AdminOverviewPage";
+import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
+import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
+import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
+import AdministrationWorkspacesPage from "@/features/administration/pages/AdministrationWorkspacesPage";
+import AdministrationTemplatesPage from "@/features/administration/pages/AdministrationTemplatesPage";
+import AdministrationUsersPage from "@/features/administration/pages/AdministrationUsersPage";
+import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
+import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
+import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
 
 /** "/" — authenticated users go to /home, guests see the marketing page */
 function RootRoute() {
@@ -164,6 +152,21 @@ export default function App() {
               <Route path="/settings" element={<SettingsPage />} />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
+              {/* Administration control plane - admin only */}
+              <Route path="/administration" element={<RequireAdminInline><AdministrationLayout /></RequireAdminInline>}>
+                <Route index element={<AdministrationOverviewPage />} />
+                <Route path="governance" element={<AdministrationGovernancePage />} />
+                <Route path="workspaces" element={<AdministrationWorkspacesPage />} />
+                <Route path="templates" element={<AdministrationTemplatesPage />} />
+                <Route path="users" element={<AdministrationUsersPage />} />
+                <Route path="audit-log" element={<AdministrationAuditLogPage />} />
+                <Route path="settings" element={<AdministrationSettingsPage />} />
+                <Route path="billing" element={<AdministrationBillingPage />} />
+              </Route>
+              {/* Legacy admin compatibility paths */}
+              <Route path="/admin" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
+              <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
+              <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
               {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
               <Route element={<RequireWorkspace />}>
@@ -225,40 +228,6 @@ export default function App() {
               <Route path="/404" element={<NotFound />} />
             </Route>
 
-            {/* Admin routes with AdminLayout (separate from main app) */}
-            <Route element={<AdminRoute />}>
-              <Route element={
-                <ErrorBoundary>
-                  <AdminLayout />
-                </ErrorBoundary>
-              }>
-                <Route path="/admin" element={<AdminDashboardPage />} />
-                <Route path="/admin/home" element={<AdminDashboardPage />} />
-                <Route path="/admin/overview" element={<AdminOverviewPage />} />
-                <Route path="/org-dashboard" element={<OrgDashboardPage />} />
-
-                {/* Organization Section */}
-                <Route path="/admin/org" element={<AdminOrganizationPage />} />
-                <Route path="/admin/users" element={<AdminUsersPage />} />
-                <Route path="/admin/teams" element={<AdminTeamsPage />} />
-                <Route path="/admin/roles" element={<AdminRolesPage />} />
-                <Route path="/admin/invite" element={<AdminInvitePage />} />
-                <Route path="/admin/usage" element={<AdminUsagePage />} />
-                <Route path="/admin/billing" element={<AdminBillingPage />} />
-                <Route path="/admin/security" element={<AdminSecurityPage />} />
-
-                {/* Templates Section */}
-                <Route path="/admin/templates" element={<AdminTemplatesPage />} />
-                <Route path="/admin/templates/builder" element={<AdminTemplateBuilderPage />} />
-                <Route path="/admin/templates/custom-fields" element={<AdminCustomFieldsPage />} />
-
-                {/* Workspaces & Projects Section */}
-                <Route path="/admin/workspaces" element={<AdminWorkspacesPage />} />
-                <Route path="/admin/projects" element={<AdminProjectsPage />} />
-                <Route path="/admin/archive" element={<AdminArchivePage />} />
-                <Route path="/admin/trash" element={<AdminTrashPage />} />
-              </Route>
-            </Route>
           </Route>
 
           {/* Default redirects */}
