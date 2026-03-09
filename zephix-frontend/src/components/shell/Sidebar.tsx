@@ -108,7 +108,7 @@ export function Sidebar() {
 
   const handleArchiveTrash = () => {
     setWorkspaceMenuOpen(false);
-    navigate('/admin/trash');
+    navigate('/administration/workspaces');
     track('workspace.menu.archive', {});
   };
 
@@ -376,7 +376,7 @@ export function Sidebar() {
         {isPlatformAdmin(user) && (
           <NavLink
             data-testid="nav-administration"
-            to="/admin"
+            to="/administration"
             className={({ isActive }) =>
               `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
             }
