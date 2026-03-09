@@ -22,6 +22,7 @@ import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
 import OrgHomePage from "@/pages/home/OrgHomePage";
+import AdminHomePage from "@/pages/home/AdminHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
 import RequireWorkspace from "@/routes/RequireWorkspace";
@@ -77,6 +78,8 @@ import AdministrationUsersPage from "@/features/administration/pages/Administrat
 import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
 import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
+import RisksPage from "@/features/risks/pages/RisksPage";
+import { useWorkspaceStore } from "@/state/workspace.store";
 
 /** "/" — authenticated users go to /home, guests see the marketing page */
 function RootRoute() {
@@ -84,6 +87,28 @@ function RootRoute() {
   if (isLoading) return null; // wait for auth check
   if (user) return <Navigate to="/home" replace />;
   return <LandingPage />;
+}
+
+/** Canonical /home ownership by role */
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return platformRoleFromUser(user) === "ADMIN" ? <AdminHomePage /> : <OrgHomePage />;
+}
+
+/** Primary "Work" route: workspace-aware entrypoint */
+function WorkRoute() {
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  if (activeWorkspaceId) return <Navigate to="/projects" replace />;
+  return <Navigate to="/workspaces" replace />;
+}
+
+/** Documents entry for current IA; routes into Work context */
+function DocumentsRoute() {
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  if (activeWorkspaceId) return <Navigate to={`/workspaces/${activeWorkspaceId}/home`} replace />;
+  return <Navigate to="/workspaces" replace />;
 }
 
 /**
@@ -145,7 +170,9 @@ export default function App() {
               </ErrorBoundary>
             }>
               {/* ── Org-level routes (no workspace required) ── */}
-              <Route path="/home" element={<OrgHomePage />} />
+              <Route path="/home" element={<HomeRoute />} />
+              <Route path="/work" element={<WorkRoute />} />
+              <Route path="/documents" element={<DocumentsRoute />} />
               <Route path="/select-workspace" element={<SelectWorkspacePage />} />
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
@@ -170,6 +197,8 @@ export default function App() {
 
               {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
               <Route element={<RequireWorkspace />}>
+                <Route path="/reports" element={<Navigate to="/analytics" replace />} />
+                <Route path="/risks" element={<RisksPage />} />
                 <Route path="/dashboards" element={<DashboardsIndex />} />
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
