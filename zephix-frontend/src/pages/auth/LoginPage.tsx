@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { request } from "@/lib/api";
+import { pickWorkspaceSlugForRouting } from "@/features/workspaces/workspace-routing";
+import { readLastVisitedRoute } from "@/features/navigation/last-visited";
 
 function safeReturnUrl(v: string | null) {
   if (!v) return null;
@@ -34,14 +36,22 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
+      const lastVisitedRoute = readLastVisitedRoute();
+      if (!returnUrl && lastVisitedRoute) {
+        nav(lastVisitedRoute, { replace: true });
+        return;
+      }
       try {
         const workspaces = await request.get<any[]>("/workspaces");
         const list = Array.isArray(workspaces) ? workspaces : [];
         if (list.length > 0) {
-          const slug = list[0].slug;
-          nav(returnUrl || `/w/${slug}/home`, { replace: true });
+          const slug = pickWorkspaceSlugForRouting(list) || list[0]?.slug;
+          nav(returnUrl || (slug ? `/w/${slug}/home` : "/home"), {
+            replace: true,
+          });
         } else {
-          nav("/setup/workspace", { replace: true });
+          // /home applies onboarding routing and role-aware empty states.
+          nav("/home", { replace: true });
         }
       } catch {
         // Login must not fail because post-login workspace bootstrap failed.

@@ -8,6 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { request } from '@/lib/api';
+import { pickWorkspaceSlugForRouting } from '@/features/workspaces/workspace-routing';
 import WorkspaceHome from '@/features/workspaces/views/WorkspaceHome';
 
 interface WorkspaceHomeData {
@@ -53,6 +54,34 @@ export default function WorkspaceHomeBySlug() {
     loadWorkspaceHome();
   }, [authLoading, user, slug]);
 
+  async function routeToBestWorkspaceFallback() {
+    try {
+      setHydrating(false);
+      const workspaces = await request.get<
+        Array<{ id: string; slug?: string | null }>
+      >('/workspaces');
+      const list = Array.isArray(workspaces) ? workspaces : [];
+      if (list.length === 0) {
+        navigate('/home', { replace: true });
+        return;
+      }
+
+      const fallbackSlug =
+        pickWorkspaceSlugForRouting(list, { excludeSlug: slug }) ||
+        list.find((workspace) => workspace.slug)?.slug ||
+        null;
+
+      if (fallbackSlug) {
+        navigate(`/w/${fallbackSlug}/home`, { replace: true });
+        return;
+      }
+
+      navigate('/home', { replace: true });
+    } catch {
+      navigate('/home', { replace: true });
+    }
+  }
+
   async function loadWorkspaceHome() {
     if (!slug) {
       setError('Missing workspace slug');
@@ -76,9 +105,7 @@ export default function WorkspaceHomeBySlug() {
           : (homePayload as WorkspaceHomeData);
 
       if (!homeData || !homeData.workspace) {
-        setError('Workspace not found');
-        setLoading(false);
-        setHydrating(false);
+        await routeToBestWorkspaceFallback();
         return;
       }
 
@@ -90,12 +117,12 @@ export default function WorkspaceHomeBySlug() {
     } catch (error: any) {
       console.error('Failed to load workspace home:', error);
 
-      if (error?.response?.status === 404) {
-        setError('Workspace not found');
-        // Don't navigate - let user see error or redirect manually
-      } else {
-        setError('Failed to load workspace');
+      if (error?.response?.status === 403 || error?.response?.status === 404) {
+        await routeToBestWorkspaceFallback();
+        return;
       }
+
+      setError('Failed to load workspace');
 
       setLoading(false);
       setHydrating(false);
