@@ -22,8 +22,8 @@ export interface TemplateWorkflowPhaseGateRule {
   autoLock: boolean;
   /** Optional display / audit label */
   name?: string;
-  /** Gate criteria (documents, thresholds) — shape TBD with backend */
-  criteria?: Record<string, unknown>;
+  /** Checklist lines → maps to backend `required_checklist.items` */
+  criteria?: string[];
 }
 
 export interface TemplateWorkflowExecution {
