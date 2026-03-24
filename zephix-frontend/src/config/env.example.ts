@@ -18,6 +18,8 @@ export const ENV_CONFIG = {
   RATE_LIMIT_WINDOW: parseInt(import.meta.env.VITE_RATE_LIMIT_WINDOW || '3600000'),
   
   // Feature Flags
+  /** Staging-only full marketing landing at "/" for guests — see docs/guides/STAGING_MARKETING_LANDING.md */
+  STAGING_MARKETING_LANDING: import.meta.env.VITE_STAGING_MARKETING_LANDING === 'true' || import.meta.env.VITE_STAGING_MARKETING_LANDING === '1',
   ENABLE_WAITLIST: import.meta.env.VITE_ENABLE_WAITLIST !== 'false',
   ENABLE_ANALYTICS: import.meta.env.VITE_ENABLE_ANALYTICS !== 'false',
   ENABLE_ANIMATIONS: import.meta.env.VITE_ENABLE_ANIMATIONS !== 'false',
