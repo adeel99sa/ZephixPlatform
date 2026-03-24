@@ -3,6 +3,16 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { visualizer } from "rollup-plugin-visualizer";
 
+/** Hosts allowed for Vite dev/preview (DNS rebinding guard). Leading dot = suffix match (e.g. any *.up.railway.app). */
+const allowedHosts = [
+  "localhost",
+  ".localhost",
+  "127.0.0.1",
+  "zephix-frontend-staging.up.railway.app",
+  ".up.railway.app",
+  ".railway.app",
+];
+
 export default defineConfig({
   plugins: [
     react(),
@@ -22,6 +32,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    allowedHosts,
     proxy: {
       "/api": {
         target: "http://localhost:3000",
@@ -52,8 +63,8 @@ export default defineConfig({
     },
   },
   preview: {
-    host: '0.0.0.0',
-    allowedHosts: true,
+    host: "0.0.0.0",
+    allowedHosts,
   },
   define: {
     // Inject build-time environment variables
