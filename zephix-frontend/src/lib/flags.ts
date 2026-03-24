@@ -33,3 +33,13 @@ export const isCapacityEngineEnabled = () => {
 export const isBetaMode = () => {
   return import.meta.env.VITE_BETA_MODE === '1' || import.meta.env.VITE_BETA_MODE === 'true' || hasFlag('betaMode');
 };
+
+/**
+ * Pre-MVP anonymous marketing landing (full copy/spec).
+ * Enable only on staging frontend builds (Railway): VITE_STAGING_MARKETING_LANDING=true
+ * Production must omit this or set false so guests see the default LandingPage.
+ */
+export const isStagingMarketingLandingEnabled = () => {
+  const v = import.meta.env.VITE_STAGING_MARKETING_LANDING;
+  return v === 'true' || v === '1' || hasFlag('stagingMarketingLanding');
+};
