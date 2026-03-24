@@ -22,3 +22,13 @@ export const isResourcesEnabled = () => {
   const envValue = import.meta.env.VITE_FEATURE_RESOURCES;
   return envValue === '1' || envValue === 'true' || hasFlag('resourcesEnabled');
 };
+
+/**
+ * Pre-MVP anonymous marketing landing (full copy/spec).
+ * Enable only on staging frontend builds (Railway): VITE_STAGING_MARKETING_LANDING=true
+ * Production must omit this or set false so guests see the default LandingPage.
+ */
+export const isStagingMarketingLandingEnabled = () => {
+  const v = import.meta.env.VITE_STAGING_MARKETING_LANDING;
+  return v === 'true' || v === '1' || hasFlag('stagingMarketingLanding');
+};

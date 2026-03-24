@@ -1,3 +1,4 @@
+import React from "react";
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -48,6 +49,11 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
 import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
+import { isStagingMarketingLandingEnabled } from "@/lib/flags";
+
+const StagingMarketingLandingPage = React.lazy(
+  () => import("@/pages/staging/StagingMarketingLandingPage"),
+);
 import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
 import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
 import JoinWorkspacePage from "@/views/workspaces/JoinWorkspacePage";
@@ -86,6 +92,13 @@ function RootRoute() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null; // wait for auth check
   if (user) return <Navigate to="/home" replace />;
+  if (isStagingMarketingLandingEnabled()) {
+    return (
+      <React.Suspense fallback={null}>
+        <StagingMarketingLandingPage />
+      </React.Suspense>
+    );
+  }
   return <LandingPage />;
 }
 
