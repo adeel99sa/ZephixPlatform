@@ -6,6 +6,10 @@ export enum TaskStatus {
   IN_REVIEW = 'IN_REVIEW',
   DONE = 'DONE',
   CANCELED = 'CANCELED',
+  /** Pre-gate / not yet actionable in phase (when used with governance flows) */
+  PENDING = 'PENDING',
+  /** Recycled gate artifact — must be reworked */
+  REWORK = 'REWORK',
 }
 
 export enum TaskPriority {
