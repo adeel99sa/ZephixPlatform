@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkTask } from './work-task.entity';
+import { PhaseState } from '../enums/phase-state.enum';
 
 // Forward reference for Program to avoid circular dependency
 // Program entity will be imported at runtime if needed
@@ -68,8 +69,20 @@ export class WorkPhase {
   @Column({ type: 'uuid', name: 'source_template_phase_id', nullable: true })
   sourceTemplatePhaseId: string | null;
 
+  /**
+   * @deprecated Prefer `phaseState`. Kept for backward compatibility; mirrored in migrations.
+   */
   @Column({ type: 'boolean', name: 'is_locked', default: false })
   isLocked: boolean;
+
+  /** Progressive governance lifecycle for this phase */
+  @Column({
+    name: 'phase_state',
+    type: 'varchar',
+    length: 20,
+    default: PhaseState.ACTIVE,
+  })
+  phaseState: PhaseState;
 
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;

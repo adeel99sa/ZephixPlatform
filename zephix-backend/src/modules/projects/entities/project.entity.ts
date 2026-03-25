@@ -31,6 +31,17 @@ export enum ProjectState {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
   COMPLETED = 'COMPLETED',
+  /** Project paused (gates / governance) — sync ProjectStatus to `on-hold` */
+  ON_HOLD = 'ON_HOLD',
+  /** Project ended — sync ProjectStatus to `cancelled` */
+  TERMINATED = 'TERMINATED',
+}
+
+/** Progressive governance maturity for tabs and gate rules */
+export enum ProjectGovernanceLevel {
+  EXECUTION = 'EXECUTION',
+  STRUCTURED = 'STRUCTURED',
+  GOVERNED = 'GOVERNED',
 }
 
 export enum ProjectHealth {
@@ -93,7 +104,7 @@ export class Project {
   organizationId: string;
 
   @Column({ name: 'project_manager_id', type: 'uuid', nullable: true })
-  projectManagerId: string;
+  projectManagerId: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   budget: number;
@@ -350,4 +361,16 @@ export class Project {
 
   @Column({ type: 'uuid', name: 'cloned_by', nullable: true })
   clonedBy: string | null;
+
+  /** Enabled project shell tabs (progressive disclosure). DB default set in migration. */
+  @Column({ name: 'active_tabs', type: 'jsonb' })
+  activeTabs: string[];
+
+  @Column({
+    name: 'governance_level',
+    type: 'varchar',
+    length: 20,
+    default: ProjectGovernanceLevel.EXECUTION,
+  })
+  governanceLevel: ProjectGovernanceLevel;
 }

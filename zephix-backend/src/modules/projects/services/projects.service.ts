@@ -21,6 +21,7 @@ import {
 import { Request } from 'express';
 import {
   Project,
+  ProjectGovernanceLevel,
   ProjectPriority,
   ProjectRiskLevel,
   ProjectStatus,
@@ -50,6 +51,7 @@ import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
+import { PhaseState } from '../../work-management/enums/phase-state.enum';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
 import {
   PhaseGateDefinition,
@@ -446,6 +448,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       dueDate: null,
       sourceTemplatePhaseId: null,
       isLocked: false,
+      phaseState: PhaseState.ACTIVE,
       createdByUserId,
       deletedAt: null,
       deletedByUserId: null,
@@ -532,6 +535,13 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         status: createProjectDto.status || ProjectStatus.PLANNING,
         workspaceId: createProjectDto.workspaceId,
       };
+
+      if (processedData.activeTabs === undefined) {
+        processedData.activeTabs = ['overview', 'tasks'];
+      }
+      if (processedData.governanceLevel === undefined) {
+        processedData.governanceLevel = ProjectGovernanceLevel.EXECUTION;
+      }
 
       // ── Wave 8B: Portfolio governance inheritance ──────────────────
       if (processedData.portfolioId && !hasExplicitGovernanceFlags(createProjectDto)) {
@@ -1548,6 +1558,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
             ? (template as any).lockState === 'LOCKED'
             : false,
           templateSnapshot: snapshot as unknown as any,
+          activeTabs: ['overview', 'tasks'],
+          governanceLevel: ProjectGovernanceLevel.EXECUTION,
         };
 
         const projectRepo = manager.getRepository(Project);
@@ -1729,6 +1741,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         templateLocked: template.lockState === 'LOCKED',
         templateSnapshot: snapshot as any,
         governanceSource: 'TEMPLATE',
+        activeTabs: ['overview', 'tasks'],
+        governanceLevel: ProjectGovernanceLevel.EXECUTION,
       } as Partial<Project>);
       const savedProject = await projectRepo.save(project);
 
@@ -1769,6 +1783,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
             dueDate,
             sourceTemplatePhaseId: null,
             isLocked: false,
+            phaseState: PhaseState.ACTIVE,
             createdByUserId: userId,
             deletedAt: null,
             deletedByUserId: null,
