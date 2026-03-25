@@ -8,11 +8,16 @@ import {
   JoinColumn,
   OneToMany,
   Index,
+  AfterLoad,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
 import { Iteration } from './iteration.entity';
 import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
+import {
+  computeWorkTaskEffectiveState,
+  WorkTaskEffectiveState,
+} from '../types/work-task-effective-state';
 
 @Entity('work_tasks')
 @Index(['organizationId'])
@@ -185,6 +190,26 @@ export class WorkTask {
 
   @Column({ type: 'uuid', name: 'deleted_by_user_id', nullable: true })
   deletedByUserId: string | null;
+
+  @Column({ name: 'is_gate_artifact', type: 'boolean', default: false })
+  isGateArtifact: boolean;
+
+  @Column({ name: 'is_condition_task', type: 'boolean', default: false })
+  isConditionTask: boolean;
+
+  @Column({ name: 'source_gate_condition_id', type: 'uuid', nullable: true })
+  sourceGateConditionId: string | null;
+
+  /**
+   * Populated after load when `phase` relation is joined; otherwise use `mapWorkTaskEffectiveState`.
+   */
+  effectiveState?: WorkTaskEffectiveState;
+
+  @AfterLoad()
+  applyEffectiveState(): void {
+    const phaseState = this.phase?.phaseState;
+    this.effectiveState = computeWorkTaskEffectiveState(phaseState, this.status);
+  }
 
   // Relations
   @ManyToOne(() => Project, { onDelete: 'RESTRICT' })
