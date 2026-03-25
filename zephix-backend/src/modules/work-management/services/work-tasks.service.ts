@@ -41,6 +41,36 @@ const VALID_STATUSES = new Set<string>(Object.values(TaskStatus));
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
+const SEARCH_DEFAULT_LIMIT = 8;
+const TERMINAL_TASK_STATUSES: TaskStatus[] = [
+  TaskStatus.DONE,
+  TaskStatus.CANCELED,
+];
+
+export interface TeamWorkloadItem {
+  assigneeUserId: string;
+  assignedCount: number;
+  overdueCount: number;
+  dueSoonCount: number;
+}
+
+export interface WorkSearchResult {
+  projects: Array<{ id: string; name: string; status: string }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    projectId: string;
+  }>;
+  comments: Array<{
+    id: string;
+    body: string;
+    taskId: string;
+    createdByUserId: string;
+    createdAt: Date;
+  }>;
+}
 
 function parseAndValidateStatusList(
   value: string | undefined,
@@ -96,6 +126,17 @@ const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   ],
   [TaskStatus.DONE]: [], // Terminal - no transitions out
   [TaskStatus.CANCELED]: [], // Terminal - no transitions out
+  [TaskStatus.PENDING]: [
+    TaskStatus.TODO,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.REWORK]: [
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.TODO,
+    TaskStatus.DONE,
+    TaskStatus.CANCELED,
+  ],
 };
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { DataSource, ILike, In, IsNull } from 'typeorm';
@@ -112,8 +153,6 @@ import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
-import { User } from '../../users/entities/user.entity';
-import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 
 interface AuthContext {
   organizationId: string;
@@ -124,11 +163,6 @@ interface AuthContext {
 @Injectable()
 export class WorkTasksService {
   private readonly logger = new Logger(WorkTasksService.name);
-
-  private isArchivedTask(task: Pick<WorkTask, 'metadata'>): boolean {
-    const archived = task?.metadata?.archived;
-    return archived === true || archived === 'true';
-  }
 
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkTask))
@@ -259,50 +293,6 @@ export class WorkTasksService {
     return task;
   }
 
-  private async validateAssigneeOrThrow(
-    organizationId: string,
-    workspaceId: string,
-    assigneeUserId: string,
-  ): Promise<void> {
-    const userRepository = this.dataSource.getRepository(User);
-    const workspaceMemberRepository =
-      this.dataSource.getRepository(WorkspaceMember);
-
-    const assignee = await userRepository.findOne({
-      where: { id: assigneeUserId },
-      select: ['id', 'organizationId'],
-    });
-
-    if (!assignee) {
-      throw new NotFoundException({
-        code: 'TASK_ASSIGNEE_NOT_FOUND',
-        message: 'Assignee user not found',
-      });
-    }
-
-    if (assignee.organizationId !== organizationId) {
-      throw new ForbiddenException({
-        code: 'TASK_ASSIGNEE_INVALID',
-        message: 'Assignee must belong to the same organization and workspace',
-      });
-    }
-
-    const workspaceMembership = await workspaceMemberRepository.findOne({
-      where: {
-        workspaceId,
-        userId: assigneeUserId,
-      },
-      select: ['id'],
-    });
-
-    if (!workspaceMembership) {
-      throw new ForbiddenException({
-        code: 'TASK_ASSIGNEE_INVALID',
-        message: 'Assignee must belong to the same organization and workspace',
-      });
-    }
-  }
-
   // ============================================================
   // STATUS TRANSITION VALIDATION
   // ============================================================
@@ -408,29 +398,10 @@ export class WorkTasksService {
       }
     }
 
-    if (dto.assigneeUserId) {
-      await this.validateAssigneeOrThrow(
-        organizationId,
-        workspaceId,
-        dto.assigneeUserId,
-      );
-    }
-
-    if (dto.parentTaskId) {
-      const parentTask = await this.getActiveTaskOrFail(workspaceId, dto.parentTaskId);
-      if (parentTask.projectId !== dto.projectId) {
-        throw new BadRequestException({
-          code: 'TASK_PARENT_INVALID',
-          message: 'Parent task must belong to the same project',
-        });
-      }
-    }
-
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
       projectId: dto.projectId,
-      parentTaskId: dto.parentTaskId ?? null,
       phaseId,
       title: dto.title,
       description: dto.description || null,
@@ -505,12 +476,6 @@ export class WorkTasksService {
       qb.andWhere('task.deletedAt IS NULL');
     }
 
-    if (!query.includeArchived) {
-      qb.andWhere(
-        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
-      );
-    }
-
     if (query.projectId) {
       qb.andWhere('task.projectId = :projectId', {
         projectId: query.projectId,
@@ -574,10 +539,6 @@ export class WorkTasksService {
       qb.andWhere('task.assigneeUserId = :assigneeUserId', {
         assigneeUserId: query.assigneeUserId,
       });
-    }
-
-    if (query.priority) {
-      qb.andWhere('task.priority = :priority', { priority: query.priority });
     }
 
     // ── Iteration & estimation filters ──────────────────────────────
@@ -718,34 +679,8 @@ export class WorkTasksService {
       dto.assigneeUserId !== undefined &&
       dto.assigneeUserId !== task.assigneeUserId
     ) {
-      if (dto.assigneeUserId) {
-        await this.validateAssigneeOrThrow(
-          organizationId,
-          workspaceId,
-          dto.assigneeUserId,
-        );
-      }
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
-    }
-    if (dto.parentTaskId !== undefined && dto.parentTaskId !== task.parentTaskId) {
-      if (dto.parentTaskId === task.id) {
-        throw new BadRequestException({
-          code: 'TASK_PARENT_INVALID',
-          message: 'Task cannot be its own parent',
-        });
-      }
-      if (dto.parentTaskId) {
-        const parentTask = await this.getActiveTaskOrFail(workspaceId, dto.parentTaskId);
-        if (parentTask.projectId !== task.projectId) {
-          throw new BadRequestException({
-            code: 'TASK_PARENT_INVALID',
-            message: 'Parent task must belong to the same project',
-          });
-        }
-      }
-      task.parentTaskId = dto.parentTaskId;
-      changedFields.push('parentTaskId');
     }
     if (dto.startDate !== undefined) {
       task.startDate = dto.startDate ? new Date(dto.startDate) : null;
@@ -809,14 +744,9 @@ export class WorkTasksService {
       changedFields.push('rank');
     }
     if (dto.archived !== undefined) {
-      const currentlyArchived = this.isArchivedTask(task);
-      if (dto.archived !== currentlyArchived) {
-        task.metadata = {
-          ...(task.metadata || {}),
-          archived: dto.archived,
-        };
-        changedFields.push('archived');
-      }
+      // Note: archived not in entity yet, skip for now
+      // Will be added in future migration if needed
+      changedFields.push('archived');
     }
     if (dto.acceptanceCriteria !== undefined) {
       const acError = validateAcceptanceCriteria(dto.acceptanceCriteria);
@@ -857,6 +787,7 @@ export class WorkTasksService {
         {
           from: oldAssignee,
           to: saved.assigneeUserId,
+          assigneeId: saved.assigneeUserId,
         },
       );
     }
@@ -1202,21 +1133,216 @@ export class WorkTasksService {
     return { completed, total, ratio };
   }
 
-  async listSubtasks(
+  async listProjectActivity(
     auth: AuthContext,
     workspaceId: string,
-    parentTaskId: string,
-  ): Promise<WorkTask[]> {
+    projectId: string,
+    limit: number = DEFAULT_LIMIT,
+    offset: number = DEFAULT_OFFSET,
+  ): Promise<{ items: TaskActivity[]; total: number; limit: number; offset: number }> {
     await this.assertWorkspaceAccess(auth, workspaceId);
-    await this.getActiveTaskOrFail(workspaceId, parentTaskId);
+    const organizationId = this.tenantContext.assertOrganizationId();
 
-    return this.taskRepo
+    const project = await this.projectRepository.findOne({
+      where: {
+        id: projectId,
+        organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+
+    if (!project) {
+      throw new NotFoundException({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Project not found',
+      });
+    }
+
+    const safeLimit = Math.min(Math.max(1, limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const safeOffset = Math.max(0, offset ?? DEFAULT_OFFSET);
+
+    const [items, total] = await this.activityRepo.findAndCount({
+      where: { organizationId, workspaceId, projectId },
+      order: { createdAt: 'DESC' },
+      take: safeLimit,
+      skip: safeOffset,
+    });
+
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async listOverdueTasks(
+    auth: AuthContext,
+    workspaceId: string,
+    query: {
+      projectId?: string;
+      assigneeUserId?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ items: WorkTask[]; total: number; limit: number; offset: number }> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+
+    const safeLimit = Math.min(Math.max(1, query.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const safeOffset = Math.max(0, query.offset ?? DEFAULT_OFFSET);
+    const now = new Date();
+
+    const qb = this.taskRepo
       .qb('task')
-      .where('task.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('task.parentTaskId = :parentTaskId', { parentTaskId })
+      .where('task.organizationId = :organizationId', { organizationId })
+      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
       .andWhere('task.deletedAt IS NULL')
       .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
-      .orderBy('task.createdAt', 'ASC')
-      .getMany();
+      .andWhere('task.dueDate IS NOT NULL')
+      .andWhere('task.dueDate < :now', { now })
+      .andWhere('task.status NOT IN (:...terminalStatuses)', {
+        terminalStatuses: TERMINAL_TASK_STATUSES,
+      });
+
+    if (query.projectId) {
+      qb.andWhere('task.projectId = :projectId', { projectId: query.projectId });
+    }
+    if (query.assigneeUserId) {
+      qb.andWhere('task.assigneeUserId = :assigneeUserId', {
+        assigneeUserId: query.assigneeUserId,
+      });
+    }
+
+    const [items, total] = await qb
+      .orderBy('task.dueDate', 'ASC')
+      .addOrderBy('task.updatedAt', 'DESC')
+      .take(safeLimit)
+      .skip(safeOffset)
+      .getManyAndCount();
+
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async getTeamWorkload(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId?: string,
+  ): Promise<TeamWorkloadItem[]> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+    const now = new Date();
+    const dueSoon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const qb = this.taskRepo
+      .qb('task')
+      .select('task.assigneeUserId', 'assigneeUserId')
+      .addSelect('COUNT(task.id)', 'assignedCount')
+      .addSelect(
+        `SUM(CASE WHEN task.dueDate < :now AND task.status NOT IN (:...terminalStatuses) THEN 1 ELSE 0 END)`,
+        'overdueCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN task.dueDate >= :now AND task.dueDate <= :dueSoon AND task.status NOT IN (:...terminalStatuses) THEN 1 ELSE 0 END)`,
+        'dueSoonCount',
+      )
+      .where('task.organizationId = :organizationId', { organizationId })
+      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.deletedAt IS NULL')
+      .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+      .andWhere('task.assigneeUserId IS NOT NULL')
+      .setParameters({
+        now,
+        dueSoon,
+        terminalStatuses: TERMINAL_TASK_STATUSES,
+      });
+
+    if (projectId) {
+      qb.andWhere('task.projectId = :projectId', { projectId });
+    }
+
+    const rows = await qb
+      .groupBy('task.assigneeUserId')
+      .orderBy('overdueCount', 'DESC')
+      .addOrderBy('assignedCount', 'DESC')
+      .addOrderBy('task.assigneeUserId', 'ASC')
+      .getRawMany();
+
+    return rows.map((row: any) => ({
+      assigneeUserId: String(row.assigneeUserId),
+      assignedCount: Number(row.assignedCount ?? 0),
+      overdueCount: Number(row.overdueCount ?? 0),
+      dueSoonCount: Number(row.dueSoonCount ?? 0),
+    }));
+  }
+
+  async searchWorkspace(
+    auth: AuthContext,
+    workspaceId: string,
+    rawQuery: string,
+    limit: number = SEARCH_DEFAULT_LIMIT,
+  ): Promise<WorkSearchResult> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+    const query = (rawQuery || '').trim();
+    if (query.length < 2) {
+      return { projects: [], tasks: [], comments: [] };
+    }
+
+    const safeLimit = Math.min(Math.max(1, limit), 20);
+    const like = `%${query}%`;
+
+    const [projects, tasks, comments] = await Promise.all([
+      this.projectRepository.find({
+        where: {
+          organizationId,
+          workspaceId,
+          deletedAt: IsNull(),
+          name: ILike(like),
+        },
+        select: ['id', 'name', 'status'],
+        order: { updatedAt: 'DESC' },
+        take: safeLimit,
+      } as any),
+      this.taskRepo
+        .qb('task')
+        .where('task.organizationId = :organizationId', { organizationId })
+        .andWhere('task.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('task.deletedAt IS NULL')
+        .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+        .andWhere('task.title ILIKE :like', { like })
+        .orderBy('task.updatedAt', 'DESC')
+        .take(safeLimit)
+        .getMany(),
+      this.commentRepo.find({
+        where: {
+          organizationId,
+          workspaceId,
+          body: ILike(like),
+        },
+        select: ['id', 'body', 'taskId', 'createdByUserId', 'createdAt'],
+        order: { createdAt: 'DESC' },
+        take: safeLimit,
+      }),
+    ]);
+
+    return {
+      projects: projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+      })),
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        projectId: task.projectId,
+      })),
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        taskId: comment.taskId,
+        createdByUserId: comment.createdByUserId,
+        createdAt: comment.createdAt,
+      })),
+    };
   }
 }

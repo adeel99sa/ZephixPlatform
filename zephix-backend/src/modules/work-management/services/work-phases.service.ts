@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
+import { PhaseState } from '../enums/phase-state.enum';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
@@ -192,6 +193,7 @@ export class WorkPhasesService {
       reportingKey,
       isMilestone: dto.isMilestone ?? false,
       isLocked: false,
+      phaseState: PhaseState.ACTIVE,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       createdByUserId: auth.userId,
     });

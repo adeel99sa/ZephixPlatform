@@ -5,6 +5,7 @@ import {
   Logger,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -18,8 +19,15 @@ import {
   IsNull,
 } from 'typeorm';
 import { Request } from 'express';
-import { Project, ProjectStatus } from '../entities/project.entity';
+import {
+  Project,
+  ProjectGovernanceLevel,
+  ProjectPriority,
+  ProjectRiskLevel,
+  ProjectStatus,
+} from '../entities/project.entity';
 import { Workspace } from '../../workspaces/entities/workspace.entity';
+import { User } from '../../users/entities/user.entity';
 // import { ProjectAssignment } from '../entities/project-assignment.entity';
 // import { ProjectPhase } from '../entities/project-phase.entity';
 import { CreateProjectDto } from '../dto/create-project.dto';
@@ -43,7 +51,20 @@ import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 import { ChangeRequestEntity } from '../../change-requests/entities/change-request.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
+import { PhaseState } from '../../work-management/enums/phase-state.enum';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import {
+  PhaseGateDefinition,
+  GateDefinitionStatus,
+} from '../../work-management/entities/phase-gate-definition.entity';
+import { TaskPriority, TaskStatus, TaskType } from '../../work-management/enums/task.enums';
+import { CreateProjectFromTemplateDto } from '../dto/create-project-from-template.dto';
+import { GovernanceRuleEngineService } from '../../governance-rules/services/governance-rule-engine.service';
+import { GovernanceEntityType } from '../../governance-rules/entities/governance-rule-set.entity';
+import {
+  EvaluationDecision,
+  TransitionType,
+} from '../../governance-rules/entities/governance-evaluation.entity';
 
 type CreateProjectV1Input = {
   name: string;
@@ -66,6 +87,8 @@ type ProjectTemplateSnapshotV1 = {
   locked: boolean;
 };
 
+export type ProjectShareAccessLevel = 'project_manager' | 'delivery_owner';
+
 @Injectable()
 export class ProjectsService extends TenantAwareRepository<Project> {
   private readonly logger = new Logger(ProjectsService.name);
@@ -75,6 +98,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(Workspace)
     private readonly workspaceRepository: Repository<Workspace>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     @Inject(getTenantAwareRepositoryToken(Template))
     private readonly templateRepo: TenantAwareRepository<Template>,
     private readonly dataSource: DataSource,
@@ -93,9 +118,44 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     @Optional()
     @InjectRepository(ChangeRequestEntity)
     private readonly changeRequestRepo?: Repository<ChangeRequestEntity>,
+    @Optional()
+    private readonly governanceRuleEngine?: GovernanceRuleEngineService,
   ) {
     bootLog('ProjectsService constructor called');
     super(projectRepository, 'Project');
+  }
+
+  private resolveProjectShareAccessLevel(
+    accessLevel?: string,
+  ): ProjectShareAccessLevel | null {
+    if (!accessLevel) {
+      return null;
+    }
+    if (accessLevel === 'project_manager' || accessLevel === 'delivery_owner') {
+      return accessLevel;
+    }
+    throw new BadRequestException(
+      'accessLevel must be project_manager or delivery_owner',
+    );
+  }
+
+  private canManageProjectShare(workspaceRole: string | null): boolean {
+    if (!workspaceRole) {
+      return false;
+    }
+    return this.workspaceAccessService.hasWorkspaceRoleAtLeast(
+      'workspace_owner',
+      workspaceRole as any,
+    );
+  }
+
+  private assertProjectHasWorkspace(project: Project): string {
+    if (!project.workspaceId) {
+      throw new BadRequestException(
+        'Project must belong to a workspace to manage sharing',
+      );
+    }
+    return project.workspaceId;
   }
 
   private static readonly SCOPE_FIELDS = new Set([
@@ -154,6 +214,212 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     return user?.id;
   }
 
+  private hasDirectProjectAccess(project: Project, userId?: string): boolean {
+    if (!userId) return false;
+    return (
+      project.projectManagerId === userId ||
+      project.deliveryOwnerUserId === userId
+    );
+  }
+
+  /**
+   * Centralized project read path for entity endpoints.
+   * Enforces workspace visibility and project-level visibility for project-only users.
+   */
+  async getProjectForReadOrThrow(params: {
+    id: string;
+    organizationId: string;
+    userId?: string;
+    userRole?: string;
+  }): Promise<Project> {
+    const { id, organizationId, userId, userRole } = params;
+    const project = await this.findById(id, organizationId, []);
+
+    if (!project || project.deletedAt) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (project.organizationId !== organizationId) {
+      this.logger.error(
+        `🚨 SECURITY VIOLATION: Project ${id} belongs to org ${project.organizationId}, requested by org ${organizationId}`,
+      );
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (project.workspaceId) {
+      const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+        project.workspaceId,
+        organizationId,
+        userId,
+        userRole,
+      );
+      if (!canAccess) {
+        throw new ForbiddenException(
+          "You do not have access to this project's workspace",
+        );
+      }
+
+      const workspaceRole = userId
+        ? await this.workspaceAccessService.getUserWorkspaceRole(
+            organizationId,
+            project.workspaceId,
+            userId,
+            userRole,
+          )
+        : null;
+      const isWorkspaceMember = workspaceRole !== null;
+
+      if (!isWorkspaceMember && !this.hasDirectProjectAccess(project, userId)) {
+        throw new ForbiddenException('Project access denied');
+      }
+    }
+
+    return project;
+  }
+
+  async shareProjectAccess(params: {
+    projectId: string;
+    organizationId: string;
+    actorUserId: string;
+    actorUserRole?: string;
+    targetUserId: string;
+    accessLevel?: string;
+  }): Promise<Project> {
+    const {
+      projectId,
+      organizationId,
+      actorUserId,
+      actorUserRole,
+      targetUserId,
+      accessLevel,
+    } = params;
+
+    if (actorUserId === targetUserId) {
+      throw new BadRequestException('Cannot share a project with yourself');
+    }
+
+    const project = await this.getProjectForReadOrThrow({
+      id: projectId,
+      organizationId,
+      userId: actorUserId,
+      userRole: actorUserRole,
+    });
+    const workspaceId = this.assertProjectHasWorkspace(project);
+
+    const actorWorkspaceRole = await this.workspaceAccessService.getUserWorkspaceRole(
+      organizationId,
+      workspaceId,
+      actorUserId,
+      actorUserRole,
+    );
+    if (!this.canManageProjectShare(actorWorkspaceRole)) {
+      throw new ForbiddenException(
+        'Only workspace owner or organization admin can share projects',
+      );
+    }
+
+    const targetUser = await this.userRepository.findOne({
+      where: {
+        id: targetUserId,
+        organizationId,
+      },
+      select: ['id', 'organizationId', 'isActive'],
+    });
+    if (!targetUser || !targetUser.isActive) {
+      throw new NotFoundException('User not found in organization');
+    }
+
+    const targetWorkspaceRole = await this.workspaceAccessService.getUserWorkspaceRole(
+      organizationId,
+      workspaceId,
+      targetUserId,
+    );
+    if (targetWorkspaceRole !== null) {
+      throw new ConflictException(
+        'User is already a workspace member and does not need project sharing',
+      );
+    }
+
+    const normalizedAccessLevel =
+      this.resolveProjectShareAccessLevel(accessLevel) ?? 'delivery_owner';
+
+    if (normalizedAccessLevel === 'project_manager') {
+      if (
+        project.projectManagerId &&
+        project.projectManagerId !== targetUserId
+      ) {
+        throw new ConflictException(
+          'project_manager share slot is already assigned to another user',
+        );
+      }
+      project.projectManagerId = targetUserId;
+    } else {
+      if (
+        project.deliveryOwnerUserId &&
+        project.deliveryOwnerUserId !== targetUserId
+      ) {
+        throw new ConflictException(
+          'delivery_owner share slot is already assigned to another user',
+        );
+      }
+      project.deliveryOwnerUserId = targetUserId;
+    }
+
+    return this.projectRepository.save(project);
+  }
+
+  async unshareProjectAccess(params: {
+    projectId: string;
+    organizationId: string;
+    actorUserId: string;
+    actorUserRole?: string;
+    targetUserId: string;
+  }): Promise<Project> {
+    const {
+      projectId,
+      organizationId,
+      actorUserId,
+      actorUserRole,
+      targetUserId,
+    } = params;
+
+    const project = await this.getProjectForReadOrThrow({
+      id: projectId,
+      organizationId,
+      userId: actorUserId,
+      userRole: actorUserRole,
+    });
+    const workspaceId = this.assertProjectHasWorkspace(project);
+
+    const actorWorkspaceRole = await this.workspaceAccessService.getUserWorkspaceRole(
+      organizationId,
+      workspaceId,
+      actorUserId,
+      actorUserRole,
+    );
+    if (!this.canManageProjectShare(actorWorkspaceRole)) {
+      throw new ForbiddenException(
+        'Only workspace owner or organization admin can unshare projects',
+      );
+    }
+
+    const wasProjectManager = project.projectManagerId === targetUserId;
+    const wasDeliveryOwner = project.deliveryOwnerUserId === targetUserId;
+
+    if (!wasProjectManager && !wasDeliveryOwner) {
+      throw new NotFoundException('Project share not found for user');
+    }
+
+    if (wasProjectManager) {
+      project.projectManagerId = null;
+    }
+    if (wasDeliveryOwner) {
+      project.deliveryOwnerUserId = null;
+    }
+
+    return this.projectRepository.save(project);
+  }
+
   private async ensureDefaultPhaseIfMissing(
     manager: DataSource['manager'],
     project: Pick<Project, 'id' | 'organizationId' | 'workspaceId'>,
@@ -182,6 +448,7 @@ export class ProjectsService extends TenantAwareRepository<Project> {
       dueDate: null,
       sourceTemplatePhaseId: null,
       isLocked: false,
+      phaseState: PhaseState.ACTIVE,
       createdByUserId,
       deletedAt: null,
       deletedByUserId: null,
@@ -268,6 +535,13 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         status: createProjectDto.status || ProjectStatus.PLANNING,
         workspaceId: createProjectDto.workspaceId,
       };
+
+      if (processedData.activeTabs === undefined) {
+        processedData.activeTabs = ['overview', 'tasks'];
+      }
+      if (processedData.governanceLevel === undefined) {
+        processedData.governanceLevel = ProjectGovernanceLevel.EXECUTION;
+      }
 
       // ── Wave 8B: Portfolio governance inheritance ──────────────────
       if (processedData.portfolioId && !hasExplicitGovernanceFlags(createProjectDto)) {
@@ -406,87 +680,90 @@ export class ProjectsService extends TenantAwareRepository<Project> {
           userRole,
         );
 
-      // Build where clause with MANDATORY org filter
-      const whereClause: any = { organizationId, deletedAt: IsNull() };
-
-      // If workspace membership is enforced and user has limited access
-      if (
-        accessibleWorkspaceIds !== null &&
-        accessibleWorkspaceIds.length === 0
-      ) {
-        // User has no accessible workspaces - return empty
-        return {
-          projects: [],
-          total: 0,
-          page,
-          totalPages: 0,
-        };
-      }
-
-      // Filter by accessible workspaces if membership is enforced
-      if (accessibleWorkspaceIds !== null) {
-        whereClause.workspaceId = In(accessibleWorkspaceIds);
-      }
-
-      if (workspaceId) {
-        // If specific workspace requested, verify user has access
-        if (
-          accessibleWorkspaceIds !== null &&
-          !accessibleWorkspaceIds.includes(workspaceId)
-        ) {
-          throw new ForbiddenException(
-            'You do not have access to this workspace',
-          );
-        }
-        whereClause.workspaceId = workspaceId;
-      }
+      const queryBuilder = this.projectRepository
+        .createQueryBuilder('project')
+        .where('project.organizationId = :orgId', { orgId: organizationId })
+        .andWhere('project.deletedAt IS NULL');
 
       if (status) {
-        whereClause.status = status;
+        queryBuilder.andWhere('project.status = :status', { status });
       }
 
       if (search) {
-        // Use query builder for search to ensure org filter and workspace membership are maintained
-        const queryBuilder = this.projectRepository
-          .createQueryBuilder('project')
-          .where('project.organizationId = :orgId', { orgId: organizationId })
-          .andWhere('project.deletedAt IS NULL')
-          .andWhere(
-            '(project.name ILIKE :search OR project.description ILIKE :search)',
-            { search: `%${search}%` },
-          );
-
-        // Apply workspace membership filter if needed
-        if (accessibleWorkspaceIds !== null) {
-          queryBuilder.andWhere('project.workspaceId IN (:...workspaceIds)', {
-            workspaceIds: accessibleWorkspaceIds,
-          });
-        }
-
-        const searchResults = await queryBuilder
-          .orderBy('project.createdAt', 'DESC')
-          .skip(skip)
-          .take(limit)
-          .getManyAndCount();
-
-        const [projects, total] = searchResults;
-
-        return {
-          projects,
-          total,
-          page,
-          totalPages: Math.ceil(total / limit),
-        };
+        queryBuilder.andWhere(
+          '(project.name ILIKE :search OR project.description ILIKE :search)',
+          { search: `%${search}%` },
+        );
       }
 
-      // Regular find with org filter
-      const [projects, total] = await this.projectRepository.findAndCount({
-        where: whereClause,
+      // Access filter:
+      // - accessibleWorkspaceIds === null => admin/full org visibility
+      // - otherwise include workspace membership visibility and direct project sharing
+      if (accessibleWorkspaceIds !== null) {
+        const hasWorkspaceMembership = accessibleWorkspaceIds.length > 0;
+        const canUseProjectShare = !!userId;
 
-        order: { createdAt: 'DESC' },
-        skip,
-        take: limit,
-      });
+        if (workspaceId) {
+          // Requested workspace:
+          // - if member of workspace => full workspace project visibility
+          // - else only directly shared projects in that workspace
+          if (hasWorkspaceMembership && accessibleWorkspaceIds.includes(workspaceId)) {
+            queryBuilder.andWhere('project.workspaceId = :workspaceId', {
+              workspaceId,
+            });
+          } else if (canUseProjectShare) {
+            queryBuilder
+              .andWhere('project.workspaceId = :workspaceId', { workspaceId })
+              .andWhere(
+                '(project.projectManagerId = :userId OR project.deliveryOwnerUserId = :userId)',
+                { userId },
+              );
+          } else {
+            return {
+              projects: [],
+              total: 0,
+              page,
+              totalPages: 0,
+            };
+          }
+        } else {
+          if (!hasWorkspaceMembership && !canUseProjectShare) {
+            return {
+              projects: [],
+              total: 0,
+              page,
+              totalPages: 0,
+            };
+          }
+
+          if (hasWorkspaceMembership && canUseProjectShare) {
+            queryBuilder.andWhere(
+              '(project.workspaceId IN (:...workspaceIds) OR project.projectManagerId = :userId OR project.deliveryOwnerUserId = :userId)',
+              { workspaceIds: accessibleWorkspaceIds, userId },
+            );
+          } else if (hasWorkspaceMembership) {
+            queryBuilder.andWhere('project.workspaceId IN (:...workspaceIds)', {
+              workspaceIds: accessibleWorkspaceIds,
+            });
+          } else {
+            queryBuilder.andWhere(
+              '(project.projectManagerId = :userId OR project.deliveryOwnerUserId = :userId)',
+              { userId },
+            );
+          }
+        }
+      } else if (workspaceId) {
+        // Admin/full visibility with workspace filter
+        queryBuilder.andWhere('project.workspaceId = :workspaceId', {
+          workspaceId,
+        });
+      }
+
+      const [projects, total] = await queryBuilder
+        .orderBy('project.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
 
       this.logger.debug(
         `Found ${projects.length}/${total} projects for org: ${organizationId}`,
@@ -524,45 +801,19 @@ export class ProjectsService extends TenantAwareRepository<Project> {
     userRole?: string,
   ): Promise<Project | null> {
     try {
-      const project = await this.findById(id, organizationId, []);
-
-      if (!project) {
-        // Return null if not found (controller will handle response format)
-        return null;
-      }
-      if (project.deletedAt) {
-        return null;
-      }
-
-      // Double-check organization (paranoid security)
-      if (project.organizationId !== organizationId) {
-        this.logger.error(
-          `🚨 SECURITY VIOLATION: Project ${id} belongs to org ${project.organizationId}, requested by org ${organizationId}`,
-        );
-        throw new ForbiddenException('Access denied');
-      }
-
-      // Enforce workspace membership when feature flag is enabled
-      if (project.workspaceId) {
-        const canAccess = await this.workspaceAccessService.canAccessWorkspace(
-          project.workspaceId,
-          organizationId,
-          userId,
-          userRole,
-        );
-
-        if (!canAccess) {
-          throw new ForbiddenException(
-            "You do not have access to this project's workspace",
-          );
-        }
-      }
-
-      return project;
+      return await this.getProjectForReadOrThrow({
+        id,
+        organizationId,
+        userId,
+        userRole,
+      });
     } catch (error) {
       // Re-throw auth errors (403)
       if (error instanceof ForbiddenException) {
         throw error;
+      }
+      if (error instanceof NotFoundException) {
+        return null;
       }
       // Return null for not found or other errors
       this.logger.error(
@@ -1307,6 +1558,8 @@ export class ProjectsService extends TenantAwareRepository<Project> {
             ? (template as any).lockState === 'LOCKED'
             : false,
           templateSnapshot: snapshot as unknown as any,
+          activeTabs: ['overview', 'tasks'],
+          governanceLevel: ProjectGovernanceLevel.EXECUTION,
         };
 
         const projectRepo = manager.getRepository(Project);
@@ -1316,6 +1569,412 @@ export class ProjectsService extends TenantAwareRepository<Project> {
         return saved;
       },
     );
+  }
+
+  async createFromTemplate(
+    req: Request,
+    payload: CreateProjectFromTemplateDto,
+  ): Promise<Project> {
+    const orgId = this.getOrgId(req);
+    const userId = this.getUserId(req);
+    const userRole = (req as any)?.user?.role;
+    if (!userId) {
+      throw new ForbiddenException('User context required');
+    }
+
+    const canAccess = await this.tenantContext.runWithTenant(
+      { organizationId: orgId, workspaceId: payload.workspaceId },
+      async () =>
+        this.workspaceAccessService.canAccessWorkspace(
+          payload.workspaceId,
+          orgId,
+          userId,
+          userRole,
+        ),
+    );
+    if (!canAccess) {
+      throw new ForbiddenException({
+        code: 'WORKSPACE_REQUIRED',
+        message: 'Access denied to workspace',
+      });
+    }
+
+    const workspace = await this.workspaceRepository.findOne({
+      where: {
+        id: payload.workspaceId,
+        organizationId: orgId,
+      } as any,
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const allowedTemplateIds = Array.isArray(workspace.allowedTemplateIds)
+      ? workspace.allowedTemplateIds.filter(
+          (value): value is string =>
+            typeof value === 'string' && value.trim().length > 0,
+        )
+      : [];
+    const hasTemplateAllowlist = allowedTemplateIds.length > 0;
+    if (
+      hasTemplateAllowlist &&
+      !allowedTemplateIds.includes(payload.templateId)
+    ) {
+      throw new ForbiddenException({
+        code: 'TEMPLATE_NOT_ALLOWED_FOR_WORKSPACE',
+        message: 'Template is not allowed for this workspace',
+      });
+    }
+
+    const template = await this.dataSource.getRepository(Template).findOne({
+      where: [
+        {
+          id: payload.templateId,
+          isSystem: true,
+          isActive: true,
+          isPublished: true,
+          organizationId: IsNull(),
+        } as any,
+        {
+          id: payload.templateId,
+          organizationId: orgId,
+          isActive: true,
+          isPublished: true,
+        } as any,
+      ],
+    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+    const blocks = await this.dataSource.getRepository(TemplateBlock).find({
+      where: { organizationId: orgId, templateId: template.id } as any,
+      order: { displayOrder: 'ASC' } as any,
+    });
+
+    // Policy-first evaluation MUST happen before any mutation.
+    const policyResult = this.governanceRuleEngine
+      ? await this.governanceRuleEngine.evaluate({
+          organizationId: orgId,
+          workspaceId: payload.workspaceId,
+          entityType: GovernanceEntityType.PROJECT,
+          entityId: payload.workspaceId,
+          transitionType: TransitionType.STATUS_CHANGE,
+          fromValue: null,
+          toValue: ProjectStatus.PLANNING,
+          entity: {
+            name: payload.projectName.trim(),
+            templateId: payload.templateId,
+            workspaceId: payload.workspaceId,
+            importOptions: payload.importOptions,
+          },
+          actor: {
+            userId,
+            platformRole: String((req as any)?.user?.platformRole || userRole || 'MEMBER'),
+          },
+          templateId: payload.templateId,
+          requestId: String((req.headers['x-request-id'] as string | undefined) || ''),
+        })
+      : {
+          decision: EvaluationDecision.ALLOW,
+          reasons: [],
+          evaluationId: null,
+        };
+
+    if (policyResult.decision === EvaluationDecision.BLOCK) {
+      throw new ForbiddenException({
+        code: 'PROJECT_CREATE_BLOCKED_BY_POLICY',
+        message: 'Project creation blocked by governance policy',
+        details: policyResult.reasons,
+      });
+    }
+
+    const projectStartDate = payload.startDate
+      ? new Date(payload.startDate)
+      : null;
+    const projectEndDate = payload.endDate ? new Date(payload.endDate) : null;
+
+    return this.dataSource.transaction(async (manager) => {
+      const projectRepo = manager.getRepository(Project);
+      const phaseRepo = manager.getRepository(WorkPhase);
+      const taskRepo = manager.getRepository(WorkTask);
+
+      const snapshot = {
+        templateId: template.id,
+        templateVersion: template.version || 1,
+        locked: template.lockState === 'LOCKED',
+        blocks: blocks.map((b) => ({
+          blockId: b.blockId,
+          enabled: b.enabled,
+          displayOrder: b.displayOrder,
+          config: (b.config ?? {}) as Record<string, unknown>,
+          locked: b.locked,
+        })),
+        governanceSnapshot: {
+          sourceTemplateId: template.id,
+          sourceTemplateVersion: template.version || 1,
+          workspaceId: payload.workspaceId,
+          organizationId: orgId,
+          policyEvaluation: {
+            decision: policyResult.decision,
+            reasons: policyResult.reasons,
+            evaluationId: policyResult.evaluationId,
+            appliedRuleSetMeta: policyResult.appliedRuleSetMeta,
+          },
+          governanceConfiguration: (template as any)?.defaultGovernanceFlags ?? {},
+        },
+      };
+
+      const project = projectRepo.create({
+        organizationId: orgId,
+        workspaceId: payload.workspaceId,
+        name: payload.projectName.trim(),
+        description: template.description || null,
+        status: ProjectStatus.PLANNING,
+        priority: ProjectPriority.MEDIUM,
+        riskLevel: ProjectRiskLevel.MEDIUM,
+        methodology: template.methodology || 'agile',
+        startDate: projectStartDate || undefined,
+        endDate: projectEndDate || undefined,
+        createdById: userId,
+        templateId: template.id,
+        templateVersion: template.version || 1,
+        templateLocked: template.lockState === 'LOCKED',
+        templateSnapshot: snapshot as any,
+        governanceSource: 'TEMPLATE',
+        activeTabs: ['overview', 'tasks'],
+        governanceLevel: ProjectGovernanceLevel.EXECUTION,
+      } as Partial<Project>);
+      const savedProject = await projectRepo.save(project);
+
+      const phases = Array.isArray(template.phases) ? template.phases : [];
+      const tasks = Array.isArray(template.taskTemplates) ? template.taskTemplates : [];
+
+      const createdPhasesByOrder = new Map<number, WorkPhase>();
+      if (payload.importOptions.includePhases) {
+        for (const phase of phases) {
+          const order = Number.isFinite(phase?.order) ? Number(phase.order) : 0;
+          const isMilestone =
+            payload.importOptions.includeMilestones &&
+            String(phase?.name || '')
+              .toLowerCase()
+              .includes('milestone');
+          const startDate = this.remapPhaseDate(
+            projectStartDate,
+            payload.importOptions.remapDates,
+            order,
+            'start',
+          );
+          const dueDate = this.remapPhaseDate(
+            projectStartDate,
+            payload.importOptions.remapDates,
+            order,
+            'due',
+          );
+          const created = phaseRepo.create({
+            organizationId: orgId,
+            workspaceId: payload.workspaceId,
+            projectId: savedProject.id,
+            programId: null,
+            name: String(phase?.name || `Phase ${order + 1}`),
+            sortOrder: order + 1,
+            reportingKey: `PHASE-${order + 1}`,
+            isMilestone,
+            startDate,
+            dueDate,
+            sourceTemplatePhaseId: null,
+            isLocked: false,
+            phaseState: PhaseState.ACTIVE,
+            createdByUserId: userId,
+            deletedAt: null,
+            deletedByUserId: null,
+          });
+          const savedPhase = await phaseRepo.save(created);
+          createdPhasesByOrder.set(order, savedPhase);
+        }
+      }
+
+      if (payload.importOptions.includeTasks) {
+        for (const task of tasks) {
+          const phaseOrder = Number.isFinite(task?.phaseOrder)
+            ? Number(task.phaseOrder)
+            : 0;
+          const linkedPhase = createdPhasesByOrder.get(phaseOrder);
+          const status = this.mapTemplateTaskStatus(template);
+          const taskEntity = taskRepo.create({
+            organizationId: orgId,
+            workspaceId: payload.workspaceId,
+            projectId: savedProject.id,
+            parentTaskId: null,
+            phaseId: linkedPhase?.id || null,
+            title: String(task?.name || 'Untitled task'),
+            description: task?.description ? String(task.description) : null,
+            status,
+            type: TaskType.TASK,
+            priority: this.mapTaskPriority(task?.priority),
+            assigneeUserId: null,
+            reporterUserId: userId,
+            startDate: payload.importOptions.remapDates
+              ? this.remapTaskDate(projectStartDate, phaseOrder, 0)
+              : null,
+            dueDate: payload.importOptions.remapDates
+              ? this.remapTaskDate(projectStartDate, phaseOrder, 2)
+              : null,
+            completedAt: null,
+            plannedStartAt: null,
+            plannedEndAt: null,
+            actualStartAt: null,
+            actualEndAt: null,
+            percentComplete: 0,
+            isMilestone: false,
+            constraintType: 'asap',
+            constraintDate: null,
+            wbsCode: null,
+            estimatePoints: null,
+            estimateHours: Number.isFinite(task?.estimatedHours)
+              ? Number(task.estimatedHours)
+              : null,
+            remainingHours: Number.isFinite(task?.estimatedHours)
+              ? Number(task.estimatedHours)
+              : null,
+            actualHours: null,
+            iterationId: null,
+            committed: false,
+            rank: null,
+            tags: null,
+            metadata: null,
+            acceptanceCriteria: null,
+            deletedAt: null,
+            deletedByUserId: null,
+          });
+          await taskRepo.save(taskEntity);
+        }
+      }
+
+      if (
+        payload.workflow?.creation?.copyPhaseGates &&
+        payload.workflow.execution?.phaseGateRules?.length
+      ) {
+        const gateRepo = manager.getRepository(PhaseGateDefinition);
+        const seenOrders = new Set<number>();
+        for (const rule of payload.workflow.execution.phaseGateRules) {
+          const order = Number(rule.phaseOrder);
+          if (!Number.isFinite(order) || seenOrders.has(order)) {
+            continue;
+          }
+          const targetPhase = createdPhasesByOrder.get(order);
+          if (!targetPhase) {
+            continue;
+          }
+          seenOrders.add(order);
+
+          const checklist =
+            Array.isArray(rule.criteria) && rule.criteria.length > 0
+              ? { items: rule.criteria }
+              : null;
+
+          const gateEntity = gateRepo.create({
+            organizationId: orgId,
+            workspaceId: payload.workspaceId,
+            projectId: savedProject.id,
+            phaseId: targetPhase.id,
+            name:
+              rule.name?.trim() ||
+              `Gate: ${targetPhase.name}`,
+            gateKey: `template-phase-${order}`,
+            status: GateDefinitionStatus.ACTIVE,
+            reviewersRolePolicy:
+              Array.isArray(rule.approverRoles) && rule.approverRoles.length > 0
+                ? { approverRoles: rule.approverRoles }
+                : null,
+            requiredDocuments: null,
+            requiredChecklist: checklist,
+            thresholds:
+              rule.autoLock === true
+                ? ({ autoLock: true } as Record<string, unknown>)
+                : null,
+            createdByUserId: userId,
+            deletedAt: null,
+          });
+          await gateRepo.save(gateEntity);
+        }
+      }
+
+      await manager.query(
+        `INSERT INTO audit_events (
+          organization_id, workspace_id, actor_user_id, actor_platform_role, actor_workspace_role,
+          entity_type, entity_id, action, before_json, after_json, metadata_json, ip_address, user_agent
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [
+          orgId,
+          payload.workspaceId,
+          userId,
+          String((req as any)?.user?.platformRole || userRole || 'MEMBER'),
+          null,
+          'PROJECT',
+          savedProject.id,
+          'project.create_from_template',
+          null,
+          {
+            projectId: savedProject.id,
+            templateId: template.id,
+            workspaceId: payload.workspaceId,
+          },
+          {
+            policyDecision: policyResult.decision,
+            policyEvaluationId: policyResult.evaluationId,
+            templateVersion: template.version || 1,
+            importOptions: payload.importOptions,
+            requestId: req.headers['x-request-id'] || null,
+          },
+          (req.headers['x-forwarded-for'] as string | undefined) || null,
+          (req.headers['user-agent'] as string | undefined) || null,
+        ],
+      );
+
+      return savedProject;
+    });
+  }
+
+  private mapTemplateTaskStatus(template: Template): TaskStatus {
+    const statuses = (template.structure as any)?.includedStatuses;
+    if (Array.isArray(statuses)) {
+      const values = statuses.map((value: unknown) => String(value).toUpperCase());
+      if (values.includes(TaskStatus.BACKLOG)) return TaskStatus.BACKLOG;
+      if (values.includes(TaskStatus.TODO)) return TaskStatus.TODO;
+    }
+    return TaskStatus.TODO;
+  }
+
+  private mapTaskPriority(input: unknown): TaskPriority {
+    const value = String(input || '').toUpperCase();
+    if (value === TaskPriority.LOW) return TaskPriority.LOW;
+    if (value === TaskPriority.HIGH) return TaskPriority.HIGH;
+    if (value === TaskPriority.CRITICAL) return TaskPriority.CRITICAL;
+    return TaskPriority.MEDIUM;
+  }
+
+  private remapPhaseDate(
+    projectStartDate: Date | null,
+    remapDates: boolean,
+    phaseOrder: number,
+    mode: 'start' | 'due',
+  ): Date | null {
+    if (!projectStartDate || !remapDates) return null;
+    const offsetDays = mode === 'start' ? phaseOrder * 7 : phaseOrder * 7 + 5;
+    const date = new Date(projectStartDate);
+    date.setDate(date.getDate() + offsetDays);
+    return date;
+  }
+
+  private remapTaskDate(
+    projectStartDate: Date | null,
+    phaseOrder: number,
+    additionalOffsetDays: number,
+  ): Date | null {
+    if (!projectStartDate) return null;
+    const date = new Date(projectStartDate);
+    date.setDate(date.getDate() + phaseOrder * 7 + additionalOffsetDays);
+    return date;
   }
 
   /**
