@@ -9,6 +9,7 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { Template } from '../../templates/entities/template.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
 import { WorkTask } from '../../work-management/entities/work-task.entity';
+import { User } from '../../users/entities/user.entity';
 
 describe('ProjectsService', () => {
   it('rejects create when user lacks workspace access', async () => {
@@ -31,6 +32,7 @@ describe('ProjectsService', () => {
     const service = new ProjectsService(
       projectRepository,
       workspaceRepository,
+      {} as Repository<User>,
       templateRepo as any,
       dataSource,
       tenantContext,
@@ -98,6 +100,7 @@ describe('ProjectsService', () => {
     const service = new ProjectsService(
       {} as Repository<Project>,
       {} as Repository<Workspace>,
+      {} as Repository<User>,
       {} as any,
       dataSource,
       tenantContext,
@@ -197,6 +200,7 @@ describe('ProjectsService', () => {
     const service = new ProjectsService(
       {} as Repository<Project>,
       {} as Repository<Workspace>,
+      {} as Repository<User>,
       {} as any,
       dataSource,
       tenantContext,
