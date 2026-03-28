@@ -10,6 +10,8 @@ import {
   OrgInvitesController,
   InvitesController,
 } from './controllers/org-invites.controller';
+import { SmokeInvitesController } from './controllers/smoke-invites.controller';
+import { SmokeUsersController } from './controllers/smoke-users.controller';
 import { OrganizationSignupService } from './services/organization-signup.service';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
@@ -30,6 +32,9 @@ import { EmailService } from '../../shared/services/email.service';
 import { SessionsController } from './controllers/sessions.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CsrfGuard } from './guards/csrf.guard';
+import { SmokeKeyGuard } from './guards/smoke-key.guard';
+import { AUTH_RATE_LIMIT_STORE } from './tokens';
+import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
 
 @Module({
   imports: [
@@ -64,6 +69,8 @@ import { CsrfGuard } from './guards/csrf.guard';
     OrgInvitesController,
     InvitesController,
     SessionsController,
+    SmokeInvitesController,
+    SmokeUsersController,
   ],
   providers: [
     AuthService,
@@ -75,7 +82,14 @@ import { CsrfGuard } from './guards/csrf.guard';
     OutboxProcessorService,
     EmailService,
     CsrfGuard,
+    SmokeKeyGuard,
+    { provide: AUTH_RATE_LIMIT_STORE, useClass: NoopAuthRateLimitStore },
   ],
-  exports: [AuthService, JwtStrategy, EmailVerificationService],
+  exports: [
+    AuthService,
+    JwtStrategy,
+    EmailVerificationService,
+    AUTH_RATE_LIMIT_STORE,
+  ],
 })
 export class AuthModule {}

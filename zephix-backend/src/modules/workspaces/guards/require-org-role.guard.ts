@@ -3,13 +3,14 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   PlatformRole,
   normalizePlatformRole,
-} from '../../../shared/enums/platform-roles.enum';
+} from '../../../common/auth/platform-roles';
 
 // For backward compatibility, accept legacy role names but map to PlatformRole
 export const RequireOrgRole = (
@@ -18,6 +19,8 @@ export const RequireOrgRole = (
 
 @Injectable()
 export class RequireOrgRoleGuard implements CanActivate {
+  private readonly logger = new Logger(RequireOrgRoleGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -37,18 +40,17 @@ export class RequireOrgRoleGuard implements CanActivate {
       return true; // No role requirement
     }
 
-    // Normalize user's role from JWT to PlatformRole
-    const userPlatformRole = normalizePlatformRole(user.role);
+    // Normalize user's role from JWT to PlatformRole.
+    // platformRole carries the actual org-context role (derived from UserOrganization at login).
+    // user.role is the base DB field and must only be used as a fallback.
+    const userPlatformRole = normalizePlatformRole(user.platformRole ?? user.role);
 
     // Normalize required role (handle both new enum and legacy strings)
     const normalizedRequiredRole = normalizePlatformRole(requiredRole);
 
-    // Development logging for role debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(
-        `Guard role check, user role: ${user.role} -> ${userPlatformRole}, required: ${requiredRole} -> ${normalizedRequiredRole}`,
-      );
-    }
+    this.logger.debug(
+      `RBAC check user=${user.id} platformRole=${user.platformRole} role=${user.role} resolvedRole=${userPlatformRole} required=${normalizedRequiredRole}`,
+    );
 
     // Role hierarchy: ADMIN > MEMBER > VIEWER
     const roleHierarchy: Record<PlatformRole, number> = {
@@ -57,8 +59,8 @@ export class RequireOrgRoleGuard implements CanActivate {
       [PlatformRole.VIEWER]: 1,
     };
 
-    const userLevel = roleHierarchy[userPlatformRole] || 0;
-    const requiredLevel = roleHierarchy[normalizedRequiredRole] || 0;
+    const userLevel = userPlatformRole ? (roleHierarchy[userPlatformRole] ?? 0) : 0;
+    const requiredLevel = normalizedRequiredRole ? (roleHierarchy[normalizedRequiredRole] ?? 0) : 0;
 
     if (userLevel < requiredLevel) {
       throw new ForbiddenException(

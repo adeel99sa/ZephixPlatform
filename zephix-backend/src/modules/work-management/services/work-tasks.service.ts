@@ -1,9 +1,12 @@
 import {
   Injectable,
   Inject,
+  Optional,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   TenantAwareRepository,
@@ -26,18 +29,68 @@ import {
   normalizeAcceptanceCriteria,
   validateAcceptanceCriteria,
 } from '../utils/acceptance-criteria.utils';
+import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { DataSource, ILike, In, IsNull, Repository } from 'typeorm';
+import { GateCondition } from '../entities/gate-condition.entity';
+import { PhaseGateDefinition } from '../entities/phase-gate-definition.entity';
+import { WorkPhase } from '../entities/work-phase.entity';
+import { GateConditionStatus } from '../enums/gate-condition-status.enum';
+import { GateReviewState } from '../enums/gate-review-state.enum';
+import { parseConditionalGoProgression } from '../constants/conditional-go.constants';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ProjectHealthService } from './project-health.service';
+import { WipLimitsService } from './wip-limits.service';
+import { Project } from '../../projects/entities/project.entity';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
+import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
+import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
+import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
 
 /** Whitelist for sortBy: only these map to column names. Never pass raw strings into orderBy. */
 const SORT_COLUMN_MAP: Record<string, string> = {
   dueDate: 'task.dueDate',
   updatedAt: 'task.updatedAt',
   createdAt: 'task.createdAt',
+  rank: 'task.rank', // Phase 2H: Board column ordering
 };
 
 const VALID_STATUSES = new Set<string>(Object.values(TaskStatus));
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_OFFSET = 0;
+const SEARCH_DEFAULT_LIMIT = 8;
+const TERMINAL_TASK_STATUSES: TaskStatus[] = [
+  TaskStatus.DONE,
+  TaskStatus.CANCELED,
+];
+
+export interface TeamWorkloadItem {
+  assigneeUserId: string;
+  assignedCount: number;
+  overdueCount: number;
+  dueSoonCount: number;
+}
+
+export interface WorkSearchResult {
+  projects: Array<{ id: string; name: string; status: string }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    projectId: string;
+  }>;
+  comments: Array<{
+    id: string;
+    body: string;
+    taskId: string;
+    createdByUserId: string;
+    createdAt: Date;
+  }>;
+}
 
 function parseAndValidateStatusList(
   value: string | undefined,
@@ -93,15 +146,18 @@ const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   ],
   [TaskStatus.DONE]: [], // Terminal - no transitions out
   [TaskStatus.CANCELED]: [], // Terminal - no transitions out
+  [TaskStatus.PENDING]: [
+    TaskStatus.TODO,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.CANCELED,
+  ],
+  [TaskStatus.REWORK]: [
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.TODO,
+    TaskStatus.DONE,
+    TaskStatus.CANCELED,
+  ],
 };
-import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { DataSource, ILike, In, IsNull } from 'typeorm';
-import { WorkPhase } from '../entities/work-phase.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ConflictException } from '@nestjs/common';
-import { ProjectHealthService } from './project-health.service';
-import { WipLimitsService } from './wip-limits.service';
 
 interface AuthContext {
   organizationId: string;
@@ -111,6 +167,8 @@ interface AuthContext {
 
 @Injectable()
 export class WorkTasksService {
+  private readonly logger = new Logger(WorkTasksService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
@@ -128,6 +186,18 @@ export class WorkTasksService {
     private readonly dataSource: DataSource,
     private readonly projectHealthService: ProjectHealthService,
     private readonly wipLimitsService: WipLimitsService,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    private readonly auditService: AuditService,
+    @InjectRepository(GateCondition)
+    private readonly gateConditionRepo: Repository<GateCondition>,
+    @InjectRepository(PhaseGateDefinition)
+    private readonly phaseGateDefinitionRepo: Repository<PhaseGateDefinition>,
+    private readonly structuralGuard: WorkTaskStructuralGuardService,
+    @Optional()
+    private readonly governanceEngine?: GovernanceRuleEngineService,
+    @Optional()
+    private readonly domainEventEmitter?: DomainEventEmitterService,
   ) {}
 
   // ============================================================
@@ -233,6 +303,169 @@ export class WorkTasksService {
     return task;
   }
 
+  private async loadProjectAndPhaseForStructuralGuard(
+    organizationId: string,
+    workspaceId: string,
+    projectId: string,
+    phaseId: string | null,
+  ): Promise<{ project: Project; phase: WorkPhase | null }> {
+    const project = await this.projectRepository.findOne({
+      where: {
+        id: projectId,
+        organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+    });
+    if (!project) {
+      throw new NotFoundException({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Project not found',
+      });
+    }
+    let phase: WorkPhase | null = null;
+    if (phaseId) {
+      phase = await this.workPhaseRepository.findOne({
+        where: {
+          id: phaseId,
+          organizationId,
+          workspaceId,
+          deletedAt: IsNull(),
+        },
+      });
+    }
+    return { project, phase };
+  }
+
+  /**
+   * F-2: Block leaving DONE on a condition task once gate review has started.
+   */
+  private async assertConditionTaskMayLeaveDone(
+    auth: AuthContext,
+    workspaceId: string,
+    sourceGateConditionId: string,
+  ): Promise<void> {
+    const condition = await this.gateConditionRepo.findOne({
+      where: {
+        id: sourceGateConditionId,
+        organizationId: auth.organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+      relations: ['gateCycle', 'gateCycle.phaseGateDefinition'],
+    });
+    const gateDef = condition?.gateCycle?.phaseGateDefinition;
+    if (!gateDef) {
+      return;
+    }
+    const rs = gateDef.reviewState;
+    if (
+      rs === GateReviewState.IN_REVIEW ||
+      rs === GateReviewState.APPROVED ||
+      rs === GateReviewState.REJECTED
+    ) {
+      throw new ConflictException({
+        code: 'GATE_CONDITION_REVIEW_LOCKED',
+        message:
+          'This condition task cannot move off DONE while gate review is in progress. Use an explicit governance action.',
+      });
+    }
+  }
+
+  /**
+   * F-2: Conditional-go bridge — GateCondition + PhaseGateDefinition.reviewState.
+   */
+  private async applyConditionalGoBridge(
+    auth: AuthContext,
+    workspaceId: string,
+    task: WorkTask,
+    previousStatus: TaskStatus,
+    newStatus: TaskStatus,
+  ): Promise<void> {
+    if (!task.sourceGateConditionId || !task.isConditionTask) {
+      return;
+    }
+    if (previousStatus === newStatus) {
+      return;
+    }
+
+    const condition = await this.gateConditionRepo.findOne({
+      where: {
+        id: task.sourceGateConditionId,
+        organizationId: auth.organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+      relations: ['gateCycle', 'gateCycle.phaseGateDefinition'],
+    });
+    const gateDef = condition?.gateCycle?.phaseGateDefinition;
+    if (!condition || !gateDef) {
+      return;
+    }
+
+    const mode = parseConditionalGoProgression(
+      gateDef.thresholds as Record<string, unknown> | null,
+    );
+
+    if (newStatus === TaskStatus.DONE) {
+      condition.conditionStatus = GateConditionStatus.SATISFIED;
+      await this.gateConditionRepo.save(condition);
+
+      if (mode === 'manual') {
+        return;
+      }
+
+      const all = await this.gateConditionRepo.find({
+        where: {
+          gateCycleId: condition.gateCycleId,
+          organizationId: auth.organizationId,
+          workspaceId,
+          deletedAt: IsNull(),
+        },
+      });
+      const allSatisfied = all.every(
+        (c) =>
+          c.conditionStatus === GateConditionStatus.SATISFIED ||
+          c.conditionStatus === GateConditionStatus.WAIVED,
+      );
+      const terminalReview = [
+        GateReviewState.IN_REVIEW,
+        GateReviewState.APPROVED,
+        GateReviewState.REJECTED,
+      ].includes(gateDef.reviewState);
+      if (
+        allSatisfied &&
+        !terminalReview &&
+        gateDef.reviewState !== GateReviewState.READY_FOR_REVIEW
+      ) {
+        gateDef.reviewState = GateReviewState.READY_FOR_REVIEW;
+        await this.phaseGateDefinitionRepo.save(gateDef);
+      }
+      return;
+    }
+
+    // newStatus cannot be DONE here (handled above); rollback path when leaving DONE.
+    if (previousStatus === TaskStatus.DONE) {
+      if (
+        [GateReviewState.IN_REVIEW, GateReviewState.APPROVED, GateReviewState.REJECTED].includes(
+          gateDef.reviewState,
+        )
+      ) {
+        return;
+      }
+      condition.conditionStatus = GateConditionStatus.PENDING;
+      await this.gateConditionRepo.save(condition);
+
+      if (mode === 'manual') {
+        return;
+      }
+      if (gateDef.reviewState === GateReviewState.READY_FOR_REVIEW) {
+        gateDef.reviewState = GateReviewState.AWAITING_CONDITIONS;
+        await this.phaseGateDefinitionRepo.save(gateDef);
+      }
+    }
+  }
+
   // ============================================================
   // STATUS TRANSITION VALIDATION
   // ============================================================
@@ -317,6 +550,35 @@ export class WorkTasksService {
       normalizedAC = normalizeAcceptanceCriteria(dto.acceptanceCriteria);
     }
 
+    // C1 Fix: Estimation mode enforcement on task creation (mirrors updateTask validation)
+    if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
+      const project = await this.projectRepository.findOne({
+        where: { id: dto.projectId, organizationId },
+        select: ['id', 'estimationMode'],
+      });
+      const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && mode === 'hours_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Points estimation is disabled for this project (hours_only mode)',
+        });
+      }
+      if (dto.estimateHours !== undefined && mode === 'points_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Hours estimation is disabled for this project (points_only mode)',
+        });
+      }
+    }
+
+    const { project, phase } = await this.loadProjectAndPhaseForStructuralGuard(
+      organizationId,
+      workspaceId,
+      dto.projectId,
+      phaseId,
+    );
+    this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
+
     const task = this.taskRepo.create({
       organizationId,
       workspaceId,
@@ -333,6 +595,9 @@ export class WorkTasksService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       tags: dto.tags || null,
       acceptanceCriteria: normalizedAC,
+      estimatePoints: dto.estimatePoints ?? null,
+      estimateHours: dto.estimateHours ?? null,
+      iterationId: dto.iterationId ?? null,
     });
 
     const saved = await this.taskRepo.save(task);
@@ -350,6 +615,19 @@ export class WorkTasksService {
         projectId: saved.projectId,
       },
     );
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.TASK_CREATED, {
+          workspaceId,
+          organizationId,
+          projectId: saved.projectId,
+          entityId: saved.id,
+          entityType: 'TASK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
 
     return saved;
   }
@@ -444,6 +722,31 @@ export class WorkTasksService {
       });
     }
 
+    // ── Iteration & estimation filters ──────────────────────────────
+    if (query.iterationId) {
+      qb.andWhere('task.iterationId = :iterationId', {
+        iterationId: query.iterationId,
+      });
+    }
+    if (query.committed !== undefined) {
+      qb.andWhere('task.committed = :committed', {
+        committed: query.committed,
+      });
+    }
+    if (query.hasEstimatePoints === true) {
+      qb.andWhere('task.estimatePoints IS NOT NULL');
+    } else if (query.hasEstimatePoints === false) {
+      qb.andWhere('task.estimatePoints IS NULL');
+    }
+    if (query.hasEstimateHours === true) {
+      qb.andWhere('task.estimateHours IS NOT NULL');
+    } else if (query.hasEstimateHours === false) {
+      qb.andWhere('task.estimateHours IS NULL');
+    }
+    if (query.backlog === true) {
+      qb.andWhere('task.iterationId IS NULL');
+    }
+
     if (query.search) {
       qb.andWhere('task.title ILIKE :search', { search: `%${query.search}%` });
     }
@@ -461,7 +764,53 @@ export class WorkTasksService {
 
     const [items, total] = await qb.take(limit).skip(offset).getManyAndCount();
 
+    await this.attachConditionTaskSourceMetadata(auth, workspaceId, items);
+
     return { items, total, limit, offset };
+  }
+
+  /**
+   * C-8: Resolve originating gate label for condition tasks from `gate_conditions` → cycle → definition.
+   * Does not compute readiness or blocking — display metadata only.
+   */
+  private async attachConditionTaskSourceMetadata(
+    auth: AuthContext,
+    workspaceId: string,
+    tasks: WorkTask[],
+  ): Promise<void> {
+    const condIds = [
+      ...new Set(
+        tasks
+          .filter((t) => t.isConditionTask && t.sourceGateConditionId)
+          .map((t) => t.sourceGateConditionId as string),
+      ),
+    ];
+    if (condIds.length === 0) {
+      return;
+    }
+    const rows = await this.gateConditionRepo.find({
+      where: {
+        id: In(condIds),
+        organizationId: auth.organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+      relations: ['gateCycle', 'gateCycle.phaseGateDefinition'],
+    });
+    const byId = new Map<string, GateCondition>(
+      rows.map((r) => [r.id, r]),
+    );
+    for (const t of tasks) {
+      if (!t.isConditionTask || !t.sourceGateConditionId) {
+        continue;
+      }
+      const c = byId.get(t.sourceGateConditionId);
+      const pgd = c?.gateCycle?.phaseGateDefinition;
+      if (pgd) {
+        t.sourceGateName = pgd.name;
+        t.sourceGateDefinitionId = pgd.id;
+      }
+    }
   }
 
   async getTaskById(
@@ -471,7 +820,9 @@ export class WorkTasksService {
   ): Promise<WorkTask> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
-    return this.getTaskInWorkspaceOrFail(workspaceId, id);
+    const task = await this.getTaskInWorkspaceOrFail(workspaceId, id);
+    await this.attachConditionTaskSourceMetadata(auth, workspaceId, [task]);
+    return task;
   }
 
   async updateTask(
@@ -479,12 +830,21 @@ export class WorkTasksService {
     workspaceId: string,
     id: string,
     dto: UpdateWorkTaskDto,
+    auditSource?: string,
   ): Promise<WorkTask> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
     const organizationId = this.tenantContext.assertOrganizationId();
     // Use getActiveTaskOrFail to block mutations on deleted tasks
     const task = await this.getActiveTaskOrFail(workspaceId, id);
+
+    const { project, phase } = await this.loadProjectAndPhaseForStructuralGuard(
+      organizationId,
+      workspaceId,
+      task.projectId,
+      task.phaseId,
+    );
+    this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
 
     const oldStatus = task.status;
     const oldAssignee = task.assigneeUserId;
@@ -502,6 +862,19 @@ export class WorkTasksService {
     if (dto.status !== undefined && dto.status !== task.status) {
       this.assertStatusTransition(task.status, dto.status);
 
+      if (
+        task.isConditionTask &&
+        task.sourceGateConditionId &&
+        task.status === TaskStatus.DONE &&
+        dto.status !== TaskStatus.DONE
+      ) {
+        await this.assertConditionTaskMayLeaveDone(
+          auth,
+          workspaceId,
+          task.sourceGateConditionId,
+        );
+      }
+
       // WIP limit enforcement
       await this.wipLimitsService.enforceWipLimitOrThrow(auth, {
         organizationId,
@@ -515,6 +888,32 @@ export class WorkTasksService {
         override: dto.wipOverride,
         overrideReason: dto.wipOverrideReason,
       });
+
+      // Governance rule evaluation
+      if (this.governanceEngine) {
+        const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+          organizationId,
+          workspaceId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          task: task as any,
+          actor: {
+            userId: auth.userId,
+            platformRole: auth.platformRole ?? 'MEMBER',
+          },
+          projectId: task.projectId,
+          overrideReason: (dto as any).governanceOverrideReason,
+        });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          throw new BadRequestException({
+            code: 'GOVERNANCE_RULE_BLOCKED',
+            message: 'Transition blocked by governance rules',
+            evaluationId: govResult.evaluationId,
+            reasons: govResult.reasons,
+          });
+        }
+      }
 
       task.status = dto.status;
       changedFields.push('status');
@@ -541,14 +940,58 @@ export class WorkTasksService {
       task.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
       changedFields.push('dueDate');
     }
+    // Estimation mode enforcement (C4)
+    if (dto.estimatePoints !== undefined || dto.estimateHours !== undefined) {
+      const project = await this.projectRepository.findOne({
+        where: { id: task.projectId },
+        select: ['id', 'estimationMode'],
+      });
+      const mode = project?.estimationMode || 'both';
+      if (dto.estimatePoints !== undefined && mode === 'hours_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Points estimation is disabled for this project (hours_only mode)',
+        });
+      }
+      if (dto.estimateHours !== undefined && mode === 'points_only') {
+        throw new BadRequestException({
+          code: 'ESTIMATION_MODE_VIOLATION',
+          message: 'Hours estimation is disabled for this project (points_only mode)',
+        });
+      }
+    }
+    if (dto.estimatePoints !== undefined) {
+      task.estimatePoints = dto.estimatePoints;
+      changedFields.push('estimatePoints');
+    }
     if (dto.estimateHours !== undefined) {
-      // Note: estimateHours not in entity yet, skip for now
-      // Will be added in future migration if needed
+      task.estimateHours = dto.estimateHours;
       changedFields.push('estimateHours');
+    }
+    if (dto.remainingHours !== undefined) {
+      task.remainingHours = dto.remainingHours;
+      changedFields.push('remainingHours');
+    }
+    if (dto.actualHours !== undefined) {
+      task.actualHours = dto.actualHours;
+      changedFields.push('actualHours');
+    }
+    if (dto.iterationId !== undefined) {
+      task.iterationId = dto.iterationId;
+      changedFields.push('iterationId');
+    }
+    if (dto.committed !== undefined) {
+      task.committed = dto.committed;
+      changedFields.push('committed');
     }
     if (dto.tags !== undefined) {
       task.tags = dto.tags;
       changedFields.push('tags');
+    }
+    // Phase 2H: Board rank for ordering within column
+    if (dto.rank !== undefined) {
+      task.rank = dto.rank;
+      changedFields.push('rank');
     }
     if (dto.archived !== undefined) {
       // Note: archived not in entity yet, skip for now
@@ -568,6 +1011,20 @@ export class WorkTasksService {
     }
 
     const saved = await this.taskRepo.save(task);
+
+    if (
+      saved.sourceGateConditionId &&
+      saved.isConditionTask &&
+      oldStatus !== saved.status
+    ) {
+      await this.applyConditionalGoBridge(
+        auth,
+        workspaceId,
+        saved,
+        oldStatus,
+        saved.status,
+      );
+    }
 
     // Emit activities
     if (oldStatus !== saved.status) {
@@ -594,6 +1051,7 @@ export class WorkTasksService {
         {
           from: oldAssignee,
           to: saved.assigneeUserId,
+          assigneeId: saved.assigneeUserId,
         },
       );
     }
@@ -637,8 +1095,48 @@ export class WorkTasksService {
         );
       } catch (error) {
         // Log but don't fail the task update if health recalculation fails
-        console.warn('Failed to recalculate project health:', error);
+        this.logger.warn('Failed to recalculate project health:', error);
       }
+    }
+
+    // Phase 3B: Audit board moves (status/rank changes only)
+    const statusChanged = changedFields.includes('status');
+    const rankChanged = changedFields.includes('rank');
+    if ((statusChanged || rankChanged) && !auditSource) {
+      // Only emit if caller didn't already provide a source (prevents double-logging)
+      const oldRank = dto.rank !== undefined ? undefined : undefined; // can't capture old rank easily
+      await this.auditService.record({
+        organizationId,
+        workspaceId,
+        actorUserId: auth.userId,
+        actorPlatformRole: auth.platformRole || 'MEMBER',
+        entityType: AuditEntityType.WORK_TASK,
+        entityId: saved.id,
+        action: AuditAction.UPDATE,
+        metadata: {
+          ...(statusChanged ? { oldStatus, newStatus: saved.status } : {}),
+          ...(rankChanged ? { newRank: saved.rank } : {}),
+          changedFields,
+          source: AuditSource.BOARD,
+        },
+      });
+    }
+
+    // Wave 10: Emit domain events for KPI recompute
+    if (this.domainEventEmitter && changedFields.length > 0) {
+      const eventName = statusChanged
+        ? DOMAIN_EVENTS.TASK_STATUS_CHANGED
+        : DOMAIN_EVENTS.TASK_UPDATED;
+      this.domainEventEmitter
+        .emit(eventName, {
+          workspaceId,
+          organizationId,
+          projectId: saved.projectId,
+          entityId: saved.id,
+          entityType: 'TASK',
+          meta: { changedFields, oldStatus, newStatus: saved.status },
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
     }
 
     return saved;
@@ -675,6 +1173,58 @@ export class WorkTasksService {
       });
     }
 
+    const projectIdsUnique = [...new Set(tasks.map((t) => t.projectId))];
+    const phaseIdsUnique = [
+      ...new Set(tasks.map((t) => t.phaseId).filter(Boolean)),
+    ] as string[];
+
+    const projects = await this.projectRepository.find({
+      where: {
+        id: In(projectIdsUnique),
+        organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+    });
+    const phases =
+      phaseIdsUnique.length > 0
+        ? await this.workPhaseRepository.find({
+            where: {
+              id: In(phaseIdsUnique),
+              organizationId,
+              workspaceId,
+              deletedAt: IsNull(),
+            },
+          })
+        : [];
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const phaseById = new Map(phases.map((p) => [p.id, p]));
+
+    for (const task of tasks) {
+      const project = projectById.get(task.projectId);
+      if (!project) {
+        throw new NotFoundException({
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Project not found',
+        });
+      }
+      const phase = task.phaseId ? phaseById.get(task.phaseId) ?? null : null;
+      try {
+        this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
+      } catch (err) {
+        if (err instanceof ConflictException) {
+          const res = err.getResponse() as { code?: string; message?: string };
+          throw new ConflictException({
+            code: res.code ?? 'STRUCTURAL_MUTATION_BLOCKED',
+            message: `Bulk update blocked for task ${task.id}: ${res.message ?? err.message}`,
+            blockedTaskId: task.id,
+            cause: res.code ?? 'STRUCTURAL_MUTATION_BLOCKED',
+          });
+        }
+        throw err;
+      }
+    }
+
     // STRICT validation: check all transitions before applying any
     const invalidTransitions: Array<{
       id: string;
@@ -703,10 +1253,23 @@ export class WorkTasksService {
       });
     }
 
-    // Get projectIds for health recalculation (before update)
+    for (const task of tasks) {
+      if (
+        task.isConditionTask &&
+        task.sourceGateConditionId &&
+        task.status === TaskStatus.DONE &&
+        dto.status !== TaskStatus.DONE
+      ) {
+        await this.assertConditionTaskMayLeaveDone(
+          auth,
+          workspaceId,
+          task.sourceGateConditionId,
+        );
+      }
+    }
+
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-    // WIP limit enforcement per project
     for (const pid of projectIds) {
       const projectTaskIds = tasks
         .filter((t) => t.projectId === pid)
@@ -720,16 +1283,74 @@ export class WorkTasksService {
       );
     }
 
-    // Update all tasks
-    await this.taskRepo
-      .qb('task')
-      .update()
-      .set({ status: dto.status })
-      .where('task.id IN (:...taskIds)', { taskIds: dto.taskIds })
-      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
-      .execute();
+    if (this.governanceEngine) {
+      for (const task of tasks) {
+        if (task.status === dto.status) {
+          continue;
+        }
+        const govResult = await this.governanceEngine.evaluateTaskStatusChange({
+          organizationId,
+          workspaceId,
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: dto.status,
+          task: task as any,
+          actor: {
+            userId: auth.userId,
+            platformRole: auth.platformRole ?? 'MEMBER',
+          },
+          projectId: task.projectId,
+        });
+        if (govResult.decision === EvaluationDecision.BLOCK) {
+          throw new BadRequestException({
+            code: 'GOVERNANCE_RULE_BLOCKED',
+            message: `Bulk update blocked by governance rules for task ${task.id}`,
+            evaluationId: govResult.evaluationId,
+            reasons: govResult.reasons,
+            blockedTaskId: task.id,
+          });
+        }
+      }
+    }
 
-    // Trigger health recalculation for affected projects
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.manager.update(
+        WorkTask,
+        {
+          id: In(dto.taskIds),
+          workspaceId,
+          deletedAt: IsNull(),
+        },
+        { status: dto.status, updatedAt: new Date() },
+      );
+      await queryRunner.commitTransaction();
+    } catch (e) {
+      await queryRunner.rollbackTransaction();
+      throw e;
+    } finally {
+      await queryRunner.release();
+    }
+
+    for (const task of tasks) {
+      if (
+        task.sourceGateConditionId &&
+        task.isConditionTask &&
+        task.status !== dto.status
+      ) {
+        const merged = { ...task, status: dto.status } as WorkTask;
+        await this.applyConditionalGoBridge(
+          auth,
+          workspaceId,
+          merged,
+          task.status,
+          dto.status,
+        );
+      }
+    }
+
     for (const projectId of projectIds) {
       try {
         await this.projectHealthService.recalculateProjectHealth(
@@ -738,11 +1359,10 @@ export class WorkTasksService {
           workspaceId,
         );
       } catch (error) {
-        console.warn('Failed to recalculate project health:', error);
+        this.logger.warn('Failed to recalculate project health:', error);
       }
     }
 
-    // Emit activity for each task
     for (const taskId of dto.taskIds) {
       await this.activityService.record(
         auth,
@@ -766,8 +1386,17 @@ export class WorkTasksService {
   ): Promise<void> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
     // Use getActiveTaskOrFail - can't delete an already deleted task
     const task = await this.getActiveTaskOrFail(workspaceId, id);
+
+    const { project, phase } = await this.loadProjectAndPhaseForStructuralGuard(
+      organizationId,
+      workspaceId,
+      task.projectId,
+      task.phaseId,
+    );
+    this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
 
     // Soft delete: set deletedAt and deletedByUserId; keep dependencies/comments/activities for audit
     task.deletedAt = new Date();
@@ -786,6 +1415,20 @@ export class WorkTasksService {
         deletedBy: auth.userId,
       },
     );
+
+    // Wave 10: Emit domain event for KPI recompute
+    if (this.domainEventEmitter) {
+      const organizationId = this.tenantContext.assertOrganizationId();
+      this.domainEventEmitter
+        .emit(DOMAIN_EVENTS.TASK_DELETED, {
+          workspaceId,
+          organizationId,
+          projectId: task.projectId,
+          entityId: id,
+          entityType: 'TASK',
+        })
+        .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
+    }
   }
 
   /**
@@ -799,6 +1442,7 @@ export class WorkTasksService {
   ): Promise<WorkTask> {
     // Centralized workspace validation - always 403 WORKSPACE_REQUIRED
     await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
 
     // Get task including deleted ones
     const task = await this.getTaskInWorkspace(workspaceId, id, true);
@@ -814,6 +1458,14 @@ export class WorkTasksService {
         message: 'Task is not deleted',
       });
     }
+
+    const { project, phase } = await this.loadProjectAndPhaseForStructuralGuard(
+      organizationId,
+      workspaceId,
+      task.projectId,
+      task.phaseId,
+    );
+    this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
 
     // Restore: clear deletedAt and deletedByUserId
     task.deletedAt = null;
@@ -882,5 +1534,218 @@ export class WorkTasksService {
       total > 0 ? Math.round((completed / total) * 10000) / 10000 : 0;
 
     return { completed, total, ratio };
+  }
+
+  async listProjectActivity(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId: string,
+    limit: number = DEFAULT_LIMIT,
+    offset: number = DEFAULT_OFFSET,
+  ): Promise<{ items: TaskActivity[]; total: number; limit: number; offset: number }> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+
+    const project = await this.projectRepository.findOne({
+      where: {
+        id: projectId,
+        organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+
+    if (!project) {
+      throw new NotFoundException({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Project not found',
+      });
+    }
+
+    const safeLimit = Math.min(Math.max(1, limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const safeOffset = Math.max(0, offset ?? DEFAULT_OFFSET);
+
+    const [items, total] = await this.activityRepo.findAndCount({
+      where: { organizationId, workspaceId, projectId },
+      order: { createdAt: 'DESC' },
+      take: safeLimit,
+      skip: safeOffset,
+    });
+
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async listOverdueTasks(
+    auth: AuthContext,
+    workspaceId: string,
+    query: {
+      projectId?: string;
+      assigneeUserId?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ items: WorkTask[]; total: number; limit: number; offset: number }> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+
+    const safeLimit = Math.min(Math.max(1, query.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
+    const safeOffset = Math.max(0, query.offset ?? DEFAULT_OFFSET);
+    const now = new Date();
+
+    const qb = this.taskRepo
+      .qb('task')
+      .where('task.organizationId = :organizationId', { organizationId })
+      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.deletedAt IS NULL')
+      .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+      .andWhere('task.dueDate IS NOT NULL')
+      .andWhere('task.dueDate < :now', { now })
+      .andWhere('task.status NOT IN (:...terminalStatuses)', {
+        terminalStatuses: TERMINAL_TASK_STATUSES,
+      });
+
+    if (query.projectId) {
+      qb.andWhere('task.projectId = :projectId', { projectId: query.projectId });
+    }
+    if (query.assigneeUserId) {
+      qb.andWhere('task.assigneeUserId = :assigneeUserId', {
+        assigneeUserId: query.assigneeUserId,
+      });
+    }
+
+    const [items, total] = await qb
+      .orderBy('task.dueDate', 'ASC')
+      .addOrderBy('task.updatedAt', 'DESC')
+      .take(safeLimit)
+      .skip(safeOffset)
+      .getManyAndCount();
+
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async getTeamWorkload(
+    auth: AuthContext,
+    workspaceId: string,
+    projectId?: string,
+  ): Promise<TeamWorkloadItem[]> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+    const now = new Date();
+    const dueSoon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const qb = this.taskRepo
+      .qb('task')
+      .select('task.assigneeUserId', 'assigneeUserId')
+      .addSelect('COUNT(task.id)', 'assignedCount')
+      .addSelect(
+        `SUM(CASE WHEN task.dueDate < :now AND task.status NOT IN (:...terminalStatuses) THEN 1 ELSE 0 END)`,
+        'overdueCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN task.dueDate >= :now AND task.dueDate <= :dueSoon AND task.status NOT IN (:...terminalStatuses) THEN 1 ELSE 0 END)`,
+        'dueSoonCount',
+      )
+      .where('task.organizationId = :organizationId', { organizationId })
+      .andWhere('task.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('task.deletedAt IS NULL')
+      .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+      .andWhere('task.assigneeUserId IS NOT NULL')
+      .setParameters({
+        now,
+        dueSoon,
+        terminalStatuses: TERMINAL_TASK_STATUSES,
+      });
+
+    if (projectId) {
+      qb.andWhere('task.projectId = :projectId', { projectId });
+    }
+
+    const rows = await qb
+      .groupBy('task.assigneeUserId')
+      .orderBy('overdueCount', 'DESC')
+      .addOrderBy('assignedCount', 'DESC')
+      .addOrderBy('task.assigneeUserId', 'ASC')
+      .getRawMany();
+
+    return rows.map((row: any) => ({
+      assigneeUserId: String(row.assigneeUserId),
+      assignedCount: Number(row.assignedCount ?? 0),
+      overdueCount: Number(row.overdueCount ?? 0),
+      dueSoonCount: Number(row.dueSoonCount ?? 0),
+    }));
+  }
+
+  async searchWorkspace(
+    auth: AuthContext,
+    workspaceId: string,
+    rawQuery: string,
+    limit: number = SEARCH_DEFAULT_LIMIT,
+  ): Promise<WorkSearchResult> {
+    await this.assertWorkspaceAccess(auth, workspaceId);
+    const organizationId = this.tenantContext.assertOrganizationId();
+    const query = (rawQuery || '').trim();
+    if (query.length < 2) {
+      return { projects: [], tasks: [], comments: [] };
+    }
+
+    const safeLimit = Math.min(Math.max(1, limit), 20);
+    const like = `%${query}%`;
+
+    const [projects, tasks, comments] = await Promise.all([
+      this.projectRepository.find({
+        where: {
+          organizationId,
+          workspaceId,
+          deletedAt: IsNull(),
+          name: ILike(like),
+        },
+        select: ['id', 'name', 'status'],
+        order: { updatedAt: 'DESC' },
+        take: safeLimit,
+      } as any),
+      this.taskRepo
+        .qb('task')
+        .where('task.organizationId = :organizationId', { organizationId })
+        .andWhere('task.workspaceId = :workspaceId', { workspaceId })
+        .andWhere('task.deletedAt IS NULL')
+        .andWhere(`COALESCE((task.metadata ->> 'archived')::boolean, false) = false`)
+        .andWhere('task.title ILIKE :like', { like })
+        .orderBy('task.updatedAt', 'DESC')
+        .take(safeLimit)
+        .getMany(),
+      this.commentRepo.find({
+        where: {
+          organizationId,
+          workspaceId,
+          body: ILike(like),
+        },
+        select: ['id', 'body', 'taskId', 'createdByUserId', 'createdAt'],
+        order: { createdAt: 'DESC' },
+        take: safeLimit,
+      }),
+    ]);
+
+    return {
+      projects: projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        status: p.status,
+      })),
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        projectId: task.projectId,
+      })),
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        body: comment.body,
+        taskId: comment.taskId,
+        createdByUserId: comment.createdByUserId,
+        createdAt: comment.createdAt,
+      })),
+    };
   }
 }

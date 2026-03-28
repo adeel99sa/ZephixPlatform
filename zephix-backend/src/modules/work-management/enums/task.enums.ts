@@ -6,6 +6,10 @@ export enum TaskStatus {
   IN_REVIEW = 'IN_REVIEW',
   DONE = 'DONE',
   CANCELED = 'CANCELED',
+  /** Pre-gate / not yet actionable in phase (when used with governance flows) */
+  PENDING = 'PENDING',
+  /** Recycled gate artifact — must be reworked */
+  REWORK = 'REWORK',
 }
 
 export enum TaskPriority {
@@ -44,4 +48,10 @@ export enum TaskActivityType {
   DEPENDENCY_REMOVED = 'DEPENDENCY_REMOVED',
   TASK_WIP_OVERRIDE = 'TASK_WIP_OVERRIDE',
   TASK_ACCEPTANCE_CRITERIA_UPDATED = 'TASK_ACCEPTANCE_CRITERIA_UPDATED',
+  // Sprint 10: Gate approval chain activity types
+  GATE_APPROVAL_STEP_ACTIVATED = 'GATE_APPROVAL_STEP_ACTIVATED',
+  GATE_APPROVAL_STEP_APPROVED = 'GATE_APPROVAL_STEP_APPROVED',
+  GATE_APPROVAL_STEP_REJECTED = 'GATE_APPROVAL_STEP_REJECTED',
+  GATE_APPROVAL_CHAIN_COMPLETED = 'GATE_APPROVAL_CHAIN_COMPLETED',
+  GATE_APPROVAL_ESCALATED = 'GATE_APPROVAL_ESCALATED',
 }

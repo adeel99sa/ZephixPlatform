@@ -29,9 +29,15 @@ import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 
-export const RequireWorkspaceAccess = (
-  mode: 'viewer' | 'member' | 'ownerOrAdmin',
-) => SetMetadata('workspaceAccessMode', mode);
+export type WorkspaceAccessMode =
+  | 'read'
+  | 'viewer'
+  | 'write'
+  | 'member'
+  | 'ownerOrAdmin';
+
+export const RequireWorkspaceAccess = (mode: WorkspaceAccessMode) =>
+  SetMetadata('workspaceAccessMode', mode);
 
 @Injectable()
 export class RequireWorkspaceAccessGuard implements CanActivate {
@@ -143,22 +149,26 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     // Attach workspace role to request
     request.workspaceRole = wsRole;
 
-    // Check access based on mode
-    if (mode === 'viewer') {
-      // All roles can view (if not suspended)
-      return true;
-    }
+    // Check access based on mode.
+    // 'read' is an explicit alias for 'viewer' (any workspace member can read).
+    // 'write' is an explicit alias for 'member' (owner or member can write).
+    switch (mode) {
+      case 'read':
+      case 'viewer':
+        // Any workspace role (or admin) can read — if not suspended.
+        return true;
 
-    if (mode === 'member') {
-      // Workspace owner or member can access
-      return wsRole === 'workspace_owner' || wsRole === 'workspace_member';
-    }
+      case 'write':
+      case 'member':
+        // Workspace owner or member can mutate.
+        return wsRole === 'workspace_owner' || wsRole === 'workspace_member';
 
-    if (mode === 'ownerOrAdmin') {
-      // Workspace owner or org admin can access
-      return wsRole === 'workspace_owner' || isAdmin;
-    }
+      case 'ownerOrAdmin':
+        // Workspace owner or org admin only.
+        return wsRole === 'workspace_owner' || isAdmin;
 
-    throw new ForbiddenException('Insufficient workspace permissions');
+      default:
+        throw new ForbiddenException('Insufficient workspace permissions');
+    }
   }
 }

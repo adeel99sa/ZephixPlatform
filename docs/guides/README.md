@@ -9,6 +9,10 @@ This folder contains operational and development guides for the Zephix platform.
 - **DEPLOYMENT_GUIDE.md** - Railway deployment, CI/CD, environment configuration
 - **QA_TESTING_GUIDE.md** - Testing procedures, smoke tests, UAT checklists
 
+## Default Entry Point for New Work
+
+- **IMPLEMENTATION_CHANGE_TEMPLATE.md** - Required pre-implementation intake, lane ownership, gate checks, proof expectation, and rollback criteria
+
 ## Guidelines
 
 - Keep guides actionable and up-to-date

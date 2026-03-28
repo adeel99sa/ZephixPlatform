@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "packCode": "scrum_core",
+      "name": "Agile Scrum Core",
+      "description": "Sprint-focused delivery metrics for Scrum teams: velocity, throughput, WIP limits, and defect tracking.",
+      "kpiCount": 4
+    },
+    {
+      "packCode": "kanban_flow",
+      "name": "Kanban Flow",
+      "description": "Flow-based metrics for Kanban teams: cycle time, throughput, WIP, and risk awareness.",
+      "kpiCount": 4
+    },
+    {
+      "packCode": "waterfall_evm",
+      "name": "Waterfall Schedule & EV",
+      "description": "Earned value and financial tracking for waterfall/plan-driven projects.",
+      "kpiCount": 4
+    },
+    {
+      "packCode": "hybrid_core",
+      "name": "Hybrid Core",
+      "description": "Cross-method KPIs for hybrid projects: flow metrics, cost tracking, risk, and change management.",
+      "kpiCount": 5
+    }
+  ]
+}

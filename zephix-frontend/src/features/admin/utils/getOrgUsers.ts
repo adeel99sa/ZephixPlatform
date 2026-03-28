@@ -24,7 +24,7 @@ export async function getOrgUsers(): Promise<OrgUser[]> {
     const users = await listOrgUsers();
     // Filter out Guest users - only Admin and Member can be owners
     return users.filter((user: OrgUser) => {
-      const platformRole = normalizePlatformRole(user.role);
+      const platformRole = normalizePlatformRole(user.platformRole ?? user.role);
       return platformRole === 'ADMIN' || platformRole === 'MEMBER';
     });
   } catch (error) {

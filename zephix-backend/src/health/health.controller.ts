@@ -11,8 +11,15 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Response } from 'express';
 import { Logger } from '@nestjs/common';
-import { resolveCommitSha } from '../common/utils/commit-sha.resolver';
 import { DatabaseVerifyService } from '../modules/database/database-verify.service';
+import {
+  resolveBuildTime,
+  resolveCommitShaDetails,
+} from '../common/version/commit-sha';
+import {
+  isProductionRuntime,
+  isStagingRuntime,
+} from '../common/utils/runtime-env';
 
 // Define the health check interface
 interface HealthCheck {
@@ -134,28 +141,43 @@ export class HealthController {
   @Get(['version', 'api/version'])
   @ApiOperation({ summary: 'Version information endpoint' })
   @ApiResponse({ status: 200, description: 'Version information' })
-  async version() {
-    const commitShaResult = resolveCommitSha();
-    return {
-      data: {
-        version: process.env.npm_package_version || '0.0.1',
-        name: 'Zephix Backend',
-        environment: process.env.NODE_ENV || 'development',
-        nodeVersion: process.version,
-        commitSha: commitShaResult.commitSha,
-        commitShaTrusted: commitShaResult.commitShaTrusted,
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+  async version(@Res() res: Response) {
+    const resolvedCommit = resolveCommitShaDetails();
+    const commitSha = resolvedCommit.commitSha || 'unknown';
+    const commitShaTrusted = resolvedCommit.commitShaTrusted;
+    const { buildTime: resolvedBuildTime, railwayDeploymentId } =
+      resolveBuildTime();
+    const buildTime = resolvedBuildTime || 'unknown';
+    const zephixEnv = process.env.ZEPHIX_ENV || 'unknown';
+    const includeVersionDebug =
+      isStagingRuntime() && process.env.STAGING_VERSION_DEBUG === 'true';
+    const debugData = includeVersionDebug
+      ? { buildMetaLookupPaths: resolvedCommit.attemptedBuildMetaPaths }
+      : {};
+
+    return res
+      .setHeader('Cache-Control', 'no-store')
+      .setHeader('Pragma', 'no-cache')
+      .json({
+        // Canonical contract
+        data: {
+          commitSha,
+          commitShaTrusted,
+          buildTime,
+          zephixEnv,
+          nodeEnv: process.env.NODE_ENV || 'development',
+          railwayDeploymentId,
+          ...debugData,
         },
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      },
-    };
+        // Legacy aliases kept for backward compatibility
+        gitSha: commitSha,
+        commitSha,
+        commitShaTrusted,
+        buildTime,
+        zephixEnv,
+        nodeEnv: process.env.NODE_ENV || 'development',
+        railwayDeploymentId,
+      });
   }
 
   @Get(['live', 'api/health/live', 'health/live'])
@@ -182,11 +204,12 @@ export class HealthController {
     }
 
     const schema = await this.checkSchema();
-    // In production, do not block readiness on schema verify so deploys can go green.
-    // Schema is still checked and included in response for visibility; fix schema separately.
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Staging and production always block readiness on schema drift.
+    // A 200 from a drifted schema is a false signal — smoke lanes and Railway health
+    // gates depend on readiness meaning "schema is correct, service is safe to route to".
+    // To bypass (e.g. emergency hotfix): set READINESS_SKIP_SCHEMA_BLOCK=true in Railway vars.
     const blockOnSchema =
-      !isProduction || process.env.READINESS_REQUIRE_SCHEMA === 'true';
+      process.env.READINESS_SKIP_SCHEMA_BLOCK !== 'true';
 
     if (blockOnSchema && schema.status !== 'ok') {
       return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({

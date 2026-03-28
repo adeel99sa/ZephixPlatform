@@ -5,102 +5,77 @@ import {
   HttpException,
   HttpStatus,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { buildValidationError } from '../utils/build-validation-error';
+import { STATUS_TO_ERROR_CODE, ErrorCode } from '../errors/error-codes';
 
+/**
+ * Phase 3D: Global exception filter.
+ *
+ * Guarantees every error response has { code, message }.
+ * Propagates X-Request-Id from middleware.
+ * Logs structured context for every error (requestId, orgId, userId).
+ */
 @Catch()
 export class ApiErrorFilter implements ExceptionFilter {
+  private readonly logger = new Logger('ApiErrorFilter');
+
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    // Debug: Always log in E2E tests to see what's happening
-    const isE2E = process.env.E2E_DEBUG || process.env.NODE_ENV === 'test';
-    if (isE2E) {
-      console.log(
-        '[ApiErrorFilter] Exception type:',
-        exception?.constructor?.name,
-      );
-      console.log(
-        '[ApiErrorFilter] Is BadRequestException?',
-        exception instanceof BadRequestException,
-      );
-    }
+    const requestId = this.getRequestId(request);
 
     // Handle ValidationPipe errors specially
     if (exception instanceof BadRequestException) {
       const responseObj = exception.getResponse();
-
-      // Debug logging
-      if (isE2E) {
-        console.log(
-          '[ApiErrorFilter] BadRequestException response:',
-          JSON.stringify(responseObj, null, 2),
-        );
-      }
-
-      // Check if this is a ValidationPipe error (has message array or errors array)
       const hasMessageArray = Array.isArray((responseObj as any)?.message);
       const hasErrorsArray = Array.isArray((responseObj as any)?.errors);
-
-      if (isE2E) {
-        console.log(
-          '[ApiErrorFilter] hasMessageArray:',
-          hasMessageArray,
-          'hasErrorsArray:',
-          hasErrorsArray,
-        );
-      }
 
       if (
         typeof responseObj === 'object' &&
         responseObj !== null &&
         (hasMessageArray || hasErrorsArray)
       ) {
-        // Rebuild as standardized validation error
         const errorResponse = buildValidationError(exception);
-
-        if (isE2E) {
-          console.log(
-            '[ApiErrorFilter] Transformed error response:',
-            JSON.stringify(errorResponse, null, 2),
-          );
-        }
-
-        const requestId =
-          typeof request.id === 'string' ? request.id : 'unknown';
         response.setHeader('X-Request-Id', requestId);
         response.status(400).json(errorResponse);
+        this.logError(request, requestId, 400, ErrorCode.VALIDATION_ERROR, exception);
         return;
-      } else if (isE2E) {
-        console.log(
-          '[ApiErrorFilter] Condition not met, falling through to default handling',
-        );
       }
-    } else if (isE2E) {
-      console.log(
-        '[ApiErrorFilter] Not a BadRequestException, falling through to default handling',
-      );
     }
 
     const status = this.getStatus(exception);
     const message = this.getMessage(exception);
-    const details = this.getDetails(exception);
     const code = this.getCode(exception, status);
 
-    // Normalize all error responses to { code, message } at top level
-    // Keep requestId in headers for consistency
-    const errorResponse = {
+    const errorResponse: Record<string, any> = {
       code,
       message,
     };
 
-    // Add requestId as header instead of body
-    const requestId = typeof request.id === 'string' ? request.id : 'unknown';
+    // Include metadata from AppException (e.g. expiresAt, limitBytes)
+    if (exception instanceof HttpException) {
+      const resp = exception.getResponse();
+      if (typeof resp === 'object' && resp !== null) {
+        const { code: _c, message: _m, statusCode: _s, error: _e, ...rest } = resp as any;
+        if (Object.keys(rest).length > 0) {
+          Object.assign(errorResponse, rest);
+        }
+      }
+    }
+
     response.setHeader('X-Request-Id', requestId);
     response.status(status).json(errorResponse);
+
+    this.logError(request, requestId, status, code, exception);
+  }
+
+  private getRequestId(request: Request): string {
+    return (request as any).id || request.headers['x-request-id'] as string || 'unknown';
   }
 
   private getStatus(exception: any): number {
@@ -123,18 +98,6 @@ export class ApiErrorFilter implements ExceptionFilter {
     return exception.message || 'Internal Server Error';
   }
 
-  private getDetails(exception: any): any {
-    if (exception instanceof HttpException) {
-      const response = exception.getResponse();
-      if (typeof response === 'object' && response !== null) {
-        return (
-          (response as any).details || (response as any).errors || undefined
-        );
-      }
-    }
-    return undefined;
-  }
-
   private getCode(exception: any, status: number): string {
     // First, try to extract code from exception response object
     if (exception instanceof HttpException) {
@@ -147,34 +110,41 @@ export class ApiErrorFilter implements ExceptionFilter {
         return (response as any).code;
       }
     }
-    // Fall back to status code mapping
-    return this.mapCode(status);
+    // Fall back to canonical status-to-code mapping
+    return STATUS_TO_ERROR_CODE[status] || ErrorCode.INTERNAL_ERROR;
   }
 
-  private mapCode(status: number): string {
-    switch (status) {
-      case 400:
-        return 'VALIDATION_ERROR';
-      case 401:
-        return 'UNAUTHENTICATED';
-      case 403:
-        return 'UNAUTHORIZED';
-      case 404:
-        return 'NOT_FOUND';
-      case 409:
-        return 'CONFLICT';
-      case 422:
-        return 'UNPROCESSABLE_ENTITY';
-      case 429:
-        return 'RATE_LIMIT_EXCEEDED';
-      case 500:
-        return 'INTERNAL_ERROR';
-      case 502:
-        return 'BAD_GATEWAY';
-      case 503:
-        return 'SERVICE_UNAVAILABLE';
-      default:
-        return 'UNKNOWN_ERROR';
+  /**
+   * Structured error log with correlation context.
+   * Never logs secrets. Includes requestId, orgId, userId for SOC tracing.
+   */
+  private logError(
+    request: Request,
+    requestId: string,
+    status: number,
+    code: string,
+    exception: any,
+  ): void {
+    const user = (request as any).user;
+    const logContext = {
+      requestId,
+      method: request.method,
+      path: request.url,
+      status,
+      code,
+      organizationId: user?.organizationId || null,
+      userId: user?.id || null,
+      ip: request.ip || request.headers['x-forwarded-for'] || null,
+    };
+
+    if (status >= 500) {
+      this.logger.error({
+        ...logContext,
+        stack: exception?.stack?.split('\n').slice(0, 5).join('\n'),
+      });
+    } else if (status === 429) {
+      this.logger.warn(logContext);
     }
+    // 4xx errors below 429 are not logged by default to avoid noise
   }
 }

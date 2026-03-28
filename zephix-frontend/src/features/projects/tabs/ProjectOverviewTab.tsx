@@ -18,6 +18,11 @@ import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 import { ProjectLinkingSection } from '../components/ProjectLinkingSection';
 // Commit 5: KPI Panel
 import { ProjectKpiPanel } from '../components/ProjectKpiPanel';
+// C2: Budget & Cost Lite
+import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
+// Phase 2B: Waterfall core panels
+import { BaselinePanel } from '../components/BaselinePanel';
+import { EarnedValuePanel } from '../components/EarnedValuePanel';
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -50,6 +55,28 @@ interface ProjectOverview {
   nextActions: NeedsAttentionItem[];
 }
 
+function normalizeOverview(payload: unknown): ProjectOverview | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const raw = payload as Partial<ProjectOverview>;
+  return {
+    projectId: raw.projectId ?? '',
+    projectName: raw.projectName ?? '',
+    projectState: raw.projectState ?? 'DRAFT',
+    structureLocked: Boolean(raw.structureLocked),
+    startedAt: raw.startedAt ?? null,
+    deliveryOwnerUserId: raw.deliveryOwnerUserId ?? null,
+    dateRange: {
+      startDate: raw.dateRange?.startDate ?? null,
+      dueDate: raw.dateRange?.dueDate ?? null,
+    },
+    healthCode: raw.healthCode ?? 'HEALTHY',
+    healthLabel: raw.healthLabel ?? 'Healthy',
+    behindTargetDays: raw.behindTargetDays ?? null,
+    needsAttention: Array.isArray(raw.needsAttention) ? raw.needsAttention : [],
+    nextActions: Array.isArray(raw.nextActions) ? raw.nextActions : [],
+  };
+}
+
 const healthConfig: Record<string, { bg: string; text: string; icon: typeof CheckCircle }> = {
   HEALTHY: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle },
   AT_RISK: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: AlertCircle },
@@ -63,6 +90,8 @@ export const ProjectOverviewTab: React.FC = () => {
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
   const { isReadOnly, canWrite } = useWorkspaceRole(workspaceId);
   const { project, refresh: refreshProject } = useProjectContext();
+  // Keep panels feature-gated off until capability hook is restored.
+  const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
 
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +122,9 @@ export const ProjectOverviewTab: React.FC = () => {
       const response = await api.get(`/work/projects/${projectId}/overview`, {
         headers: { 'x-workspace-id': workspaceId },
       });
-      setOverview(response.data.data);
+      const payload = (response as any)?.data ?? response;
+      const data = (payload as any)?.data ?? payload;
+      setOverview(normalizeOverview(data));
     } catch (err: any) {
       console.error('Failed to load project overview:', err);
       setError(err.response?.data?.message || 'Failed to load project overview');
@@ -335,6 +366,27 @@ export const ProjectOverviewTab: React.FC = () => {
               </div>
             </dl>
           </div>
+
+          {/* Budget & Cost Panel */}
+          {projectId && <BudgetSummaryPanel projectId={projectId} />}
+
+          {/* Phase 2B: Baseline Panel */}
+          {projectId && project && (
+            <BaselinePanel
+              projectId={projectId}
+              baselinesEnabled={capabilities.baselinesEnabled}
+              workspaceRole={(project as any).workspaceRole}
+            />
+          )}
+
+          {/* Phase 2B: Earned Value Panel */}
+          {projectId && project && (
+            <EarnedValuePanel
+              projectId={projectId}
+              earnedValueEnabled={capabilities.earnedValueEnabled}
+              workspaceRole={(project as any).workspaceRole}
+            />
+          )}
 
           {/* KPI Panel */}
           {workspaceId && (

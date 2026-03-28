@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkTask } from './entities/work-task.entity';
 import { WorkPhase } from './entities/work-phase.entity';
@@ -13,6 +13,10 @@ import { Project } from '../projects/entities/project.entity';
 import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { ProjectsModule } from '../projects/projects.module';
+import { PoliciesModule } from '../policies/policies.module';
+import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
+// KpiQueueModule is @Global() — DomainEventEmitterService available without import
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -21,6 +25,7 @@ import { WorkTasksService } from './services/work-tasks.service';
 import { WorkPlanService } from './services/work-plan.service';
 import { ProjectStartService } from './services/project-start.service';
 import { ProjectStructureGuardService } from './services/project-structure-guard.service';
+import { WorkTaskStructuralGuardService } from './services/work-task-structural-guard.service';
 import { TaskDependenciesService } from './services/task-dependencies.service';
 import { TaskCommentsService } from './services/task-comments.service';
 import { TaskActivityService } from './services/task-activity.service';
@@ -36,9 +41,58 @@ import { WorkPhasesController } from './controllers/work-phases.controller';
 import { WorkRisksController } from './controllers/work-risks.controller';
 import { WorkResourceAllocationsController } from './controllers/work-resource-allocations.controller';
 import { WorkflowConfigController } from './controllers/workflow-config.controller';
+import { IterationsController } from './controllers/iterations.controller';
 import { ProjectWorkflowConfig } from './entities/project-workflow-config.entity';
 import { WorkflowConfigService } from './services/workflow-config.service';
 import { WipLimitsService } from './services/wip-limits.service';
+import { IterationsService } from './services/iterations.service';
+import { ProjectCostService } from './services/project-cost.service';
+import { ProjectCostController } from './controllers/project-cost.controller';
+import { Iteration } from './entities/iteration.entity';
+import { GateApprovalChainService } from './services/gate-approval-chain.service';
+import { GateApprovalEngineService } from './services/gate-approval-engine.service';
+import { GateApprovalChainController } from './controllers/gate-approval-chain.controller';
+import { GateApprovalActionController } from './controllers/gate-approval-action.controller';
+import { PhaseGateEvaluatorService } from './services/phase-gate-evaluator.service';
+// Sprint 10: Gate approval chain entities
+import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
+import { GateCycle } from './entities/gate-cycle.entity';
+import { GateCondition } from './entities/gate-condition.entity';
+import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
+import { PhaseGateSubmissionDocument } from './entities/phase-gate-submission-document.entity';
+import { GateApprovalChain } from './entities/gate-approval-chain.entity';
+import { GateApprovalChainStep } from './entities/gate-approval-chain-step.entity';
+import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
+import { ProjectGovernanceReport } from './entities/project-governance-report.entity';
+// Phase 2B: Waterfall core entities
+import { ScheduleBaseline } from './entities/schedule-baseline.entity';
+import { ScheduleBaselineItem } from './entities/schedule-baseline-item.entity';
+import { EarnedValueSnapshot } from './entities/earned-value-snapshot.entity';
+// Phase 2B: Waterfall core services
+import { CriticalPathEngineService } from './services/critical-path-engine.service';
+import { BaselineService } from './services/baseline.service';
+import { EarnedValueService } from './services/earned-value.service';
+import { ScheduleRescheduleService } from './services/schedule-reschedule.service';
+// Phase 2B: Waterfall core controllers
+import { ProjectScheduleController } from './controllers/project-schedule.controller';
+import { ScheduleBaselinesController } from './controllers/schedule-baselines.controller';
+import { EarnedValueController } from './controllers/earned-value.controller';
+// Phase 2C: Hardening controllers
+import { ProjectHealthController } from './controllers/project-health.controller';
+import { ScheduleIntegrityController } from './controllers/schedule-integrity.controller';
+// Phase 2E: Resource Capacity Engine
+import { WorkspaceMemberCapacity } from './entities/workspace-member-capacity.entity';
+import { CapacityCalendarService } from './services/capacity-calendar.service';
+import { DemandModelService } from './services/demand-model.service';
+import { CapacityAnalyticsService } from './services/capacity-analytics.service';
+import { CapacityLevelingService } from './services/capacity-leveling.service';
+import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
+import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
+import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
+import { ProjectGovernanceController } from './controllers/project-governance.controller';
+import { ProjectPhaseGateController } from './controllers/project-phase-gate.controller';
+import { ProjectGovernanceService } from './services/project-governance.service';
+import { User } from '../users/entities/user.entity';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -53,12 +107,34 @@ import { WipLimitsService } from './services/wip-limits.service';
       TaskActivity,
       AckToken,
       AuditEvent,
+      Iteration,
       Project,
       Program,
       WorkspaceMember,
       ProjectWorkflowConfig,
+      // Sprint 10: Gate entities
+      PhaseGateDefinition,
+      GateCycle,
+      GateCondition,
+      PhaseGateSubmission,
+      PhaseGateSubmissionDocument,
+      GateApprovalChain,
+      GateApprovalChainStep,
+      GateApprovalDecision,
+      ProjectGovernanceReport,
+      // Phase 2B: Waterfall entities
+      ScheduleBaseline,
+      ScheduleBaselineItem,
+      EarnedValueSnapshot,
+      // Phase 2E: Capacity calendar
+      WorkspaceMemberCapacity,
+      User,
     ]),
     WorkspaceAccessModule,
+    ProjectsModule,
+    PoliciesModule,
+    GovernanceRulesModule,
+    // KpiQueueModule is @Global(), no explicit import needed
     TenancyModule,
   ],
   controllers: [
@@ -68,6 +144,23 @@ import { WipLimitsService } from './services/wip-limits.service';
     WorkRisksController,
     WorkResourceAllocationsController,
     WorkflowConfigController,
+    GateApprovalChainController,
+    GateApprovalActionController,
+    IterationsController,
+    ProjectCostController,
+    // Phase 2B: Waterfall controllers
+    ProjectScheduleController,
+    ScheduleBaselinesController,
+    EarnedValueController,
+    // Phase 2C: Hardening controllers
+    ProjectHealthController,
+    ScheduleIntegrityController,
+    // Phase 2E: Capacity controllers
+    CapacityCalendarController,
+    CapacityAnalyticsController,
+    CapacityLevelingController,
+    ProjectGovernanceController,
+    ProjectPhaseGateController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -82,6 +175,7 @@ import { WipLimitsService } from './services/wip-limits.service';
     WorkPlanService,
     ProjectStartService,
     ProjectStructureGuardService,
+    WorkTaskStructuralGuardService,
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
@@ -93,6 +187,22 @@ import { WipLimitsService } from './services/wip-limits.service';
     WorkResourceAllocationsService,
     WorkflowConfigService,
     WipLimitsService,
+    GateApprovalChainService,
+    GateApprovalEngineService,
+    PhaseGateEvaluatorService,
+    IterationsService,
+    ProjectCostService,
+    // Phase 2B: Waterfall services
+    CriticalPathEngineService,
+    BaselineService,
+    EarnedValueService,
+    ScheduleRescheduleService,
+    // Phase 2E: Capacity services
+    CapacityCalendarService,
+    DemandModelService,
+    CapacityAnalyticsService,
+    CapacityLevelingService,
+    ProjectGovernanceService,
   ],
   exports: [
     TypeOrmModule,
@@ -100,6 +210,7 @@ import { WipLimitsService } from './services/wip-limits.service';
     WorkPlanService,
     ProjectStartService,
     ProjectStructureGuardService,
+    WorkTaskStructuralGuardService,
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
@@ -108,6 +219,22 @@ import { WipLimitsService } from './services/wip-limits.service';
     WorkRisksService,
     WorkResourceAllocationsService,
     WorkflowConfigService,
+    GateApprovalChainService,
+    GateApprovalEngineService,
+    PhaseGateEvaluatorService,
+    IterationsService,
+    ProjectCostService,
+    // Phase 2B exports
+    CriticalPathEngineService,
+    BaselineService,
+    EarnedValueService,
+    ScheduleRescheduleService,
+    // Phase 2E exports
+    CapacityCalendarService,
+    DemandModelService,
+    CapacityAnalyticsService,
+    CapacityLevelingService,
+    ProjectGovernanceService,
   ],
 })
 export class WorkManagementModule {}

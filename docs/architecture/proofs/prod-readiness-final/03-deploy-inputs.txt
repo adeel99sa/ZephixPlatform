@@ -1,0 +1,35 @@
+=== Deploy Prerequisites Check (REMEDIATED) ===
+original_date_utc: 2026-03-06T19:48:20Z
+remediation_date_utc: 2026-03-06T21:00:00Z
+
+=== Railway CLI auth ===
+PASS: Logged in as adeel99sa@yahoo.com
+
+=== Database variable (authoritative deploy variable) ===
+DATABASE_PUBLIC_URL_FROM_POSTGRES_SERVICE_PRESENT=yes
+note: deploy-staging.sh uses DATABASE_URL for local migration run.
+  deploy-staging.sh expects internal DATABASE_URL (postgres.railway.internal) which is
+  only accessible inside Railway's VPC — not reachable from local machine.
+  Authoritative replacement: DATABASE_PUBLIC_URL from Postgres Railway service.
+  Fetch (no value logged): railway variables --service Postgres --environment staging --kv
+  then export DATABASE_URL=<DATABASE_PUBLIC_URL value>
+  Original 03-deploy-inputs.txt showed DATABASE_URL_PRESENT=no because only the internal
+  URL was checked as a shell env var. This is a check-design gap, not an actual blocker.
+  Actual deploy executed successfully using DATABASE_PUBLIC_URL (0 pending migrations confirmed).
+
+=== STAGING_SMOKE_KEY ===
+STAGING_SMOKE_KEY_IN_ENV_FILE=yes
+ENV_FILE=PRESENT
+
+=== STAGING_BACKEND_BASE from env ===
+STAGING_BACKEND_BASE=https://zephix-backend-staging-staging.up.railway.app
+
+=== Scripts ===
+DEPLOY_SCRIPT=PRESENT
+MIGRATION_SCRIPT=PRESENT
+
+=== GATE SUMMARY ===
+PASS: Railway CLI authenticated
+PASS: DATABASE_PUBLIC_URL available from Postgres service (authoritative deploy DB variable)
+PASS: STAGING_SMOKE_KEY available in env file
+PASS: All scripts present

@@ -1,0 +1,25 @@
+-- Query: work_tasks_by_project_status_rank
+-- Description: Board column query — tasks by project + status ordered by rank
+-- Expected Index: idx_work_tasks_board_column (project_id, status, rank) WHERE deleted_at IS NULL
+-- Seed: 300, Scale: 1
+-- Planning Time: 1.083ms
+-- Execution Time: 0.186ms
+-- Rows: 28
+Limit  (cost=110.90..110.97 rows=28 width=24) (actual time=0.153..0.160 rows=30 loops=1)
+  Buffers: shared read=6
+  ->  Sort  (cost=110.90..110.97 rows=28 width=24) (actual time=0.152..0.155 rows=30 loops=1)
+        Sort Key: rank
+        Sort Method: quicksort  Memory: 27kB
+        Buffers: shared read=6
+        ->  Bitmap Heap Scan on work_tasks  (cost=4.70..110.23 rows=28 width=24) (actual time=0.089..0.134 rows=30 loops=1)
+              Recheck Cond: ((project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid) AND (status = 'IN_PROGRESS'::work_tasks_status_enum) AND (deleted_at IS NULL))
+              Filter: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)
+              Heap Blocks: exact=2
+              Buffers: shared read=6
+              ->  Bitmap Index Scan on idx_work_tasks_board_column  (cost=0.00..4.70 rows=28 width=0) (actual time=0.069..0.069 rows=30 loops=1)
+                    Index Cond: ((project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid) AND (status = 'IN_PROGRESS'::work_tasks_status_enum))
+                    Buffers: shared read=4
+Planning:
+  Buffers: shared hit=43 read=24
+Planning Time: 1.083 ms
+Execution Time: 0.186 ms

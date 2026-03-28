@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { AuditService } from '../../../shared/services/audit.service';
+import { normalizePlatformRole, PlatformRole } from '../../../common/auth/platform-roles';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -11,7 +12,9 @@ export class AdminGuard implements CanActivate {
 
     if (!user) return false;
 
-    const isAdmin = user.role === 'admin' || user.role === 'owner';
+    // Resolve using platformRole (org-context) with fallback to legacy role field.
+    const normalizedRole = normalizePlatformRole(user.platformRole ?? user.role);
+    const isAdmin = normalizedRole === PlatformRole.ADMIN;
 
     if (!isAdmin) {
       // Log unauthorized attempt

@@ -45,6 +45,10 @@ export class WorkTaskDependency {
   })
   type: DependencyType;
 
+  /** Phase 2B: Lag in minutes. Positive = delay, negative = lead. Range: -43200..43200 */
+  @Column({ type: 'integer', name: 'lag_minutes', default: 0 })
+  lagMinutes: number;
+
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;
 

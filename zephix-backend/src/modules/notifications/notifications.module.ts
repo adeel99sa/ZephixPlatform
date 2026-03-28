@@ -9,6 +9,7 @@ import { UserSettings } from '../users/entities/user-settings.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { EmailService } from '../../shared/services/email.service';
 import { NotificationPreferencesService } from '../users/services/notification-preferences.service';
+import { ActivityNotificationProjectorService } from './services/activity-notification-projector.service';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { NotificationPreferencesService } from '../users/services/notification-p
     NotificationDispatchService,
     EmailService,
     NotificationPreferencesService, // PHASE 7.4.3: Fix missing dependency
+    ActivityNotificationProjectorService,
   ],
-  exports: [NotificationsService, NotificationDispatchService],
+  exports: [NotificationsService, NotificationDispatchService, ActivityNotificationProjectorService],
 })
 export class NotificationsModule {}

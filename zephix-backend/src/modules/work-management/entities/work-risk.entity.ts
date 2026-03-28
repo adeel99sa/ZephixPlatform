@@ -21,6 +21,7 @@ export enum RiskStatus {
   OPEN = 'OPEN',
   MITIGATED = 'MITIGATED',
   ACCEPTED = 'ACCEPTED',
+  CLOSED = 'CLOSED',
 }
 
 @Entity('work_risks')
@@ -28,6 +29,8 @@ export enum RiskStatus {
 @Index(['workspaceId'])
 @Index(['projectId'])
 @Index(['workspaceId', 'projectId', 'updatedAt'])
+@Index('IDX_work_risks_exposure', ['projectId', 'exposure'])
+@Index('IDX_work_risks_status_filter', ['workspaceId', 'projectId', 'status'])
 export class WorkRisk {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -61,11 +64,32 @@ export class WorkRisk {
   })
   status: RiskStatus;
 
+  @Column({ type: 'integer', default: 3 })
+  probability: number;
+
+  @Column({ type: 'integer', default: 3 })
+  impact: number;
+
+  /** Computed column: probability * impact. Read-only in TypeORM. */
+  @Column({
+    type: 'integer',
+    insert: false,
+    update: false,
+    nullable: true,
+  })
+  exposure: number;
+
+  @Column({ type: 'text', name: 'mitigation_plan', nullable: true })
+  mitigationPlan: string | null;
+
   @Column({ type: 'uuid', name: 'owner_user_id', nullable: true })
   ownerUserId: string | null;
 
   @Column({ type: 'date', name: 'due_date', nullable: true })
   dueDate: Date | null;
+
+  @Column({ type: 'uuid', name: 'created_by', nullable: true })
+  createdBy: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

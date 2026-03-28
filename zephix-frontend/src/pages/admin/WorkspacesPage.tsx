@@ -24,7 +24,7 @@ export default function WorkspacesPage() {
     <div>
       <h1 className="text-xl font-semibold mb-3">Workspaces</h1>
       <ul className="space-y-2">
-        {items.map(w => (
+        {items.map((w: Ws) => (
           <li key={w.id} className="border rounded p-3 flex items-center justify-between">
             <div>
               <div className="font-medium">{w.name}</div>

@@ -1,0 +1,33 @@
+{
+  "seed": 300,
+  "scale": 1,
+  "orgSlug": "scale-seed",
+  "createdAt": "2026-02-14T06:52:38.832Z",
+  "version": "5a.3",
+  "counts": {
+    "organizations": 1,
+    "users": 500,
+    "user_organizations": 500,
+    "workspaces": 50,
+    "workspace_members": 2200,
+    "projects": 1000,
+    "work_tasks": 100000,
+    "work_task_dependencies": 148000,
+    "schedule_baselines": 200,
+    "schedule_baseline_items": 20000,
+    "earned_value_snapshots": 2400,
+    "workspace_member_capacity": 45000,
+    "attachments": 50000,
+    "audit_events": 2000000
+  },
+  "runtimeMs": 322357,
+  "skippedTables": [],
+  "detectedSchemaHash": "b9bd6c471dd6e627",
+  "requiredIndexesPresent": [
+    "audit_events(organization_id,created_at)",
+    "work_tasks(project_id,status,rank)",
+    "work_task_dependencies(organization_id,project_id)",
+    "projects(organization_id,created_at)"
+  ],
+  "missingIndexes": []
+}

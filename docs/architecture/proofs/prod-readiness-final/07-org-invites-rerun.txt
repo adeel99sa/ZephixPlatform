@@ -1,0 +1,38 @@
+=== Org Invites Smoke Lane Rerun ===
+date_utc: 2026-03-06T20:22:55Z
+run_id: 20260306T202250Z
+staging_backend: https://zephix-backend-staging-staging.up.railway.app
+railwayDeploymentId: b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
+commitSha: 3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+commitShaTrusted: true
+
+--- Steps (14/14 contract steps) ---
+01 health_ready:                200
+02 version:                     200 (commitSha=3d5432c4, trusted=true)
+03 csrf:                        200
+04 smoke_login (admin):         204
+05 auth_me (admin):             200
+06 workspace_create:            201
+07 invite_create:               200
+08 invitee_register:            200
+09 invitee_csrf:                200
+10 invitee_smoke_login:         204
+11 invite_token_read:           200 (token redacted in proof)
+11b negative_auth_check:        400 (admin-accept rejected, expected non-200 — PASS)
+11c invalid_token_check:        400 (garbage token rejected — PASS)
+12 invite_accept:               200
+13 invitee_auth_me:             200
+14 invitee_workspaces_list:     200
+
+--- Result ---
+PASS: 14/14 contract steps
+first_failure: none
+
+--- Deployment trust anchor ---
+PASS: railwayDeploymentId = b58379d4-3cb9-4a4c-bf0e-3c9d861fb82d
+PASS: commitShaTrusted = true
+
+--- Token artifact guard ---
+PASS: no token leaks in proof artifacts
+
+Full proof bundle: docs/architecture/proofs/staging/org-invites-latest/ (gitignored, ephemeral)

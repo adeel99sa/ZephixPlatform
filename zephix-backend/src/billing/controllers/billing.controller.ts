@@ -23,6 +23,9 @@ import { CreateSubscriptionDto } from '../dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from '../dto/update-subscription.dto';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
+import { EntitlementService } from '../../modules/billing/entitlements/entitlement.service';
+import { PLAN_ENTITLEMENTS } from '../../modules/billing/entitlements/entitlement.registry';
+import { PlanCode } from '../../modules/billing/entitlements/plan-code.enum';
 
 @ApiTags('Billing')
 @ApiBearerAuth()
@@ -34,6 +37,7 @@ export class BillingController {
   constructor(
     private readonly plansService: PlansService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly entitlementService: EntitlementService,
   ) {}
 
   @Get('plans')
@@ -262,5 +266,85 @@ export class BillingController {
         },
       };
     }
+  }
+
+  // ── Phase 3A: Plan visibility endpoint ────────────────────────────
+
+  @Get('org-plan')
+  @ApiOperation({ summary: 'Get organization plan, limits, and usage' })
+  @ApiResponse({ status: 200, description: 'Plan info retrieved' })
+  async getOrgPlan(@Request() req: AuthRequest) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const planCode = await this.entitlementService.getPlanCode(organizationId);
+      const entitlements = await this.entitlementService.resolve(organizationId);
+
+      return {
+        data: {
+          planCode,
+          limits: {
+            max_projects: entitlements.max_projects,
+            max_portfolios: entitlements.max_portfolios,
+            max_scenarios: entitlements.max_scenarios,
+            max_storage_bytes: entitlements.max_storage_bytes,
+          },
+          features: {
+            capacity_engine: entitlements.capacity_engine,
+            what_if_scenarios: entitlements.what_if_scenarios,
+            portfolio_rollups: entitlements.portfolio_rollups,
+            attachments: entitlements.attachments,
+            board_view: entitlements.board_view,
+          },
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to get org plan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        data: {
+          planCode: PlanCode.FREE,
+          limits: PLAN_ENTITLEMENTS[PlanCode.FREE],
+          features: {},
+        },
+      };
+    }
+  }
+
+  // ── Phase 3A: Stripe readiness stubs ──────────────────────────────
+
+  @Post('checkout-session')
+  @ApiOperation({ summary: 'Create Stripe checkout session (stub)' })
+  @ApiResponse({ status: 501, description: 'Not yet implemented' })
+  async createCheckoutSession(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    this.logger.log({ context: 'CHECKOUT_SESSION_STUB', organizationId });
+    throw new NotImplementedException({
+      code: 'STRIPE_NOT_CONFIGURED',
+      message: 'Stripe checkout is not yet configured. Contact sales for plan changes.',
+    });
+  }
+
+  @Post('webhook')
+  @ApiOperation({ summary: 'Stripe webhook endpoint (stub)' })
+  @ApiResponse({ status: 501, description: 'Not yet implemented' })
+  async stripeWebhook(@Request() req: AuthRequest) {
+    this.logger.log({ context: 'STRIPE_WEBHOOK_STUB' });
+    throw new NotImplementedException({
+      code: 'STRIPE_NOT_CONFIGURED',
+      message: 'Stripe webhook processing is not yet configured.',
+    });
+  }
+
+  @Post('portal')
+  @ApiOperation({ summary: 'Create Stripe billing portal session (stub)' })
+  @ApiResponse({ status: 501, description: 'Not yet implemented' })
+  async createPortalSession(@Request() req: AuthRequest) {
+    const { organizationId } = getAuthContext(req);
+    this.logger.log({ context: 'PORTAL_SESSION_STUB', organizationId });
+    throw new NotImplementedException({
+      code: 'STRIPE_NOT_CONFIGURED',
+      message: 'Billing portal is not yet configured. Contact sales for plan management.',
+    });
   }
 }

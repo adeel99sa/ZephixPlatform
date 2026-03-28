@@ -1,0 +1,19 @@
+Backlog Smoke Sprint — RC24 Baseline
+=====================================
+Tag:              v0.6.0-rc.24
+Captured at:      2026-02-17T15:58:46Z
+Staging base URL: https://zephix-backend-v2-staging.up.railway.app/api
+Migration count:  135
+Latest migration: AddProjectGovernanceSource17980254000000
+Git SHA:          (not set)
+DB host:          postgres.railway.internal
+DB identifier:    7539754227597242404
+Node version:     v20.18.1
+Health status:    ok (db: ok, schema: ok)
+Memory usage:     91% (77/85 MB)
+
+Notes:
+- Wave 9 migrations (17980255000000-CreateGovernanceRulesTables) NOT applied
+- Wave 10 migrations (17980260000000-CreateKpiSnapshotTables) NOT applied
+- Table 'roles' missing (non-critical, does not block smoke)
+- 142 foreign key constraints present

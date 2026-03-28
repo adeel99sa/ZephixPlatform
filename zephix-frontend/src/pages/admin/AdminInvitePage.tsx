@@ -92,7 +92,7 @@ export default function AdminInvitePage() {
       // Handle results
       if (response?.data?.results) {
         setResults(response.data.results);
-        const allSuccess = response.data.results.every(r => r.status === 'success');
+        const allSuccess = response.data.results.every((r: { status: 'success' | 'error' }) => r.status === 'success');
         setSuccess(allSuccess);
         if (allSuccess) {
           setEmails([]);

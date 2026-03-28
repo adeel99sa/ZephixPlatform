@@ -44,6 +44,28 @@ interface ProjectOverview {
   nextActions: NeedsAttentionItem[];
 }
 
+function normalizeOverview(payload: unknown): ProjectOverview | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const raw = payload as Partial<ProjectOverview>;
+  return {
+    projectId: raw.projectId ?? '',
+    projectName: raw.projectName ?? '',
+    projectState: raw.projectState ?? 'DRAFT',
+    structureLocked: Boolean(raw.structureLocked),
+    startedAt: raw.startedAt ?? null,
+    deliveryOwnerUserId: raw.deliveryOwnerUserId ?? null,
+    dateRange: {
+      startDate: raw.dateRange?.startDate ?? null,
+      dueDate: raw.dateRange?.dueDate ?? null,
+    },
+    healthCode: raw.healthCode ?? 'HEALTHY',
+    healthLabel: raw.healthLabel ?? 'Healthy',
+    behindTargetDays: raw.behindTargetDays ?? null,
+    needsAttention: Array.isArray(raw.needsAttention) ? raw.needsAttention : [],
+    nextActions: Array.isArray(raw.nextActions) ? raw.nextActions : [],
+  };
+}
+
 const healthColors: Record<string, string> = {
   HEALTHY: 'bg-green-100 text-green-800',
   AT_RISK: 'bg-yellow-100 text-yellow-800',
@@ -101,7 +123,9 @@ export const ProjectOverviewPage: React.FC = () => {
           'x-workspace-id': workspaceId,
         },
       });
-      setOverview(response.data.data);
+      const payload = (response as any)?.data ?? response;
+      const unwrapped = (payload as any)?.data ?? payload;
+      setOverview(normalizeOverview(unwrapped));
     } catch (err: any) {
       console.error('Failed to load project overview:', err);
       setError(err.response?.data?.message || 'Failed to load project overview');
@@ -117,8 +141,11 @@ export const ProjectOverviewPage: React.FC = () => {
       const response = await apiClient.get<{ data: { projects: any[] } }>(
         `/projects?workspaceId=${workspaceId}`
       );
-      const responseData = response as unknown as { data?: { projects?: any[] } };
-      const projects = responseData?.data?.projects || [];
+      const payload = (response as any)?.data ?? response;
+      const unwrapped = (payload as any)?.data ?? payload;
+      const projects = Array.isArray((unwrapped as { projects?: any[] })?.projects)
+        ? (unwrapped as { projects: any[] }).projects
+        : [];
       const currentProject = Array.isArray(projects)
         ? projects.find(p => p.id === projectId)
         : null;

@@ -21,8 +21,7 @@ export class DemoRequestController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  // Rate limiting is already applied globally via ThrottlerGuard in app.module.ts
-  // @UseGuards(RateLimiterGuard)
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Submit demo request' })
   @ApiResponse({
     status: 201,

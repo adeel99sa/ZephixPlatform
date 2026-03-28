@@ -43,6 +43,7 @@ export function normalizePlatformRole(role: string | undefined | null): Platform
   const legacyMapping: Record<string, PlatformRole> = {
     'owner': 'ADMIN',
     'admin': 'ADMIN',
+    'manager': 'MEMBER',
     'pm': 'MEMBER',
     'project_manager': 'MEMBER',
     'member': 'MEMBER',
@@ -51,6 +52,19 @@ export function normalizePlatformRole(role: string | undefined | null): Platform
   };
 
   return legacyMapping[role.toLowerCase()] || 'VIEWER';
+}
+
+/**
+ * Resolve the canonical PlatformRole for a user object.
+ * Prefers platformRole, falls back to role, then authStoreRole.
+ * Always returns a normalized PlatformRole — never an unsafe cast.
+ */
+export function platformRoleFromUser(
+  user: { platformRole?: string | null; role?: string | null } | null | undefined,
+  authStoreRole?: string | null,
+): PlatformRole {
+  const raw = user?.platformRole ?? user?.role ?? authStoreRole;
+  return normalizePlatformRole(raw);
 }
 
 /**

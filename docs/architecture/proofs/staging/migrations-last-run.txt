@@ -1,0 +1,61 @@
+# Staging migration proof — written by scripts/migrations/run-staging.sh
+date_utc:    2026-03-06T20:19:06Z
+commit_sha:  3d5432c403ebd7a5b3a34b8b4003ad4a018f6fe2
+zephix_env:  staging
+db_host:     interchange.proxy.rlwy.net
+db_name:     railway
+
+applied_in_this_run:
+  (none detected in output)
+
+migration_show_after:
+  🔍 Migration DataSource Config: {
+    host: 'interchange.proxy.rlwy.net',
+    port: '53277',
+    database: 'railway',
+    username: 'postgres',
+    url: 'postgresql://postgres:****@interchange.proxy.rlwy.net:53277/railway'
+  }
+  [X] 1 InitCoreSchema1000000000000
+  [X] 2 ProductionBaseline20251756696874831
+  [X] 3 EnsureProjectsTableExists1757000000000
+  [X] 4 AddProjectPhases1757227595839
+  [X] 5 CreateResourceManagementSystem1757227595840
+  [X] 6 CreateAuditAndIndexes1757227595841
+  [X] 7 AddTaskManagementSystem1757254542149
+  [X] 8 CreateUsersTable1757255630596
+  [X] 9 FixUsersTableSchema1757255630597
+  [X] 10 EnsureSnakeCaseColumns1757255630598
+  [X] 11 FixTaskUserReferences1757255642228
+  [X] 12 FixAuthMvp1757826448476
+  [X] 13 CreateWorkspacesTable1761436371432
+  [X] 14 AddSoftDeletedAtColumn1761437995601
+  [X] 15 AddWorkspaceIdToProjects1762000000000
+  [X] 16 CreateWorkItemsTable1762100000000
+  [X] 17 EnsureDemoUser1762200000000
+  [X] 18 ProtectDemoUsers1762200000001
+  [X] 19 CreateProjectTemplateTable1763000000000
+  [X] 20 UpdateProjectTemplateColumns1763000000001
+  [X] 21 AddIsActiveToProjectTemplates1764000000000
+  [X] 22 CreateBillingTables1764000000001
+  [X] 23 AddOwnerIdToWorkspaces1765000000001
+  [X] 24 CreateWorkspaceMembers1765000000002
+  [X] 25 MakeProjectWorkspaceIdRequired1765000000003
+  [X] 26 AddAdminRoleToWorkspaceMembers1765000000004
+  [X] 27 AddPermissionsConfigToWorkspaces1765000000005
+  [X] 28 AddRiskAndKpiPresetsToTemplates1765000000007
+  [X] 29 UpdateWorkspaceMemberRoles1765000000008
+  [X] 30 CreatePhase8AnalyticsTables1766000000001
+  [X] 31 CreateSignalsAndRagTables1766000000002
+  [X] 32 CreateTeamsTables1767000000001
+  [X] 33 CreateResourceDailyLoadTable1767000000002
+  [X] 34 AddResourceIntelligenceFields1767000000003
+  [X] 35 FixWorkspacesDeletedAt1767159662041
+  [X] 36 AddConflictLifecycleFields1767376476696
+  [X] 37 Phase4PortfoliosPrograms1767485030157
+  [X] 38 Phase4DashboardStudio1767550031000
+  [X] 39 AddDashboardSharing1767590539000
+  [X] 40 Phase5WorkManagementCore1767637754000
+  [X] 41 AddWorkPhaseAndPhaseIdToTasks1767752663000
+  [X] 42 AddProjectStateAndStructureLocking1767753000000
+  [X] 43 AddProjectHealthFields1767767013714

@@ -1,0 +1,14 @@
+{
+  "command": "ladder",
+  "seed": 300,
+  "completedScales": [
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1
+  ],
+  "failedScales": [],
+  "skippedScales": [],
+  "completedAt": "2026-02-14T06:53:09.124Z"
+}

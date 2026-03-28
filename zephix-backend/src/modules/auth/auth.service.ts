@@ -8,9 +8,13 @@
  */
 import {
   Injectable,
+  Inject,
+  Logger,
+  Optional,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,9 +32,19 @@ import {
   normalizePlatformRole,
 } from '../../shared/enums/platform-roles.enum';
 import { TokenHashUtil } from '../../common/security/token-hash.util';
+import { createHash } from 'crypto';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditAction, AuditEntityType } from '../audit/audit.constants';
+import {
+  shouldBypassEmailVerificationForEmail,
+} from './services/staging-email-verification-bypass';
+import { AUTH_RATE_LIMIT_STORE } from './tokens';
+import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -44,6 +58,11 @@ export class AuthService {
     private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
+    @Optional()
+    @Inject(AUTH_RATE_LIMIT_STORE)
+    private readonly rateLimitStore: AuthRateLimitStore | null,
+    @Optional()
+    private readonly auditService?: AuditService,
   ) {}
 
   async signup(signupDto: SignupDto) {
@@ -146,28 +165,103 @@ export class AuthService {
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
     const { email, password } = loginDto;
+    const emailHash = createHash('sha256')
+      .update(email.toLowerCase().trim())
+      .digest('hex')
+      .slice(0, 16);
 
-    // Find user with organization
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
     });
 
     if (!user) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check password
-    console.log(`[DEBUG] Comparing password for ${email}`);
-    console.log(
-      `[DEBUG] Stored hash: ${user.password ? user.password.substring(0, 20) + '...' : 'null'}`,
-    );
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log(`[DEBUG] Password valid: ${isPasswordValid}`);
     if (!isPasswordValid) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Update last login
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  async smokeLogin(email: string, ip?: string, userAgent?: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex')
+      .slice(0, 16);
+
+    if (!shouldBypassEmailVerificationForEmail(normalizedEmail)) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Smoke login requires staging bypass allowlist and enabled skip flag.',
+        email: normalizedEmail,
+      });
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+    if (!user) {
+      await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    await this.ensureEmailVerificationAllowed(user);
+    return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  private async ensureEmailVerificationAllowed(user: User): Promise<void> {
+    const bypassVerification = shouldBypassEmailVerificationForEmail(user.email);
+    if (bypassVerification && !user.isEmailVerified) {
+      const verifiedAt = new Date();
+      await this.userRepository.update(user.id, {
+        isEmailVerified: true,
+        emailVerifiedAt: verifiedAt,
+      });
+      user.isEmailVerified = true;
+      user.emailVerifiedAt = verifiedAt;
+
+      if (this.auditService && user.organizationId) {
+        await this.auditService.record({
+          organizationId: user.organizationId,
+          actorUserId: user.id,
+          actorPlatformRole: user.role || 'ADMIN',
+          entityType: AuditEntityType.EMAIL_VERIFICATION,
+          entityId: user.id,
+          action: AuditAction.EMAIL_VERIFICATION_BYPASSED,
+          metadata: {
+            source: 'staging_email_bypass',
+            trigger: 'login',
+            reason: 'staging_bypass',
+            allowlistedDomain: true,
+            emailDomain: user.email.split('@').pop()?.toLowerCase() || '',
+          },
+        });
+      }
+    }
+
+    if (!bypassVerification && !user.isEmailVerified && !user.emailVerifiedAt) {
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address before logging in. Check your inbox for the verification link.',
+        email: user.email,
+      });
+    }
+  }
+
+  private async createLoginResult(
+    user: User,
+    emailHash: string,
+    ip?: string,
+    userAgent?: string,
+  ) {
     await this.userRepository.update(user.id, {
       lastLoginAt: new Date(),
     });
@@ -244,14 +338,17 @@ export class AuthService {
       }
     }
 
+    // Optional store: no-op store means auth remains allowed if not configured.
+    await this.rateLimitStore?.hit(`auth:success:${emailHash}`, 60, 1_000_000);
+
     return {
       user: userResponse,
       accessToken,
       refreshToken,
-      sessionId: savedSession.id, // Feature 2B: Return sessionId
+      sessionId: savedSession.id,
       organizationId: user.organizationId,
-      defaultWorkspaceSlug, // Default workspace slug for redirect
-      expiresIn: 900, // 15 minutes in seconds
+      defaultWorkspaceSlug,
+      expiresIn: 900,
     };
   }
 
@@ -299,10 +396,12 @@ export class AuthService {
         ? process.env.JWT_EXPIRES_IN || '7d' // 7 days for dev testing
         : process.env.JWT_EXPIRES_IN || '15m'; // 15 minutes for production
 
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET || 'fallback-secret-key',
-      expiresIn,
-    });
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is not set. Cannot sign tokens.');
+    }
+
+    return this.jwtService.sign(payload, { secret, expiresIn });
   }
 
   private async generateRefreshToken(
@@ -334,10 +433,12 @@ export class AuthService {
       sid: sessionId, // Session ID for binding
     };
 
-    return this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-      expiresIn: '7d',
-    });
+    const refreshSecret = process.env.JWT_REFRESH_SECRET;
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET environment variable is not set. Cannot sign refresh tokens.');
+    }
+
+    return this.jwtService.sign(payload, { secret: refreshSecret, expiresIn: '7d' });
   }
 
   sanitizeUser(user: User) {
@@ -391,13 +492,11 @@ export class AuthService {
     // For now, no platform super admin - can be added later if needed
     const isPlatformSuperAdmin = false;
 
-    // Debug logging in development
     if (process.env.NODE_ENV === 'development') {
       console.log('[buildUserResponse] admin check:', {
-        email: user.email,
-        orgRoleFromUserOrg,
+        userId: user.id,
+        orgRole: orgRoleFromUserOrg,
         isOrgAdmin,
-        isPlatformSuperAdmin,
         finalIsAdmin: isOrgAdmin || isPlatformSuperAdmin,
       });
     }
@@ -476,7 +575,7 @@ export class AuthService {
     try {
       // Decode the refresh token to get user ID and sessionId
       const decoded = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+        secret: process.env.JWT_REFRESH_SECRET,
       });
       const user = await this.getUserById(decoded.sub);
 
@@ -566,12 +665,11 @@ export class AuthService {
     if (!targetSessionId && refreshToken) {
       try {
         const decoded = this.jwtService.verify(refreshToken, {
-          secret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+          secret: process.env.JWT_REFRESH_SECRET,
         });
         targetSessionId = decoded.sid;
       } catch (error) {
-        // Invalid token - can't extract sessionId
-        console.log(`User ${userId} logged out (invalid refresh token)`);
+        this.logger.warn('Logout with invalid refresh token', { userId });
       }
     }
 
@@ -587,8 +685,7 @@ export class AuthService {
         await this.authSessionRepository.save(session);
       }
     } else {
-      // If no sessionId, log for audit but don't fail
-      console.log(`User ${userId} logged out (no sessionId provided)`);
+      this.logger.warn('Logout without sessionId', { userId });
     }
 
     return;

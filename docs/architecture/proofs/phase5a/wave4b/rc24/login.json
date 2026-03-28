@@ -1,0 +1,47 @@
+{
+    "user": {
+        "id": "8406d901-4bc5-453a-be8f-684afdb0b281",
+        "email": "demo@zephix.ai",
+        "firstName": "Demo",
+        "lastName": "User",
+        "isActive": true,
+        "createdAt": "2026-02-15T00:06:37.808Z",
+        "updatedAt": "2026-02-17T18:05:39.031Z",
+        "isEmailVerified": true,
+        "emailVerifiedAt": "2026-02-15T00:06:37.808Z",
+        "role": "ADMIN",
+        "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+        "profilePicture": null,
+        "lastLoginAt": "2026-02-17T18:05:39.026Z",
+        "failedLoginAttempts": 0,
+        "lockedUntil": null,
+        "twoFactorEnabled": false,
+        "twoFactorSecret": null,
+        "emailVerificationToken": null,
+        "passwordResetToken": null,
+        "lastPasswordChange": "2026-02-15T00:06:37.808Z",
+        "emailVerificationExpires": null,
+        "passwordResetExpires": null,
+        "platformRole": "ADMIN",
+        "permissions": {
+            "isAdmin": true,
+            "canManageUsers": true,
+            "canViewProjects": true,
+            "canManageResources": true,
+            "canViewAnalytics": true
+        },
+        "emailVerified": true,
+        "organization": {
+            "id": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+            "name": "Zephix Demo",
+            "slug": "demo",
+            "features": {}
+        }
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NDA2ZDkwMS00YmM1LTQ1M2EtYmU4Zi02ODRhZmRiMGIyODEiLCJlbWFpbCI6ImRlbW9AemVwaGl4LmFpIiwib3JnYW5pemF0aW9uSWQiOiI2YmE0MWI2My01YzJiLTRkYzctOGI3YS0xMzhkNmQwMzMyMGMiLCJyb2xlIjoiYWRtaW4iLCJwbGF0Zm9ybVJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTM1MTU2MCwiZXhwIjoxNzcxMzUyNDYwfQ.CTkKvadTPYBEdb3lOePRBGFzr9exD3Fmu_uLXWhA-Vw",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NDA2ZDkwMS00YmM1LTQ1M2EtYmU4Zi02ODRhZmRiMGIyODEiLCJlbWFpbCI6ImRlbW9AemVwaGl4LmFpIiwib3JnYW5pemF0aW9uSWQiOiI2YmE0MWI2My01YzJiLTRkYzctOGI3YS0xMzhkNmQwMzMyMGMiLCJyb2xlIjoiYWRtaW4iLCJwbGF0Zm9ybVJvbGUiOiJBRE1JTiIsInNpZCI6ImRjNWQ1M2M1LTMxMTQtNDFlNy1iOWE3LTYwY2QxOWNhZGJhOSIsImlhdCI6MTc3MTM1MTU2MCwiZXhwIjoxNzcxOTU2MzYwfQ.30Z27J7GmCAb9bptgSAe3deoOqFem3iiA8XK_ryX6XA",
+    "sessionId": "dc5d53c5-3114-41e7-b9a7-60cd19cadba9",
+    "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+    "defaultWorkspaceSlug": "e2e-ws-1771174121",
+    "expiresIn": 900
+}

@@ -26,11 +26,28 @@ import { AdminService } from './admin.service';
 import { OrganizationsService } from '../organizations/services/organizations.service';
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
+import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { CreateTeamDto } from '../modules/teams/dto/create-team.dto';
 import { UpdateTeamDto } from '../modules/teams/dto/update-team.dto';
 import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
 import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
+import { AuditService } from '../modules/audit/services/audit.service';
+import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
+
+type AdminUserRow = {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  isActive?: boolean | null;
+  organizationId?: string | null;
+  lastActive?: string | Date | null;
+  joinedAt?: string | Date | null;
+  lastLoginAt?: string | Date | null;
+  createdAt?: string | Date | null;
+};
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -44,6 +61,8 @@ export class AdminController {
     private readonly organizationsService: OrganizationsService,
     private readonly workspacesService: WorkspacesService,
     private readonly teamsService: TeamsService,
+    private readonly attachmentsService: AttachmentsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // Helper to map frontend visibility to backend enum
@@ -299,6 +318,41 @@ export class AdminController {
     }
   }
 
+  @Get('audit')
+  @ApiOperation({ summary: 'Get recent admin audit events' })
+  @ApiResponse({
+    status: 200,
+    description: 'Admin audit events retrieved successfully',
+  })
+  async getAudit(
+    @Request() req: AuthRequest,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('action') action?: string,
+    @Query('userId') userId?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(limit || '50', 10) || 50));
+    const { organizationId } = getAuthContext(req);
+
+    const result = await this.auditService.query({
+      organizationId,
+      action,
+      actorUserId: userId,
+      page: pageNum,
+      pageSize,
+    });
+
+    return {
+      data: result.items.map(toAuditEventDto),
+      meta: {
+        page: pageNum,
+        limit: pageSize,
+        total: result.total,
+      },
+    };
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'Get paginated users for admin management' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -328,7 +382,7 @@ export class AdminController {
       // Apply role and status filters client-side for now
       let filteredUsers = result.users;
       if (_role && _role !== 'all') {
-        filteredUsers = filteredUsers.filter((u: any) => u.role === _role);
+        filteredUsers = filteredUsers.filter((u: AdminUserRow) => u.role === _role);
       }
       if (_status && _status !== 'all') {
         // Map status based on isActive or other criteria
@@ -339,8 +393,8 @@ export class AdminController {
       const totalPages = Math.ceil(result.total / limitNum);
 
       return {
-        users: filteredUsers.map((u: any) => ({
-          id: u.id,
+        users: filteredUsers.map((u: AdminUserRow) => ({
+          id: String(u.id),
           email: u.email,
           firstName: u.firstName || '',
           lastName: u.lastName || '',
@@ -394,7 +448,7 @@ export class AdminController {
         organizationId,
         { limit: 1000, offset: 0 },
       );
-      const user = result.users.find((u: any) => u.id === userId);
+      const user = result.users.find((u: AdminUserRow) => u.id === userId);
       if (!user) {
         throw new InternalServerErrorException('User not found');
       }
@@ -1048,5 +1102,19 @@ export class AdminController {
       }
       throw new InternalServerErrorException('Failed to delete team');
     }
+  }
+
+  // ==================== Phase 3C: Attachment Retention Purge ====================
+
+  @Post('attachments/purge-expired')
+  @ApiOperation({ summary: 'Purge expired attachments (retention job)' })
+  @ApiResponse({ status: 200, description: 'Expired attachments purged' })
+  async purgeExpiredAttachments(
+    @Request() _req: AuthRequest,
+    @Body() body?: { limit?: number },
+  ) {
+    const limit = body?.limit ? Math.min(body.limit, 1000) : 500;
+    const result = await this.attachmentsService.purgeExpired(limit);
+    return { data: result };
   }
 }

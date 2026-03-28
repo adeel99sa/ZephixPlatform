@@ -1,0 +1,25 @@
+-- Query: work_tasks_by_project_list_default
+-- Description: Project task list default — all tasks for a project ordered by rank
+-- Expected Index: idx_work_tasks_stats_project or idx_work_tasks_board_column
+-- Seed: 300, Scale: 1
+-- Planning Time: 0.411ms
+-- Execution Time: 0.202ms
+-- Rows: 92
+Limit  (cost=335.93..336.16 rows=92 width=39) (actual time=0.147..0.165 rows=100 loops=1)
+  Buffers: shared hit=2 read=5
+  ->  Sort  (cost=335.93..336.16 rows=92 width=39) (actual time=0.146..0.153 rows=100 loops=1)
+        Sort Key: rank
+        Sort Method: quicksort  Memory: 32kB
+        Buffers: shared hit=2 read=5
+        ->  Bitmap Heap Scan on work_tasks  (cost=5.01..332.93 rows=92 width=39) (actual time=0.056..0.107 rows=100 loops=1)
+              Recheck Cond: (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid)
+              Filter: ((deleted_at IS NULL) AND (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid))
+              Heap Blocks: exact=5
+              Buffers: shared hit=2 read=5
+              ->  Bitmap Index Scan on "IDX_work_tasks_project_id"  (cost=0.00..4.99 rows=93 width=0) (actual time=0.036..0.037 rows=100 loops=1)
+                    Index Cond: (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid)
+                    Buffers: shared read=2
+Planning:
+  Buffers: shared hit=8
+Planning Time: 0.411 ms
+Execution Time: 0.202 ms

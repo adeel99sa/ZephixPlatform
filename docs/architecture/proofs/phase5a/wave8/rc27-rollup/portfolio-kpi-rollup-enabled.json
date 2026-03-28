@@ -1,0 +1,86 @@
+{
+    "data": {
+        "portfolioId": "34a6ba7a-2596-43ba-b9d5-f14d3245571c",
+        "asOfDate": "2026-02-17",
+        "engineVersion": "1.0.0",
+        "inputHash": "5192b00b11dcb778",
+        "computed": [
+            {
+                "kpiCode": "open_risk_count",
+                "kpiName": "Open Risk Count (Portfolio Sum)",
+                "value": 0,
+                "unit": "count",
+                "status": "OK",
+                "valueJson": {
+                    "count": 0,
+                    "engineVersion": "1.0.0",
+                    "scope": "PORTFOLIO"
+                }
+            },
+            {
+                "kpiCode": "throughput",
+                "kpiName": "Throughput (Portfolio Sum)",
+                "value": null,
+                "unit": "count",
+                "status": "NO_DATA",
+                "valueJson": {
+                    "projectsWithThroughput": 0,
+                    "engineVersion": "1.0.0",
+                    "scope": "PORTFOLIO"
+                }
+            },
+            {
+                "kpiCode": "wip",
+                "kpiName": "Work In Progress (Portfolio Sum)",
+                "value": null,
+                "unit": "count",
+                "status": "NO_DATA",
+                "valueJson": {
+                    "projectsWithWip": 0,
+                    "engineVersion": "1.0.0",
+                    "scope": "PORTFOLIO"
+                }
+            }
+        ],
+        "skipped": [
+            {
+                "kpiCode": "budget_burn",
+                "kpiName": "Budget Burn Rate (Portfolio Ratio)",
+                "reason": "GOVERNANCE_FLAG_DISABLED",
+                "governanceFlag": "costTrackingEnabled"
+            },
+            {
+                "kpiCode": "change_request_approval_rate",
+                "kpiName": "Change Request Approval Rate (Portfolio Weighted)",
+                "reason": "GOVERNANCE_FLAG_DISABLED",
+                "governanceFlag": "changeManagementEnabled"
+            },
+            {
+                "kpiCode": "forecast_at_completion",
+                "kpiName": "Forecast at Completion (Portfolio Sum)",
+                "reason": "GOVERNANCE_FLAG_DISABLED",
+                "governanceFlag": "costTrackingEnabled"
+            },
+            {
+                "kpiCode": "schedule_variance",
+                "kpiName": "Schedule Variance (Portfolio Sum)",
+                "reason": "GOVERNANCE_FLAG_DISABLED",
+                "governanceFlag": "baselinesEnabled"
+            },
+            {
+                "kpiCode": "spi",
+                "kpiName": "Schedule Performance Index (Portfolio Weighted)",
+                "reason": "GOVERNANCE_FLAG_DISABLED",
+                "governanceFlag": "baselinesEnabled"
+            }
+        ],
+        "sources": {
+            "projectCount": 0,
+            "projectsWithKpis": 0,
+            "budgetsFound": 0
+        }
+    },
+    "meta": {
+        "timestamp": "2026-02-17T21:44:57.540Z"
+    }
+}

@@ -1,0 +1,4 @@
+{
+  "code": "INTERNAL_ERROR",
+  "message": "duplicate key value violates unique constraint \"idx_templates_org_name\""
+}

@@ -27,8 +27,11 @@ import { UpdatePortfolioDto } from '../dto/update-portfolio.dto';
 import { AddProjectsToPortfolioDto } from '../dto/add-projects-to-portfolio.dto';
 import { RemoveProjectsFromPortfolioDto } from '../dto/remove-projects-from-portfolio.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
+import { EntitlementService } from '../../billing/entitlements/entitlement.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
 import { Inject } from '@nestjs/common';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 
 @Injectable()
 export class PortfoliosService {
@@ -50,6 +53,8 @@ export class PortfoliosService {
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
     private readonly tenantContext: TenantContextService,
+    private readonly entitlementService: EntitlementService,
+    private readonly auditService: AuditService,
   ) {}
 
   // PHASE 6: Workspace-scoped create
@@ -59,6 +64,10 @@ export class PortfoliosService {
     workspaceId: string,
     userId: string,
   ): Promise<Portfolio> {
+    // Phase 3A: Enforce portfolio count quota
+    const currentCount = await this.portfolioRepository.count({ where: { organizationId } });
+    await this.entitlementService.assertWithinLimit(organizationId, 'max_portfolios', currentCount);
+
     const portfolio = this.portfolioRepository.create({
       ...createDto,
       organizationId,
@@ -170,6 +179,7 @@ export class PortfoliosService {
     portfolioId: string,
     dto: AddProjectsToPortfolioDto,
     organizationId: string,
+    actor?: { userId: string; platformRole: string },
   ): Promise<void> {
     const portfolio = await this.getByIdLegacy(portfolioId, organizationId);
 
@@ -199,6 +209,22 @@ export class PortfoliosService {
           portfolioId,
           projectId,
         });
+
+        // Phase 3B: Audit attach
+        if (actor) {
+          await this.auditService.record({
+            organizationId,
+            actorUserId: actor.userId,
+            actorPlatformRole: actor.platformRole,
+            entityType: AuditEntityType.PORTFOLIO,
+            entityId: portfolioId,
+            action: AuditAction.ATTACH,
+            metadata: {
+              projectId,
+              source: AuditSource.PORTFOLIO,
+            },
+          });
+        }
       }
     }
   }
@@ -208,6 +234,7 @@ export class PortfoliosService {
     portfolioId: string,
     dto: RemoveProjectsFromPortfolioDto,
     organizationId: string,
+    actor?: { userId: string; platformRole: string },
   ): Promise<void> {
     await this.getByIdLegacy(portfolioId, organizationId);
 
@@ -215,6 +242,24 @@ export class PortfoliosService {
       portfolioId,
       projectId: In(dto.projectIds),
     });
+
+    // Phase 3B: Audit detach
+    if (actor) {
+      for (const projectId of dto.projectIds) {
+        await this.auditService.record({
+          organizationId,
+          actorUserId: actor.userId,
+          actorPlatformRole: actor.platformRole,
+          entityType: AuditEntityType.PORTFOLIO,
+          entityId: portfolioId,
+          action: AuditAction.DETACH,
+          metadata: {
+            projectId,
+            source: AuditSource.PORTFOLIO,
+          },
+        });
+      }
+    }
   }
 
   async getPortfolioSummary(

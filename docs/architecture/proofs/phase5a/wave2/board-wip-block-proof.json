@@ -1,0 +1,55 @@
+{
+    "data": {
+        "id": "f2a91669-144b-4f22-a287-a68248bc6155",
+        "organizationId": "7e4f2933-78e1-4a90-894a-b1ad26e94f08",
+        "workspaceId": "4aaece5d-9819-41f4-a924-a90ac65eeb7e",
+        "projectId": "19fdcea4-cfac-412f-844b-3422762ca984",
+        "parentTaskId": null,
+        "phaseId": "6c4722ea-43a9-42f7-a482-cc06debd5623",
+        "title": "Wave2 Task 1: Design",
+        "description": "Design the smoke test flow",
+        "status": "DONE",
+        "type": "TASK",
+        "priority": "MEDIUM",
+        "assigneeUserId": null,
+        "reporterUserId": null,
+        "startDate": null,
+        "dueDate": "2026-03-01",
+        "completedAt": "2026-02-15T15:22:07.548Z",
+        "plannedStartAt": null,
+        "plannedEndAt": null,
+        "actualStartAt": null,
+        "actualEndAt": null,
+        "percentComplete": 0,
+        "isMilestone": false,
+        "constraintType": "asap",
+        "constraintDate": null,
+        "wbsCode": null,
+        "estimatePoints": null,
+        "estimateHours": "8.00",
+        "remainingHours": null,
+        "actualHours": null,
+        "iterationId": null,
+        "committed": false,
+        "rank": null,
+        "tags": null,
+        "metadata": null,
+        "acceptanceCriteria": [
+            {
+                "done": false,
+                "text": "UI mockup approved"
+            },
+            {
+                "done": false,
+                "text": "Responsive design verified"
+            }
+        ],
+        "createdAt": "2026-02-15T15:20:20.292Z",
+        "updatedAt": "2026-02-15T15:22:07.555Z",
+        "deletedAt": null,
+        "deletedByUserId": null
+    },
+    "meta": {
+        "timestamp": "2026-02-15T15:22:07.621Z"
+    }
+}

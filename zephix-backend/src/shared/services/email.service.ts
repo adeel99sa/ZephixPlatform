@@ -43,18 +43,11 @@ export class EmailService {
     from?: string;
   }): Promise<void> {
     if (!this.isConfigured) {
-      console.log('Email not sent (no SendGrid key):', options.subject);
+      bootLog(`Email not sent (no SendGrid key): subject="${options.subject}"`);
       return;
     }
 
-    // Debug what we received
-    console.log('SendEmail called with:', {
-      to: options.to,
-      subject: options.subject,
-      hasHtml: !!options.html,
-      htmlLength: options.html?.length || 0,
-      first100Chars: options.html?.substring(0, 100),
-    });
+    bootLog(`SendEmail: subject="${options.subject}" hasHtml=${!!options.html}`);
 
     // Ensure we have content
     const htmlContent =
@@ -80,9 +73,10 @@ export class EmailService {
 
     try {
       await sgMail.send(msg);
-      console.log('Email sent successfully to:', options.to);
+      bootLog(`Email sent: subject="${options.subject}"`);
     } catch (error: any) {
-      console.error('SendGrid error:', error?.response?.body || error);
+      const statusCode = error?.code || error?.response?.statusCode || 'unknown';
+      console.error(`SendGrid error: status=${statusCode} message=${error?.message || 'unknown'}`);
       throw new Error('Failed to send email');
     }
   }

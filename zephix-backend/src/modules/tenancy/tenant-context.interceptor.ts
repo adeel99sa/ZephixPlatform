@@ -34,6 +34,7 @@ import { extractValidUuid } from '../../common/utils/uuid-validator.util';
 export class TenantContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(TenantContextInterceptor.name);
   private readonly tenancyBypassPaths = ['/api/health', '/api/version'];
+  private readonly workspaceHeaderValidationBypassPaths = ['/api/workspaces'];
 
   constructor(
     private readonly tenantContextService: TenantContextService,
@@ -98,10 +99,16 @@ export class TenantContextInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    // Rule 2: Extract workspaceId from header, route param, or query param
-    // Only validate if we have a valid UUID workspaceId
+    // Rule 2: Extract workspaceId from header, route param, or query param.
+    // For bootstrap endpoints like GET /api/workspaces, ignore workspace header
+    // so a stale client workspace context cannot block login bootstrap.
     let workspaceId: string | undefined;
-    const extractedWorkspaceId = this.extractWorkspaceId(request);
+    const shouldBypassWorkspaceValidation =
+      request.method === 'GET' &&
+      this.workspaceHeaderValidationBypassPaths.includes(request.path);
+    const extractedWorkspaceId = shouldBypassWorkspaceValidation
+      ? undefined
+      : this.extractWorkspaceId(request);
 
     if (extractedWorkspaceId) {
       // Validate workspace belongs to organization

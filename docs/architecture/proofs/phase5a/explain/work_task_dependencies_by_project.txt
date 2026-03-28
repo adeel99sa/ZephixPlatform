@@ -1,0 +1,14 @@
+-- Query: work_task_dependencies_by_project
+-- Description: Dependencies for a project — Gantt view input
+-- Expected Index: idx_work_task_deps_org_project (organization_id, project_id)
+-- Seed: 300, Scale: 1
+-- Planning Time: 0.478ms
+-- Execution Time: 0.11ms
+-- Rows: 146
+Index Scan using idx_work_task_deps_org_project on work_task_dependencies  (cost=0.42..264.48 rows=146 width=52) (actual time=0.052..0.089 rows=148 loops=1)
+  Index Cond: ((organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid) AND (project_id = '42be1400-851b-58a5-a0f1-9dd0f3cd57d0'::uuid))
+  Buffers: shared read=7
+Planning:
+  Buffers: shared hit=22 read=11
+Planning Time: 0.478 ms
+Execution Time: 0.110 ms

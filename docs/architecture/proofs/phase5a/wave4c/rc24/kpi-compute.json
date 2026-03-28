@@ -1,0 +1,68 @@
+{
+  "data": {
+    "computed": [
+      {
+        "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+        "projectId": "00be9909-7adb-4a89-af09-762b625c30bf",
+        "kpiDefinitionId": "d0cea077-4303-4868-b39d-03a543f95dfe",
+        "asOfDate": "2026-02-17",
+        "valueNumeric": null,
+        "valueText": null,
+        "valueJson": {
+          "reason": "no_eligible_tasks",
+          "engineVersion": "1.0.0",
+          "inputHash": "4f53cda18c2baa0c"
+        },
+        "sampleSize": 0,
+        "computedAt": "2026-02-17T19:52:50.122Z",
+        "id": "99365775-5a74-4e6f-882c-4aa2355d28a3"
+      },
+      {
+        "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+        "projectId": "00be9909-7adb-4a89-af09-762b625c30bf",
+        "kpiDefinitionId": "654e1a62-d260-42fa-aa2d-2f020c46172b",
+        "asOfDate": "2026-02-17",
+        "valueNumeric": "0",
+        "valueText": null,
+        "valueJson": {
+          "statusFilter": "OPEN",
+          "engineVersion": "1.0.0",
+          "inputHash": "618de7d9f46f3f69"
+        },
+        "sampleSize": 1,
+        "computedAt": "2026-02-17T19:52:50.103Z",
+        "id": "83b83dc2-27b6-4d39-b751-359054da1072"
+      },
+      {
+        "workspaceId": "dfbc9223-2846-48ff-bda1-c2afc1e6e6f9",
+        "projectId": "00be9909-7adb-4a89-af09-762b625c30bf",
+        "kpiDefinitionId": "e5d94f4e-86a1-4362-9670-d4f1d91836e1",
+        "asOfDate": "2026-02-17",
+        "valueNumeric": "0",
+        "valueText": null,
+        "valueJson": {
+          "statusFilter": "IN_PROGRESS",
+          "engineVersion": "1.0.0",
+          "inputHash": "4f53cda18c2baa0c"
+        },
+        "sampleSize": 0,
+        "computedAt": "2026-02-17T19:52:50.138Z",
+        "id": "ff95fa26-6af9-4a3e-b297-612cd070ccbe"
+      }
+    ],
+    "skipped": [
+      {
+        "kpiCode": "change_request_approval_rate",
+        "kpiName": "Change Request Approval Rate",
+        "reason": "GOVERNANCE_FLAG_DISABLED",
+        "governanceFlag": "changeManagementEnabled"
+      },
+      {
+        "kpiCode": "change_request_cycle_time",
+        "kpiName": "Change Request Cycle Time",
+        "reason": "GOVERNANCE_FLAG_DISABLED",
+        "governanceFlag": "changeManagementEnabled"
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ import { UserOrganization } from '../organizations/entities/user-organization.en
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { WorkspacesModule } from '../modules/workspaces/workspaces.module';
 import { TeamsModule } from '../modules/teams/teams.module';
+import { AttachmentsModule } from '../modules/attachments/attachments.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TeamsModule } from '../modules/teams/teams.module';
     OrganizationsModule,
     WorkspacesModule,
     TeamsModule,
+    AttachmentsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

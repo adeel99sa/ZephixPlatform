@@ -1,0 +1,16 @@
+-- Query: projects_by_workspace_created_desc
+-- Description: Projects list by workspace — workspace home page
+-- Expected Index: idx_projects_org_created_at (organization_id, created_at DESC)
+-- Seed: 300, Scale: 1
+-- Planning Time: 0.249ms
+-- Execution Time: 0.102ms
+-- Rows: 50
+Limit  (cost=0.28..12.12 rows=50 width=46) (actual time=0.038..0.087 rows=50 loops=1)
+  Buffers: shared hit=1 read=8
+  ->  Index Scan using idx_projects_org_created_at on projects  (cost=0.28..237.09 rows=1000 width=46) (actual time=0.037..0.081 rows=50 loops=1)
+        Index Cond: (organization_id = '687b84e6-ca45-5c70-858e-dcf70dba06db'::uuid)
+        Buffers: shared hit=1 read=8
+Planning:
+  Buffers: shared hit=16
+Planning Time: 0.249 ms
+Execution Time: 0.102 ms

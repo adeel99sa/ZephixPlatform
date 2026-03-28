@@ -48,11 +48,33 @@ export enum WorkspaceVisibility {
  * - These provide granular permissions that Linear and Monday don't have
  */
 export type WorkspaceRole =
-  | 'workspace_owner' // Internal: Workspace Owner access
+  | 'workspace_owner'  // Legacy DB value — use workspace_admin in new code
+  | 'workspace_admin'  // Canonical alias for workspace_owner (DB still stores workspace_owner)
   | 'workspace_member' // Internal: Workspace Member access
   | 'workspace_viewer' // Internal: Workspace Viewer access
-  | 'delivery_owner' // Project-scoped: DO NOT MIGRATE - remains project-level
-  | 'stakeholder'; // Project-scoped: DO NOT MIGRATE - remains project-level
+  | 'delivery_owner'   // Project-scoped: DO NOT MIGRATE - remains project-level
+  | 'stakeholder';     // Project-scoped: DO NOT MIGRATE - remains project-level
+
+/**
+ * Normalize a raw workspace role string.
+ * Maps the legacy DB value workspace_owner → canonical workspace_admin.
+ * All other values are returned unchanged.
+ * Backward compatibility: workspace_owner is still accepted everywhere.
+ */
+export function normalizeWorkspaceRole(
+  role: string | null | undefined,
+): WorkspaceRole | null {
+  if (!role) return null;
+  if (role === 'workspace_owner') return 'workspace_admin';
+  const valid: WorkspaceRole[] = [
+    'workspace_admin',
+    'workspace_member',
+    'workspace_viewer',
+    'delivery_owner',
+    'stakeholder',
+  ];
+  return valid.includes(role as WorkspaceRole) ? (role as WorkspaceRole) : null;
+}
 
 @Entity('workspaces')
 export class Workspace {
@@ -110,6 +132,43 @@ export class Workspace {
     nullable: true,
   })
   defaultMethodology?: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 120,
+    name: 'business_unit_label',
+    nullable: true,
+  })
+  businessUnitLabel?: string | null;
+
+  @Column({ name: 'default_template_id', type: 'uuid', nullable: true })
+  defaultTemplateId?: string | null;
+
+  @Column({
+    name: 'inherit_org_default_template',
+    type: 'boolean',
+    default: true,
+  })
+  inheritOrgDefaultTemplate!: boolean;
+
+  @Column({
+    name: 'governance_inheritance_mode',
+    type: 'varchar',
+    length: 32,
+    default: 'ORG_DEFAULT',
+  })
+  governanceInheritanceMode!: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+
+  @Column({
+    name: 'allowed_template_ids',
+    type: 'uuid',
+    array: true,
+    nullable: true,
+  })
+  allowedTemplateIds?: string[] | null;
+
+  @Column({ name: 'workspace_group_id', type: 'uuid', nullable: true })
+  workspaceGroupId?: string | null;
 
   // PHASE 5.1: Workspace notes for Workspace Home page
   // Stores workspace context, rules, links, expectations

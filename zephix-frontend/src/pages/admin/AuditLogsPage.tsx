@@ -6,7 +6,22 @@ type Log = { id: string; at: string; actor: string; action: string; entityType: 
 export default function AuditLogsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin','audit-logs'],
-    queryFn: async () => (await apiClient.get('/admin/audit-logs?limit=50')).data as Log[],
+    queryFn: async () => {
+      const response = await apiClient.get('/admin/audit', { params: { limit: 50 } });
+      const payload = (response as any)?.data ?? response;
+      const body = (payload as any)?.data ?? payload;
+      const items = (body as any)?.items ?? body ?? [];
+      const rows = Array.isArray(items) ? items : [];
+      return rows.map((row: any) => ({
+        id: String(row?.id ?? ''),
+        at: String(row?.createdAt ?? new Date().toISOString()),
+        actor: String(row?.actorUserId ?? 'system'),
+        action: String(row?.action ?? 'unknown'),
+        entityType: String(row?.entityType ?? 'unknown'),
+        entityId: String(row?.entityId ?? ''),
+        meta: row?.metadataJson && typeof row.metadataJson === 'object' ? row.metadataJson : undefined,
+      })) as Log[];
+    },
   });
 
   if (isLoading) return <div>Loading logs…</div>;

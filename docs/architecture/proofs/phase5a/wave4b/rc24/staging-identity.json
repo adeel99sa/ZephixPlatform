@@ -1,0 +1,15 @@
+{
+  "zephixEnv": "staging",
+  "nodeEnv": "staging",
+  "dbHost": "postgres.railway.internal",
+  "dbIdentity": {
+    "serverAddr": "fd12:c270:ca54:0:a000:32:4d:7c",
+    "serverPort": 5432,
+    "systemIdentifier": "7539754227597242404"
+  },
+  "migrationCount": 136,
+  "latestMigration": "BackfillKpiDefinitionsRollupMethod18000000000011",
+  "gitSha": "(not set)",
+  "startedAt": "2026-02-17T17:25:50.892Z",
+  "timestamp": "2026-02-17T19:29:31.102Z"
+}

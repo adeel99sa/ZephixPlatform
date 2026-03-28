@@ -5,6 +5,8 @@ import {
   Brain, Link, Database, Scale, Bell, BarChart3,
   HeadphonesIcon, ChevronDown, Settings, LayoutDashboard, ArrowLeft
 } from 'lucide-react';
+import { useAuth } from '@/state/AuthContext';
+import { isPlatformAdmin } from '@/utils/access';
 
 /**
  * ADMIN NAVIGATION ROUTE MAPPING
@@ -25,6 +27,8 @@ import {
  * | All Projects             | /admin/projects        | /admin/projects         | ✅ Working  |
  * | Trash                    | /admin/trash           | /admin/trash            | ✅ Working  |
  *
+ * | Org Command Center       | /org-dashboard         | /org-dashboard          | ✅ Working  |
+ *
  * Hidden/Deprecated Routes (not in nav but still exist):
  * - /admin/org → AdminOrganizationPage (stub, not in nav)
  * - /admin/roles → AdminRolesPage (stub, not in nav)
@@ -34,50 +38,80 @@ import {
  * - /admin/overview → AdminOverviewPage (alternative dashboard)
  */
 
-// MVP Navigation - Only show implemented routes
+/**
+ * Phase 2A: Admin IA grouping
+ * Groups: Organization, Governance, Workspaces & Projects
+ * Billing visible only when functional (route exists).
+ * Stub pages (Security, Audit, Roles) hidden from nav.
+ */
+/**
+ * Org Command Center nav item — gated by isPlatformAdmin.
+ * Defined separately so it can be included conditionally.
+ */
+const orgCommandCenterItem = {
+  id: 'org-command-center',
+  label: 'Org Command Center',
+  icon: BarChart3,
+  path: '/org-dashboard',
+  badge: null,
+};
+
+/** Base admin nav items visible to all admin users */
 const adminNavigation = [
   {
     id: 'dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
     path: '/admin',
-    badge: null
+    badge: null,
   },
   {
     id: 'organization',
     label: 'Organization',
     icon: Building2,
     children: [
-      { path: '/admin/users', label: 'Users & Teams' },
+      { path: '/admin/users', label: 'Users' },
       { path: '/admin/teams', label: 'Teams' },
       { path: '/admin/usage', label: 'Usage & Limits' },
-      { path: '/admin/billing', label: 'Billing & Plans' }
-    ]
+      { path: '/admin/billing', label: 'Billing & Plans' },
+    ],
   },
   {
-    id: 'templates',
-    label: 'Templates',
-    icon: FileText,
+    id: 'governance',
+    label: 'Governance',
+    icon: Scale,
     children: [
-      { path: '/admin/templates', label: 'Project Templates' },
+      { path: '/admin/templates', label: 'Templates' },
       { path: '/admin/templates/builder', label: 'Template Builder' },
-      { path: '/admin/templates/custom-fields', label: 'Custom Fields' }
-    ]
+      { path: '/admin/templates/custom-fields', label: 'Custom Fields' },
+    ],
   },
   {
     id: 'workspaces',
     label: 'Workspaces & Projects',
-    icon: LayoutDashboard,
+    icon: Database,
     children: [
       { path: '/admin/workspaces', label: 'All Workspaces' },
       { path: '/admin/projects', label: 'All Projects' },
-      { path: '/admin/trash', label: 'Trash' }
-    ]
-  }
+      { path: '/admin/trash', label: 'Trash' },
+    ],
+  },
 ];
+
+/** Build the navigation items list. Org Command Center only for platform admins. */
+export function buildAdminNavItems(user: any): typeof adminNavigation {
+  if (isPlatformAdmin(user)) {
+    // Insert Org Command Center right after Dashboard
+    const [dashboard, ...rest] = adminNavigation;
+    return [dashboard, orgCommandCenterItem, ...rest];
+  }
+  return adminNavigation;
+}
 
 export function AdminLayout() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const navItems = React.useMemo(() => buildAdminNavItems(user), [user]);
   const [expandedSections, setExpandedSections] = React.useState<Set<string>>(new Set());
 
   const toggleSection = (sectionId: string) => {
@@ -182,7 +216,7 @@ export function AdminLayout() {
         </div>
 
         <nav className="p-4 flex-1 overflow-y-auto">
-          {adminNavigation.map(renderNavigationItem)}
+          {navItems.map(renderNavigationItem)}
         </nav>
       </aside>
 

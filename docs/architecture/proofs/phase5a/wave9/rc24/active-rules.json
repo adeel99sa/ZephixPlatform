@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "0f28cac4-c15f-46f2-b985-065678903337",
+      "ruleSetId": "974060fb-eaba-4a6e-8965-225ec458fdd2",
+      "code": "SMOKE_TASK_DONE_REQUIRES_ASSIGNEE",
+      "activeRuleId": "8cd8d314-7409-4993-97ac-19cf1e18f204",
+      "activeRule": {
+        "id": "8cd8d314-7409-4993-97ac-19cf1e18f204",
+        "ruleSetId": "974060fb-eaba-4a6e-8965-225ec458fdd2",
+        "code": "SMOKE_TASK_DONE_REQUIRES_ASSIGNEE",
+        "version": 1,
+        "isActive": true,
+        "ruleDefinition": {
+          "when": {
+            "toStatus": "DONE"
+          },
+          "message": "Smoke: assignee required for Done",
+          "severity": "ERROR",
+          "conditions": [
+            {
+              "type": "REQUIRED_FIELD",
+              "field": "assigneeUserId"
+            }
+          ]
+        },
+        "createdBy": null,
+        "createdAt": "2026-02-17T21:19:15.581Z"
+      }
+    }
+  ],
+  "meta": {
+    "timestamp": "2026-02-17T21:19:15.796Z",
+    "requestId": "d6d6b46e-85bd-48b2-b818-83bebe3fd362"
+  }
+}

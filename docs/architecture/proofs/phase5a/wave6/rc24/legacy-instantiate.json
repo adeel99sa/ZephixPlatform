@@ -1,0 +1,4 @@
+{
+  "code": "LEGACY_ROUTE",
+  "message": "This route is deprecated. Use POST /api/templates/:id/instantiate-v5_1 instead"
+}

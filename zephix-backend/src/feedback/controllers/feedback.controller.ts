@@ -13,7 +13,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { FeedbackService } from '../services/feedback.service';
 import { CreateFeedbackDto } from '../dto/create-feedback.dto';
 import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator';
@@ -21,7 +21,7 @@ import { User } from '../../modules/users/entities/user.entity';
 
 @ApiTags('Feedback')
 @Controller('feedback')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FeedbackController {
   constructor(private readonly feedbackService: FeedbackService) {}

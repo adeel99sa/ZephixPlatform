@@ -74,6 +74,21 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     displayName: "KPI Dashboard",
     description: "Key Performance Indicators overview",
   },
+  // Phase 2B: Waterfall core widgets
+  critical_path_risk: {
+    defaultConfig: {},
+    defaultLayout: { x: 4, y: 14, w: 4, h: 3 },
+    category: "Schedule",
+    displayName: "Critical Path Risk",
+    description: "Critical tasks at risk, path slip summary",
+  },
+  earned_value_summary: {
+    defaultConfig: {},
+    defaultLayout: { x: 8, y: 14, w: 4, h: 3 },
+    category: "Finance",
+    displayName: "Earned Value Summary",
+    description: "CPI, SPI, and latest earned value snapshot",
+  },
 };
 
 /**

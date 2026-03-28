@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/state/AuthContext";
-import { cleanupLegacyAuthStorage } from "@/auth/cleanupAuthStorage";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { listWorkspaces, type Workspace } from "@/features/workspaces/api";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
@@ -11,7 +10,7 @@ type LoadState = "idle" | "loading" | "error";
 
 export default function WorkspaceSelectionScreen() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user, isLoading } = useAuth();
 
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
 
@@ -51,7 +50,9 @@ export default function WorkspaceSelectionScreen() {
     setActiveWorkspace(w.id);
     try {
       localStorage.setItem("zephix.lastWorkspaceId", w.id);
-    } catch {}
+    } catch {
+      // Non-blocking localStorage write.
+    }
     navigate("/home", { replace: true });
   }, [state, sorted, setActiveWorkspace, navigate]);
 
@@ -61,7 +62,9 @@ export default function WorkspaceSelectionScreen() {
     setActiveWorkspace(w.id);
     try {
       localStorage.setItem("zephix.lastWorkspaceId", w.id);
-    } catch {}
+    } catch {
+      // Non-blocking localStorage write.
+    }
     navigate("/home", { replace: true });
   };
 
@@ -74,19 +77,21 @@ export default function WorkspaceSelectionScreen() {
     }
   };
 
-  const onWorkspaceCreated = async () => {
+  const onWorkspaceCreated = async (workspaceId: string, workspaceSlug?: string) => {
     setCreateOpen(false);
     await load();
+    if (!workspaceId) return;
 
-    const created = workspaces.find((w) => w.slug) || null;
-    if (!created?.id) return;
-
-    setActiveWorkspace(created.id);
+    setActiveWorkspace(workspaceId);
     try {
-      localStorage.setItem("zephix.lastWorkspaceId", created.id);
-    } catch {}
-    navigate("/home", { replace: true });
+      localStorage.setItem("zephix.lastWorkspaceId", workspaceId);
+    } catch {
+      // Non-blocking localStorage write.
+    }
+    navigate(workspaceSlug ? `/w/${workspaceSlug}/home` : "/home", { replace: true });
   };
+
+  const canCreateWorkspace = !isLoading && Boolean(user?.organizationId);
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-xl items-center justify-center px-6 py-10">
@@ -142,8 +147,12 @@ export default function WorkspaceSelectionScreen() {
         <div className="mt-6 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => setCreateOpen(true)}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            onClick={() => {
+              if (!canCreateWorkspace) return;
+              setCreateOpen(true);
+            }}
+            disabled={!canCreateWorkspace}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Create new workspace
           </button>

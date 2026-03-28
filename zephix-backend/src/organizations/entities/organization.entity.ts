@@ -38,6 +38,20 @@ export class Organization {
 
   @Column({ nullable: true, name: 'trial_ends_at' }) trialEndsAt: Date;
 
+  // ── Phase 3A: Plan & Entitlement fields ────────────────────────────
+
+  @Column({ name: 'plan_code', default: 'enterprise' })
+  planCode: string;
+
+  @Column({ name: 'plan_status', default: 'active' })
+  planStatus: string;
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'plan_expires_at' })
+  planExpiresAt: Date | null;
+
+  @Column({ type: 'jsonb', nullable: true, name: 'plan_metadata' })
+  planMetadata: Record<string, any> | null;
+
   /**
    * Organization settings (JSONB)
    * Can include resourceManagementSettings with thresholds:

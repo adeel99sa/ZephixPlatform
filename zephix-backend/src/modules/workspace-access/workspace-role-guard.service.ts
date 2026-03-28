@@ -71,8 +71,8 @@ export class WorkspaceRoleGuardService {
       });
     }
 
-    // Write roles: delivery_owner and workspace_owner
-    const writeRoles: WorkspaceRole[] = ['delivery_owner', 'workspace_owner'];
+    // Write roles: delivery_owner and workspace_owner (workspace_admin is the canonical alias — accept both)
+    const writeRoles: WorkspaceRole[] = ['delivery_owner', 'workspace_owner', 'workspace_admin'];
 
     if (!writeRoles.includes(membership.role)) {
       throw new ForbiddenException({

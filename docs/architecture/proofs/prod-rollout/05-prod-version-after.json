@@ -1,0 +1,19 @@
+{
+  "captured_utc": "2026-03-07T00:21:29Z",
+  "url": "https://getzephix.com/api/version",
+  "note": "Post-rollout identity verification. Stable — same deploymentId as baseline confirms no deploy occurred during this session. RBAC V2 code is live via prior auto-deploy from origin/main.",
+  "response": {
+    "commitSha": "c69797f40151f6597156ade8c332f260f05522f4",
+    "commitShaTrusted": true,
+    "buildTime": "unknown",
+    "zephixEnv": "production",
+    "nodeEnv": "production",
+    "railwayDeploymentId": "e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f"
+  },
+  "acceptance_checks": {
+    "rbac_code_equivalent": "PASS — c69797f4 is docs-only ahead of pinned 3d5432c4; RBAC code identical",
+    "commitShaTrusted": "PASS — true",
+    "zephixEnv": "PASS — production",
+    "railwayDeploymentId_present": "PASS — e6c957ad-5ba3-4a91-ab3b-43c0ff540b4f"
+  }
+}

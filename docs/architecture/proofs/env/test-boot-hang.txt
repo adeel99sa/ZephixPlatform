@@ -1,0 +1,49 @@
+# Test Backend Boot Hang — Root Cause and Fix
+
+## Captured: 2026-02-15T04:40:00Z
+## Deployment: 02425b5d-d330-44b8-8190-1846d0571fcd
+## Commit: eb5208aeedc56a1a783a7a8fb0ef54fa96cd47af
+
+## Last Log Lines Before Hang
+```
+2026-02-15T04:10:50.624Z BOOT_START 2026-02-15T04:10:50.400Z
+2026-02-15T04:10:50.625Z [Nest] 15 - 02/15/2026, 4:10:50 AM LOG [Bootstrap] Application Commit SHA: eb5208ae...
+(nothing else — no BOOT_AFTER_NEST_CREATE, no BOOT_BEFORE_LISTEN, no BOOT_READY)
+2026-02-15T04:18:09.000Z Stopping Container (SIGTERM after ~7 min health check timeout)
+```
+
+## Root Cause
+In `zephix-backend/src/main.ts`, the bootstrap() function had an early return:
+
+```typescript
+if (process.env.NODE_ENV === 'test') {
+    // Tests don't call bootstrap, but guardrail in case they do
+    return;
+}
+```
+
+The Railway "test" environment has `NODE_ENV=test`. This guard caused bootstrap()
+to return immediately after BOOT_START — the NestJS app was never created, never
+listened on a port. Railway's health check timed out and killed the container.
+
+## Fix Applied
+Changed the guard to detect actual test runners (Jest/Vitest) rather than NODE_ENV:
+
+```typescript
+if (process.env.JEST_WORKER_ID || process.env.VITEST) {
+    console.log('BOOT_SKIP: detected test runner (JEST_WORKER_ID or VITEST) — returning early');
+    return;
+}
+```
+
+This allows Railway's test environment (NODE_ENV=test) to boot normally while
+still preventing unit test runners from accidentally calling bootstrap().
+
+## Added Boot Tracing
+- Added BOOT_BEFORE_NEST_CREATE timestamp log
+- Enabled 'log' level output even in non-debug mode for visibility
+
+## Verification
+- TypeScript compiles clean: `npx tsc --noEmit` — pass
+- db-safety-guard tests: 42/42 pass
+- Next step: commit, push, and verify test backend boots successfully

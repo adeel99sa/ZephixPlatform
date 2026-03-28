@@ -11,6 +11,9 @@ export const WIDGET_ALLOWLIST = [
   'risk_summary',
   'portfolio_summary',
   'program_summary',
+  // Phase 2B: Waterfall core widgets
+  'critical_path_risk',
+  'earned_value_summary',
 ] as const;
 
 export type WidgetKey = (typeof WIDGET_ALLOWLIST)[number];

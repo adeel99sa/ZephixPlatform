@@ -1,0 +1,16 @@
+{
+  "data": {
+    "pending": false,
+    "jobId": null,
+    "lastComputedAt": {
+      "cycle_time": "2026-02-17T21:27:14.149Z",
+      "wip": "2026-02-17T21:27:14.172Z",
+      "open_risk_count": "2026-02-17T21:27:14.186Z"
+    },
+    "lastFailure": null
+  },
+  "meta": {
+    "timestamp": "2026-02-17T21:27:16.413Z",
+    "requestId": "06fe8c99-317a-4535-b081-9dafbb168cbe"
+  }
+}
