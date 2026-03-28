@@ -29,6 +29,7 @@ import {
   normalizePlatformRole,
   isAdminRole,
 } from '../../../shared/enums/platform-roles.enum';
+import { TemplateKpisService } from '../../kpis/services/template-kpis.service';
 
 type LockState = 'UNLOCKED' | 'LOCKED';
 
@@ -63,6 +64,7 @@ export class TemplatesService {
     private readonly templateRepo: TenantAwareRepository<Template>,
     private readonly dataSource: DataSource,
     private readonly tenantContextService: TenantContextService,
+    private readonly templateKpisService: TemplateKpisService,
   ) {}
 
   /**
@@ -111,7 +113,7 @@ export class TemplatesService {
   }
 
   /**
-   * Create a new template
+   * @deprecated LEGACY — uses ProjectTemplate. Use createUnified() instead.
    */
   async create(
     dto: CreateTemplateDto,
@@ -150,9 +152,7 @@ export class TemplatesService {
   }
 
   /**
-   * List all templates accessible to the organization
-   * Phase 4: Extended with filters
-   * Never throws - returns empty array on error or empty tables
+   * @deprecated LEGACY — uses ProjectTemplate. Use findAllUnified() instead.
    */
   async findAll(
     organizationId: string,
@@ -226,8 +226,444 @@ export class TemplatesService {
     }
   }
 
+  // ========== Wave 6: Unified Template Methods (use `templates` table) ==========
+
   /**
-   * Get a single template by ID with organization check
+   * Wave 6: List all templates from `templates` table for admin preview.
+   * Returns system templates + org-scoped templates, enriched with KPI metadata.
+   */
+  async findAllUnified(organizationId: string): Promise<any[]> {
+    try {
+      const templates = await this.dataSource.getRepository(Template).find({
+        where: [
+          { isSystem: true, isActive: true },
+          { organizationId, isActive: true },
+        ],
+        order: { isSystem: 'DESC', isDefault: 'DESC', createdAt: 'DESC' },
+      });
+
+      const enriched: any[] = [];
+
+      for (const tpl of templates) {
+        let boundKpiCount = 0;
+        try {
+          const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
+          boundKpiCount = kpis.length;
+        } catch {
+          // Non-critical
+        }
+
+        enriched.push({
+          ...tpl,
+          deliveryMethod: tpl.deliveryMethod ?? null,
+          defaultTabs: tpl.defaultTabs ?? null,
+          defaultGovernanceFlags: tpl.defaultGovernanceFlags ?? null,
+          boundKpiCount,
+        });
+      }
+
+      return enriched;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Wave 6: List only published templates for non-admin project creation.
+   */
+  async findPublishedTemplates(organizationId: string): Promise<Template[]> {
+    return this.dataSource.getRepository(Template).find({
+      where: [
+        { isSystem: true, isActive: true, isPublished: true },
+        { organizationId, isActive: true, isPublished: true },
+      ],
+      order: { isSystem: 'DESC', isDefault: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Wave 6: Published templates with KPI count for project creation modal.
+   */
+  async findPublishedWithPreview(organizationId: string): Promise<any[]> {
+    const templates = await this.findPublishedTemplates(organizationId);
+    const enriched: any[] = [];
+
+    for (const tpl of templates) {
+      let boundKpiCount = 0;
+      try {
+        const kpis = await this.templateKpisService.listTemplateKpis(tpl.id);
+        boundKpiCount = kpis.length;
+      } catch {
+        // Non-critical
+      }
+      enriched.push({
+        id: tpl.id,
+        name: tpl.name,
+        description: tpl.description,
+        deliveryMethod: tpl.deliveryMethod ?? null,
+        boundKpiCount,
+        isSystem: tpl.isSystem,
+        defaultTabs: tpl.defaultTabs,
+      });
+    }
+
+    return enriched;
+  }
+
+  /**
+   * Wave 6: Get single template from `templates` table.
+   */
+  async findOneUnified(id: string, organizationId: string): Promise<Template> {
+    const repo = this.dataSource.getRepository(Template);
+
+    const tpl = await repo.findOne({
+      where: [
+        { id, isSystem: true, isActive: true },
+        { id, organizationId, isActive: true },
+      ],
+    });
+
+    if (!tpl) {
+      throw new NotFoundException(`Template with ID ${id} not found`);
+    }
+
+    return tpl;
+  }
+
+  /**
+   * Wave 6: Create a template in `templates` table.
+   */
+  async createUnified(
+    dto: {
+      name: string;
+      description?: string;
+      methodology?: string;
+      deliveryMethod?: string;
+      defaultTabs?: string[];
+      defaultGovernanceFlags?: Record<string, boolean>;
+      phases?: any[];
+      taskTemplates?: any[];
+    },
+    userId: string,
+    organizationId: string,
+  ): Promise<Template> {
+    const repo = this.dataSource.getRepository(Template);
+
+    const tpl = repo.create({
+      name: dto.name,
+      description: dto.description,
+      methodology: dto.methodology as any,
+      deliveryMethod: dto.deliveryMethod,
+      defaultTabs: dto.defaultTabs,
+      defaultGovernanceFlags: dto.defaultGovernanceFlags,
+      phases: dto.phases,
+      taskTemplates: dto.taskTemplates,
+      organizationId,
+      createdById: userId,
+      templateScope: 'ORG',
+      isSystem: false,
+      isActive: true,
+      isPublished: false,
+      isDefault: false,
+    });
+
+    return repo.save(tpl);
+  }
+
+  /**
+   * Wave 6: Clone a system template into an org-owned template.
+   * Copies fields, phases, tasks, and KPI bindings.
+   */
+  async cloneSystemTemplateToOrg(
+    templateId: string,
+    organizationId: string,
+    userId: string,
+  ): Promise<Template> {
+    const repo = this.dataSource.getRepository(Template);
+
+    const source = await repo.findOne({
+      where: { id: templateId, isSystem: true, isActive: true },
+    });
+
+    if (!source) {
+      throw new NotFoundException(
+        `System template with ID ${templateId} not found`,
+      );
+    }
+
+    const clone = repo.create({
+      name: `${source.name} (Copy)`,
+      description: source.description,
+      methodology: source.methodology,
+      deliveryMethod: source.deliveryMethod,
+      defaultTabs: source.defaultTabs ? [...source.defaultTabs] : null,
+      defaultGovernanceFlags: source.defaultGovernanceFlags
+        ? { ...source.defaultGovernanceFlags }
+        : null,
+      phases: source.phases ? JSON.parse(JSON.stringify(source.phases)) : null,
+      taskTemplates: source.taskTemplates
+        ? JSON.parse(JSON.stringify(source.taskTemplates))
+        : null,
+      riskPresets: source.riskPresets
+        ? JSON.parse(JSON.stringify(source.riskPresets))
+        : [],
+      workTypeTags: source.workTypeTags ? [...source.workTypeTags] : [],
+      organizationId,
+      createdById: userId,
+      templateScope: 'ORG',
+      isSystem: false,
+      isActive: true,
+      isPublished: false,
+      isDefault: false,
+    });
+
+    const saved = await repo.save(clone);
+
+    // Copy KPI bindings from source template
+    await this.templateKpisService.copyBindings(templateId, saved.id);
+
+    return saved;
+  }
+
+  /**
+   * Wave 6: Update an org-owned template.
+   */
+  async updateOrgTemplate(
+    templateId: string,
+    organizationId: string,
+    patch: {
+      name?: string;
+      description?: string;
+      deliveryMethod?: string;
+      defaultTabs?: string[];
+      defaultGovernanceFlags?: Record<string, boolean>;
+    },
+  ): Promise<Template> {
+    const tpl = await this.findOneUnified(templateId, organizationId);
+
+    if (tpl.isSystem) {
+      throw new ForbiddenException('Cannot edit system templates');
+    }
+
+    if (tpl.organizationId !== organizationId) {
+      throw new ForbiddenException(
+        'Cannot edit templates from other organizations',
+      );
+    }
+
+    if (patch.name !== undefined) tpl.name = patch.name;
+    if (patch.description !== undefined) tpl.description = patch.description;
+    if (patch.deliveryMethod !== undefined)
+      tpl.deliveryMethod = patch.deliveryMethod;
+    if (patch.defaultTabs !== undefined) tpl.defaultTabs = patch.defaultTabs;
+    if (patch.defaultGovernanceFlags !== undefined)
+      tpl.defaultGovernanceFlags = patch.defaultGovernanceFlags;
+
+    return this.dataSource.getRepository(Template).save(tpl);
+  }
+
+  /**
+   * Wave 6: Publish an org template.
+   */
+  async publishTemplate(
+    templateId: string,
+    organizationId: string,
+  ): Promise<Template> {
+    const tpl = await this.findOneUnified(templateId, organizationId);
+
+    if (tpl.isSystem) {
+      throw new ForbiddenException('System templates are always published');
+    }
+    if (tpl.organizationId !== organizationId) {
+      throw new ForbiddenException('Cannot publish another org template');
+    }
+
+    tpl.isPublished = true;
+    tpl.publishedAt = new Date();
+    return this.dataSource.getRepository(Template).save(tpl);
+  }
+
+  /**
+   * Wave 6: Unpublish an org template.
+   */
+  async unpublishTemplate(
+    templateId: string,
+    organizationId: string,
+  ): Promise<Template> {
+    const tpl = await this.findOneUnified(templateId, organizationId);
+
+    if (tpl.isSystem) {
+      throw new ForbiddenException('Cannot unpublish system templates');
+    }
+    if (tpl.organizationId !== organizationId) {
+      throw new ForbiddenException('Cannot unpublish another org template');
+    }
+
+    tpl.isPublished = false;
+    tpl.publishedAt = undefined;
+    return this.dataSource.getRepository(Template).save(tpl);
+  }
+
+  /**
+   * Wave 6: Archive a template in `templates` table.
+   */
+  async archiveUnified(id: string, organizationId: string): Promise<void> {
+    const tpl = await this.findOneUnified(id, organizationId);
+
+    if (tpl.isSystem) {
+      throw new ForbiddenException('Cannot archive system templates');
+    }
+    if (tpl.organizationId !== organizationId) {
+      throw new ForbiddenException('Cannot archive another org template');
+    }
+
+    tpl.isActive = false;
+    tpl.archivedAt = new Date();
+    await this.dataSource.getRepository(Template).save(tpl);
+  }
+
+  /**
+   * Wave 6: Apply a template from `templates` table to create a project.
+   * This replaces the legacy `applyTemplate` for admin use.
+   */
+  async applyTemplateUnified(
+    templateId: string,
+    payload: {
+      name: string;
+      workspaceId: string;
+      startDate?: Date;
+      description?: string;
+    },
+    organizationId: string,
+    userId: string,
+  ): Promise<Project> {
+    return this.dataSource.transaction(async (manager) => {
+      const tplRepo = manager.getRepository(Template);
+      const workspaceRepo = manager.getRepository(Workspace);
+      const projectRepo = manager.getRepository(Project);
+
+      // 1. Load template
+      const template = await tplRepo.findOne({
+        where: [
+          { id: templateId, isSystem: true, isActive: true },
+          { id: templateId, organizationId, isActive: true },
+        ],
+      });
+
+      if (!template) {
+        throw new NotFoundException(
+          `Template with ID ${templateId} not found or not active`,
+        );
+      }
+
+      if (!template.isSystem && template.organizationId !== organizationId) {
+        throw new ForbiddenException(
+          'Template does not belong to your organization',
+        );
+      }
+
+      // 2. Load workspace
+      const workspace = await workspaceRepo.findOne({
+        where: { id: payload.workspaceId },
+        select: ['id', 'organizationId'],
+      });
+      if (!workspace) {
+        throw new NotFoundException(
+          `Workspace with ID ${payload.workspaceId} not found`,
+        );
+      }
+      if (workspace.organizationId !== organizationId) {
+        throw new ForbiddenException(
+          'Workspace does not belong to your organization',
+        );
+      }
+
+      // 3. Create project with governance flags from template
+      const govFlags = template.defaultGovernanceFlags || {};
+      const project = projectRepo.create({
+        name: payload.name,
+        description: payload.description || null,
+        workspaceId: payload.workspaceId,
+        organizationId,
+        createdById: userId,
+        status: ProjectStatus.PLANNING,
+        priority: ProjectPriority.MEDIUM,
+        riskLevel: ProjectRiskLevel.MEDIUM,
+        methodology: template.methodology || 'agile',
+        startDate: payload.startDate || undefined,
+        iterationsEnabled: govFlags.iterationsEnabled ?? false,
+        costTrackingEnabled: govFlags.costTrackingEnabled ?? false,
+        baselinesEnabled: govFlags.baselinesEnabled ?? false,
+        earnedValueEnabled: govFlags.earnedValueEnabled ?? false,
+        capacityEnabled: govFlags.capacityEnabled ?? false,
+        changeManagementEnabled: govFlags.changeManagementEnabled ?? false,
+        waterfallEnabled: govFlags.waterfallEnabled ?? false,
+        templateId: template.id,
+        governanceSource: 'TEMPLATE',
+      });
+
+      const savedProject = await projectRepo.save(project);
+
+      // 4. Create tasks from template
+      if (template.taskTemplates && template.taskTemplates.length > 0) {
+        const existingTaskCount = await manager
+          .getRepository(Task)
+          .count({ where: { projectId: savedProject.id } });
+
+        for (let i = 0; i < template.taskTemplates.length; i++) {
+          const tt = template.taskTemplates[i];
+          await manager.query(
+            `INSERT INTO tasks (
+              project_id, title, description, estimated_hours, priority, status,
+              task_number, task_type, assignment_type, progress_percentage,
+              is_milestone, is_blocked, created_by, organization_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            [
+              savedProject.id,
+              tt.name,
+              tt.description || null,
+              tt.estimatedHours || 0,
+              tt.priority || 'medium',
+              'not_started',
+              `TASK-${existingTaskCount + i + 1}`,
+              'task',
+              'internal',
+              0,
+              false,
+              false,
+              userId,
+              organizationId,
+            ],
+          );
+        }
+      }
+
+      // 5. Auto-activate template KPIs
+      try {
+        await this.templateKpisService.autoActivateForProject(
+          templateId,
+          payload.workspaceId,
+          savedProject.id,
+        );
+      } catch (kpiError: any) {
+        console.error(
+          JSON.stringify({
+            context: 'TEMPLATE_KPI_ACTIVATION_FAILED',
+            projectId: savedProject.id,
+            templateId,
+            errorCode: kpiError?.code ?? kpiError?.name ?? 'UNKNOWN',
+            errorMessage: kpiError?.message ?? String(kpiError),
+            templateKpiActivationStatus: 'FAILED',
+          }),
+        );
+      }
+
+      return savedProject;
+    });
+  }
+
+  /**
+   * @deprecated LEGACY — uses ProjectTemplate. Use findOneUnified() instead.
    */
   async findOne(id: string, organizationId: string): Promise<ProjectTemplate> {
     // organizationId parameter kept for backward compatibility
@@ -402,8 +838,8 @@ export class TemplatesService {
   }
 
   /**
-   * Apply a template to create a new project with phases and tasks
-   * All operations are wrapped in a transaction for atomicity
+   * @deprecated LEGACY — uses ProjectTemplate. Use applyTemplateUnified() instead.
+   * Kept for backward compatibility with V1 template flows only.
    */
   async applyTemplate(
     templateId: string,
@@ -547,6 +983,26 @@ export class TemplatesService {
 
       // 5. Template usage tracking - skip if no usage entity exists
       // (No TemplateUsage entity found in codebase)
+
+      // 6. Wave 4B: Auto-activate template KPIs for the new project
+      try {
+        await this.templateKpisService.autoActivateForProject(
+          templateId,
+          payload.workspaceId,
+          savedProject.id,
+        );
+      } catch (kpiError: any) {
+        // Non-blocking but auditable
+        // TODO: When telemetry is added, increment kpi_activation_failure counter
+        console.error(JSON.stringify({
+          context: 'TEMPLATE_KPI_ACTIVATION_FAILED',
+          projectId: savedProject.id,
+          templateId,
+          errorCode: kpiError?.code ?? kpiError?.name ?? 'UNKNOWN',
+          errorMessage: kpiError?.message ?? String(kpiError),
+          templateKpiActivationStatus: 'FAILED',
+        }));
+      }
 
       return savedProject;
     });

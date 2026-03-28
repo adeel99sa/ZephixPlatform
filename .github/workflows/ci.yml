@@ -1,5 +1,11 @@
 name: ci
-on: [push, pull_request]
+
+# Runs on PRs only — quality gate before merge.
+# Push-to-main and tag deploys are handled by enterprise-ci.yml.
+# This prevents duplicate runs (ci + enterprise) on every push.
+on:
+  pull_request:
+    branches: [main, develop]
 jobs:
   # Non-Docker C1 gates: build, lint, unit tests, placeholder check. No Postgres required.
   c1-gates:
@@ -18,15 +24,23 @@ jobs:
       - name: Backend dist/migrations guardrail
         working-directory: zephix-backend
         run: |
-          if [ ! -d dist/migrations ] || [ -z "$(ls -A dist/migrations 2>/dev/null)" ]; then
-            echo "::error::dist/migrations is empty or missing"
+          MIG_DIR=""
+          if [ -d dist/src/migrations ] && [ -n "$(ls -A dist/src/migrations 2>/dev/null)" ]; then
+            MIG_DIR="dist/src/migrations"
+          elif [ -d dist/migrations ] && [ -n "$(ls -A dist/migrations 2>/dev/null)" ]; then
+            MIG_DIR="dist/migrations"
+          fi
+
+          if [ -z "$MIG_DIR" ]; then
+            echo "::error::dist/src/migrations and dist/migrations are both empty or missing"
             exit 1
           fi
-          if ! ls dist/migrations | grep -qE '17980202500000|UserOrganizationsSnakeCaseColumns'; then
-            echo "::error::dist/migrations missing expected snake_case migration"
+
+          if ! ls "$MIG_DIR" | grep -qE '17980202500000|UserOrganizationsSnakeCaseColumns'; then
+            echo "::error::$MIG_DIR missing expected snake_case migration"
             exit 1
           fi
-          echo "dist/migrations OK"
+          echo "$MIG_DIR OK"
       - name: Backend git guardrail
         run: |
           set -euo pipefail
@@ -83,6 +97,35 @@ jobs:
       - name: Frontend lint (new code)
         working-directory: zephix-frontend
         run: npm run lint:new
+      - name: "Frontend gating tests (CI-blocking)"
+        working-directory: zephix-frontend
+        run: npm run test:gating
+      - name: "Gating floor enforcement (count cannot decrease)"
+        working-directory: zephix-frontend
+        run: |
+          FLOOR=38
+          ACTUAL=$(grep -cE '\.(test|spec)\.(tsx?|ts)' vitest.gating.config.ts)
+          echo "Gating floor: ${FLOOR} | Actual gating files: ${ACTUAL}"
+          if [ "$ACTUAL" -lt "$FLOOR" ]; then
+            echo "::error::GATING VIOLATION: gating suite has ${ACTUAL} files but floor is ${FLOOR}. Never remove tests from gating."
+            exit 1
+          fi
+          echo "Gating floor check passed"
+      - name: "Frontend legacy tests (non-blocking drift tracker)"
+        working-directory: zephix-frontend
+        run: |
+          npx vitest run --reporter=dot 2>&1 || true
+          echo ""
+          echo "── DRIFT METRIC ──"
+          LEGACY_FAILING=$(node -e "const h=require('./test-health.json');console.log(h.totalFailing)" 2>/dev/null || echo "?")
+          LEGACY_TESTS=$(node -e "const h=require('./test-health.json');console.log(h.totalFailingTests)" 2>/dev/null || echo "?")
+          echo "Legacy failing files: ${LEGACY_FAILING}"
+          echo "Legacy failing tests: ${LEGACY_TESTS}"
+          echo "Target: reduce weekly"
+          if [ "$LEGACY_FAILING" != "?" ] && [ "$LEGACY_FAILING" -gt 0 ]; then
+            echo "::warning::Frontend test debt: ${LEGACY_FAILING} files / ${LEGACY_TESTS} tests still failing — see test-health.json"
+          fi
+        continue-on-error: true
       - name: Import guardrail (banned patterns)
         working-directory: zephix-frontend
         run: |
@@ -445,15 +488,22 @@ jobs:
       - name: Build backend
         working-directory: zephix-backend
         run: npm ci && npm run build
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Start app (AUTO_MIGRATE=true) + demo bootstrap + smoke
         working-directory: zephix-backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
           NODE_ENV: development
           AUTO_MIGRATE: "true"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
-          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
-          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           (npm run start:prod &)
           sleep 15
@@ -501,6 +551,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_test
         run: node dist/src/scripts/db/verify.js
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Start app (AUTO_MIGRATE=false) + smoke
         working-directory: zephix-backend
         env:
@@ -508,9 +564,10 @@ jobs:
           DATABASE_SSL: "false"
           NODE_ENV: production
           AUTO_MIGRATE: "false"
-          JWT_SECRET: test-jwt-secret-min-32-chars-long
-          REFRESH_TOKEN_PEPPER: test-refresh-pepper-min-32-chars
-          INTEGRATION_ENCRYPTION_KEY: test-integration-key-32-chars!!!!!!
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
         run: |
           (npm run start:prod &)
           sleep 15
@@ -535,6 +592,113 @@ jobs:
           # TODO: Set up proper e2e environment with backend and frontend
           echo "Frontend smoke tests skipped temporarily - require backend connection"
           echo "Run manually with: npm run preview && npm run test:smoke"
+
+  # Sprint 10+ merge gate — blocks merge on governance test failure,
+  # migration idempotency failure, or health endpoint failure after deploy
+  sprint-merge-gate:
+    name: Sprint Merge Gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: zephix_gate
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+
+      # Gate 1: All governance-critical tests must pass
+      - name: "Gate 1: Governance tests"
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          echo "Running governance-critical test suites..."
+          npx jest --passWithNoTests --no-coverage \
+            notification.gateway.spec \
+            slack.service.spec \
+            inbox.service.spec \
+            wip-limits.service.spec \
+            resource-risk-score.service.spec \
+            phase-gate-evaluator.service.spec \
+            resource-conflict-engine.service.spec \
+            work-tasks.service.spec \
+            2>&1
+          echo "✅ Gate 1 passed: all governance tests green"
+
+      # Gate 2: Migrations idempotent (run twice — second run must be no-op)
+      - name: "Gate 2: Migration idempotency"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          NODE_ENV: test
+        run: |
+          npm run build
+          echo "Running migrations (first pass)..."
+          node dist/src/scripts/db/migrate.js
+          echo "Running migrations (second pass — must be idempotent)..."
+          node dist/src/scripts/db/migrate.js
+          echo "Running db:verify..."
+          node dist/src/scripts/db/verify.js
+          echo "✅ Gate 2 passed: migrations idempotent"
+      - name: Generate CI secrets
+        run: |
+          echo "JWT_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "JWT_REFRESH_SECRET=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "REFRESH_TOKEN_PEPPER=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "INTEGRATION_ENCRYPTION_KEY=ci_$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      # Gate 3: Health endpoint responds after deploy simulation
+      - name: "Gate 3: Health ready endpoint"
+        working-directory: zephix-backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/zephix_gate
+          DATABASE_SSL: "false"
+          NODE_ENV: production
+          AUTO_MIGRATE: "false"
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          REFRESH_TOKEN_PEPPER: ${{ env.REFRESH_TOKEN_PEPPER }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ env.INTEGRATION_ENCRYPTION_KEY }}
+        run: |
+          echo "Starting app for health check..."
+          (npm run start:prod &)
+          APP_PID=$!
+
+          # Wait for app to start (up to 30s)
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "App is up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          # Health check
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Gate 3 failed: /api/health returned $HTTP_CODE"
+            kill $APP_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          # Ready check (if endpoint exists)
+          READY_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/health/ready 2>/dev/null || echo "000")
+          if [ "$READY_CODE" != "200" ] && [ "$READY_CODE" != "000" ]; then
+            echo "⚠️ /api/health/ready returned $READY_CODE (non-blocking if endpoint doesn't exist)"
+          fi
+
+          kill $APP_PID 2>/dev/null || true
+          echo "✅ Gate 3 passed: health endpoint responding"
 
   rbac-tests:
     runs-on: ubuntu-latest

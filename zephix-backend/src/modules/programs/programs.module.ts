@@ -9,6 +9,11 @@ import { Resource } from '../resources/entities/resource.entity';
 import { Risk } from '../risks/entities/risk.entity';
 import { ProgramsService } from './services/programs.service';
 import { ProgramsRollupService } from './services/programs-rollup.service';
+import { ProgramKpiRollupService } from './services/program-kpi-rollup.service';
+import { Portfolio } from '../portfolios/entities/portfolio.entity';
+import { ProjectKpiValueEntity } from '../kpis/entities/project-kpi-value.entity';
+import { ProjectBudgetEntity } from '../budgets/entities/project-budget.entity';
+import { ChangeRequestEntity } from '../change-requests/entities/change-request.entity';
 import { ProgramsController } from './programs.controller';
 import { ProjectsModule } from '../projects/projects.module';
 import { PortfoliosModule } from '../portfolios/portfolios.module';
@@ -26,6 +31,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
     TypeOrmModule.forFeature([
       Program,
       Project,
+      Portfolio,
       WorkItem,
       ResourceConflict,
       ResourceAllocation, // PHASE 7.4.3: Fix DI - ProgramsService needs this
@@ -33,6 +39,10 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       Risk,
       Workspace, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       WorkspaceMember, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
+      // Wave 8: KPI rollup dependencies
+      ProjectKpiValueEntity,
+      ProjectBudgetEntity,
+      ChangeRequestEntity,
     ]),
     forwardRef(() => ProjectsModule), // PHASE 6: For project linking
     forwardRef(() => PortfoliosModule), // PHASE 6: For portfolio validation
@@ -43,6 +53,7 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
   providers: [
     ProgramsService,
     ProgramsRollupService,
+    ProgramKpiRollupService,
     // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs these repositories in ProgramsModule context
     createTenantAwareRepositoryProvider(Workspace),
     createTenantAwareRepositoryProvider(WorkspaceMember),

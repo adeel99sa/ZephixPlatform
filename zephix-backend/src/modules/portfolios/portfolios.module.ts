@@ -11,7 +11,21 @@ import { WorkItem } from '../work-items/entities/work-item.entity';
 import { Risk } from '../risks/entities/risk.entity';
 import { PortfoliosService } from './services/portfolios.service';
 import { PortfoliosRollupService } from './services/portfolios-rollup.service';
+import { PortfolioAnalyticsService } from './services/portfolio-analytics.service';
+import { PortfolioKpiRollupService } from './services/portfolio-kpi-rollup.service';
+import { ProjectKpiValueEntity } from '../kpis/entities/project-kpi-value.entity';
+import { ProjectBudgetEntity } from '../budgets/entities/project-budget.entity';
+import { ChangeRequestEntity } from '../change-requests/entities/change-request.entity';
 import { PortfoliosController } from './portfolios.controller';
+import { PortfolioAnalyticsController } from './controllers/portfolio-analytics.controller';
+// Phase 2D: Waterfall entities for EV analytics
+import { EarnedValueSnapshot } from '../work-management/entities/earned-value-snapshot.entity';
+import { ScheduleBaseline } from '../work-management/entities/schedule-baseline.entity';
+import { ScheduleBaselineItem } from '../work-management/entities/schedule-baseline-item.entity';
+import { WorkTask } from '../work-management/entities/work-task.entity';
+import { WorkTaskDependency } from '../work-management/entities/task-dependency.entity';
+import { CriticalPathEngineService } from '../work-management/services/critical-path-engine.service';
+import { BaselineService } from '../work-management/services/baseline.service';
 import {
   TenancyModule,
   createTenantAwareRepositoryProvider,
@@ -36,6 +50,16 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
       Risk,
       Workspace, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
       WorkspaceMember, // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs this
+      // Phase 2D: Waterfall entities for portfolio analytics
+      EarnedValueSnapshot,
+      ScheduleBaseline,
+      ScheduleBaselineItem,
+      WorkTask,
+      WorkTaskDependency,
+      // Wave 8: KPI rollup dependencies
+      ProjectKpiValueEntity,
+      ProjectBudgetEntity,
+      ChangeRequestEntity,
     ]),
     TenancyModule,
     WorkspaceAccessModule, // Provides WorkspaceAccessService - breaks circular dependency with WorkspacesModule
@@ -46,13 +70,21 @@ import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity'
   providers: [
     PortfoliosService,
     PortfoliosRollupService,
+    PortfolioAnalyticsService,
+    PortfolioKpiRollupService,
+    // Phase 2D: Waterfall services needed by analytics
+    CriticalPathEngineService,
+    BaselineService,
     // PHASE 7.4.3: Fix DI - RequireWorkspaceAccessGuard needs these repositories in PortfoliosModule context
     createTenantAwareRepositoryProvider(Workspace),
     createTenantAwareRepositoryProvider(WorkspaceMember),
     // PHASE 6: ProgramsService moved to ProgramsModule
     // ResponseService available from @Global() SharedModule - no local provider needed
   ],
-  controllers: [PortfoliosController], // PHASE 6: ProgramsController moved to ProgramsModule
-  exports: [PortfoliosService], // PHASE 6: ProgramsService moved to ProgramsModule
+  controllers: [
+    PortfoliosController,
+    PortfolioAnalyticsController, // Phase 2D
+  ],
+  exports: [PortfoliosService, PortfolioAnalyticsService, PortfolioKpiRollupService],
 })
 export class PortfoliosModule {}

@@ -14,6 +14,7 @@ import { WaitlistService } from './waitlist.service';
 import { CreateWaitlistDto } from './dto/create-waitlist.dto';
 import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../shared/guards/admin.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 
 @ApiTags('waitlist')
 @Controller('waitlist')
@@ -21,6 +22,7 @@ export class WaitlistController {
   constructor(private readonly waitlistService: WaitlistService) {}
 
   @Post()
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Join the waitlist' })
   @ApiResponse({ status: 201, description: 'Successfully joined waitlist' })
   @ApiResponse({ status: 409, description: 'Email already exists' })

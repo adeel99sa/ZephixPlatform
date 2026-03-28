@@ -9,41 +9,81 @@ import {
   BadRequestException,
   UnauthorizedException,
   Logger,
-  Inject,
+  RawBodyRequest,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { IntegrationConnection } from './entities/integration-connection.entity';
 import { IntegrationEncryptionService } from './services/integration-encryption.service';
 import { formatResponse } from '../../shared/helpers/response.helper';
-import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
-import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 
 /**
  * Webhook controller for Jira integration
  *
  * DISABLED BY DEFAULT: Only processes webhooks when connection.webhookEnabled === true
- * This is a skeleton implementation - no processing logic yet (Phase 2 scope)
+ * Webhook signature verification enforced when webhookSecret is configured.
  */
 @Controller('integrations/jira/webhook')
 export class IntegrationsWebhookController {
   private readonly logger = new Logger(IntegrationsWebhookController.name);
 
   constructor(
-    @Inject(getTenantAwareRepositoryToken(IntegrationConnection))
-    private connectionRepository: TenantAwareRepository<IntegrationConnection>,
+    @InjectDataSource()
+    private dataSource: DataSource,
     private encryptionService: IntegrationEncryptionService,
+    private configService: ConfigService,
   ) {}
+
+  /**
+   * Verify the webhook signature using HMAC SHA-256.
+   * Compares the provided signature header against the computed HMAC of the
+   * raw request body, using timing-safe comparison to prevent timing attacks.
+   */
+  private verifyWebhookSignature(
+    body: string | Buffer,
+    signature: string,
+    secret: string,
+  ): boolean {
+    try {
+      const rawBody = typeof body === 'string' ? body : body.toString('utf8');
+      const expectedSignature = createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+
+      const sigBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+      if (sigBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return timingSafeEqual(sigBuffer, expectedBuffer);
+    } catch {
+      return false;
+    }
+  }
 
   @Post(':connectionId')
   @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(RateLimiterGuard)
   async handleWebhook(
     @Param('connectionId') connectionId: string,
     @Body() payload: any,
     @Headers('x-atlassian-webhook-identifier') webhookId?: string,
+    @Headers('x-zephix-signature') signatureHeader?: string,
+    @Req() req?: Request,
   ) {
-    // Load connection
-    const connection = await this.connectionRepository.findOne({
-      where: { id: connectionId },
-    });
+    // Load connection without tenant context — inbound webhooks are unauthenticated.
+    // Signature verification below establishes trust before any tenant-scoped processing.
+    const connection = await this.dataSource
+      .getRepository(IntegrationConnection)
+      .findOne({ where: { id: connectionId } });
 
     if (!connection) {
       throw new BadRequestException('Integration connection not found');
@@ -62,27 +102,50 @@ export class IntegrationsWebhookController {
       });
     }
 
-    // Verify webhook secret (if present)
-    if (connection.webhookSecret) {
-      // TODO: Implement webhook signature verification in Phase 3
-      // For now, just log that verification would happen
+    // ── Webhook Signature Verification ──
+    // If the connection has a webhookSecret configured, signature is mandatory.
+    // Also check the global WEBHOOK_SECRET as a fallback signing key.
+    const secret =
+      connection.webhookSecret ||
+      this.configService.get<string>('WEBHOOK_SECRET');
+
+    if (secret) {
+      if (!signatureHeader) {
+        this.logger.warn(
+          `Webhook rejected: missing x-zephix-signature header for connection ${connectionId}`,
+        );
+        throw new UnauthorizedException(
+          'Missing webhook signature header: x-zephix-signature',
+        );
+      }
+
+      // Use raw body from request if available, otherwise stringify payload
+      const rawBody = (req as any)?.rawBody || JSON.stringify(payload);
+
+      if (!this.verifyWebhookSignature(rawBody, signatureHeader, secret)) {
+        this.logger.warn(
+          `Webhook rejected: invalid signature for connection ${connectionId}`,
+        );
+        throw new UnauthorizedException('Invalid webhook signature');
+      }
+
       this.logger.debug(
-        `Webhook signature verification would occur here for connection: ${connectionId}`,
+        `Webhook signature verified for connection: ${connectionId}`,
       );
     }
 
-    // Skeleton: Log webhook received but don't process yet
-    this.logger.log('Webhook received (skeleton - no processing)', {
+    // Log webhook received
+    this.logger.log('Webhook received and verified', {
       connectionId,
       webhookEvent: payload.webhookEvent,
       issueKey: payload.issue?.key,
       organizationId: connection.organizationId,
     });
 
-    // Return 202 Accepted (fast response, processing happens async in Phase 3)
+    // Return 202 Accepted (fast response, processing happens async)
     return formatResponse({
       status: 'accepted',
-      message: 'Webhook received (processing disabled in Phase 2)',
+      message: 'Webhook received and verified',
       connectionId,
     });
   }

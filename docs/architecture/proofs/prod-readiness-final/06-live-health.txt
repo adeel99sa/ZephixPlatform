@@ -1,0 +1,32 @@
+HTTP/2 200 
+access-control-allow-credentials: true
+access-control-expose-headers: X-Request-Id,x-request-id,X-Correlation-Id,x-correlation-id,Set-Cookie
+content-security-policy: default-src 'none'; frame-ancestors 'none'
+content-type: application/json; charset=utf-8
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+date: Fri, 06 Mar 2026 21:06:39 GMT
+deprecation: true
+etag: W/"68-sj8AWx87Zo0UoKM5Al/snBqXSdE"
+link: </api/v1/>; rel="successor-version"
+origin-agent-cluster: ?1
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=()
+referrer-policy: strict-origin-when-cross-origin
+server: railway-edge
+strict-transport-security: max-age=31536000; includeSubDomains
+sunset: 2026-06-04T21:06:39.527Z
+vary: Origin
+x-content-type-options: nosniff
+x-correlation-id: bb08107f-4f8c-4ec7-b713-a9cb2bcf0ed6
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: DENY
+x-permitted-cross-domain-policies: none
+x-railway-edge: railway/us-east4-eqdc4a
+x-railway-request-id: 7fjFsRlPQCODNxcBwoOzXw
+x-request-id: 2b6aa172-b40d-445b-92ff-dfbbf397aa2d
+x-xss-protection: 0
+x-zephix-env: staging
+content-length: 104
+
+{"status":"ok","ts":"2026-03-06T21:06:39.592Z","checks":{"db":{"status":"ok"},"schema":{"status":"ok"}}}

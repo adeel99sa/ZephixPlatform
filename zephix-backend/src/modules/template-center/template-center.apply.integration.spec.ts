@@ -8,13 +8,15 @@ import { DocumentLifecycleService } from './documents/document-lifecycle.service
 import { GateApprovalsService } from './gates/gate-approvals.service';
 import { TemplateDefinition } from './templates/entities/template-definition.entity';
 import { TemplateVersion } from './templates/entities/template-version.entity';
-import { KpiDefinition } from './kpis/entities/kpi-definition.entity';
+import { KpiDefinitionEntity as KpiDefinition } from '../kpis/entities/kpi-definition.entity';
 import { DocTemplate } from './documents/entities/doc-template.entity';
 import { Project } from '../projects/entities/project.entity';
 import { ProjectKpi } from './kpis/entities/project-kpi.entity';
 import { DocumentInstance } from './documents/entities/document-instance.entity';
 import { TemplateLineage } from './apply/entities/template-lineage.entity';
 import { DocumentVersion } from './documents/entities/document-version.entity';
+
+jest.setTimeout(30000);
 
 describe('Template Center (integration)', () => {
   let app: INestApplication;

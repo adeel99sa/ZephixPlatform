@@ -211,9 +211,9 @@ export class AIPMAssistantController {
   }
 
   @Get('test-ai-chat')
-  @UseGuards() // Temporarily remove authentication for testing
-  async testAIChat(): Promise<any> {
-    console.log('AI Chat test endpoint called');
+  @UseGuards(JwtAuthGuard)
+  async testAIChat(@Request() req: AuthRequest): Promise<any> {
+    const { userId } = getAuthContext(req);
     return {
       message: 'AI Chat Service is working!',
       capabilities: [

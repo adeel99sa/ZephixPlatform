@@ -14,6 +14,12 @@ export interface FeatureFlags {
   adminPanel: boolean;
   workflows: boolean;
   workspaceMembershipV1: boolean;
+
+  // Wave 10: KPI async recompute and rollup flags
+  kpiAsyncRecomputeEnabled: boolean;
+  kpiSchedulerEnabled: boolean;
+  portfolioKpiSnapshotsEnabled: boolean;
+  programKpiSnapshotsEnabled: boolean;
 }
 
 export default registerAs(
@@ -31,6 +37,17 @@ export default registerAs(
     telemetry: process.env.ENABLE_TELEMETRY === 'true',
     adminPanel: process.env.ENABLE_ADMIN === 'true',
     workflows: process.env.ENABLE_WORKFLOWS === 'true',
+    // RBAC stabilization: Set ZEPHIX_WS_MEMBERSHIP_V1=1 in Railway staging env vars
+    // to activate workspace membership guards (RequireWorkspaceRoleGuard,
+    // RequireProjectWorkspaceRoleGuard). Safe to enable after guard fixes in
+    // src/common/auth/ are deployed. Do NOT hard-code true here — this must
+    // remain env-driven so production can be enabled separately.
     workspaceMembershipV1: process.env.ZEPHIX_WS_MEMBERSHIP_V1 === '1',
+
+    // Wave 10: KPI async recompute
+    kpiAsyncRecomputeEnabled: process.env.KPI_ASYNC_RECOMPUTE_ENABLED === 'true',
+    kpiSchedulerEnabled: process.env.KPI_SCHEDULER_ENABLED === 'true',
+    portfolioKpiSnapshotsEnabled: process.env.PORTFOLIO_KPI_SNAPSHOTS_ENABLED === 'true',
+    programKpiSnapshotsEnabled: process.env.PROGRAM_KPI_SNAPSHOTS_ENABLED === 'true',
   }),
 );

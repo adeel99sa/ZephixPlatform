@@ -8,12 +8,12 @@ import {
   Req,
 } from '@nestjs/common';
 import { TemplateService } from './template.service';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 
 @Controller('templates')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
 

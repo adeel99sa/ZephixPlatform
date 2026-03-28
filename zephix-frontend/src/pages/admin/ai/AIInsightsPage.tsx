@@ -36,7 +36,7 @@ export default function AIInsightsPage() {
         {risksQ.isLoading ? 'Loading…' :
          risksQ.error ? <div role="alert">{String(risksQ.error)}</div> :
          <ul className="list-disc pl-5">
-           {(risksQ.data ?? []).map((r) => <li key={r.id}>{r.title} — {r.reason}</li>)}
+           {(risksQ.data ?? []).map((r: RiskInsight) => <li key={r.id}>{r.title} — {r.reason}</li>)}
            {!(risksQ.data ?? []).length && <li className="opacity-70">No risk signals</li>}
          </ul>}
       </section>
@@ -45,7 +45,7 @@ export default function AIInsightsPage() {
         {resQ.isLoading ? 'Loading…' :
          resQ.error ? <div role="alert">{String(resQ.error)}</div> :
          <ul className="list-disc pl-5">
-           {(resQ.data ?? []).map((c) => <li key={c.id}>{c.resourceName}: {c.window}</li>)}
+           {(resQ.data ?? []).map((c: ResourceConflict) => <li key={c.id}>{c.resourceName}: {c.window}</li>)}
            {!(resQ.data ?? []).length && <li className="opacity-70">No conflicts forecasted</li>}
          </ul>}
       </section>

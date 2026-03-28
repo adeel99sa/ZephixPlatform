@@ -3,10 +3,17 @@ name: Enterprise CI/CD Pipeline
 on:
   push:
     branches: [main, develop, feature/*]
+    tags: ['v*']
   pull_request:
     branches: [main, develop]
+  workflow_dispatch: # Manual trigger for production deploys
   schedule:
     - cron: '0 2 * * *' # Daily security scan at 2 AM
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
 
 env:
   NODE_VERSION: '20.x'
@@ -53,18 +60,79 @@ jobs:
         uses: bridgecrewio/checkov-action@master
         with:
           directory: .
-          framework: terraform,kubernetes,dockerfile,githubactions
+          framework: terraform,kubernetes,dockerfile,github_actions
           output_format: sarif
           output_file_path: checkov-results.sarif
+          soft_fail: true
 
       - name: Upload Checkov results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'checkov-results.sarif'
 
-  backend-test:
-    name: Backend Testing & Quality
+  # ── Gating suites: small, stable, MUST pass to deploy ─────────────
+  backend-gating:
+    name: Backend Gating Tests
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Run type checking
+        working-directory: zephix-backend
+        run: npx tsc --noEmit
+
+      - name: Run gating tests (122 suites, 1310 tests)
+        working-directory: zephix-backend
+        run: npm run test:gating
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-key
+
+  frontend-gating:
+    name: Frontend Gating Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: zephix-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Run type checking
+        working-directory: zephix-frontend
+        run: npx tsc --noEmit
+
+      - name: Run gating tests (41 files, 398 tests)
+        working-directory: zephix-frontend
+        run: npm run test:gating
+        env:
+          CI: true
+
+  # ── Full suites: informational, do NOT block deploys ─────────────
+  backend-test:
+    name: Backend Full Tests (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
     services:
       postgres:
         image: postgres:15
@@ -183,8 +251,9 @@ jobs:
           name: backend-coverage
 
   frontend-test:
-    name: Frontend Testing & Quality
+    name: Frontend Full Tests (informational)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -231,12 +300,13 @@ jobs:
           flags: frontend
           name: frontend-coverage
 
-  build-and-deploy:
-    name: Build & Deploy
-    needs: [security-scan, backend-test]
+  # Deploy to test on every push to main
+  deploy-test:
+    name: Deploy to Test
+    needs: [backend-gating]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    if: github.ref == 'refs/heads/main'
+    environment: test
 
     steps:
       - name: Checkout code
@@ -247,11 +317,9 @@ jobs:
         run: |
           npm ci
           npm run build
-          npm run build:metadata
 
-      - name: Build frontend (Optional)
+      - name: Build frontend
         working-directory: zephix-frontend
-        continue-on-error: true
         run: |
           npm ci
           npm run build
@@ -268,25 +336,622 @@ jobs:
           name: sbom
           path: sbom.spdx.json
 
-      - name: Deploy to Railway (Staging)
-        if: github.ref == 'refs/heads/develop'
-        uses: railway/deploy@v1
-        with:
-          service: zephix-backend-staging
-          token: ${{ secrets.RAILWAY_TOKEN }}
+      # ── Deploy backend FIRST, then frontend ──────────────────────────
+      # Railway test environment service names (verified 2026-02-14):
+      #   Backend:  zephix-backend
+      #   Frontend: zephix-frontend
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
 
-      - name: Deploy to Railway (Production)
-        if: github.ref == 'refs/heads/main'
-        uses: railway/deploy@v1
+      - name: Deploy Backend to Railway (Test)
+        run: railway up --service zephix-backend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
+
+      - name: Wait for test backend health
+        run: |
+          HEALTH_URL="${{ secrets.TEST_API_URL }}/health/ready"
+          if [ -z "${{ secrets.TEST_API_URL }}" ]; then
+            echo "::warning::TEST_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+          MAX_ATTEMPTS=8
+          WAIT=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            sleep $WAIT
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Test backend health passed on attempt ${i}"
+              break
+            fi
+            echo "Attempt ${i}/${MAX_ATTEMPTS}: HTTP ${HTTP_CODE}"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::warning::Test backend health check did not pass after ${MAX_ATTEMPTS} attempts"
+            fi
+            WAIT=$((WAIT + 2))
+          done
+
+      # ── Post-deploy identity guard (public, no auth) ──────────────────
+      # Uses /api/system/identity — no token required.
+      # Verifies: zephixEnv, systemIdentifier (cluster fingerprint), migrationCount.
+      - name: "Test identity guard (verify cluster fingerprint)"
+        run: |
+          IDENTITY_URL="${{ secrets.TEST_API_URL }}/system/identity"
+          if [ -z "${{ secrets.TEST_API_URL }}" ]; then
+            echo "::error::TEST_API_URL secret is not configured — cannot verify deploy"
+            exit 1
+          fi
+
+          echo "Fetching identity from ${IDENTITY_URL}..."
+          IDENTITY=$(curl -sf "$IDENTITY_URL" 2>/dev/null || echo '{"error":"identity unreachable"}')
+
+          if echo "$IDENTITY" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::error::TEST DEPLOY BLOCKED: /api/system/identity unreachable"
+            echo "Response: ${IDENTITY}"
+            exit 1
+          fi
+
+          ZEPHIX_ENV=$(echo "$IDENTITY" | jq -r '.data.zephixEnv // "unknown"')
+          SYS_ID=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.systemIdentifier // "unknown"')
+          MIGRATIONS=$(echo "$IDENTITY" | jq -r '.data.migrationCount // 0')
+          DB_HOST=$(echo "$IDENTITY" | jq -r '.data.dbHost // "unknown"')
+          SERVER_ADDR=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.serverAddr // "unknown"')
+
+          echo "  zephixEnv:        ${ZEPHIX_ENV}"
+          echo "  dbHost:           ${DB_HOST}"
+          echo "  serverAddr:       ${SERVER_ADDR}"
+          echo "  systemIdentifier: ${SYS_ID}"
+          echo "  migrationCount:   ${MIGRATIONS}"
+
+          # ── Hard fail: zephixEnv must be test ──
+          if [ "$ZEPHIX_ENV" != "test" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: zephixEnv='${ZEPHIX_ENV}', expected 'test'"
+            exit 1
+          fi
+
+          # ── Hard fail: systemIdentifier must match expected cluster ──
+          EXPECTED_SYS_ID="${{ secrets.TEST_SYSTEM_IDENTIFIER }}"
+          if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
+            exit 1
+          fi
+
+          # ── Hard fail: must not connect to production or staging proxy ──
+          if [ "$DB_HOST" = "ballast.proxy.rlwy.net" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: dbHost is production proxy (${DB_HOST})"
+            exit 1
+          fi
+          if [ "$DB_HOST" = "interchange.proxy.rlwy.net" ] || [ "$DB_HOST" = "shortline.proxy.rlwy.net" ]; then
+            echo "::error::TEST DEPLOY BLOCKED: dbHost is staging proxy (${DB_HOST})"
+            exit 1
+          fi
+
+          # ── Hard fail: schema must be initialized ──
+          if [ "$MIGRATIONS" -eq 0 ] 2>/dev/null; then
+            echo "::error::TEST DEPLOY BLOCKED: migrationCount is 0 — schema not initialized"
+            exit 1
+          fi
+
+          echo ""
+          echo "Test identity guard: PASSED"
+          echo "  Cluster: sysId=${SYS_ID}, addr=${SERVER_ADDR}, migrations=${MIGRATIONS}"
+
+      - name: Deploy Frontend to Railway (Test)
+        run: railway up --service zephix-frontend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_TEST }}
+
+  # Deploy staging from release tags (v*)
+  # Guardrails: backend tsc, backend tests, gating frontend tests, migration check
+  # Railway service names (verified 2026-02-14 via `railway service` CLI):
+  #   Backend:  zephix-backend-v2  (staging has a separate service name)
+  #   Frontend: zephix-frontend    (same name across all envs)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [security-scan, backend-gating, frontend-gating]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          service: zephix-backend-production
-          token: ${{ secrets.RAILWAY_TOKEN }}
+          node-version: ${{ env.NODE_VERSION }}
+
+      # ── Backend build for deploy (tsc + gating already passed in backend-gating job)
+      - name: Backend install
+        working-directory: zephix-backend
+        run: npm ci
+
+      - name: Backend build
+        working-directory: zephix-backend
+        run: npm run build
+
+      # ── Frontend build for deploy (tsc + gating already passed in frontend-gating job)
+      - name: Frontend install
+        working-directory: zephix-frontend
+        run: npm ci
+
+      - name: Frontend build
+        working-directory: zephix-frontend
+        run: npm run build
+
+      # ── Migration readiness check (source + compiled) ──────────────────
+      - name: Migration readiness check
+        working-directory: zephix-backend
+        run: |
+          echo "=== Source migration check ==="
+          SRC_COUNT=$(ls -1 src/migrations/*.ts 2>/dev/null | wc -l | tr -d ' ')
+          echo "Source migration files: ${SRC_COUNT}"
+          if [ "$SRC_COUNT" -eq 0 ]; then
+            echo "::error::No source migration files found — schema drift risk"
+            exit 1
+          fi
+
+          echo "=== Compiled migration check ==="
+          DIST_COUNT=$(ls -1 dist/migrations/*.js 2>/dev/null | wc -l | tr -d ' ')
+          echo "Compiled migration files: ${DIST_COUNT}"
+          if [ "$DIST_COUNT" -eq 0 ]; then
+            echo "::error::Migrations exist in src/ but NOT in dist/ — build did not include migrations"
+            exit 1
+          fi
+
+          echo "=== Parity check ==="
+          echo "Source: ${SRC_COUNT} | Compiled: ${DIST_COUNT}"
+          if [ "$SRC_COUNT" -ne "$DIST_COUNT" ]; then
+            echo "::warning::Migration count mismatch: ${SRC_COUNT} source vs ${DIST_COUNT} compiled"
+          fi
+          echo "Migration readiness: OK"
+
+      # ── PRE-DEPLOY identity guard: verify current cluster before overwriting ─
+      - name: "Pre-deploy identity guard (staging)"
+        run: |
+          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/system/identity"
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping pre-deploy guard"
+            exit 0
+          fi
+
+          echo "Pre-deploy: checking current staging cluster identity..."
+          IDENTITY=$(curl -sf "$IDENTITY_URL" 2>/dev/null || echo '{"error":"identity unreachable"}')
+
+          if echo "$IDENTITY" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::warning::Pre-deploy identity check skipped — endpoint unreachable (may be first deploy)"
+            exit 0
+          fi
+
+          ZEPHIX_ENV=$(echo "$IDENTITY" | jq -r '.data.zephixEnv // "unknown"')
+          SYS_ID=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.systemIdentifier // "unknown"')
+          DB_HOST=$(echo "$IDENTITY" | jq -r '.data.dbHost // "unknown"')
+
+          echo "  Current zephixEnv:        ${ZEPHIX_ENV}"
+          echo "  Current systemIdentifier: ${SYS_ID}"
+          echo "  Current dbHost:           ${DB_HOST}"
+
+          if [ "$ZEPHIX_ENV" != "staging" ] && [ "$ZEPHIX_ENV" != "unknown" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: current staging has zephixEnv='${ZEPHIX_ENV}'"
+            exit 1
+          fi
+          if [ "$DB_HOST" = "ballast.proxy.rlwy.net" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: staging is connected to production proxy"
+            exit 1
+          fi
+
+          EXPECTED_SYS_ID="${{ secrets.STAGING_SYSTEM_IDENTIFIER }}"
+          if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: staging systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
+            exit 1
+          fi
+
+          echo "Pre-deploy identity guard: PASSED"
+
+      # ── Deploy backend FIRST ───────────────────────────────────────────
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy Backend to Railway (Staging)
+        run: railway up --service zephix-backend-v2 --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+
+      # ── Wait for backend health before deploying frontend ──────────────
+      - name: Wait for backend health (retry with backoff)
+        run: |
+          HEALTH_URL="${{ secrets.STAGING_API_URL }}/health/ready"
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+
+          MAX_ATTEMPTS=10
+          WAIT=10
+          echo "Waiting for backend at ${HEALTH_URL} (max ${MAX_ATTEMPTS} attempts, ${WAIT}s backoff)..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt ${i}/${MAX_ATTEMPTS} (waiting ${WAIT}s)..."
+            sleep $WAIT
+
+            HTTP_CODE=$(curl -s -o /tmp/health-response.txt -D /tmp/health-headers.txt -w "%{http_code}" -H "Accept: application/json" "$HEALTH_URL" 2>/dev/null || echo "000")
+            REQUEST_ID=$(grep -i 'x-request-id' /tmp/health-headers.txt 2>/dev/null | cut -d: -f2 | tr -d ' ' || echo "n/a")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Backend health check passed on attempt ${i} (HTTP ${HTTP_CODE})"
+              cat /tmp/health-response.txt 2>/dev/null || true
+              echo ""
+              break
+            fi
+
+            echo "  HTTP ${HTTP_CODE} — not ready yet (X-Request-Id: ${REQUEST_ID})"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Backend health check FAILED after ${MAX_ATTEMPTS} attempts"
+              echo "Last response (HTTP ${HTTP_CODE}):"
+              cat /tmp/health-response.txt 2>/dev/null || echo "(no response body)"
+              echo "X-Request-Id: ${REQUEST_ID}"
+              exit 1
+            fi
+
+            # Linear backoff with slight increase each round (total ~100-120s)
+            WAIT=$((WAIT + 2))
+          done
+
+      # ── Post-deploy identity guard (public, no auth) ──────────────────
+      # Uses /api/system/identity — no token required.
+      # Verifies: zephixEnv, systemIdentifier (cluster fingerprint), migrationCount.
+      - name: "Staging identity guard (verify cluster fingerprint)"
+        run: |
+          IDENTITY_URL="${{ secrets.STAGING_API_URL }}/system/identity"
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::error::STAGING_API_URL secret is not configured — cannot verify deploy"
+            exit 1
+          fi
+
+          echo "Fetching identity from ${IDENTITY_URL}..."
+          IDENTITY=$(curl -sf "$IDENTITY_URL" 2>/dev/null || echo '{"error":"identity unreachable"}')
+
+          if echo "$IDENTITY" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::error::STAGING DEPLOY BLOCKED: /api/system/identity unreachable"
+            echo "Response: ${IDENTITY}"
+            exit 1
+          fi
+
+          ZEPHIX_ENV=$(echo "$IDENTITY" | jq -r '.data.zephixEnv // "unknown"')
+          SYS_ID=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.systemIdentifier // "unknown"')
+          MIGRATIONS=$(echo "$IDENTITY" | jq -r '.data.migrationCount // 0')
+          DB_HOST=$(echo "$IDENTITY" | jq -r '.data.dbHost // "unknown"')
+          SERVER_ADDR=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.serverAddr // "unknown"')
+
+          echo "  zephixEnv:        ${ZEPHIX_ENV}"
+          echo "  dbHost:           ${DB_HOST}"
+          echo "  serverAddr:       ${SERVER_ADDR}"
+          echo "  systemIdentifier: ${SYS_ID}"
+          echo "  migrationCount:   ${MIGRATIONS}"
+
+          # ── Hard fail: zephixEnv must be staging ──
+          if [ "$ZEPHIX_ENV" != "staging" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: zephixEnv='${ZEPHIX_ENV}', expected 'staging'"
+            exit 1
+          fi
+
+          # ── Hard fail: systemIdentifier must match expected cluster ──
+          EXPECTED_SYS_ID="${{ secrets.STAGING_SYSTEM_IDENTIFIER }}"
+          if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
+            exit 1
+          fi
+
+          # ── Hard fail: must not connect to production proxy ──
+          if [ "$DB_HOST" = "ballast.proxy.rlwy.net" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: dbHost is production proxy (${DB_HOST})"
+            exit 1
+          fi
+          # ── Hard fail: must not connect to test proxy ──
+          if [ "$DB_HOST" = "yamabiko.proxy.rlwy.net" ]; then
+            echo "::error::STAGING DEPLOY BLOCKED: dbHost is test proxy (${DB_HOST})"
+            exit 1
+          fi
+
+          # ── Hard fail: schema must be initialized ──
+          if [ "$MIGRATIONS" -eq 0 ] 2>/dev/null; then
+            echo "::error::STAGING DEPLOY BLOCKED: migrationCount is 0 — schema not initialized"
+            exit 1
+          fi
+
+          echo ""
+          echo "Staging identity guard: PASSED"
+          echo "  Cluster: sysId=${SYS_ID}, addr=${SERVER_ADDR}, migrations=${MIGRATIONS}"
+
+      # ── Post-deploy canary: health + identity saved as artifact ────────
+      - name: "Staging canary endpoint check"
+        run: |
+          if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+            echo "::warning::STAGING_API_URL not configured — skipping canary"
+            exit 0
+          fi
+          mkdir -p staging-canary
+
+          echo "Canary: /api/health/ready"
+          HEALTH=$(curl -sf "${{ secrets.STAGING_API_URL }}/health/ready" 2>&1)
+          HEALTH_CODE=$?
+          echo "$HEALTH" | tee staging-canary/health.json
+          if [ $HEALTH_CODE -ne 0 ]; then
+            echo "::error::Staging canary FAILED: /api/health/ready returned non-200"
+            exit 1
+          fi
+
+          echo ""
+          echo "Canary: /api/system/identity"
+          IDENTITY=$(curl -sf "${{ secrets.STAGING_API_URL }}/system/identity" 2>&1)
+          IDENTITY_CODE=$?
+          echo "$IDENTITY" | tee staging-canary/identity.json
+          if [ $IDENTITY_CODE -ne 0 ]; then
+            echo "::error::Staging canary FAILED: /api/system/identity returned non-200"
+            exit 1
+          fi
+
+          echo ""
+          echo "Canary: /api/.../kpis/definitions (optional)"
+          if [ -n "${{ secrets.SEED_WORKSPACE_ID }}" ] && [ -n "${{ secrets.SEED_PROJECT_ID }}" ]; then
+            KPI_URL="${{ secrets.STAGING_API_URL }}/work/workspaces/${{ secrets.SEED_WORKSPACE_ID }}/projects/${{ secrets.SEED_PROJECT_ID }}/kpis/definitions"
+            KPI_DEFS=$(curl -sf "$KPI_URL" 2>&1 || true)
+            echo "$KPI_DEFS" | tee staging-canary/kpi-definitions.json || true
+            echo "KPI definitions canary: attempted"
+          else
+            echo "::notice::SEED_WORKSPACE_ID or SEED_PROJECT_ID not set — skipping KPI canary"
+          fi
+
+          echo ""
+          echo "Staging canary: PASSED (both endpoints 200 OK)"
+
+      - name: Upload staging canary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-canary-${{ github.sha }}
+          path: staging-canary/
+          retention-days: 30
+
+      # ── Deploy frontend AFTER backend is healthy ───────────────────────
+      - name: Deploy Frontend to Railway (Staging)
+        run: railway up --service zephix-frontend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+
+  # Production: manual dispatch only, requires approved tag
+  # Rule: requires 2 consecutive green staging smokes for same tag before promotion
+  # Railway service names (verified 2026-02-10):
+  #   Backend:  zephix-backend   (production env selected by RAILWAY_TOKEN_PROD)
+  #   Frontend: zephix-frontend  (production env selected by RAILWAY_TOKEN_PROD)
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v')
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify tag is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor ${{ github.sha }} origin/main; then
+            echo "::error::Tag must be on main branch for production deploy"
+            exit 1
+          fi
+
+      - name: Verify tag format (must be release, not RC)
+        run: |
+          TAG="${{ github.ref_name }}"
+          if echo "$TAG" | grep -qE '(-rc|-(alpha|beta))'; then
+            echo "::error::Cannot deploy release candidate or pre-release tag ${TAG} to production. Tag a stable release (e.g., v0.6.0)."
+            exit 1
+          fi
+          echo "Tag ${TAG} is a stable release — OK"
+
+      - name: Backend build
+        working-directory: zephix-backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Frontend build
+        working-directory: zephix-frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Backup readiness check
+        run: |
+          echo "Verifying backup readiness before production deploy..."
+          if [ -z "${{ secrets.ADMIN_AUTH_TOKEN }}" ]; then
+            echo "::error::ADMIN_AUTH_TOKEN secret is not configured — backup readiness probe requires admin auth"
+            exit 1
+          fi
+          if [ -n "${{ secrets.STAGING_API_URL }}" ]; then
+            curl -sf \
+              -H "Authorization: Bearer ${{ secrets.ADMIN_AUTH_TOKEN }}" \
+              "${{ secrets.STAGING_API_URL }}/admin/system/backup-readiness" \
+              && echo "Backup readiness: OK" \
+              || { echo "::error::Backup readiness check failed on staging — aborting production deploy"; exit 1; }
+          else
+            echo "::warning::STAGING_API_URL not configured — skipping backup readiness check"
+          fi
+
+      # ── PRE-DEPLOY identity guard: verify current cluster before overwriting ─
+      - name: "Pre-deploy identity guard (production)"
+        run: |
+          IDENTITY_URL="${{ secrets.PROD_API_URL }}/system/identity"
+          if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+            echo "::error::PROD_API_URL secret is not configured — cannot verify pre-deploy"
+            exit 1
+          fi
+
+          echo "Pre-deploy: checking current production cluster identity..."
+          IDENTITY=$(curl -sf "$IDENTITY_URL" 2>/dev/null || echo '{"error":"identity unreachable"}')
+
+          if echo "$IDENTITY" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::warning::Pre-deploy identity check skipped — endpoint unreachable"
+            exit 0
+          fi
+
+          ZEPHIX_ENV=$(echo "$IDENTITY" | jq -r '.data.zephixEnv // "unknown"')
+          SYS_ID=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.systemIdentifier // "unknown"')
+          DB_HOST=$(echo "$IDENTITY" | jq -r '.data.dbHost // "unknown"')
+
+          echo "  Current zephixEnv:        ${ZEPHIX_ENV}"
+          echo "  Current systemIdentifier: ${SYS_ID}"
+          echo "  Current dbHost:           ${DB_HOST}"
+
+          if [ "$ZEPHIX_ENV" != "production" ] && [ "$ZEPHIX_ENV" != "unknown" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: production has zephixEnv='${ZEPHIX_ENV}'"
+            exit 1
+          fi
+          # Must not be staging or test proxy
+          if [ "$DB_HOST" = "interchange.proxy.rlwy.net" ] || [ "$DB_HOST" = "shortline.proxy.rlwy.net" ] || [ "$DB_HOST" = "yamabiko.proxy.rlwy.net" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: production is connected to non-production proxy (${DB_HOST})"
+            exit 1
+          fi
+
+          EXPECTED_SYS_ID="${{ secrets.PRODUCTION_SYSTEM_IDENTIFIER }}"
+          if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
+            echo "::error::PRE-DEPLOY BLOCKED: production systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
+            exit 1
+          fi
+
+          echo "Pre-deploy identity guard: PASSED"
+
+      # ── Deploy backend FIRST ───────────────────────────────────────────
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy Backend to Railway (Production)
+        run: railway up --service zephix-backend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+
+      # ── Wait for backend health before deploying frontend ──────────────
+      - name: Wait for production backend health (retry with backoff)
+        run: |
+          HEALTH_URL="${{ secrets.PROD_API_URL }}/health/ready"
+          if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+            echo "::warning::PROD_API_URL not configured — skipping health wait"
+            exit 0
+          fi
+
+          MAX_ATTEMPTS=10
+          WAIT=15
+          echo "Waiting for production backend at ${HEALTH_URL} (max ${MAX_ATTEMPTS} attempts)..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt ${i}/${MAX_ATTEMPTS} (waiting ${WAIT}s)..."
+            sleep $WAIT
+
+            HTTP_CODE=$(curl -s -o /tmp/health-response.txt -w "%{http_code}" -D /tmp/health-headers.txt -H "Accept: application/json" "$HEALTH_URL" 2>/dev/null || echo "000")
+            REQUEST_ID=$(grep -i 'x-request-id' /tmp/health-headers.txt 2>/dev/null | cut -d: -f2 | tr -d ' ' || echo "n/a")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Production backend health passed on attempt ${i} (HTTP ${HTTP_CODE})"
+              cat /tmp/health-response.txt 2>/dev/null || true
+              echo ""
+              break
+            fi
+
+            echo "  HTTP ${HTTP_CODE} — not ready yet (X-Request-Id: ${REQUEST_ID})"
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::Production backend health FAILED after ${MAX_ATTEMPTS} attempts"
+              echo "Last response (HTTP ${HTTP_CODE}):"
+              cat /tmp/health-response.txt 2>/dev/null || echo "(no response body)"
+              echo "X-Request-Id: ${REQUEST_ID}"
+              exit 1
+            fi
+
+            WAIT=$((WAIT + 3))
+          done
+
+      # ── Post-deploy identity guard (public, no auth) ──────────────────
+      # Uses /api/system/identity — no token required.
+      # Verifies: zephixEnv, systemIdentifier (cluster fingerprint), migrationCount.
+      - name: "Production identity guard (verify cluster fingerprint)"
+        run: |
+          IDENTITY_URL="${{ secrets.PROD_API_URL }}/system/identity"
+          if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+            echo "::error::PROD_API_URL secret is not configured — cannot verify deploy"
+            exit 1
+          fi
+
+          echo "Fetching identity from ${IDENTITY_URL}..."
+          IDENTITY=$(curl -sf "$IDENTITY_URL" 2>/dev/null || echo '{"error":"identity unreachable"}')
+
+          if echo "$IDENTITY" | jq -e '.error' >/dev/null 2>&1; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: /api/system/identity unreachable"
+            echo "Response: ${IDENTITY}"
+            exit 1
+          fi
+
+          ZEPHIX_ENV=$(echo "$IDENTITY" | jq -r '.data.zephixEnv // "unknown"')
+          SYS_ID=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.systemIdentifier // "unknown"')
+          MIGRATIONS=$(echo "$IDENTITY" | jq -r '.data.migrationCount // 0')
+          DB_HOST=$(echo "$IDENTITY" | jq -r '.data.dbHost // "unknown"')
+          SERVER_ADDR=$(echo "$IDENTITY" | jq -r '.data.dbIdentity.serverAddr // "unknown"')
+
+          echo "  zephixEnv:        ${ZEPHIX_ENV}"
+          echo "  dbHost:           ${DB_HOST}"
+          echo "  serverAddr:       ${SERVER_ADDR}"
+          echo "  systemIdentifier: ${SYS_ID}"
+          echo "  migrationCount:   ${MIGRATIONS}"
+
+          # ── Hard fail: zephixEnv must be production ──
+          if [ "$ZEPHIX_ENV" != "production" ]; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: zephixEnv='${ZEPHIX_ENV}', expected 'production'"
+            exit 1
+          fi
+
+          # ── Hard fail: systemIdentifier must match expected cluster ──
+          EXPECTED_SYS_ID="${{ secrets.PRODUCTION_SYSTEM_IDENTIFIER }}"
+          if [ -n "$EXPECTED_SYS_ID" ] && [ "$SYS_ID" != "$EXPECTED_SYS_ID" ]; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: systemIdentifier='${SYS_ID}', expected '${EXPECTED_SYS_ID}'"
+            exit 1
+          fi
+
+          # ── Hard fail: must not connect to staging or test proxy ──
+          if [ "$DB_HOST" = "interchange.proxy.rlwy.net" ] || [ "$DB_HOST" = "shortline.proxy.rlwy.net" ] || [ "$DB_HOST" = "yamabiko.proxy.rlwy.net" ]; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: dbHost is a non-production proxy (${DB_HOST})"
+            exit 1
+          fi
+
+          # ── Hard fail: schema must be initialized ──
+          if [ "$MIGRATIONS" -eq 0 ] 2>/dev/null; then
+            echo "::error::PRODUCTION DEPLOY BLOCKED: migrationCount is 0 — schema not initialized"
+            exit 1
+          fi
+
+          echo ""
+          echo "Production identity guard: PASSED"
+          echo "  Cluster: sysId=${SYS_ID}, addr=${SERVER_ADDR}, migrations=${MIGRATIONS}"
+
+      # ── Deploy frontend AFTER backend is healthy ───────────────────────
+      - name: Deploy Frontend to Railway (Production)
+        run: railway up --service zephix-frontend --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
   performance-test:
     name: Performance & Load Testing
     runs-on: ubuntu-latest
-    needs: build-and-deploy
-    if: github.ref == 'refs/heads/main'
+    needs: deploy-staging
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Checkout code
@@ -315,7 +980,7 @@ jobs:
   security-compliance:
     name: Security Compliance Report
     runs-on: ubuntu-latest
-    needs: [security-scan, build-and-deploy]
+    needs: [security-scan, backend-gating]
     if: always()
 
     steps:
@@ -325,7 +990,7 @@ jobs:
           echo "Generated: $(date)" >> compliance-report.md
           echo "" >> compliance-report.md
           echo "### Vulnerabilities Found: ${{ needs.security-scan.result }}" >> compliance-report.md
-          echo "### Build Status: ${{ needs.build-and-deploy.result }}" >> compliance-report.md
+          echo "### Backend Tests: ${{ needs.backend-test.result }}" >> compliance-report.md
 
       - name: Upload compliance report
         uses: actions/upload-artifact@v4

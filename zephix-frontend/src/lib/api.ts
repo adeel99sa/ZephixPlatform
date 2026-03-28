@@ -58,6 +58,10 @@ function isAuthUrl(url: string) {
   return url.includes("/auth/");
 }
 
+function isAuthMeUrl(url: string) {
+  return url.endsWith("/auth/me") || url.includes("/auth/me?");
+}
+
 function isHealthUrl(url: string) {
   return url.includes("/health") || url.includes("/version");
 }
@@ -116,6 +120,14 @@ api.interceptors.response.use(
     return data;
   },
   (err) => {
+    const method = String(err?.config?.method || "").toLowerCase();
+    const url = String(err?.config?.url || "");
+    const status = err?.response?.status;
+
+    if (status === 401 && method === "get" && isAuthMeUrl(url)) {
+      return null;
+    }
+
     throw err;
   }
 );

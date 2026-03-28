@@ -1,0 +1,2001 @@
+{
+  "data": [
+    {
+      "id": "d9017bf8-9467-4a74-9610-064f86fef1cd",
+      "name": "Hybrid M&A Integration",
+      "templateCode": "hybrid_ma_integration_v1",
+      "description": "Merger and acquisition integration program combining structured milestones with agile workstreams.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "hybrid",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "ma",
+        "integration",
+        "merger",
+        "acquisition"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "HYBRID",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Day 1 Readiness",
+          "order": 0,
+          "description": "Legal close requirements, communications, IT access",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "First 100 Days",
+          "order": 1,
+          "description": "Critical integration milestones and quick wins",
+          "estimatedDurationDays": 100
+        },
+        {
+          "name": "Full Integration",
+          "order": 2,
+          "description": "Systems consolidation, process harmonization, org design",
+          "estimatedDurationDays": 90
+        },
+        {
+          "name": "Synergy Realization",
+          "order": 3,
+          "description": "Track and validate deal synergy targets",
+          "estimatedDurationDays": 60
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Day 1 communications",
+          "priority": "critical",
+          "phaseOrder": 0,
+          "description": "Prepare internal and external communications",
+          "estimatedHours": 16
+        },
+        {
+          "name": "IT access provisioning",
+          "priority": "critical",
+          "phaseOrder": 0,
+          "description": "Ensure acquired team has system access",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Culture integration plan",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Plan culture alignment activities",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Systems integration roadmap",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Define system consolidation sequence",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Process harmonization",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Align key business processes across entities",
+          "estimatedHours": 24
+        },
+        {
+          "name": "Synergy tracking setup",
+          "priority": "high",
+          "phaseOrder": 3,
+          "description": "Define synergy metrics and tracking cadence",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Key talent attrition",
+          "category": "people",
+          "severity": "critical",
+          "description": "Critical employees leave during integration"
+        },
+        {
+          "id": "r2",
+          "title": "Customer churn",
+          "category": "business",
+          "severity": "high",
+          "description": "Customers leave due to integration disruption"
+        },
+        {
+          "id": "r3",
+          "title": "Synergy shortfall",
+          "category": "financial",
+          "severity": "high",
+          "description": "Integration fails to deliver expected synergies"
+        },
+        {
+          "id": "r4",
+          "title": "Regulatory approval delay",
+          "category": "compliance",
+          "severity": "medium",
+          "description": "Post-close regulatory requirements delay integration"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:42.860Z",
+      "updatedAt": "2026-02-17T19:08:42.860Z",
+      "boundKpiCount": 5
+    },
+    {
+      "id": "195631ed-c61a-45ba-ae68-22979535e899",
+      "name": "Hybrid Enterprise Rollout",
+      "templateCode": "hybrid_enterprise_rollout_v1",
+      "description": "Large-scale enterprise rollout with agile workstreams and waterfall milestones.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "hybrid",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "enterprise",
+        "rollout",
+        "deployment",
+        "transformation"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "HYBRID",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "gantt",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Program Setup",
+          "order": 0,
+          "description": "Governance structure, stakeholder alignment, and planning",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Pilot Wave",
+          "order": 1,
+          "description": "Initial rollout to pilot sites with agile execution",
+          "estimatedDurationDays": 20
+        },
+        {
+          "name": "Scale Wave",
+          "order": 2,
+          "description": "Expand to remaining sites based on pilot learnings",
+          "estimatedDurationDays": 30
+        },
+        {
+          "name": "Stabilization",
+          "order": 3,
+          "description": "Resolve issues, optimize, and standardize",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Handover",
+          "order": 4,
+          "description": "Transfer to BAU operations and close program",
+          "estimatedDurationDays": 5
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Governance charter",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Define program governance, RACI, and escalation paths",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Stakeholder mapping",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Identify and engage key stakeholders across sites",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Pilot site selection",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Select and onboard pilot sites",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Pilot execution",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Execute rollout at pilot sites",
+          "estimatedHours": 40
+        },
+        {
+          "name": "Pilot retrospective",
+          "priority": "medium",
+          "phaseOrder": 1,
+          "description": "Capture lessons learned and adjust plan",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Scale execution",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Execute rollout at remaining sites",
+          "estimatedHours": 60
+        },
+        {
+          "name": "BAU handover",
+          "priority": "medium",
+          "phaseOrder": 4,
+          "description": "Document and transfer to operations team",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Site resistance to change",
+          "category": "change-management",
+          "severity": "high",
+          "description": "Local teams resist adoption"
+        },
+        {
+          "id": "r2",
+          "title": "Pilot learnings not applied",
+          "category": "process",
+          "severity": "medium",
+          "description": "Scale wave repeats pilot mistakes"
+        },
+        {
+          "id": "r3",
+          "title": "Resource contention",
+          "category": "resource",
+          "severity": "high",
+          "description": "Shared resources spread too thin across waves"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:41.928Z",
+      "updatedAt": "2026-02-17T19:08:41.928Z",
+      "boundKpiCount": 5
+    },
+    {
+      "id": "997b534a-319e-4054-9568-5738323adcdf",
+      "name": "Hybrid Program Delivery",
+      "templateCode": "hybrid_program_delivery_v1",
+      "description": "Mixed delivery combining agile execution with plan-driven governance. Tracks both flow metrics and financial KPIs.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "hybrid",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "enterprise",
+        "transformation",
+        "mixed",
+        "portfolio"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "HYBRID",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "tasks",
+        "board",
+        "budget",
+        "change-requests",
+        "kpis",
+        "risks"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Discovery",
+          "order": 0,
+          "description": "Requirements and architecture spikes",
+          "estimatedDurationDays": 5
+        },
+        {
+          "name": "Iterative Delivery",
+          "order": 1,
+          "description": "Sprint-based execution with governance gates",
+          "estimatedDurationDays": 30
+        },
+        {
+          "name": "Stabilization",
+          "order": 2,
+          "description": "Integration testing and release readiness",
+          "estimatedDurationDays": 5
+        },
+        {
+          "name": "Transition",
+          "order": 3,
+          "description": "Deployment, training, and handover",
+          "estimatedDurationDays": 5
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Architecture spike",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Validate technical approach",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Governance gate review",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Stage-gate approval checkpoint",
+          "estimatedHours": 2
+        },
+        {
+          "name": "Release readiness",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Verify deployment criteria",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Knowledge transfer",
+          "priority": "medium",
+          "phaseOrder": 3,
+          "description": "Document and train operations team",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:41.011Z",
+      "updatedAt": "2026-02-17T19:08:41.011Z",
+      "boundKpiCount": 5
+    },
+    {
+      "id": "1a1f53a4-3dc3-4e72-b9ed-1fb81a0b08e6",
+      "name": "Waterfall Regulatory Program",
+      "templateCode": "waterfall_regulatory_v1",
+      "description": "Plan-driven regulatory compliance program with formal documentation, baselines, and audit-ready evidence.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "waterfall",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "regulatory",
+        "compliance",
+        "audit",
+        "governance"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "WATERFALL",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": true,
+        "waterfallEnabled": true,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": true,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Gap Analysis",
+          "order": 0,
+          "description": "Assess current compliance posture against requirements",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Remediation Planning",
+          "order": 1,
+          "description": "Design controls, policies, and remediation actions",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Implementation",
+          "order": 2,
+          "description": "Deploy controls, train staff, update processes",
+          "estimatedDurationDays": 30
+        },
+        {
+          "name": "Testing & Evidence",
+          "order": 3,
+          "description": "Control effectiveness testing and evidence collection",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "Certification / Audit",
+          "order": 4,
+          "description": "External audit support and certification submission",
+          "estimatedDurationDays": 10
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Regulatory requirements mapping",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Map regulations to internal controls",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Gap assessment",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Identify control gaps and prioritize remediation",
+          "estimatedHours": 12
+        },
+        {
+          "name": "Policy drafting",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Draft or update required policies",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Control implementation",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Deploy technical and procedural controls",
+          "estimatedHours": 40
+        },
+        {
+          "name": "Evidence collection",
+          "priority": "high",
+          "phaseOrder": 3,
+          "description": "Gather and organize audit evidence packages",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Audit preparation",
+          "priority": "critical",
+          "phaseOrder": 4,
+          "description": "Prepare documentation and brief audit team",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Regulatory deadline miss",
+          "category": "compliance",
+          "severity": "critical",
+          "description": "Failure to meet compliance deadline"
+        },
+        {
+          "id": "r2",
+          "title": "Control gap discovered late",
+          "category": "compliance",
+          "severity": "high",
+          "description": "Critical control gap found during audit"
+        },
+        {
+          "id": "r3",
+          "title": "Insufficient evidence",
+          "category": "compliance",
+          "severity": "high",
+          "description": "Audit evidence does not meet requirements"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:40.243Z",
+      "updatedAt": "2026-02-17T19:08:40.243Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "1c73e407-5e13-49d6-9a38-ba0f0ed4fdae",
+      "name": "Waterfall Vendor Implementation",
+      "templateCode": "waterfall_vendor_impl_v1",
+      "description": "Plan-driven vendor software implementation with formal scope, baselines, and change control.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "waterfall",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "vendor",
+        "implementation",
+        "erp",
+        "crm",
+        "saas"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "WATERFALL",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": true,
+        "waterfallEnabled": true,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": true,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Discovery & Scoping",
+          "order": 0,
+          "description": "Requirements gathering, vendor alignment, SOW sign-off",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Design",
+          "order": 1,
+          "description": "Solution design, configuration specifications, data mapping",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "Build & Configure",
+          "order": 2,
+          "description": "Vendor configuration, customization, data migration",
+          "estimatedDurationDays": 30
+        },
+        {
+          "name": "Test & Validate",
+          "order": 3,
+          "description": "UAT, integration testing, performance testing",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "Go-Live & Support",
+          "order": 4,
+          "description": "Deployment, training, and early-life support",
+          "estimatedDurationDays": 10
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Requirements workshop",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Facilitate requirements sessions with stakeholders",
+          "estimatedHours": 16
+        },
+        {
+          "name": "SOW review",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Review and approve statement of work",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Solution design",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Document target-state solution architecture",
+          "estimatedHours": 24
+        },
+        {
+          "name": "Data migration plan",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Map source to target data and define ETL approach",
+          "estimatedHours": 16
+        },
+        {
+          "name": "UAT execution",
+          "priority": "high",
+          "phaseOrder": 3,
+          "description": "Execute user acceptance test cases",
+          "estimatedHours": 24
+        },
+        {
+          "name": "Training delivery",
+          "priority": "medium",
+          "phaseOrder": 4,
+          "description": "Conduct end-user training sessions",
+          "estimatedHours": 16
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Vendor delivery delay",
+          "category": "vendor",
+          "severity": "high",
+          "description": "Vendor misses agreed milestones"
+        },
+        {
+          "id": "r2",
+          "title": "Scope creep from customization",
+          "category": "scope",
+          "severity": "high",
+          "description": "Uncontrolled feature requests increase cost"
+        },
+        {
+          "id": "r3",
+          "title": "Integration failure",
+          "category": "technical",
+          "severity": "critical",
+          "description": "System integration points fail during testing"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:39.460Z",
+      "updatedAt": "2026-02-17T19:08:39.460Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "e3ac82b3-fe31-4c42-b296-3ae38d969480",
+      "name": "Waterfall Infrastructure Migration",
+      "templateCode": "waterfall_infra_migration_v1",
+      "description": "Plan-driven infrastructure migration with earned value tracking, formal baselines, and change control.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "waterfall",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "infrastructure",
+        "migration",
+        "cloud",
+        "datacenter"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "WATERFALL",
+      "defaultTabs": [
+        "overview",
+        "plan",
+        "gantt",
+        "tasks",
+        "budget",
+        "change-requests",
+        "documents",
+        "kpis",
+        "risks",
+        "resources"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": true,
+        "waterfallEnabled": true,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": true,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Assessment",
+          "order": 0,
+          "description": "Inventory, dependency mapping, and readiness assessment",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Planning",
+          "order": 1,
+          "description": "Migration plan, schedule baseline, cost baseline",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "Build & Test",
+          "order": 2,
+          "description": "Target environment build and validation",
+          "estimatedDurationDays": 20
+        },
+        {
+          "name": "Migration Execution",
+          "order": 3,
+          "description": "Cutover execution with rollback plan",
+          "estimatedDurationDays": 10
+        },
+        {
+          "name": "Hypercare",
+          "order": 4,
+          "description": "Post-migration support and stabilization",
+          "estimatedDurationDays": 15
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Inventory assessment",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Document all systems, dependencies, and data flows",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Risk assessment",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Identify migration risks and mitigation strategies",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Migration plan",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Sequence of migration waves with rollback criteria",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Cost baseline",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Set approved budget baseline for migration",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Environment build",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Provision and configure target environment",
+          "estimatedHours": 40
+        },
+        {
+          "name": "Cutover execution",
+          "priority": "critical",
+          "phaseOrder": 3,
+          "description": "Execute migration cutover per approved plan",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Post-migration validation",
+          "priority": "high",
+          "phaseOrder": 4,
+          "description": "Verify all services operational in target",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Data loss during migration",
+          "category": "technical",
+          "severity": "critical",
+          "description": "Incomplete or corrupted data transfer"
+        },
+        {
+          "id": "r2",
+          "title": "Extended downtime",
+          "category": "operational",
+          "severity": "high",
+          "description": "Cutover exceeds planned maintenance window"
+        },
+        {
+          "id": "r3",
+          "title": "Rollback failure",
+          "category": "technical",
+          "severity": "critical",
+          "description": "Unable to revert to source in case of issues"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:38.674Z",
+      "updatedAt": "2026-02-17T19:08:38.674Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "1ed6d5ce-d168-40a1-8bd6-4684e6c58f68",
+      "name": "Kanban Risk and Compliance Tracking",
+      "templateCode": "kanban_risk_compliance_v1",
+      "description": "Flow-based risk register and compliance action tracking. Best for GRC teams managing ongoing audit findings and risk mitigations.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "kanban",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "risk",
+        "compliance",
+        "audit",
+        "grc"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "KANBAN",
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis",
+        "risks",
+        "documents"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Continuous Tracking",
+          "order": 0,
+          "description": "Ongoing risk and compliance action management",
+          "estimatedDurationDays": 90
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Risk register setup",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Initialize risk categories and severity matrix",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Compliance checklist",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Define compliance requirements and evidence needs",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Audit finding triage",
+          "priority": "medium",
+          "phaseOrder": 0,
+          "description": "Classify and route incoming audit findings",
+          "estimatedHours": 2
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Regulatory non-compliance",
+          "category": "compliance",
+          "severity": "critical",
+          "description": "Failure to meet regulatory requirements"
+        },
+        {
+          "id": "r2",
+          "title": "Data breach exposure",
+          "category": "security",
+          "severity": "critical",
+          "description": "Sensitive data exposed due to control gap"
+        },
+        {
+          "id": "r3",
+          "title": "Audit finding escalation",
+          "category": "compliance",
+          "severity": "high",
+          "description": "Open finding not resolved within SLA"
+        }
+      ],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:37.896Z",
+      "updatedAt": "2026-02-17T19:08:37.896Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "1d880cf1-5c5d-40dc-9bd4-a56922ed53f8",
+      "name": "Kanban Continuous Improvement",
+      "templateCode": "kanban_continuous_improvement_v1",
+      "description": "Flow-based continuous improvement tracking. Ideal for teams running ongoing optimization initiatives without fixed sprints.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "kanban",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "improvement",
+        "continuous",
+        "lean",
+        "optimization"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "KANBAN",
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Continuous Flow",
+          "order": 0,
+          "description": "Ongoing improvement execution with pull-based work",
+          "estimatedDurationDays": 90
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Set WIP limits",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Define work-in-progress limits per column",
+          "estimatedHours": 1
+        },
+        {
+          "name": "Define flow policies",
+          "priority": "medium",
+          "phaseOrder": 0,
+          "description": "Document pull policies and done criteria",
+          "estimatedHours": 2
+        },
+        {
+          "name": "Weekly flow review",
+          "priority": "medium",
+          "phaseOrder": 0,
+          "description": "Recurring review of cycle time and bottlenecks",
+          "estimatedHours": 1
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:37.094Z",
+      "updatedAt": "2026-02-17T19:08:37.094Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "36484740-a252-4269-b613-f23ffb7c0cfc",
+      "name": "Kanban Service Desk Intake",
+      "templateCode": "kanban_service_desk_v1",
+      "description": "Flow-based service desk and ticket intake management. Best for teams handling continuous inbound requests with SLA targets.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "kanban",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "service-desk",
+        "support",
+        "tickets",
+        "intake"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "KANBAN",
+      "defaultTabs": [
+        "overview",
+        "board",
+        "tasks",
+        "kpis",
+        "risks"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": false,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Continuous Intake",
+          "order": 0,
+          "description": "Ongoing ticket triage and processing",
+          "estimatedDurationDays": 30
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Set WIP limits",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Define work-in-progress limits per service tier",
+          "estimatedHours": 1
+        },
+        {
+          "name": "Define SLA targets",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Set response and resolution time targets",
+          "estimatedHours": 2
+        },
+        {
+          "name": "Triage process",
+          "priority": "medium",
+          "phaseOrder": 0,
+          "description": "Document intake classification and routing rules",
+          "estimatedHours": 2
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:35.229Z",
+      "updatedAt": "2026-02-17T19:08:35.229Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "49ddbc25-7ecb-4f5b-8520-c7835437d5f4",
+      "name": "Scrum Operations Improvement",
+      "templateCode": "scrum_ops_improvement_v1",
+      "description": "Sprint-based continuous improvement for operations teams. Ideal for kaizen events, process optimization, and operational efficiency programs.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "agile",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "operations",
+        "improvement",
+        "kaizen",
+        "process"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "SCRUM",
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": false,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Assess Current State",
+          "order": 0,
+          "description": "Map current processes and identify bottlenecks",
+          "estimatedDurationDays": 5
+        },
+        {
+          "name": "Improvement Sprint 1",
+          "order": 1,
+          "description": "Implement highest-impact improvements",
+          "estimatedDurationDays": 14
+        },
+        {
+          "name": "Improvement Sprint 2",
+          "order": 2,
+          "description": "Refine and extend improvements",
+          "estimatedDurationDays": 14
+        },
+        {
+          "name": "Sustain & Measure",
+          "order": 3,
+          "description": "Validate improvements and standardize",
+          "estimatedDurationDays": 5
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Process mapping",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Document current-state process flows",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Root cause analysis",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Identify root causes of inefficiencies",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Implement quick wins",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Execute highest-impact low-effort changes",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Standard work documentation",
+          "priority": "medium",
+          "phaseOrder": 3,
+          "description": "Document new standardized processes",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:32.879Z",
+      "updatedAt": "2026-02-17T19:08:32.879Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "cc429280-aea1-45d6-973c-f87f9b935651",
+      "name": "Scrum Product Launch",
+      "templateCode": "scrum_product_launch_v1",
+      "description": "Sprint-based product launch execution. Ideal for cross-functional teams preparing market releases, beta programs, or go-to-market sprints.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "agile",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "product",
+        "launch",
+        "marketing",
+        "go-to-market"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "SCRUM",
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks",
+        "documents"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": false,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Launch Planning",
+          "order": 0,
+          "description": "Define launch scope, channels, and milestones",
+          "estimatedDurationDays": 5
+        },
+        {
+          "name": "Sprint 1 – Build",
+          "order": 1,
+          "description": "Core deliverables: landing pages, messaging, collateral",
+          "estimatedDurationDays": 14
+        },
+        {
+          "name": "Sprint 2 – Polish",
+          "order": 2,
+          "description": "QA, final reviews, stakeholder sign-off",
+          "estimatedDurationDays": 14
+        },
+        {
+          "name": "Launch Execution",
+          "order": 3,
+          "description": "Go-live, monitor, and iterate",
+          "estimatedDurationDays": 3
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Define launch goals",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Align on success metrics and target audience",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Channel strategy",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Plan distribution channels and timing",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Build core assets",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Create landing pages, emails, and collateral",
+          "estimatedHours": 32
+        },
+        {
+          "name": "Stakeholder review",
+          "priority": "medium",
+          "phaseOrder": 2,
+          "description": "Review and approve launch materials",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Go-live checklist",
+          "priority": "critical",
+          "phaseOrder": 3,
+          "description": "Execute launch day activities",
+          "estimatedHours": 4
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:31.970Z",
+      "updatedAt": "2026-02-17T19:08:31.970Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "ebd68f29-b649-405f-b706-521bd82a5761",
+      "name": "Scrum Software Delivery",
+      "templateCode": "scrum_software_v1",
+      "description": "Sprint-based software delivery with velocity tracking, WIP limits, and iterative planning. Best for development teams working in 1-4 week sprints.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": true,
+      "organizationId": null,
+      "templateScope": "SYSTEM",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "agile",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "software",
+        "product",
+        "sprint",
+        "iterative"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "SCRUM",
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis",
+        "risks"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": false,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": false,
+        "changeManagementEnabled": false
+      },
+      "phases": [
+        {
+          "name": "Sprint Planning",
+          "order": 0,
+          "description": "Backlog refinement and sprint goal setting",
+          "estimatedDurationDays": 1
+        },
+        {
+          "name": "Sprint Execution",
+          "order": 1,
+          "description": "Development, daily standups, and progress tracking",
+          "estimatedDurationDays": 12
+        },
+        {
+          "name": "Sprint Review & Retro",
+          "order": 2,
+          "description": "Demo, review, and retrospective",
+          "estimatedDurationDays": 1
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Refine backlog",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Groom and estimate backlog items",
+          "estimatedHours": 4
+        },
+        {
+          "name": "Sprint goal",
+          "priority": "high",
+          "phaseOrder": 0,
+          "description": "Define and agree on sprint goal",
+          "estimatedHours": 1
+        },
+        {
+          "name": "Development work",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Implement sprint items",
+          "estimatedHours": 40
+        },
+        {
+          "name": "Sprint demo",
+          "priority": "medium",
+          "phaseOrder": 2,
+          "description": "Demonstrate completed work to stakeholders",
+          "estimatedHours": 2
+        },
+        {
+          "name": "Retrospective",
+          "priority": "medium",
+          "phaseOrder": 2,
+          "description": "Review process and identify improvements",
+          "estimatedHours": 1
+        }
+      ],
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T19:08:31.200Z",
+      "updatedAt": "2026-02-17T19:08:31.200Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "8b018503-56d4-443f-afef-34a83a03c81c",
+      "name": "Custom Smoke Template",
+      "templateCode": null,
+      "description": "Merger and acquisition integration program combining structured milestones with agile workstreams.",
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": null,
+      "publishedAt": "2026-02-17T19:28:52.063Z",
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": "hybrid",
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [
+        "ma",
+        "integration",
+        "merger",
+        "acquisition"
+      ],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": "HYBRID",
+      "defaultTabs": [
+        "overview",
+        "tasks",
+        "board",
+        "kpis"
+      ],
+      "defaultGovernanceFlags": {
+        "capacityEnabled": true,
+        "baselinesEnabled": false,
+        "waterfallEnabled": false,
+        "iterationsEnabled": true,
+        "earnedValueEnabled": false,
+        "costTrackingEnabled": true,
+        "changeManagementEnabled": true
+      },
+      "phases": [
+        {
+          "name": "Day 1 Readiness",
+          "order": 0,
+          "description": "Legal close requirements, communications, IT access",
+          "estimatedDurationDays": 15
+        },
+        {
+          "name": "First 100 Days",
+          "order": 1,
+          "description": "Critical integration milestones and quick wins",
+          "estimatedDurationDays": 100
+        },
+        {
+          "name": "Full Integration",
+          "order": 2,
+          "description": "Systems consolidation, process harmonization, org design",
+          "estimatedDurationDays": 90
+        },
+        {
+          "name": "Synergy Realization",
+          "order": 3,
+          "description": "Track and validate deal synergy targets",
+          "estimatedDurationDays": 60
+        }
+      ],
+      "taskTemplates": [
+        {
+          "name": "Day 1 communications",
+          "priority": "critical",
+          "phaseOrder": 0,
+          "description": "Prepare internal and external communications",
+          "estimatedHours": 16
+        },
+        {
+          "name": "IT access provisioning",
+          "priority": "critical",
+          "phaseOrder": 0,
+          "description": "Ensure acquired team has system access",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Culture integration plan",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Plan culture alignment activities",
+          "estimatedHours": 8
+        },
+        {
+          "name": "Systems integration roadmap",
+          "priority": "high",
+          "phaseOrder": 1,
+          "description": "Define system consolidation sequence",
+          "estimatedHours": 16
+        },
+        {
+          "name": "Process harmonization",
+          "priority": "high",
+          "phaseOrder": 2,
+          "description": "Align key business processes across entities",
+          "estimatedHours": 24
+        },
+        {
+          "name": "Synergy tracking setup",
+          "priority": "high",
+          "phaseOrder": 3,
+          "description": "Define synergy metrics and tracking cadence",
+          "estimatedHours": 8
+        }
+      ],
+      "riskPresets": [
+        {
+          "id": "r1",
+          "title": "Key talent attrition",
+          "category": "people",
+          "severity": "critical",
+          "description": "Critical employees leave during integration"
+        },
+        {
+          "id": "r2",
+          "title": "Customer churn",
+          "category": "business",
+          "severity": "high",
+          "description": "Customers leave due to integration disruption"
+        },
+        {
+          "id": "r3",
+          "title": "Synergy shortfall",
+          "category": "financial",
+          "severity": "high",
+          "description": "Integration fails to deliver expected synergies"
+        },
+        {
+          "id": "r4",
+          "title": "Regulatory approval delay",
+          "category": "compliance",
+          "severity": "medium",
+          "description": "Post-close regulatory requirements delay integration"
+        }
+      ],
+      "isPublished": false,
+      "createdAt": "2026-02-17T19:28:51.560Z",
+      "updatedAt": "2026-02-17T19:28:53.076Z",
+      "boundKpiCount": 5
+    },
+    {
+      "id": "d47a83e0-7810-4105-ac75-e50126fb43dd",
+      "name": "Wave4D Pack Test 1771351567",
+      "templateCode": null,
+      "description": null,
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": null,
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": null,
+      "defaultTabs": null,
+      "defaultGovernanceFlags": null,
+      "phases": null,
+      "taskTemplates": null,
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T18:06:07.421Z",
+      "updatedAt": "2026-02-17T18:06:07.421Z",
+      "boundKpiCount": 4
+    },
+    {
+      "id": "2e414354-779e-4fb0-8543-da72329152ec",
+      "name": "Wave4C KPI Test 1771351564",
+      "templateCode": null,
+      "description": null,
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": null,
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": null,
+      "defaultTabs": null,
+      "defaultGovernanceFlags": null,
+      "phases": null,
+      "taskTemplates": null,
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T18:06:04.264Z",
+      "updatedAt": "2026-02-17T18:06:04.264Z",
+      "boundKpiCount": 2
+    },
+    {
+      "id": "7bd1e197-6ab6-4136-a341-f58cad525987",
+      "name": "Wave4C KPI Test 1771345213",
+      "templateCode": null,
+      "description": null,
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": null,
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": null,
+      "defaultTabs": null,
+      "defaultGovernanceFlags": null,
+      "phases": null,
+      "taskTemplates": null,
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T16:20:13.408Z",
+      "updatedAt": "2026-02-17T16:20:13.408Z",
+      "boundKpiCount": 0
+    },
+    {
+      "id": "3a277af8-322b-48b2-941b-b6c4e75e81b4",
+      "name": "Wave4D Pack Test 1771345193",
+      "templateCode": null,
+      "description": null,
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": null,
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": null,
+      "defaultTabs": null,
+      "defaultGovernanceFlags": null,
+      "phases": null,
+      "taskTemplates": null,
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T16:19:53.702Z",
+      "updatedAt": "2026-02-17T16:19:53.702Z",
+      "boundKpiCount": 0
+    },
+    {
+      "id": "eff0c8c7-e674-40a4-83e7-ec23f6b2dcea",
+      "name": "Test Template Probe",
+      "templateCode": null,
+      "description": null,
+      "category": null,
+      "kind": "project",
+      "icon": null,
+      "isActive": true,
+      "isSystem": false,
+      "organizationId": "6ba41b63-5c2b-4dc7-8b7a-138d6d03320c",
+      "templateScope": "ORG",
+      "workspaceId": null,
+      "isDefault": false,
+      "lockState": "UNLOCKED",
+      "createdById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "updatedById": "8406d901-4bc5-453a-be8f-684afdb0b281",
+      "publishedAt": null,
+      "archivedAt": null,
+      "metadata": null,
+      "methodology": null,
+      "structure": null,
+      "metrics": [],
+      "version": 1,
+      "defaultEnabledKPIs": [],
+      "workTypeTags": [],
+      "scopeTags": [],
+      "complexityBucket": null,
+      "durationMinDays": null,
+      "durationMaxDays": null,
+      "setupTimeBucket": "SHORT",
+      "structureSummary": null,
+      "lockPolicy": null,
+      "deliveryMethod": null,
+      "defaultTabs": null,
+      "defaultGovernanceFlags": null,
+      "phases": null,
+      "taskTemplates": null,
+      "riskPresets": [],
+      "isPublished": true,
+      "createdAt": "2026-02-17T16:19:29.530Z",
+      "updatedAt": "2026-02-17T16:19:29.530Z",
+      "boundKpiCount": 0
+    }
+  ],
+  "meta": {
+    "timestamp": "2026-02-17T19:28:58.663Z",
+    "requestId": "9d6024ee-27ca-4f4e-9af1-bd4de557fc14"
+  }
+}

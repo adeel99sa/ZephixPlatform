@@ -29,9 +29,6 @@ export class TaskController {
     @Body() createTaskDto: CreateTaskDto,
     @Request() req: AuthRequest,
   ) {
-    console.log('Received DTO keys:', Object.keys(createTaskDto));
-    console.log('Dependencies field:', createTaskDto.dependencies);
-
     // Pass user ID to service
     const { userId } = getAuthContext(req);
     return this.taskService.create(projectId, createTaskDto, userId);

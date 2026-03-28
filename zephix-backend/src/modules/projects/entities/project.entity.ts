@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
@@ -30,6 +31,17 @@ export enum ProjectState {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
   COMPLETED = 'COMPLETED',
+  /** Project paused (gates / governance) — sync ProjectStatus to `on-hold` */
+  ON_HOLD = 'ON_HOLD',
+  /** Project ended — sync ProjectStatus to `cancelled` */
+  TERMINATED = 'TERMINATED',
+}
+
+/** Progressive governance maturity for tabs and gate rules */
+export enum ProjectGovernanceLevel {
+  EXECUTION = 'EXECUTION',
+  STRUCTURED = 'STRUCTURED',
+  GOVERNED = 'GOVERNED',
 }
 
 export enum ProjectHealth {
@@ -92,7 +104,7 @@ export class Project {
   organizationId: string;
 
   @Column({ name: 'project_manager_id', type: 'uuid', nullable: true })
-  projectManagerId: string;
+  projectManagerId: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   budget: number;
@@ -105,6 +117,52 @@ export class Project {
     nullable: true,
   })
   actualCost: number;
+
+  // ── Budget & Cost Lite ─────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 3, default: 'USD', nullable: true })
+  currency: string;
+
+  @Column({
+    name: 'labor_rate_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'flatRate',
+    nullable: true,
+  })
+  laborRateMode: string;
+
+  @Column({
+    name: 'flat_labor_rate_per_hour',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  flatLaborRatePerHour: number | null;
+
+  @Column({
+    name: 'cost_tracking_enabled',
+    type: 'boolean',
+    default: false,
+  })
+  costTrackingEnabled: boolean;
+
+  // ── Phase 2B: Waterfall governance fields ───────────────────────────
+  @Column({ name: 'waterfall_enabled', type: 'boolean', default: true })
+  waterfallEnabled: boolean;
+
+  @Column({ name: 'baselines_enabled', type: 'boolean', default: true })
+  baselinesEnabled: boolean;
+
+  @Column({ name: 'earned_value_enabled', type: 'boolean', default: false })
+  earnedValueEnabled: boolean;
+
+  // ── Phase 2E: Resource Capacity governance ──────────────────────────
+  @Column({ name: 'capacity_enabled', type: 'boolean', default: false })
+  capacityEnabled: boolean;
+
+  @Column({ name: 'capacity_mode', type: 'varchar', length: 20, default: 'both' })
+  capacityMode: string;
 
   @Column({
     name: 'risk_level',
@@ -121,6 +179,9 @@ export class Project {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
   // Relations
   @ManyToOne(() => Workspace, { nullable: true })
@@ -256,7 +317,60 @@ export class Project {
   @Column({ name: 'active_kpi_ids', type: 'text', array: true, default: [] })
   activeKpiIds: string[];
 
+  // ── Wave 4A: Change Management governance ─────────────────────────
+  @Column({ name: 'change_management_enabled', type: 'boolean', default: false })
+  changeManagementEnabled: boolean;
+
+  // ── Template Enforcement / Governance ─────────────────────────────
+  @Column({ name: 'iterations_enabled', type: 'boolean', default: false })
+  iterationsEnabled: boolean;
+
+  // ── Wave 8: Governance source tracking ─────────────────────────────
+  @Column({ name: 'governance_source', type: 'text', nullable: true })
+  governanceSource: string | null; // USER | TEMPLATE | PORTFOLIO | LEGACY
+
+  @Column({
+    name: 'estimation_mode',
+    type: 'varchar',
+    length: 20,
+    default: 'both',
+    nullable: true,
+  })
+  estimationMode: string;
+
+  @Column({
+    name: 'default_iteration_length_days',
+    type: 'integer',
+    nullable: true,
+  })
+  defaultIterationLengthDays: number | null;
+
   /** Project-level Definition of Done: ordered list of short strings. */
   @Column({ type: 'jsonb', name: 'definition_of_done', nullable: true })
   definitionOfDone: string[] | null;
+
+  // Project clone lineage tracking
+  @Column({ type: 'uuid', name: 'source_project_id', nullable: true })
+  sourceProjectId: string | null;
+
+  @Column({ type: 'int', name: 'clone_depth', default: 0 })
+  cloneDepth: number;
+
+  @Column({ type: 'timestamptz', name: 'cloned_at', nullable: true })
+  clonedAt: Date | null;
+
+  @Column({ type: 'uuid', name: 'cloned_by', nullable: true })
+  clonedBy: string | null;
+
+  /** Enabled project shell tabs (progressive disclosure). DB default set in migration. */
+  @Column({ name: 'active_tabs', type: 'jsonb' })
+  activeTabs: string[];
+
+  @Column({
+    name: 'governance_level',
+    type: 'varchar',
+    length: 20,
+    default: ProjectGovernanceLevel.EXECUTION,
+  })
+  governanceLevel: ProjectGovernanceLevel;
 }

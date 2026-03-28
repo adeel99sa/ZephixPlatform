@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { api } from '@/lib/api';
+import { request } from '@/lib/api';
 import WorkspaceHome from '@/features/workspaces/views/WorkspaceHome';
 
 interface WorkspaceHomeData {
@@ -65,12 +65,15 @@ export default function WorkspaceHomeBySlug() {
     setHydrating(true);
 
     try {
-      const response = await api.get<{ data: WorkspaceHomeData }>(
-        `/workspaces/slug/${slug}/home`
-      );
-
-      // Backend returns { data: WorkspaceHomeData }
-      const homeData = response.data?.data ?? (response.data as unknown as WorkspaceHomeData);
+      const homePayload = await request.get<
+        WorkspaceHomeData | { data: WorkspaceHomeData }
+      >(`/workspaces/slug/${slug}/home`);
+      const homeData =
+        homePayload &&
+        typeof homePayload === 'object' &&
+        'data' in (homePayload as Record<string, unknown>)
+          ? ((homePayload as { data: WorkspaceHomeData }).data ?? null)
+          : (homePayload as WorkspaceHomeData);
 
       if (!homeData || !homeData.workspace) {
         setError('Workspace not found');

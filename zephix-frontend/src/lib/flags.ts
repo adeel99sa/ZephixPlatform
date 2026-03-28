@@ -23,6 +23,17 @@ export const isResourcesEnabled = () => {
   return envValue === '1' || envValue === 'true' || hasFlag('resourcesEnabled');
 };
 
+// Phase 2E: Capacity Engine feature flag
+export const isCapacityEngineEnabled = () => {
+  const envValue = import.meta.env.VITE_FEATURE_CAPACITY;
+  return envValue === '1' || envValue === 'true' || hasFlag('capacityEngine');
+};
+
+// Beta mode flag
+export const isBetaMode = () => {
+  return import.meta.env.VITE_BETA_MODE === '1' || import.meta.env.VITE_BETA_MODE === 'true' || hasFlag('betaMode');
+};
+
 /**
  * Pre-MVP anonymous marketing landing (full copy/spec).
  * Enable only on staging frontend builds (Railway): VITE_STAGING_MARKETING_LANDING=true

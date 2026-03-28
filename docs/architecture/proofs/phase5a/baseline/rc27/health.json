@@ -1,0 +1,12 @@
+{
+    "status": "ok",
+    "ts": "2026-02-17T21:38:48.118Z",
+    "checks": {
+        "db": {
+            "status": "ok"
+        },
+        "schema": {
+            "status": "ok"
+        }
+    }
+}

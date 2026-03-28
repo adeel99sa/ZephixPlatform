@@ -28,6 +28,25 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ENVIRONMENT ↔ DATABASE SAFETY GUARD
+// Prevents staging from hitting production Postgres and vice versa.
+// Uses ZEPHIX_ENV (explicit) over NODE_ENV (overloaded by frameworks).
+// ═══════════════════════════════════════════════════════════════════════════
+import { validateDbWiring } from './common/utils/db-safety-guard';
+{
+  const zephixEnv = process.env.ZEPHIX_ENV || '';
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (zephixEnv && dbUrl) {
+    const result = validateDbWiring(zephixEnv, dbUrl);
+    if (!result.safe) {
+      console.error(`❌ DB SAFETY GUARD: ${result.message}`);
+      process.exit(1);
+    }
+    console.log(`✅ DB SAFETY GUARD: ${result.message}`);
+  }
+}
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DatabaseVerifyService } from './modules/database/database-verify.service';
@@ -37,6 +56,15 @@ const cookieParser = require('cookie-parser');
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import * as crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
+import {
+  CORS_ALLOWED_HEADERS,
+  CORS_EXPOSED_HEADERS,
+} from './common/http/cors-headers';
+import {
+  assertStagingEmailVerificationBypassGuardrails,
+  isStagingEmailVerificationBypassFlagEnabled,
+} from './modules/auth/services/staging-email-verification-bypass';
+import { isStagingRuntime } from './common/utils/runtime-env';
 
 /** Rewrite /api/v1/* to /api/* so existing controllers serve v1 without path changes. */
 function v1RewriteMiddleware(req: Request, _res: Response, next: NextFunction) {
@@ -67,7 +95,24 @@ function legacyDeprecationHeaders(
   next();
 }
 
+/** Stamp every response with X-Zephix-Env so operators can confirm env from any curl/browser. */
+function zephixEnvHeader(_req: Request, res: Response, next: NextFunction) {
+  const env = process.env.ZEPHIX_ENV || process.env.NODE_ENV || 'unknown';
+  res.setHeader('X-Zephix-Env', env);
+  next();
+}
+
+function validateTrustProxyDepth(depth: number): void {
+  if (!Number.isInteger(depth) || depth < 0 || depth > 10) {
+    throw new Error(
+      `Invalid TRUST_PROXY_DEPTH: ${depth}. Expected an integer between 0 and 10.`,
+    );
+  }
+}
+
 const debugBoot = process.env.DEBUG_BOOT === 'true';
+let appInstance: { close: () => Promise<void> } | null = null;
+let isShuttingDown = false;
 
 async function bootstrap() {
   console.log('BOOT_START', new Date().toISOString());
@@ -79,11 +124,16 @@ async function bootstrap() {
       DATABASE_URL_SET: Boolean(process.env.DATABASE_URL),
     });
   }
-  // Skip env validation in test mode (tests use Test.createTestingModule, not bootstrap)
-  if (process.env.NODE_ENV === 'test') {
-    // Tests don't call bootstrap, but guardrail in case they do
+  // Skip env validation in UNIT TEST mode only.
+  // Unit tests use Test.createTestingModule, not bootstrap().
+  // Railway's "test" environment (NODE_ENV=test) MUST boot normally.
+  // JEST_WORKER_ID is set by Jest; VITEST is set by Vitest.
+  if (process.env.JEST_WORKER_ID || process.env.VITEST) {
+    console.log('BOOT_SKIP: detected test runner (JEST_WORKER_ID or VITEST) — returning early');
     return;
   }
+
+  assertStagingEmailVerificationBypassGuardrails();
 
   // Validate required environment variables at startup
   const requiredEnvVars: Record<
@@ -102,7 +152,28 @@ async function bootstrap() {
       description:
         'Pepper for refresh token hashing (min 32 chars); fail fast if missing or too short',
     },
+    JWT_SECRET: {
+      value: process.env.JWT_SECRET,
+      minLength: 32,
+      description:
+        'Secret for signing access tokens (min 32 chars)',
+    },
+    JWT_REFRESH_SECRET: {
+      value: process.env.JWT_REFRESH_SECRET,
+      minLength: 32,
+      description:
+        'Secret for signing refresh tokens (min 32 chars)',
+    },
   };
+
+  const WEAK_SECRET_PATTERNS = ['secret', 'password', '123', 'changeme', 'test', 'default', 'admin'];
+  for (const key of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    const val = requiredEnvVars[key]?.value?.toLowerCase();
+    if (val && WEAK_SECRET_PATTERNS.some(p => val === p || val.startsWith(p))) {
+      console.error(`❌ ${key} matches a known weak pattern. Use a cryptographically random value (e.g., openssl rand -hex 32).`);
+      process.exit(1);
+    }
+  }
 
   const missing: string[] = [];
   const invalid: string[] = [];
@@ -128,29 +199,93 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  if (debugBoot) console.log('🚀 Creating NestJS application...');
+  console.log('BOOT_BEFORE_NEST_CREATE', new Date().toISOString());
   const app = await NestFactory.create(AppModule, {
     logger: debugBoot
       ? ['log', 'warn', 'error', 'debug', 'verbose']
-      : ['error', 'warn'],
+      : ['error', 'warn', 'log'],
   });
   console.log('BOOT_AFTER_NEST_CREATE', new Date().toISOString());
+  appInstance = app;
 
   const env = process.env.NODE_ENV || 'development';
-  if (env === 'production' || env === 'staging') {
+  if (isStagingRuntime()) {
+    const skipEmailVerification =
+      isStagingEmailVerificationBypassFlagEnabled();
+    console.log(
+      `EMAIL_VERIFICATION_POLICY staging bypassEnabled=${skipEmailVerification}`,
+    );
+  }
+  if (env === 'production' || isStagingRuntime()) {
+    // Production and staging: always disable auto-migrate on boot.
+    // Staging migrations are applied explicitly via scripts/migrations/run-staging.sh
+    // which runs before railway up in deploy-staging.sh.
     process.env.AUTO_MIGRATE = 'false';
   }
 
-  if (process.env.SKIP_DATABASE !== 'true') {
+  const runDbVerification = async () => {
     const verifier = app.get(DatabaseVerifyService);
     await verifier.verifyOnBoot();
+
+    // ─── POST-CONNECTION DB IDENTITY PROOF ─────────────────────────
+    // Log the ACTUAL database identity from the live connection.
+    // Hostname alone is NOT proof — we need inet_server_addr() and
+    // system_identifier to prove which Postgres cluster we connected to.
+    try {
+      const { DataSource } = require('typeorm');
+      const ds = app.get(DataSource);
+
+      const identity = await ds.query(
+        `SELECT current_database() as db,
+                inet_server_addr() as addr,
+                inet_server_port() as port`,
+      );
+
+      // system_identifier uniquely identifies the Postgres cluster
+      const cluster = await ds.query(
+        `SELECT system_identifier FROM pg_control_system()`,
+      ).catch(() => [{ system_identifier: '(unavailable)' }]);
+
+      // db_oid confirms correct database within the cluster
+      const dbOid = await ds.query(
+        `SELECT oid FROM pg_database WHERE datname = current_database()`,
+      ).catch(() => [{ oid: '(unavailable)' }]);
+
+      const migrationCount = await ds.query(
+        `SELECT COUNT(*) as count FROM migrations`,
+      ).catch(() => [{ count: '0' }]);
+
+      const latestMigration = await ds.query(
+        `SELECT name FROM migrations ORDER BY id DESC LIMIT 1`,
+      ).catch(() => [{ name: '(none)' }]);
+
+      const id = identity?.[0] || {};
+      const sysId = cluster?.[0]?.system_identifier || '(unavailable)';
+      const oid = dbOid?.[0]?.oid || '(unavailable)';
+      console.log(
+        `✅ DB IDENTITY PROOF: database=${id.db} serverAddr=${id.addr} serverPort=${id.port} ` +
+        `systemIdentifier=${sysId} dbOid=${oid} ` +
+        `migrations=${migrationCount?.[0]?.count} latest=${latestMigration?.[0]?.name}`,
+      );
+    } catch (e) {
+      console.warn(`⚠️ DB IDENTITY PROOF: could not query — ${(e as Error)?.message}`);
+    }
+  };
+
+  // Trust proxy — Railway (and most PaaS) sits behind a reverse proxy.
+  // TRUST_PROXY_DEPTH controls how Express resolves req.ip via x-forwarded-for.
+  const trustProxyDepth = parseInt(process.env.TRUST_PROXY_DEPTH || '1', 10);
+  validateTrustProxyDepth(trustProxyDepth);
+  if (trustProxyDepth > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyDepth);
   }
 
   // Health and all routes live under /api (e.g. /api/health/live, /api/health/ready). Smoke uses these paths.
   if (debugBoot) console.log('🔧 Setting global prefix...');
   app.setGlobalPrefix('api');
 
-  // Enterprise Foundation: /api/v1/* alias and legacy deprecation headers
+  // Enterprise Foundation: environment header, /api/v1/* alias, and legacy deprecation headers
+  app.use(zephixEnvHeader);
   app.use(legacyDeprecationHeaders);
   app.use(v1RewriteMiddleware);
 
@@ -166,39 +301,42 @@ async function bootstrap() {
   app.use(cookieParser());
 
   if (debugBoot) console.log('🌐 Configuring CORS...');
-  const corsOrigins: string[] = [
-    'https://getzephix.com', // Production frontend
-    'https://www.getzephix.com', // Production with www
-    'http://localhost:5173', // Vite local development
-    'http://localhost:3001', // Alternative frontend port
-    'http://localhost:3000', // Alternative frontend port
-  ];
-  // Allow dynamic FRONTEND_URL for staging and other environments
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isStaging = String(process.env.ZEPHIX_ENV || '').toLowerCase() === 'staging';
+  const corsOrigins: string[] = [];
+  if (isStaging) {
+    corsOrigins.push('https://zephix-frontend-staging.up.railway.app');
+  } else {
+    corsOrigins.push('https://getzephix.com', 'https://www.getzephix.com');
+  }
+  if (!isProduction) {
+    corsOrigins.push('http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000');
+  }
   if (process.env.FRONTEND_URL && !corsOrigins.includes(process.env.FRONTEND_URL)) {
     corsOrigins.push(process.env.FRONTEND_URL);
+  }
+  const extraOrigins = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  for (const origin of extraOrigins) {
+    if (!corsOrigins.includes(origin)) corsOrigins.push(origin);
   }
   app.enableCors({
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-Id',
-      'x-org-id',
-      'X-CSRF-Token',
-      'X-Workspace-Id', // Workspace header for multi-tenant requests
-      'x-workspace-id', // Lowercase variant
-    ],
-    exposedHeaders: ['X-Request-Id'],
+    allowedHeaders: [...CORS_ALLOWED_HEADERS],
+    exposedHeaders: [...CORS_EXPOSED_HEADERS],
   });
 
   if (debugBoot) console.log('🆔 Configuring request ID middleware...');
   app.use((req, res, next) => {
     const rid = req.headers['x-request-id'] || crypto.randomUUID();
+    const cid = req.headers['x-correlation-id'] || rid;
     res.setHeader('X-Request-Id', String(rid));
+    res.setHeader('X-Correlation-Id', String(cid));
     // @ts-ignore
     req.id = rid;
+    // @ts-ignore
+    req.correlationId = cid;
     next();
   });
 
@@ -282,6 +420,21 @@ async function bootstrap() {
   console.log('BOOT_LISTENING', { port });
   console.log(`BOOT_READY port=${port}`);
 
+  // Keep production fail-fast, but avoid staging deploy failures caused by
+  // long pre-listen verification work racing Railway readiness windows.
+  if (process.env.SKIP_DATABASE !== 'true') {
+    if (isStagingRuntime()) {
+      void runDbVerification()
+        .then(() => console.log('DB_VERIFY_POST_LISTEN_OK'))
+        .catch((err) => {
+          console.error('DB_VERIFY_POST_LISTEN_FAILED', err);
+        });
+    } else {
+      await runDbVerification();
+      console.log('DB_VERIFY_PRE_LISTEN_OK');
+    }
+  }
+
   if (debugBoot) {
     console.log('✅ Application is running on:', `http://localhost:${port}`);
     console.log(
@@ -313,16 +466,28 @@ bootstrap().catch((err) => {
   process.exit(1);
 });
 
-// CRITICAL: Railway container fixes
-// Handle graceful shutdown for SIGTERM
+async function gracefulShutdown(signal: 'SIGTERM' | 'SIGINT'): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`🚨 ${signal} received, shutting down gracefully`);
+  try {
+    if (appInstance) {
+      await appInstance.close();
+    }
+  } catch (error) {
+    console.error(`⚠️ Error during ${signal} shutdown:`, error);
+  } finally {
+    process.exit(0);
+  }
+}
+
+// Handle graceful shutdown for Railway/container stops.
 process.on('SIGTERM', () => {
-  console.log('🚨 SIGTERM received, shutting down gracefully');
-  process.exit(0);
+  void gracefulShutdown('SIGTERM');
 });
 
 process.on('SIGINT', () => {
-  console.log('🚨 SIGINT received, shutting down gracefully');
-  process.exit(0);
+  void gracefulShutdown('SIGINT');
 });
 
 // Monitor memory usage to prevent Railway container kills (log only when DEBUG_BOOT or high)
@@ -346,14 +511,35 @@ setInterval(() => {
 }, 30000); // Check every 30 seconds
 
 // Monitor for uncaught exceptions and unhandled rejections
-process.on('uncaughtException', (error) => {
-  console.error('🚨 Uncaught Exception:', error);
+function handleRuntimeFailure(
+  type: 'uncaughtException' | 'unhandledRejection',
+  payload: unknown,
+): void {
+  const failFastRuntimeErrors = isTrue(process.env.FAIL_FAST_RUNTIME_ERRORS);
+  if (type === 'uncaughtException') {
+    console.error('🚨 Uncaught Exception:', payload);
+  } else {
+    console.error('🚨 Unhandled Rejection:', payload);
+  }
+
+  // In staging, default to logging and continuing to avoid restart loops
+  // from transient async failures during gate runs.
+  if (isStagingRuntime() && !failFastRuntimeErrors) {
+    console.error(
+      '⚠️ Runtime failure logged without forced exit (staging, FAIL_FAST_RUNTIME_ERRORS=false)',
+    );
+    return;
+  }
+
   process.exit(1);
+}
+
+process.on('uncaughtException', (error) => {
+  handleRuntimeFailure('uncaughtException', error);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+process.on('unhandledRejection', (reason) => {
+  handleRuntimeFailure('unhandledRejection', reason);
 });
 
 // Log Railway environment information (only when DEBUG_BOOT)

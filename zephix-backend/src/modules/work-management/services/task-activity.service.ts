@@ -1,8 +1,15 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import {
   TenantAwareRepository,
   getTenantAwareRepositoryToken,
 } from '../../tenancy/tenancy.module';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskActivity } from '../entities/task-activity.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityType } from '../enums/task.enums';
@@ -17,12 +24,16 @@ interface AuthContext {
 
 @Injectable()
 export class TaskActivityService {
+  private readonly logger = new Logger(TaskActivityService.name);
+
   constructor(
     @Inject(getTenantAwareRepositoryToken(TaskActivity))
     private readonly activityRepo: TenantAwareRepository<TaskActivity>,
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async record(
@@ -50,8 +61,8 @@ export class TaskActivityService {
 
     // projectId is required (non-nullable UUID) — skip recording if missing
     if (!projectId) {
-      console.warn(
-        `[TaskActivity] Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
+      this.logger.warn(
+        `Skipping activity record: no projectId for task=${taskId} type=${activityType}`,
       );
       return null as any;
     }
@@ -66,7 +77,23 @@ export class TaskActivityService {
       payload: metadata || null,
     });
 
-    return await this.activityRepo.save(activity);
+    const saved = await this.activityRepo.save(activity);
+
+    // Emit event for downstream projections (notifications/inbox, etc).
+    if (this.eventEmitter) {
+      this.eventEmitter.emit('activity.recorded', {
+        activityId: saved.id,
+        organizationId,
+        workspaceId,
+        projectId,
+        taskId,
+        type: activityType,
+        actorUserId: auth.userId,
+        payload: metadata || null,
+      });
+    }
+
+    return saved;
   }
 
   async list(

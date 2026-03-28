@@ -1,6 +1,6 @@
-import { join } from 'path';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+import { getMigrationsForRuntime } from '../database/migrations.registry';
 
 // Log database connection only when DEBUG_BOOT=true; never log credentials or URL
 if (process.env.DEBUG_BOOT === 'true') {
@@ -16,8 +16,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
   url: process.env.DATABASE_URL,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  // Single source of truth: dist/migrations (process.cwd() is /app in Railway).
-  migrations: [join(process.cwd(), 'dist/migrations/*.js')],
+  migrations: getMigrationsForRuntime(),
   migrationsTableName: 'migrations',
   synchronize: false,
   // namingStrategy: new SnakeNamingStrategy(), // Temporarily disabled for debugging

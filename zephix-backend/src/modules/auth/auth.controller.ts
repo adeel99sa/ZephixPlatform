@@ -20,18 +20,21 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, RegisterResponseDto } from './dto/register.dto';
+import { SmokeLoginDto } from './dto/smoke-login.dto';
 import {
   ResendVerificationDto,
   ResendVerificationResponseDto,
 } from './dto/resend-verification.dto';
 import { VerifyEmailDto, VerifyEmailResponseDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard';
+import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { User } from '../users/entities/user.entity';
 import { Organization } from '../../organizations/entities/organization.entity';
@@ -40,18 +43,39 @@ import { AuthRequest } from '../../common/http/auth-request';
 import { getAuthContext } from '../../common/http/get-auth-context';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
+import { AuditService } from '../audit/services/audit.service';
+import { AuditEntityType, AuditAction } from '../audit/audit.constants';
+import { isStagingRuntime } from '../../common/utils/runtime-env';
+import { randomBytes } from 'crypto';
 import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from 'express';
 
-// Helper function to detect localhost hosts
 function isLocalhostHost(host: string): boolean {
   return (
     host.includes('localhost') ||
     host.startsWith('127.0.0.1') ||
     host.startsWith('0.0.0.0')
   );
+}
+
+function resolveSessionSameSite(host: string): 'lax' | 'strict' | 'none' {
+  if (isLocalhostHost(host)) {
+    return 'lax';
+  }
+  const isStaging = isStagingRuntime();
+  return isStaging ? 'none' : 'strict';
+}
+
+function resolveSessionSecureCookie(host: string, isHttps: boolean): boolean {
+  if (isLocalhostHost(host)) {
+    return false;
+  }
+  if (isStagingRuntime()) {
+    return true;
+  }
+  return isHttps;
 }
 
 @ApiTags('auth')
@@ -67,6 +91,7 @@ export class AuthController {
     private userRepository: Repository<User>,
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -82,7 +107,7 @@ export class AuthController {
   @Post('register')
   @Post('signup') // Backward compatibility alias
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 requests per 15 minutes
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Register a new user and organization' })
   @ApiResponse({
     status: 200,
@@ -95,7 +120,7 @@ export class AuthController {
     @Body() dto: RegisterDto | SignupDto,
     @Request() req: Request,
   ): Promise<RegisterResponseDto> {
-    const ip = (req as any).ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     // Handle both DTO formats (RegisterDto or SignupDto)
@@ -141,7 +166,7 @@ export class AuthController {
    */
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 requests per hour
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Resend email verification' })
   @ApiResponse({
     status: 200,
@@ -154,23 +179,32 @@ export class AuthController {
     @Body() dto: ResendVerificationDto,
     @Request() req: Request,
   ): Promise<ResendVerificationResponseDto> {
-    const ip = (req as any).ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Find user by email (but don't reveal if not found)
     const user = await this.userRepository.findOne({
       where: { email: dto.email.toLowerCase() },
     });
     if (user && !user.isEmailVerified) {
-      // Create new token and outbox event (service handles outbox creation)
       await this.emailVerificationService.createToken(
         user.id,
         typeof ip === 'string' ? ip : ip[0],
         userAgent,
       );
+
+      await this.auditService.record({
+        organizationId: user.organizationId || '',
+        actorUserId: user.id,
+        actorPlatformRole: 'ADMIN',
+        entityType: AuditEntityType.EMAIL_VERIFICATION,
+        entityId: user.id,
+        action: AuditAction.RESEND_VERIFICATION,
+        after: { email: dto.email.toLowerCase() },
+        ipAddress: typeof ip === 'string' ? ip : ip[0],
+        userAgent,
+      });
     }
 
-    // Always return neutral response (no account enumeration)
     return {
       message:
         'If an account with this email exists, you will receive a verification email.',
@@ -185,7 +219,7 @@ export class AuthController {
    */
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 requests per hour
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
     status: 200,
@@ -210,16 +244,13 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(RateLimiterGuard)
   async login(
     @Body() loginDto: LoginDto,
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
   ) {
-    // Extract IP and userAgent with x-forwarded-for support
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      (req as any).ip ||
-      'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const loginResult = await this.authService.login(
       loginDto,
@@ -231,19 +262,19 @@ export class AuthController {
     const hostHeader =
       (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', loginResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -252,7 +283,7 @@ export class AuthController {
     res.cookie('zephix_session', loginResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });
@@ -260,9 +291,64 @@ export class AuthController {
     return res.json(loginResult);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Post('smoke-login')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(RateLimiterGuard, SmokeKeyGuard)
+  @ApiOperation({ summary: 'Staging-only smoke login with key auth' })
+  @ApiResponse({ status: 204, description: 'Smoke login successful' })
+  async smokeLogin(
+    @Body() dto: SmokeLoginDto,
+    @Request() req: ExpressRequest,
+    @Response() res: ExpressResponse,
+  ) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    if (!normalizedEmail.endsWith('@zephix.dev')) {
+      throw new BadRequestException('Smoke login requires a zephix.dev email');
+    }
+
+    const ip = (req as any).ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const loginResult = await this.authService.smokeLogin(
+      normalizedEmail,
+      ip as string,
+      userAgent,
+    );
+
+    const hostHeader =
+      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
+    const host = String(hostHeader);
+    const xfProto = String(
+      (req as any).headers?.['x-forwarded-proto'] ?? '',
+    ).toLowerCase();
+    const isHttps = xfProto === 'https';
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
+
+    res.cookie('zephix_refresh', loginResult.refreshToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    res.cookie('zephix_session', loginResult.accessToken, {
+      httpOnly: true,
+      secure: secureCookie,
+      sameSite,
+      maxAge: 15 * 60 * 1000,
+      path: '/',
+    });
+
+    return res.status(HttpStatus.NO_CONTENT).send();
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('me')
   async getProfile(@Request() req: AuthRequest) {
+    if (!(req as any).user) {
+      return { user: null };
+    }
+
     // Fetch full user from database to return complete user object
     const { userId } = getAuthContext(req);
     const user = await this.authService.getUserById(userId);
@@ -285,7 +371,7 @@ export class AuthController {
         orgRole = userOrg.role;
       } else if (process.env.NODE_ENV === 'development') {
         console.warn(
-          `[AuthController] No UserOrganization record found for user ${user.email} in org ${user.organizationId}. Falling back to user.role`,
+          `[AuthController] No UserOrganization record for userId=${user.id} orgId=${user.organizationId}. Falling back to user.role`,
         );
       }
 
@@ -318,6 +404,7 @@ export class AuthController {
   }
 
   @Get('csrf')
+  @UseGuards(RateLimiterGuard)
   @ApiOperation({ summary: 'Get CSRF token' })
   @ApiResponse({
     status: 200,
@@ -327,60 +414,32 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
   ) {
-    // Generate CSRF token
-    const csrfToken = require('crypto').randomBytes(32).toString('hex');
-
-    // Determine secure cookie setting based on request origin
-    const hostHeader =
-      (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
+    const csrfToken = randomBytes(32).toString('hex');
+    const hostHeader = req.headers?.host ?? req.get?.('host') ?? '';
     const host = String(hostHeader);
     const isLocal = isLocalhostHost(host);
-    const xfProto = String(
-      (req as any).headers?.['x-forwarded-proto'] ?? '',
-    ).toLowerCase();
+    const xfProto = String(req.headers?.['x-forwarded-proto'] ?? '').toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
-
-    // Set CSRF token in cookie (readable by JS, not HttpOnly)
-    // Use 'lax' for localhost (works better with proxies), 'strict' for production
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = isLocal ? 'lax' : isStagingRuntime() ? 'none' : 'strict';
     res.cookie('XSRF-TOKEN', csrfToken, {
-      httpOnly: false, // Must be readable by browser JS
+      httpOnly: false,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite,
+      maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     });
-
-    return res.json({ csrfToken });
-  }
-
-  @Post('csrf-test')
-  @ApiOperation({ summary: 'CSRF test endpoint for Gate 1 proof' })
-  @ApiResponse({
-    status: 200,
-    description: 'CSRF protection working',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'CSRF token missing or invalid',
-  })
-  csrfTest(@Request() req: Request) {
-    // This endpoint exists only for Gate 1 proof
-    // CSRF guard will enforce token validation
-    return { message: 'CSRF protection verified', timestamp: new Date() };
+    return res.json({ token: csrfToken, csrfToken });
   }
 
   @Post('refresh')
+  @UseGuards(RateLimiterGuard)
   async refreshToken(
     @Request() req: ExpressRequest,
     @Response() res: ExpressResponse,
     @Body() body: { refreshToken: string; sessionId?: string },
   ) {
-    // Extract IP and userAgent with x-forwarded-for support
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      (req as any).ip ||
-      'unknown';
+    const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const refreshResult = await this.authService.refreshToken(
       body.refreshToken,
@@ -393,19 +452,19 @@ export class AuthController {
     const hostHeader =
       (req as any).headers?.host ?? (req as any).get?.('host') ?? '';
     const host = String(hostHeader);
-    const isLocal = isLocalhostHost(host);
     const xfProto = String(
       (req as any).headers?.['x-forwarded-proto'] ?? '',
     ).toLowerCase();
     const isHttps = xfProto === 'https';
-    const secureCookie = !isLocal && isHttps;
+    const secureCookie = resolveSessionSecureCookie(host, isHttps);
+    const sameSite = resolveSessionSameSite(host);
 
     // Set refresh token in HttpOnly cookie
     // Use 'lax' for localhost (works better with proxies), 'strict' for production
     res.cookie('zephix_refresh', refreshResult.refreshToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
     });
@@ -414,7 +473,7 @@ export class AuthController {
     res.cookie('zephix_session', refreshResult.accessToken, {
       httpOnly: true,
       secure: secureCookie,
-      sameSite: isLocal ? 'lax' : 'strict', // More permissive for localhost development
+      sameSite,
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
     });

@@ -20,6 +20,7 @@ import {
   TaskType,
   TaskPriority,
 } from '../../work-management/enums/task.enums';
+import { PhaseState } from '../../work-management/enums/phase-state.enum';
 import { InstantiateV51Dto } from '../dto/instantiate-v5-1.dto';
 
 /**
@@ -337,6 +338,7 @@ export class TemplatesInstantiateV51Service {
           isMilestone: phaseDef.isMilestone === true, // Respect milestone flag from template
           dueDate, // Set dueDate from template if provided
           isLocked: false,
+          phaseState: PhaseState.ACTIVE,
           sourceTemplatePhaseId: null, // TODO: Add if template has phase IDs
           createdByUserId: userId,
         });

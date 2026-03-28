@@ -1,48 +1,19 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Zephix MCP Setup Script
-# This script installs and configures all MCP servers for development
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
 
-echo "🚀 Setting up MCP servers for Zephix development..."
+echo "== MCP setup =="
+echo "repo_root=$ROOT_DIR"
 
-# Install Railway MCP Server
-echo "📦 Installing Railway MCP Server..."
-npm install -g @railway/mcp-server
+npm install -D \
+  @railway/mcp-server@0.1.8 \
+  @modelcontextprotocol/server-filesystem@2026.1.14 \
+  @modelcontextprotocol/server-github@2025.4.8
 
-# Install GitHub MCP Server
-echo "📦 Installing GitHub MCP Server..."
-npm install -g @modelcontextprotocol/server-github
-
-# Install Filesystem MCP Server
-echo "📦 Installing Filesystem MCP Server..."
-npm install -g @modelcontextprotocol/server-filesystem
-
-# Install SQLite MCP Server
-echo "📦 Installing SQLite MCP Server..."
-npm install -g @modelcontextprotocol/server-sqlite
-
-# Install Web Search MCP Server
-echo "📦 Installing Web Search MCP Server..."
-npm install -g @modelcontextprotocol/server-web-search
-
-echo ""
-echo "✅ MCP servers installed successfully!"
-echo ""
-echo "🔑 Next steps:"
-echo "1. Set your RAILWAY_TOKEN in environment:"
-echo "   export RAILWAY_TOKEN='your_token_here'"
-echo ""
-echo "2. Set your GITHUB_TOKEN in environment:"
-echo "   export GITHUB_TOKEN='your_github_pat_here'"
-echo ""
-echo "3. Set your SERPER_API_KEY in environment:"
-echo "   export SERPER_API_KEY='your_serper_key_here'"
-echo ""
-echo "4. Restart Cursor to load MCP configuration"
-echo ""
-echo "📚 Available MCP Commands:"
-echo "   - Railway: Check deployment status, logs, and manage services"
-echo "   - GitHub: Repository operations, PR management, code review"
-echo "   - Filesystem: File operations and workspace management"
-echo "   - SQLite: Database operations and queries"
-echo "   - Web Search: Research and competitive intelligence"
+echo "Next steps:"
+echo "export RAILWAY_TOKEN='...'"
+echo "export GITHUB_TOKEN='...'"
+echo "bash scripts/mcp/health.sh"
+echo "Restart Cursor to load MCP configuration."

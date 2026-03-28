@@ -1,15 +1,16 @@
 // File: src/hooks/useAuth.ts
 import { useAuthStore } from '../stores/authStore';
+import { platformRoleFromUser } from '@/utils/roles';
 
 export const useAuth = () => {
   const store = useAuthStore();
   
   const permissions = store.user ? {
     canViewProjects: true, // Always true for authenticated users
-    canManageResources: store.user.role === 'admin',
-    canViewAnalytics: store.user.role === 'admin',
-    canManageUsers: store.user.role === 'admin',
-    isAdmin: store.user.role === 'admin'
+    canManageResources: platformRoleFromUser(store.user) === 'ADMIN',
+    canViewAnalytics: platformRoleFromUser(store.user) === 'ADMIN',
+    canManageUsers: platformRoleFromUser(store.user) === 'ADMIN',
+    isAdmin: platformRoleFromUser(store.user) === 'ADMIN'
   } : {
     canViewProjects: false,
     canManageResources: false,

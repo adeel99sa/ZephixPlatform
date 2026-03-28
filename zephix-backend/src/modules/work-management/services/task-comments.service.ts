@@ -8,7 +8,10 @@ import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
 import { AddCommentDto } from '../dto/add-comment.dto';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { IsNull } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Project } from '../../projects/entities/project.entity';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
 
 interface AuthContext {
   organizationId: string;
@@ -25,6 +28,9 @@ export class TaskCommentsService {
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     private readonly activityService: TaskActivityService,
     private readonly tenantContext: TenantContextService,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    private readonly structuralGuard: WorkTaskStructuralGuardService,
   ) {}
 
   async addComment(
@@ -46,6 +52,22 @@ export class TaskCommentsService {
         message: 'Task not found',
       });
     }
+
+    const project = await this.projectRepository.findOne({
+      where: {
+        id: task.projectId,
+        organizationId,
+        workspaceId,
+        deletedAt: IsNull(),
+      },
+    });
+    if (!project) {
+      throw new NotFoundException({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Project not found',
+      });
+    }
+    this.structuralGuard.assertCommentAllowed(project);
 
     const comment = this.commentRepo.create({
       organizationId,

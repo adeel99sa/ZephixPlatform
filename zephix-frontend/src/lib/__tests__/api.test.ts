@@ -7,7 +7,41 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 import { api } from '../api';
 
-vi.mock('axios');
+const { mockApiInstance } = vi.hoisted(() => {
+  const requestHandlers: Array<{ fulfilled?: unknown; rejected?: unknown }> = [];
+  const responseHandlers: Array<{ fulfilled?: unknown; rejected?: unknown }> = [];
+  const instance = {
+    interceptors: {
+      request: {
+        handlers: requestHandlers,
+        use: vi.fn((fulfilled, rejected) => {
+          requestHandlers.push({ fulfilled, rejected });
+          return requestHandlers.length - 1;
+        }),
+      },
+      response: {
+        handlers: responseHandlers,
+        use: vi.fn((fulfilled, rejected) => {
+          responseHandlers.push({ fulfilled, rejected });
+          return responseHandlers.length - 1;
+        }),
+      },
+    },
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  };
+  return { mockApiInstance: instance };
+});
+
+vi.mock('axios', () => ({
+  default: {
+    create: vi.fn(() => mockApiInstance),
+    get: vi.fn(),
+  },
+}));
 
 describe('API envelope unwrapping', () => {
   beforeEach(() => {
@@ -27,20 +61,12 @@ describe('API envelope unwrapping', () => {
       },
     };
 
-    (axios.create as any).mockReturnValue({
-      interceptors: {
-        response: {
-          use: vi.fn((onFulfilled) => {
-            // Simulate the interceptor being called
-            onFulfilled(mockResponse);
-          }),
-        },
-      },
-    });
+    const responseHandler = (api.interceptors.response as any).handlers[0]?.fulfilled;
+    const unwrapped = responseHandler?.(mockResponse);
 
     // The test verifies that the interceptor in api.ts
     // correctly unwraps the envelope structure
-    expect(mockData).toEqual({ id: '123', name: 'test' });
+    expect(unwrapped).toEqual({ id: '123', name: 'test' });
   });
 
   it('should handle flat responses without envelope', async () => {
@@ -145,22 +171,16 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
     expect(isProjectsUrl('/projects/123')).toBe(true);
     expect(isProjectsUrl('/api/projects/456/tasks')).toBe(true);
     expect(isProjectsUrl('/auth/login')).toBe(false);
-  });
-
-  it('should skip workspace header for auth routes', () => {
+  });  it('should skip workspace header for auth routes', () => {
     expect(isAuthUrl('/auth/login')).toBe(true);
     expect(isAuthUrl('/api/auth/refresh')).toBe(true);
     expect(isAuthUrl('/work/tasks')).toBe(false);
-  });
-
-  it('should skip workspace header for health routes', () => {
+  });  it('should skip workspace header for health routes', () => {
     expect(isHealthUrl('/health')).toBe(true);
     expect(isHealthUrl('/api/health')).toBe(true);
     expect(isHealthUrl('/version')).toBe(true);
     expect(isHealthUrl('/work/tasks')).toBe(false);
-  });
-
-  it('should throw WORKSPACE_REQUIRED for /work routes when activeWorkspaceId is null', () => {
+  });  it('should throw WORKSPACE_REQUIRED for /work routes when activeWorkspaceId is null', () => {
     // Simulate the interceptor logic
     const simulateInterceptor = (url: string, activeWorkspaceId: string | null) => {
       const skipWorkspace = isAuthUrl(url) || isHealthUrl(url);
@@ -209,3 +229,24 @@ describe('WORKSPACE_REQUIRED fail-fast', () => {
   });
 });
 
+describe('Auth bootstrap contract', () => {
+  it('resolves null for GET /auth/me 401 without throwing', async () => {
+    const responseRejected = (api.interceptors.response as any).handlers[0].rejected;
+
+    const result = await responseRejected({
+      config: {
+        url: '/auth/me',
+        method: 'get',
+        headers: {},
+      },
+      response: {
+        status: 401,
+        data: {
+          message: 'Unauthorized',
+        },
+      },
+    });
+
+    expect(result).toBeNull();
+  });
+});

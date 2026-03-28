@@ -1,0 +1,18 @@
+{
+  "flow": [
+    { "step": "health_ready", "method": "GET", "path": "/health/ready", "status": [200] },
+    { "step": "version", "method": "GET", "path": "/version", "status": [200] },
+    { "step": "csrf", "method": "GET", "path": "/auth/csrf", "status": [200] },
+    { "step": "smoke_login", "method": "POST", "path": "/auth/smoke-login", "status": [204] },
+    { "step": "auth_me", "method": "GET", "path": "/auth/me", "status": [200] },
+    { "step": "workspaces_list", "method": "GET", "path": "/workspaces", "status": [200] },
+    { "step": "portfolio_create", "method": "POST", "path": "/workspaces/{workspaceId}/portfolios", "status": [200, 201] },
+    { "step": "program_create", "method": "POST", "path": "/workspaces/{workspaceId}/portfolios/{portfolioId}/programs", "status": [200, 201] },
+    { "step": "project_create", "method": "POST", "path": "/projects", "status": [201] },
+    { "step": "project_link", "method": "PATCH", "path": "/workspaces/{workspaceId}/projects/{projectId}/link", "status": [200] },
+    { "step": "project_get", "method": "GET", "path": "/projects/{projectId}", "status": [200] },
+    { "step": "project_delete", "method": "DELETE", "path": "/projects/{projectId}", "status": [200, 204, 404], "optional": true, "gateEnv": "SMOKE_CLEANUP" },
+    { "step": "program_archive", "method": "POST", "path": "/workspaces/{workspaceId}/programs/{programId}/archive", "status": [200, 201, 404], "optional": true, "gateEnv": "SMOKE_CLEANUP" },
+    { "step": "portfolio_archive", "method": "POST", "path": "/workspaces/{workspaceId}/portfolios/{portfolioId}/archive", "status": [200, 201, 404], "optional": true, "gateEnv": "SMOKE_CLEANUP" }
+  ]
+}

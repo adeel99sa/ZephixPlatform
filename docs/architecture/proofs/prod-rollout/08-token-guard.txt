@@ -1,0 +1,8 @@
+captured_utc: 2026-03-07T00:22:30Z
+command: bash scripts/guard/no-token-in-proof-artifacts.sh docs/architecture/proofs/prod-rollout
+
+=== Token Artifact Guard ===
+Scanning: docs/architecture/proofs/prod-rollout
+PASS: No token leaks in proof artifacts
+
+=== RESULT: PASS ===

@@ -1,0 +1,80 @@
+{
+  "data": [
+    {
+      "id": "233bb4b5-a137-44ef-9f8d-becfd622c4d7",
+      "templateId": "244f6817-671b-47d5-b58f-a4e4a3f44a1e",
+      "kpiDefinitionId": "1ba53d2d-02fb-4a0d-a22d-368f51e14a75",
+      "isRequired": true,
+      "defaultTarget": "95.0000",
+      "createdAt": "2026-02-17T19:52:47.752Z",
+      "updatedAt": "2026-02-17T19:52:47.752Z",
+      "kpiDefinition": {
+        "id": "1ba53d2d-02fb-4a0d-a22d-368f51e14a75",
+        "code": "change_request_approval_rate",
+        "name": "Change Request Approval Rate",
+        "description": "Approved / (Approved + Rejected) as percentage (90-day window)",
+        "category": "CHANGE",
+        "unit": "percent",
+        "direction": "higher_better",
+        "rollupMethod": "sum",
+        "weightField": null,
+        "timeWindow": "current",
+        "formula": null,
+        "thresholds": null,
+        "isActive": true,
+        "lifecyclePhase": "MONITORING_CONTROL",
+        "formulaType": "RATIO",
+        "dataSources": [
+          "change_requests"
+        ],
+        "requiredGovernanceFlag": "changeManagementEnabled",
+        "isLeading": false,
+        "isLagging": true,
+        "defaultEnabled": false,
+        "calculationStrategy": "change_request_approval_rate",
+        "isSystem": true,
+        "organizationId": null,
+        "createdAt": "2026-02-17T18:05:40.058Z",
+        "updatedAt": "2026-02-17T18:05:40.058Z"
+      }
+    },
+    {
+      "id": "338541e4-22c6-4482-bc4f-0d57365491b6",
+      "templateId": "244f6817-671b-47d5-b58f-a4e4a3f44a1e",
+      "kpiDefinitionId": "78860fb4-ae33-497e-8684-c3c429105e94",
+      "isRequired": false,
+      "defaultTarget": null,
+      "createdAt": "2026-02-17T19:52:48.061Z",
+      "updatedAt": "2026-02-17T19:52:48.061Z",
+      "kpiDefinition": {
+        "id": "78860fb4-ae33-497e-8684-c3c429105e94",
+        "code": "change_request_cycle_time",
+        "name": "Change Request Cycle Time",
+        "description": "Average days from creation to approval for approved CRs (90-day window)",
+        "category": "CHANGE",
+        "unit": "days",
+        "direction": "lower_better",
+        "rollupMethod": "sum",
+        "weightField": null,
+        "timeWindow": "current",
+        "formula": null,
+        "thresholds": null,
+        "isActive": true,
+        "lifecyclePhase": "MONITORING_CONTROL",
+        "formulaType": "SIMPLE",
+        "dataSources": [
+          "change_requests"
+        ],
+        "requiredGovernanceFlag": "changeManagementEnabled",
+        "isLeading": false,
+        "isLagging": true,
+        "defaultEnabled": false,
+        "calculationStrategy": "change_request_cycle_time",
+        "isSystem": true,
+        "organizationId": null,
+        "createdAt": "2026-02-17T18:05:40.044Z",
+        "updatedAt": "2026-02-17T18:05:40.044Z"
+      }
+    }
+  ]
+}

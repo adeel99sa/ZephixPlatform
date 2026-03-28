@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, IsNull, Not } from 'typeorm';
 import { WorkPhase } from '../entities/work-phase.entity';
+import { PhaseState } from '../enums/phase-state.enum';
 import { Project, ProjectState } from '../../projects/entities/project.entity';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
@@ -192,23 +193,25 @@ export class WorkPhasesService {
       reportingKey,
       isMilestone: dto.isMilestone ?? false,
       isLocked: false,
+      phaseState: PhaseState.ACTIVE,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
       createdByUserId: auth.userId,
     });
 
     const savedPhase = await this.phaseRepo.save(phase);
 
-    // Write audit event: PHASE_CREATED
+    // Write audit event: PHASE_CREATED (Phase 3B schema)
     const auditEvent = this.auditRepo.create({
+      organizationId: auth.organizationId,
       workspaceId,
-      projectId: dto.projectId,
-      userId: auth.userId,
-      eventType: 'PHASE_CREATED',
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole || 'MEMBER',
+      action: 'PHASE_CREATED',
       entityType: 'PHASE',
       entityId: savedPhase.id,
-      metadata: {
+      metadataJson: {
         name: savedPhase.name,
-        createdBy: auth.userId,
+        projectId: dto.projectId,
       },
     });
     await this.auditRepo.save(auditEvent);
@@ -282,17 +285,17 @@ export class WorkPhasesService {
       }
     });
 
-    // Write audit event: PHASES_REORDERED
+    // Write audit event: PHASES_REORDERED (Phase 3B schema)
     const auditEvent = this.auditRepo.create({
+      organizationId: auth.organizationId,
       workspaceId,
-      projectId,
-      userId: auth.userId,
-      eventType: 'PHASES_REORDERED',
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole || 'MEMBER',
+      action: 'PHASES_REORDERED',
       entityType: 'PROJECT',
       entityId: projectId,
-      metadata: {
+      metadataJson: {
         orderedPhaseIds,
-        reorderedBy: auth.userId,
       },
     });
     await this.auditRepo.save(auditEvent);
@@ -589,17 +592,18 @@ export class WorkPhasesService {
     phase.deletedByUserId = null;
     const restored = await this.phaseRepo.save(phase);
 
-    // Write audit event: PHASE_RESTORED
+    // Write audit event: PHASE_RESTORED (Phase 3B schema)
     const auditEvent = this.auditRepo.create({
+      organizationId: auth.organizationId,
       workspaceId,
-      projectId: phase.projectId,
-      userId: auth.userId,
-      eventType: 'PHASE_RESTORED',
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole || 'MEMBER',
+      action: 'PHASE_RESTORED',
       entityType: 'PHASE',
       entityId: phaseId,
-      metadata: {
+      metadataJson: {
         name: phase.name,
-        restoredBy: auth.userId,
+        projectId: phase.projectId,
       },
     });
     await this.auditRepo.save(auditEvent);
@@ -650,17 +654,18 @@ export class WorkPhasesService {
     phase.deletedByUserId = auth.userId;
     await this.phaseRepo.save(phase);
 
-    // Write audit event: PHASE_DELETED
+    // Write audit event: PHASE_DELETED (Phase 3B schema)
     const auditEvent = this.auditRepo.create({
+      organizationId: auth.organizationId,
       workspaceId,
-      projectId: phase.projectId,
-      userId: auth.userId,
-      eventType: 'PHASE_DELETED',
+      actorUserId: auth.userId,
+      actorPlatformRole: auth.platformRole || 'MEMBER',
+      action: 'PHASE_DELETED',
       entityType: 'PHASE',
       entityId: phaseId,
-      metadata: {
+      metadataJson: {
         name: phase.name,
-        deletedBy: auth.userId,
+        projectId: phase.projectId,
       },
     });
     await this.auditRepo.save(auditEvent);

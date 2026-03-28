@@ -19,13 +19,14 @@
  */
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Copy } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
 import { getWorkspace, updateWorkspace, listProjects, listWorkspaceMembers, WorkspaceApiData, WorkspaceMember } from '@/features/workspaces/workspace.api';
 import { ProjectCreateModal } from '@/features/projects/ProjectCreateModal';
+import { DuplicateProjectModal } from '@/features/projects/components/DuplicateProjectModal';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
 import { Button } from '@/components/ui/Button';
 import { Link } from 'react-router-dom';
@@ -116,6 +117,25 @@ type WorkspaceHomeData = {
   executionSummary?: ExecutionSummary; // PHASE 7 MODULE 7.3: Execution signals
 };
 
+function normalizeExecutionSummary(summary?: Partial<ExecutionSummary>): ExecutionSummary | undefined {
+  if (!summary) return undefined;
+  return {
+    version: summary.version ?? 1,
+    counts: {
+      activeProjects: summary.counts?.activeProjects ?? 0,
+      totalWorkItems: summary.counts?.totalWorkItems ?? 0,
+      overdueWorkItems: summary.counts?.overdueWorkItems ?? 0,
+      dueSoon7Days: summary.counts?.dueSoon7Days ?? 0,
+      inProgress: summary.counts?.inProgress ?? 0,
+      doneLast7Days: summary.counts?.doneLast7Days ?? 0,
+    },
+    topOverdue: Array.isArray(summary.topOverdue) ? summary.topOverdue : [],
+    recentActivity: Array.isArray(summary.recentActivity)
+      ? summary.recentActivity
+      : [],
+  };
+}
+
 // Use the Member type from workspace.api.ts
 type Member = WorkspaceMember;
 
@@ -140,6 +160,9 @@ export default function WorkspaceHome() {
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState<{ id: string; name: string } | null>(null);
+  const [projectOverflowId, setProjectOverflowId] = useState<string | null>(null);
   const [projectFilter, setProjectFilter] = useState<'all' | 'standalone' | 'linked' | null>(null);
   const newMenuRef = useRef<HTMLDivElement>(null);
   const newButtonRef = useRef<HTMLButtonElement>(null);
@@ -227,8 +250,21 @@ export default function WorkspaceHome() {
       let homeData: WorkspaceHomeData | null = null;
       if (slug) {
         try {
-          const response = await request.get<{ data: WorkspaceHomeData }>(`/workspaces/slug/${slug}/home`);
-          homeData = response.data;
+          const homePayload = await request.get<WorkspaceHomeData | { data: WorkspaceHomeData }>(
+            `/workspaces/slug/${slug}/home`,
+          );
+          homeData =
+            homePayload &&
+            typeof homePayload === 'object' &&
+            'data' in (homePayload as Record<string, unknown>)
+              ? ((homePayload as { data: WorkspaceHomeData }).data ?? null)
+              : (homePayload as WorkspaceHomeData);
+          if (homeData) {
+            homeData = {
+              ...homeData,
+              executionSummary: normalizeExecutionSummary(homeData.executionSummary),
+            };
+          }
           setWorkspaceHomeData(homeData);
           if (homeData?.workspace) {
             const ws: Workspace = {
@@ -298,7 +334,7 @@ export default function WorkspaceHome() {
       setEditingNotes(false);
     } catch (error) {
       console.error('Failed to save notes:', error);
-      alert('Failed to save notes');
+      toast.error('Failed to save notes');
     } finally {
       setSavingNotes(false);
     }
@@ -479,7 +515,7 @@ export default function WorkspaceHome() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => navigate(`/workspaces/${workspaceId}/settings`)}
+                onClick={() => navigate('/settings')}
                 className="px-4 py-2"
               >
                 Settings
@@ -827,12 +863,14 @@ export default function WorkspaceHome() {
         ) : (
           <div className="space-y-2">
             {projects.map((project) => (
-              <Link
+              <div
                 key={project.id}
-                to={`/projects/${project.id}`}
-                className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+                className="flex items-center justify-between p-3 border rounded hover:bg-gray-50 group"
               >
-                <div className="flex-1">
+                <Link
+                  to={`/projects/${project.id}`}
+                  className="flex-1"
+                >
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900">{project.name}</span>
                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
@@ -842,8 +880,39 @@ export default function WorkspaceHome() {
                   <div className="text-sm text-gray-500">
                     {getStatusLabel(project.status)} · {getHealthLabel(project.status, project.health)} · {getDeliveryOwnerName(project)}
                   </div>
+                </Link>
+                {/* Overflow menu */}
+                <div className="relative ml-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setProjectOverflowId(projectOverflowId === project.id ? null : project.id);
+                    }}
+                    className="p-1 rounded hover:bg-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="More actions"
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                  </button>
+                  {projectOverflowId === project.id && (
+                    <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setProjectOverflowId(null);
+                          setDuplicateTarget({ id: project.id, name: project.name });
+                          setShowDuplicateModal(true);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Duplicate
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
@@ -941,6 +1010,20 @@ export default function WorkspaceHome() {
               toast.error(displayMessage);
             }
           }}
+          workspaceId={workspaceId}
+        />
+      )}
+
+      {/* Duplicate Project Modal */}
+      {duplicateTarget && workspaceId && (
+        <DuplicateProjectModal
+          open={showDuplicateModal}
+          onClose={() => {
+            setShowDuplicateModal(false);
+            setDuplicateTarget(null);
+          }}
+          projectId={duplicateTarget.id}
+          projectName={duplicateTarget.name}
           workspaceId={workspaceId}
         />
       )}

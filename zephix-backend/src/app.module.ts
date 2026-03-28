@@ -9,7 +9,6 @@ import { CsrfGuard } from './modules/auth/guards/csrf.guard';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 
@@ -58,6 +57,21 @@ import { DocsModule } from './modules/docs/docs.module';
 import { FormsModule } from './modules/forms/forms.module';
 import { TemplateCenterModule } from './modules/template-center/template-center.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { ScenariosModule } from './modules/scenarios/scenarios.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { EntitlementsModule } from './modules/billing/entitlements/entitlements.module';
+import { PlanStatusGuard } from './modules/billing/entitlements/plan-status.guard';
+import { ProductionHardeningModule } from './shared/production-hardening.module';
+import { SecurityHeadersMiddleware } from './shared/middleware/security-headers.middleware';
+import { RequestCorrelationMiddleware } from './shared/middleware/request-correlation.middleware';
+import { OrganizationAnalyticsModule } from './modules/organization-analytics/organization-analytics.module';
+import { ChangeRequestsModule } from './modules/change-requests/change-requests.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { KpisModule } from './modules/kpis/kpis.module';
+import { GovernanceRulesModule } from './modules/governance-rules/governance-rules.module';
+import { KpiQueueModule } from './modules/kpi-queue/kpi-queue.module';
 import { bootLog } from './common/utils/debug-boot';
 
 if (!(global as any).crypto) {
@@ -84,13 +98,6 @@ if (!(global as any).crypto) {
       global: true,
     }),
 
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 60 seconds in milliseconds
-        limit: 100, // CHANGE FROM 10 TO 100 requests per minute
-      },
-    ]),
-
     ScheduleModule.forRoot(), // Required for @Cron decorators (e.g., OutboxProcessorService)
 
     ...(process.env.SKIP_DATABASE !== 'true'
@@ -100,6 +107,9 @@ if (!(global as any).crypto) {
     SharedModule,
     TenancyModule, // Must be imported early for global tenant context
     WorkspaceAccessModule, // Must be imported early - provides WorkspaceAccessService used by many modules
+    EntitlementsModule, // Phase 3A: Global entitlement service — must be early
+    AuditModule, // Phase 3B: Global audit trail
+    ProductionHardeningModule, // Phase 3D: Metrics, backup readiness, rate limiting
     AuthModule,
     OrganizationsModule,
     BillingModule,
@@ -133,6 +143,15 @@ if (!(global as any).crypto) {
           DocsModule,
           FormsModule,
           TemplateCenterModule,
+          ScenariosModule,
+          AttachmentsModule,
+          OrganizationAnalyticsModule, // Phase 4A: Org command center
+          ChangeRequestsModule, // Wave 3A: Governance change requests
+          BudgetsModule, // Wave 3A: Project budget tracking
+          DocumentsModule, // Wave 3A: Standalone documents CRUD
+          KpisModule, // Wave 4A: KPI Foundation Layer
+          GovernanceRulesModule, // Wave 9: Governance rule engine
+          KpiQueueModule, // Wave 10: BullMQ KPI recompute, rollups, scheduling
         ]
       : [
           HealthModule, // Keep health module for basic health checks
@@ -158,13 +177,14 @@ if (!(global as any).crypto) {
     //     transformOptions: { enableImplicitConversion: true },
     //   }),
     // },
-    // {
-    //   provide: APP_GUARD,
-    //   useClass: ThrottlerGuard,
-    // },
     {
       provide: APP_GUARD,
       useClass: CsrfGuard,
+    },
+    // Phase 3A: Block write ops when plan_status != 'active'
+    {
+      provide: APP_GUARD,
+      useClass: PlanStatusGuard,
     },
   ],
 })
@@ -174,6 +194,10 @@ export class AppModule implements NestModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
+    // Phase 3D: Request correlation and security headers for all routes
+    consumer
+      .apply(RequestCorrelationMiddleware, SecurityHeadersMiddleware)
+      .forRoutes('*');
     // consumer.apply(TenantMiddleware).forRoutes('*'); // Temporarily disabled for debugging
     consumer.apply(TaskTrafficCounterMiddleware).forRoutes('*');
   }

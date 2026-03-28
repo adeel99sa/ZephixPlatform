@@ -505,6 +505,112 @@ export class WorkTasksController {
     return this.responseService.success(result);
   }
 
+  // 8b. GET /api/work/tasks/projects/:projectId/activity
+  @Get('projects/:projectId/activity')
+  @ApiOperation({ summary: 'List project activity feed' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Project activity feed retrieved successfully' })
+  async listProjectActivity(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('projectId') projectId: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.listProjectActivity(
+      auth,
+      workspaceId,
+      projectId,
+      limit ? parseInt(limit.toString(), 10) : 50,
+      offset ? parseInt(offset.toString(), 10) : 0,
+    );
+    return this.responseService.success(result);
+  }
+
+  // 8c. GET /api/work/tasks/insights/overdue
+  @Get('insights/overdue')
+  @ApiOperation({ summary: 'List overdue tasks for workspace/project' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiQuery({ name: 'projectId', required: false, type: String })
+  @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Overdue tasks retrieved successfully' })
+  async listOverdueTasks(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Query('projectId') projectId?: string,
+    @Query('assigneeUserId') assigneeUserId?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.listOverdueTasks(auth, workspaceId, {
+      projectId,
+      assigneeUserId,
+      limit: limit ? parseInt(limit.toString(), 10) : 50,
+      offset: offset ? parseInt(offset.toString(), 10) : 0,
+    });
+    return this.responseService.success(result);
+  }
+
+  // 8d. GET /api/work/tasks/insights/workload
+  @Get('insights/workload')
+  @ApiOperation({ summary: 'List team workload rollup for workspace/project' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiQuery({ name: 'projectId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Team workload retrieved successfully' })
+  async getTeamWorkload(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Query('projectId') projectId?: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.getTeamWorkload(
+      auth,
+      workspaceId,
+      projectId,
+    );
+    return this.responseService.success(result);
+  }
+
   // 9. GET /api/work/tasks/:id
   @Get(':id')
   @ApiOperation({ summary: 'Get a work task by ID' })
@@ -691,7 +797,7 @@ export class WorkTasksController {
 
   // 13. GET /api/work/tasks/stats/completion
   // Unified stats endpoint - uses header for workspace, optional query for project
-  @Get('tasks/stats/completion')
+  @Get('stats/completion')
   @ApiOperation({
     summary: 'Get task completion stats (workspace or project scoped)',
   })

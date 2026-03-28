@@ -107,6 +107,7 @@ export class DatabaseVerifyService {
 
   async verifyOnBoot(): Promise<void> {
     const env = process.env.NODE_ENV || 'development';
+    const isProductionLike = env === 'production' || env === 'staging';
     const auto = process.env.AUTO_MIGRATE === 'true';
     const lockId = 193847561; // stable constant
     const timeoutMs = Number(process.env.MIGRATION_LOCK_TIMEOUT_MS || 60000);
@@ -121,6 +122,9 @@ export class DatabaseVerifyService {
     const last = names[names.length - 1] ?? '(none)';
     this.logger.log(`migrations_loaded=${count} first=${first} last=${last}`);
 
+    // Allow auto-migrate in development only when AUTO_MIGRATE=true.
+    // Production and staging never auto-migrate on boot.
+    // Staging migrations are applied via scripts/migrations/run-staging.sh before railway up.
     if (env === 'development' && auto) {
       await this.lock.withLock(
         lockId,
@@ -128,7 +132,7 @@ export class DatabaseVerifyService {
           const pre = await this.verify(0);
           if (pre.pendingMigrations.length > 0) {
             this.logger.warn(
-              `pending_migrations=${pre.pendingMigrations.length} running=true`,
+              `pending_migrations=${pre.pendingMigrations.length} running=true env=${env}`,
             );
             await this.dataSource.runMigrations({ transaction: 'all' });
           }
@@ -141,9 +145,9 @@ export class DatabaseVerifyService {
     if (!result.ok) {
       this.logger.error(`schema_verify_failed env=${env}`);
       this.logger.error(JSON.stringify(result));
-      // In production, do not exit: keep server running so /api/health/ready returns 503 with details.
+      // In production-like environments, do not exit on schema drift. Keep server booted and surface details in readiness.
       const failFast = process.env.FAIL_FAST_SCHEMA_VERIFY === 'true';
-      if (failFast || env !== 'production') {
+      if (failFast || !isProductionLike) {
         throw new Error('Schema verification failed');
       }
       this.logger.warn(

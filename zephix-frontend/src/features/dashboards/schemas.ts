@@ -12,6 +12,9 @@ const WIDGET_ALLOWLIST = [
   "budget_variance",
   "risk_summary",
   "kpi",
+  // Phase 2B: Waterfall core
+  "critical_path_risk",
+  "earned_value_summary",
 ] as const;
 
 export const WidgetTypeSchema = z.enum(WIDGET_ALLOWLIST as unknown as [string, ...string[]]);

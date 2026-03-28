@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { getMigrationsForRuntime } from '../database/migrations.registry';
 import { User } from '../modules/users/entities/user.entity';
 import { Organization } from '../organizations/entities/organization.entity';
 import { UserOrganization } from '../organizations/entities/user-organization.entity';
@@ -20,6 +21,10 @@ import { WorkPhase } from '../modules/work-management/entities/work-phase.entity
 import { WorkTaskDependency } from '../modules/work-management/entities/task-dependency.entity';
 import { TaskComment } from '../modules/work-management/entities/task-comment.entity';
 import { TaskActivity } from '../modules/work-management/entities/task-activity.entity';
+import { Iteration } from '../modules/work-management/entities/iteration.entity';
+import { Template } from '../modules/templates/entities/template.entity';
+import { KpiDefinitionEntity } from '../modules/kpis/entities/kpi-definition.entity';
+import { TemplateKpiEntity } from '../modules/kpis/entities/template-kpi.entity';
 // Remove these lines:
 // import { RefreshToken } from '../modules/auth/entities/refresh-token.entity';
 // import { AuthAuditLog } from '../modules/auth/entities/auth-audit.entity';
@@ -70,8 +75,12 @@ const AppDataSource = new DataSource({
     WorkTaskDependency,
     TaskComment,
     TaskActivity,
+    Iteration,
+    Template,
+    KpiDefinitionEntity,
+    TemplateKpiEntity,
   ],
-  migrations: ['src/migrations/*.ts'],
+  migrations: getMigrationsForRuntime(),
   synchronize: false,
 });
 

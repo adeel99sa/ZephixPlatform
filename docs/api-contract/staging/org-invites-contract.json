@@ -1,0 +1,121 @@
+{
+  "flow": [
+    {
+      "step": "health_ready",
+      "method": "GET",
+      "path": "/health/ready",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "version",
+      "method": "GET",
+      "path": "/version",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "csrf",
+      "method": "GET",
+      "path": "/auth/csrf",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "smoke_login",
+      "method": "POST",
+      "path": "/auth/smoke-login",
+      "status": [
+        204
+      ]
+    },
+    {
+      "step": "auth_me",
+      "method": "GET",
+      "path": "/auth/me",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "org_signup",
+      "method": "POST",
+      "path": "/auth/organization/signup",
+      "status": [
+        201
+      ],
+      "note": "documented shape; runner uses existing smoke admin via smoke_login",
+      "override": true,
+      "overrideReason": "Org-invites runner uses a pre-existing staging admin account (staging+smoke@zephix.dev). The admin is authenticated via smoke-login; /auth/organization/signup is never called by this runner."
+    },
+    {
+      "step": "workspace_create",
+      "method": "POST",
+      "path": "/workspaces",
+      "status": [
+        201
+      ]
+    },
+    {
+      "step": "invite_create",
+      "method": "POST",
+      "path": "/orgs/{orgId}/invites",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "invitee_register",
+      "method": "POST",
+      "path": "/auth/register",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invitee_smoke_login",
+      "method": "POST",
+      "path": "/auth/smoke-login",
+      "status": [
+        204
+      ]
+    },
+    {
+      "step": "invite_token_read",
+      "method": "GET",
+      "path": "/smoke/invites/latest-token",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invite_accept",
+      "method": "POST",
+      "path": "/invites/accept",
+      "status": [
+        200,
+        201
+      ]
+    },
+    {
+      "step": "invitee_auth_me",
+      "method": "GET",
+      "path": "/auth/me",
+      "status": [
+        200
+      ]
+    },
+    {
+      "step": "invitee_workspaces_list",
+      "method": "GET",
+      "path": "/workspaces",
+      "status": [
+        200
+      ]
+    }
+  ]
+}
