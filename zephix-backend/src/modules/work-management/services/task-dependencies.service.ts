@@ -16,8 +16,12 @@ import { TaskActivityService } from './task-activity.service';
 import { AddDependencyDto, RemoveDependencyDto } from '../dto';
 import { DependencyType } from '../enums/task.enums';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { In, IsNull } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { ProjectHealthService } from './project-health.service';
+import { Project } from '../../projects/entities/project.entity';
+import { WorkPhase } from '../entities/work-phase.entity';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
 
 interface AuthContext {
   organizationId: string;
@@ -37,7 +41,48 @@ export class TaskDependenciesService {
     private readonly activityService: TaskActivityService,
     private readonly tenantContext: TenantContextService,
     private readonly projectHealthService: ProjectHealthService,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    @InjectRepository(WorkPhase)
+    private readonly workPhaseRepository: Repository<WorkPhase>,
+    private readonly structuralGuard: WorkTaskStructuralGuardService,
   ) {}
+
+  private async assertStructuralGuardForTasks(
+    auth: { organizationId: string },
+    workspaceId: string,
+    tasks: WorkTask[],
+  ): Promise<void> {
+    const organizationId = auth.organizationId;
+    for (const task of tasks) {
+      const project = await this.projectRepository.findOne({
+        where: {
+          id: task.projectId,
+          organizationId,
+          workspaceId,
+          deletedAt: IsNull(),
+        },
+      });
+      if (!project) {
+        throw new NotFoundException({
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Project not found',
+        });
+      }
+      let phase: WorkPhase | null = null;
+      if (task.phaseId) {
+        phase = await this.workPhaseRepository.findOne({
+          where: {
+            id: task.phaseId,
+            organizationId,
+            workspaceId,
+            deletedAt: IsNull(),
+          },
+        });
+      }
+      this.structuralGuard.assertTaskFieldMutationAllowed(project, phase);
+    }
+  }
 
   async addDependency(
     auth: AuthContext,
@@ -72,6 +117,11 @@ export class TaskDependenciesService {
         message: 'One or more tasks not found',
       });
     }
+
+    await this.assertStructuralGuardForTasks(auth, workspaceId, [
+      predecessor,
+      successor,
+    ]);
 
     // Check for duplicate
     const existing = await this.dependencyRepo.findOne({
@@ -188,7 +238,6 @@ export class TaskDependenciesService {
 
     const successor = await this.taskRepo.findOne({
       where: { id: successorTaskId, workspaceId, deletedAt: IsNull() },
-      select: ['projectId'],
     });
     if (!successor) {
       throw new NotFoundException({
@@ -196,6 +245,21 @@ export class TaskDependenciesService {
         message: 'Task not found',
       });
     }
+
+    const predecessor = await this.taskRepo.findOne({
+      where: { id: predecessorTaskId, workspaceId, deletedAt: IsNull() },
+    });
+    if (!predecessor) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Task not found',
+      });
+    }
+
+    await this.assertStructuralGuardForTasks(auth, workspaceId, [
+      predecessor,
+      successor,
+    ]);
 
     const dependency = await this.dependencyRepo.findOne({
       where: {

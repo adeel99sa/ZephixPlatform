@@ -1,165 +1,109 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { TaskCommentsService } from './task-comments.service';
+import { getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
 import { TaskComment } from '../entities/task-comment.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityService } from './task-activity.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
-import { WorkspaceRoleGuardService } from '../../workspace-access/workspace-role-guard.service';
+import { Project, ProjectState } from '../../projects/entities/project.entity';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
 
-describe('TaskCommentsService', () => {
+describe('TaskCommentsService (F-2 comment exception model)', () => {
   let service: TaskCommentsService;
-  let commentRepo: {
-    findOne: jest.Mock;
-    create: jest.Mock;
-    save: jest.Mock;
-    delete: jest.Mock;
-    findAndCount: jest.Mock;
-  };
   let taskRepo: { findOne: jest.Mock };
+  let projectRepo: { findOne: jest.Mock };
+  let commentRepo: { create: jest.Mock; save: jest.Mock };
 
+  const auth = { organizationId: 'org-1', userId: 'u1', platformRole: 'MEMBER' };
   const workspaceId = 'ws-1';
   const taskId = 'task-1';
-  const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
 
   beforeEach(async () => {
+    taskRepo = { findOne: jest.fn() };
+    projectRepo = { findOne: jest.fn() };
     commentRepo = {
-      findOne: jest.fn(),
-      create: jest.fn((data) => data),
-      save: jest.fn(async (data) => data),
-      delete: jest.fn(async () => ({ affected: 1 })),
-      findAndCount: jest.fn(async () => [[], 0]),
-    };
-    taskRepo = {
-      findOne: jest.fn(async () => ({
-        id: taskId,
-        workspaceId,
-        deletedAt: null,
-      })),
+      create: jest.fn((x) => x),
+      save: jest.fn().mockImplementation((x) => Promise.resolve({ id: 'c1', ...x })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TaskCommentsService,
-        {
-          provide: getTenantAwareRepositoryToken(TaskComment),
-          useValue: commentRepo,
-        },
-        {
-          provide: getTenantAwareRepositoryToken(WorkTask),
-          useValue: taskRepo,
-        },
-        {
-          provide: TaskActivityService,
-          useValue: { record: jest.fn().mockResolvedValue(undefined) },
-        },
+        { provide: getTenantAwareRepositoryToken(TaskComment), useValue: commentRepo },
+        { provide: getTenantAwareRepositoryToken(WorkTask), useValue: taskRepo },
+        { provide: TaskActivityService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
         {
           provide: TenantContextService,
           useValue: { assertOrganizationId: jest.fn().mockReturnValue('org-1') },
         },
-        {
-          provide: WorkspaceRoleGuardService,
-          useValue: { getWorkspaceRole: jest.fn().mockResolvedValue('workspace_member') },
-        },
+        { provide: getRepositoryToken(Project), useValue: projectRepo },
+        WorkTaskStructuralGuardService,
       ],
     }).compile();
 
-    service = module.get<TaskCommentsService>(TaskCommentsService);
+    service = module.get(TaskCommentsService);
   });
 
-  it('allows owner to edit comment', async () => {
-    commentRepo.findOne.mockResolvedValue({
-      id: 'comment-1',
-      taskId,
+  function stubTask(projectId = 'proj-1') {
+    taskRepo.findOne.mockResolvedValue({
+      id: taskId,
       workspaceId,
-      createdByUserId: auth.userId,
-      body: 'before',
-      updatedByUserId: null,
+      projectId,
+      deletedAt: null,
+    });
+  }
+
+  it('allows addComment when project is ON_HOLD (lighter path)', async () => {
+    stubTask();
+    projectRepo.findOne.mockResolvedValue({
+      id: 'proj-1',
+      state: ProjectState.ON_HOLD,
+      organizationId: 'org-1',
+      workspaceId,
+      deletedAt: null,
     });
 
-    const updated = await service.updateComment(
-      auth,
-      workspaceId,
-      taskId,
-      'comment-1',
-      { body: 'after' },
-    );
-
-    expect(updated.body).toBe('after');
-    expect(updated.updatedByUserId).toBe(auth.userId);
+    const r = await service.addComment(auth, workspaceId, taskId, { body: 'hello' });
+    expect(r.id).toBeDefined();
+    expect(commentRepo.save).toHaveBeenCalled();
   });
 
-  it('allows admin to edit comment not owned by them', async () => {
-    commentRepo.findOne.mockResolvedValue({
-      id: 'comment-2',
-      taskId,
+  it('allows addComment when project ACTIVE and phase would be COMPLETE (no phase gate on comments)', async () => {
+    stubTask();
+    projectRepo.findOne.mockResolvedValue({
+      id: 'proj-1',
+      state: ProjectState.ACTIVE,
+      organizationId: 'org-1',
       workspaceId,
-      createdByUserId: 'other-user',
-      body: 'before',
-      updatedByUserId: null,
+      deletedAt: null,
     });
 
-    const updated = await service.updateComment(
-      { ...auth, platformRole: 'ADMIN' },
-      workspaceId,
-      taskId,
-      'comment-2',
-      { body: 'after' },
-    );
-
-    expect(updated.body).toBe('after');
+    await service.addComment(auth, workspaceId, taskId, { body: 'note' });
+    expect(commentRepo.save).toHaveBeenCalled();
   });
 
-  it('allows elevated workspace role to delete comment', async () => {
-    commentRepo.findOne.mockResolvedValue({
-      id: 'comment-3',
-      taskId,
+  it('blocks addComment when project is TERMINATED', async () => {
+    stubTask();
+    projectRepo.findOne.mockResolvedValue({
+      id: 'proj-1',
+      state: ProjectState.TERMINATED,
+      organizationId: 'org-1',
       workspaceId,
-      createdByUserId: 'other-user',
-      body: 'to delete',
-      updatedByUserId: null,
+      deletedAt: null,
     });
-
-    const workspaceRoleGuard = (service as any).workspaceRoleGuard;
-    workspaceRoleGuard.getWorkspaceRole.mockResolvedValue('delivery_owner');
 
     await expect(
-      service.deleteComment(auth, workspaceId, taskId, 'comment-3'),
-    ).resolves.not.toThrow();
-    expect(commentRepo.delete).toHaveBeenCalledWith({
-      id: 'comment-3',
-      taskId,
-      workspaceId,
-    });
+      service.addComment(auth, workspaceId, taskId, { body: 'x' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(commentRepo.save).not.toHaveBeenCalled();
   });
 
-  it('rejects edit when user is neither owner nor privileged role', async () => {
-    commentRepo.findOne.mockResolvedValue({
-      id: 'comment-4',
-      taskId,
-      workspaceId,
-      createdByUserId: 'other-user',
-      body: 'before',
-      updatedByUserId: null,
-    });
-
-    const err = await service
-      .updateComment(auth, workspaceId, taskId, 'comment-4', { body: 'after' })
-      .then(() => null, (e) => e);
-
-    expect(err).toBeInstanceOf(ForbiddenException);
-    expect(err.response).toMatchObject({ code: 'TASK_COMMENT_FORBIDDEN' });
-  });
-
-  it('returns not found when comment does not exist', async () => {
-    commentRepo.findOne.mockResolvedValue(null);
-
-    const err = await service
-      .deleteComment(auth, workspaceId, taskId, 'missing-comment')
-      .then(() => null, (e) => e);
-
-    expect(err).toBeInstanceOf(NotFoundException);
-    expect(err.response).toMatchObject({ code: 'TASK_COMMENT_NOT_FOUND' });
+  it('throws NotFound when task missing', async () => {
+    taskRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.addComment(auth, workspaceId, taskId, { body: 'x' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -32,6 +32,8 @@ export interface StepApprovalState {
   stepOrder: number;
   name: string;
   approvalType: ApprovalType;
+  /** Workspace role or label required for this step (when configured). */
+  requiredRole: string | null;
   minApprovals: number;
   status: 'PENDING' | 'ACTIVE' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
   decisions: Array<{
@@ -104,6 +106,8 @@ export class GateApprovalEngineService {
         stepId: firstStep.id,
         stepOrder: firstStep.stepOrder,
         stepName: firstStep.name,
+        submittedByUserId: submission.submittedByUserId,
+        requiredUserId: firstStep.requiredUserId,
       },
     );
 
@@ -195,6 +199,7 @@ export class GateApprovalEngineService {
             chainId: chain.id,
             stepId: state.activeStepId,
             escalationHours,
+            submittedByUserId: submission.submittedByUserId,
           },
         );
         escalatedCount++;
@@ -264,6 +269,7 @@ export class GateApprovalEngineService {
         stepOrder: step.stepOrder,
         name: step.name,
         approvalType: step.approvalType,
+        requiredRole: step.requiredRole ?? null,
         minApprovals: step.minApprovals,
         status,
         decisions: stepDecisions.map((d) => ({
@@ -395,6 +401,8 @@ export class GateApprovalEngineService {
       stepOrder: activeStep.stepOrder,
       stepName: activeStep.name,
       decision,
+      submittedByUserId: submission.submittedByUserId,
+      requiredUserId: activeStep.requiredUserId,
     });
 
     // Re-evaluate chain state after the decision
@@ -419,6 +427,10 @@ export class GateApprovalEngineService {
             stepId: nextStep.stepId,
             stepOrder: nextStep.stepOrder,
             stepName: nextStep.name,
+            submittedByUserId: submission.submittedByUserId,
+            requiredUserId:
+              chain.steps.find((step) => step.id === nextStep.stepId)
+                ?.requiredUserId ?? null,
           },
         );
       }
@@ -434,6 +446,7 @@ export class GateApprovalEngineService {
         {
           submissionId,
           chainId: chain.id,
+          submittedByUserId: submission.submittedByUserId,
         },
       );
 

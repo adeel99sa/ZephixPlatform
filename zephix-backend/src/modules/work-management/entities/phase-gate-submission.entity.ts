@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
+import { GateDecisionType } from '../enums/gate-decision-type.enum';
 
 export enum GateSubmissionStatus {
   DRAFT = 'DRAFT',
@@ -73,8 +74,17 @@ export class PhaseGateSubmission {
   @Column({ type: 'timestamp', name: 'decided_at', nullable: true })
   decidedAt: Date | null;
 
+  /** PM / submitter notes at draft or submit — never overwritten by approver gate decision. */
+  @Column({ type: 'text', name: 'submission_note', nullable: true })
+  submissionNote: string | null;
+
+  /** Approver / system notes after a decision (chain or PMBOK). */
   @Column({ type: 'text', name: 'decision_note', nullable: true })
   decisionNote: string | null;
+
+  /** PMBOK outcome recorded on final gate decision (C-7 audit). */
+  @Column({ name: 'gate_decision_type', type: 'varchar', length: 32, nullable: true })
+  gateDecisionType: GateDecisionType | null;
 
   /** Snapshot of documents at submission time */
   @Column({ type: 'jsonb', name: 'documents_snapshot', nullable: true })

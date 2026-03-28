@@ -39,7 +39,6 @@ import {
   AddDependencyDto,
   RemoveDependencyDto,
   AddCommentDto,
-  UpdateCommentDto,
 } from '../dto';
 
 // UUID validation regex
@@ -99,11 +98,6 @@ export class WorkTasksController {
     ],
   })
   @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
-  @ApiQuery({
-    name: 'priority',
-    required: false,
-    enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
-  })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({
     name: 'dueFrom',
@@ -469,66 +463,6 @@ export class WorkTasksController {
     return this.responseService.success(result);
   }
 
-  // 7b. PATCH /api/work/tasks/:id/comments/:commentId
-  @Patch(':id/comments/:commentId')
-  @ApiOperation({ summary: 'Edit a comment on a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
-  @ApiParam({ name: 'id', description: 'Task ID' })
-  @ApiParam({ name: 'commentId', description: 'Comment ID' })
-  @ApiResponse({ status: 200, description: 'Comment updated successfully' })
-  async updateComment(
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceIdHeader: string,
-    @Param('id') taskId: string,
-    @Param('commentId') commentId: string,
-    @Body() dto: UpdateCommentDto,
-  ) {
-    const workspaceId = validateWorkspaceId(workspaceIdHeader);
-    const auth = getAuthContext(req);
-
-    const comment = await this.taskCommentsService.updateComment(
-      auth,
-      workspaceId,
-      taskId,
-      commentId,
-      dto,
-    );
-    return this.responseService.success(comment);
-  }
-
-  // 7c. DELETE /api/work/tasks/:id/comments/:commentId
-  @Delete(':id/comments/:commentId')
-  @ApiOperation({ summary: 'Delete a comment from a task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
-  @ApiParam({ name: 'id', description: 'Task ID' })
-  @ApiParam({ name: 'commentId', description: 'Comment ID' })
-  @ApiResponse({ status: 200, description: 'Comment deleted successfully' })
-  async deleteComment(
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceIdHeader: string,
-    @Param('id') taskId: string,
-    @Param('commentId') commentId: string,
-  ) {
-    const workspaceId = validateWorkspaceId(workspaceIdHeader);
-    const auth = getAuthContext(req);
-
-    await this.taskCommentsService.deleteComment(
-      auth,
-      workspaceId,
-      taskId,
-      commentId,
-    );
-    return this.responseService.success({ message: 'Comment deleted' });
-  }
-
   // 8. GET /api/work/tasks/:id/activity
   @Get(':id/activity')
   @ApiOperation({ summary: 'List activity feed for a task' })
@@ -571,6 +505,112 @@ export class WorkTasksController {
     return this.responseService.success(result);
   }
 
+  // 8b. GET /api/work/tasks/projects/:projectId/activity
+  @Get('projects/:projectId/activity')
+  @ApiOperation({ summary: 'List project activity feed' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Project activity feed retrieved successfully' })
+  async listProjectActivity(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Param('projectId') projectId: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.listProjectActivity(
+      auth,
+      workspaceId,
+      projectId,
+      limit ? parseInt(limit.toString(), 10) : 50,
+      offset ? parseInt(offset.toString(), 10) : 0,
+    );
+    return this.responseService.success(result);
+  }
+
+  // 8c. GET /api/work/tasks/insights/overdue
+  @Get('insights/overdue')
+  @ApiOperation({ summary: 'List overdue tasks for workspace/project' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiQuery({ name: 'projectId', required: false, type: String })
+  @ApiQuery({ name: 'assigneeUserId', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Overdue tasks retrieved successfully' })
+  async listOverdueTasks(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Query('projectId') projectId?: string,
+    @Query('assigneeUserId') assigneeUserId?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.listOverdueTasks(auth, workspaceId, {
+      projectId,
+      assigneeUserId,
+      limit: limit ? parseInt(limit.toString(), 10) : 50,
+      offset: offset ? parseInt(offset.toString(), 10) : 0,
+    });
+    return this.responseService.success(result);
+  }
+
+  // 8d. GET /api/work/tasks/insights/workload
+  @Get('insights/workload')
+  @ApiOperation({ summary: 'List team workload rollup for workspace/project' })
+  @ApiHeader({
+    name: 'x-workspace-id',
+    description: 'Workspace ID',
+    required: true,
+  })
+  @ApiQuery({ name: 'projectId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Team workload retrieved successfully' })
+  async getTeamWorkload(
+    @Req() req: AuthRequest,
+    @Headers('x-workspace-id') workspaceIdHeader: string,
+    @Query('projectId') projectId?: string,
+  ) {
+    const workspaceId = validateWorkspaceId(workspaceIdHeader);
+    const auth = getAuthContext(req);
+
+    await this.workspaceRoleGuard.requireWorkspaceRead(
+      workspaceId,
+      auth.userId,
+    );
+
+    const result = await this.workTasksService.getTeamWorkload(
+      auth,
+      workspaceId,
+      projectId,
+    );
+    return this.responseService.success(result);
+  }
+
   // 9. GET /api/work/tasks/:id
   @Get(':id')
   @ApiOperation({ summary: 'Get a work task by ID' })
@@ -607,32 +647,6 @@ export class WorkTasksController {
       taskId,
     );
     return this.responseService.success(task);
-  }
-
-  // 9b. GET /api/work/tasks/:id/subtasks
-  @Get(':id/subtasks')
-  @ApiOperation({ summary: 'List subtasks for a parent task' })
-  @ApiHeader({
-    name: 'x-workspace-id',
-    description: 'Workspace ID',
-    required: true,
-  })
-  @ApiParam({ name: 'id', description: 'Parent task ID' })
-  @ApiResponse({ status: 200, description: 'Subtasks retrieved successfully' })
-  async listSubtasks(
-    @Req() req: AuthRequest,
-    @Headers('x-workspace-id') workspaceIdHeader: string,
-    @Param('id') taskId: string,
-  ) {
-    const workspaceId = validateWorkspaceId(workspaceIdHeader);
-    const auth = getAuthContext(req);
-
-    const subtasks = await this.workTasksService.listSubtasks(
-      auth,
-      workspaceId,
-      taskId,
-    );
-    return this.responseService.success(subtasks);
   }
 
   // 10. PATCH /api/work/tasks/:id

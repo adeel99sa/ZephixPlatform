@@ -133,6 +133,43 @@ export class Workspace {
   })
   defaultMethodology?: string | null;
 
+  @Column({
+    type: 'varchar',
+    length: 120,
+    name: 'business_unit_label',
+    nullable: true,
+  })
+  businessUnitLabel?: string | null;
+
+  @Column({ name: 'default_template_id', type: 'uuid', nullable: true })
+  defaultTemplateId?: string | null;
+
+  @Column({
+    name: 'inherit_org_default_template',
+    type: 'boolean',
+    default: true,
+  })
+  inheritOrgDefaultTemplate!: boolean;
+
+  @Column({
+    name: 'governance_inheritance_mode',
+    type: 'varchar',
+    length: 32,
+    default: 'ORG_DEFAULT',
+  })
+  governanceInheritanceMode!: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+
+  @Column({
+    name: 'allowed_template_ids',
+    type: 'uuid',
+    array: true,
+    nullable: true,
+  })
+  allowedTemplateIds?: string[] | null;
+
+  @Column({ name: 'workspace_group_id', type: 'uuid', nullable: true })
+  workspaceGroupId?: string | null;
+
   // PHASE 5.1: Workspace notes for Workspace Home page
   // Stores workspace context, rules, links, expectations
   // Editable only by workspace owner

@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
+import { GateReviewState } from '../enums/gate-review-state.enum';
 
 export enum GateDefinitionStatus {
   ACTIVE = 'ACTIVE',
@@ -72,6 +73,22 @@ export class PhaseGateDefinition {
 
   @Column({ type: 'jsonb', nullable: true })
   thresholds: Record<string, unknown> | null;
+
+  /** Progressive governance: where this gate sits in the review lifecycle. */
+  @Column({
+    name: 'review_state',
+    type: 'varchar',
+    length: 32,
+    default: GateReviewState.NOT_STARTED,
+  })
+  reviewState: GateReviewState;
+
+  /**
+   * Active gate cycle (nullable). FK → gate_cycles.id (migration 18000000000052).
+   * Navigation property omitted to avoid circular entity imports with `GateCycle`.
+   */
+  @Column({ name: 'current_cycle_id', type: 'uuid', nullable: true })
+  currentCycleId: string | null;
 
   @Column({ type: 'uuid', name: 'created_by_user_id' })
   createdByUserId: string;

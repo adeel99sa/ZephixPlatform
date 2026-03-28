@@ -7,6 +7,9 @@
 import { WorkTasksService } from '../work-tasks.service';
 import { BadRequestException } from '@nestjs/common';
 import { TaskStatus, TaskPriority, TaskType } from '../../enums/task.enums';
+import { ProjectState } from '../../../projects/entities/project.entity';
+import { PhaseState } from '../../enums/phase-state.enum';
+import { WorkTaskStructuralGuardService } from '../work-task-structural-guard.service';
 
 describe('WorkTasksService — Board Move', () => {
   let service: WorkTasksService;
@@ -41,9 +44,33 @@ describe('WorkTasksService — Board Move', () => {
   };
 
   const mockProjectRepo = {
-    findOne: jest.fn().mockResolvedValue({ id: 'p1', estimationMode: 'both' }),
+    findOne: jest.fn().mockResolvedValue({
+      id: 'p1',
+      estimationMode: 'both',
+      state: ProjectState.ACTIVE,
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+      deletedAt: null,
+    }),
     createQueryBuilder: jest.fn(),
   };
+
+  const mockPhaseRepo = {
+    findOne: jest.fn().mockResolvedValue({
+      id: 'ph1',
+      organizationId: 'org-1',
+      workspaceId: 'ws-1',
+      phaseState: PhaseState.ACTIVE,
+      deletedAt: null,
+    }),
+  };
+
+  const mockGateConditionRepo = {
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn(),
+    save: jest.fn(),
+  };
+  const mockPhaseGateRepo = { save: jest.fn() };
 
   const mockWipService = {
     enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined),
@@ -58,10 +85,14 @@ describe('WorkTasksService — Board Move', () => {
     assertOrganizationId: jest.fn().mockReturnValue('org-1'),
   };
 
-  const mockWorkspaceAccessService = { requireWorkspaceRead: jest.fn(), requireWorkspaceWrite: jest.fn() };
+  const mockWorkspaceAccessService = {
+    canAccessWorkspace: jest.fn().mockResolvedValue(true),
+  };
   const mockTenantCtx = { assertOrganizationId: jest.fn().mockReturnValue('org-1') };
   const mockDataSource = {};
-  const mockProjectHealthService = { recalculate: jest.fn() };
+  const mockProjectHealthService = {
+    recalculateProjectHealth: jest.fn().mockResolvedValue(undefined),
+  };
 
   const auth = {
     userId: 'u1',
@@ -76,21 +107,23 @@ describe('WorkTasksService — Board Move', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Construct service with all 13 mocked deps
     service = new WorkTasksService(
-      mockTaskRepo as any,          // taskRepo
-      {} as any,                    // dependencyRepo
-      {} as any,                    // commentRepo
-      {} as any,                    // activityRepo
-      {} as any,                    // workPhaseRepository
-      mockWorkspaceAccessService as any, // workspaceAccessService
-      mockActivityService as any,   // activityService
-      mockTenantCtx as any,         // tenantContext
-      mockDataSource as any,        // dataSource
-      mockProjectHealthService as any, // projectHealthService
-      mockWipService as any,        // wipLimitsService
-      mockProjectRepo as any,       // projectRepository
+      mockTaskRepo as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      mockPhaseRepo as any,
+      mockWorkspaceAccessService as any,
+      mockActivityService as any,
+      mockTenantCtx as any,
+      mockDataSource as any,
+      mockProjectHealthService as any,
+      mockWipService as any,
+      mockProjectRepo as any,
       { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) } as any,
+      mockGateConditionRepo as any,
+      mockPhaseGateRepo as any,
+      new WorkTaskStructuralGuardService(),
     );
     // Mock internal methods
     (service as any).assertWorkspaceAccess = jest.fn().mockResolvedValue(undefined);
@@ -218,7 +251,19 @@ describe('WorkTasksService — Board Move', () => {
   // ── Estimation mode enforcement still works during board move ──────
 
   it('rejects estimation mode violation during board move with estimate', async () => {
-    mockProjectRepo.findOne.mockResolvedValueOnce({ id: 'p1', estimationMode: 'hours_only' });
+    mockProjectRepo.findOne
+      .mockResolvedValueOnce({
+        id: 'p1',
+        estimationMode: 'both',
+        state: ProjectState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId: 'ws-1',
+        deletedAt: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'p1',
+        estimationMode: 'hours_only',
+      });
     await expect(
       service.updateTask(auth, wsId, 't1', {
         status: TaskStatus.IN_PROGRESS,
