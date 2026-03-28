@@ -13,6 +13,7 @@ import { Project } from '../projects/entities/project.entity';
 import { Program } from '../programs/entities/program.entity';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { WorkspaceAccessModule } from '../workspace-access/workspace-access.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { GovernanceRulesModule } from '../governance-rules/governance-rules.module';
 // KpiQueueModule is @Global() — DomainEventEmitterService available without import
@@ -24,6 +25,7 @@ import { WorkTasksService } from './services/work-tasks.service';
 import { WorkPlanService } from './services/work-plan.service';
 import { ProjectStartService } from './services/project-start.service';
 import { ProjectStructureGuardService } from './services/project-structure-guard.service';
+import { WorkTaskStructuralGuardService } from './services/work-task-structural-guard.service';
 import { TaskDependenciesService } from './services/task-dependencies.service';
 import { TaskCommentsService } from './services/task-comments.service';
 import { TaskActivityService } from './services/task-activity.service';
@@ -54,11 +56,14 @@ import { GateApprovalActionController } from './controllers/gate-approval-action
 import { PhaseGateEvaluatorService } from './services/phase-gate-evaluator.service';
 // Sprint 10: Gate approval chain entities
 import { PhaseGateDefinition } from './entities/phase-gate-definition.entity';
+import { GateCycle } from './entities/gate-cycle.entity';
+import { GateCondition } from './entities/gate-condition.entity';
 import { PhaseGateSubmission } from './entities/phase-gate-submission.entity';
 import { PhaseGateSubmissionDocument } from './entities/phase-gate-submission-document.entity';
 import { GateApprovalChain } from './entities/gate-approval-chain.entity';
 import { GateApprovalChainStep } from './entities/gate-approval-chain-step.entity';
 import { GateApprovalDecision } from './entities/gate-approval-decision.entity';
+import { ProjectGovernanceReport } from './entities/project-governance-report.entity';
 // Phase 2B: Waterfall core entities
 import { ScheduleBaseline } from './entities/schedule-baseline.entity';
 import { ScheduleBaselineItem } from './entities/schedule-baseline-item.entity';
@@ -84,6 +89,10 @@ import { CapacityLevelingService } from './services/capacity-leveling.service';
 import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
 import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
 import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
+import { ProjectGovernanceController } from './controllers/project-governance.controller';
+import { ProjectPhaseGateController } from './controllers/project-phase-gate.controller';
+import { ProjectGovernanceService } from './services/project-governance.service';
+import { User } from '../users/entities/user.entity';
 // ResponseService is available from @Global() SharedModule, no import needed
 
 @Module({
@@ -105,19 +114,24 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
       ProjectWorkflowConfig,
       // Sprint 10: Gate entities
       PhaseGateDefinition,
+      GateCycle,
+      GateCondition,
       PhaseGateSubmission,
       PhaseGateSubmissionDocument,
       GateApprovalChain,
       GateApprovalChainStep,
       GateApprovalDecision,
+      ProjectGovernanceReport,
       // Phase 2B: Waterfall entities
       ScheduleBaseline,
       ScheduleBaselineItem,
       EarnedValueSnapshot,
       // Phase 2E: Capacity calendar
       WorkspaceMemberCapacity,
+      User,
     ]),
     WorkspaceAccessModule,
+    ProjectsModule,
     PoliciesModule,
     GovernanceRulesModule,
     // KpiQueueModule is @Global(), no explicit import needed
@@ -145,6 +159,8 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     CapacityCalendarController,
     CapacityAnalyticsController,
     CapacityLevelingController,
+    ProjectGovernanceController,
+    ProjectPhaseGateController,
   ],
   providers: [
     createTenantAwareRepositoryProvider(WorkTask),
@@ -159,6 +175,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     WorkPlanService,
     ProjectStartService,
     ProjectStructureGuardService,
+    WorkTaskStructuralGuardService,
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
@@ -185,6 +202,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     DemandModelService,
     CapacityAnalyticsService,
     CapacityLevelingService,
+    ProjectGovernanceService,
   ],
   exports: [
     TypeOrmModule,
@@ -192,6 +210,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     WorkPlanService,
     ProjectStartService,
     ProjectStructureGuardService,
+    WorkTaskStructuralGuardService,
     TaskDependenciesService,
     TaskCommentsService,
     TaskActivityService,
@@ -215,6 +234,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     DemandModelService,
     CapacityAnalyticsService,
     CapacityLevelingService,
+    ProjectGovernanceService,
   ],
 })
 export class WorkManagementModule {}

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { TaskDependenciesService } from './task-dependencies.service';
 import { TenantAwareRepository, getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
 import { WorkTaskDependency } from '../entities/task-dependency.entity';
@@ -8,6 +9,10 @@ import { TaskActivityService } from './task-activity.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { ProjectHealthService } from './project-health.service';
 import { DependencyType } from '../enums/task.enums';
+import { Project, ProjectState } from '../../projects/entities/project.entity';
+import { WorkPhase } from '../entities/work-phase.entity';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
+import { PhaseState } from '../enums/phase-state.enum';
 
 describe('TaskDependenciesService', () => {
   let service: TaskDependenciesService;
@@ -15,6 +20,8 @@ describe('TaskDependenciesService', () => {
   let taskRepo: jest.Mocked<TenantAwareRepository<WorkTask>>;
   let activityService: jest.Mocked<TaskActivityService>;
   let tenantContext: jest.Mocked<TenantContextService>;
+  let projectRepo: { findOne: jest.Mock };
+  let phaseRepo: { findOne: jest.Mock };
 
   const mockAuth = {
     organizationId: 'org-1',
@@ -23,6 +30,29 @@ describe('TaskDependenciesService', () => {
   };
 
   const mockWorkspaceId = 'workspace-1';
+
+  const activeProject = () => ({
+    id: 'project-1',
+    organizationId: 'org-1',
+    workspaceId: mockWorkspaceId,
+    state: ProjectState.ACTIVE,
+    deletedAt: null,
+  });
+
+  const activePhase = () => ({
+    id: 'phase-1',
+    organizationId: 'org-1',
+    workspaceId: mockWorkspaceId,
+    phaseState: PhaseState.ACTIVE,
+    deletedAt: null,
+  });
+
+  const taskShape = (id: string, projectId = 'project-1', phaseId = 'phase-1') => ({
+    id,
+    workspaceId: mockWorkspaceId,
+    projectId,
+    phaseId,
+  });
 
   beforeEach(async () => {
     const mockDependencyRepo = {
@@ -50,6 +80,13 @@ describe('TaskDependenciesService', () => {
       getHealthScore: jest.fn().mockResolvedValue({ score: 100 }),
     };
 
+    projectRepo = {
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(activeProject())),
+    };
+    phaseRepo = {
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(activePhase())),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TaskDependenciesService,
@@ -73,6 +110,9 @@ describe('TaskDependenciesService', () => {
           provide: ProjectHealthService,
           useValue: mockProjectHealthService,
         },
+        { provide: getRepositoryToken(Project), useValue: projectRepo },
+        { provide: getRepositoryToken(WorkPhase), useValue: phaseRepo },
+        WorkTaskStructuralGuardService,
       ],
     }).compile();
 
@@ -100,10 +140,9 @@ describe('TaskDependenciesService', () => {
     });
 
     it('should detect cycle: A->B, B->C, then reject C->A', async () => {
-      // Setup: A->B, B->C already exist
-      const taskA = { id: 'task-a', workspaceId: mockWorkspaceId, projectId: 'project-1' };
-      const taskB = { id: 'task-b', workspaceId: mockWorkspaceId, projectId: 'project-1' };
-      const taskC = { id: 'task-c', workspaceId: mockWorkspaceId, projectId: 'project-1' };
+      const taskA = taskShape('task-a');
+      const taskB = taskShape('task-b');
+      const taskC = taskShape('task-c');
 
       taskRepo.findOne.mockImplementation((options: any) => {
         if (options.where.id === 'task-a') return Promise.resolve(taskA as any);
@@ -112,43 +151,29 @@ describe('TaskDependenciesService', () => {
         return Promise.resolve(null);
       });
 
-      // Mock dependencyRepo.find to return dependencies based on query
-      // When checking cycle: start from A (successor), try to reach C (predecessor)
-      // We're adding C->A, so we check: can A reach C?
-      // A->B exists, so from A we can go to B (A is predecessor of B)
-      // B->C exists, so from B we can go to C (B is predecessor of C)
-      // So A can reach C through A->B->C, meaning adding C->A creates a cycle
-      
-      // The query now looks for dependencies where current is predecessor
       dependencyRepo.find.mockImplementation((options: any) => {
         const predecessorId = options?.where?.predecessorTaskId;
-        
-        // When checking from A: find dependencies where A is predecessor (A->X)
-        // A->B exists
+
         if (predecessorId === 'task-a') {
           return Promise.resolve([
             { predecessorTaskId: 'task-a', successorTaskId: 'task-b' },
           ] as any);
         }
-        
-        // When checking from B: find dependencies where B is predecessor (B->X)
-        // B->C exists
+
         if (predecessorId === 'task-b') {
           return Promise.resolve([
             { predecessorTaskId: 'task-b', successorTaskId: 'task-c' },
           ] as any);
         }
-        
-        // When checking from C: find dependencies where C is predecessor (C->X)
-        // None exist yet
+
         if (predecessorId === 'task-c') {
           return Promise.resolve([]);
         }
-        
+
         return Promise.resolve([]);
       });
 
-      dependencyRepo.findOne.mockResolvedValue(null); // No duplicate
+      dependencyRepo.findOne.mockResolvedValue(null);
       dependencyRepo.create.mockReturnValue({ id: 'dep-new' } as any);
       dependencyRepo.save.mockResolvedValue({ id: 'dep-new' } as any);
 
@@ -157,28 +182,14 @@ describe('TaskDependenciesService', () => {
         type: DependencyType.FINISH_TO_START,
       };
 
-      // Try to add C->A (would create cycle: A->B->C->A)
-      // When checking if A can reach C:
-      // Start from A, find dependencies where A is successor (none)
-      // But we need to check: can A reach C through existing dependencies?
-      // A->B exists, so from A we can go to B
-      // B->C exists, so from B we can go to C
-      // So A can reach C, meaning adding C->A creates a cycle
-      
-      // Actually, the cycle check should be: starting from successor (A), can we reach predecessor (C)?
-      // We need to find all tasks that A depends on (predecessors of A)
-      // But we're adding C->A, so A will depend on C
-      // We need to check: can A already reach C through existing chain?
-      // A->B->C means A can reach C, so adding C->A creates cycle
-      
       await expect(
         service.addDependency(mockAuth, mockWorkspaceId, 'task-a', dto),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should return 409 CONFLICT for duplicate dependency', async () => {
-      const taskA = { id: 'task-a', workspaceId: mockWorkspaceId, projectId: 'project-1' };
-      const taskB = { id: 'task-b', workspaceId: mockWorkspaceId, projectId: 'project-1' };
+      const taskA = taskShape('task-a');
+      const taskB = taskShape('task-b');
 
       taskRepo.findOne.mockImplementation((options: any) => {
         if (options.where.id === 'task-a') return Promise.resolve(taskA as any);
@@ -186,7 +197,6 @@ describe('TaskDependenciesService', () => {
         return Promise.resolve(null);
       });
 
-      // Existing dependency found
       dependencyRepo.findOne.mockResolvedValue({
         id: 'dep-1',
         predecessorTaskId: 'task-a',
@@ -207,5 +217,35 @@ describe('TaskDependenciesService', () => {
       ).rejects.toThrow('Dependency already exists');
     });
   });
-});
 
+  describe('F-2 structural guard on dependencies', () => {
+    it('blocks addDependency when project is ON_HOLD', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        ...activeProject(),
+        state: ProjectState.ON_HOLD,
+      });
+
+      const taskA = taskShape('task-a');
+      const taskB = taskShape('task-b');
+      taskRepo.findOne.mockImplementation((options: any) => {
+        if (options.where.id === 'task-a') return Promise.resolve(taskA as any);
+        if (options.where.id === 'task-b') return Promise.resolve(taskB as any);
+        return Promise.resolve(null);
+      });
+
+      dependencyRepo.find.mockResolvedValue([]);
+      dependencyRepo.findOne.mockResolvedValue(null);
+      dependencyRepo.create.mockReturnValue({ id: 'd1' } as any);
+      dependencyRepo.save.mockResolvedValue({ id: 'd1' } as any);
+
+      await expect(
+        service.addDependency(mockAuth, mockWorkspaceId, 'task-b', {
+          predecessorTaskId: 'task-a',
+          type: DependencyType.FINISH_TO_START,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PROJECT_ON_HOLD' }),
+      });
+    });
+  });
+});

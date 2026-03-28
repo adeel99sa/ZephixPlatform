@@ -5,6 +5,7 @@ import { GateApprovalChainService } from './gate-approval-chain.service';
 import { GateApprovalChain } from '../entities/gate-approval-chain.entity';
 import { GateApprovalChainStep, ApprovalType } from '../entities/gate-approval-chain-step.entity';
 import { PhaseGateDefinition } from '../entities/phase-gate-definition.entity';
+import { GateReviewState } from '../enums/gate-review-state.enum';
 import { PoliciesService } from '../../policies/services/policies.service';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
@@ -30,6 +31,8 @@ function makeGateDef(overrides: Partial<PhaseGateDefinition> = {}): PhaseGateDef
     requiredDocuments: null,
     requiredChecklist: null,
     thresholds: null,
+    reviewState: GateReviewState.NOT_STARTED,
+    currentCycleId: null,
     createdByUserId: USER_ID,
     createdAt: new Date(),
     updatedAt: new Date(),

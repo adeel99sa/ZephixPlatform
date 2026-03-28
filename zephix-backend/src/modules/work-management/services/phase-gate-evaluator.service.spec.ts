@@ -9,6 +9,7 @@ import {
   PhaseGateDefinition,
   GateDefinitionStatus,
 } from '../entities/phase-gate-definition.entity';
+import { GateReviewState } from '../enums/gate-review-state.enum';
 import {
   PhaseGateSubmission,
   GateSubmissionStatus,
@@ -42,6 +43,8 @@ function makeGateDef(overrides: Partial<PhaseGateDefinition> = {}): PhaseGateDef
     requiredDocuments: null,
     requiredChecklist: null,
     thresholds: null,
+    reviewState: GateReviewState.NOT_STARTED,
+    currentCycleId: null,
     createdByUserId: USER_ID,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -63,6 +66,8 @@ function makeSubmission(overrides: Partial<PhaseGateSubmission> = {}): PhaseGate
     status: GateSubmissionStatus.SUBMITTED,
     submittedByUserId: USER_ID,
     submittedAt: new Date(),
+    submissionNote: null,
+    gateDecisionType: null,
     decisionByUserId: null,
     decidedAt: null,
     decisionNote: null,

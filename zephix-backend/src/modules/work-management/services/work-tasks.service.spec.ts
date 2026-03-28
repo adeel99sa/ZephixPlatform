@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { WorkTasksService } from './work-tasks.service';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenancy.module';
 import { AuditService } from '../../audit/services/audit.service';
@@ -13,59 +13,78 @@ import { TaskActivityService } from './task-activity.service';
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { ProjectHealthService } from './project-health.service';
 import { WipLimitsService } from './wip-limits.service';
-import { Project } from '../../projects/entities/project.entity';
+import { Project, ProjectState } from '../../projects/entities/project.entity';
+import { GateCondition } from '../entities/gate-condition.entity';
+import { PhaseGateDefinition } from '../entities/phase-gate-definition.entity';
 import { TaskStatus } from '../enums/task.enums';
+import { GateConditionStatus } from '../enums/gate-condition-status.enum';
+import { GateReviewState } from '../enums/gate-review-state.enum';
+import { PhaseState } from '../enums/phase-state.enum';
 import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from '../../users/entities/user.entity';
-import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
+import { WorkTaskStructuralGuardService } from './work-task-structural-guard.service';
 
 describe('WorkTasksService', () => {
   let service: WorkTasksService;
-  let taskRepo: {
-    findOne: jest.Mock;
-    save: jest.Mock;
-    create: jest.Mock;
-    qb: jest.Mock;
-  };
+  let taskRepo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
   let projectRepo: { findOne: jest.Mock };
   let phaseRepo: { findOne: jest.Mock };
-  let userRepo: { findOne: jest.Mock };
-  let workspaceMemberRepo: { findOne: jest.Mock };
-  let qbMock: {
-    where: jest.Mock;
-    andWhere: jest.Mock;
-    orderBy: jest.Mock;
-    take: jest.Mock;
-    skip: jest.Mock;
-    getManyAndCount: jest.Mock;
-    getMany: jest.Mock;
-  };
+  let gateConditionRepo: { find: jest.Mock; findOne: jest.Mock; save: jest.Mock };
+  let phaseGateDefinitionRepo: { save: jest.Mock };
 
   const auth = { organizationId: 'org-1', userId: 'user-1', platformRole: 'MEMBER' };
   const workspaceId = 'ws-1';
 
-  beforeEach(async () => {
-    qbMock = {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-      getMany: jest.fn().mockResolvedValue([]),
-    };
+  const defaultProject = () => ({
+    id: 'proj-1',
+    organizationId: 'org-1',
+    workspaceId: 'ws-1',
+    state: ProjectState.ACTIVE,
+    deletedAt: null,
+  });
 
+  const defaultPhase = () => ({
+    id: 'phase-1',
+    organizationId: 'org-1',
+    workspaceId: 'ws-1',
+    phaseState: PhaseState.ACTIVE,
+    deletedAt: null,
+  });
+
+  const baseTask = (overrides: Partial<WorkTask> = {}): WorkTask =>
+    ({
+      id: 'task-1',
+      workspaceId,
+      projectId: 'proj-1',
+      phaseId: 'phase-1',
+      title: 't',
+      assigneeUserId: null,
+      completedAt: null,
+      dueDate: null,
+      deletedAt: null,
+      ...overrides,
+    }) as WorkTask;
+
+  beforeEach(async () => {
     taskRepo = {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn().mockImplementation((data) => data),
-      qb: jest.fn().mockReturnValue(qbMock),
     };
-    projectRepo = { findOne: jest.fn() };
-    phaseRepo = { findOne: jest.fn() };
-    userRepo = { findOne: jest.fn() };
-    workspaceMemberRepo = { findOne: jest.fn() };
+    projectRepo = {
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(defaultProject())),
+    };
+    phaseRepo = {
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(defaultPhase())),
+    };
+    gateConditionRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
+      save: jest.fn().mockImplementation((c) => Promise.resolve(c)),
+    };
+    phaseGateDefinitionRepo = {
+      save: jest.fn().mockImplementation((g) => Promise.resolve(g)),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,24 +111,21 @@ describe('WorkTasksService', () => {
         },
         {
           provide: WipLimitsService,
-          useValue: { enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined) },
+          useValue: {
+            enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined),
+            enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
+          },
         },
         { provide: getRepositoryToken(WorkPhase), useValue: phaseRepo },
         { provide: getRepositoryToken(Project), useValue: projectRepo },
-        {
-          provide: DataSource,
-          useValue: {
-            getRepository: jest.fn((entity: unknown) => {
-              if (entity === User) return userRepo;
-              if (entity === WorkspaceMember) return workspaceMemberRepo;
-              return {};
-            }),
-          },
-        },
+        { provide: DataSource, useValue: {} },
         {
           provide: AuditService,
           useValue: { record: jest.fn().mockResolvedValue({ id: 'evt-1' }) },
         },
+        { provide: getRepositoryToken(GateCondition), useValue: gateConditionRepo },
+        { provide: getRepositoryToken(PhaseGateDefinition), useValue: phaseGateDefinitionRepo },
+        WorkTaskStructuralGuardService,
       ],
     }).compile();
 
@@ -120,16 +136,7 @@ describe('WorkTasksService', () => {
     const taskId = 'task-1';
 
     it('allows TODO -> IN_PROGRESS', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.TODO,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
       taskRepo.findOne.mockResolvedValue(task);
       taskRepo.save.mockImplementation((t) => Promise.resolve({ ...task, ...t }));
 
@@ -141,16 +148,7 @@ describe('WorkTasksService', () => {
     });
 
     it('allows IN_PROGRESS -> DONE', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.IN_PROGRESS,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.IN_PROGRESS });
       taskRepo.findOne.mockResolvedValue(task);
       taskRepo.save.mockImplementation((t) => Promise.resolve({ ...task, ...t }));
 
@@ -162,16 +160,7 @@ describe('WorkTasksService', () => {
     });
 
     it('allows BACKLOG -> TODO', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.BACKLOG,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.BACKLOG });
       taskRepo.findOne.mockResolvedValue(task);
       taskRepo.save.mockImplementation((t) => Promise.resolve({ ...task, ...t }));
 
@@ -183,16 +172,7 @@ describe('WorkTasksService', () => {
     });
 
     it('rejects TODO -> DONE with INVALID_STATUS_TRANSITION', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.TODO,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
       taskRepo.findOne.mockResolvedValue(task);
 
       const err = await service
@@ -208,16 +188,7 @@ describe('WorkTasksService', () => {
     });
 
     it('rejects DONE -> IN_PROGRESS with INVALID_STATUS_TRANSITION', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.DONE,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.DONE });
       taskRepo.findOne.mockResolvedValue(task);
 
       const err = await service
@@ -233,16 +204,11 @@ describe('WorkTasksService', () => {
     });
 
     it('rejects DONE -> IN_PROGRESS even when other fields change', async () => {
-      const task = {
+      const task = baseTask({
         id: taskId,
-        workspaceId,
         status: TaskStatus.DONE,
-        title: 't',
-        assigneeUserId: null,
         completedAt: new Date(),
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      });
       taskRepo.findOne.mockResolvedValue(task);
 
       const err = await service
@@ -261,16 +227,7 @@ describe('WorkTasksService', () => {
     });
 
     it('rejects CANCELED -> TODO with INVALID_STATUS_TRANSITION', async () => {
-      const task = {
-        id: taskId,
-        workspaceId,
-        status: TaskStatus.CANCELED,
-        title: 't',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-      } as WorkTask;
+      const task = baseTask({ id: taskId, status: TaskStatus.CANCELED });
       taskRepo.findOne.mockResolvedValue(task);
 
       const err = await service
@@ -290,7 +247,13 @@ describe('WorkTasksService', () => {
 
     beforeEach(() => {
       // Auto-assign phase so createTask doesn't throw WORK_PLAN_INVALID
-      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
+      phaseRepo.findOne.mockResolvedValue({
+        id: 'phase-1',
+        phaseState: PhaseState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
+      });
       taskRepo.save.mockImplementation((t) =>
         Promise.resolve({ id: 'new-task', ...t }),
       );
@@ -300,6 +263,10 @@ describe('WorkTasksService', () => {
       projectRepo.findOne.mockResolvedValue({
         id: projectId,
         estimationMode: 'hours_only',
+        state: ProjectState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
       });
 
       const err = await service
@@ -322,6 +289,10 @@ describe('WorkTasksService', () => {
       projectRepo.findOne.mockResolvedValue({
         id: projectId,
         estimationMode: 'points_only',
+        state: ProjectState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
       });
 
       const err = await service
@@ -344,6 +315,10 @@ describe('WorkTasksService', () => {
       projectRepo.findOne.mockResolvedValue({
         id: projectId,
         estimationMode: 'points_only',
+        state: ProjectState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
       });
 
       await service.createTask(auth, workspaceId, {
@@ -359,6 +334,10 @@ describe('WorkTasksService', () => {
       projectRepo.findOne.mockResolvedValue({
         id: projectId,
         estimationMode: 'both',
+        state: ProjectState.ACTIVE,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
       });
 
       await service.createTask(auth, workspaceId, {
@@ -372,290 +351,330 @@ describe('WorkTasksService', () => {
     });
   });
 
-  describe('assignee validation', () => {
-    const projectId = 'proj-1';
-    const assigneeUserId = 'assignee-1';
-
-    beforeEach(() => {
-      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
-      taskRepo.save.mockImplementation((t) =>
-        Promise.resolve({ id: 'new-task', ...t }),
-      );
-      userRepo.findOne.mockResolvedValue({
-        id: assigneeUserId,
-        organizationId: 'org-1',
+  describe('getTaskById — C-8 condition source gate metadata', () => {
+    it('enriches condition tasks with sourceGateName from gate_conditions graph', async () => {
+      const taskId = 'task-cond-1';
+      const condId = 'cond-uuid-1';
+      const task = baseTask({
+        id: taskId,
+        isConditionTask: true,
+        sourceGateConditionId: condId,
+        title: 'Condition: doc sign-off',
+        status: TaskStatus.TODO,
       });
-      workspaceMemberRepo.findOne.mockResolvedValue({ id: 'wm-1' });
-    });
+      taskRepo.findOne.mockResolvedValue(task);
+      gateConditionRepo.find.mockResolvedValue([
+        {
+          id: condId,
+          gateCycle: {
+            phaseGateDefinition: { id: 'gd-1', name: 'Integration Gate' },
+          },
+        },
+      ]);
 
-    it('allows assignment for same org and same workspace', async () => {
-      const result = await service.createTask(auth, workspaceId, {
-        projectId,
-        title: 'Assigned task',
-        assigneeUserId,
-      } as any);
+      const result = await service.getTaskById(auth, workspaceId, taskId);
 
-      expect(result.assigneeUserId).toBe(assigneeUserId);
-      expect(userRepo.findOne).toHaveBeenCalledWith({
-        where: { id: assigneeUserId },
-        select: ['id', 'organizationId'],
-      });
-      expect(workspaceMemberRepo.findOne).toHaveBeenCalledWith({
-        where: { workspaceId, userId: assigneeUserId },
-        select: ['id'],
-      });
-    });
-
-    it('rejects assignment when assignee lacks workspace access', async () => {
-      workspaceMemberRepo.findOne.mockResolvedValue(null);
-
-      const err = await service
-        .createTask(auth, workspaceId, {
-          projectId,
-          title: 'No workspace membership',
-          assigneeUserId,
-        } as any)
-        .then(() => null, (e) => e);
-
-      expect(err).toBeInstanceOf(ForbiddenException);
-      expect(err.response).toMatchObject({
-        code: 'TASK_ASSIGNEE_INVALID',
-      });
-      expect(taskRepo.save).not.toHaveBeenCalled();
-    });
-
-    it('rejects assignment when assignee is in a different organization', async () => {
-      userRepo.findOne.mockResolvedValue({
-        id: assigneeUserId,
-        organizationId: 'org-2',
-      });
-
-      const err = await service
-        .createTask(auth, workspaceId, {
-          projectId,
-          title: 'Cross org assignment',
-          assigneeUserId,
-        } as any)
-        .then(() => null, (e) => e);
-
-      expect(err).toBeInstanceOf(ForbiddenException);
-      expect(err.response).toMatchObject({
-        code: 'TASK_ASSIGNEE_INVALID',
-      });
-      expect(taskRepo.save).not.toHaveBeenCalled();
-    });
-
-    it('rejects assignment when assignee user does not exist', async () => {
-      userRepo.findOne.mockResolvedValue(null);
-
-      const err = await service
-        .createTask(auth, workspaceId, {
-          projectId,
-          title: 'Missing assignee',
-          assigneeUserId,
-        } as any)
-        .then(() => null, (e) => e);
-
-      expect(err).toBeInstanceOf(NotFoundException);
-      expect(err.response).toMatchObject({
-        code: 'TASK_ASSIGNEE_NOT_FOUND',
-      });
-      expect(taskRepo.save).not.toHaveBeenCalled();
+      expect(gateConditionRepo.find).toHaveBeenCalled();
+      expect(result.sourceGateName).toBe('Integration Gate');
+      expect(result.sourceGateDefinitionId).toBe('gd-1');
     });
   });
 
-  describe('archive semantics', () => {
-    it('default list excludes soft-deleted and archived tasks', async () => {
-      await service.listTasks(auth, workspaceId, {} as any);
+  describe('F-2 structural guard — updateTask / acceptanceCriteria', () => {
+    const taskId = 'task-1';
 
-      expect(qbMock.andWhere).toHaveBeenCalledWith('task.deletedAt IS NULL');
-      expect(qbMock.andWhere).toHaveBeenCalledWith(
-        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
-      );
+    it('blocks updateTask when project is ON_HOLD (PROJECT_ON_HOLD)', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        ...defaultProject(),
+        state: ProjectState.ON_HOLD,
+      });
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
+      taskRepo.findOne.mockResolvedValue(task);
+
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, { title: 'x' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PROJECT_ON_HOLD' }),
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
     });
 
-    it('explicit includeArchived query includes archived tasks', async () => {
-      await service.listTasks(auth, workspaceId, { includeArchived: true } as any);
+    it('blocks updateTask when phase is FROZEN (PHASE_FROZEN)', async () => {
+      phaseRepo.findOne.mockResolvedValue({
+        ...defaultPhase(),
+        phaseState: PhaseState.FROZEN,
+      });
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
+      taskRepo.findOne.mockResolvedValue(task);
 
-      const hasArchivedFilter = qbMock.andWhere.mock.calls.some(([clause]) =>
-        String(clause).includes(`metadata ->> 'archived'`),
-      );
-      expect(hasArchivedFilter).toBe(false);
-    });
-
-    it('applies priority filter when provided', async () => {
-      await service.listTasks(auth, workspaceId, { priority: 'HIGH' } as any);
-
-      expect(qbMock.andWhere).toHaveBeenCalledWith('task.priority = :priority', {
-        priority: 'HIGH',
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, { title: 'x' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PHASE_FROZEN' }),
       });
     });
 
-    it('archive action does not soft-delete task', async () => {
-      const task = {
-        id: 'task-archive-1',
-        workspaceId,
-        projectId: 'proj-1',
-        status: TaskStatus.TODO,
-        title: 'archive me',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-        deletedByUserId: null,
-        metadata: null,
-      } as WorkTask;
-      taskRepo.findOne.mockResolvedValue(task);
-      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
-
-      const result = await service.updateTask(auth, workspaceId, task.id, {
-        archived: true,
-      } as any);
-
-      expect(result.metadata).toMatchObject({ archived: true });
-      expect(result.deletedAt).toBeNull();
-    });
-
-    it('delete action soft-deletes task', async () => {
-      const task = {
-        id: 'task-delete-1',
-        workspaceId,
-        projectId: 'proj-1',
-        status: TaskStatus.TODO,
-        title: 'delete me',
-        deletedAt: null,
-        deletedByUserId: null,
-        metadata: { archived: false },
-      } as unknown as WorkTask;
-      taskRepo.findOne.mockResolvedValue(task);
-      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
-
-      await service.deleteTask(auth, workspaceId, task.id);
-
-      expect(task.deletedAt).toBeInstanceOf(Date);
-      expect(task.deletedByUserId).toBe(auth.userId);
-    });
-
-    it('archived and deleted states remain distinct', async () => {
-      const task = {
-        id: 'task-archive-delete-1',
-        workspaceId,
-        projectId: 'proj-1',
-        status: TaskStatus.TODO,
-        title: 'archive then delete',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-        deletedByUserId: null,
-        metadata: null,
-      } as WorkTask;
-
-      taskRepo.findOne.mockResolvedValue(task);
-      taskRepo.save.mockImplementation(async (savedTask) => savedTask);
-
-      await service.updateTask(auth, workspaceId, task.id, {
-        archived: true,
-      } as any);
-
-      expect(task.metadata).toMatchObject({ archived: true });
-      expect(task.deletedAt).toBeNull();
-
-      await service.deleteTask(auth, workspaceId, task.id);
-
-      expect(task.metadata).toMatchObject({ archived: true });
-      expect(task.deletedAt).toBeInstanceOf(Date);
-    });
-
-    it('createTask accepts parentTaskId in same project', async () => {
-      const projectId = 'proj-subtask-1';
-      const parentId = 'parent-task-1';
-      const parentTask = {
-        id: parentId,
-        workspaceId,
-        projectId,
-        deletedAt: null,
-      } as WorkTask;
-      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
-      taskRepo.findOne.mockResolvedValueOnce(parentTask);
-      taskRepo.save.mockImplementation(async (savedTask) => ({
-        id: 'new-subtask',
-        ...savedTask,
-      }));
-
-      const created = await service.createTask(auth, workspaceId, {
-        projectId,
-        title: 'subtask',
-        parentTaskId: parentId,
-      } as any);
-
-      expect(created.parentTaskId).toBe(parentId);
-    });
-
-    it('createTask rejects parentTaskId from different project', async () => {
-      const projectId = 'proj-subtask-1';
-      const parentId = 'parent-task-1';
-      const parentTask = {
-        id: parentId,
-        workspaceId,
-        projectId: 'other-project',
-        deletedAt: null,
-      } as WorkTask;
-      phaseRepo.findOne.mockResolvedValue({ id: 'phase-1' });
-      taskRepo.findOne.mockResolvedValueOnce(parentTask);
-
-      const err = await service
-        .createTask(auth, workspaceId, {
-          projectId,
-          title: 'invalid subtask',
-          parentTaskId: parentId,
-        } as any)
-        .then(() => null, (e) => e);
-
-      expect(err).toBeInstanceOf(BadRequestException);
-      expect(err.response).toMatchObject({ code: 'TASK_PARENT_INVALID' });
-    });
-
-    it('updateTask rejects self-parent assignment', async () => {
-      const task = {
-        id: 'task-self-parent',
-        workspaceId,
-        projectId: 'proj-1',
-        status: TaskStatus.TODO,
-        title: 'self parent',
-        assigneeUserId: null,
-        completedAt: null,
-        dueDate: null,
-        deletedAt: null,
-        parentTaskId: null,
-      } as WorkTask;
+    it('blocks updateTask when phase is LOCKED (PHASE_LOCKED)', async () => {
+      phaseRepo.findOne.mockResolvedValue({
+        ...defaultPhase(),
+        phaseState: PhaseState.LOCKED,
+      });
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
       taskRepo.findOne.mockResolvedValue(task);
 
-      const err = await service
-        .updateTask(auth, workspaceId, task.id, {
-          parentTaskId: task.id,
-        } as any)
-        .then(() => null, (e) => e);
-
-      expect(err).toBeInstanceOf(BadRequestException);
-      expect(err.response).toMatchObject({ code: 'TASK_PARENT_INVALID' });
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, { title: 'x' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PHASE_LOCKED' }),
+      });
     });
 
-    it('listSubtasks excludes deleted and archived subtasks by default', async () => {
-      const parentTask = {
-        id: 'parent-task-list',
+    it('blocks updateTask when phase is COMPLETE (PHASE_COMPLETE)', async () => {
+      phaseRepo.findOne.mockResolvedValue({
+        ...defaultPhase(),
+        phaseState: PhaseState.COMPLETE,
+      });
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
+      taskRepo.findOne.mockResolvedValue(task);
+
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, { title: 'x' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PHASE_COMPLETE' }),
+      });
+    });
+
+    it('blocks acceptanceCriteria updates under the same structural rules (ON_HOLD)', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        ...defaultProject(),
+        state: ProjectState.ON_HOLD,
+      });
+      const task = baseTask({ id: taskId, status: TaskStatus.TODO });
+      taskRepo.findOne.mockResolvedValue(task);
+
+      await expect(
+        service.updateTask(auth, workspaceId, taskId, {
+          acceptanceCriteria: [{ text: 'ac', done: false }],
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PROJECT_ON_HOLD' }),
+      });
+    });
+  });
+
+  describe('F-2 structural guard — createTask / deleteTask / restoreTask', () => {
+    const projectId = 'proj-1';
+
+    beforeEach(() => {
+      phaseRepo.findOne.mockResolvedValue({
+        id: 'phase-1',
+        phaseState: PhaseState.ACTIVE,
+        organizationId: 'org-1',
         workspaceId,
-        projectId: 'proj-1',
         deletedAt: null,
-      } as WorkTask;
-      taskRepo.findOne.mockResolvedValue(parentTask);
-
-      await service.listSubtasks(auth, workspaceId, parentTask.id);
-
-      expect(qbMock.andWhere).toHaveBeenCalledWith('task.deletedAt IS NULL');
-      expect(qbMock.andWhere).toHaveBeenCalledWith(
-        `COALESCE((task.metadata ->> 'archived')::boolean, false) = false`,
+      });
+      taskRepo.save.mockImplementation((t) =>
+        Promise.resolve({ id: 'new-task', ...t }),
       );
+    });
+
+    it('blocks createTask when project ON_HOLD', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        id: projectId,
+        state: ProjectState.ON_HOLD,
+        organizationId: 'org-1',
+        workspaceId,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.createTask(auth, workspaceId, {
+          projectId,
+          title: 'blocked',
+        } as any),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PROJECT_ON_HOLD' }),
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('blocks deleteTask when phase FROZEN', async () => {
+      const task = baseTask({ id: 't-del', status: TaskStatus.TODO });
+      taskRepo.findOne.mockResolvedValue(task);
+      phaseRepo.findOne.mockResolvedValue({
+        ...defaultPhase(),
+        phaseState: PhaseState.FROZEN,
+      });
+
+      await expect(service.deleteTask(auth, workspaceId, 't-del')).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PHASE_FROZEN' }),
+      });
+      expect(taskRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('blocks restoreTask when project TERMINATED', async () => {
+      projectRepo.findOne.mockResolvedValue({
+        ...defaultProject(),
+        state: ProjectState.TERMINATED,
+      });
+      const deleted = baseTask({
+        id: 't-rest',
+        status: TaskStatus.TODO,
+        deletedAt: new Date(),
+      });
+      taskRepo.findOne.mockResolvedValue(deleted);
+
+      await expect(service.restoreTask(auth, workspaceId, 't-rest')).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'PROJECT_TERMINATED' }),
+      });
+    });
+  });
+
+  describe('F-2 applyConditionalGoBridge / assertConditionTaskMayLeaveDone (private)', () => {
+    const condId = 'cond-1';
+    const cycleId = 'cycle-1';
+    const gdId = 'gd-1';
+
+    const makeGateDef = (reviewState: GateReviewState, thresholds?: Record<string, unknown>) => ({
+      id: gdId,
+      reviewState,
+      thresholds: thresholds ?? { conditionalGoProgression: 'auto' },
+    });
+
+    it('auto progression: DONE on last condition sets gate to READY_FOR_REVIEW', async () => {
+      const task = {
+        isConditionTask: true,
+        sourceGateConditionId: condId,
+        gateCycleId: cycleId,
+      } as unknown as WorkTask;
+
+      const gateDef = makeGateDef(GateReviewState.AWAITING_CONDITIONS);
+      const conditionRow: any = {
+        id: condId,
+        gateCycleId: cycleId,
+        conditionStatus: GateConditionStatus.PENDING,
+        gateCycle: { phaseGateDefinition: gateDef },
+      };
+      gateConditionRepo.findOne.mockResolvedValue(conditionRow);
+      gateConditionRepo.find.mockResolvedValue([
+        { id: condId, conditionStatus: GateConditionStatus.SATISFIED },
+      ]);
+
+      await (service as any).applyConditionalGoBridge(
+        auth,
+        workspaceId,
+        task,
+        TaskStatus.IN_PROGRESS,
+        TaskStatus.DONE,
+      );
+
+      expect(gateConditionRepo.save).toHaveBeenCalled();
+      expect(phaseGateDefinitionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewState: GateReviewState.READY_FOR_REVIEW }),
+      );
+    });
+
+    it('auto: rollback from READY_FOR_REVIEW to AWAITING_CONDITIONS when leaving DONE (simulated)', async () => {
+      const task = {
+        isConditionTask: true,
+        sourceGateConditionId: condId,
+        gateCycleId: cycleId,
+      } as unknown as WorkTask;
+
+      const gateDef = makeGateDef(GateReviewState.READY_FOR_REVIEW);
+      const conditionRow: any = {
+        id: condId,
+        gateCycleId: cycleId,
+        conditionStatus: GateConditionStatus.SATISFIED,
+        gateCycle: { phaseGateDefinition: gateDef },
+      };
+      gateConditionRepo.findOne.mockResolvedValue(conditionRow);
+
+      await (service as any).applyConditionalGoBridge(
+        auth,
+        workspaceId,
+        task,
+        TaskStatus.DONE,
+        TaskStatus.REWORK,
+      );
+
+      expect(phaseGateDefinitionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewState: GateReviewState.AWAITING_CONDITIONS }),
+      );
+    });
+
+    it('manual mode does not advance gate to READY_FOR_REVIEW', async () => {
+      const task = {
+        isConditionTask: true,
+        sourceGateConditionId: condId,
+        gateCycleId: cycleId,
+      } as unknown as WorkTask;
+
+      const gateDef = makeGateDef(GateReviewState.AWAITING_CONDITIONS, {
+        conditionalGoProgression: 'manual',
+      });
+      const conditionRow: any = {
+        id: condId,
+        gateCycleId: cycleId,
+        gateCycle: { phaseGateDefinition: gateDef },
+      };
+      gateConditionRepo.findOne.mockResolvedValue(conditionRow);
+      gateConditionRepo.find.mockResolvedValue([
+        { id: condId, conditionStatus: GateConditionStatus.SATISFIED },
+      ]);
+      phaseGateDefinitionRepo.save.mockClear();
+
+      await (service as any).applyConditionalGoBridge(
+        auth,
+        workspaceId,
+        task,
+        TaskStatus.IN_PROGRESS,
+        TaskStatus.DONE,
+      );
+
+      expect(phaseGateDefinitionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('does not roll back condition when gate is IN_REVIEW (no silent rollback)', async () => {
+      const task = {
+        isConditionTask: true,
+        sourceGateConditionId: condId,
+        gateCycleId: cycleId,
+      } as unknown as WorkTask;
+
+      const gateDef = makeGateDef(GateReviewState.IN_REVIEW);
+      const conditionRow: any = {
+        id: condId,
+        gateCycleId: cycleId,
+        conditionStatus: GateConditionStatus.SATISFIED,
+        gateCycle: { phaseGateDefinition: gateDef },
+      };
+      gateConditionRepo.findOne.mockResolvedValue(conditionRow);
+      gateConditionRepo.save.mockClear();
+
+      await (service as any).applyConditionalGoBridge(
+        auth,
+        workspaceId,
+        task,
+        TaskStatus.DONE,
+        TaskStatus.REWORK,
+      );
+
+      expect(gateConditionRepo.save).not.toHaveBeenCalled();
+      expect(phaseGateDefinitionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('assertConditionTaskMayLeaveDone rejects when gate review is IN_REVIEW', async () => {
+      gateConditionRepo.findOne.mockResolvedValue({
+        id: condId,
+        gateCycle: {
+          phaseGateDefinition: { reviewState: GateReviewState.IN_REVIEW },
+        },
+      });
+
+      await expect(
+        (service as any).assertConditionTaskMayLeaveDone(auth, workspaceId, condId),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

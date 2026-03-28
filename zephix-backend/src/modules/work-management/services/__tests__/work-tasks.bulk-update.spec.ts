@@ -1,32 +1,35 @@
 /**
- * Bulk status update — tenant scope and soft-delete regression tests.
- *
- * Verifies:
- *  1. taskRepo.update criteria always contains workspaceId and deletedAt: IsNull()
- *  2. tenantContext.assertOrganizationId() is called (proves org scope is asserted)
- *  3. Tasks from a foreign workspace are excluded via the find pre-check (NotFoundException)
- *  4. Soft-deleted tasks are excluded from the pre-check find and therefore never updated
+ * Bulk status update — tenant scope, soft-delete, structural all-or-nothing (F-2).
  */
-import { NotFoundException } from '@nestjs/common';
-import { IsNull } from 'typeorm';
+import { NotFoundException, ConflictException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { IsNull, In } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { WorkTasksService } from '../work-tasks.service';
 import { TaskStatus } from '../../enums/task.enums';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+import { getTenantAwareRepositoryToken } from '../../../tenancy/tenancy.module';
+import { WorkTask } from '../../entities/work-task.entity';
+import { WorkTaskDependency } from '../../entities/task-dependency.entity';
+import { TaskComment } from '../../entities/task-comment.entity';
+import { TaskActivity } from '../../entities/task-activity.entity';
+import { WorkPhase } from '../../entities/work-phase.entity';
+import { Project, ProjectState } from '../../../projects/entities/project.entity';
+import { GateCondition } from '../../entities/gate-condition.entity';
+import { PhaseGateDefinition } from '../../entities/phase-gate-definition.entity';
+import { WorkspaceAccessService } from '../../../workspace-access/workspace-access.service';
+import { TaskActivityService } from '../task-activity.service';
+import { TenantContextService } from '../../../tenancy/tenant-context.service';
+import { ProjectHealthService } from '../project-health.service';
+import { WipLimitsService } from '../wip-limits.service';
+import { AuditService } from '../../../audit/services/audit.service';
+import { DataSource } from 'typeorm';
+import { WorkTaskStructuralGuardService } from '../work-task-structural-guard.service';
+import { PhaseState } from '../../enums/phase-state.enum';
+import { GovernanceRuleEngineService } from '../../../governance-rules/services/governance-rule-engine.service';
+import { EvaluationDecision } from '../../../governance-rules/entities/governance-evaluation.entity';
 
 const ORG_ID = 'org-a';
 const WS_A = 'ws-a';
-const WS_B = 'ws-b';
-
-function makeTask(id: string, workspaceId = WS_A, deletedAt: Date | null = null) {
-  return {
-    id,
-    organizationId: ORG_ID,
-    workspaceId,
-    status: TaskStatus.TODO,
-    deletedAt,
-  };
-}
 
 const authCtx = {
   userId: 'u1',
@@ -37,119 +40,239 @@ const authCtx = {
   email: 'test@example.com',
 };
 
-// ── Service factory ───────────────────────────────────────────────────────────
-
-function makeService(taskRepoOverrides: Record<string, jest.Mock> = {}) {
-  const mockTaskRepo = {
-    find: jest.fn(),
-    update: jest.fn().mockResolvedValue({ affected: 0 }),
-    ...taskRepoOverrides,
+function makeTask(
+  id: string,
+  projectId = 'proj-1',
+  phaseId = 'phase-1',
+  workspaceId = WS_A,
+  deletedAt: Date | null = null,
+) {
+  return {
+    id,
+    organizationId: ORG_ID,
+    workspaceId,
+    projectId,
+    phaseId,
+    status: TaskStatus.TODO,
+    deletedAt,
   };
-
-  const mockTenantCtx = {
-    assertOrganizationId: jest.fn().mockReturnValue(ORG_ID),
-  };
-
-  const mockWorkspaceAccess = {
-    requireWorkspaceRead: jest.fn(),
-    requireWorkspaceWrite: jest.fn(),
-  };
-
-  const mockProjectHealthService = {
-    recalculateProjectHealth: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const mockWipService = {
-    enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined),
-    enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const service = new WorkTasksService(
-    mockTaskRepo as any,          // taskRepo
-    {} as any,                    // dependencyRepo
-    {} as any,                    // commentRepo
-    {} as any,                    // activityRepo
-    {} as any,                    // workPhaseRepository
-    mockWorkspaceAccess as any,   // workspaceAccessService
-    { record: jest.fn().mockResolvedValue(undefined) } as any, // activityService
-    mockTenantCtx as any,         // tenantContext
-    {} as any,                    // dataSource
-    mockProjectHealthService as any, // projectHealthService
-    mockWipService as any,        // wipLimitsService
-    {} as any,                    // projectRepository
-    { log: jest.fn(), logBulk: jest.fn() } as any, // auditService
-    undefined,                    // governanceEngine (optional)
-    undefined,                    // domainEventEmitter (optional)
-  );
-
-  // Stub workspace access guard — not under test here
-  (service as any).assertWorkspaceAccess = jest.fn().mockResolvedValue(undefined);
-
-  return { service, mockTaskRepo, mockTenantCtx };
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+async function createBulkTestModule(taskRepo: {
+  find: jest.Mock;
+}) {
+  const mockProjectRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  };
+  const mockPhaseRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  };
+  const mockGateConditionRepo = {
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn(),
+    save: jest.fn(),
+  };
+  const mockPhaseGateRepo = {
+    save: jest.fn(),
+  };
+  const managerUpdate = jest.fn().mockResolvedValue(undefined);
+  const mockQueryRunner = {
+    connect: jest.fn().mockResolvedValue(undefined),
+    startTransaction: jest.fn().mockResolvedValue(undefined),
+    commitTransaction: jest.fn().mockResolvedValue(undefined),
+    rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+    release: jest.fn().mockResolvedValue(undefined),
+    manager: { update: managerUpdate },
+  };
+  const dataSource = {
+    createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+  };
 
-describe('WorkTasksService.bulkUpdateStatus — tenant scope and soft-delete', () => {
-  describe('update criteria correctness', () => {
-    it('passes workspaceId and deletedAt:IsNull to taskRepo.update', async () => {
-      const { service, mockTaskRepo } = makeService({
-        find: jest.fn().mockResolvedValue([
-          makeTask('t1'),
-          makeTask('t2'),
-        ]),
-      });
+  const module: TestingModule = await Test.createTestingModule({
+    providers: [
+      WorkTasksService,
+      { provide: getTenantAwareRepositoryToken(WorkTask), useValue: taskRepo },
+      { provide: getTenantAwareRepositoryToken(WorkTaskDependency), useValue: {} },
+      { provide: getTenantAwareRepositoryToken(TaskComment), useValue: {} },
+      { provide: getTenantAwareRepositoryToken(TaskActivity), useValue: {} },
+      { provide: getRepositoryToken(WorkPhase), useValue: mockPhaseRepo },
+      {
+        provide: WorkspaceAccessService,
+        useValue: { canAccessWorkspace: jest.fn().mockResolvedValue(true) },
+      },
+      { provide: TaskActivityService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+      {
+        provide: TenantContextService,
+        useValue: { assertOrganizationId: jest.fn().mockReturnValue(ORG_ID) },
+      },
+      { provide: DataSource, useValue: dataSource },
+      {
+        provide: ProjectHealthService,
+        useValue: { recalculateProjectHealth: jest.fn().mockResolvedValue(undefined) },
+      },
+      {
+        provide: WipLimitsService,
+        useValue: {
+          enforceWipLimitOrThrow: jest.fn().mockResolvedValue(undefined),
+          enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+      { provide: getRepositoryToken(Project), useValue: mockProjectRepo },
+      { provide: AuditService, useValue: { record: jest.fn().mockResolvedValue({}) } },
+      { provide: getRepositoryToken(GateCondition), useValue: mockGateConditionRepo },
+      { provide: getRepositoryToken(PhaseGateDefinition), useValue: mockPhaseGateRepo },
+      WorkTaskStructuralGuardService,
+    ],
+  }).compile();
+
+  const service = module.get(WorkTasksService);
+  return {
+    service,
+    mockProjectRepo,
+    mockPhaseRepo,
+    managerUpdate,
+    mockQueryRunner,
+  };
+}
+
+describe('WorkTasksService.bulkUpdateStatus — tenant scope, soft-delete, F-2 structural', () => {
+  describe('update criteria correctness (transaction manager.update)', () => {
+    it('passes workspaceId and deletedAt:IsNull to manager.update', async () => {
+      const taskRepo = {
+        find: jest.fn().mockResolvedValue([makeTask('t1'), makeTask('t2')]),
+      };
+      const { service, managerUpdate, mockProjectRepo, mockPhaseRepo } =
+        await createBulkTestModule(taskRepo);
+      mockProjectRepo.find.mockResolvedValue([
+        { id: 'proj-1', organizationId: ORG_ID, workspaceId: WS_A, state: ProjectState.ACTIVE, deletedAt: null },
+      ]);
+      mockPhaseRepo.find.mockResolvedValue([
+        {
+          id: 'phase-1',
+          organizationId: ORG_ID,
+          workspaceId: WS_A,
+          phaseState: PhaseState.ACTIVE,
+          deletedAt: null,
+        },
+      ]);
 
       await service.bulkUpdateStatus(authCtx, WS_A, {
         taskIds: ['t1', 't2'],
         status: TaskStatus.IN_PROGRESS,
       });
 
-      expect(mockTaskRepo.update).toHaveBeenCalledTimes(1);
-      const [criteria] = mockTaskRepo.update.mock.calls[0];
-
+      expect(managerUpdate).toHaveBeenCalledTimes(1);
+      const [entity, criteria] = managerUpdate.mock.calls[0];
+      expect(entity).toBe(WorkTask);
       expect(criteria).toMatchObject({
         workspaceId: WS_A,
         deletedAt: IsNull(),
       });
-      expect(criteria.id).toBeDefined(); // In(taskIds)
+      expect(criteria.id).toEqual(In(['t1', 't2']));
     });
 
     it('asserts organizationId from tenantContext before update', async () => {
-      const { service, mockTaskRepo, mockTenantCtx } = makeService({
+      const taskRepo = {
         find: jest.fn().mockResolvedValue([makeTask('t1')]),
-      });
+      };
+      const mod = await Test.createTestingModule({
+        providers: [
+          WorkTasksService,
+          { provide: getTenantAwareRepositoryToken(WorkTask), useValue: taskRepo },
+          { provide: getTenantAwareRepositoryToken(WorkTaskDependency), useValue: {} },
+          { provide: getTenantAwareRepositoryToken(TaskComment), useValue: {} },
+          { provide: getTenantAwareRepositoryToken(TaskActivity), useValue: {} },
+          { provide: getRepositoryToken(WorkPhase), useValue: { find: jest.fn().mockResolvedValue([]), findOne: jest.fn() } },
+          { provide: WorkspaceAccessService, useValue: { canAccessWorkspace: jest.fn().mockResolvedValue(true) } },
+          { provide: TaskActivityService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+          {
+            provide: TenantContextService,
+            useValue: { assertOrganizationId: jest.fn().mockReturnValue(ORG_ID) },
+          },
+          {
+            provide: DataSource,
+            useValue: {
+              createQueryRunner: () => ({
+                connect: jest.fn(),
+                startTransaction: jest.fn(),
+                commitTransaction: jest.fn(),
+                rollbackTransaction: jest.fn(),
+                release: jest.fn(),
+                manager: { update: jest.fn().mockResolvedValue(undefined) },
+              }),
+            },
+          },
+          { provide: ProjectHealthService, useValue: { recalculateProjectHealth: jest.fn() } },
+          {
+            provide: WipLimitsService,
+            useValue: {
+              enforceWipLimitOrThrow: jest.fn(),
+              enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          {
+            provide: getRepositoryToken(Project),
+            useValue: {
+              find: jest.fn().mockResolvedValue([
+                { id: 'proj-1', organizationId: ORG_ID, workspaceId: WS_A, state: ProjectState.ACTIVE, deletedAt: null },
+              ]),
+              findOne: jest.fn(),
+            },
+          },
+          { provide: AuditService, useValue: { record: jest.fn() } },
+          { provide: getRepositoryToken(GateCondition), useValue: { find: jest.fn(), findOne: jest.fn(), save: jest.fn() } },
+          { provide: getRepositoryToken(PhaseGateDefinition), useValue: { save: jest.fn() } },
+          WorkTaskStructuralGuardService,
+        ],
+      }).compile();
+      const service = mod.get(WorkTasksService);
+      const tenant = mod.get(TenantContextService);
 
       await service.bulkUpdateStatus(authCtx, WS_A, {
         taskIds: ['t1'],
         status: TaskStatus.IN_PROGRESS,
       });
 
-      expect(mockTenantCtx.assertOrganizationId).toHaveBeenCalled();
-      expect(mockTaskRepo.update).toHaveBeenCalled();
+      expect(tenant.assertOrganizationId).toHaveBeenCalled();
     });
 
     it('sets status in the update payload', async () => {
-      const { service, mockTaskRepo } = makeService({
+      const taskRepo = {
         find: jest.fn().mockResolvedValue([makeTask('t1')]),
-      });
+      };
+      const { service, managerUpdate, mockProjectRepo, mockPhaseRepo } =
+        await createBulkTestModule(taskRepo);
+      mockProjectRepo.find.mockResolvedValue([
+        { id: 'proj-1', organizationId: ORG_ID, workspaceId: WS_A, state: ProjectState.ACTIVE, deletedAt: null },
+      ]);
+      mockPhaseRepo.find.mockResolvedValue([
+        {
+          id: 'phase-1',
+          organizationId: ORG_ID,
+          workspaceId: WS_A,
+          phaseState: PhaseState.ACTIVE,
+          deletedAt: null,
+        },
+      ]);
 
       await service.bulkUpdateStatus(authCtx, WS_A, {
         taskIds: ['t1'],
         status: TaskStatus.IN_PROGRESS,
       });
 
-      const [, payload] = mockTaskRepo.update.mock.calls[0];
+      const [, , payload] = managerUpdate.mock.calls[0];
       expect(payload).toMatchObject({ status: TaskStatus.IN_PROGRESS });
     });
   });
 
   describe('cross-workspace isolation', () => {
     it('throws NotFoundException when taskIds contains a task from a foreign workspace', async () => {
-      // find returns only 1 task (workspace A); t2 belongs to workspace B and is excluded
-      const { service } = makeService({
-        find: jest.fn().mockResolvedValue([makeTask('t1', WS_A)]),
-      });
+      const taskRepo = {
+        find: jest.fn().mockResolvedValue([makeTask('t1', 'proj-1', 'phase-1', WS_A)]),
+      };
+      const { service } = await createBulkTestModule(taskRepo);
 
       await expect(
         service.bulkUpdateStatus(authCtx, WS_A, {
@@ -159,10 +282,11 @@ describe('WorkTasksService.bulkUpdateStatus — tenant scope and soft-delete', (
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('does not call taskRepo.update when pre-check find misses tasks', async () => {
-      const { service, mockTaskRepo } = makeService({
-        find: jest.fn().mockResolvedValue([makeTask('t1', WS_A)]),
-      });
+    it('does not call manager.update when pre-check find misses tasks', async () => {
+      const taskRepo = {
+        find: jest.fn().mockResolvedValue([makeTask('t1', 'proj-1', 'phase-1', WS_A)]),
+      };
+      const { service, managerUpdate } = await createBulkTestModule(taskRepo);
 
       await expect(
         service.bulkUpdateStatus(authCtx, WS_A, {
@@ -171,16 +295,16 @@ describe('WorkTasksService.bulkUpdateStatus — tenant scope and soft-delete', (
         }),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockTaskRepo.update).not.toHaveBeenCalled();
+      expect(managerUpdate).not.toHaveBeenCalled();
     });
   });
 
   describe('soft-delete exclusion', () => {
     it('throws NotFoundException when all taskIds are soft-deleted', async () => {
-      // find with deletedAt:IsNull returns empty — soft-deleted tasks are invisible
-      const { service } = makeService({
+      const taskRepo = {
         find: jest.fn().mockResolvedValue([]),
-      });
+      };
+      const { service } = await createBulkTestModule(taskRepo);
 
       await expect(
         service.bulkUpdateStatus(authCtx, WS_A, {
@@ -189,20 +313,136 @@ describe('WorkTasksService.bulkUpdateStatus — tenant scope and soft-delete', (
         }),
       ).rejects.toThrow(NotFoundException);
     });
+  });
 
-    it('the update criteria includes deletedAt:IsNull so even a direct DB call cannot touch soft-deleted rows', async () => {
-      const { service, mockTaskRepo } = makeService({
-        find: jest.fn().mockResolvedValue([makeTask('t1')]),
+  describe('F-2 all-or-nothing structural guard', () => {
+    it('rejects entire batch when any task is in a blocked project (ON_HOLD)', async () => {
+      const taskRepo = {
+        find: jest.fn().mockResolvedValue([
+          makeTask('t1', 'proj-a'),
+          makeTask('t2', 'proj-b'),
+        ]),
+      };
+      const { service, managerUpdate, mockProjectRepo, mockPhaseRepo } =
+        await createBulkTestModule(taskRepo);
+      mockProjectRepo.find.mockResolvedValue([
+        { id: 'proj-a', organizationId: ORG_ID, workspaceId: WS_A, state: ProjectState.ACTIVE, deletedAt: null },
+        { id: 'proj-b', organizationId: ORG_ID, workspaceId: WS_A, state: ProjectState.ON_HOLD, deletedAt: null },
+      ]);
+      mockPhaseRepo.find.mockResolvedValue([
+        {
+          id: 'phase-1',
+          organizationId: ORG_ID,
+          workspaceId: WS_A,
+          phaseState: PhaseState.ACTIVE,
+          deletedAt: null,
+        },
+      ]);
+
+      await expect(
+        service.bulkUpdateStatus(authCtx, WS_A, {
+          taskIds: ['t1', 't2'],
+          status: TaskStatus.IN_PROGRESS,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(managerUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejects entire batch when governance engine blocks any task (all-or-nothing)', async () => {
+      const taskRepo = {
+        find: jest.fn().mockResolvedValue([makeTask('t1'), makeTask('t2')]),
+      };
+      const governanceEngine = {
+        evaluateTaskStatusChange: jest.fn().mockImplementation(async (_ctx: unknown) => ({
+          decision: EvaluationDecision.BLOCK,
+          evaluationId: 'ev-1',
+          reasons: ['rule'],
+        })),
+      };
+      const mockProjectRepo = {
+        find: jest.fn().mockResolvedValue([
+          {
+            id: 'proj-1',
+            organizationId: ORG_ID,
+            workspaceId: WS_A,
+            state: ProjectState.ACTIVE,
+            deletedAt: null,
+          },
+        ]),
+      };
+      const mockPhaseRepo = {
+        find: jest.fn().mockResolvedValue([
+          {
+            id: 'phase-1',
+            organizationId: ORG_ID,
+            workspaceId: WS_A,
+            phaseState: PhaseState.ACTIVE,
+            deletedAt: null,
+          },
+        ]),
+      };
+      const managerUpdate = jest.fn().mockResolvedValue(undefined);
+      const mockQueryRunner = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        commitTransaction: jest.fn().mockResolvedValue(undefined),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+        manager: { update: managerUpdate },
+      };
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          WorkTasksService,
+          { provide: getTenantAwareRepositoryToken(WorkTask), useValue: taskRepo },
+          { provide: getTenantAwareRepositoryToken(WorkTaskDependency), useValue: {} },
+          { provide: getTenantAwareRepositoryToken(TaskComment), useValue: {} },
+          { provide: getTenantAwareRepositoryToken(TaskActivity), useValue: {} },
+          { provide: getRepositoryToken(WorkPhase), useValue: mockPhaseRepo },
+          {
+            provide: WorkspaceAccessService,
+            useValue: { canAccessWorkspace: jest.fn().mockResolvedValue(true) },
+          },
+          { provide: TaskActivityService, useValue: { record: jest.fn().mockResolvedValue(undefined) } },
+          {
+            provide: TenantContextService,
+            useValue: { assertOrganizationId: jest.fn().mockReturnValue(ORG_ID) },
+          },
+          {
+            provide: DataSource,
+            useValue: {
+              createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+            },
+          },
+          { provide: ProjectHealthService, useValue: { recalculateProjectHealth: jest.fn() } },
+          {
+            provide: WipLimitsService,
+            useValue: {
+              enforceWipLimitOrThrow: jest.fn(),
+              enforceWipLimitBulkOrThrow: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+          { provide: getRepositoryToken(Project), useValue: mockProjectRepo },
+          { provide: AuditService, useValue: { record: jest.fn().mockResolvedValue({}) } },
+          { provide: getRepositoryToken(GateCondition), useValue: { find: jest.fn(), findOne: jest.fn(), save: jest.fn() } },
+          { provide: getRepositoryToken(PhaseGateDefinition), useValue: { save: jest.fn() } },
+          WorkTaskStructuralGuardService,
+          { provide: GovernanceRuleEngineService, useValue: governanceEngine },
+        ],
+      }).compile();
+      const service = module.get(WorkTasksService);
+
+      await expect(
+        service.bulkUpdateStatus(authCtx, WS_A, {
+          taskIds: ['t1', 't2'],
+          status: TaskStatus.IN_PROGRESS,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'GOVERNANCE_RULE_BLOCKED',
+        }),
       });
-
-      await service.bulkUpdateStatus(authCtx, WS_A, {
-        taskIds: ['t1'],
-        status: TaskStatus.IN_PROGRESS,
-      });
-
-      const [criteria] = mockTaskRepo.update.mock.calls[0];
-      // IsNull() from typeorm — confirms the filter is applied at SQL level
-      expect(criteria.deletedAt).toEqual(IsNull());
+      expect(managerUpdate).not.toHaveBeenCalled();
     });
   });
 });

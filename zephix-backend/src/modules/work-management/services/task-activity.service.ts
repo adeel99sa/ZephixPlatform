@@ -1,8 +1,15 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import {
   TenantAwareRepository,
   getTenantAwareRepositoryToken,
 } from '../../tenancy/tenancy.module';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskActivity } from '../entities/task-activity.entity';
 import { WorkTask } from '../entities/work-task.entity';
 import { TaskActivityType } from '../enums/task.enums';
@@ -25,6 +32,8 @@ export class TaskActivityService {
     @Inject(getTenantAwareRepositoryToken(WorkTask))
     private readonly taskRepo: TenantAwareRepository<WorkTask>,
     private readonly tenantContext: TenantContextService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async record(
@@ -68,7 +77,23 @@ export class TaskActivityService {
       payload: metadata || null,
     });
 
-    return await this.activityRepo.save(activity);
+    const saved = await this.activityRepo.save(activity);
+
+    // Emit event for downstream projections (notifications/inbox, etc).
+    if (this.eventEmitter) {
+      this.eventEmitter.emit('activity.recorded', {
+        activityId: saved.id,
+        organizationId,
+        workspaceId,
+        projectId,
+        taskId,
+        type: activityType,
+        actorUserId: auth.userId,
+        payload: metadata || null,
+      });
+    }
+
+    return saved;
   }
 
   async list(
