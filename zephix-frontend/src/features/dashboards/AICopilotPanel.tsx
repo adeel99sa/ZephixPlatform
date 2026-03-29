@@ -23,7 +23,9 @@ export function AICopilotPanel({
   onApplyWidgets,
   onApplyDashboard,
 }: AICopilotPanelProps) {
-  const [prompt, setPrompt] = useState("Create a PMO dashboard for execs. Include project health, resource utilization, conflict trends, and delivery risk. Use weekly trend widgets. Keep to 6 to 8 widgets.");
+  const [prompt, setPrompt] = useState(
+    "Create a portfolio dashboard for leadership with delivery health, capacity signals, top risks, and upcoming milestones. Use weekly trend widgets. Keep to 6 to 8 widgets.",
+  );
   const [loadingSuggest, setLoadingSuggest] = useState(false);
   const [loadingGenerate, setLoadingGenerate] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);

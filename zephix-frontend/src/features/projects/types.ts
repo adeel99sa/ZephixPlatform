@@ -24,6 +24,13 @@ export enum ProjectRiskLevel {
   CRITICAL = 'critical',
 }
 
+/** Progressive governance tier; drives mandatory shell tabs when GOVERNED. */
+export enum ProjectGovernanceLevel {
+  EXECUTION = 'EXECUTION',
+  STRUCTURED = 'STRUCTURED',
+  GOVERNED = 'GOVERNED',
+}
+
 // Project entity type
 export interface Project {
   id: string;
@@ -31,6 +38,11 @@ export interface Project {
   description?: string;
   workspaceId: string;
   status: string;
+  /**
+   * Canonical lifecycle authority from backend (`projects.state` / `ProjectState`).
+   * GET /projects/:id should always return this for C-6 banners and freeze; `getProject` normalizes aliases.
+   */
+  state?: string;
   priority?: string;
   startDate?: string;
   endDate?: string;
@@ -40,6 +52,9 @@ export interface Project {
   createdAt?: string;
   updatedAt?: string;
   deletedAt?: string | null;
+  /** Progressive shell: keys from backend `active_tabs` (camelCase in API client). */
+  activeTabs?: string[];
+  governanceLevel?: ProjectGovernanceLevel;
 }
 
 // Project view types for shell page

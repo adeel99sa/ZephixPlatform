@@ -11,12 +11,9 @@ export async function runWidgetQuery(widgetId: string, config: any, filters: any
     const res = await api.post('/api/widgets/query', { widgetId, config, filters });
     // tolerate both envelope & flat
     return res?.data?.data ?? res?.data;
-  } catch (e) {
-    // never throw to avoid blocking render – return safe fallback by type
-    const t = config?.type ?? 'note';
-    if (t === 'kpi') return { type: 'kpi', value: 0, delta: 0, trend: 'flat' };
-    if (t === 'table') return { type: 'table', columns: [], rows: [] };
-    if (t === 'trend') return { type: 'trend', series: [] };
-    return { type: 'note', text: 'No data' };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown widget query failure';
+    throw new Error(`Widget query failed for ${widgetId}: ${message}`);
   }
 }

@@ -8,6 +8,7 @@ import {
   type ResourceUtilizationData,
   type ConflictTrendsData,
 } from "../analytics-api";
+import { listOverdueTasks, type WorkTask } from "@/features/work-management/workTasks.api";
 import { WorkspaceRequiredError } from "../schemas";
 import type { WidgetFilters, WidgetState, WidgetError } from "./types";
 
@@ -159,4 +160,63 @@ export function useConflictTrends(filters: WidgetFilters): WidgetState<ConflictT
   return state;
 }
 
+export interface OverdueTaskWithMeta extends WorkTask {
+  projectName?: string;
+  daysOverdue: number;
+}
+
+/**
+ * useOverdueTasks hook
+ * Fetches overdue tasks for the workspace (x-workspace-id from interceptor)
+ */
+export function useOverdueTasks(): WidgetState<{ items: OverdueTaskWithMeta[]; total: number }> {
+  const [state, setState] = useState<
+    WidgetState<{ items: OverdueTaskWithMeta[]; total: number }>
+  >({
+    loading: false,
+    error: null,
+    data: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    listOverdueTasks({ limit: 20 })
+      .then((result) => {
+        if (cancelled) return;
+        const now = new Date();
+        const items: OverdueTaskWithMeta[] = (result.items || []).map(
+          (t) => {
+            const due = t.dueDate ? new Date(t.dueDate) : null;
+            const daysOverdue = due
+              ? Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)))
+              : 0;
+            return { ...t, projectName: undefined, daysOverdue };
+          }
+        );
+        setState({ loading: false, error: null, data: { items, total: result.total || items.length } });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const widgetError: WidgetError = {
+          message:
+            (error as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+              ?.message ||
+            (error as Error)?.message ||
+            "Failed to load overdue tasks",
+          requestId: (error as { response?: { headers?: { ["x-request-id"]?: string } } })?.response
+            ?.headers?.["x-request-id"],
+        };
+        setState({ loading: false, error: widgetError, data: null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return state;
+}
 

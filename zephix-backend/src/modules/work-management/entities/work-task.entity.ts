@@ -12,7 +12,6 @@ import {
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from './work-phase.entity';
-import { GateCondition } from './gate-condition.entity';
 import { Iteration } from './iteration.entity';
 import { TaskStatus, TaskPriority, TaskType } from '../enums/task.enums';
 import {
@@ -201,36 +200,15 @@ export class WorkTask {
   @Column({ name: 'source_gate_condition_id', type: 'uuid', nullable: true })
   sourceGateConditionId: string | null;
 
-  @ManyToOne(() => GateCondition, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'source_gate_condition_id' })
-  sourceGateCondition: GateCondition | null;
-
-  /**
-   * C-8: Enriched on list/get when `isConditionTask` — not persisted.
-   * Phase gate display name for the condition’s originating gate.
-   */
-  sourceGateName?: string | null;
-
-  /**
-   * C-8: Enriched on list/get — originating phase gate definition id (not persisted).
-   */
-  sourceGateDefinitionId?: string | null;
-
   /**
    * Populated after load when `phase` relation is joined; otherwise use `mapWorkTaskEffectiveState`.
    */
   effectiveState?: WorkTaskEffectiveState;
 
-  /**
-   * C-8: True when task status is REWORK (recycled gate artifact lane). Derived in @AfterLoad.
-   */
-  isReworkTask?: boolean;
-
   @AfterLoad()
   applyEffectiveState(): void {
     const phaseState = this.phase?.phaseState;
     this.effectiveState = computeWorkTaskEffectiveState(phaseState, this.status);
-    this.isReworkTask = this.status === TaskStatus.REWORK;
   }
 
   // Relations

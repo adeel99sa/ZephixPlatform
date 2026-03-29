@@ -3,8 +3,21 @@
  * Typed API client for all project-related endpoints
  */
 
+import type { Project } from './types';
+import type { ProjectTemplateBinding, TemplateDeltaReview } from './template-binding.types';
+import {
+  listTemplateDeltaReviews as fetchTemplateDeltaReviews,
+  patchProject as patchProjectRequest,
+  restoreProject as restoreProjectRequest,
+} from './api';
+import {
+  ProjectGovernanceLevel,
+  ProjectStatus,
+  ProjectPriority,
+  ProjectRiskLevel,
+} from './types';
+
 import { api } from '@/lib/api';
-import { ProjectStatus, ProjectPriority, ProjectRiskLevel } from './types';
 
 export interface ProjectSummary {
   id: string;
@@ -12,6 +25,8 @@ export interface ProjectSummary {
   workspaceId: string;
   methodology: string;
   status: ProjectStatus;
+  /** HEALTHY | AT_RISK | BLOCKED | … when provided by API */
+  health?: string;
   ownerId?: string;
   phasesCount: number;
   tasksCount: number;
@@ -30,7 +45,14 @@ export interface ProjectSummary {
 }
 
 export interface ProjectDetail extends ProjectSummary {
+  /** v5: When set, drives Prompt 9 out-of-sync banner + review flow. */
+  templateBinding?: ProjectTemplateBinding | null;
+  /** Progressive shell tabs (normalized on backend). */
+  activeTabs?: string[];
+  governanceLevel?: ProjectGovernanceLevel;
   definitionOfDone?: string[];
+  projectManagerId?: string | null;
+  deliveryOwnerUserId?: string | null;
   // Budget & Cost Lite
   budget?: number;
   actualCost?: number;
@@ -116,6 +138,32 @@ export interface UpdateProjectSettingsDto {
   definitionOfDone?: string[];
 }
 
+export interface ProjectSharePayload {
+  userId: string;
+  accessLevel?: 'project_manager' | 'delivery_owner';
+}
+
+export interface ProjectAssignment {
+  id: string;
+  organizationId: string;
+  workspaceId: string;
+  projectId: string;
+  userId: string;
+  allocationPercent: number;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface CreateProjectAssignmentPayload {
+  userId: string;
+  allocationPercent?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 /**
  * Projects API Service
  */
@@ -143,10 +191,17 @@ export const projectsApi = {
    * Get a single project by ID
    */
   async getProject(id: string): Promise<ProjectDetail | null> {
-    // api.ts response interceptor already unwraps { data: T } envelope,
-    // so the resolved value IS the project object directly.
-    const result = await api.get(`/projects/${id}`);
-    return (result as unknown as ProjectDetail) ?? null;
+    try {
+      // api.ts response interceptor already unwraps { data: T } envelope,
+      // so the resolved value IS the project object directly.
+      const result = await api.get(`/projects/${id}`);
+      return (result as unknown as ProjectDetail) ?? null;
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   /**
@@ -247,6 +302,47 @@ export const projectsApi = {
     return result?.data ?? result;
   },
 
+  async shareProject(
+    projectId: string,
+    payload: ProjectSharePayload,
+  ): Promise<ProjectDetail> {
+    const result: any = await api.post(`/projects/${projectId}/share`, payload);
+    return result?.data ?? result;
+  },
+
+  async unshareProject(projectId: string, userId: string): Promise<ProjectDetail> {
+    const result: any = await api.delete(`/projects/${projectId}/share/${userId}`);
+    return result?.data ?? result;
+  },
+
+  async listProjectAssignments(
+    projectId: string,
+  ): Promise<{ items: ProjectAssignment[]; total: number }> {
+    const result: any = await api.get(`/work/resources/allocations`, {
+      params: { projectId },
+    });
+    const payload = result?.items ? result : (result?.data ?? result);
+    return {
+      items: Array.isArray(payload?.items) ? payload.items : [],
+      total: typeof payload?.total === 'number' ? payload.total : 0,
+    };
+  },
+
+  async addProjectAssignment(
+    projectId: string,
+    payload: CreateProjectAssignmentPayload,
+  ): Promise<ProjectAssignment> {
+    const result: any = await api.post('/work/resources/allocations', {
+      projectId,
+      ...payload,
+    });
+    return result?.data ?? result;
+  },
+
+  async removeProjectAssignment(allocationId: string): Promise<void> {
+    await api.delete(`/work/resources/allocations/${allocationId}`);
+  },
+
   /**
    * Archive project
    */
@@ -261,6 +357,27 @@ export const projectsApi = {
    */
   async deleteProject(id: string): Promise<void> {
     await api.delete(`/projects/${id}`);
+  },
+
+  /** Prompt 10: Restore soft-deleted project */
+  async restoreProject(id: string): Promise<Project> {
+    return restoreProjectRequest(id);
+  },
+
+  /** Progressive shell (6b): PATCH project fields such as `activeTabs`. */
+  async patchProject(
+    id: string,
+    payload: { activeTabs?: string[] },
+  ): Promise<ProjectDetail> {
+    return patchProjectRequest(id, payload);
+  },
+
+  /** v5 Prompt 9: Pending (default) or filtered template delta reviews. */
+  async listTemplateDeltaReviews(
+    projectId: string,
+    params?: { status?: string },
+  ): Promise<TemplateDeltaReview[]> {
+    return fetchTemplateDeltaReviews(projectId, params);
   },
 };
 

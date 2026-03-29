@@ -5,11 +5,15 @@ import { UseTemplateModal } from './components/UseTemplateModal';
 import { toast } from 'sonner';
 import { track } from '@/lib/telemetry';
 import { useAuth } from '@/state/AuthContext';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 import { Plus, Trash2, Save, Edit } from 'lucide-react';
 
 export default function TemplateDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const { user } = useAuth();
   const [template, setTemplate] = useState<ProjectTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,8 @@ export default function TemplateDetailPage() {
       const data = await templatesApi.getTemplate(id!);
       if (!data) {
         toast.error('Template not found');
-        navigate('/templates');
+        navigate('/home', { replace: true });
+        openTemplateCenter(undefined);
         return;
       }
       setTemplate(data);
@@ -102,7 +107,8 @@ export default function TemplateDetailPage() {
     } catch (error: any) {
       console.error('Failed to load template:', error);
       toast.error('Failed to load template');
-      navigate('/templates');
+      navigate('/home', { replace: true });
+      openTemplateCenter(undefined);
     } finally {
       setLoading(false);
     }
@@ -280,7 +286,10 @@ export default function TemplateDetailPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <button
-            onClick={() => navigate('/templates')}
+            onClick={() => {
+              navigate('/home', { replace: true });
+              openTemplateCenter(undefined);
+            }}
             className="text-gray-600 hover:text-gray-900 mb-2"
           >
             ← Back to Template Center

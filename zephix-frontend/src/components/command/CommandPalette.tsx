@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { track } from '@/lib/telemetry';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
-import { isAdminRole } from '@/types/roles';
+import { platformRoleFromUser } from '@/types/roles';
 import { listWorkspaces } from '@/features/workspaces/api';
 import * as workTasksApi from '@/features/work-management/workTasks.api';
 import toast from 'react-hot-toast';
@@ -27,7 +27,7 @@ export function CommandPalette() {
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const { user } = useAuth();
-  const isAdmin = user?.role ? isAdminRole(user.role) : false;
+  const isAdmin = platformRoleFromUser(user) === 'ADMIN';
   const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug?: string }>>([]);
 
   const location = useLocation();
@@ -178,10 +178,30 @@ export function CommandPalette() {
     if (isAdmin) {
       setCommands(prev => {
         const adminCommands: Command[] = [
-          { id: 'admin-overview', label: 'Go to Admin overview', hint: '/admin/overview', run: () => navigate('/admin/overview') },
-          { id: 'admin-dashboard', label: 'Go to Admin dashboard', hint: '/admin', run: () => navigate('/admin') },
-          { id: 'admin-users', label: 'Manage users', hint: '/admin/users', run: () => navigate('/admin/users') },
-          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/admin/workspaces', run: () => navigate('/admin/workspaces') },
+          {
+            id: 'admin-overview',
+            label: 'Open Administration overview',
+            hint: '/administration/general',
+            run: () => navigate('/administration/general'),
+          },
+          {
+            id: 'admin-dashboard',
+            label: 'Open Admin Console',
+            hint: '/administration',
+            run: () => navigate('/administration'),
+          },
+          {
+            id: 'admin-users',
+            label: 'Manage administration users',
+            hint: '/administration/users',
+            run: () => navigate('/administration/users'),
+          },
+          {
+            id: 'admin-workspaces',
+            label: 'Open administration workspace snapshot',
+            hint: '/administration/general',
+            run: () => navigate('/administration/general'),
+          },
         ];
         // Remove existing admin commands and add new ones
         const filtered = prev.filter(cmd => !cmd.id.startsWith('admin-'));

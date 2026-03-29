@@ -16,13 +16,14 @@
  * - Bulk delete: optimistic remove, rollback on error
  * - Bulk status: NOT optimistic (STRICT validation may reject)
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
+
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { isAdminUser, isGuestUser } from '@/utils/roles';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
 import { listWorkspaceMembers } from '@/features/workspaces/workspace.api';
 import {
   addComment,
@@ -33,18 +34,25 @@ import {
   listComments,
   listDependencies,
   listTasks,
+  listPhasesForProject,
   removeDependency,
   restoreTask,
   updateTask,
+  getAllowedTransitions,
   type TaskActivityItem,
   type TaskComment,
   type TaskDependency,
   type UpdateTaskPatch,
+  type WorkPhaseListItem,
   type WorkTask,
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
+import { getGateDefinition, type GateDefinition } from '@/features/phase-gates/phaseGates.api';
+import { GateDecisionModal } from '@/features/phase-gates/GateDecisionModal';
+import { PhaseGateStrip } from '@/features/phase-gates/PhaseGateStrip';
+import { buildTaskListSections } from '@/features/projects/utils/taskListPhaseGrouping';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -86,6 +94,15 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
   const { isReadOnly } = useWorkspaceRole(workspaceId);
   const { getWorkspaceMembers, setWorkspaceMembers, activeWorkspaceId } = useWorkspaceStore();
   const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const [phases, setPhases] = useState<WorkPhaseListItem[]>([]);
+  const [phaseGateMap, setPhaseGateMap] = useState<Record<string, GateDefinition | null>>({});
+  const [gatesLoading, setGatesLoading] = useState(false);
+  const [gatesFetchKey, setGatesFetchKey] = useState(0);
+  const [gateModal, setGateModal] = useState<{
+    phaseId: string;
+    gate: GateDefinition;
+    phaseName: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -143,6 +160,41 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }, [projectId, workspaceId, activeWorkspaceId]);
 
+  useEffect(() => {
+    if (!projectId || phases.length === 0) {
+      setPhaseGateMap({});
+      setGatesLoading(false);
+      return;
+    }
+    if (hasWorkspaceMismatch) {
+      setPhaseGateMap({});
+      setGatesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setGatesLoading(true);
+    (async () => {
+      const entries = await Promise.all(
+        phases.map(async (p) => {
+          try {
+            const g = await getGateDefinition(projectId, p.id);
+            return [p.id, g] as const;
+          } catch {
+            return [p.id, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, GateDefinition | null> = {};
+      for (const [id, g] of entries) next[id] = g;
+      setPhaseGateMap(next);
+      setGatesLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, phases, gatesFetchKey, hasWorkspaceMismatch]);
+
   async function loadWorkspaceMembers() {
     if (!workspaceId) return;
 
@@ -181,9 +233,13 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
     if (!silent) setLoading(true);
     try {
-      const result = await listTasks({ projectId });
+      const [result, phaseRows] = await Promise.all([
+        listTasks({ projectId }),
+        listPhasesForProject(projectId).catch(() => [] as WorkPhaseListItem[]),
+      ]);
       const items = Array.isArray(result.items) ? result.items : [];
       setTasks(items);
+      setPhases(Array.isArray(phaseRows) ? phaseRows : []);
       // Preserve selections: filter to only IDs that still exist
       setSelectedTaskIds((prev) => new Set([...prev].filter((id) => items.some((task) => task.id === id))));
     } catch (error: any) {
@@ -270,6 +326,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       updatedAt: nowIso,
       deletedAt: null,
       deletedByUserId: null,
+      isGateArtifact: false,
+      isConditionTask: false,
+      sourceGateConditionId: null,
     };
 
     // Insert temp task at top of list
@@ -527,6 +586,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
       case 'IN_REVIEW':
       case 'BLOCKED':
         return 'bg-blue-100 text-blue-800';
+      case 'PENDING':
+        return 'bg-slate-100 text-slate-800';
+      case 'REWORK':
+        return 'bg-orange-100 text-orange-900';
       case 'DONE':
       case 'CANCELED':
         return 'bg-green-100 text-green-800';
@@ -551,6 +614,10 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         return 'Done';
       case 'CANCELED':
         return 'Canceled';
+      case 'PENDING':
+        return 'Pending';
+      case 'REWORK':
+        return 'Rework';
       default:
         return status;
     }
@@ -901,6 +968,261 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }
 
+  const usePhaseSections = phases.length > 0;
+  const sections = useMemo(
+    () => (usePhaseSections ? buildTaskListSections(phases, tasks) : []),
+    [usePhaseSections, phases, tasks],
+  );
+
+  function statusOptionsForTask(task: WorkTask): WorkTaskStatus[] {
+    const allowed = getAllowedTransitions(task.status);
+    return Array.from(new Set<WorkTaskStatus>([task.status, ...allowed]));
+  }
+
+
+  function renderTaskList(taskList: WorkTask[]) {
+    return taskList.map((task) => {
+            // PHASE 7 MODULE 7.2: Check if this is the highlighted task from query param
+            const urlParams = new URLSearchParams(window.location.search);
+            const taskIdFromUrl = urlParams.get('taskId');
+            const isHighlighted = taskIdFromUrl === task.id;
+
+            return (
+            <div
+              key={task.id}
+              data-task-id={task.id}
+              className={`border rounded-lg p-4 ${isHighlighted ? 'ring-2 ring-blue-500 bg-blue-50' : ''} ${selectedTaskIds.has(task.id) ? 'bg-blue-50 border-blue-300' : ''}`}
+            >
+              <div className="flex items-start justify-between">
+                {/* PHASE 7 MODULE 7.4: Checkbox */}
+                {canEdit && (
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.has(task.id)}
+                    onChange={() => toggleTaskSelection(task.id)}
+                    disabled={loading}
+                    className="mt-1 mr-3 w-4 h-4 rounded border-gray-300"
+                  />
+                )}
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 className="font-medium text-gray-900">{task.title}</h3>
+                    {task.isGateArtifact && (
+                      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                        Gate
+                      </span>
+                    )}
+                    {task.isConditionTask && (
+                      <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-violet-100 text-violet-900 border border-violet-200">
+                        Condition
+                      </span>
+                    )}
+                    {canEdit ? (
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
+                        className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)} border-0`}
+                      >
+                        {statusOptionsForTask(task).map((s) => (
+                          <option key={s} value={s}>
+                            {getStatusLabel(s)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)}`}>
+                        {getStatusLabel(task.status)}
+                      </span>
+                    )}
+                  </div>
+                  {task.description && (
+                    <p className="text-sm text-gray-600 mb-2">{task.description}</p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {task.assigneeUserId && (
+                      <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
+                    )}
+                    {task.dueDate && (
+                      <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Comments, Activity, Dependencies, AC Toggles */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => toggleAC(task.id)}
+                  className="text-xs text-emerald-600 hover:text-emerald-800"
+                >
+                  {showAC[task.id] ? 'Hide' : 'Show'} Acceptance Criteria ({task.acceptanceCriteria?.length || 0})
+                </button>
+                <button
+                  onClick={() => toggleComments(task.id)}
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                  {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
+                </button>
+                <button
+                  onClick={() => toggleActivity(task.id)}
+                  className="text-xs text-gray-600 hover:text-gray-800"
+                >
+                  {showActivity[task.id] ? 'Hide' : 'Show'} Activity
+                </button>
+                <button
+                  onClick={() => toggleDeps(task.id)}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
+                </button>
+              </div>
+
+              {/* Acceptance Criteria Panel */}
+              {showAC[task.id] && (
+                <AcceptanceCriteriaEditor
+                  items={task.acceptanceCriteria || []}
+                  onSave={(items) => handleSaveAC(task.id, items)}
+                  readOnly={!canEdit}
+                />
+              )}
+
+              {/* Comments Panel */}
+              {showComments[task.id] && (
+                <div className="mt-3 pt-3 border-t">
+                  <h4 className="text-sm font-medium mb-2">Comments</h4>
+                  <div className="space-y-2 mb-3">
+                    {comments[task.id]?.map((comment) => (
+                      <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
+                        <div className="font-medium text-gray-700">
+                          {getUserLabel(comment.authorUserId)}
+                        </div>
+                        <div className="text-gray-600 mt-1">{comment.body}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {canEdit && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newComment[task.id] || ''}
+                        onChange={(e) => setNewComment(prev => ({ ...prev, [task.id]: e.target.value }))}
+                        placeholder="Add a comment..."
+                        className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAddComment(task.id);
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => handleAddComment(task.id)}
+                        disabled={!newComment[task.id]?.trim() || postingComment[task.id]}
+                        className="text-sm"
+                      >
+                        {postingComment[task.id] ? 'Posting...' : 'Post'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Activity Log */}
+              {showActivity[task.id] && (
+                <div className="mt-3 pt-3 border-t">
+                  <h4 className="text-sm font-medium mb-2">Activity</h4>
+                  <div className="space-y-2">
+                    {activities[task.id]?.map((activity) => (
+                      <div key={activity.id} className="text-xs text-gray-600">
+                        <span className="font-medium">{formatActivity(activity)}</span>
+                        <span className="text-gray-400 ml-2">
+                          {new Date(activity.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dependencies Panel */}
+              {showDeps[task.id] && (
+                <div className="mt-3 pt-3 border-t">
+                  <h4 className="text-sm font-medium mb-2">Dependencies</h4>
+                  {/* Blocked by (predecessors) */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Blocked by</p>
+                    {deps[task.id]?.predecessors?.length ? (
+                      <div className="space-y-1">
+                        {deps[task.id].predecessors.map((dep) => (
+                          <div key={dep.id} className="flex items-center justify-between text-sm bg-red-50 p-2 rounded">
+                            <span className="text-gray-700">{dep.predecessorTitle || dep.predecessorTaskId}</span>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">None</p>
+                    )}
+                  </div>
+                  {/* Blocking (successors) */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Blocking</p>
+                    {deps[task.id]?.successors?.length ? (
+                      <div className="space-y-1">
+                        {deps[task.id].successors.map((dep) => (
+                          <div key={dep.id} className="flex items-center text-sm bg-amber-50 p-2 rounded">
+                            <span className="text-gray-700">{dep.successorTitle || dep.successorTaskId}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">None</p>
+                    )}
+                  </div>
+                  {/* Add dependency */}
+                  {canEdit && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Add "blocked by" dependency</p>
+                      <div className="flex gap-2">
+                        <select
+                          value={depSearch[task.id] || ''}
+                          onChange={(e) => setDepSearch(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          className="flex-1 px-3 py-2 border rounded-md text-sm"
+                        >
+                          <option value="">Select a task...</option>
+                          {tasks
+                            .filter(t => t.id !== task.id && !t.deletedAt)
+                            .map(t => (
+                              <option key={t.id} value={t.id}>{t.title}</option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={() => depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])}
+                          disabled={!depSearch[task.id] || addingDep[task.id]}
+                          className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {addingDep[task.id] ? 'Adding...' : 'Add'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            );
+    });
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -1175,234 +1497,70 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               <span className="text-sm text-gray-600">Select all</span>
             </div>
           )}
-          {tasks.map((task) => {
-            // PHASE 7 MODULE 7.2: Check if this is the highlighted task from query param
-            const urlParams = new URLSearchParams(window.location.search);
-            const taskId = urlParams.get('taskId');
-            const isHighlighted = taskId === task.id;
-
-            return (
-            <div
-              key={task.id}
-              data-task-id={task.id}
-              className={`border rounded-lg p-4 ${isHighlighted ? 'ring-2 ring-blue-500 bg-blue-50' : ''} ${selectedTaskIds.has(task.id) ? 'bg-blue-50 border-blue-300' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                {/* PHASE 7 MODULE 7.4: Checkbox */}
-                {canEdit && (
-                  <input
-                    type="checkbox"
-                    checked={selectedTaskIds.has(task.id)}
-                    onChange={() => toggleTaskSelection(task.id)}
-                    disabled={loading}
-                    className="mt-1 mr-3 w-4 h-4 rounded border-gray-300"
-                  />
+          {usePhaseSections ? (
+            sections.map((section) => (
+              <div
+                key={section.kind === 'phase' ? section.phase.id : 'unassigned'}
+                className="space-y-3"
+              >
+                {section.kind === 'unassigned' && (
+                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-3 py-2">
+                    <p className="text-sm font-semibold text-gray-800">Unassigned</p>
+                    <p className="text-xs text-gray-500">
+                      Tasks not placed on a phase in the plan timeline.
+                    </p>
+                  </div>
                 )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-medium text-gray-900">{task.title}</h3>
-                    {canEdit ? (
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
-                        className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)} border-0`}
-                      >
-                        <option value="TODO">Todo</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="DONE">Done</option>
-                      </select>
-                    ) : (
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)}`}>
-                        {getStatusLabel(task.status)}
-                      </span>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="text-sm text-gray-600 mb-2">{task.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    {task.assigneeUserId && (
-                      <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
-                    )}
-                    {task.dueDate && (
-                      <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Comments, Activity, Dependencies, AC Toggles */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={() => toggleAC(task.id)}
-                  className="text-xs text-emerald-600 hover:text-emerald-800"
-                >
-                  {showAC[task.id] ? 'Hide' : 'Show'} Acceptance Criteria ({task.acceptanceCriteria?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleComments(task.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleActivity(task.id)}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  {showActivity[task.id] ? 'Hide' : 'Show'} Activity
-                </button>
-                <button
-                  onClick={() => toggleDeps(task.id)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
-                </button>
-              </div>
-
-              {/* Acceptance Criteria Panel */}
-              {showAC[task.id] && (
-                <AcceptanceCriteriaEditor
-                  items={task.acceptanceCriteria || []}
-                  onSave={(items) => handleSaveAC(task.id, items)}
-                  readOnly={!canEdit}
-                />
-              )}
-
-              {/* Comments Panel */}
-              {showComments[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Comments</h4>
-                  <div className="space-y-2 mb-3">
-                    {comments[task.id]?.map((comment) => (
-                      <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
-                        <div className="font-medium text-gray-700">
-                          {getUserLabel(comment.authorUserId)}
-                        </div>
-                        <div className="text-gray-600 mt-1">{comment.body}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newComment[task.id] || ''}
-                        onChange={(e) => setNewComment(prev => ({ ...prev, [task.id]: e.target.value }))}
-                        placeholder="Add a comment..."
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment(task.id);
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={() => handleAddComment(task.id)}
-                        disabled={!newComment[task.id]?.trim() || postingComment[task.id]}
-                        className="text-sm"
-                      >
-                        {postingComment[task.id] ? 'Posting...' : 'Post'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Activity Log */}
-              {showActivity[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Activity</h4>
+                {section.kind === 'phase' && (
                   <div className="space-y-2">
-                    {activities[task.id]?.map((activity) => (
-                      <div key={activity.id} className="text-xs text-gray-600">
-                        <span className="font-medium">{formatActivity(activity)}</span>
-                        <span className="text-gray-400 ml-2">
-                          {new Date(activity.createdAt).toLocaleString()}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-900">{section.phase.name}</span>
+                        {section.phase.isMilestone && (
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                            Milestone
+                          </span>
+                        )}
+                        {section.phase.isLocked && (
+                          <span className="text-[10px] uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                            Locked
+                          </span>
+                        )}
+                      </div>
+                      {section.phase.dueDate && (
+                        <span className="text-xs text-gray-500">
+                          Phase due {new Date(section.phase.dueDate).toLocaleDateString()}
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Dependencies Panel */}
-              {showDeps[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Dependencies</h4>
-                  {/* Blocked by (predecessors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocked by</p>
-                    {deps[task.id]?.predecessors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].predecessors.map((dep) => (
-                          <div key={dep.id} className="flex items-center justify-between text-sm bg-red-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.predecessorTitle || dep.predecessorTaskId}</span>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
-                                className="text-xs text-red-600 hover:text-red-800"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Blocking (successors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocking</p>
-                    {deps[task.id]?.successors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].successors.map((dep) => (
-                          <div key={dep.id} className="flex items-center text-sm bg-amber-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.successorTitle || dep.successorTaskId}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Add dependency */}
-                  {canEdit && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Add "blocked by" dependency</p>
-                      <div className="flex gap-2">
-                        <select
-                          value={depSearch[task.id] || ''}
-                          onChange={(e) => setDepSearch(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        >
-                          <option value="">Select a task...</option>
-                          {tasks
-                            .filter(t => t.id !== task.id && !t.deletedAt)
-                            .map(t => (
-                              <option key={t.id} value={t.id}>{t.title}</option>
-                            ))}
-                        </select>
-                        <button
-                          onClick={() => depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])}
-                          disabled={!depSearch[task.id] || addingDep[task.id]}
-                          className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {addingDep[task.id] ? 'Adding...' : 'Add'}
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-            );
-          })}
+                    <PhaseGateStrip
+                      phaseId={section.phase.id}
+                      phaseName={section.phase.name}
+                      gate={phaseGateMap[section.phase.id] ?? undefined}
+                      gatesLoading={gatesLoading}
+                      canRecord={canEdit}
+                      onRecordDecision={() =>
+                        setGateModal({
+                          phaseId: section.phase.id,
+                          gate: phaseGateMap[section.phase.id]!,
+                          phaseName: section.phase.name,
+                        })
+                      }
+                      secondaryLinkHref={`/projects/${projectId}/plan`}
+                      secondaryLinkLabel="Open Plan"
+                    />
+                  </div>
+                )}
+                {section.tasks.length === 0 && section.kind === 'phase' ? (
+                  <p className="text-sm text-gray-500 py-2">No tasks in this phase yet.</p>
+                ) : (
+                  renderTaskList(section.tasks)
+                )}
+              </div>
+            ))
+          ) : (
+            renderTaskList(tasks)
+          )}
         </div>
       )}
 
@@ -1461,6 +1619,21 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
             </div>
           )}
         </div>
+      )}
+
+      {gateModal && (
+        <GateDecisionModal
+          isOpen
+          onClose={() => setGateModal(null)}
+          onSubmitted={() => setGatesFetchKey((k) => k + 1)}
+          projectId={projectId}
+          gateDefinitionId={gateModal.gate.id}
+          gateName={gateModal.gate.name}
+          phaseName={gateModal.phaseName}
+          nextPhaseOptions={phases
+            .filter((p) => p.id !== gateModal.phaseId)
+            .map((p) => ({ id: p.id, name: p.name }))}
+        />
       )}
     </div>
   );

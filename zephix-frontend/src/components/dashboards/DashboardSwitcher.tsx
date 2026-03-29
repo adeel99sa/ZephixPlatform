@@ -4,7 +4,7 @@ import { useDashboards } from '@/features/dashboards/useDashboards';
 import { track } from '@/lib/telemetry';
 
 export function DashboardSwitcher({ workspaceId }: { workspaceId?: string }) {
-  const { items } = useDashboards(workspaceId);
+  const { items, loading, error, retry } = useDashboards(workspaceId);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const navigate = useNavigate();
@@ -57,7 +57,23 @@ export function DashboardSwitcher({ workspaceId }: { workspaceId?: string }) {
             data-testid="dashboard-switcher-search"
           />
           <div className="max-h-72 overflow-auto">
-            {filtered.map((d) => (
+            {loading && (
+              <div className="px-2 py-4 text-sm text-neutral-500">Loading dashboards...</div>
+            )}
+            {!loading && error && (
+              <div className="px-2 py-3 text-sm text-red-600" data-testid="dashboard-switcher-error">
+                <div className="mb-2">Failed to load dashboards.</div>
+                <button
+                  type="button"
+                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                  onClick={() => retry()}
+                  data-testid="dashboard-switcher-retry"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!loading && !error && filtered.map((d) => (
               <button
                 key={d.id}
                 role="menuitem"
@@ -73,7 +89,7 @@ export function DashboardSwitcher({ workspaceId }: { workspaceId?: string }) {
                 {d.name}
               </button>
             ))}
-            {!filtered.length && (
+            {!loading && !error && !filtered.length && (
               <div className="px-2 py-4 text-sm text-neutral-500">No dashboards found</div>
             )}
           </div>

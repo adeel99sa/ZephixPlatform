@@ -4,8 +4,8 @@ import path from "path";
 import { visualizer } from "rollup-plugin-visualizer";
 
 /**
- * Dev server: explicit host list (DNS rebinding guard). Leading dot = suffix match.
- * Preview (Railway `vite preview`): use `true` so Vite skips host middleware — public Railway URLs vary.
+ * Dev + preview: explicit host list (DNS rebinding guard). Leading dot = suffix match.
+ * Railway `vite preview` must allow the public hostname; `allowedHosts: true` was unreliable with Vite 7 + CLI.
  */
 const serverAllowedHosts = [
   "localhost",
@@ -67,9 +67,8 @@ export default defineConfig({
   },
   preview: {
     host: "0.0.0.0",
-    // Required for Railway (and any public preview URL): `true` disables host-header validation for preview.
-    // See vite `preview()`: host middleware is skipped only when allowedHosts === true.
-    allowedHosts: true,
+    // Same allowlist as `server` — required for staging/prod preview on Railway (Host header check).
+    allowedHosts: serverAllowedHosts,
   },
   define: {
     // Inject build-time environment variables

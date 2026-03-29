@@ -43,8 +43,7 @@ export default function BillingOverviewPage() {
           <div className="border-t border-gray-200 pt-4">
             <Button
               onClick={() => {
-                // TODO: Implement contact sales functionality
-                window.location.href = 'mailto:sales@zephix.ai?subject=Billing Inquiry';
+                window.location.href = "/demo?intent=billing";
               }}
               className="flex items-center gap-2"
             >

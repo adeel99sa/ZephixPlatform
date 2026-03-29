@@ -6,7 +6,24 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
-import { listProjects, createProject, deleteProject, getProject } from './api';
+
+import {
+  listProjects,
+  createProject,
+  deleteProject,
+  getProject,
+  listArchivedProjects,
+  listTemplateDeltaReviews,
+  patchProject,
+  resolveTemplateBindingReview,
+  restoreProject,
+} from './api';
+import type {
+  ArchivedProjectsPage,
+  ResolveTemplateBindingPayload,
+  ResolveTemplateBindingResult,
+  TemplateDeltaReview,
+} from './template-binding.types';
 
 /**
  * Project interface matching backend response
@@ -17,6 +34,8 @@ export interface ProjectListItem {
   name: string;
   description?: string;
   status: string;
+  /** From GET /projects/:id — same as {@link Project.state}. */
+  state?: string;
   startDate?: string;
   endDate?: string;
   organizationId?: string;
@@ -37,6 +56,20 @@ export const projectKeys = {
   list: (workspaceId: string | undefined) => [...projectKeys.lists(), { workspaceId }] as const,
   details: () => [...projectKeys.all, 'detail'] as const,
   detail: (id: string) => [...projectKeys.details(), id] as const,
+  /** Soft-deleted projects (GET /projects/archive) */
+  archived: (
+    workspaceId: string | undefined,
+    page?: number,
+    limit?: number,
+  ) =>
+    [
+      ...projectKeys.all,
+      'archive',
+      { workspaceId: workspaceId ?? null, page: page ?? 1, limit: limit ?? 10 },
+    ] as const,
+  /** Prompt 9: template delta reviews (default: PENDING from API). */
+  templateDeltaReviews: (projectId: string) =>
+    [...projectKeys.all, 'templateDeltaReviews', projectId] as const,
 };
 
 /**
@@ -119,6 +152,134 @@ export function useDeleteProject() {
     },
     onSuccess: () => {
       // Invalidate all project lists to refetch
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+/**
+ * Soft-deleted projects for the org (optionally scoped by workspace).
+ */
+type ArchivedProjectsQueryOptions = Omit<
+  UseQueryOptions<ArchivedProjectsPage, Error>,
+  'queryKey' | 'queryFn'
+> & { page?: number; limit?: number };
+
+export function useArchivedProjects(
+  workspaceId: string | undefined | null,
+  options?: ArchivedProjectsQueryOptions,
+) {
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 10;
+  const queryOptions = { ...(options ?? {}) };
+  delete (queryOptions as { page?: number; limit?: number }).page;
+  delete (queryOptions as { page?: number; limit?: number }).limit;
+  return useQuery<ArchivedProjectsPage, Error>({
+    queryKey: projectKeys.archived(workspaceId ?? undefined, page, limit),
+    queryFn: async () =>
+      listArchivedProjects({
+        workspaceId: workspaceId ?? undefined,
+        page,
+        limit,
+      }),
+    enabled: !!workspaceId && (queryOptions.enabled !== false),
+    staleTime: 30_000,
+    ...queryOptions,
+  });
+}
+
+/**
+ * v5: Accept or reject a template delta review for a project.
+ */
+export function useResolveTemplateBindingReview() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    ResolveTemplateBindingResult,
+    Error,
+    { projectId: string; payload: ResolveTemplateBindingPayload }
+  >({
+    mutationFn: async ({ projectId, payload }) =>
+      resolveTemplateBindingReview(projectId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(variables.projectId),
+      });
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.templateDeltaReviews(variables.projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Prompt 9: Pending template delta reviews for PM review UI.
+ * API defaults to PENDING when `status` is omitted.
+ */
+export function useTemplateDeltaReviews(
+  projectId: string | undefined,
+  options?: Omit<
+    UseQueryOptions<TemplateDeltaReview[], Error>,
+    'queryKey' | 'queryFn'
+  > & { status?: string },
+) {
+  const status = options?.status;
+  const rest = { ...(options ?? {}) };
+  delete (rest as { status?: string }).status;
+
+  return useQuery<TemplateDeltaReview[], Error>({
+    queryKey: [
+      ...projectKeys.templateDeltaReviews(projectId ?? ''),
+      { status: status ?? 'default' },
+    ],
+    queryFn: async () => listTemplateDeltaReviews(projectId!, { status }),
+    enabled: !!projectId && (rest.enabled !== false),
+    staleTime: 15_000,
+    ...rest,
+  });
+}
+
+/**
+ * Prompt 9 alias: same mutation as {@link useResolveTemplateBindingReview}.
+ */
+export function useResolveTemplateDeltaMutation() {
+  return useResolveTemplateBindingReview();
+}
+
+/**
+ * Prompt 10: Restore a soft-deleted project (POST /projects/:id/restore).
+ */
+export function useRestoreProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Project, Error, string>({
+    mutationFn: (projectId) => restoreProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: [...projectKeys.all, 'archive'] });
+      queryClient.invalidateQueries({ queryKey: projectKeys.details() });
+    },
+  });
+}
+
+/**
+ * Prompt 6b: PATCH project (e.g. append `activeTabs`).
+ */
+export function usePatchProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    Project,
+    Error,
+    { projectId: string; payload: { activeTabs?: string[] } }
+  >({
+    mutationFn: ({ projectId, payload }) => patchProject(projectId, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(variables.projectId),
+      });
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
     },
   });

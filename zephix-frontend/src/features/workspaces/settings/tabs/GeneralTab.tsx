@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/state/AuthContext';
 import { usersApi } from '@/features/admin/users/users.api';
+import { listTemplates } from '@/features/templates/api';
 
 interface GeneralTabProps {
   workspaceId: string;
@@ -12,6 +13,10 @@ interface GeneralTabProps {
     ownerId?: string;
     visibility: 'public' | 'private';
     defaultMethodology?: string;
+    defaultTemplateId?: string | null;
+    inheritOrgDefaultTemplate?: boolean;
+    governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+    allowedTemplateIds?: string[] | null;
   };
   onUpdate: () => void;
 }
@@ -30,6 +35,17 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
   const [ownerId, setOwnerId] = useState(workspace.ownerId || '');
   const [visibility, setVisibility] = useState(workspace.visibility);
   const [methodology, setMethodology] = useState(workspace.defaultMethodology || 'waterfall');
+  const [defaultTemplateId, setDefaultTemplateId] = useState(workspace.defaultTemplateId || '');
+  const [inheritOrgDefaultTemplate, setInheritOrgDefaultTemplate] = useState(
+    workspace.inheritOrgDefaultTemplate ?? true,
+  );
+  const [governanceInheritanceMode, setGovernanceInheritanceMode] = useState<
+    'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE'
+  >(workspace.governanceInheritanceMode || 'ORG_DEFAULT');
+  const [allowedTemplateIds, setAllowedTemplateIds] = useState<string[]>(
+    workspace.allowedTemplateIds || [],
+  );
+  const [templateOptions, setTemplateOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [showOwnerConfirm, setShowOwnerConfirm] = useState(false);
@@ -48,6 +64,34 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
         }
       }, [currentUser?.organizationId]);
 
+  useEffect(() => {
+    let mounted = true;
+    listTemplates()
+      .then((rows) => {
+        if (!mounted) return;
+        setTemplateOptions(rows.map((row) => ({ id: row.id, name: row.name })));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setTemplateOptions([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setName(workspace.name);
+    setDescription(workspace.description || '');
+    setOwnerId(workspace.ownerId || '');
+    setVisibility(workspace.visibility);
+    setMethodology(workspace.defaultMethodology || 'waterfall');
+    setDefaultTemplateId(workspace.defaultTemplateId || '');
+    setInheritOrgDefaultTemplate(workspace.inheritOrgDefaultTemplate ?? true);
+    setGovernanceInheritanceMode(workspace.governanceInheritanceMode || 'ORG_DEFAULT');
+    setAllowedTemplateIds(workspace.allowedTemplateIds || []);
+  }, [workspace]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -57,6 +101,11 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
         description,
         visibility,
         defaultMethodology: methodology,
+        defaultTemplateId: defaultTemplateId || null,
+        inheritOrgDefaultTemplate,
+        governanceInheritanceMode,
+        allowedTemplateIds:
+          allowedTemplateIds.length > 0 ? allowedTemplateIds : null,
       });
       toast.success('Workspace settings updated');
       onUpdate();
@@ -185,6 +234,118 @@ export default function GeneralTab({ workspaceId, workspace, onUpdate }: General
             <option value="kanban">Kanban</option>
             <option value="hybrid">Hybrid</option>
           </select>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 p-4">
+          <h2 className="text-base font-semibold text-gray-900">Template inheritance</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Configure workspace default template and optional template restrictions.
+          </p>
+
+          <div className="mt-4 space-y-4">
+            <div>
+              <label
+                htmlFor="workspace-default-template"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Workspace default template (preferred)
+              </label>
+              <select
+                id="workspace-default-template"
+                value={defaultTemplateId}
+                onChange={(e) => setDefaultTemplateId(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                disabled={saving || !canEdit}
+                data-testid="ws-settings-default-template-select"
+              >
+                <option value="">None</option>
+                {templateOptions.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Used as a preferred template during project creation. It does not restrict template usage.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                id="inherit-org-default-template"
+                type="checkbox"
+                checked={inheritOrgDefaultTemplate}
+                onChange={(e) => setInheritOrgDefaultTemplate(e.target.checked)}
+                disabled={saving || !canEdit}
+                data-testid="ws-settings-inherit-org-default-checkbox"
+              />
+              <label htmlFor="inherit-org-default-template" className="text-sm text-gray-700">
+                Inherit organization default template when workspace default is not set
+              </label>
+            </div>
+
+            <div>
+              <label
+                htmlFor="governance-inheritance-mode"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Governance inheritance mode
+              </label>
+              <select
+                id="governance-inheritance-mode"
+                value={governanceInheritanceMode}
+                onChange={(e) =>
+                  setGovernanceInheritanceMode(
+                    e.target.value as 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE',
+                  )
+                }
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                disabled={saving || !canEdit}
+                data-testid="ws-settings-governance-inheritance-select"
+              >
+                <option value="ORG_DEFAULT">Inherit organization governance defaults</option>
+                <option value="WORKSPACE_OVERRIDE">Workspace governance override</option>
+              </select>
+            </div>
+
+            <div>
+              <p className="block text-sm font-medium text-gray-700 mb-2">
+                Allowed templates (optional restriction)
+              </p>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-gray-200 p-3">
+                {templateOptions.length === 0 && (
+                  <p className="text-xs text-gray-500">No templates available.</p>
+                )}
+                {templateOptions.map((template) => {
+                  const checked = allowedTemplateIds.includes(template.id);
+                  return (
+                    <label
+                      key={template.id}
+                      className="flex items-center justify-between gap-3 text-sm text-gray-700"
+                    >
+                      <span>{template.name}</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setAllowedTemplateIds((prev) =>
+                            e.target.checked
+                              ? [...prev, template.id]
+                              : prev.filter((id) => id !== template.id),
+                          )
+                        }
+                        disabled={saving || !canEdit}
+                        data-testid={`ws-settings-allowed-template-${template.id}`}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                If no template is selected here, this workspace remains unrestricted.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">

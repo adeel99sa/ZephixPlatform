@@ -18,8 +18,7 @@ export function useNotifications(params: Params) {
   return useQuery({
     queryKey: ['notifications', params],
     queryFn: async () => {
-      const { data } = await apiClient.get('/notifications', { params });
-      return data;
+      return await apiClient.get('/notifications', { params });
     },
     staleTime: 30_000,
   });
@@ -29,8 +28,8 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/notifications/unread-count');
-      return (data as any)?.count ?? 0;
+      const payload = await apiClient.get('/notifications/unread-count');
+      return (payload as any)?.count ?? 0;
     },
     staleTime: 30_000,
   });

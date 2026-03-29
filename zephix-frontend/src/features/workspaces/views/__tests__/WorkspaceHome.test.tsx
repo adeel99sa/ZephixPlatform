@@ -3,7 +3,7 @@
  *
  * Test cases:
  * - Owner sees New button and Members button
- * - Member sees Start from template button but not New
+ * - Member sees template CTA but not New
  * - Guest sees no action buttons
  * - Notes editor appears for owner only
  * - Empty projects state shows correct CTA for owner and member, text only for guest
@@ -127,12 +127,12 @@ describe('WorkspaceHome', () => {
     renderWorkspaceHome();
 
     await waitFor(() => {
-      expect(screen.getByText('New')).toBeInTheDocument();
-      expect(screen.getByText('Members')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Members' })).toBeInTheDocument();
     });
   });
 
-  it('Member sees Start from template button but not New', async () => {
+  it('Member sees template CTA but not New', async () => {
     (useWorkspaceRole as any).mockReturnValue({
       workspaceRole: 'workspace_member',
     });
@@ -147,8 +147,8 @@ describe('WorkspaceHome', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Start work from a template')).toBeInTheDocument();
-      expect(screen.queryByText('New')).not.toBeInTheDocument();
-      expect(screen.queryByText('Members')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'New' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Members' })).not.toBeInTheDocument();
     });
   });
 
@@ -167,8 +167,8 @@ describe('WorkspaceHome', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Ask a workspace owner to start work')).toBeInTheDocument();
-      expect(screen.queryByText('New')).not.toBeInTheDocument();
-      expect(screen.queryByText('Members')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'New' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Members' })).not.toBeInTheDocument();
       expect(screen.queryByText('Start work from a template')).not.toBeInTheDocument();
     });
   });
@@ -225,7 +225,7 @@ describe('WorkspaceHome', () => {
     renderWorkspaceHome();
 
     await waitFor(() => {
-      expect(screen.getByText('Start from template')).toBeInTheDocument();
+      expect(screen.getByText('Create from template')).toBeInTheDocument();
     });
   });
 
@@ -246,7 +246,7 @@ describe('WorkspaceHome', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No projects yet.')).toBeInTheDocument();
-      expect(screen.queryByText('Start from template')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create from template')).not.toBeInTheDocument();
     });
   });
 });

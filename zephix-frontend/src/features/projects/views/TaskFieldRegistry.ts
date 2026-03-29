@@ -12,6 +12,8 @@ export interface TaskFieldDef {
   label: string;
   type: TaskFieldType;
   isCore: boolean;
+  domain: 'execution' | 'governance';
+  governanceLocked?: boolean;
   sortable: boolean;
   groupable: boolean;
   editable: boolean;
@@ -23,11 +25,11 @@ export interface TaskFieldDef {
 /* ------------------------------------------------------------------ */
 
 export const CORE_TASK_FIELDS: TaskFieldDef[] = [
-  { key: 'title', label: 'Title', type: 'text', isCore: true, sortable: true, groupable: false, editable: true },
-  { key: 'status', label: 'Status', type: 'enum', isCore: true, sortable: true, groupable: true, editable: true, enumValues: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] },
-  { key: 'assigneeUserId', label: 'Assignee', type: 'user', isCore: true, sortable: true, groupable: true, editable: true },
-  { key: 'priority', label: 'Priority', type: 'enum', isCore: true, sortable: true, groupable: true, editable: true, enumValues: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
-  { key: 'dueDate', label: 'Due Date', type: 'date', isCore: true, sortable: true, groupable: false, editable: true },
+  { key: 'title', label: 'Title', type: 'text', isCore: true, domain: 'execution', sortable: true, groupable: false, editable: true },
+  { key: 'status', label: 'Status', type: 'enum', isCore: true, domain: 'governance', governanceLocked: true, sortable: true, groupable: true, editable: true, enumValues: ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] },
+  { key: 'assigneeUserId', label: 'Assignee', type: 'user', isCore: true, domain: 'execution', sortable: true, groupable: true, editable: true },
+  { key: 'priority', label: 'Priority', type: 'enum', isCore: true, domain: 'governance', governanceLocked: true, sortable: true, groupable: true, editable: true, enumValues: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
+  { key: 'dueDate', label: 'Due Date', type: 'date', isCore: true, domain: 'governance', governanceLocked: true, sortable: true, groupable: false, editable: true },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -35,16 +37,16 @@ export const CORE_TASK_FIELDS: TaskFieldDef[] = [
 /* ------------------------------------------------------------------ */
 
 export const OPTIONAL_TASK_FIELDS: TaskFieldDef[] = [
-  { key: 'startDate', label: 'Start Date', type: 'date', isCore: false, sortable: true, groupable: false, editable: true },
-  { key: 'phaseId', label: 'Phase', type: 'relation', isCore: false, sortable: true, groupable: true, editable: true },
-  { key: 'sprintId', label: 'Sprint', type: 'relation', isCore: false, sortable: true, groupable: true, editable: true },
-  { key: 'type', label: 'Type', type: 'enum', isCore: false, sortable: true, groupable: true, editable: true, enumValues: ['TASK', 'BUG', 'STORY', 'EPIC', 'MILESTONE', 'SUBTASK'] },
-  { key: 'reporterUserId', label: 'Reporter', type: 'user', isCore: false, sortable: true, groupable: true, editable: true },
-  { key: 'description', label: 'Description', type: 'text', isCore: false, sortable: false, groupable: false, editable: true },
-  { key: 'tags', label: 'Tags', type: 'json', isCore: false, sortable: false, groupable: false, editable: true },
-  { key: 'createdAt', label: 'Created', type: 'date', isCore: false, sortable: true, groupable: false, editable: false },
-  { key: 'updatedAt', label: 'Updated', type: 'date', isCore: false, sortable: true, groupable: false, editable: false },
-  { key: 'scheduleStatus', label: 'Schedule', type: 'enum', isCore: false, sortable: false, groupable: false, editable: false, enumValues: ['ON_TRACK', 'AT_RISK', 'DELAYED', 'AHEAD'] },
+  { key: 'startDate', label: 'Start Date', type: 'date', isCore: false, domain: 'execution', sortable: true, groupable: false, editable: true },
+  { key: 'phaseId', label: 'Phase', type: 'relation', isCore: false, domain: 'execution', sortable: true, groupable: true, editable: true },
+  { key: 'sprintId', label: 'Sprint', type: 'relation', isCore: false, domain: 'execution', sortable: true, groupable: true, editable: true },
+  { key: 'type', label: 'Type', type: 'enum', isCore: false, domain: 'execution', sortable: true, groupable: true, editable: true, enumValues: ['TASK', 'BUG', 'STORY', 'EPIC', 'MILESTONE', 'SUBTASK'] },
+  { key: 'reporterUserId', label: 'Reporter', type: 'user', isCore: false, domain: 'execution', sortable: true, groupable: true, editable: true },
+  { key: 'description', label: 'Description', type: 'text', isCore: false, domain: 'execution', sortable: false, groupable: false, editable: true },
+  { key: 'tags', label: 'Tags', type: 'json', isCore: false, domain: 'execution', sortable: false, groupable: false, editable: true },
+  { key: 'createdAt', label: 'Created', type: 'date', isCore: false, domain: 'governance', governanceLocked: true, sortable: true, groupable: false, editable: false },
+  { key: 'updatedAt', label: 'Updated', type: 'date', isCore: false, domain: 'governance', governanceLocked: true, sortable: true, groupable: false, editable: false },
+  { key: 'scheduleStatus', label: 'Schedule', type: 'enum', isCore: false, domain: 'governance', governanceLocked: true, sortable: false, groupable: false, editable: false, enumValues: ['ON_TRACK', 'AT_RISK', 'DELAYED', 'AHEAD'] },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -58,6 +60,8 @@ export const ALL_TASK_FIELDS: TaskFieldDef[] = [
 
 export const GROUPABLE_FIELDS = ALL_TASK_FIELDS.filter((f) => f.groupable);
 export const SORTABLE_FIELDS = ALL_TASK_FIELDS.filter((f) => f.sortable);
+export const GOVERNANCE_FIELDS = ALL_TASK_FIELDS.filter((f) => f.domain === 'governance');
+export const EXECUTION_FIELDS = ALL_TASK_FIELDS.filter((f) => f.domain === 'execution');
 
 /** Map from field key to definition */
 export const FIELD_MAP = new Map(ALL_TASK_FIELDS.map((f) => [f.key, f]));

@@ -1,137 +1,142 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button/Button';
-import { MoreVertical, Edit, Copy, Trash2, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, Eye, Layers } from 'lucide-react';
+import type { TemplateGalleryCardModel } from '../lib/templateGalleryModel';
+import type { TemplatePresentationTier } from '../types';
 
 interface TemplateCardProps {
-  id: string;
-  title: string;
-  description: string;
-  type: 'workspace' | 'project' | 'dashboard' | 'document' | 'form';
-  onApply: () => void;
-  onEdit?: (e?: React.MouseEvent) => void;
-  onDuplicate?: (e?: React.MouseEvent) => void;
-  onDelete?: (e?: React.MouseEvent) => void;
-  onSetDefault?: (e?: React.MouseEvent) => void;
+  template: TemplateGalleryCardModel;
+  onPreview: () => void;
+  onUse: () => void;
 }
 
-export function TemplateCard({
-  id,
-  title,
-  description,
-  type,
-  onApply,
-  onEdit,
-  onDuplicate,
-  onDelete,
-  onSetDefault
-}: TemplateCardProps) {
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+const tierConfig: Record<
+  TemplatePresentationTier,
+  {
+    color: string;
+    bg: string;
+    label: string;
+    accent: string;
+  }
+> = {
+  simple: {
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    label: 'Simple',
+    accent: 'bg-emerald-500',
+  },
+  advanced: {
+    color: 'text-blue-700',
+    bg: 'bg-blue-50',
+    label: 'Advanced',
+    accent: 'bg-blue-500',
+  },
+  enterprise: {
+    color: 'text-amber-700',
+    bg: 'bg-amber-50',
+    label: 'Enterprise',
+    accent: 'bg-amber-500',
+  },
+};
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!showMenu) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMenu]);
+function tierFromModel(template: TemplateGalleryCardModel): TemplatePresentationTier {
+  if (template.presentationTier) return template.presentationTier;
+  if (template.complexity === 'low') return 'simple';
+  if (template.complexity === 'high') return 'enterprise';
+  return 'advanced';
+}
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'workspace': return 'bg-blue-100 text-blue-800';
-      case 'project': return 'bg-green-100 text-green-800';
-      case 'dashboard': return 'bg-purple-100 text-purple-800';
-      case 'document': return 'bg-orange-100 text-orange-800';
-      case 'form': return 'bg-pink-100 text-pink-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+export function TemplateCard({ template, onPreview, onUse }: TemplateCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const tier = tierFromModel(template);
+  const config = tierConfig[tier];
+
+  const metaItems = [
+    template.phaseCount > 0 ? `${template.phaseCount} phases` : null,
+    template.taskCount > 0 ? `${template.taskCount} tasks` : null,
+    template.estimatedSetupMinutes
+      ? `~${template.estimatedSetupMinutes}m setup`
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow relative group">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(type)}`}>
-            {type}
+    <div
+      className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 ease-out hover:border-blue-300 hover:shadow-lg"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className={`h-1.5 w-full ${config.accent}`} />
+
+      <div className="flex flex-1 flex-col p-5">
+        <div className="mb-3 flex items-start justify-between">
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-lg text-xl transition-transform duration-300 ${config.bg} ${isHovered ? 'scale-110' : ''}`}
+          >
+            {template.icon || '📋'}
+          </div>
+          <span
+            className={`rounded-full px-2 py-1 text-xs font-medium ${config.bg} ${config.color}`}
+          >
+            {config.label}
           </span>
         </div>
-        {(onEdit || onDuplicate || onDelete || onSetDefault) && (
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-gray-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-              data-testid={`template-menu-${id}`}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                {onEdit && (
-                  <button
-                    onClick={(e) => { onEdit(e); setShowMenu(false); }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                    data-testid={`template-edit-${id}`}
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </button>
+
+        <h3 className="mb-1 line-clamp-1 text-base font-semibold text-slate-900">
+          {template.name}
+        </h3>
+
+        <p className="mb-4 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-600">
+          {template.description}
+        </p>
+
+        {metaItems.length > 0 ? (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {metaItems.map((item, i) => (
+              <span key={item} className="flex items-center gap-1 text-xs text-slate-500">
+                {i === 0 ? (
+                  <Layers className="h-3 w-3" />
+                ) : i === metaItems.length - 1 && item.includes('setup') ? (
+                  <Clock className="h-3 w-3" />
+                ) : (
+                  <CheckCircle2 className="h-3 w-3" />
                 )}
-                {onDuplicate && (
-                  <button
-                    onClick={(e) => { onDuplicate(e); setShowMenu(false); }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                    data-testid={`template-duplicate-${id}`}
-                  >
-                    <Copy className="h-4 w-4" />
-                    Duplicate
-                  </button>
-                )}
-                {onSetDefault && (
-                  <button
-                    onClick={(e) => { onSetDefault(e); setShowMenu(false); }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                    data-testid={`template-set-default-${id}`}
-                  >
-                    <Star className="h-4 w-4" />
-                    Set as default
-                  </button>
-                )}
-                {onDelete && (
-                  <>
-                    <div className="border-t my-1"></div>
-                    <button
-                      onClick={(e) => { onDelete(e); setShowMenu(false); }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
-                      data-testid={`template-delete-${id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+                {item}
+              </span>
+            ))}
           </div>
-        )}
+        ) : null}
+
+        <div className="mt-auto flex items-center gap-2 border-t border-slate-100 pt-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview();
+            }}
+            className="h-9 flex-1 text-slate-600 hover:text-slate-900"
+            type="button"
+          >
+            <Eye className="mr-1.5 h-4 w-4" />
+            Preview
+          </Button>
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUse();
+            }}
+            className="h-9 flex-1 bg-blue-600 text-white hover:bg-blue-700"
+            type="button"
+          >
+            Use
+            <ArrowRight
+              className={`ml-1.5 h-4 w-4 transition-transform ${isHovered ? 'translate-x-0.5' : ''}`}
+            />
+          </Button>
+        </div>
       </div>
-
-      <p className="text-gray-600 text-sm mb-4">{description}</p>
-
-      <Button
-        onClick={(e) => {
-          e?.stopPropagation();
-          onApply();
-        }}
-        className="w-full"
-        data-testid={`template-apply-${id}`}
-      >
-        Use in workspace
-      </Button>
     </div>
   );
 }

@@ -112,6 +112,12 @@ class ApiClient {
         const method = (config.method || 'get').toLowerCase();
         const isAuthEndpoint = url.includes('/api/auth') || url.includes('/auth/');
         const isHealthEndpoint = url.includes('/api/health') || url.includes('/health');
+        const pathOnly = url.split('?')[0];
+        const isWorkspaceBootstrapEndpoint =
+          method === 'get' &&
+          (pathOnly === '/workspaces' ||
+            pathOnly === '/api/workspaces' ||
+            pathOnly.endsWith('/workspaces'));
 
         if (ApiClient.MUTATING_METHODS.includes(method) && !isAuthEndpoint && !isHealthEndpoint) {
           const csrfToken = await this.ensureCsrfToken();
@@ -123,7 +129,11 @@ class ApiClient {
         // CRITICAL FIX: Do NOT add x-workspace-id to auth, health, or version endpoints
         // These endpoints should not require workspace context
         const isVersionEndpoint = url.includes('/api/version') || url.includes('/version');
-        const shouldSkipWorkspaceHeader = isAuthEndpoint || isHealthEndpoint || isVersionEndpoint;
+        const shouldSkipWorkspaceHeader =
+          isAuthEndpoint ||
+          isHealthEndpoint ||
+          isVersionEndpoint ||
+          isWorkspaceBootstrapEndpoint;
 
         if (!shouldSkipWorkspaceHeader) {
           // STEP D: Read activeWorkspaceId from Zustand store directly
@@ -254,12 +264,9 @@ class ApiClient {
       cleanupLegacyAuthStorage();
     }).catch(() => { /* ignore cleanup failures */ });
 
-    // Don't redirect if we're on an admin route - let AdminRoute handle it
-    const isAdminRoute = window.location.pathname.startsWith('/admin');
-    if (!isAdminRoute) {
-      // Redirect to login page
-      window.location.href = '/login';
-    }
+    // Preserve return URL for smoother session-expiry recovery.
+    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = `/login?reason=session_expired&returnUrl=${returnUrl}`;
   }
 
   private handlePermissionDenied(): void {

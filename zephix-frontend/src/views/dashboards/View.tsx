@@ -4,19 +4,25 @@ import { useParams, useNavigate, useLocation, Link, useSearchParams } from "reac
 import { RefreshCw, Share2, Edit, Calendar, LogIn } from "lucide-react";
 import { fetchDashboard, fetchDashboardPublic } from "@/features/dashboards/api";
 import { useAuth } from "@/state/AuthContext";
-import { queryWidgets } from "@/features/widgets/api";
 import FiltersBar from "@/features/dashboards/FiltersBar";
 import { parseFiltersFromUrl, filtersToUrl, type DashboardFilters } from "@/features/dashboards/filters";
 import { WidgetRenderer } from "@/features/dashboards/widgets/WidgetRenderer";
 import ShareDialog from "@/features/dashboards/ShareDialog";
 import { track } from "@/lib/telemetry";
-import { getProjectsCountByWorkspace } from "@/features/projects/api";
-import { getProjectCompletionStats, getWorkspaceCompletionStats } from "@/features/work-management/workTasks.stats.api";
 import type { DashboardEntity, SharedDashboardEntity } from "@/features/dashboards/types";
 import { WorkspaceRequiredError } from "@/features/dashboards/schemas";
+import {
+  getWorkspaceDashboardSummary,
+  getWorkspaceDocumentsSummary,
+  getWorkspaceOpenRisks,
+  getWorkspaceRecentProjects,
+  getWorkspaceUpcomingMilestones,
+} from "@/features/dashboards/workspaceDashboardData.api";
 
 export default function DashboardView() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; dashboardId?: string; workspaceId?: string }>();
+  const id = params.id || params.dashboardId;
+  const workspaceId = params.workspaceId;
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -31,7 +37,6 @@ export default function DashboardView() {
   const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState(false);
-  const [kpiCache, setKpiCache] = useState<Map<string, { value: number; timestamp: number }>>(new Map());
 
   // Global filters state
   const urlFilters = useMemo(() => parseFiltersFromUrl(location.search), [location.search]);
@@ -77,26 +82,6 @@ export default function DashboardView() {
       endDate: endDate.toISOString().split('T')[0],
     };
   }, [globalFilters]);
-
-  // Listen for project create/update events to invalidate KPI cache
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      const { workspaceId } = e.detail;
-      setKpiCache(prev => {
-        const next = new Map(prev);
-        next.delete(workspaceId); // Invalidate cache for this workspace
-        return next;
-      });
-    };
-
-    window.addEventListener('project:created', handler as EventListener);
-    window.addEventListener('project:updated', handler as EventListener);
-
-    return () => {
-      window.removeEventListener('project:created', handler as EventListener);
-      window.removeEventListener('project:updated', handler as EventListener);
-    };
-  }, []);
 
   // Load dashboard
   const loadDashboard = async () => {
@@ -146,105 +131,54 @@ export default function DashboardView() {
     loadDashboard();
   };
 
-  // 2) Query widgets when dashboard/filters are ready
+  // 2) Query workspace dashboard data when dashboard/filters are ready
   useEffect(() => {
-    console.log('[DashboardView] Widget query effect triggered:', { dashboard, urlFilters });
-    if (!dashboard) return;
-    const widgets = dashboard.widgets || [];
-    console.log('[DashboardView] Widgets to query:', widgets);
-    if (!widgets.length) {
+    if (!dashboard || !workspaceId) return;
+    const configuredWidgets =
+      (dashboard as DashboardEntity).layoutConfig?.widgets || [];
+    if (!configuredWidgets.length) {
       setWidgetsData({});
       return;
     }
     const controller = new AbortController();
     (async () => {
       try {
-        console.log('[DashboardView] Starting widget query...');
+        const [
+          summary,
+          projects,
+          milestones,
+          risks,
+          documents,
+        ] = await Promise.all([
+          getWorkspaceDashboardSummary(workspaceId),
+          getWorkspaceRecentProjects(workspaceId),
+          getWorkspaceUpcomingMilestones(workspaceId),
+          getWorkspaceOpenRisks(workspaceId),
+          getWorkspaceDocumentsSummary(workspaceId),
+        ]);
 
-        // Existing generic widget query
-        const generic = await queryWidgets(
-          widgets.map(w => ({ id: w.id, type: w.type, config: w.config })),
-          urlFilters,
-          controller.signal,
-        );
-        console.log('[DashboardView] Widget query results:', generic);
-
-        // Fetch KPI data for projects.countByWorkspace widgets
-        const projectKpiWidgets = widgets.filter(
-          w => w.type === 'kpi' && w.config?.source === 'projects.countByWorkspace'
-        );
-
-        // Fetch KPI data for workItems.completedRatio widgets
-        const taskKpiWidgets = widgets.filter(
-          w => w.type === 'kpi' && (w.config?.source === 'workItems.completedRatio.byProject' || w.config?.source === 'workItems.completedRatio.byWorkspace')
-        );
-
-        const localCache = new Map<string, number>();
-        const localTaskCache = new Map<string, { completed: number; total: number; ratio: number }>();
-
-        const projectKpiResults = await Promise.all(
-          projectKpiWidgets.map(async (w) => {
-            const wsId = w.config?.workspaceId;
-            if (!wsId) return { id: w.id, data: { value: 0 } };
-
-            // Check if we have a cached value (and it's recent, < 30s old)
-            const cached = kpiCache.get(wsId);
-            const now = Date.now();
-            if (cached && (now - cached.timestamp) < 30000) {
-              return { id: w.id, data: { value: cached.value } };
-            }
-
-            if (!localCache.has(wsId)) {
-              try {
-                const count = await getProjectsCountByWorkspace(wsId);
-                localCache.set(wsId, count);
-                setKpiCache(prev => new Map(prev).set(wsId, { value: count, timestamp: now }));
-                track('kpi.projects_count.fetched', { wsId, count, widgetId: w.id });
-              } catch (e) {
-                console.warn('Failed to fetch project count for workspace', wsId, e);
-                localCache.set(wsId, 0);
-                track('kpi.projects_count.error', { wsId, widgetId: w.id, error: (e as Error).message });
-              }
-            }
-            return { id: w.id, data: { value: localCache.get(wsId) ?? 0 } };
-          })
-        );
-
-        const taskKpiResults = await Promise.all(
-          taskKpiWidgets.map(async (w) => {
-            try {
-              const source = w.config?.source;
-              let data;
-
-              if (source === 'workItems.completedRatio.byProject') {
-                const projectId = w.config?.projectId;
-                if (!projectId) return { id: w.id, data: { error: true } };
-                data = await getProjectCompletionStats(projectId);
-                track('kpi.tasks_ratio.fetched', { projectId, widgetId: w.id });
-              } else if (source === 'workItems.completedRatio.byWorkspace') {
-                const wsId = w.config?.workspaceId;
-                if (!wsId) return { id: w.id, data: { error: true } };
-                data = await getWorkspaceCompletionStats(wsId);
-                track('kpi.tasks_ratio.fetched', { wsId, widgetId: w.id });
-              }
-
-              return { id: w.id, data };
-            } catch (e) {
-              track('kpi.tasks_ratio.error', { widgetId: w.id, error: (e as Error).message });
-              return { id: w.id, data: { error: true } };
-            }
-          })
-        );
-
-        // Merge generic results with KPI results (KPI wins for same id)
-        const merged: Record<string, any> = generic || {};
-        projectKpiResults.forEach((k) => {
-          merged[k.id] = k.data;
-        });
-        taskKpiResults.forEach((k) => {
-          merged[k.id] = k.data;
-        });
-
+        const merged: Record<string, any> = {};
+        for (const widget of configuredWidgets) {
+          switch (widget.type) {
+            case 'recent_projects':
+              merged[widget.id] = projects;
+              break;
+            case 'project_status_summary':
+              merged[widget.id] = summary?.projectStatusSummary || {};
+              break;
+            case 'upcoming_milestones':
+              merged[widget.id] = milestones;
+              break;
+            case 'open_risks':
+              merged[widget.id] = risks;
+              break;
+            case 'documents_summary':
+              merged[widget.id] = documents;
+              break;
+            default:
+              merged[widget.id] = null;
+          }
+        }
         setWidgetsData(merged);
       } catch (e) {
         console.warn("Widget query failed", e);
@@ -252,7 +186,7 @@ export default function DashboardView() {
       }
     })();
     return () => controller.abort();
-  }, [dashboard, urlFilters]);
+  }, [dashboard, workspaceId, urlFilters]);
 
   const onApplyFilters = (filters: DashboardFilters) => {
     setGlobalFilters(filters);
@@ -342,7 +276,7 @@ export default function DashboardView() {
           {/* Edit Button - Hidden in share mode */}
           {!isShareMode && (
             <Link
-              to={`/dashboards/${id}/edit`}
+              to={`/workspaces/${workspaceId}/dashboard/${id}/edit`}
               className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
               data-testid="dashboard-edit"
             >
@@ -388,7 +322,7 @@ export default function DashboardView() {
           <div className="col-span-12 text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <p className="text-gray-500">No widgets configured.</p>
             <Link
-              to={`/dashboards/${id}/edit`}
+              to={`/workspaces/${workspaceId}/dashboard/${id}/edit`}
               className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
               Add widgets

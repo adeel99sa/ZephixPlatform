@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useWorkspaceRole } from './useWorkspaceRole';
 
 /**
- * Phase 5.1: Redirect delivery_owner/workspace_owner to /templates
+ * Phase 5.1: Redirect delivery_owner/workspace_owner to workspace dashboard
  * if workspace has zero ACTIVE or DRAFT projects
  *
  * Patch 2: Returns isRedirecting to prevent Home flicker
@@ -22,8 +22,17 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    // Never redirect on org-level routes — Home must stay Home
-    const ORG_LEVEL_PREFIXES = ['/home', '/workspaces', '/settings', '/billing', '/admin', '/onboarding'];
+    // Never redirect on org-level routes — Home must stay Home.
+    // /templates is Template Center (including ?legacy=true); must not bounce to workspace dashboard.
+    const ORG_LEVEL_PREFIXES = [
+      '/home',
+      '/workspaces',
+      '/settings',
+      '/billing',
+      '/admin',
+      '/onboarding',
+      '/templates',
+    ];
     if (ORG_LEVEL_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) {
       setIsRedirecting(false);
       return;
@@ -87,9 +96,10 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
           p.projectState === 'ACTIVE' || p.projectState === 'DRAFT'
         );
 
-        // If zero active/draft projects, redirect to templates
+        // If zero active/draft projects, redirect to workspace dashboard.
+        // Project templates are now initiated from workspace plus-menu modal.
         if (activeOrDraftProjects.length === 0) {
-          navigate('/templates', { replace: true });
+          navigate(`/workspaces/${activeWorkspaceId}/dashboard`, { replace: true });
         } else {
           setIsRedirecting(false);
         }

@@ -2,7 +2,7 @@
  * Smoke Test: Onboarding Guided Setup (Phase 4.8)
  */
 import { test, expect } from '@playwright/test';
-import { loginAndSelectWorkspace } from './helpers';
+import { getSeedIds, loginAndSelectWorkspace } from './helpers';
 
 test.describe('Onboarding Setup', () => {
   test.beforeEach(async ({ page }) => {
@@ -25,5 +25,32 @@ test.describe('Onboarding Setup', () => {
     // Just verify no crashes
     const panel = page.locator('[data-testid="guided-setup-panel"]');
     await panel.isVisible({ timeout: 3000 }).catch(() => false);
+  });
+
+  test('workspace settings route does not bounce to home', async ({ page }) => {
+    const { workspaceId } = getSeedIds();
+
+    // Simulate session resume/deep-link case with no persisted workspace.
+    await page.evaluate(() => {
+      localStorage.removeItem('workspace-storage');
+      localStorage.removeItem('zephix.lastWorkspaceId');
+    });
+
+    await page.goto(`/workspaces/${workspaceId}/settings`);
+    await page.waitForURL(new RegExp(`/workspaces/${workspaceId}/settings`), { timeout: 10000 });
+    await expect(page.locator('[data-testid="ws-settings-root"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('workspace members route does not bounce to home', async ({ page }) => {
+    const { workspaceId } = getSeedIds();
+
+    await page.evaluate(() => {
+      localStorage.removeItem('workspace-storage');
+      localStorage.removeItem('zephix.lastWorkspaceId');
+    });
+
+    await page.goto(`/workspaces/${workspaceId}/members`);
+    await page.waitForURL(new RegExp(`/workspaces/${workspaceId}/members`), { timeout: 10000 });
+    await expect(page.locator('[data-testid="workspace-members-page"]')).toBeVisible({ timeout: 10000 });
   });
 });

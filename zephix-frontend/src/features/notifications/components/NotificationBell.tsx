@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useInboxDrawer } from '@/ui/shell/AppShell';
 import {
   useUnreadCount,
   useNotifications,
@@ -44,6 +45,7 @@ function priorityDot(priority: string): string {
 
 export function NotificationBell() {
   const navigate = useNavigate();
+  const { openInbox } = useInboxDrawer();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -207,7 +209,7 @@ export function NotificationBell() {
           <div className="border-t border-slate-100 px-4 py-2">
             <button
               onClick={() => {
-                navigate('/notifications');
+                openInbox();
                 setOpen(false);
               }}
               className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 w-full justify-center py-1"

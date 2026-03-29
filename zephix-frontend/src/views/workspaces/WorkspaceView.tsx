@@ -16,14 +16,24 @@ import WorkspaceHome from '@/features/workspaces/views/WorkspaceHome';
 import { WorkspaceAccessState } from '@/components/workspace/WorkspaceAccessStates';
 import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScreen';
 import { Button } from '@/components/ui/Button';
-import { getApiErrorMessage } from '@/utils/apiErrorMessage';
+import {
+  accessDecisionFromEntity,
+  normalizeAccessDecision,
+  redirectToSessionExpiredLogin,
+} from '@/lib/api/accessDecision';
 
 type WorkspaceLoadState = 'loading' | 'success' | 'no-access' | 'not-found' | 'error' | 'suspended';
 
 export default function WorkspaceView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { setActiveWorkspace, markWorkspaceHydrated, setHydrating } = useWorkspaceStore();
+  const {
+    activeWorkspaceId,
+    setActiveWorkspace,
+    markWorkspaceHydrated,
+    setHydrating,
+    clearActiveWorkspace,
+  } = useWorkspaceStore();
   const { user, loading: authLoading } = useAuth();
   const [loadState, setLoadState] = useState<WorkspaceLoadState>('loading');
 
@@ -56,11 +66,12 @@ export default function WorkspaceView() {
 
     try {
       const workspace = await getWorkspace(workspaceId);
-
-      if (!workspace) {
-        // Backend returned null (200 with null data)
-        // This means workspace doesn't exist (for admin users)
-        // For non-admin users, this shouldn't happen (they get 403 instead)
+      const decision = accessDecisionFromEntity(workspace);
+      if (decision === 'missing') {
+        if (activeWorkspaceId === workspaceId) {
+          clearActiveWorkspace();
+        }
+        window.dispatchEvent(new Event('workspace:refresh'));
         setLoadState('not-found');
         setHydrating(false);
         return;
@@ -71,21 +82,27 @@ export default function WorkspaceView() {
       markWorkspaceHydrated(workspaceId);
       setLoadState('success');
     } catch (error: any) {
-      // Handle 403 (access denied) - getWorkspace re-throws 403
-      // PROMPT 8 B3: Check for SUSPENDED error code
-      if (error?.response?.status === 403) {
-        const errorCode = error?.response?.data?.code;
-        if (errorCode === 'SUSPENDED') {
-          setLoadState('suspended');
-        } else {
-          // For non-admin users, 403 can mean either:
-          // 1. Workspace exists but user doesn't have access
-          // 2. Workspace doesn't exist (security: don't leak existence)
-          // We show "No access" for both cases
-          setLoadState('no-access');
+      const decision = normalizeAccessDecision(error);
+      const errorCode = error?.response?.data?.code;
+      if (decision === 'session_expired') {
+        redirectToSessionExpiredLogin();
+        return;
+      }
+      if (decision === 'forbidden' && errorCode === 'SUSPENDED') {
+        setLoadState('suspended');
+      } else if (decision === 'forbidden') {
+        if (activeWorkspaceId === workspaceId) {
+          clearActiveWorkspace();
         }
+        window.dispatchEvent(new Event('workspace:refresh'));
+        setLoadState('no-access');
+      } else if (decision === 'missing') {
+        if (activeWorkspaceId === workspaceId) {
+          clearActiveWorkspace();
+        }
+        window.dispatchEvent(new Event('workspace:refresh'));
+        setLoadState('not-found');
       } else {
-        // Other errors (network, 500, etc.)
         setLoadState('error');
       }
       setHydrating(false);
@@ -146,45 +163,11 @@ export default function WorkspaceView() {
 
   // Show error states
   if (loadState === 'no-access') {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="max-w-md w-full text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">No access</h2>
-          <p className="text-gray-600 mb-6">
-            You don't have access to this workspace. Contact a workspace owner to request access.
-          </p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => navigate('/workspaces')}>
-              Back to workspace list
-            </Button>
-            <Button onClick={handleRetry} variant="ghost">
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <WorkspaceAccessState type="no-access" />;
   }
 
   if (loadState === 'not-found') {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="max-w-md w-full text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Workspace not found</h2>
-          <p className="text-gray-600 mb-6">
-            This workspace doesn't exist or has been deleted.
-          </p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => navigate('/workspaces')}>
-              Back to workspace list
-            </Button>
-            <Button onClick={handleRetry} variant="ghost">
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <WorkspaceAccessState type="not-found" />;
   }
 
   if (loadState === 'error') {
