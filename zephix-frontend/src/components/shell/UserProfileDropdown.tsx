@@ -147,36 +147,36 @@ export function UserProfileDropdown() {
               Profile
             </button>
 
-            <button
-              onClick={() => handleMenuClick("settings")}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
-              data-testid="menu-settings"
-            >
-              <Settings className="h-4 w-4 text-slate-500" />
-              Settings
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("notifications")}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
-              data-testid="menu-notifications"
-            >
-              <Bell className="h-4 w-4 text-slate-500" />
-              Notifications
-            </button>
-
-            <button
-              onClick={() => handleMenuClick("security")}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
-              data-testid="menu-security"
-            >
-              <LockKeyhole className="h-4 w-4 text-slate-500" />
-              Security
-            </button>
-
-            <div className="my-1 border-t border-slate-200"></div>
             {isAdminUser(user) && (
               <>
+                <button
+                  onClick={() => handleMenuClick("settings")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
+                  data-testid="menu-settings"
+                >
+                  <Settings className="h-4 w-4 text-slate-500" />
+                  Settings
+                </button>
+
+                <button
+                  onClick={() => handleMenuClick("notifications")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
+                  data-testid="menu-notifications"
+                >
+                  <Bell className="h-4 w-4 text-slate-500" />
+                  Notifications
+                </button>
+
+                <button
+                  onClick={() => handleMenuClick("security")}
+                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50"
+                  data-testid="menu-security"
+                >
+                  <LockKeyhole className="h-4 w-4 text-slate-500" />
+                  Security
+                </button>
+
+                <div className="my-1 border-t border-slate-200"></div>
                 <button
                   onClick={() => handleMenuClick("administration")}
                   className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
