@@ -44,7 +44,10 @@ export function useOnboardingCheck(): OnboardingCheckState {
       return;
     }
 
-    const isCompleted = Boolean(user.onboardingCompleted);
+    // Treat missing/undefined as completed so the guard is compatible with
+    // backend versions that do not yet return onboardingCompleted in /auth/me.
+    // Only an explicit `false` should trigger the onboarding redirect.
+    const isCompleted = user.onboardingCompleted !== false;
     if (!isCompleted) {
       if (location.pathname !== '/onboarding') {
         navigate('/onboarding', { replace: true });
