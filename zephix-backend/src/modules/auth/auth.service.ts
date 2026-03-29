@@ -529,6 +529,7 @@ export class AuthService {
       platformRole, // Explicit platformRole field (same value)
       permissions,
       organizationId: user.organizationId,
+      onboardingCompleted: Boolean(user.onboardingCompleted),
       emailVerified: user.isEmailVerified || !!user.emailVerifiedAt, // Explicit boolean for frontend
       organization: organization
         ? {

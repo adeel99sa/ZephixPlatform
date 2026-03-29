@@ -10,6 +10,12 @@ export class AddOnboardingCompletedToUsers18000000000043
       ALTER TABLE "users"
       ADD COLUMN IF NOT EXISTS "onboarding_completed" boolean NOT NULL DEFAULT false
     `);
+    // Existing users are already onboarded — set them to true so the
+    // frontend onboarding guard does not trap them.
+    await queryRunner.query(`
+      UPDATE "users" SET "onboarding_completed" = true
+      WHERE "onboarding_completed" = false
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
