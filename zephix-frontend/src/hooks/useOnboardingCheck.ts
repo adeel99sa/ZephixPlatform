@@ -1,10 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { onboardingApi } from '@/services/onboardingApi';
 import { useAuth } from '@/state/AuthContext';
-import {
-  hasCompletedUserOnboarding,
-} from '@/features/onboarding/user-onboarding-state';
 
 export interface OnboardingCheckState {
   /** True while checking onboarding status */
@@ -21,9 +17,7 @@ export interface OnboardingCheckState {
  * MUST be called before any workspace validation or API calls.
  * Returns onboardingComplete=true only when safe to proceed.
  * 
- * Only ADMIN users are redirected to /onboarding.
- * MEMBER and VIEWER/GUEST are never redirected — they land on org-home
- * which shows the appropriate waiting/shared state.
+ * Uses server-provided user flag onboardingCompleted as source of truth.
  */
 export function useOnboardingCheck(): OnboardingCheckState {
   const { user, loading: authLoading } = useAuth();
@@ -50,86 +44,24 @@ export function useOnboardingCheck(): OnboardingCheckState {
       return;
     }
 
-    // Role-aware user onboarding:
-    // - ADMIN: org-level onboarding via backend status
-    // - MEMBER/VIEWER: user-level onboarding shown once per user+role
-    const platformRole = user.platformRole ?? (user as any).role;
-    const isAdmin = platformRole === "ADMIN";
-    if (!isAdmin) {
-      const role = (platformRole || "MEMBER") as
-        | "MEMBER"
-        | "VIEWER"
-        | "GUEST";
-      const completed = hasCompletedUserOnboarding(user.id, role);
-      if (!completed) {
-        if (location.pathname !== "/onboarding") {
-          navigate('/onboarding', { replace: true });
-        }
-        setState({
-          checking: false,
-          onboardingComplete: false,
-          error: null,
-        });
-        return;
-      }
-      setState({
-        checking: false,
-        onboardingComplete: true,
-        error: null,
-      });
-      return;
-    }
-
-    // If already on onboarding page, don't redirect in a loop
-    if (location.pathname === '/onboarding') {
-      setState({
-        checking: false,
-        onboardingComplete: false, // Still not complete, but don't redirect
-        error: null,
-      });
-      return;
-    }
-
-    try {
-      const status = await onboardingApi.getOnboardingStatus() as {
-        completed?: boolean;
-        mustOnboard?: boolean;
-        skipped?: boolean;
-        workspaceCount?: number;
-      };
-
-      // Use mustOnboard as the source of truth for redirect (admin only)
-      // mustOnboard = true means: no workspaces AND not skipped
-      if (status?.mustOnboard === true) {
-        console.log('[OnboardingCheck] Admin mustOnboard=true, redirecting to /onboarding');
+    const isCompleted = Boolean(user.onboardingCompleted);
+    if (!isCompleted) {
+      if (location.pathname !== '/onboarding') {
         navigate('/onboarding', { replace: true });
-        setState({
-          checking: false,
-          onboardingComplete: false,
-          error: null,
-        });
-      } else {
-        // Either completed (has workspaces) or skipped - safe to proceed
-        console.log('[OnboardingCheck] Safe to proceed:', {
-          completed: status?.completed,
-          skipped: status?.skipped,
-          workspaceCount: status?.workspaceCount,
-        });
-        setState({
-          checking: false,
-          onboardingComplete: true,
-          error: null,
-        });
       }
-    } catch (error: any) {
-      console.error('[OnboardingCheck] Failed to check onboarding status:', error);
-      // On error, allow user to proceed (don't block the app)
       setState({
         checking: false,
-        onboardingComplete: true, // Assume complete on error to not block
-        error: error?.message || 'Failed to check onboarding status',
+        onboardingComplete: false,
+        error: null,
       });
+      return;
     }
+
+    setState({
+      checking: false,
+      onboardingComplete: true,
+      error: null,
+    });
   }, [authLoading, user, navigate, location.pathname]);
 
   useEffect(() => {

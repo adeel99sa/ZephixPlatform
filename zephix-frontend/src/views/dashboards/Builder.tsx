@@ -35,7 +35,9 @@ import { useAuth } from "@/state/AuthContext";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 export function DashboardBuilder() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id?: string; dashboardId?: string; workspaceId?: string }>();
+  const id = params.id || params.dashboardId;
+  const workspaceId = params.workspaceId;
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "ADMIN";
@@ -172,11 +174,11 @@ export function DashboardBuilder() {
       }
       handleSave().then(() => {
         if (!isDirty && id) {
-          navigate(`/dashboards/${id}`);
+          navigate(`/workspaces/${workspaceId}/dashboard/${id}`);
         }
       });
     } else if (id) {
-      navigate(`/dashboards/${id}`);
+      navigate(`/workspaces/${workspaceId}/dashboard/${id}`);
     }
   };
 
@@ -260,7 +262,7 @@ export function DashboardBuilder() {
     if (!dashboard?.id) return;
     try {
       const dup = await duplicateDashboard(dashboard.id);
-      navigate(`/dashboards/${dup.id}/edit`);
+      navigate(`/workspaces/${workspaceId}/dashboard/${dup.id}/edit`);
       track("ui.db.duplicate", { source: dashboard.id, new: dup.id });
       setShowMoreMenu(false);
     } catch (error) {

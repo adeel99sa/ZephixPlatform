@@ -1,14 +1,14 @@
 /**
  * ProjectTasksTab
- * 
- * Tasks tab content - renders the task list for the project.
+ *
+ * Tasks tab content — governed task list (C-2) with phase grouping.
  */
 
 import React, { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ListTodo } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
-import { TaskListSection } from '../components/TaskListSection';
+import { TasksTab } from '../components/TasksTab';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 
 export const ProjectTasksTab: React.FC = () => {
@@ -20,7 +20,6 @@ export const ProjectTasksTab: React.FC = () => {
   useEffect(() => {
     const taskId = searchParams.get('taskId');
     if (taskId) {
-      // Scroll to and highlight the task after a short delay
       setTimeout(() => {
         const taskRow = document.querySelector(`[data-task-id="${taskId}"]`);
         if (taskRow) {
@@ -56,10 +55,7 @@ export const ProjectTasksTab: React.FC = () => {
 
   return (
     <div id="task-list-section">
-      <TaskListSection
-        projectId={projectId}
-        workspaceId={workspaceId}
-      />
+      <TasksTab projectId={projectId} workspaceId={workspaceId} />
     </div>
   );
 };

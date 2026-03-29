@@ -65,6 +65,7 @@ type AuthUser = {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
+  onboardingCompleted?: boolean;
   platformRole?: PlatformRole;
   /** @deprecated Use platformRole instead */
   role?: string;
@@ -131,6 +132,7 @@ async function fetchMeSingleFlight(): Promise<AuthUser | null> {
         email: (source.email as string | undefined) || "",
         firstName: (source.firstName as string | null | undefined) ?? null,
         lastName: (source.lastName as string | null | undefined) ?? null,
+        onboardingCompleted: Boolean(source.onboardingCompleted),
         platformRole: (source.platformRole as PlatformRole | undefined) || undefined,
         role: (source.role as string | undefined) || undefined,
         organizationId:

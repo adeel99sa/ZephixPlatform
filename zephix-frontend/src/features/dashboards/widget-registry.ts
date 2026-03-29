@@ -67,6 +67,41 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     displayName: "Risk Summary",
     description: "Risk assessment and mitigation status",
   },
+  recent_projects: {
+    defaultConfig: {},
+    defaultLayout: { x: 0, y: 14, w: 6, h: 4 },
+    category: "Workspace",
+    displayName: "Recent Projects",
+    description: "Latest projects in this workspace",
+  },
+  project_status_summary: {
+    defaultConfig: {},
+    defaultLayout: { x: 6, y: 14, w: 6, h: 4 },
+    category: "Workspace",
+    displayName: "Project Status Summary",
+    description: "Project counts grouped by status",
+  },
+  upcoming_milestones: {
+    defaultConfig: {},
+    defaultLayout: { x: 0, y: 18, w: 4, h: 4 },
+    category: "Workspace",
+    displayName: "Upcoming Milestones",
+    description: "Milestones due soon",
+  },
+  open_risks: {
+    defaultConfig: {},
+    defaultLayout: { x: 4, y: 18, w: 4, h: 4 },
+    category: "Workspace",
+    displayName: "Open Risks",
+    description: "Current open risks for workspace projects",
+  },
+  documents_summary: {
+    defaultConfig: {},
+    defaultLayout: { x: 8, y: 18, w: 4, h: 4 },
+    category: "Workspace",
+    displayName: "Documents Summary",
+    description: "Workspace document totals and recent items",
+  },
   kpi: {
     defaultConfig: {},
     defaultLayout: { x: 0, y: 14, w: 4, h: 3 },
@@ -88,6 +123,20 @@ export const widgetRegistry: Record<WidgetType, WidgetRegistryEntry> = {
     category: "Finance",
     displayName: "Earned Value Summary",
     description: "CPI, SPI, and latest earned value snapshot",
+  },
+  projects_at_risk: {
+    defaultConfig: {},
+    defaultLayout: { x: 0, y: 0, w: 4, h: 4 },
+    category: "Analytics",
+    displayName: "Projects At Risk",
+    description: "Projects with SPI < 0.9, CPI < 0.9, or critical risks",
+  },
+  overdue_tasks: {
+    defaultConfig: {},
+    defaultLayout: { x: 4, y: 0, w: 4, h: 4 },
+    category: "Workspace",
+    displayName: "Overdue Tasks",
+    description: "Tasks past due date across all projects",
   },
 };
 

@@ -1,12 +1,13 @@
 /**
- * PHASE 7 MODULE 7.2: My Work Page
- * Shows assigned work items across all accessible workspaces for Admin and Member
+ * My Tasks Page
+ * Shows assigned work items across all accessible workspaces
  */
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ClipboardList } from 'lucide-react';
+import { request } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { toast } from 'sonner';
+import { useInboxDrawer } from '@/ui/shell/AppShell';
 
 type WorkItemStatus = 'todo' | 'in_progress' | 'done';
 
@@ -36,13 +37,27 @@ type MyWorkResponse = {
 };
 
 type FilterType = 'all' | 'overdue' | 'dueSoon' | 'inProgress' | 'todo' | 'done';
+type MyTasksView = 'assigned' | 'personal';
 
 export default function MyWorkPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { openInbox } = useInboxDrawer();
   const [data, setData] = useState<MyWorkResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
+  const rawView = searchParams.get('view');
+  const currentView: MyTasksView =
+    rawView === 'personal' || rawView === 'assigned'
+      ? rawView
+      : 'assigned';
+
+  useEffect(() => {
+    // Prevent stale chip filters from hiding items when switching sidebar views.
+    setActiveFilter('all');
+  }, [currentView]);
 
   useEffect(() => {
     loadMyWork();
@@ -52,8 +67,8 @@ export default function MyWorkPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get<MyWorkResponse>('/my-work');
-      setData(response.data);
+      const result = await request.get<MyWorkResponse>('/my-work');
+      setData(result);
     } catch (err: any) {
       console.error('Failed to load my work:', err);
       if (err?.response?.status === 403) {
@@ -109,9 +124,18 @@ export default function MyWorkPage() {
     }
   }
 
+  function filterByView(items: MyWorkItem[]): MyWorkItem[] {
+    if (currentView === 'personal') {
+      // Personal list acts as a focused "my open queue".
+      return items.filter((item) => item.status !== 'done');
+    }
+
+    return items;
+  }
+
   function handleRowClick(item: MyWorkItem) {
-    // Navigate to project overview with taskId query param
-    navigate(`/projects/${item.projectId}?taskId=${item.id}`);
+    // Navigate to canonical Project tab list view with selected task context
+    navigate(`/projects/${item.projectId}?view=list&taskId=${item.id}`);
   }
 
   if (loading) {
@@ -144,14 +168,30 @@ export default function MyWorkPage() {
     );
   }
 
-  const filteredItems = filterItems(data.items);
+  const viewScopedItems = filterByView(data.items);
+  const filteredItems = filterItems(viewScopedItems);
+  const title =
+    currentView === 'personal'
+        ? 'Personal List'
+        : 'Assigned to me';
+  const subtitle =
+    currentView === 'personal'
+        ? 'Your open personal queue across assigned work'
+        : 'Your assigned tasks across all workspaces. Inbox is for event triage, not task execution.';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Work</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Your assigned tasks across all workspaces
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-5 py-5">
+        <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {subtitle}
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Need notifications and mentions instead? Open <button
+            type="button"
+            className="font-semibold text-indigo-700 underline underline-offset-2"
+            onClick={() => openInbox()}
+          >Inbox</button>.
         </p>
       </div>
 
@@ -186,7 +226,7 @@ export default function MyWorkPage() {
       )}
 
       {/* Filter Chips */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="mb-6 flex flex-wrap gap-2">
         {(['all', 'overdue', 'dueSoon', 'inProgress', 'todo', 'done'] as FilterType[]).map((filter) => {
           const label = filter === 'all' ? 'All' :
                        filter === 'dueSoon' ? 'Due soon' :
@@ -204,10 +244,10 @@ export default function MyWorkPage() {
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 activeFilter === filter
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
               {label} ({count})
@@ -218,16 +258,33 @@ export default function MyWorkPage() {
 
       {/* Task List */}
       {filteredItems.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-500 text-lg">No assigned work yet</p>
-          <p className="text-sm text-gray-400 mt-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+            <ClipboardList className="h-6 w-6" />
+          </div>
+          <p className="text-lg font-medium text-slate-800">No assigned work yet</p>
+          <p className="mt-2 text-sm text-slate-500">
             {activeFilter !== 'all'
               ? `No tasks match the "${activeFilter}" filter`
               : 'Tasks assigned to you will appear here'}
           </p>
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <button
+              onClick={() => navigate('/home')}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Go to Home
+            </button>
+            <button
+              onClick={() => openInbox()}
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700"
+            >
+              Open Inbox
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

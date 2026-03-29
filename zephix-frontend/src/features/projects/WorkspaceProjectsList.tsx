@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { telemetry } from '@/lib/telemetry';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 
 import { listProjects, renameProject, deleteProject, restoreProject } from './api';
 import type { Project } from './types';
@@ -12,7 +13,9 @@ interface Props {
 }
 
 export function WorkspaceProjectsList({ workspaceId }: Props) {
-  const navigate = useNavigate();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,14 +64,15 @@ export function WorkspaceProjectsList({ workspaceId }: Props) {
     <div data-testid="workspace-projects" className="mt-6">
       <div className="flex items-center justify-between px-3 mb-2">
         <span className="text-xs font-semibold tracking-wide uppercase text-gray-500">Projects</span>
-        <Link
-          to="/templates"
+        <button
+          type="button"
+          onClick={() => workspaceId && openTemplateCenter(workspaceId)}
           className="rounded bg-blue-600 text-white text-xs px-2 py-1 hover:bg-blue-700"
           title="Create project from template"
           data-testid="project-new"
         >
           + New
-        </Link>
+        </button>
       </div>
 
       {loading ? (

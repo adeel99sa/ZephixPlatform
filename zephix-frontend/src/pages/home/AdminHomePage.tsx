@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTemplateCenterModalStore } from "@/state/templateCenterModal.store";
 import { administrationApi, type GovernanceActivityEvent } from "@/features/administration/api/administration.api";
 
 type AdminHomeData = {
@@ -15,6 +16,9 @@ function formatDate(value: string): string {
 }
 
 export default function AdminHomePage() {
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<AdminHomeData>({
@@ -36,8 +40,8 @@ export default function AdminHomePage() {
         ]);
         if (!active) return;
         setData({
-          pendingDecisions: decisions.meta.total,
-          workspaceCount: snapshot.meta.total,
+          pendingDecisions: decisions.meta?.total ?? decisions.data.length,
+          workspaceCount: snapshot.meta?.total ?? snapshot.data.length,
           activity,
         });
       } catch {
@@ -84,7 +88,13 @@ export default function AdminHomePage() {
           <Link to="/administration" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Administration overview</Link>
           <Link to="/administration/users" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Invite admin</Link>
           <Link to="/work" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open work</Link>
-          <Link to="/templates" className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Open templates</Link>
+          <button
+            type="button"
+            onClick={() => openTemplateCenter(undefined)}
+            className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Open templates
+          </button>
         </div>
       </section>
 

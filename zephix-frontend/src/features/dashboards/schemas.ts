@@ -11,6 +11,11 @@ const WIDGET_ALLOWLIST = [
   "program_summary",
   "budget_variance",
   "risk_summary",
+  "recent_projects",
+  "project_status_summary",
+  "upcoming_milestones",
+  "open_risks",
+  "documents_summary",
   "kpi",
   // Phase 2B: Waterfall core
   "critical_path_risk",
@@ -28,13 +33,64 @@ export const DashboardLayoutSchema = z.object({
   h: z.number().int().min(1).max(20),
 });
 
+export const DashboardWidgetConfigSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null()]),
+);
+
+export const WidgetDataSourceSchema = z.object({
+  kind: z.enum([
+    "kpi_cards",
+    "project_health_list",
+    "risk_summary",
+    "budget_summary",
+    "resource_utilization",
+    "recent_projects",
+    "project_status_summary",
+    "upcoming_milestones",
+    "open_risks",
+    "documents_summary",
+  ]),
+  metricKey: z.string().min(1).optional(),
+  projectId: z.string().uuid().optional(),
+});
+
+export const DashboardLayoutConfigSchema = z.object({
+  version: z.literal(1),
+  grid: z.object({
+    columns: z.literal(12),
+    rowHeight: z.number().int().min(16).max(96),
+  }),
+  widgets: z.array(
+    z.object({
+      id: z.string().uuid(),
+      type: z.enum([
+        "kpi_cards",
+        "project_health_list",
+        "risk_summary",
+        "budget_summary",
+        "resource_utilization",
+        "recent_projects",
+        "project_status_summary",
+        "upcoming_milestones",
+        "open_risks",
+        "documents_summary",
+      ]),
+      title: z.string().min(1).max(200),
+      layout: DashboardLayoutSchema,
+      config: DashboardWidgetConfigSchema,
+      dataSource: WidgetDataSourceSchema.optional(),
+    }),
+  ),
+});
+
 export const DashboardWidgetSchema = z.object({
   id: z.string().uuid(),
   type: WidgetTypeSchema,
   title: z.string().min(1).max(200),
   layout: DashboardLayoutSchema,
-  config: z.record(z.string(), z.any()),
-  dataSource: z.string().optional(),
+  config: DashboardWidgetConfigSchema,
+  dataSource: z.union([z.string(), WidgetDataSourceSchema]).optional(),
 });
 
 export const SharedDashboardWidgetSchema = z.object({
@@ -51,6 +107,8 @@ export const DashboardEntitySchema = z.object({
   description: z.string().optional(),
   visibility: DashboardVisibilitySchema,
   workspaceId: z.string().uuid(),
+  createdBy: z.string().uuid().optional(),
+  layoutConfig: DashboardLayoutConfigSchema.optional(),
   widgets: z.array(DashboardWidgetSchema),
   createdAt: z.string(),
   updatedAt: z.string(),

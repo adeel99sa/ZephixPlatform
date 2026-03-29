@@ -13,13 +13,21 @@ export type WidgetType =
   | "program_summary"
   | "budget_variance"
   | "risk_summary"
+  | "recent_projects"
+  | "project_status_summary"
+  | "upcoming_milestones"
+  | "open_risks"
+  | "documents_summary"
   | "kpi"
   // Phase 2B: Waterfall core
   | "critical_path_risk"
-  | "earned_value_summary";
+  | "earned_value_summary"
+  // KPI cards: Projects at risk (EVM), Overdue tasks
+  | "projects_at_risk"
+  | "overdue_tasks";
 
 export interface DashboardLayoutItem {
-  i: string; // widget id
+  i?: string; // widget id (optional in persisted layout)
   x: number;
   y: number;
   w: number;
@@ -42,12 +50,50 @@ export interface DashboardWidget {
   dataSource?: string;
 }
 
+export interface WidgetConfig {
+  [key: string]: string | number | boolean | null;
+}
+
+export interface WidgetDataSource {
+  kind:
+    | "kpi_cards"
+    | "project_health_list"
+    | "risk_summary"
+    | "budget_summary"
+    | "resource_utilization"
+    | "recent_projects"
+    | "project_status_summary"
+    | "upcoming_milestones"
+    | "open_risks"
+    | "documents_summary";
+  metricKey?: string;
+  projectId?: string;
+}
+
+export interface DashboardLayout {
+  version: 1;
+  grid: {
+    columns: 12;
+    rowHeight: number;
+  };
+  widgets: Array<{
+    id: string;
+    type: WidgetDataSource["kind"];
+    title: string;
+    layout: DashboardLayoutItem;
+    config: WidgetConfig;
+    dataSource?: WidgetDataSource;
+  }>;
+}
+
 export interface DashboardEntity {
   id: string;
   name: string;
   description?: string;
   visibility: DashboardVisibility;
   workspaceId: string;
+  createdBy?: string;
+  layoutConfig?: DashboardLayout;
   widgets: DashboardWidget[];
   createdAt: string;
   updatedAt: string;
@@ -98,5 +144,81 @@ export interface AIGenerateResponse {
     config: Record<string, any>;
     layout: { x: number; y: number; w: number; h: number };
   }>;
+}
+
+export type OperationalDashboardScope = "home" | "workspace";
+
+export type DashboardCardCategory =
+  | "featured"
+  | "tasks"
+  | "project-health"
+  | "resources"
+  | "governance"
+  | "ai-insights";
+
+export interface DashboardCardDefinition {
+  cardKey: string;
+  title: string;
+  description: string;
+  category: DashboardCardCategory;
+  supportedScopes: OperationalDashboardScope[];
+  defaultDisplayType: "metric" | "chart" | "table";
+  defaultSize: "small" | "medium" | "large";
+  drilldownRouteTemplate: string;
+  resolverKey: string;
+}
+
+export interface DashboardCardData {
+  cardKey: string;
+  scopeType: OperationalDashboardScope;
+  scopeId: string;
+  summary: {
+    primaryValue: number;
+    secondaryLabel?: string;
+    secondaryValue?: number;
+  };
+  displayData: Record<string, unknown>;
+  drilldown: {
+    route: string;
+  };
+  generatedFromTimestamp: string;
+}
+
+export interface DashboardCardInstance {
+  id: string;
+  cardKey: string;
+  title: string;
+  displayType: "metric" | "chart" | "table";
+  size: "small" | "medium" | "large";
+  data: DashboardCardData;
+}
+
+export interface OperationalDashboardResponse {
+  id: string;
+  scopeType: OperationalDashboardScope;
+  scopeId: string;
+  title: string;
+  cards: DashboardCardInstance[];
+}
+
+export interface DashboardCardsCatalogResponse {
+  home: Record<DashboardCardCategory, DashboardCardDefinition[]>;
+  workspace: Record<DashboardCardCategory, DashboardCardDefinition[]>;
+}
+
+export interface CardAdvisoryResponse {
+  advisoryType: string | null;
+  cardKey: string;
+  summary: string;
+  drivers: string[];
+  visibilityScope: "full" | "project_only" | "viewer_restricted";
+  affectedEntityCount: number;
+  affectedEntities: Array<{
+    type: "project" | "program" | "portfolio";
+    id: string;
+    name: string;
+  }>;
+  recommendedActions: string[];
+  generatedFromTimestamp: string | null;
 }
 

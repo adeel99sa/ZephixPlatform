@@ -2,4 +2,10 @@
  * Project layout components
  */
 
-export { ProjectPageLayout, ProjectContext, useProjectContext } from './ProjectPageLayout';
+export {
+  ProjectPageContextProvider,
+  ProjectPageContextBody,
+  ProjectContext,
+  useProjectContext,
+} from './ProjectPageContext';
+export type { ProjectContextValue } from './ProjectPageContext';

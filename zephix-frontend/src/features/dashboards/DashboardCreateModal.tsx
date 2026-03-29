@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { X } from "lucide-react";
+import { createDashboard } from "./api";
 
 interface DashboardCreateModalProps {
   open: boolean;
@@ -16,8 +17,9 @@ interface Template {
 
 export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProps) {
   const navigate = useNavigate();
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const [name, setName] = useState("");
-  const [visibility, setVisibility] = useState<"workspace" | "private">("workspace");
+  const [visibility, setVisibility] = useState<"WORKSPACE" | "PRIVATE">("WORKSPACE");
   const [scope, setScope] = useState<"workspace" | "org">("workspace");
   const [startWith, setStartWith] = useState<"blank" | "template">("blank");
   const [templateId, setTemplateId] = useState<string>("");
@@ -34,7 +36,9 @@ export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProp
 
   const loadTemplates = async () => {
     try {
-      const response = await api.get(`/api/templates?scope=${scope}`);
+      const response = await api.get(`/templates`, {
+        params: { mode: 'mvp' },
+      });
       setTemplates(response.data?.data || []);
     } catch (error) {
       console.error("Failed to load templates:", error);
@@ -49,22 +53,65 @@ export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProp
     setError(null);
 
     try {
-      const payload = {
+      const payload: Parameters<typeof createDashboard>[0] & {
+        scope: "workspace" | "org";
+        templateId?: string;
+      } = {
         name: name.trim(),
         visibility,
         scope,
+        layoutConfig: {
+          version: 1 as const,
+          grid: { columns: 12 as const, rowHeight: 32 },
+          widgets: [
+            {
+              id: crypto.randomUUID(),
+              type: "recent_projects",
+              title: "Recent Projects",
+              layout: { i: crypto.randomUUID(), x: 0, y: 0, w: 6, h: 4 },
+              config: {},
+            },
+            {
+              id: crypto.randomUUID(),
+              type: "project_status_summary",
+              title: "Project Status Summary",
+              layout: { i: crypto.randomUUID(), x: 6, y: 0, w: 6, h: 4 },
+              config: {},
+            },
+            {
+              id: crypto.randomUUID(),
+              type: "upcoming_milestones",
+              title: "Upcoming Milestones",
+              layout: { i: crypto.randomUUID(), x: 0, y: 4, w: 4, h: 4 },
+              config: {},
+            },
+            {
+              id: crypto.randomUUID(),
+              type: "open_risks",
+              title: "Open Risks",
+              layout: { i: crypto.randomUUID(), x: 4, y: 4, w: 4, h: 4 },
+              config: {},
+            },
+            {
+              id: crypto.randomUUID(),
+              type: "documents_summary",
+              title: "Documents Summary",
+              layout: { i: crypto.randomUUID(), x: 8, y: 4, w: 4, h: 4 },
+              config: {},
+            },
+          ],
+        },
         templateId: startWith === "template" ? templateId : undefined,
       };
 
-      const response = await api.post("/api/dashboards", payload, {
-        headers: {
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-      });
+      if (!workspaceId) {
+        throw new Error("Workspace context is required");
+      }
 
-      const dashboardId = response.data?.data?.id;
+      const created = await createDashboard(payload, workspaceId);
+      const dashboardId = created?.id;
       if (dashboardId) {
-        navigate(`/dashboards/${dashboardId}/edit`);
+        navigate(`/workspaces/${workspaceId}/dashboard/${dashboardId}/edit`);
         onClose();
       }
     } catch (err: any) {
@@ -76,7 +123,7 @@ export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProp
 
   const handleClose = () => {
     setName("");
-    setVisibility("workspace");
+    setVisibility("WORKSPACE");
     setScope("workspace");
     setStartWith("blank");
     setTemplateId("");
@@ -134,11 +181,11 @@ export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProp
                 id="dashboard-visibility"
                 data-testid="dashboard-visibility"
                 value={visibility}
-                onChange={(e) => setVisibility(e.target.value as "workspace" | "private")}
+                onChange={(e) => setVisibility(e.target.value as "WORKSPACE" | "PRIVATE")}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                <option value="workspace">Workspace</option>
-                <option value="private">Private</option>
+                <option value="WORKSPACE">Workspace</option>
+                <option value="PRIVATE">Private</option>
               </select>
             </div>
 

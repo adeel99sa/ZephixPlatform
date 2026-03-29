@@ -32,7 +32,7 @@ vi.mock('@/hooks/useWorkspaceRole', () => ({
   useWorkspaceRole: vi.fn(() => ({ canWrite: true, isReadOnly: false })),
 }));
 
-vi.mock('../../layout/ProjectPageLayout', () => ({
+vi.mock('../../layout/ProjectPageContext', () => ({
   useProjectContext: vi.fn(() => ({
     project: { id: 'proj-1', workspaceRole: 'workspace_owner' },
     refresh: vi.fn(),
@@ -64,6 +64,22 @@ vi.mock('../../components/BaselinePanel', () => ({
 
 vi.mock('../../components/EarnedValuePanel', () => ({
   EarnedValuePanel: () => null,
+}));
+
+vi.mock('../ProjectTasksTab', () => ({
+  ProjectTasksTab: () => null,
+}));
+
+vi.mock('../ProjectBoardTab', () => ({
+  ProjectBoardTab: () => null,
+}));
+
+vi.mock('../ProjectGanttTab', () => ({
+  ProjectGanttTab: () => null,
+}));
+
+vi.mock('../ProjectCalendarTab', () => ({
+  ProjectCalendarTab: () => null,
 }));
 
 describe('ProjectOverviewTab runtime safety', () => {

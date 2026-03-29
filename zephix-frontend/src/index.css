@@ -94,6 +94,122 @@
 }
 
 @layer components {
+  .zs-page-header {
+    @apply rounded-xl border bg-white px-5 py-4;
+    border-color: var(--zs-color-border);
+    box-shadow: var(--zs-shadow-card);
+  }
+
+  .zs-page-title {
+    color: var(--zs-color-text);
+    font-size: var(--zs-font-page-title);
+    line-height: 1.2;
+    font-weight: 600;
+  }
+
+  .zs-page-subtitle {
+    @apply mt-1;
+    color: var(--zs-color-text-muted);
+    font-size: var(--zs-font-secondary);
+  }
+
+  .zs-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .zs-btn-primary {
+    @apply zs-btn text-white;
+    background: var(--zs-color-primary);
+  }
+  .zs-btn-primary:hover {
+    background: #2158c9;
+  }
+  .zs-btn-secondary {
+    @apply zs-btn border bg-white;
+    border-color: var(--zs-color-border);
+    color: var(--zs-color-text);
+  }
+  .zs-btn-secondary:hover {
+    @apply bg-slate-50;
+  }
+  .zs-btn-ghost {
+    @apply zs-btn text-slate-700;
+  }
+  .zs-btn-ghost:hover {
+    @apply bg-slate-100;
+  }
+  .zs-btn-danger {
+    @apply zs-btn text-white;
+    background: #dc2626;
+  }
+  .zs-btn-danger:hover {
+    background: #b91c1c;
+  }
+  .zs-icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors;
+  }
+  .zs-icon-btn:hover {
+    @apply bg-slate-100 text-slate-700;
+  }
+
+  .zs-badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .zs-badge-ready,
+  .zs-badge-approved,
+  .zs-badge-success {
+    @apply zs-badge bg-emerald-50 text-emerald-700;
+  }
+  .zs-badge-blocked,
+  .zs-badge-warning,
+  .zs-badge-submitted,
+  .zs-badge-at-risk {
+    @apply zs-badge bg-amber-50 text-amber-700;
+  }
+  .zs-badge-danger,
+  .zs-badge-rejected {
+    @apply zs-badge bg-rose-50 text-rose-700;
+  }
+  .zs-badge-neutral,
+  .zs-badge-draft,
+  .zs-badge-open,
+  .zs-badge-on-track,
+  .zs-badge-closed {
+    @apply zs-badge bg-slate-100 text-slate-700;
+  }
+
+  .zs-state {
+    @apply rounded-xl border p-6;
+    border-color: var(--zs-color-border);
+    background: var(--zs-color-surface-elevated);
+  }
+  .zs-state-warning {
+    @apply rounded-xl border p-3;
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+  .zs-state-error {
+    @apply rounded-xl border p-4;
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+
+  .zs-table {
+    @apply w-full text-left text-sm;
+  }
+  .zs-table thead tr {
+    @apply border-b border-slate-200 bg-slate-50;
+  }
+  .zs-table th {
+    @apply px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600;
+  }
+  .zs-table td {
+    @apply px-3 py-2 text-slate-700;
+  }
+  .zs-table tbody tr {
+    @apply border-b border-slate-100;
+  }
+  .zs-table tbody tr:hover {
+    @apply bg-slate-50;
+  }
+
   /* Dark hero and footer helpers */
   .hero-bg {
     background: var(--hero);

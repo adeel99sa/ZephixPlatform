@@ -9,10 +9,14 @@ import { projectsApi, ProjectDetail } from '@/features/projects/projects.api';
 import { FolderKanban, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button/Button';
 import { useAuth } from '@/state/AuthContext';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 
 export default function WorkspaceProjectsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<ProjectDetail[]>([]);
@@ -85,21 +89,23 @@ export default function WorkspaceProjectsPage() {
           <FolderKanban className="h-5 w-5 text-gray-700" />
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
         </div>
-        <Link to="/templates">
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Project
-          </Button>
-        </Link>
+        <Button
+          type="button"
+          className="flex items-center gap-2"
+          onClick={() => id && openTemplateCenter(id)}
+        >
+          <Plus className="h-4 w-4" />
+          New Project
+        </Button>
       </div>
 
       {projects.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
           <FolderKanban className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">No projects in this workspace yet.</p>
-          <Link to="/templates">
-            <Button>Create Project from Template</Button>
-          </Link>
+          <Button type="button" onClick={() => id && openTemplateCenter(id)}>
+            Create Project from Template
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,12 +1,14 @@
 // Phase 4.3: Dashboard API Client with Workspace Header Enforcement
 import { api } from "@/lib/api";
 import { getWorkspaceHeader, WorkspaceRequiredError } from "./workspace-header";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import {
   DashboardEntitySchema,
   DashboardTemplateSchema,
   AISuggestResponseSchema,
   AIGenerateResponseSchema,
   SharedDashboardSchema,
+  DashboardLayoutConfigSchema,
 } from "./schemas";
 import type {
   DashboardEntity,
@@ -14,6 +16,9 @@ import type {
   AISuggestResponse,
   AIGenerateResponse,
   SharedDashboardEntity,
+  DashboardCardsCatalogResponse,
+  OperationalDashboardResponse,
+  CardAdvisoryResponse,
 } from "./types";
 
 // Legacy type for backward compatibility
@@ -41,13 +46,20 @@ function getHeaders(additionalHeaders?: Record<string, string>): Record<string, 
   };
 }
 
+function resolveWorkspaceId(workspaceId?: string): string {
+  if (workspaceId) return workspaceId;
+  const activeWorkspaceId = useWorkspaceStore.getState().activeWorkspaceId;
+  if (!activeWorkspaceId) throw new WorkspaceRequiredError();
+  return activeWorkspaceId;
+}
+
 /**
  * Fetch a single dashboard by ID
  * Includes x-workspace-id header and validates response with zod
  */
 export async function fetchDashboard(id: string): Promise<DashboardEntity> {
   try {
-    const response = await api.get(`/api/dashboards/${id}`, {
+    const response = await api.get(`/dashboards/${id}`, {
       headers: getHeaders(),
     });
 
@@ -72,8 +84,9 @@ export async function fetchDashboard(id: string): Promise<DashboardEntity> {
  * List all dashboards
  * Includes x-workspace-id header
  */
-export async function listDashboards(): Promise<DashboardEntity[]> {
-  const response = await api.get(`/api/dashboards`, {
+export async function listDashboards(workspaceId?: string): Promise<DashboardEntity[]> {
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const response = await api.get(`/workspaces/${resolvedWorkspaceId}/dashboards`, {
     headers: getHeaders(),
   });
 
@@ -91,8 +104,18 @@ export async function listDashboards(): Promise<DashboardEntity[]> {
  * Create a new dashboard
  * Includes x-workspace-id header
  */
-export async function createDashboard(payload: Partial<DashboardEntity>): Promise<DashboardEntity> {
-  const response = await api.post(`/api/dashboards`, payload, {
+export async function createDashboard(
+  payload: Partial<DashboardEntity>,
+  workspaceId?: string,
+): Promise<DashboardEntity> {
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const normalizedPayload = { ...payload };
+  if (normalizedPayload.layoutConfig !== undefined) {
+    normalizedPayload.layoutConfig = DashboardLayoutConfigSchema.parse(
+      normalizedPayload.layoutConfig,
+    );
+  }
+  const response = await api.post(`/workspaces/${resolvedWorkspaceId}/dashboards`, normalizedPayload, {
     headers: getHeaders({
       "Idempotency-Key": crypto.randomUUID(),
     }),
@@ -110,12 +133,18 @@ export async function patchDashboard(
   payload: Partial<DashboardEntity>,
   etag?: string
 ): Promise<DashboardEntity> {
+  const normalizedPayload = { ...payload };
+  if (normalizedPayload.layoutConfig !== undefined) {
+    normalizedPayload.layoutConfig = DashboardLayoutConfigSchema.parse(
+      normalizedPayload.layoutConfig,
+    );
+  }
   const headers: Record<string, string> = getHeaders();
   if (etag) {
     headers["If-Match"] = etag;
   }
 
-  const response = await api.patch(`/api/dashboards/${id}`, payload, { headers });
+  const response = await api.patch(`/dashboards/${id}`, normalizedPayload, { headers });
   return DashboardEntitySchema.parse(response) as DashboardEntity;
 }
 
@@ -124,7 +153,7 @@ export async function patchDashboard(
  * Includes x-workspace-id header
  */
 export async function deleteDashboard(id: string): Promise<void> {
-  await api.delete(`/api/dashboards/${id}`, {
+  await api.delete(`/dashboards/${id}`, {
     headers: getHeaders(),
   });
 }
@@ -134,7 +163,7 @@ export async function deleteDashboard(id: string): Promise<void> {
  * Includes x-workspace-id header
  */
 export async function duplicateDashboard(id: string): Promise<DashboardEntity> {
-  const response = await api.post(`/api/dashboards/${id}/duplicate`, {}, {
+  const response = await api.post(`/dashboards/${id}/duplicate`, {}, {
     headers: getHeaders(),
   });
   return DashboardEntitySchema.parse(response) as DashboardEntity;
@@ -145,7 +174,7 @@ export async function duplicateDashboard(id: string): Promise<DashboardEntity> {
  * Includes x-workspace-id header
  */
 export async function restoreDashboard(id: string): Promise<DashboardEntity> {
-  const response = await api.post(`/api/dashboards/${id}/restore`, {}, {
+  const response = await api.post(`/dashboards/${id}/restore`, {}, {
     headers: getHeaders(),
   });
   return DashboardEntitySchema.parse(response) as DashboardEntity;
@@ -156,7 +185,7 @@ export async function restoreDashboard(id: string): Promise<DashboardEntity> {
  * Includes x-workspace-id header
  */
 export async function listTemplates(): Promise<DashboardTemplate[]> {
-  const response = await api.get(`/api/dashboards/templates`, {
+  const response = await api.get(`/dashboards/templates`, {
     headers: getHeaders(),
   });
 
@@ -175,7 +204,7 @@ export async function listTemplates(): Promise<DashboardTemplate[]> {
  */
 export async function activateTemplate(templateKey: string): Promise<DashboardEntity> {
   const response = await api.post(
-    `/api/dashboards/activate-template`,
+    `/dashboards/activate-template`,
     { templateKey },
     {
       headers: getHeaders(),
@@ -193,7 +222,7 @@ export async function activateTemplate(templateKey: string): Promise<DashboardEn
 export async function aiSuggest(prompt: string, persona?: string): Promise<AISuggestResponse> {
   // Backend requires persona enum. Map prompt keywords to persona or use provided/default
   // Persona enum values: RESOURCE_MANAGER, PMO, EXEC, PROGRAM_MANAGER, PROJECT_MANAGER, DELIVERY_LEAD
-  let mappedPersona = persona || "PMO"; // Default to PMO
+  let mappedPersona = persona || "PROJECT_MANAGER"; // Neutral default; backend enum includes PMO when explicitly selected
 
   // Simple keyword-based mapping from prompt
   const promptLower = prompt.toLowerCase();
@@ -210,7 +239,7 @@ export async function aiSuggest(prompt: string, persona?: string): Promise<AISug
   }
 
   const response = await api.post(
-    `/api/ai/dashboards/suggest`,
+    `/ai/dashboards/suggest`,
     { persona: mappedPersona },
     {
       headers: getHeaders(),
@@ -229,7 +258,7 @@ export async function aiSuggest(prompt: string, persona?: string): Promise<AISug
  */
 export async function aiGenerate(prompt: string, persona?: string): Promise<AIGenerateResponse> {
   const response = await api.post(
-    `/api/ai/dashboards/generate`,
+    `/ai/dashboards/generate`,
     { prompt, persona },
     {
       headers: getHeaders(),
@@ -247,7 +276,7 @@ export async function aiGenerate(prompt: string, persona?: string): Promise<AIGe
  * Returns share URL path (relative path, not full URL)
  */
 export async function enableShare(dashboardId: string, expiresAt?: string): Promise<{ shareUrlPath: string }> {
-  const response = await api.post(`/api/dashboards/${dashboardId}/share-enable`, { expiresAt }, {
+  const response = await api.post(`/dashboards/${dashboardId}/share-enable`, { expiresAt }, {
     headers: getHeaders(),
   });
   const rawResponse = response as { data?: { shareUrlPath: string }; shareUrlPath?: string };
@@ -258,7 +287,7 @@ export async function enableShare(dashboardId: string, expiresAt?: string): Prom
  * Disable sharing for a dashboard
  */
 export async function disableShare(dashboardId: string): Promise<void> {
-  await api.post(`/api/dashboards/${dashboardId}/share-disable`, {}, {
+  await api.post(`/dashboards/${dashboardId}/share-disable`, {}, {
     headers: getHeaders(),
   });
 }
@@ -267,10 +296,73 @@ export async function disableShare(dashboardId: string): Promise<void> {
  * Fetch dashboard using share token (public access, no JWT required)
  */
 export async function fetchDashboardPublic(dashboardId: string, shareToken: string): Promise<SharedDashboardEntity> {
-  const response = await api.get(`/api/dashboards/${dashboardId}`, {
+  const response = await api.get(`/dashboards/${dashboardId}`, {
     params: { share: shareToken },
     // No Authorization header, no workspace header
   });
   const rawResponse = response as { data?: unknown };
   return SharedDashboardSchema.parse(rawResponse.data || response) as SharedDashboardEntity;
+}
+
+export async function getHomeOperationalDashboard(): Promise<OperationalDashboardResponse> {
+  const response = await api.get("/dashboard/home");
+  const rawResponse = response as { data?: unknown };
+  return (rawResponse.data || response) as OperationalDashboardResponse;
+}
+
+export async function getWorkspaceOperationalDashboard(
+  workspaceId: string,
+): Promise<OperationalDashboardResponse> {
+  const response = await api.get(`/workspaces/${workspaceId}/dashboard`, {
+    headers: { "x-workspace-id": workspaceId },
+  });
+  const rawResponse = response as { data?: unknown };
+  return (rawResponse.data || response) as OperationalDashboardResponse;
+}
+
+export async function getDashboardCardsCatalog(): Promise<DashboardCardsCatalogResponse> {
+  const response = await api.get("/dashboard/cards/catalog");
+  const rawResponse = response as { data?: unknown };
+  return (rawResponse.data || response) as DashboardCardsCatalogResponse;
+}
+
+export async function addHomeDashboardCard(cardKey: string): Promise<void> {
+  await api.post("/dashboard/home/cards", { cardKey });
+}
+
+export async function removeHomeDashboardCard(cardKey: string): Promise<void> {
+  await api.delete(`/dashboard/home/cards/${cardKey}`);
+}
+
+export async function addWorkspaceDashboardCard(
+  workspaceId: string,
+  cardKey: string,
+): Promise<void> {
+  await api.post(`/workspaces/${workspaceId}/dashboard/cards`, { cardKey }, {
+    headers: { "x-workspace-id": workspaceId },
+  });
+}
+
+export async function removeWorkspaceDashboardCard(
+  workspaceId: string,
+  cardKey: string,
+): Promise<void> {
+  await api.delete(`/workspaces/${workspaceId}/dashboard/cards/${cardKey}`, {
+    headers: { "x-workspace-id": workspaceId },
+  });
+}
+
+export async function getCardAdvisory(params: {
+  cardKey: string;
+  workspaceId: string;
+}): Promise<CardAdvisoryResponse> {
+  const { cardKey, workspaceId } = params;
+  const response = await api.get(
+    `/workspaces/${workspaceId}/ai/advisory/card/${cardKey}`,
+    {
+      headers: { "x-workspace-id": workspaceId },
+    },
+  );
+  const rawResponse = response as { data?: unknown };
+  return (rawResponse.data || response) as CardAdvisoryResponse;
 }

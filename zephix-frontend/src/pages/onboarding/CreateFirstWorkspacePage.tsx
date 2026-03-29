@@ -6,7 +6,7 @@ import { Zap, Building2, ArrowRight } from 'lucide-react';
 
 export default function CreateFirstWorkspacePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshMe } = useAuth();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +21,18 @@ export default function CreateFirstWorkspacePage() {
     setSubmitting(true);
     setError(null);
     try {
+      if (!user?.organizationId) {
+        const res = await api.post('/workspaces/onboarding', {
+          workspaceName: name.trim(),
+        });
+        const envelope = res.data as { data?: { workspaceSlug?: string } };
+        const payload = envelope?.data ?? (res.data as { workspaceSlug?: string });
+        const slug = payload.workspaceSlug || 'home';
+        await refreshMe?.();
+        navigate(`/w/${slug}/home`, { replace: true });
+        return;
+      }
+
       const slug = name
         .trim()
         .toLowerCase()

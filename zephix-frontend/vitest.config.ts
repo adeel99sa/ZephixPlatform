@@ -23,6 +23,8 @@ export default defineConfig({
       '**/*.spec.pw.*',
       '**/*.spec.e2e.*',
       '**/*.e2e.spec.*',
+      /** Pre–V3 marketing components; run with `npm run test:landing:legacy` */
+      'src/components/landing/legacy/**',
     ],
     coverage: {
       provider: 'v8',
@@ -32,6 +34,7 @@ export default defineConfig({
         'src/test/',
         '**/*.d.ts',
         '**/*.config.*',
+        'src/components/landing/legacy/**',
       ],
     },
   },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { api, unwrapApiData } from '@/lib/api';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 
 type Props = {
   workspaceId: string;
@@ -21,6 +22,9 @@ function getId(x: any): string | null {
 
 export function WorkspaceQuickAddMenu({ workspaceId, onClose }: Props) {
   const nav = useNavigate();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const [open, setOpen] = useState(true);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,7 +76,7 @@ export function WorkspaceQuickAddMenu({ workspaceId, onClose }: Props) {
 
   function openTemplates() {
     onClose();
-    nav('/templates');
+    openTemplateCenter(workspaceId);
   }
 
   if (!open) return null;

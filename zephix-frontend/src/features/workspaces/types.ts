@@ -4,6 +4,12 @@ export type Workspace = {
   slug: string;
   organizationId: string;
   description?: string;
+  defaultMethodology?: string | null;
+  businessUnitLabel?: string | null;
+  defaultTemplateId?: string | null;
+  inheritOrgDefaultTemplate?: boolean;
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+  allowedTemplateIds?: string[] | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

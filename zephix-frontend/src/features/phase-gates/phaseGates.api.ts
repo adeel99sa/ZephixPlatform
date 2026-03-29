@@ -8,6 +8,18 @@ import { request } from '@/lib/api';
 export type GateDefinitionStatus = 'ACTIVE' | 'DISABLED';
 export type GateSubmissionStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
+/** Mirrors backend `GateReviewState` (phase_gate_definitions.review_state). */
+export type GateReviewState =
+  | 'NOT_STARTED'
+  | 'AWAITING_CONDITIONS'
+  | 'READY_FOR_REVIEW'
+  | 'IN_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'LOCKED'
+  /** If API ever sends a generic post-decision state */
+  | 'DECIDED';
+
 export interface RequiredDocumentsConfig {
   requiredCount?: number | null;
   requiredTags?: string[] | null;
@@ -33,6 +45,16 @@ export interface GateDefinition {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  /** Progressive governance lifecycle (GET .../phases/:phaseId/gate). */
+  reviewState?: GateReviewState;
+  currentCycleId?: string | null;
+  currentCycle?: {
+    id: string;
+    cycleNumber: number;
+    cycleState: string;
+  } | null;
+  /** C-8: Open PENDING gate conditions on active cycle — backend only. */
+  blockedByConditionsCount?: number;
 }
 
 export interface GateSubmission {
@@ -98,6 +120,20 @@ export async function getGateDefinition(
     `/work/projects/${projectId}/phases/${phaseId}/gate`,
   );
   return unwrap<GateDefinition | null>(resp);
+}
+
+/**
+ * C-7: Read-only governance record (cycle history). **Sole** API for gate audit/history UI;
+ * do not compose history from `getGateDefinition` or project approvals list.
+ */
+export async function getGateRecord(
+  projectId: string,
+  phaseId: string,
+): Promise<unknown | null> {
+  const resp = await request.get<unknown>(
+    `/work/projects/${projectId}/phases/${phaseId}/gate/record`,
+  );
+  return unwrap<unknown | null>(resp);
 }
 
 export async function upsertGateDefinition(

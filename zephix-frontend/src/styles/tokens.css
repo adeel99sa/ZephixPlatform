@@ -1,6 +1,41 @@
 /* Design Tokens for Zephix Frontend */
 
 :root {
+  /* Semantic design-system tokens (MVP) */
+  --zs-color-primary: #2f6fed;
+  --zs-color-secondary: #475569;
+  --zs-color-neutral: #64748b;
+  --zs-color-success: #15803d;
+  --zs-color-warning: #b45309;
+  --zs-color-danger: #b91c1c;
+  --zs-color-info: #1d4ed8;
+  --zs-color-surface: #f5f7fa;
+  --zs-color-surface-elevated: #ffffff;
+  --zs-color-border: #dbe2ea;
+  --zs-color-text: #0f172a;
+  --zs-color-text-muted: #64748b;
+
+  --zs-font-page-title: 1.5rem;
+  --zs-font-section-title: 1rem;
+  --zs-font-card-title: 0.875rem;
+  --zs-font-body: 0.875rem;
+  --zs-font-secondary: 0.8125rem;
+  --zs-font-caption: 0.75rem;
+
+  --zs-space-xs: 0.25rem;
+  --zs-space-sm: 0.5rem;
+  --zs-space-md: 0.75rem;
+  --zs-space-lg: 1rem;
+  --zs-space-xl: 1.5rem;
+
+  --zs-radius-sm: 0.375rem;
+  --zs-radius-md: 0.625rem;
+  --zs-radius-lg: 0.875rem;
+
+  --zs-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --zs-shadow-modal: 0 16px 40px rgba(15, 23, 42, 0.18);
+  --zs-shadow-popover: 0 8px 24px rgba(15, 23, 42, 0.12);
+
   /* Colors - Primary Palette */
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
@@ -109,9 +144,112 @@
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
   --transition-slow: 350ms ease-in-out;
+
+  /* UI/UX System Architect — 8px Grid & Layout Constants */
+  --color-primary: #2563eb;
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --border-subtle: #e2e8f0;
+  --radius-std: 8px;
+  --shadow-card-elevated: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-modal-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Adaptive Context — z-* Token System (Single Source of Truth) */
+  --z-gray-0: #ffffff;
+  --z-gray-50: #f8fafc;
+  --z-gray-100: #f1f5f9;
+  --z-gray-200: #e2e8f0;
+  --z-gray-300: #cbd5e1;
+  --z-gray-400: #94a3b8;
+  --z-gray-500: #64748b;
+  --z-gray-600: #475569;
+  --z-gray-700: #334155;
+  --z-gray-800: #1e293b;
+  --z-gray-900: #0f172a;
+  --z-gray-950: #020617;
+  --z-blue-50: #eff6ff;
+  --z-blue-100: #dbeafe;
+  --z-blue-200: #bfdbfe;
+  --z-blue-400: #60a5fa;
+  --z-blue-500: #3b82f6;
+  --z-blue-600: #2563eb;
+  --z-blue-700: #1d4ed8;
+  --z-indigo-500: #6366f1;
+  --z-bg-base: var(--z-gray-0);
+  --z-bg-elevated: var(--z-gray-0);
+  --z-bg-sunken: var(--z-gray-50);
+  --z-bg-hover: var(--z-gray-50);
+  --z-bg-active: var(--z-gray-100);
+  --z-bg-selected: var(--z-blue-50);
+  --z-text-primary: var(--z-gray-900);
+  --z-text-secondary: var(--z-gray-500);
+  --z-text-tertiary: var(--z-gray-400);
+  --z-text-inverse: var(--z-gray-0);
+  --z-text-brand: var(--z-blue-600);
+  --z-border-default: var(--z-gray-200);
+  --z-border-strong: var(--z-gray-300);
+  --z-border-brand: var(--z-blue-200);
+  --z-button-primary-bg: var(--z-blue-600);
+  --z-button-primary-bg-hover: var(--z-blue-700);
+  --z-button-primary-text: var(--z-gray-0);
+  --z-button-secondary-bg: var(--z-gray-100);
+  --z-button-secondary-bg-hover: var(--z-gray-200);
+  --z-button-secondary-text: var(--z-gray-700);
+  --z-sidebar-bg: var(--z-gray-50);
+  --z-sidebar-border: var(--z-gray-200);
+  --z-sidebar-item-hover: var(--z-gray-100);
+  --z-sidebar-item-active: var(--z-gray-200);
+  --z-space-0: 0px;
+  --z-space-1: 4px;
+  --z-space-2: 8px;
+  --z-space-3: 12px;
+  --z-space-4: 16px;
+  --z-space-5: 24px;
+  --z-space-6: 32px;
+  --z-space-7: 48px;
+  --z-space-8: 64px;
+  --z-radius-sm: 4px;
+  --z-radius-md: 8px;
+  --z-radius-lg: 12px;
+  --z-radius-xl: 16px;
+  --z-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --z-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.03);
+  --z-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.03);
+  --z-duration-fast: 150ms;
+  --z-duration-normal: 250ms;
+  --z-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --z-easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark Mode Variables */
+/* Adaptive Context — Dark Mode (data-theme="dark" on root element) */
+[data-theme="dark"] {
+  --z-bg-base: var(--z-gray-950);
+  --z-bg-elevated: var(--z-gray-900);
+  --z-bg-sunken: #0a0f1d;
+  --z-bg-hover: var(--z-gray-800);
+  --z-bg-active: var(--z-gray-700);
+  --z-bg-selected: rgba(59, 130, 246, 0.15);
+  --z-text-primary: var(--z-gray-100);
+  --z-text-secondary: var(--z-gray-400);
+  --z-text-tertiary: var(--z-gray-500);
+  --z-text-brand: var(--z-blue-400);
+  --z-border-default: var(--z-gray-800);
+  --z-border-strong: var(--z-gray-700);
+  --z-button-primary-bg: var(--z-blue-600);
+  --z-button-primary-bg-hover: var(--z-blue-500);
+  --z-button-secondary-bg: var(--z-gray-800);
+  --z-button-secondary-bg-hover: var(--z-gray-700);
+  --z-button-secondary-text: var(--z-gray-200);
+  --z-sidebar-bg: var(--z-gray-900);
+  --z-sidebar-border: var(--z-gray-800);
+  --z-sidebar-item-hover: var(--z-gray-800);
+  --z-sidebar-item-active: var(--z-gray-700);
+}
+
+/* Dark Mode Variables (legacy prefers-color-scheme) */
 @media (prefers-color-scheme: dark) {
   :root {
     --color-primary-50: #1e3a8a;

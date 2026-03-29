@@ -10,7 +10,7 @@ import { useParams } from 'react-router-dom';
 import { Plus, X, Send, Check, XCircle, Wrench, Trash2 } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useProjectContext } from '../layout/ProjectPageLayout';
+import { useProjectContext } from '../layout/ProjectPageContext';
 import {
   listChangeRequests,
   createChangeRequest,

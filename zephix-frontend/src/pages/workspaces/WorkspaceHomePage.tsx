@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { getWorkspace, getWorkspaceSummary, updateWorkspace, Workspace, WorkspaceSummary } from "@/features/workspaces/api";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import { toast } from "sonner";
 import { useWorkspaceVisitTracker } from "@/hooks/useWorkspaceVisitTracker";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { useTemplateCenterModalStore } from "@/state/templateCenterModal.store";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
   const { setActiveWorkspace } = useWorkspaceStore();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const navigate = useNavigate();
   const { role, canWrite } = useWorkspaceRole(workspaceId);
   const [ws, setWs] = useState<Workspace | null>(null);
@@ -71,28 +75,28 @@ export default function WorkspaceHomePage() {
   if (!workspaceId) {
     return (
       <div className="p-6">
-        <div className="text-lg font-semibold">Workspace not found</div>
-        <Link className="text-blue-600" to="/workspaces">Back to workspaces</Link>
+        <div className="text-lg font-semibold text-[#1F2937]">Workspace not found</div>
+        <Link className="text-[#2F6FED]" to="/workspaces">Back to workspaces</Link>
       </div>
     );
   }
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return <div className="p-6 text-[#6B7280]">Loading...</div>;
   }
 
   if (err) {
     return (
       <div className="p-6">
-        <div className="text-lg font-semibold">Error</div>
-        <div className="mt-2 text-sm text-muted-foreground">{err}</div>
+        <div className="text-lg font-semibold text-[#1F2937]">Error</div>
+        <div className="mt-2 text-sm text-[#6B7280]">{err}</div>
         <button
           onClick={loadData}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="mt-4 rounded px-4 py-2 bg-[#2F6FED] text-white hover:bg-[#1F5EDC]"
         >
           Retry
         </button>
-        <Link className="mt-4 ml-4 inline-block text-blue-600" to="/workspaces">Back to workspaces</Link>
+        <Link className="mt-4 ml-4 inline-block text-[#2F6FED]" to="/workspaces">Back to workspaces</Link>
       </div>
     );
   }
@@ -104,18 +108,20 @@ export default function WorkspaceHomePage() {
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
 
   return (
-    <div className="p-6">
-      <div className="text-2xl font-semibold">{ws.name}</div>
-      <div className="mt-2 text-sm text-muted-foreground">Workspace home</div>
+    <div className="space-y-4 p-6">
+      <div>
+        <div className="text-2xl font-semibold text-[#1F2937]">{ws.name}</div>
+        <div className="mt-1 text-sm text-[#6B7280]">Workspace home</div>
+      </div>
 
       {/* About Section */}
-      <div className="mt-6 rounded-lg border p-4">
+      <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="font-medium">About</div>
+          <div className="font-medium text-[#1F2937]">About</div>
           {isOwnerOrAdmin && !editingAbout && (
             <button
               onClick={() => setEditingAbout(true)}
-              className="text-sm text-blue-600 hover:text-blue-700"
+              className="text-sm text-[#2F6FED] hover:text-[#1F5EDC]"
             >
               Edit
             </button>
@@ -126,7 +132,7 @@ export default function WorkspaceHomePage() {
             <textarea
               value={aboutText}
               onChange={(e) => setAboutText(e.target.value)}
-              className="w-full p-2 border rounded text-sm"
+              className="w-full rounded border border-[#E2E6EA] p-2 text-sm"
               rows={3}
               placeholder="Add a short intro for your team"
             />
@@ -134,7 +140,7 @@ export default function WorkspaceHomePage() {
               <button
                 onClick={handleSaveAbout}
                 disabled={savingAbout}
-                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                className="rounded bg-[#2F6FED] px-3 py-1 text-sm text-white hover:bg-[#1F5EDC] disabled:opacity-50"
               >
                 {savingAbout ? "Saving..." : "Save"}
               </button>
@@ -143,58 +149,59 @@ export default function WorkspaceHomePage() {
                   setEditingAbout(false);
                   setAboutText(ws.description || "");
                 }}
-                className="px-3 py-1 border text-sm rounded hover:bg-gray-50"
+                className="rounded border border-[#E2E6EA] px-3 py-1 text-sm hover:bg-[#F1F3F6]"
               >
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-[#6B7280]">
             {ws.description || "Add a short intro for your team"}
           </div>
         )}
       </div>
 
       {/* KPI Tiles */}
-      <div className="mt-6 grid grid-cols-4 gap-4">
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Total projects</div>
-          <div className="text-2xl font-semibold">{summary?.projectsTotal || 0}</div>
+      <div className="grid grid-cols-4 gap-3">
+        <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+          <div className="mb-1 text-sm text-[#6B7280]">Total projects</div>
+          <div className="text-2xl font-semibold text-[#1F2937]">{summary?.projectsTotal || 0}</div>
         </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Projects in progress</div>
-          <div className="text-2xl font-semibold">{summary?.projectsInProgress || 0}</div>
+        <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+          <div className="mb-1 text-sm text-[#6B7280]">Projects in progress</div>
+          <div className="text-2xl font-semibold text-[#1F2937]">{summary?.projectsInProgress || 0}</div>
         </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Total tasks</div>
-          <div className="text-2xl font-semibold">{summary?.tasksTotal || 0}</div>
+        <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+          <div className="mb-1 text-sm text-[#6B7280]">Total tasks</div>
+          <div className="text-2xl font-semibold text-[#1F2937]">{summary?.tasksTotal || 0}</div>
         </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Tasks completed</div>
-          <div className="text-2xl font-semibold">{summary?.tasksCompleted || 0}</div>
+        <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+          <div className="mb-1 text-sm text-[#6B7280]">Tasks completed</div>
+          <div className="text-2xl font-semibold text-[#1F2937]">{summary?.tasksCompleted || 0}</div>
         </div>
       </div>
 
       {/* Projects Section */}
-      <div className="mt-6 rounded-lg border p-4">
-        <div className="font-medium mb-2">Projects</div>
+      <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+        <div className="mb-2 font-medium text-[#1F2937]">Projects</div>
         <div className="mt-4 text-center py-8">
-          <div className="text-sm text-muted-foreground mb-4">
+          <div className="mb-4 text-sm text-[#6B7280]">
             No projects yet
           </div>
-          <Link
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            to="/templates"
+          <button
+            type="button"
+            className="inline-block rounded bg-[#2F6FED] px-4 py-2 text-white transition-colors hover:bg-[#1F5EDC]"
+            onClick={() => workspaceId && openTemplateCenter(workspaceId)}
           >
-            Open Template Center
-          </Link>
+            Browse Templates
+          </button>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="mt-6 rounded-lg border p-4">
-        <div className="font-medium mb-4">Quick Actions</div>
+      <div className="rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] p-4">
+        <div className="mb-4 font-medium text-[#1F2937]">Quick Actions</div>
         <div className="flex gap-3">
           <button
             onClick={async () => {
@@ -210,7 +217,7 @@ export default function WorkspaceHomePage() {
                 toast.error(e?.message || "Failed to create doc");
               }
             }}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            className="rounded border border-[#E2E6EA] bg-[#F1F3F6] px-4 py-2 text-[#1F2937] transition-colors hover:bg-[#E2E6EA]"
           >
             New doc
           </button>
@@ -228,7 +235,7 @@ export default function WorkspaceHomePage() {
                 toast.error(e?.message || "Failed to create form");
               }
             }}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            className="rounded border border-[#E2E6EA] bg-[#F1F3F6] px-4 py-2 text-[#1F2937] transition-colors hover:bg-[#E2E6EA]"
           >
             New form
           </button>

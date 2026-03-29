@@ -38,9 +38,15 @@ export default function AdministrationTemplatesPage() {
       <header>
         <h1 className="text-2xl font-semibold text-gray-900">Templates</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Manage blueprint project templates and approved standards.
+          Organization template governance. Templates defined here become available to workspaces and projects across the organization.
         </p>
       </header>
+      <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h2 className="text-sm font-semibold text-amber-900">Provisional surface</h2>
+        <p className="mt-1 text-sm text-amber-800">
+          Template authoring and activation are owned by the workspace and dashboard template flows. This admin page is visibility-only in MVP.
+        </p>
+      </section>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -68,9 +74,10 @@ export default function AdministrationTemplatesPage() {
           </p>
           <button
             type="button"
+            disabled
             className="mt-4 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
-            Create template entry
+            Create template entry (disabled)
           </button>
         </section>
       </div>

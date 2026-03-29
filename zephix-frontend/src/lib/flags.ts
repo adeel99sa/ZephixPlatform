@@ -1,35 +1,84 @@
-const flags = (import.meta.env.VITE_FLAGS || "").split(",").map((s: string) => s.trim());
-export const hasFlag = (f: string) => flags.includes(f);
+/**
+ * Feature flags (Vite: use import.meta.env, not process.env).
+ *
+ * Comma-separated list in `VITE_FLAGS` (case-insensitive tokens), e.g.
+ * `stagingMarketingLanding,FF_DASHBOARD_DUPLICATE`
+ */
 
-// Workspace membership feature flag
-export const isWorkspaceMembershipV1Enabled = () => {
-  return import.meta.env.VITE_WS_MEMBERSHIP_V1 === '1' || hasFlag('workspaceMembershipV1');
-};
+function viteFlagsTokens(): string[] {
+  const raw = import.meta.env.VITE_FLAGS ?? "";
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
 
-// Resource AI risk scoring feature flag
-export const isResourceRiskAIEnabled = () => {
-  return import.meta.env.VITE_RESOURCE_AI_RISK_SCORING_V1 === '1' || hasFlag('resourceRiskAI');
-};
+/**
+ * Returns true if the flag name appears in `VITE_FLAGS` (comma-separated).
+ * Names are compared case-insensitively (e.g. `FF_DASHBOARD_DUPLICATE`).
+ */
+export function hasFlag(name: string): boolean {
+  const want = name.trim().toLowerCase();
+  if (!want) return false;
+  const tokens = viteFlagsTokens();
+  if (tokens.includes(want)) return true;
+  const noPrefix = want.startsWith("ff_") ? want.slice(3) : want;
+  if (tokens.includes(`ff_${noPrefix}`)) return true;
+  return false;
+}
 
-// Risks feature flag - controls create/edit UI
-export const isRisksEnabled = () => {
-  const envValue = import.meta.env.VITE_FEATURE_RISKS;
-  return envValue === '1' || envValue === 'true' || hasFlag('risksEnabled');
-};
+export function isNewTemplateCenterEnabled(): boolean {
+  if (import.meta.env.VITE_NEW_TEMPLATE_CENTER === "true") {
+    return true;
+  }
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.getItem("newTemplateCenter") === "true") {
+      return true;
+    }
+  } catch {
+    /* SSR or private mode */
+  }
+  return false;
+}
 
-// Resources feature flag - controls create/edit/delete UI for allocations
-export const isResourcesEnabled = () => {
-  const envValue = import.meta.env.VITE_FEATURE_RESOURCES;
-  return envValue === '1' || envValue === 'true' || hasFlag('resourcesEnabled');
-};
+/** Staging-only marketing landing for guests on `/` — see docs/guides/STAGING_MARKETING_LANDING.md */
+export function isStagingMarketingLandingEnabled(): boolean {
+  const v = import.meta.env.VITE_STAGING_MARKETING_LANDING;
+  if (v === "true" || v === "1") return true;
+  return hasFlag("stagingMarketingLanding");
+}
 
-// Phase 2E: Capacity Engine feature flag
-export const isCapacityEngineEnabled = () => {
-  const envValue = import.meta.env.VITE_FEATURE_CAPACITY;
-  return envValue === '1' || envValue === 'true' || hasFlag('capacityEngine');
-};
+/** Floating beta feedback button */
+export function isBetaMode(): boolean {
+  const v = import.meta.env.VITE_BETA_MODE;
+  if (v === "true" || v === "1") return true;
+  return hasFlag("beta") || hasFlag("betaMode");
+}
 
-// Beta mode flag
-export const isBetaMode = () => {
-  return import.meta.env.VITE_BETA_MODE === '1' || import.meta.env.VITE_BETA_MODE === 'true' || hasFlag('betaMode');
-};
+/** Project Resources tab — allocations UI */
+export function isResourcesEnabled(): boolean {
+  const v = import.meta.env.VITE_RESOURCES_ENABLED;
+  if (v === "false" || v === "0") return false;
+  return true;
+}
+
+/** Project Risks tab — create risk, etc. */
+export function isRisksEnabled(): boolean {
+  const v = import.meta.env.VITE_RISKS_ENABLED;
+  if (v === "false" || v === "0") return false;
+  return true;
+}
+
+/** Resource / capacity AI risk scoring blocks */
+export function isResourceRiskAIEnabled(): boolean {
+  const v = import.meta.env.VITE_RESOURCE_AI_RISK_SCORING_V1;
+  if (v === "1" || v === "true") return true;
+  return hasFlag("resourceRiskAI") || hasFlag("resourceriskai");
+}
+
+/** Workspace settings modal — membership v1 flows */
+export function isWorkspaceMembershipV1Enabled(): boolean {
+  const v = import.meta.env.VITE_WORKSPACE_MEMBERSHIP_V1;
+  if (v === "false" || v === "0") return false;
+  return true;
+}

@@ -21,6 +21,7 @@ interface WorkspaceMemberCache {
 
 interface WorkspaceState {
   activeWorkspaceId: string | null;
+  activeWorkspaceName: string | null;
   workspaceRole: WorkspaceRole | null;
   workspaceReady: boolean; // Patch 1: true only when activeWorkspaceId exists
 
@@ -32,7 +33,7 @@ interface WorkspaceState {
   // PHASE 7 MODULE 7.1 FIX: Member cache per workspace
   memberCache: Record<string, WorkspaceMemberCache>;
 
-  setActiveWorkspace: (id: string | null) => void;
+  setActiveWorkspace: (id: string | null, name?: string | null) => void;
   clearActiveWorkspace: () => void;
   setWorkspaceRole: (role: WorkspaceRole | null) => void;
 
@@ -54,6 +55,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
       activeWorkspaceId: null,
+      activeWorkspaceName: null,
       workspaceRole: null,
       workspaceReady: false, // Patch 1: computed from activeWorkspaceId
       isReadOnly: false,
@@ -67,12 +69,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // PHASE 7 MODULE 7.1 FIX: Member cache
       memberCache: {},
 
-      setActiveWorkspace: (id) => set({
+      setActiveWorkspace: (id, name) => set({
         activeWorkspaceId: id,
+        activeWorkspaceName: name ?? null,
         workspaceReady: !!id, // Patch 1: workspaceReady true only when id exists
       }),
       clearActiveWorkspace: () => set({
         activeWorkspaceId: null,
+        activeWorkspaceName: null,
         workspaceReady: false,
         workspaceRole: null,
       }),
@@ -127,6 +131,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       name: 'workspace-storage',
       partialize: (state) => ({
         activeWorkspaceId: state.activeWorkspaceId,
+        activeWorkspaceName: state.activeWorkspaceName,
         // Don't persist role or hydration state - fetch fresh on load
       }),
     }

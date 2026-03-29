@@ -7,7 +7,7 @@ import { createTask } from '@/features/work-management/workTasks.api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { onboardingApi } from '@/services/onboardingApi';
 import { useAuth } from '@/state/AuthContext';
-import { markUserOnboardingCompleted } from '@/features/onboarding/user-onboarding-state';
+import { api } from '@/lib/api';
 
 const LAST_WORKSPACE_KEY = 'zephix.lastWorkspaceId';
 
@@ -29,7 +29,8 @@ const steps = [
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { setActiveWorkspace } = useWorkspaceStore();
-  const { user } = useAuth();
+  const { user, refreshMe } = useAuth();
+  const organizationId = user?.organizationId;
   const platformRole = user?.platformRole ?? ((user as any)?.role as string | undefined);
   const isAdmin = platformRole === 'ADMIN';
   const [stepIndex, setStepIndex] = useState(0);
@@ -59,14 +60,8 @@ export default function OnboardingPage() {
   async function handleSkip() {
     setSubmitting(true);
     try {
-      if (isAdmin) {
-        await onboardingApi.skipOnboarding();
-      } else {
-        markUserOnboardingCompleted(
-          user?.id,
-          (platformRole || 'MEMBER') as 'MEMBER' | 'VIEWER' | 'GUEST',
-        );
-      }
+      await onboardingApi.skipOnboarding();
+      await refreshMe();
       toast.success('Onboarding skipped');
       navigate('/home', { replace: true });
     } catch (error: any) {
@@ -83,6 +78,26 @@ export default function OnboardingPage() {
     }
     setSubmitting(true);
     try {
+      if (!organizationId) {
+        const res = await api.post('/workspaces/onboarding', {
+          workspaceName: workspaceName.trim(),
+        });
+        const envelope = res.data as { data?: Record<string, unknown> };
+        const payload = (envelope?.data ?? res.data) as {
+          workspaceId: string;
+          workspaceSlug: string;
+        };
+        setWorkspaceId(payload.workspaceId);
+        setActiveWorkspace(payload.workspaceId);
+        try {
+          localStorage.setItem(LAST_WORKSPACE_KEY, payload.workspaceId);
+        } catch {}
+        await refreshMe();
+        toast.success('Workspace created');
+        goNext();
+        return;
+      }
+
       const data = await createWorkspace({
         name: workspaceName.trim(),
         slug: workspaceSlug.trim() || undefined,
@@ -150,6 +165,7 @@ export default function OnboardingPage() {
       // Mark onboarding as complete so user isn't redirected back
       try {
         await onboardingApi.completeOnboarding();
+        await refreshMe();
       } catch (err) {
         console.warn('[Onboarding] Failed to mark onboarding complete:', err);
         // Don't block navigation - onboarding data is secondary
@@ -165,11 +181,11 @@ export default function OnboardingPage() {
   }
 
   function handleUserOnboardingContinue() {
-    markUserOnboardingCompleted(
-      user?.id,
-      (platformRole || 'MEMBER') as 'MEMBER' | 'VIEWER' | 'GUEST',
-    );
-    navigate('/home', { replace: true });
+    onboardingApi
+      .completeOnboarding()
+      .then(() => refreshMe().catch(() => null))
+      .catch(() => null)
+      .finally(() => navigate('/home', { replace: true }));
   }
 
   if (!isAdmin) {

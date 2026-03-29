@@ -1,7 +1,4 @@
 import { Outlet } from "react-router-dom";
-import { Header } from "@/components/shell/Header";
-import { Sidebar } from "@/components/shell/Sidebar";
-import { AiAssistantPanel } from '@/components/shell/AiAssistantPanel';
 import DemoBanner from '@/components/shell/DemoBanner';
 import { useAuth } from '@/state/AuthContext';
 import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
@@ -9,6 +6,8 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
 import { useLastVisitedRouteTracker } from '@/hooks/useLastVisitedRouteTracker';
+import { AppShell } from "@/ui/shell/AppShell";
+import { LoadingState } from "@/ui/components/LoadingState";
 
 /**
  * DashboardLayout — always renders the app shell (Sidebar + Header).
@@ -48,26 +47,15 @@ export default function DashboardLayout() {
    */
   if (onboardingChecking) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-          <p className="mt-4 text-sm text-slate-500">Setting up your experience...</p>
-        </div>
+      <div className="h-screen bg-slate-50">
+        <LoadingState message="Setting up your experience..." className="h-full" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
-        <DemoBanner email={user?.email} />
-        <main className="relative min-w-0 flex-1 overflow-auto" data-testid="main-content">
-          <Outlet />
-        </main>
-      </div>
-      <AiAssistantPanel />
-    </div>
+    <AppShell banner={<DemoBanner email={user?.email} />}>
+      <Outlet />
+    </AppShell>
   );
 }
