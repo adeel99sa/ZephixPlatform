@@ -45,7 +45,7 @@ const STEPS = [
     label: 'Activate templates',
     description: 'Enable project and governance templates',
     icon: LayoutTemplate,
-    link: (_wsId: string) => '/templates',
+    link: (wsId: string) => `/templates?workspaceId=${encodeURIComponent(wsId)}`,
   },
   {
     key: 'projectCreated' as const,

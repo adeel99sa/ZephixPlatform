@@ -20,7 +20,7 @@ vi.mock('@/hooks/useWorkspaceRole', () => ({
 }));
 
 // Mock project context
-vi.mock('@/features/projects/layout/ProjectPageLayout', () => ({
+vi.mock('@/features/projects/layout/ProjectPageContext', () => ({
   useProjectContext: vi.fn(() => ({
     project: {
       id: 'proj-1',

@@ -11,7 +11,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useProjectContext } from '../layout/ProjectPageLayout';
+import { useProjectContext } from '../layout/ProjectPageContext';
 import { toast } from 'sonner';
 import {
   BarChart3,

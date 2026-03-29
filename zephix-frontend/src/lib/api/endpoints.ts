@@ -14,9 +14,22 @@ export const API_ENDPOINTS = {
   PROJECTS: {
     LIST: '/projects',
     CREATE: '/projects',
+    /** Soft-deleted projects (org-scoped). */
+    ARCHIVE: '/projects/archive',
+    /** Restore soft-deleted project */
+    RESTORE: (id: string) => `/projects/${id}/restore`,
     GET: (id: string) => `/projects/${id}`,
     UPDATE: (id: string) => `/projects/${id}`,
     DELETE: (id: string) => `/projects/${id}`,
+    /** v5: ACCEPT/REJECT template delta review */
+    TEMPLATE_BINDING_RESOLVE: (id: string) =>
+      `/projects/${id}/template-binding/resolve`,
+    /** v5 Prompt 9: List template delta reviews (default PENDING) */
+    TEMPLATE_BINDING_REVIEWS: (id: string) =>
+      `/projects/${id}/template-binding/reviews`,
+    /** Prompt 3: PMBOK gate execution */
+    EXECUTE_GATE_DECISION: (projectId: string, gateDefinitionId: string) =>
+      `/projects/${projectId}/gates/${gateDefinitionId}/execute-decision`,
     PHASES: (id: string) => `/projects/${id}/phases`,
     RESOURCES: (id: string) => `/projects/${id}/resources`,
     KPI: (id: string) => `/projects/${id}/kpi`,

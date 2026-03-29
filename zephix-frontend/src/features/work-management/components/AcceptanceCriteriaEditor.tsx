@@ -30,6 +30,14 @@ export function AcceptanceCriteriaEditor({ items, onSave, readOnly = false }: Pr
     setLocalItems(items);
   }, [items]);
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
   const persistItems = useCallback(async (updated: AcceptanceCriteriaItem[]) => {
     setError(null);
     setSaving(true);

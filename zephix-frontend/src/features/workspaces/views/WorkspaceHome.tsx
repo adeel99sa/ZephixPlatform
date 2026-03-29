@@ -21,6 +21,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, MoreHorizontal, Copy } from 'lucide-react';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
@@ -31,9 +32,7 @@ import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/Wor
 import { Button } from '@/components/ui/Button';
 import { Link } from 'react-router-dom';
 import { mapRoleToAccessLevel } from '@/utils/workspace-access-levels';
-import { addWorkspaceMember } from '@/features/workspaces/workspace.api';
 import { toast } from 'sonner';
-import { mapAccessLevelToRole } from '@/utils/workspace-access-levels';
 import { request } from '@/lib/api';
 import { useWorkspaceVisitTracker } from '@/hooks/useWorkspaceVisitTracker';
 
@@ -141,6 +140,9 @@ type Member = WorkspaceMember;
 
 export default function WorkspaceHome() {
   const workspaceId = useWorkspaceStore(s => s.activeWorkspaceId);
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { role: workspaceRole } = useWorkspaceRole(workspaceId);
@@ -545,7 +547,7 @@ export default function WorkspaceHome() {
                     </button>
                     <button
                       onClick={() => {
-                        navigate('/templates');
+                        if (workspaceId) openTemplateCenter(workspaceId);
                         setShowNewMenu(false);
                       }}
                       className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
@@ -596,7 +598,7 @@ export default function WorkspaceHome() {
         {canCreateWork ? (
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => navigate('/templates')}
+              onClick={() => workspaceId && openTemplateCenter(workspaceId)}
               className="px-6 py-2"
             >
               Start work from a template
@@ -849,13 +851,39 @@ export default function WorkspaceHome() {
         {projects.length === 0 ? (
           <div>
             {canCreateWork ? (
-              <Button
-                onClick={() => navigate('/templates')}
-                variant="outline"
-                className="px-4 py-2"
-              >
-                Start from template
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => workspaceId && openTemplateCenter(workspaceId)}
+                  variant="outline"
+                  className="px-4 py-2"
+                >
+                  Create from template
+                </Button>
+                <Button
+                  onClick={() =>
+                    navigate(
+                      `/projects/new?workspaceId=${workspaceId}&mode=scratch`,
+                    )
+                  }
+                  variant="ghost"
+                  className="px-4 py-2"
+                >
+                  Start from scratch
+                </Button>
+                {workspace.defaultTemplateId && (
+                  <Button
+                    onClick={() =>
+                      navigate(
+                        `/projects/new?workspaceId=${workspaceId}&templateId=${workspace.defaultTemplateId}`,
+                      )
+                    }
+                    variant="ghost"
+                    className="px-4 py-2"
+                  >
+                    Use workspace default template
+                  </Button>
+                )}
+              </div>
             ) : (
               <p className="text-gray-500">No projects yet.</p>
             )}
@@ -994,23 +1022,7 @@ export default function WorkspaceHome() {
         <WorkspaceMemberInviteModal
           open={showInviteModal}
           onClose={() => setShowInviteModal(false)}
-          onInvite={async (userId: string, accessLevel: 'Owner' | 'Member' | 'Guest') => {
-            if (!workspaceId) return;
-            try {
-              const role = mapAccessLevelToRole(accessLevel);
-              await addWorkspaceMember(workspaceId, userId, role as any);
-              toast.success('Member added successfully');
-              setShowInviteModal(false);
-              loadWorkspaceData();
-            } catch (error: any) {
-              console.error('Failed to add member:', error);
-              const errorCode = error?.response?.data?.code;
-              const errorMessage = error?.response?.data?.message;
-              const displayMessage = errorMessage || 'Failed to add member';
-              toast.error(displayMessage);
-            }
-          }}
-          workspaceId={workspaceId}
+          onSuccess={() => loadWorkspaceData()}
         />
       )}
 

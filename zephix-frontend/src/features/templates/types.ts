@@ -43,7 +43,9 @@ export interface CanonicalTemplate {
     | 'Software Development'
     | 'Product Management'
     | 'Operations'
-    | 'Manufacturing';
+    | 'Manufacturing'
+    | 'Marketing'
+    | 'HR';
   complexity: TemplateComplexity;
   /**
    * Optional UI tier for unified Template Center (simple / advanced / enterprise).

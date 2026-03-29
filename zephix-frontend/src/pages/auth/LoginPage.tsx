@@ -1,24 +1,11 @@
-import { useMemo, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { request } from "@/lib/api";
-import { pickWorkspaceSlugForRouting } from "@/features/workspaces/workspace-routing";
-import { readLastVisitedRoute } from "@/features/navigation/last-visited";
-
-function safeReturnUrl(v: string | null) {
-  if (!v) return null;
-  if (!v.startsWith("/")) return null;
-  if (v.startsWith("//")) return null;
-  return v;
-}
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, refreshMe } = useAuth();
   const nav = useNavigate();
-  const loc = useLocation();
-
-  const params = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
-  const returnUrl = safeReturnUrl(params.get("returnUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,26 +23,14 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      const lastVisitedRoute = readLastVisitedRoute();
-      if (!returnUrl && lastVisitedRoute) {
-        nav(lastVisitedRoute, { replace: true });
-        return;
-      }
-      try {
-        const workspaces = await request.get<any[]>("/workspaces");
-        const list = Array.isArray(workspaces) ? workspaces : [];
-        if (list.length > 0) {
-          const slug = pickWorkspaceSlugForRouting(list) || list[0]?.slug;
-          nav(returnUrl || (slug ? `/w/${slug}/home` : "/home"), {
-            replace: true,
-          });
-        } else {
-          // /home applies onboarding routing and role-aware empty states.
-          nav("/home", { replace: true });
-        }
-      } catch {
-        // Login must not fail because post-login workspace bootstrap failed.
-        nav(returnUrl || "/home", { replace: true });
+      const me = await refreshMe();
+      const onboardingCompleted = Boolean(me?.onboardingCompleted);
+      if (onboardingCompleted) {
+        // Deterministic front-door rule: all roles land on Home after login.
+        // We intentionally ignore returnUrl for post-login role coherence.
+        nav("/home", { replace: true });
+      } else {
+        nav("/onboarding", { replace: true });
       }
     } catch (e: any) {
       const code = e?.response?.data?.code;

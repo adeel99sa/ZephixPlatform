@@ -21,6 +21,7 @@ export default function UsersListPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -36,9 +37,16 @@ export default function UsersListPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
     track("admin.users.viewed");
     loadUsers();
-  }, [pagination.page, searchTerm, roleFilter, statusFilter]);
+  }, [pagination.page, debouncedSearchTerm, roleFilter, statusFilter]);
 
   const loadUsers = async () => {
     try {
@@ -53,7 +61,7 @@ export default function UsersListPage() {
         page: pagination.page,
         limit: pagination.limit,
       };
-      if (searchTerm) params.search = searchTerm;
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm;
       if (roleFilter !== "all") params.role = roleFilter;
       if (statusFilter !== "all") params.status = statusFilter;
       const data = await usersApi.getUsers(params);
@@ -180,16 +188,6 @@ export default function UsersListPage() {
     );
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      !searchTerm ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
   return (
     <div className="p-6 space-y-6" data-testid="admin-users-root">
       {/* Header */}
@@ -273,7 +271,7 @@ export default function UsersListPage() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" data-testid="admin-users-table">
         {loading ? (
           <div className="p-8 text-center text-gray-500">Loading users...</div>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <p>No users found</p>
@@ -316,7 +314,7 @@ export default function UsersListPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
@@ -99,20 +99,28 @@ const ProjectsPage: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Projects</h1>
           <p className="mt-1 text-sm text-slate-500">
             {list.length} project{list.length !== 1 ? 's' : ''} in this workspace
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleCreateProject}
-        >
-          New Project
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/projects/archive"
+            className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50"
+          >
+            Archived
+          </Link>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleCreateProject}
+          >
+            New Project
+          </Button>
+        </div>
       </div>
 
       {/* Loading State */}

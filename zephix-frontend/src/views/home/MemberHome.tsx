@@ -4,8 +4,8 @@ import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useInboxDrawer } from '@/ui/shell/AppShell';
 
 interface MemberHomeData {
   myWork: {
@@ -29,6 +29,7 @@ export function MemberHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { activeWorkspaceId } = useWorkspaceStore();
+  const { openInbox } = useInboxDrawer();
   const [data, setData] = useState<MemberHomeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,11 +135,9 @@ export function MemberHome() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Inbox</h2>
-              <Link to="/inbox">
-                <Button variant="outline" size="sm">
-                  View All ({data.inboxPreview.unreadCount})
-                </Button>
-              </Link>
+              <Button variant="outline" size="sm" onClick={() => openInbox()}>
+                View All ({data.inboxPreview.unreadCount})
+              </Button>
             </div>
             {data.inboxPreview.topNotifications.length > 0 ? (
               <div className="space-y-2">

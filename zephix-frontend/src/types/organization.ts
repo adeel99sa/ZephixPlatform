@@ -45,14 +45,3 @@ export interface InviteUserData {
   message?: string;
 }
 
-export interface OrganizationSignupData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  organizationName: string;
-  organizationSlug?: string;
-  website?: string;
-  industry?: string;
-  organizationSize?: 'startup' | 'small' | 'medium' | 'large' | 'enterprise';
-}

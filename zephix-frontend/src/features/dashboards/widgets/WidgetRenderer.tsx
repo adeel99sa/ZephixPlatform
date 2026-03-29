@@ -3,6 +3,8 @@ import { fmtPercent, trendArrow } from "./format";
 import { ProjectHealthWidget } from "./project-health";
 import { ResourceUtilizationWidget } from "./resource-utilization";
 import { ConflictTrendsWidget } from "./conflict-trends";
+import { ProjectsAtRiskWidget } from "./projects-at-risk";
+import { OverdueTasksWidget } from "./overdue-tasks";
 import type { DashboardWidget } from "../types";
 import type { WidgetFilters } from "./types";
 
@@ -39,6 +41,92 @@ export function WidgetRenderer({ widget, data, filters, isShareMode = false }: P
     }
 
     switch (dashboardWidget.type) {
+      case 'recent_projects':
+        return (
+          <div className="rounded border bg-white p-3">
+            <div className="text-sm font-medium mb-2">{dashboardWidget.title || 'Recent Projects'}</div>
+            <div className="space-y-1 text-sm">
+              {(Array.isArray(data) ? data : []).length === 0 && (
+                <div className="text-gray-500">No projects yet.</div>
+              )}
+              {(Array.isArray(data) ? data : []).map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between">
+                  <span>{item.name}</span>
+                  <span className="text-xs text-gray-500">{item.status || 'PLANNING'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'project_status_summary': {
+        const entries = Object.entries(data || {});
+        return (
+          <div className="rounded border bg-white p-3">
+            <div className="text-sm font-medium mb-2">{dashboardWidget.title || 'Project Status Summary'}</div>
+            <div className="space-y-1 text-sm">
+              {entries.length === 0 && <div className="text-gray-500">No project status data.</div>}
+              {entries.map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span>{key}</span>
+                  <span className="font-medium">{String(value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      case 'upcoming_milestones':
+        return (
+          <div className="rounded border bg-white p-3">
+            <div className="text-sm font-medium mb-2">{dashboardWidget.title || 'Upcoming Milestones'}</div>
+            <div className="space-y-1 text-sm">
+              {(Array.isArray(data) ? data : []).length === 0 && (
+                <div className="text-gray-500">No upcoming milestones.</div>
+              )}
+              {(Array.isArray(data) ? data : []).map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between">
+                  <span>{item.name}</span>
+                  <span className="text-xs text-gray-500">
+                    {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'No due date'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'open_risks':
+        return (
+          <div className="rounded border bg-white p-3">
+            <div className="text-sm font-medium mb-2">{dashboardWidget.title || 'Open Risks'}</div>
+            <div className="text-2xl font-semibold">{data?.count || 0}</div>
+            <div className="mt-2 space-y-1 text-sm">
+              {(Array.isArray(data?.items) ? data.items : []).slice(0, 5).map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between">
+                  <span className="truncate">{item.title}</span>
+                  <span className="text-xs text-gray-500">{item.severity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'documents_summary':
+        return (
+          <div className="rounded border bg-white p-3">
+            <div className="text-sm font-medium mb-2">{dashboardWidget.title || 'Documents Summary'}</div>
+            <div className="text-2xl font-semibold">{data?.total || 0}</div>
+            <div className="text-xs text-gray-500 mt-2">Recent updates</div>
+            <div className="space-y-1 text-sm mt-1">
+              {(Array.isArray(data?.recent) ? data.recent : []).slice(0, 5).map((item: any) => (
+                <div key={item.id} className="truncate">{item.title}</div>
+              ))}
+            </div>
+          </div>
+        );
+
       case 'project_health':
         return <ProjectHealthWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
 
@@ -47,6 +135,12 @@ export function WidgetRenderer({ widget, data, filters, isShareMode = false }: P
 
       case 'conflict_trends':
         return <ConflictTrendsWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      case 'projects_at_risk':
+        return <ProjectsAtRiskWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
+
+      case 'overdue_tasks':
+        return <OverdueTasksWidget widget={dashboardWidget} filters={widgetFilters} workspaceId={null} />;
 
       default:
         return (

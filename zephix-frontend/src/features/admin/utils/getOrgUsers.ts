@@ -13,6 +13,7 @@ type OrgUser = {
   firstName?: string;
   lastName?: string;
   role: string;
+  platformRole?: PlatformRole | string;
 };
 
 /**

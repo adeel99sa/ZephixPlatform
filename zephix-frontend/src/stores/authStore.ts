@@ -47,7 +47,6 @@ export interface AuthState {
   setHydrated: (hydrated: boolean) => void;
   getCurrentUser: () => Promise<User | null>;
   checkAuth: () => Promise<boolean>;
-  signup: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -166,40 +165,6 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async () => {
         const { accessToken, user } = get();
         return !!(accessToken && user);
-      },
-
-      signup: async (email: string, password: string, firstName: string, lastName: string) => {
-        set({ isLoading: true, error: null });
-        
-        try {
-          // Use the API client for proper path normalization
-          const { apiClient } = await import('@/lib/api/client');
-          const response = await apiClient.post<AuthResponseData>('/auth/signup', { email, password, firstName, lastName });
-          
-          const authData = response.data as AuthResponseData | undefined;
-          const userData = authData?.user;
-          const accessToken = authData?.accessToken;
-          const refreshToken = authData?.refreshToken;
-          
-          set({
-            user: userData ?? null,
-            accessToken: accessToken ?? null,
-            refreshToken: refreshToken ?? null,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-          
-          return true;
-        } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Signup failed',
-            isAuthenticated: false,
-          });
-          
-          return false;
-        }
       },
     }),
     {

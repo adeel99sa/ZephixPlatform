@@ -7,11 +7,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Play, AlertCircle, CheckCircle, Clock, Calendar, Lock, Unlock } from 'lucide-react';
+import { Play, AlertCircle, CheckCircle, Clock, Calendar, Lock, Unlock, List, LayoutGrid, BarChart3 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
-import { useProjectContext } from '../layout/ProjectPageLayout';
+import { useProjectContext } from '../layout/ProjectPageContext';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
 // PHASE 6 MODULE 5: Project linking
@@ -23,6 +23,20 @@ import { BudgetSummaryPanel } from '../components/BudgetSummaryPanel';
 // Phase 2B: Waterfall core panels
 import { BaselinePanel } from '../components/BaselinePanel';
 import { EarnedValuePanel } from '../components/EarnedValuePanel';
+// MVP: Inline work views
+import { ProjectTasksTab } from './ProjectTasksTab';
+import { ProjectBoardTab } from './ProjectBoardTab';
+import { ProjectGanttTab } from './ProjectGanttTab';
+import { ProjectCalendarTab } from './ProjectCalendarTab';
+
+type WorkView = 'list' | 'board' | 'gantt' | 'calendar';
+
+const VIEW_OPTIONS: { id: WorkView; label: string; icon: typeof List }[] = [
+  { id: 'list', label: 'List', icon: List },
+  { id: 'board', label: 'Board', icon: LayoutGrid },
+  { id: 'gantt', label: 'Gantt', icon: BarChart3 },
+  { id: 'calendar', label: 'Calendar', icon: Calendar },
+];
 
 interface NeedsAttentionItem {
   typeCode: string;
@@ -92,6 +106,12 @@ export const ProjectOverviewTab: React.FC = () => {
   const { project, refresh: refreshProject } = useProjectContext();
   // Keep panels feature-gated off until capability hook is restored.
   const capabilities = { baselinesEnabled: false, earnedValueEnabled: false };
+  const initialView = searchParams.get('view');
+  const [activeView, setActiveView] = useState<WorkView>(
+    initialView === 'board' || initialView === 'gantt' || initialView === 'calendar'
+      ? initialView
+      : 'list',
+  );
 
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,14 +126,18 @@ export const ProjectOverviewTab: React.FC = () => {
     }
   }, [projectId, workspaceId]);
 
-  // Handle taskId query param for navigation from My Work
+  // Keep view in sync with URL query params
   useEffect(() => {
+    const requestedView = searchParams.get('view');
     const taskId = searchParams.get('taskId');
-    if (taskId) {
-      // Navigate to tasks tab with the taskId
-      navigate(`/projects/${projectId}/tasks?taskId=${taskId}`, { replace: true });
+    if (requestedView === 'board' || requestedView === 'gantt' || requestedView === 'calendar') {
+      setActiveView(requestedView);
+      return;
     }
-  }, [projectId, searchParams, navigate]);
+    if (taskId || requestedView === 'list') {
+      setActiveView('list');
+    }
+  }, [searchParams]);
 
   const loadOverview = async () => {
     try {
@@ -155,7 +179,7 @@ export const ProjectOverviewTab: React.FC = () => {
   };
 
   const handleOpenPlan = () => {
-    navigate(`/projects/${projectId}/plan`);
+    navigate(`/projects/${projectId}?view=list`);
   };
 
   // Loading state
@@ -201,6 +225,34 @@ export const ProjectOverviewTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* View Switcher */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        {VIEW_OPTIONS.map((opt) => {
+          const Icon = opt.icon;
+          const isActive = activeView === opt.id;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => setActiveView(opt.id)}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Render selected work view */}
+      {activeView === 'list' && <ProjectTasksTab />}
+      {activeView === 'board' && <ProjectBoardTab />}
+      {activeView === 'gantt' && <ProjectGanttTab />}
+      {activeView === 'calendar' && <ProjectCalendarTab />}
+
       {/* Quick Actions Bar */}
       <div className="flex items-center gap-3">
         <button

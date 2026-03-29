@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 
 interface AuthProviderProps {
@@ -7,13 +7,15 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const checkAuth = useAuthStore((state) => state.checkAuth);
-  
+  const hasBootstrappedAuth = useRef(false);
+
   useEffect(() => {
-    // Check authentication status on app startup
-    console.log('🔐 Checking authentication status...');
-    // Temporarily disabled to prevent API calls during infinite loop
-    // checkAuth();
-  }, []); // Remove checkAuth from dependencies to prevent infinite loop
-  
+    if (hasBootstrappedAuth.current) {
+      return;
+    }
+    hasBootstrappedAuth.current = true;
+    void checkAuth();
+  }, [checkAuth]);
+
   return <>{children}</>;
 }
