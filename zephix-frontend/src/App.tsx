@@ -254,7 +254,7 @@ export default function App() {
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/settings" element={<SettingsLayout />}>
+              <Route path="/settings" element={<RequireAdminInline><SettingsLayout /></RequireAdminInline>}>
                 <Route index element={<Navigate to="general" replace />} />
                 <Route path="general" element={<WorkspaceGeneralSettings />} />
                 <Route path="security-sso" element={<SecuritySettings />} />
