@@ -10,11 +10,20 @@ export class BackfillOnboardingCompletedForExistingUsers18000000000056
     // UPDATE was added after it had already been recorded as applied.
     // This migration retroactively sets existing users to true so the
     // frontend onboarding guard does not trap them.
+    //
+    // Disable the zephix_protect_demo_users trigger first — it references
+    // NEW.deleted_at which does not exist on the users table yet.
+    await queryRunner.query(
+      `ALTER TABLE "users" DISABLE TRIGGER ALL`,
+    );
     const result = await queryRunner.query(`
       UPDATE "users"
       SET "onboarding_completed" = true
       WHERE "onboarding_completed" = false
     `);
+    await queryRunner.query(
+      `ALTER TABLE "users" ENABLE TRIGGER ALL`,
+    );
     console.log(
       `[Migration 56] Backfilled onboarding_completed=true for ${result?.[1] ?? '?'} existing users`,
     );
