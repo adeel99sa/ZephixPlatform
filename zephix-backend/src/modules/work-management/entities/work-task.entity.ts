@@ -200,6 +200,12 @@ export class WorkTask {
   @Column({ name: 'source_gate_condition_id', type: 'uuid', nullable: true })
   sourceGateConditionId: string | null;
 
+  /** Transient: populated by attachConditionTaskSourceMetadata */
+  sourceGateName?: string;
+
+  /** Transient: populated by attachConditionTaskSourceMetadata */
+  sourceGateDefinitionId?: string;
+
   /**
    * Populated after load when `phase` relation is joined; otherwise use `mapWorkTaskEffectiveState`.
    */
