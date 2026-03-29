@@ -1,6 +1,6 @@
 // Phase 4.3: Dashboards Index with Template Gallery
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Grid, List, Search, Sparkles, AlertCircle } from "lucide-react";
 import { DashboardCreateModal } from "@/features/dashboards/DashboardCreateModal";
 import { listDashboards, listTemplates, activateTemplate } from "@/features/dashboards/api";
@@ -10,6 +10,7 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 
 export function DashboardsIndex() {
   const navigate = useNavigate();
+  const { workspaceId } = useParams<{ workspaceId: string }>();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
 
   const [dashboards, setDashboards] = useState<DashboardEntity[]>([]);
@@ -24,16 +25,19 @@ export function DashboardsIndex() {
   const [activatingTemplate, setActivatingTemplate] = useState<string | null>(null);
 
   useEffect(() => {
+    if (workspaceId && workspaceId !== activeWorkspaceId) {
+      setActiveWorkspace(workspaceId);
+    }
     loadDashboards();
     loadTemplates();
-  }, []);
+  }, [workspaceId]);
 
   const loadDashboards = async () => {
     try {
       setLoading(true);
       setError(null);
       setWorkspaceError(false);
-      const data = await listDashboards();
+      const data = await listDashboards(workspaceId);
       setDashboards(data);
     } catch (err: any) {
       if (err instanceof WorkspaceRequiredError) {
@@ -70,7 +74,9 @@ export function DashboardsIndex() {
       setError(null);
       const dashboard = await activateTemplate(templateKey);
       // Navigate to builder
-      navigate(`/dashboards/${dashboard.id}/edit`);
+      if (workspaceId) {
+        navigate(`/workspaces/${workspaceId}/dashboard/${dashboard.id}/edit`);
+      }
     } catch (err: any) {
       if (err instanceof WorkspaceRequiredError) {
         setWorkspaceError(true);
@@ -271,7 +277,7 @@ export function DashboardsIndex() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     <Link
-                      to={`/dashboards/${dashboard.id}`}
+                      to={`/workspaces/${workspaceId}/dashboard/${dashboard.id}`}
                       className="hover:text-indigo-600"
                     >
                       {dashboard.name}
@@ -285,7 +291,7 @@ export function DashboardsIndex() {
                       Updated {new Date(dashboard.updatedAt).toLocaleDateString()}
                     </span>
                     <Link
-                      to={`/dashboards/${dashboard.id}/edit`}
+                      to={`/workspaces/${workspaceId}/dashboard/${dashboard.id}/edit`}
                       className="text-sm text-indigo-600 hover:text-indigo-700"
                     >
                       Edit
@@ -297,7 +303,7 @@ export function DashboardsIndex() {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       <Link
-                        to={`/dashboards/${dashboard.id}`}
+                        to={`/workspaces/${workspaceId}/dashboard/${dashboard.id}`}
                         className="hover:text-indigo-600"
                       >
                         {dashboard.name}
@@ -312,7 +318,7 @@ export function DashboardsIndex() {
                       Updated {new Date(dashboard.updatedAt).toLocaleDateString()}
                     </span>
                     <Link
-                      to={`/dashboards/${dashboard.id}/edit`}
+                      to={`/workspaces/${workspaceId}/dashboard/${dashboard.id}/edit`}
                       className="text-sm text-indigo-600 hover:text-indigo-700"
                     >
                       Edit

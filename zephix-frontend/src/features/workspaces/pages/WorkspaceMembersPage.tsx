@@ -16,8 +16,7 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspacePermissions } from '@/hooks/useWorkspacePermissions';
 import {
-  listWorkspaceMembers,
-  addWorkspaceMember,
+  getWorkspaceMembersForAccessCheck,
   changeWorkspaceRole,
   removeWorkspaceMember,
   listOrgUsers,
@@ -30,8 +29,14 @@ import { Button } from '@/components/ui/Button';
 import { WorkspaceMemberInviteModal } from '@/features/workspaces/components/WorkspaceMemberInviteModal';
 import InviteLinkModal from '@/features/workspaces/components/InviteLinkModal';
 import { SuspendedAccessScreen } from '@/components/workspace/SuspendedAccessScreen';
+import { WorkspaceAccessState } from '@/components/workspace/WorkspaceAccessStates';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/utils/apiErrorMessage';
+import {
+  accessDecisionMessage,
+  normalizeAccessDecision,
+  redirectToSessionExpiredLogin,
+} from '@/lib/api/accessDecision';
 
 // Use the Member type from workspace.api.ts
 type Member = WorkspaceMember & {
@@ -46,12 +51,22 @@ type OrgUser = {
   lastName?: string;
   role: string;
 };
+type MembersLoadState =
+  | 'loading'
+  | 'ready'
+  | 'forbidden'
+  | 'missing'
+  | 'unknown_error';
 
 export default function WorkspaceMembersPage() {
   const { id: workspaceId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId);
+  const { activeWorkspaceId, setActiveWorkspace, clearActiveWorkspace } = useWorkspaceStore((s) => ({
+    activeWorkspaceId: s.activeWorkspaceId,
+    setActiveWorkspace: s.setActiveWorkspace,
+    clearActiveWorkspace: s.clearActiveWorkspace,
+  }));
   const permissions = useWorkspacePermissions();
 
   // Use active workspace ID from store, fallback to URL param
@@ -59,6 +74,7 @@ export default function WorkspaceMembersPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadState, setLoadState] = useState<MembersLoadState>('loading');
   const [isSuspended, setIsSuspended] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteLinkModalOpen, setInviteLinkModalOpen] = useState(false);
@@ -99,6 +115,11 @@ export default function WorkspaceMembersPage() {
   }, [members, searchQuery, statusFilter]);
 
   useEffect(() => {
+    if (!workspaceId) return;
+    setActiveWorkspace(workspaceId);
+  }, [workspaceId, setActiveWorkspace]);
+
+  useEffect(() => {
     if (!effectiveWorkspaceId) {
       setLoading(false);
       return;
@@ -110,21 +131,41 @@ export default function WorkspaceMembersPage() {
     if (!effectiveWorkspaceId) return;
 
     setLoading(true);
+    setLoadState('loading');
     setIsSuspended(false);
     try {
-      const mems = await listWorkspaceMembers(effectiveWorkspaceId);
+      const mems = await getWorkspaceMembersForAccessCheck(effectiveWorkspaceId);
       setMembers(mems as Member[]);
+      setLoadState('ready');
 
       // Count owners for last owner protection
       const owners = mems.filter(m => m.role === 'workspace_owner');
       setOwnerCount(owners.length);
     } catch (error: any) {
       console.error('Failed to load members:', error);
-      // PROMPT 8 B3: Check for SUSPENDED error code
-      if (error?.response?.status === 403 && error?.response?.data?.code === 'SUSPENDED') {
+      const decision = normalizeAccessDecision(error);
+      if (decision === 'session_expired') {
+        redirectToSessionExpiredLogin();
+        return;
+      }
+      if (decision === 'forbidden' && error?.response?.data?.code === 'SUSPENDED') {
         setIsSuspended(true);
+        setLoadState('forbidden');
+      } else if (decision === 'forbidden') {
+        if (activeWorkspaceId === effectiveWorkspaceId) {
+          clearActiveWorkspace();
+        }
+        window.dispatchEvent(new Event('workspace:refresh'));
+        setLoadState('forbidden');
+      } else if (decision === 'missing') {
+        if (activeWorkspaceId === effectiveWorkspaceId) {
+          clearActiveWorkspace();
+        }
+        window.dispatchEvent(new Event('workspace:refresh'));
+        setLoadState('missing');
       } else {
-        toast.error('Failed to load members');
+        setLoadState('unknown_error');
+        toast.error(accessDecisionMessage('unknown_error', 'workspace'));
       }
     } finally {
       setLoading(false);
@@ -132,21 +173,6 @@ export default function WorkspaceMembersPage() {
   }
 
 
-  async function handleAddMember(userId: string, accessLevel: 'Owner' | 'Member' | 'Guest') {
-    if (!effectiveWorkspaceId) return;
-
-    try {
-      const role = mapAccessLevelToRole(accessLevel);
-      await addWorkspaceMember(effectiveWorkspaceId, userId, role as any);
-      toast.success('Member added successfully');
-      setShowInviteModal(false);
-      await loadMembers();
-    } catch (error: any) {
-      console.error('Failed to add member:', error);
-      const message = error?.response?.data?.message || 'Failed to add member';
-      toast.error(message);
-    }
-  }
 
   async function handleChangeRole(memberId: string, userId: string, newAccessLevel: 'Owner' | 'Member' | 'Guest') {
     if (!effectiveWorkspaceId) return;
@@ -289,6 +315,24 @@ export default function WorkspaceMembersPage() {
   // PROMPT 8 B3: Show suspended screen if access is suspended
   if (isSuspended) {
     return <SuspendedAccessScreen />;
+  }
+
+  if (loadState === 'forbidden') {
+    return <WorkspaceAccessState type="no-access" />;
+  }
+
+  if (loadState === 'missing') {
+    return <WorkspaceAccessState type="not-found" />;
+  }
+
+  if (loadState === 'unknown_error') {
+    return (
+      <div className="p-6">
+        <div className="text-center text-red-500">
+          {accessDecisionMessage('unknown_error', 'workspace')}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -491,8 +535,7 @@ export default function WorkspaceMembersPage() {
         <WorkspaceMemberInviteModal
           open={showInviteModal}
           onClose={() => setShowInviteModal(false)}
-          onInvite={handleAddMember}
-          workspaceId={effectiveWorkspaceId}
+          onSuccess={() => loadMembers()}
         />
       )}
 

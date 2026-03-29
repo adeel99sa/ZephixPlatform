@@ -195,18 +195,16 @@ test.describe('UI Acceptance Journey', () => {
     await expect(page.locator('input[name="fullName"]')).toBeVisible();
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
-    await expect(page.locator('input[name="orgName"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
 
-    stepLog('10-signup', 'PASS', 'signup page renders with fullName/email/password/orgName fields and submit button');
+    stepLog('10-signup', 'PASS', 'signup page renders with fullName/email/password fields and submit button');
   });
 
   // ── Step 11: Create admin org + establish authenticated browser session ───
 
-  test('11-login-owner: create admin org via API, smoke-login via page.request, assert /auth/me 200', async ({ page }) => {
-    // Create admin user + org via smoke/users/create — bypasses /auth/register rate limiter.
-    // smoke/users/create calls AuthRegistrationService.registerSelfServe directly.
-    // Returns neutral message; org ID retrieved from /auth/me after smoke-login.
+  test('11-login-owner: create admin user via API, onboard org, smoke-login, assert /auth/me 200', async ({ page }) => {
+    // smoke/users/create registers a user only (no org). After smoke-login, POST /workspaces/onboarding
+    // creates org + first workspace; then /auth/me includes organizationId.
     const apiCtx = await playwrightRequest.newContext();
     try {
       const regResp = await apiCtx.post(`${API_BASE}/smoke/users/create`, {
@@ -215,7 +213,6 @@ test.describe('UI Acceptance Journey', () => {
           fullName: 'Smoke Admin',
           email: STATE.adminEmail,
           password: 'Smoke!Admin123',
-          orgName: `SmokeOrg ${RUN_ID}`,
         },
       });
       if (!regResp.ok()) {
@@ -230,6 +227,14 @@ test.describe('UI Acceptance Journey', () => {
     // smokeLoginWithPage calls csrf + smoke-login through page.request, which stores
     // cookies directly in the page's browser context. No addCookies needed.
     await smokeLoginWithPage(page, API_BASE, STATE.adminEmail, SMOKE_KEY);
+
+    const onboardResp = await page.request.post(`${API_BASE}/workspaces/onboarding`, {
+      data: { workspaceName: `Smoke Org ${RUN_ID}` },
+    });
+    if (!onboardResp.ok()) {
+      const t = await onboardResp.text();
+      fail('11-onboarding', `workspaces/onboarding status=${onboardResp.status()} body=${t.slice(0, 300)}`);
+    }
 
     // Fetch orgId from /auth/me — register returns neutral response, no org ID in body.
     const adminMeResp = await page.request.get(`${API_BASE}/auth/me`);
@@ -302,17 +307,33 @@ test.describe('UI Acceptance Journey', () => {
     await input.fill(wsName);
 
     const [response] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/workspaces') && r.status() === 201, {
-        timeout: 15000,
-      }),
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/workspaces') &&
+          (r.status() === 200 || r.status() === 201),
+        { timeout: 15000 },
+      ),
       page.locator('button[type="submit"]').click(),
-    ]);
+    );
 
     const wsBody = await response.json();
+    const inner = wsBody.data ?? wsBody;
     STATE.workspaceId =
-      wsBody.data?.id || wsBody.id || wsBody.data?.workspace?.id || wsBody.workspace?.id || '';
+      inner.workspaceId ||
+      inner.id ||
+      wsBody.data?.id ||
+      wsBody.id ||
+      wsBody.data?.workspace?.id ||
+      wsBody.workspace?.id ||
+      '';
     STATE.workspaceSlug =
-      wsBody.data?.slug || wsBody.slug || wsBody.data?.workspace?.slug || wsBody.workspace?.slug || '';
+      inner.workspaceSlug ||
+      inner.slug ||
+      wsBody.data?.slug ||
+      wsBody.slug ||
+      wsBody.data?.workspace?.slug ||
+      wsBody.workspace?.slug ||
+      '';
 
     await page.waitForURL(/\/w\/.+\/home/, { timeout: 15000 });
     await saveScreenshot(page, '12-create-workspace');

@@ -6,6 +6,12 @@ export type CreateWorkspaceInput = {
   slug?: string;
   description?: string;
   visibility?: 'OPEN' | 'CLOSED';
+  businessUnitLabel?: string;
+  defaultTemplateId?: string;
+  inheritOrgDefaultTemplate?: boolean;
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+  allowedTemplateIds?: string[];
+  defaultMethodology?: string;
 };
 
 export type CreateWorkspaceResponse = {
@@ -27,6 +33,12 @@ export type Workspace = WorkspaceBase & {
   ownerId?: string;
   owner?: { id: string; name?: string; email?: string };
   homeNotes?: string;
+  businessUnitLabel?: string | null;
+  defaultTemplateId?: string | null;
+  inheritOrgDefaultTemplate?: boolean;
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+  allowedTemplateIds?: string[] | null;
+  defaultMethodology?: string | null;
 };
 
 export type GetWorkspaceResponse = {
@@ -105,4 +117,9 @@ export async function deleteWorkspace(id: string): Promise<{ success: true }> {
 
 export async function restoreWorkspace(id: string): Promise<Workspace> {
   return api.post(`/workspaces/${id}/restore`, {});
+}
+
+export async function archiveWorkspace(id: string): Promise<{ success: true }> {
+  await api.post(`/workspaces/${id}/archive`, {});
+  return { success: true };
 }

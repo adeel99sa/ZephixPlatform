@@ -93,6 +93,7 @@ describe('updateProject — portfolio governance org-scoping', () => {
 
 describe('updateProject — DataSource.getRepository findOne org-scope mock', () => {
   const SAME_ORG = 'org-1';
+  const FOREIGN_ORG = 'org-2';
   const PORTFOLIO_ID = 'portfolio-1';
 
   function makeDataSourceMock(returnValue: Portfolio | null) {

@@ -128,24 +128,24 @@ export const useScrollProgress = () => {
  */
 export const useScrollDirection = () => {
   const [direction, setDirection] = useState<'up' | 'down'>('up');
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.pageYOffset;
-      
-      if (currentScrollY > lastScrollY) {
+
+      if (currentScrollY > lastScrollYRef.current) {
         setDirection('down');
       } else {
         setDirection('up');
       }
-      
-      setLastScrollY(currentScrollY);
+
+      lastScrollYRef.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
+  }, []);
 
   return direction;
 };

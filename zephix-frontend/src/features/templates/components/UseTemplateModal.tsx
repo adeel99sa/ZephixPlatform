@@ -28,14 +28,14 @@ export function UseTemplateModal({
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
-  const [projectName, setProjectName] = useState(templateName);
+  const [projectName, setProjectName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (open) {
       loadWorkspaces();
-      setProjectName(templateName);
+      setProjectName('');
     }
   }, [open, templateName]);
 

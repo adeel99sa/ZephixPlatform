@@ -16,7 +16,9 @@ export type WorkTaskStatus =
   | "BLOCKED"
   | "IN_REVIEW"
   | "DONE"
-  | "CANCELED";
+  | "CANCELED"
+  | "PENDING"
+  | "REWORK";
 
 /**
  * Status transition rules matching backend.
@@ -28,8 +30,10 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<WorkTaskStatus, WorkTaskStatus[]
   IN_PROGRESS: ["BLOCKED", "IN_REVIEW", "DONE", "CANCELED"],
   BLOCKED: ["TODO", "IN_PROGRESS", "CANCELED"],
   IN_REVIEW: ["IN_PROGRESS", "DONE", "CANCELED"],
-  DONE: [],        // Terminal - no transitions out
-  CANCELED: [],    // Terminal - no transitions out
+  DONE: [], // Terminal - no transitions out
+  CANCELED: [], // Terminal - no transitions out
+  PENDING: ["TODO", "IN_PROGRESS", "CANCELED"],
+  REWORK: ["IN_PROGRESS", "TODO", "DONE", "CANCELED"],
 };
 
 /**
@@ -49,6 +53,19 @@ export function isValidStatusTransition(from: WorkTaskStatus, to: WorkTaskStatus
 export type WorkTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export type WorkTaskType = "TASK" | "EPIC" | "MILESTONE" | "BUG";
+
+/** Progressive governance lifecycle for a work phase (backend `phase_state`). */
+export type WorkPhaseState = "LOCKED" | "ACTIVE" | "COMPLETE" | "FROZEN";
+
+/**
+ * Resolved operational state for a task (phase overrides + status).
+ * Mirrors backend `computeWorkTaskEffectiveState` / `WorkTaskEffectiveState`.
+ */
+export type WorkTaskEffectiveState =
+  | "FROZEN"
+  | "LOCKED"
+  | "ARCHIVED"
+  | WorkTaskStatus;
 
 export type DependencyType =
   | "FINISH_TO_START"
@@ -92,6 +109,30 @@ export interface WorkTask {
   deletedAt: string | null;
   /** User who deleted the task. Null if task is active. */
   deletedByUserId: string | null;
+  /** System-generated gate milestone / deliverable row. */
+  isGateArtifact: boolean;
+  /**
+   * Task created from a conditional gate outcome (backend `is_condition_task` only).
+   * Do not add a parallel client-only “condition” flag — semantics stay server-owned.
+   */
+  isConditionTask: boolean;
+  /** Source gate condition when isConditionTask. */
+  sourceGateConditionId: string | null;
+  /**
+   * C-8: Originating phase gate display name — from backend only when `isConditionTask`.
+   */
+  sourceGateName?: string | null;
+  /** C-8: Originating gate definition id — backend-enriched. */
+  sourceGateDefinitionId?: string | null;
+  /**
+   * C-8: Recycle/rework lane — from backend (`status === REWORK` / entity enrichment).
+   */
+  isReworkTask?: boolean;
+  /**
+   * When the API returns `effective_state` / `effectiveState`, the tasks tab
+   * uses it directly and skips client-side derivation.
+   */
+  effectiveState?: WorkTaskEffectiveState;
 }
 
 export interface AcceptanceCriteriaItem {
@@ -190,6 +231,30 @@ export interface TaskActivityItem {
   createdAt: string;
 }
 
+export interface ProjectActivityItem {
+  id: string;
+  projectId: string;
+  taskId: string | null;
+  type: string;
+  actorUserId: string;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface TeamWorkloadItem {
+  assigneeUserId: string;
+  assignedCount: number;
+  overdueCount: number;
+  dueSoonCount: number;
+}
+
+export interface ListOverdueTasksParams {
+  projectId?: string;
+  assigneeUserId?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export interface TaskDependency {
   id: string;
   predecessorTaskId: string;
@@ -267,6 +332,32 @@ function toStringOrNull(val: unknown): string | null {
   return val != null ? String(val) : null;
 }
 
+const KNOWN_EFFECTIVE_STATES = new Set<string>([
+  "FROZEN",
+  "LOCKED",
+  "ARCHIVED",
+  "BACKLOG",
+  "TODO",
+  "IN_PROGRESS",
+  "BLOCKED",
+  "IN_REVIEW",
+  "DONE",
+  "CANCELED",
+  "PENDING",
+  "REWORK",
+]);
+
+function parseOptionalEffectiveState(raw: unknown): WorkTaskEffectiveState | undefined {
+  if (raw == null || typeof raw !== "string") {
+    return undefined;
+  }
+  const v = raw.trim();
+  if (!KNOWN_EFFECTIVE_STATES.has(v)) {
+    return undefined;
+  }
+  return v as WorkTaskEffectiveState;
+}
+
 /** Normalize backend snake_case to camelCase for a single task (if backend ever returns snake_case). */
 function normalizeTask(raw: Record<string, unknown>): WorkTask {
   return {
@@ -305,6 +396,19 @@ function normalizeTask(raw: Record<string, unknown>): WorkTask {
     updatedAt: String(raw.updatedAt ?? raw.updated_at ?? ""),
     deletedAt: toStringOrNull(raw.deletedAt ?? raw.deleted_at),
     deletedByUserId: toStringOrNull(raw.deletedByUserId ?? raw.deleted_by_user_id),
+    isGateArtifact: Boolean(raw.isGateArtifact ?? raw.is_gate_artifact ?? false),
+    isConditionTask: Boolean(raw.isConditionTask ?? raw.is_condition_task ?? false),
+    sourceGateConditionId: toStringOrNull(
+      raw.sourceGateConditionId ?? raw.source_gate_condition_id,
+    ),
+    sourceGateName: toStringOrNull(raw.sourceGateName ?? raw.source_gate_name),
+    sourceGateDefinitionId: toStringOrNull(
+      raw.sourceGateDefinitionId ?? raw.source_gate_definition_id,
+    ),
+    isReworkTask: Boolean(raw.isReworkTask ?? raw.is_rework_task ?? false),
+    effectiveState: parseOptionalEffectiveState(
+      raw.effectiveState ?? raw.effective_state,
+    ),
   };
 }
 
@@ -460,6 +564,77 @@ export async function listActivity(
   };
 }
 
+export async function listProjectActivity(
+  projectId: string,
+  limit?: number,
+  offset?: number
+): Promise<{ items: ProjectActivityItem[]; total: number }> {
+  requireActiveWorkspace();
+  const params: Record<string, number> = {};
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
+  const data = await request.get<{ items?: unknown[]; total?: number }>(
+    `/work/tasks/projects/${projectId}/activity`,
+    { params },
+  );
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const total = typeof data?.total === 'number' ? data.total : items.length;
+  return {
+    items: items.map((item: unknown) => {
+      const x = item as Record<string, unknown>;
+      return {
+        id: String(x.id ?? ''),
+        projectId: String(x.projectId ?? x.project_id ?? projectId),
+        taskId: toStringOrNull(x.taskId ?? x.task_id),
+        type: String(x.type ?? ''),
+        actorUserId: String(x.actorUserId ?? x.actor_user_id ?? ''),
+        payload: (x.payload && typeof x.payload === 'object'
+          ? (x.payload as Record<string, unknown>)
+          : null),
+        createdAt: String(x.createdAt ?? x.created_at ?? ''),
+      };
+    }) as ProjectActivityItem[],
+    total,
+  };
+}
+
+export async function listOverdueTasks(
+  params: ListOverdueTasksParams = {},
+): Promise<{ items: WorkTask[]; total: number }> {
+  requireActiveWorkspace();
+  const query: Record<string, string | number | undefined> = {};
+  if (params.projectId) query.projectId = params.projectId;
+  if (params.assigneeUserId) query.assigneeUserId = params.assigneeUserId;
+  if (params.limit != null) query.limit = params.limit;
+  if (params.offset != null) query.offset = params.offset;
+
+  const data = await request.get<{ items?: unknown[]; total?: number }>(
+    '/work/tasks/insights/overdue',
+    { params: query },
+  );
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const total = typeof data?.total === 'number' ? data.total : items.length;
+  return { items: normalizeTasks(items), total };
+}
+
+export async function getTeamWorkload(projectId?: string): Promise<TeamWorkloadItem[]> {
+  requireActiveWorkspace();
+  const params = projectId ? { projectId } : undefined;
+  const data = await request.get<unknown[]>('/work/tasks/insights/workload', {
+    params,
+  });
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((row) => {
+    const x = row as Record<string, unknown>;
+    return {
+      assigneeUserId: String(x.assigneeUserId ?? x.assignee_user_id ?? ''),
+      assignedCount: Number(x.assignedCount ?? x.assigned_count ?? 0),
+      overdueCount: Number(x.overdueCount ?? x.overdue_count ?? 0),
+      dueSoonCount: Number(x.dueSoonCount ?? x.due_soon_count ?? 0),
+    };
+  });
+}
+
 export async function listDependencies(
   taskId: string,
 ): Promise<{ predecessors: TaskDependency[]; successors: TaskDependency[] }> {
@@ -530,6 +705,64 @@ export async function deleteComment(taskId: string, commentId: string): Promise<
 }
 
 // --- Phase API functions ---
+
+/** Active phases for a project (GET /work/phases?projectId=). */
+export interface WorkPhaseListItem {
+  id: string;
+  name: string;
+  sortOrder: number;
+  reportingKey: string;
+  isMilestone: boolean;
+  isLocked: boolean;
+  /** When set, drives UI enforcement (ACTIVE / LOCKED / COMPLETE / FROZEN). */
+  phaseState?: WorkPhaseState;
+  dueDate: string | null;
+}
+
+function normalizePhaseState(raw: Record<string, unknown>): WorkPhaseState | undefined {
+  const v = raw.phaseState ?? raw.phase_state;
+  if (
+    v === "LOCKED" ||
+    v === "ACTIVE" ||
+    v === "COMPLETE" ||
+    v === "FROZEN"
+  ) {
+    return v;
+  }
+  return undefined;
+}
+
+function normalizePhaseListItem(raw: Record<string, unknown>): WorkPhaseListItem {
+  const isLocked = Boolean(raw.isLocked ?? raw.is_locked ?? false);
+  const phaseState = normalizePhaseState(raw);
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    sortOrder:
+      typeof raw.sortOrder === "number"
+        ? raw.sortOrder
+        : typeof raw.sort_order === "number"
+          ? raw.sort_order
+          : 0,
+    reportingKey: String(raw.reportingKey ?? raw.reporting_key ?? ""),
+    isMilestone: Boolean(raw.isMilestone ?? raw.is_milestone ?? false),
+    isLocked,
+    phaseState: phaseState ?? (isLocked ? "LOCKED" : "ACTIVE"),
+    dueDate: toStringOrNull(raw.dueDate ?? raw.due_date),
+  };
+}
+
+/**
+ * List active (non-deleted) phases for a project, ordered by sortOrder on the server.
+ */
+export async function listPhasesForProject(projectId: string): Promise<WorkPhaseListItem[]> {
+  requireActiveWorkspace();
+  const data = await request.get<{ items?: unknown[]; total?: number }>("/work/phases", {
+    params: { projectId },
+  });
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return items.map((item) => normalizePhaseListItem(item as Record<string, unknown>));
+}
 
 /**
  * List deleted phases for a project.

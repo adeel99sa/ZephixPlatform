@@ -662,7 +662,7 @@ export function PhaseGatePanel({
                     value={chainName}
                     onChange={(e) => setChainName(e.target.value)}
                     className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1"
-                    placeholder="e.g. PMO + Finance Approval"
+                    placeholder="e.g. Governance + Finance Approval"
                   />
                 </div>
 

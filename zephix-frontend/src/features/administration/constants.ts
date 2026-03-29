@@ -1,12 +1,16 @@
 import {
   LayoutGrid,
-  ShieldCheck,
   Building2,
-  FileStack,
+  Shield,
   Users,
+  UsersRound,
+  KeyRound,
   ClipboardList,
-  Settings,
+  Plug,
+  Bot,
   CreditCard,
+  Database,
+  FileStack,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -16,13 +20,47 @@ export type AdministrationNavItem = {
   icon: ComponentType<{ className?: string }>;
 };
 
-export const ADMINISTRATION_NAV_ITEMS: AdministrationNavItem[] = [
-  { label: "Overview", path: "/administration", icon: LayoutGrid },
-  { label: "Governance", path: "/administration/governance", icon: ShieldCheck },
-  { label: "Workspaces", path: "/administration/workspaces", icon: Building2 },
-  { label: "Templates", path: "/administration/templates", icon: FileStack },
-  { label: "Users", path: "/administration/users", icon: Users },
-  { label: "Audit Log", path: "/administration/audit-log", icon: ClipboardList },
-  { label: "Settings", path: "/administration/settings", icon: Settings },
-  { label: "Billing", path: "/administration/billing", icon: CreditCard },
+export type AdministrationNavSection = {
+  label: string;
+  items: AdministrationNavItem[];
+};
+
+export const ADMINISTRATION_NAV_SECTIONS: AdministrationNavSection[] = [
+  {
+    label: "Overview",
+    items: [
+      { label: "Overview", path: "/administration/general", icon: LayoutGrid },
+    ],
+  },
+  {
+    label: "Organization",
+    items: [
+      { label: "Organization", path: "/administration/organization", icon: Building2 },
+      { label: "Users", path: "/administration/users", icon: Users },
+      { label: "Teams", path: "/administration/teams", icon: UsersRound },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { label: "Template Governance", path: "/administration/template-governance", icon: FileStack },
+      { label: "Access Control", path: "/administration/access-control", icon: KeyRound },
+      { label: "Audit Logs", path: "/administration/audit-log", icon: ClipboardList },
+      { label: "AI Governance", path: "/administration/ai-governance", icon: Bot },
+    ],
+  },
+  {
+    label: "Security",
+    items: [
+      { label: "Security", path: "/administration/security", icon: Shield },
+      { label: "Integrations", path: "/administration/integrations", icon: Plug },
+      { label: "Data Management", path: "/administration/data-management", icon: Database },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { label: "Billing", path: "/administration/billing", icon: CreditCard },
+    ],
+  },
 ];

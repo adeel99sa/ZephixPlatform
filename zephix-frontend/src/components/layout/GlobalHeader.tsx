@@ -18,11 +18,14 @@ import { SparklesIcon } from '@heroicons/react/24/solid';
 import { useAuthStore } from '../../stores/authStore';
 import { OrganizationSwitcher } from '../ui/OrganizationSwitcher';
 import { cn } from '../../utils';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 
 interface GlobalHeaderProps {
   currentPage?: string;
   className?: string;
 }
+
+const TEMPLATE_CENTER_NAV_HREF = '__TEMPLATE_CENTER_MODAL__';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
@@ -32,7 +35,7 @@ const navigation = [
   { name: 'Collaboration', href: '/collaboration', icon: UsersIcon },
   { name: 'Workflows', href: '/workflows', icon: ClipboardDocumentListIcon },
   { name: 'Intake', href: '/intake', icon: DocumentTextIcon },
-  { name: 'Templates', href: '/templates', icon: DocumentTextIcon },
+  { name: 'Templates', href: TEMPLATE_CENTER_NAV_HREF, icon: DocumentTextIcon },
   { name: 'Reports', href: '/reports', icon: ChartBarIcon },
   { name: 'Team', href: '/team', icon: UsersIcon },
   { name: 'Risk Management', href: '/risks', icon: ShieldExclamationIcon },
@@ -47,6 +50,9 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -128,24 +134,40 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
         {/* Center: Quick Navigation (Desktop) */}
         <nav className="hidden lg:flex items-center space-x-6" data-testid="main-navigation">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-              className={({ isActive }) =>
-                cn(
+          {navigation.map((item) =>
+            item.href === TEMPLATE_CENTER_NAV_HREF ? (
+              <button
+                key={item.name}
+                type="button"
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={() => openTemplateCenter(undefined)}
+                className={cn(
                   'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive
-                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                    : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                )
-              }
-            >
-              <item.icon className="w-4 h-4" />
-              <span>{item.name}</span>
-            </NavLink>
-          ))}
+                  'text-slate-300 hover:bg-slate-700/50 hover:text-white',
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                <span>{item.name}</span>
+              </button>
+            ) : (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  )
+                }
+              >
+                <item.icon className="w-4 h-4" />
+                <span>{item.name}</span>
+              </NavLink>
+            ),
+          )}
         </nav>
 
         {/* Right: Organization Switcher + User Menu */}
@@ -213,25 +235,44 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
 
             {/* Mobile Navigation */}
             <nav className="space-y-2" data-testid="mobile-navigation">
-              {navigation.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                        : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                    )
-                  }
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
-                </NavLink>
-              ))}
+              {navigation.map((item) =>
+                item.href === TEMPLATE_CENTER_NAV_HREF ? (
+                  <button
+                    key={item.name}
+                    type="button"
+                    onClick={() => {
+                      openTemplateCenter(undefined);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                    className={cn(
+                      'flex w-full items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                      'text-slate-300 hover:bg-slate-700/50 hover:text-white',
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </button>
+                ) : (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    data-testid={`mobile-nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                        isActive
+                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                      )
+                    }
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </NavLink>
+                ),
+              )}
             </nav>
 
             {/* Mobile User Info */}

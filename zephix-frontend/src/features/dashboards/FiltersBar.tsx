@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DEFAULT_FILTERS, DashboardFilters, mergeFilters, parseFiltersFromUrl, filtersToUrl } from './filters';
 import { track } from '@/lib/telemetry';
@@ -11,6 +11,7 @@ type Props = {
 export default function FiltersBar({ storageKey, onApply }: Props) {
   const loc = useLocation();
   const navigate = useNavigate();
+  const didHydrateFromStorage = useRef(false);
   const fromUrl = useMemo(() => parseFiltersFromUrl(loc.search), [loc.search]);
 
   const [filters, setFilters] = useState<DashboardFilters>(() => {
@@ -22,11 +23,15 @@ export default function FiltersBar({ storageKey, onApply }: Props) {
 
   useEffect(() => {
     setFilters((cur) => mergeFilters(cur, fromUrl));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loc.search]);
+  }, [fromUrl]);
 
   // On mount, if localStorage has filters but URL doesn't, apply them to URL
   useEffect(() => {
+    if (didHydrateFromStorage.current) {
+      return;
+    }
+    didHydrateFromStorage.current = true;
+
     if (!loc.search) {
       try {
         const raw = localStorage.getItem(storageKey);
@@ -37,8 +42,7 @@ export default function FiltersBar({ storageKey, onApply }: Props) {
         }
       } catch { /* ignore */ }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loc.search, navigate, storageKey]);
 
   const apply = () => {
     localStorage.setItem(storageKey, JSON.stringify(filters));

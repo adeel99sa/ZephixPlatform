@@ -48,9 +48,9 @@ const mockProjectStore = {
 };
 
 const mockUIStore = {
-  blueprintModalProjectId: null,
-  openBlueprintModal: vi.fn(),
-  closeBlueprintModal: vi.fn(),
+  templateModalProjectId: null,
+  openTemplateModal: vi.fn(),
+  closeTemplateModal: vi.fn(),
   clearModalState: vi.fn(),
   clearError: vi.fn(),
   clearSuccess: vi.fn(),

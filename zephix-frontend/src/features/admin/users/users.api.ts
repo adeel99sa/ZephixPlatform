@@ -45,23 +45,23 @@ export const usersApi = {
     role?: string;
     status?: string;
   }): Promise<UsersListResponse> {
-    const { data } = await apiClient.get("/admin/users", { params });
-    return data as UsersListResponse;
+    const data = await apiClient.get<UsersListResponse>("/admin/users", { params });
+    return data;
   },
 
   async getUser(userId: string): Promise<User> {
-    const { data } = await apiClient.get(`/admin/users/${userId}`);
-    return data as User;
+    const data = await apiClient.get<User>(`/admin/users/${userId}`);
+    return data;
   },
 
   async createUser(user: CreateUserRequest): Promise<User> {
-    const { data } = await apiClient.post("/admin/users", user);
-    return data as User;
+    const data = await apiClient.post<User>("/admin/users", user);
+    return data;
   },
 
   async updateUser(userId: string, updates: UpdateUserRequest): Promise<User> {
-    const { data } = await apiClient.patch(`/admin/users/${userId}`, updates);
-    return data as User;
+    const data = await apiClient.patch<User>(`/admin/users/${userId}`, updates);
+    return data;
   },
 
   async deleteUser(userId: string): Promise<void> {

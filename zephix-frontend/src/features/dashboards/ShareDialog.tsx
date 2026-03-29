@@ -4,6 +4,7 @@ import { Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { track } from '@/lib/telemetry';
 import { useUIStore } from '@/stores/uiStore';
 import { enableShare, disableShare } from './api';
+import { Modal } from '@/components/ui/overlay/Modal';
 
 type Props = {
   dashboardId: string;
@@ -80,10 +81,8 @@ export default function ShareDialog({ dashboardId, initialVisibility, initialSha
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" data-testid="share-dialog">
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className="z-10 w-[520px] rounded-xl bg-white p-4 shadow-xl">
-        <div className="mb-2 text-base font-semibold">Share & Visibility</div>
+    <Modal isOpen={true} onClose={onClose} title="Share & Visibility" size="lg">
+      <div data-testid="share-dialog">
         <div className="mb-4 text-sm text-neutral-600">Choose who can view this dashboard.</div>
 
         {/* Visibility Options */}
@@ -168,6 +167,6 @@ export default function ShareDialog({ dashboardId, initialVisibility, initialSha
           <button className="rounded-md bg-neutral-900 px-3 py-1 text-sm text-white hover:bg-black" onClick={save} data-testid="share-save">Save</button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

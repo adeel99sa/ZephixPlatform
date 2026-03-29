@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Zap, CheckCircle, XCircle, Loader } from 'lucide-react';
-import { api } from '@/lib/api';
+import { request } from '@/lib/api';
 
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -20,7 +20,7 @@ export const VerifyEmailPage: React.FC = () => {
 
     const verifyEmail = async () => {
       try {
-        const response = await api.post('/auth/verify-email', { token });
+        await request.get('/auth/verify-email', { params: { token } });
         setStatus('success');
         setMessage('Email verified successfully! You can now log in.');
 

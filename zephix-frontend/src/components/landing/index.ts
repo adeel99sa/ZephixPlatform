@@ -1,8 +1,7 @@
-export { Header } from './Header';
-export { HeroSection } from './HeroSection';
-export { AITeaserSection } from './AITeaserSection';
-export { default as ProblemSection } from './ProblemSection';
-export { FeaturesSection } from './FeaturesSection';
-export { PricingSection } from './PricingSection';
-export { AboutSection } from './AboutSection';
-export { Footer } from './Footer';
+/**
+ * Barrel: canonical V3 landing only (`./v3`).
+ *
+ * Legacy pre-V3 marketing components are isolated under `./legacy` (not exported).
+ * Default Vitest excludes `legacy/**`; use `npm run test:landing` for active coverage.
+ */
+export * from './v3';

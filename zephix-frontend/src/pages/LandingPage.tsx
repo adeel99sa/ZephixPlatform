@@ -1,26 +1,33 @@
-import React from 'react';
-import Navigation from '../components/landing/Navigation';
-import Hero from '../components/landing/Hero';
-import ProblemSection from '../components/landing/ProblemSection';
-import SolutionsSection from '../components/landing/SolutionsSection';
-import VisionSection from '../components/landing/SolutionCards';
-import Timeline from '../components/landing/Timeline';
-import FounderStory from '../components/landing/FounderStory';
-import FAQ from '../components/landing/FAQ';
-import CTASection from '../components/landing/CTASection';
+import React from "react";
 
+import { LandingNavbar } from "../components/landing/LandingNavbar";
+import {
+  LandingArchitecture,
+  LandingBridge,
+  LandingEngines,
+  LandingFooter,
+  LandingHero,
+  LandingRoadmap,
+} from "../components/landing/v3";
+
+/**
+ * Canonical public marketing landing (guests at `/`).
+ *
+ * V3 sections under `components/landing/v3` are the active, production-intended surface.
+ * Pre-V3 sections live under `components/landing/legacy` for reference only — not routed here.
+ */
 const LandingPage: React.FC = () => {
   return (
-    <div className="bg-white">
-      <Navigation />
-      <Hero />
-      <ProblemSection />
-      <SolutionsSection />
-      <VisionSection />
-      <Timeline />
-      <FounderStory />
-      <FAQ />
-      <CTASection />
+    <div className="min-h-screen bg-white font-sans text-slate-900 antialiased">
+      <LandingNavbar />
+      <main>
+        <LandingHero />
+        <LandingBridge />
+        <LandingEngines />
+        <LandingArchitecture />
+        <LandingRoadmap />
+      </main>
+      <LandingFooter />
     </div>
   );
 };

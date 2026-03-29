@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useWorkspaceStore } from '@/state/workspace.store';
+import { useTemplateCenterModalStore } from '@/state/templateCenterModal.store';
 import { useWorkspaceRole } from '@/hooks/useWorkspaceRole';
 import { useAuth } from '@/state/AuthContext';
 import { PHASE5_1_COPY } from '@/constants/phase5_1.copy';
@@ -40,11 +41,17 @@ import {
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { track } from '@/lib/telemetry';
+import { getGateDefinition, type GateDefinition } from '@/features/phase-gates/phaseGates.api';
+import { GateDecisionModal } from '@/features/phase-gates/GateDecisionModal';
+import { PhaseGateStrip } from '@/features/phase-gates/PhaseGateStrip';
 
 export function ProjectPlanView() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { activeWorkspaceId: workspaceId } = useWorkspaceStore();
+  const openTemplateCenter = useTemplateCenterModalStore(
+    (s) => s.openTemplateCenter,
+  );
   const { canWrite } = useWorkspaceRole(workspaceId);
   const { user } = useAuth();
   const [plan, setPlan] = useState<ProjectPlan | null>(null);
@@ -74,6 +81,15 @@ export function ProjectPlanView() {
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState('');
   const [creatingPhase, setCreatingPhase] = useState(false);
+
+  const [phaseGateMap, setPhaseGateMap] = useState<Record<string, GateDefinition | null>>({});
+  const [gatesLoading, setGatesLoading] = useState(false);
+  const [gatesFetchKey, setGatesFetchKey] = useState(0);
+  const [gateModal, setGateModal] = useState<{
+    phaseId: string;
+    gate: GateDefinition;
+    phaseName: string;
+  } | null>(null);
 
   // --- Rename phase inline state ---
   const [renamingPhaseId, setRenamingPhaseId] = useState<string | null>(null);
@@ -596,6 +612,38 @@ export function ProjectPlanView() {
     }
   }, [projectId, deletedPanelOpen, loadDeletedPhases]);
 
+  const phaseIdsKey = plan?.phases?.map((p) => p.id).join(',') ?? '';
+
+  useEffect(() => {
+    if (!projectId || !plan?.phases?.length || !workspaceId) {
+      setPhaseGateMap({});
+      setGatesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setGatesLoading(true);
+    void (async () => {
+      const entries = await Promise.all(
+        plan.phases.map(async (p) => {
+          try {
+            const g = await getGateDefinition(projectId, p.id);
+            return [p.id, g] as const;
+          } catch {
+            return [p.id, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, GateDefinition | null> = {};
+      for (const [id, g] of entries) next[id] = g;
+      setPhaseGateMap(next);
+      setGatesLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, workspaceId, phaseIdsKey, gatesFetchKey, plan]);
+
   /**
    * Toggle deleted phases panel
    */
@@ -723,12 +771,12 @@ export function ProjectPlanView() {
           <h2 className="text-lg font-semibold text-gray-900 mb-2">{PHASE5_1_COPY.NO_PHASES_EXIST}</h2>
           {canWrite && (
             <button
-              onClick={() => navigate('/templates')}
+              onClick={() => openTemplateCenter(workspaceId ?? undefined)}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Use template
             </button>
-          )}
+            )}
         </div>
       </div>
     );
@@ -793,7 +841,7 @@ export function ProjectPlanView() {
           <h2 className="text-lg font-semibold text-gray-900 mb-2">{PHASE5_1_COPY.NO_PHASES_EXIST}</h2>
           {canWrite && (
             <button
-              onClick={() => navigate('/templates')}
+              onClick={() => openTemplateCenter(workspaceId ?? undefined)}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Use template
@@ -1015,6 +1063,27 @@ export function ProjectPlanView() {
                   )}
                 </div>
               </div>
+
+              {!isCollapsed && projectId && (
+                <div className="border-b border-gray-100 px-4 pb-3">
+                  <PhaseGateStrip
+                    phaseId={phase.id}
+                    phaseName={phase.name}
+                    gate={phaseGateMap[phase.id] ?? undefined}
+                    gatesLoading={gatesLoading}
+                    canRecord={canWrite}
+                    onRecordDecision={() =>
+                      setGateModal({
+                        phaseId: phase.id,
+                        gate: phaseGateMap[phase.id]!,
+                        phaseName: phase.name,
+                      })
+                    }
+                    secondaryLinkHref={`/projects/${projectId}/execution`}
+                    secondaryLinkLabel="Open task list"
+                  />
+                </div>
+              )}
 
               {/* Phase content (tasks) - collapsible */}
               {!isCollapsed && (
@@ -1371,6 +1440,21 @@ export function ProjectPlanView() {
             </div>
           </div>
         </div>
+      )}
+
+      {gateModal && projectId && plan && (
+        <GateDecisionModal
+          isOpen
+          onClose={() => setGateModal(null)}
+          onSubmitted={() => setGatesFetchKey((k) => k + 1)}
+          projectId={projectId}
+          gateDefinitionId={gateModal.gate.id}
+          gateName={gateModal.gate.name}
+          phaseName={gateModal.phaseName}
+          nextPhaseOptions={plan.phases
+            .filter((p) => p.id !== gateModal.phaseId)
+            .map((p) => ({ id: p.id, name: p.name }))}
+        />
       )}
     </div>
   );

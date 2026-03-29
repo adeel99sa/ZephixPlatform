@@ -5,6 +5,7 @@
  */
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
+import { accessDecisionMessage } from '@/lib/api/accessDecision';
 
 type WorkspaceAccessStateProps = {
   type: 'no-access' | 'not-found';
@@ -20,7 +21,7 @@ export function WorkspaceAccessState({ type, workspaceId }: WorkspaceAccessState
         <div className="max-w-md w-full text-center">
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">No access</h2>
           <p className="text-gray-600 mb-6">
-            You don't have access to this workspace. Contact a workspace owner to request access.
+            {accessDecisionMessage('forbidden', 'workspace')}
           </p>
           <Button onClick={() => navigate('/workspaces')}>
             Back to workspace list
@@ -36,7 +37,7 @@ export function WorkspaceAccessState({ type, workspaceId }: WorkspaceAccessState
       <div className="max-w-md w-full text-center">
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">Workspace not found</h2>
         <p className="text-gray-600 mb-6">
-          This workspace doesn't exist or has been deleted.
+          {accessDecisionMessage('missing', 'workspace')}
         </p>
         <Button onClick={() => navigate('/workspaces')}>
           Back to workspace list

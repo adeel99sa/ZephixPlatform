@@ -1,155 +1,144 @@
-import { apiClient } from '@/lib/api/client';
-import { useWorkspaceStore } from '@/state/workspace.store';
+import type {
+  CanonicalTemplate,
+  CreateProjectFromTemplateInput,
+} from './types';
 
-// Types matching backend response
+import { apiClient } from '@/lib/api/client';
+import { unwrapArray, unwrapData } from '@/lib/api/unwrapData';
+
 export interface TemplateCard {
   templateId: string;
   templateName: string;
-  containerType: 'PROJECT' | 'PROGRAM';
-  workTypeTags: string[];
-  scopeTags: string[];
   phaseCount: number;
   taskCount: number;
-  lockSummary: string;
-  setupTimeLabel: string;
-  reasonCodes: string[];
   reasonLabels: string[];
+  lockSummary?: string;
 }
 
 export interface RecommendationResponse {
   recommended: TemplateCard[];
   others: TemplateCard[];
-  inputsEcho: {
-    containerType: 'PROJECT' | 'PROGRAM';
-    workType: string;
-    durationDays?: number;
-    complexity?: string;
-  };
-  generatedAt: string;
-}
-
-export interface PreviewPhase {
-  name: string;
-  sortOrder: number;
-  isMilestone: boolean;
-  taskCount: number;
 }
 
 export interface PreviewResponse {
   templateId: string;
   templateName: string;
-  phaseCount: number;
-  taskCount: number;
-  phases: PreviewPhase[];
-  defaultTaskStatuses: string[];
-  lockPolicy: {
-    structureLocksOnStart: boolean;
-    lockedItems: string[];
-  };
+  phases: Array<{
+    name: string;
+    taskCount: number;
+    isMilestone?: boolean;
+  }>;
   allowedBeforeStart: string[];
   allowedAfterStart: string[];
 }
 
-export interface InstantiateV51Response {
-  projectId: string;
-  projectName: string;
-  state: 'DRAFT' | 'ACTIVE' | 'COMPLETED';
-  structureLocked: boolean;
-  phaseCount: number;
-  taskCount: number;
+export async function listTemplates(): Promise<CanonicalTemplate[]> {
+  const response = await apiClient.get<CanonicalTemplate[] | { data: CanonicalTemplate[] }>(
+    '/templates',
+    {
+      params: { mode: 'mvp' },
+    },
+  );
+  return unwrapArray<CanonicalTemplate>(response);
 }
 
-/**
- * Get template recommendations
- */
-export async function getRecommendations(
-  containerType: 'PROJECT' | 'PROGRAM',
-  workType: string
-): Promise<RecommendationResponse> {
-  const { activeWorkspaceId } = useWorkspaceStore.getState();
+export async function listMvpTemplates(): Promise<CanonicalTemplate[]> {
+  return listTemplates();
+}
 
-  if (!activeWorkspaceId) {
-    throw new Error('WORKSPACE_REQUIRED');
+export async function getTemplateDetail(
+  templateId: string,
+): Promise<CanonicalTemplate> {
+  const response = await apiClient.get<CanonicalTemplate | { data: CanonicalTemplate }>(
+    `/templates/${templateId}`,
+    {
+      params: { mode: 'mvp' },
+    },
+  );
+  const data = unwrapData<CanonicalTemplate>(response);
+  if (!data) {
+    throw new Error('Template not found');
   }
+  return data;
+}
 
-  const response = await apiClient.get<{ data: RecommendationResponse }>(
+export async function getRecommendations(
+  containerType: string,
+  workType: string,
+): Promise<RecommendationResponse> {
+  const response = await apiClient.get<{ data?: RecommendationResponse }>(
     '/templates/recommendations',
     {
       params: {
         containerType,
         workType,
       },
-      headers: {
-        'x-workspace-id': activeWorkspaceId,
-      },
-    }
+    },
   );
-
-  // Backend returns { data: RecommendationResponse }
-  return response.data?.data ?? response.data as unknown as RecommendationResponse;
+  return response.data?.data ?? { recommended: [], others: [] };
 }
 
-/**
- * Get template preview for v5_1
- */
-export async function getPreview(
-  templateId: string
-): Promise<PreviewResponse> {
-  const { activeWorkspaceId } = useWorkspaceStore.getState();
-
-  if (!activeWorkspaceId) {
-    throw new Error('WORKSPACE_REQUIRED');
-  }
-
-  const response = await apiClient.get<{ data: PreviewResponse }>(
+export async function getPreview(templateId: string): Promise<PreviewResponse> {
+  const response = await apiClient.get<{ data?: PreviewResponse }>(
     `/templates/${templateId}/preview-v5_1`,
-    {
-      headers: {
-        'x-workspace-id': activeWorkspaceId,
-      },
-    }
   );
-
-  // Backend returns { data: PreviewResponse }
-  return response.data?.data ?? response.data as unknown as PreviewResponse;
+  if (!response.data?.data) {
+    throw new Error('Template preview not available');
+  }
+  return response.data.data;
 }
 
-/**
- * Instantiate template v5_1
- */
 export async function instantiateV51(
   templateId: string,
-  projectName: string
-): Promise<InstantiateV51Response> {
-  const { activeWorkspaceId } = useWorkspaceStore.getState();
-
-  if (!activeWorkspaceId) {
-    throw new Error('WORKSPACE_REQUIRED');
-  }
-
-  const response = await apiClient.post<{ data: InstantiateV51Response }>(
+  projectName: string,
+): Promise<{ projectId: string }> {
+  const response = await apiClient.post<{ data?: { projectId?: string } }>(
     `/templates/${templateId}/instantiate-v5_1`,
-    {
-      projectName,
-    },
-    {
-      headers: {
-        'x-workspace-id': activeWorkspaceId,
-      },
-    }
+    { projectName },
   );
 
-  // Backend returns { data: InstantiateV51Response }
-  return response.data?.data ?? response.data as unknown as InstantiateV51Response;
+  const projectId = response.data?.data?.projectId;
+  if (!projectId) {
+    throw new Error('Template instantiation failed');
+  }
+
+  return { projectId };
 }
 
-// Legacy exports for backward compatibility
-export const listTemplates = async (params?: { type?: string; category?: string }): Promise<unknown[]> => {
-  const response = await apiClient.get<{ data: unknown[] }>('/templates', { params });
-  return response.data?.data ?? response.data ?? [];
-};
+export async function createProjectFromTemplate(
+  payload: CreateProjectFromTemplateInput,
+): Promise<{ id: string; workspaceId?: string }> {
+  const response = await apiClient.post<{ id: string; workspaceId?: string } | { data: { id: string; workspaceId?: string } }>(
+    '/projects/from-template',
+    payload,
+  );
+  const data = unwrapData<{ id: string; workspaceId?: string }>(response);
+  if (!data?.id) {
+    throw new Error('Project creation failed');
+  }
+  return data;
+}
 
-export const applyTemplate = async (type: string, payload: any): Promise<any> => {
-  const response = await apiClient.post(`/templates/${type}/apply`, payload);
-  return response.data;
-};
+export async function applyTemplate(
+  type: string,
+  payload: { templateId: string; workspaceId: string; projectName?: string },
+): Promise<{ id: string; workspaceId?: string }> {
+  if (type !== 'project') {
+    throw new Error(`Unsupported template apply type: ${type}`);
+  }
+
+  return createProjectFromTemplate({
+    templateId: payload.templateId,
+    workspaceId: payload.workspaceId,
+    projectName: payload.projectName ?? 'New Project',
+    importOptions: {
+      includeViews: true,
+      includeTasks: true,
+      includePhases: true,
+      includeMilestones: true,
+      includeCustomFields: false,
+      includeDependencies: false,
+      remapDates: true,
+    },
+  });
+}

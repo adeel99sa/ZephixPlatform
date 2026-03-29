@@ -27,7 +27,6 @@ export const useAuth = () => {
     error: store.error,
     permissions,
     login: store.login,
-    signup: store.signup,
     logout: store.logout,
     clearError: store.clearError
   };

@@ -187,6 +187,7 @@ export async function navigateToProjectGantt(page: Page, projectId: string) {
 
 export async function navigateToTemplates(page: Page) {
   await page.goto('/templates');
+  await page.waitForURL(/\/home/);
   await page.waitForLoadState('networkidle');
 }
 

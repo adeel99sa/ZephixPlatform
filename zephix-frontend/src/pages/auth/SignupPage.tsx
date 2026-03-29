@@ -1,26 +1,48 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Mail, Lock, User, Building2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Zap, Mail, Lock, User } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface SignupFormData {
   email: string;
   password: string;
   fullName: string;
-  orgName: string;
+}
+
+function computePasswordStrength(password: string): {
+  score: number;
+  label: string;
+  color: string;
+} {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[@$!%*?&#]/.test(password)) score += 1;
+
+  if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
+  if (score <= 4) return { score, label: 'Fair', color: 'bg-amber-500' };
+  return { score, label: 'Strong', color: 'bg-emerald-500' };
 }
 
 export const SignupPage: React.FC = () => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState<SignupFormData>({
     email: '',
     password: '',
     fullName: '',
-    orgName: '',
   });
   const [errors, setErrors] = useState<Partial<SignupFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [successEmail, setSuccessEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+
+  const strength = useMemo(
+    () => computePasswordStrength(formData.password),
+    [formData.password],
+  );
 
   const validateForm = (): boolean => {
     const newErrors: Partial<SignupFormData> = {};
@@ -44,10 +66,6 @@ export const SignupPage: React.FC = () => {
       newErrors.fullName = 'Please enter your full name';
     }
 
-    if (!formData.orgName || formData.orgName.trim().length < 2) {
-      newErrors.orgName = 'Please enter your organization name';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -67,19 +85,15 @@ export const SignupPage: React.FC = () => {
         email: formData.email,
         password: formData.password,
         fullName: formData.fullName.trim(),
-        orgName: formData.orgName.trim(),
       });
 
-      // Always show success message (neutral response)
+      setSuccessEmail(formData.email.trim());
       setSubmitSuccess(true);
-    } catch (error: any) {
-      console.error('Signup error:', error);
-
-      if (error.response?.status === 400) {
-        const errorMessage = error.response?.data?.message || 'Please check your input';
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { message?: string } } };
+      if (err.response?.status === 400) {
+        const errorMessage = err.response?.data?.message || 'Please check your input';
         setErrors({ email: errorMessage });
-      } else if (error.response?.status === 409) {
-        setErrors({ orgName: error.response?.data?.message || 'Organization name already taken. Please choose a different name.' });
       } else {
         setErrors({ email: 'Something went wrong. Please try again.' });
       }
@@ -88,10 +102,29 @@ export const SignupPage: React.FC = () => {
     }
   };
 
+  async function handleResendVerification() {
+    if (resendCooldown || !successEmail) return;
+    setResendMessage(null);
+    try {
+      await api.post('/auth/resend-verification', { email: successEmail });
+      setResendMessage('If an account exists, a verification email will be sent.');
+      setResendCooldown(true);
+      setTimeout(() => setResendCooldown(false), 60000);
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number } };
+      if (err.response?.status === 429) {
+        setResendMessage('Too many requests. Please wait before trying again.');
+      } else {
+        setResendMessage(
+          'If an account with this email exists, you will receive a verification email.',
+        );
+      }
+    }
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
     if (errors[name as keyof SignupFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -123,10 +156,21 @@ export const SignupPage: React.FC = () => {
               If an account with this email exists, you will receive a verification email.
               Please check your inbox and click the verification link to complete your registration.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendCooldown}
+                className="w-full py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md text-sm font-medium hover:bg-indigo-50 disabled:opacity-50"
+              >
+                {resendCooldown ? 'Wait before resending…' : 'Resend verification email'}
+              </button>
+              {resendMessage && (
+                <p className="text-sm text-gray-600">{resendMessage}</p>
+              )}
               <Link
                 to="/login"
-                className="text-indigo-600 hover:text-indigo-500 font-medium"
+                className="block text-indigo-600 hover:text-indigo-500 font-medium"
               >
                 Go to Login →
               </Link>
@@ -162,7 +206,6 @@ export const SignupPage: React.FC = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Full Name */}
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
                 Full Name
@@ -190,7 +233,6 @@ export const SignupPage: React.FC = () => {
               )}
             </div>
 
-            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
@@ -218,7 +260,6 @@ export const SignupPage: React.FC = () => {
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
@@ -241,40 +282,26 @@ export const SignupPage: React.FC = () => {
                   placeholder="SecurePass123!@#"
                 />
               </div>
+              {formData.password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Strength</span>
+                    <span>{strength.label}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${strength.color}`}
+                      style={{ width: `${(strength.score / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               {errors.password && (
                 <p className="mt-2 text-sm text-red-600">{errors.password}</p>
               )}
               <p className="mt-2 text-xs text-gray-500">
-                Must be at least 8 characters with uppercase, lowercase, number, and special character
+                At least 8 characters with uppercase, lowercase, number, and special character
               </p>
-            </div>
-
-            {/* Organization Name */}
-            <div>
-              <label htmlFor="orgName" className="block text-sm font-medium text-gray-700">
-                Organization Name
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Building2 className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="orgName"
-                  name="orgName"
-                  type="text"
-                  autoComplete="organization"
-                  required
-                  value={formData.orgName}
-                  onChange={handleChange}
-                  className={`appearance-none block w-full pl-10 pr-3 py-2 border ${
-                    errors.orgName ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                  placeholder="Acme Corp"
-                />
-              </div>
-              {errors.orgName && (
-                <p className="mt-2 text-sm text-red-600">{errors.orgName}</p>
-              )}
             </div>
 
             <div>

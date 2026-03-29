@@ -1,6 +1,7 @@
 // Workspace-specific API functions for settings, members, permissions, etc.
 // This file is separate from features/workspaces/api.ts which handles basic CRUD
 import { api } from '@/lib/api';
+import { listProjects as listProjectsFromProjectsApi } from '@/features/projects/api';
 
 export type WorkspaceApiData = {
   id: string;
@@ -18,6 +19,12 @@ export type WorkspaceApiData = {
     lastName?: string;
   };
   homeNotes?: string;
+  defaultMethodology?: string;
+  businessUnitLabel?: string;
+  defaultTemplateId?: string | null;
+  inheritOrgDefaultTemplate?: boolean;
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+  allowedTemplateIds?: string[] | null;
 };
 
 // Alias for backwards compatibility
@@ -66,12 +73,11 @@ export async function getWorkspace(id: string): Promise<Workspace | null> {
     const workspace = unwrapData<Workspace | null>(payload);
     return workspace ?? null;
   } catch (error: any) {
-    // Re-throw 403 (access denied) so caller can handle it
-    if (error?.response?.status === 403) {
-      throw error;
+    // Deep-link readers must distinguish missing from denied/session cases.
+    if (error?.response?.status === 404) {
+      return null;
     }
-    // Return null for 404 or other errors
-    return null;
+    throw error;
   }
 }
 
@@ -123,6 +129,23 @@ export async function listWorkspaceMembers(workspaceId: string): Promise<Member[
     console.error('Failed to fetch workspace members:', error);
     return [];
   }
+}
+
+export async function getWorkspaceMembersForAccessCheck(
+  workspaceId: string,
+): Promise<Member[]> {
+  const payload = await api.get<Member[] | { data: Member[] }>(
+    `/workspaces/${workspaceId}/members`,
+  );
+  const unwrapped = unwrapData<Member[] | { data: Member[] }>(payload);
+  if (Array.isArray(unwrapped)) {
+    return unwrapped;
+  }
+  const nested =
+    unwrapped && typeof unwrapped === 'object'
+      ? (unwrapped as { data?: Member[] }).data
+      : undefined;
+  return Array.isArray(nested) ? nested : [];
 }
 
 export async function addWorkspaceMember(
@@ -260,27 +283,7 @@ export async function getKpiSummary(id: string): Promise<any | null> {
 
 export async function listProjects(id: string): Promise<any[]> {
   try {
-    const payload = await api.get<
-      any[] | { projects?: any[] } | { data?: { projects?: any[] } }
-    >(`/projects?workspaceId=${id}`);
-    const unwrapped = unwrapData<
-      any[] | { projects?: any[] } | { data?: { projects?: any[] } }
-    >(payload);
-    if (Array.isArray(unwrapped)) {
-      return unwrapped;
-    }
-    if (unwrapped && typeof unwrapped === 'object') {
-      const directProjects = (unwrapped as { projects?: any[] }).projects;
-      if (Array.isArray(directProjects)) {
-        return directProjects;
-      }
-      const nestedProjects = (unwrapped as { data?: { projects?: any[] } }).data
-        ?.projects;
-      if (Array.isArray(nestedProjects)) {
-        return nestedProjects;
-      }
-    }
-    return [];
+    return await listProjectsFromProjectsApi(id);
   } catch (error) {
     console.error('Failed to fetch workspace projects:', error);
     return [];

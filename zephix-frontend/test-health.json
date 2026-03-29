@@ -3,12 +3,12 @@
   "generated": "2026-02-10",
   "gatingFloor": 38,
   "gatingFloor_comment": "Minimum gating test file count. Only increase, never decrease. Also enforced in vitest.gating.config.ts and CI.",
-  "totalFailing": 28,
-  "totalFailingTests": 85,
+  "totalFailing": 27,
+  "totalFailingTests": 76,
   "fixOrder": [
     "P1: ErrorBoundary + global UI primitives",
     "P2: Admin pages (AdminInvitePage, AdminWorkspacesPage, AdminTemplatesPage)",
-    "P3: Core project pages (ProjectsPage, SettingsPage, ProjectCreateModal)",
+    "P3: Core project pages (ProjectsPage, ProjectCreateModal)",
     "P4: Work management views (ProjectPlanView, WorkspaceHome)",
     "P5: Resource pages",
     "P6: Workspace member pages",
@@ -51,12 +51,6 @@
       "category": "P3",
       "failCount": 4,
       "reason": "Loading, empty state, project list, create button tests stale"
-    },
-    {
-      "file": "src/pages/settings/__tests__/SettingsPage.test.tsx",
-      "category": "P3",
-      "failCount": 9,
-      "reason": "All settings page tests fail — likely component rewrite not reflected in tests"
     },
     {
       "file": "src/features/projects/__tests__/ProjectCreateModal.test.tsx",
@@ -155,19 +149,19 @@
       "reason": "Color contrast test stale"
     },
     {
-      "file": "src/components/landing/__tests__/FeaturesSection.test.tsx",
+      "file": "src/components/landing/legacy/__tests__/FeaturesSection.test.tsx",
       "category": "P8",
       "failCount": 10,
       "reason": "Marketing page DOM structure tests — lowest priority"
     },
     {
-      "file": "src/components/landing/__tests__/HeroSection.test.tsx",
+      "file": "src/components/landing/legacy/__tests__/HeroSection.test.tsx",
       "category": "P8",
       "failCount": 2,
       "reason": "Marketing page DOM tests"
     },
     {
-      "file": "src/components/landing/__tests__/HowItWorksSection.test.tsx",
+      "file": "src/components/landing/legacy/__tests__/HowItWorksSection.test.tsx",
       "category": "P8",
       "failCount": 12,
       "reason": "Marketing page DOM tests"
@@ -179,7 +173,7 @@
       "reason": "Marketing page DOM tests"
     },
     {
-      "file": "src/components/landing/__tests__/PricingSection.test.tsx",
+      "file": "src/components/landing/legacy/__tests__/PricingSection.test.tsx",
       "category": "P8",
       "failCount": 0,
       "reason": "Marketing page DOM tests"

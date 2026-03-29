@@ -9,6 +9,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Settings2, Lock, Eye, EyeOff, X } from 'lucide-react';
 import {
   CORE_TASK_FIELDS,
+  EXECUTION_FIELDS,
+  GOVERNANCE_FIELDS,
   OPTIONAL_TASK_FIELDS,
   type TaskFieldDef,
 } from './TaskFieldRegistry';
@@ -49,6 +51,8 @@ export const ViewSettingsPanel: React.FC<Props> = ({
   }, [open]);
 
   const toggleField = (key: string) => {
+    const field = OPTIONAL_TASK_FIELDS.find((item) => item.key === key);
+    if (field?.governanceLocked) return;
     if (visibleFields.includes(key)) {
       onFieldsChange(visibleFields.filter((k) => k !== key));
     } else {
@@ -104,14 +108,30 @@ export const ViewSettingsPanel: React.FC<Props> = ({
             {/* Optional fields — toggleable */}
             <div className="px-3 py-1.5">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                Optional
+                Execution fields
               </span>
             </div>
-            {OPTIONAL_TASK_FIELDS.map((field) => (
+            {EXECUTION_FIELDS.filter((field) => !field.isCore).map((field) => (
               <FieldRow
                 key={field.key}
                 field={field}
                 visible={visibleFields.includes(field.key)}
+                onToggle={() => toggleField(field.key)}
+              />
+            ))}
+
+            <div className="border-t border-slate-100 my-1" />
+            <div className="px-3 py-1.5">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                Governance fields
+              </span>
+            </div>
+            {GOVERNANCE_FIELDS.filter((field) => !field.isCore).map((field) => (
+              <FieldRow
+                key={field.key}
+                field={field}
+                visible={visibleFields.includes(field.key)}
+                locked={field.governanceLocked}
                 onToggle={() => toggleField(field.key)}
               />
             ))}

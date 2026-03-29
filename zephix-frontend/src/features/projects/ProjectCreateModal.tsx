@@ -6,6 +6,10 @@ import { telemetry } from '@/lib/telemetry';
 import { apiClient } from '@/lib/api/client';
 
 import { createProject } from './api';
+import {
+  createProjectFromTemplate,
+  listTemplates as listMvpTemplates,
+} from '@/features/templates/api';
 
 interface Props {
   open: boolean;
@@ -17,18 +21,9 @@ interface Props {
 interface TemplateSummary {
   id: string;
   name: string;
-  deliveryMethod?: string;
-  boundKpiCount?: number;
+  complexity?: string;
   description?: string;
 }
-
-const METHOD_ORDER = ['SCRUM', 'KANBAN', 'WATERFALL', 'HYBRID'];
-const METHOD_LABELS: Record<string, string> = {
-  SCRUM: 'Scrum',
-  KANBAN: 'Kanban',
-  WATERFALL: 'Waterfall',
-  HYBRID: 'Hybrid',
-};
 
 function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
@@ -39,17 +34,25 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
     const loadTemplates = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/templates/published');
-        const payload = (response as any)?.data ?? response;
-        const raw = (payload as any)?.data ?? payload;
-        const activeTemplates = (Array.isArray(raw) ? raw : [])
-          .map((t: any) => ({
-            id: t.id,
-            name: t.name,
-            deliveryMethod: t.deliveryMethod || null,
-            boundKpiCount: t.boundKpiCount || 0,
-            description: t.description || '',
-          }));
+        const mvp = await listMvpTemplates().catch(() => []);
+        const response = await apiClient.get('/templates/published').catch(
+          () => null,
+        );
+        const payload = response ? (response as any)?.data ?? response : null;
+        const raw = payload ? (payload as any)?.data ?? payload : [];
+        const activeTemplates = mvp.length
+          ? mvp.map((t) => ({
+              id: t.id,
+              name: t.name,
+              complexity: t.complexity,
+              description: t.description || '',
+            }))
+          : (Array.isArray(raw) ? raw : []).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              complexity: t.complexity || null,
+              description: t.description || '',
+            }));
         setTemplates(activeTemplates);
       } catch (err) {
         console.error('Failed to load templates:', err);
@@ -60,20 +63,6 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
     };
     loadTemplates();
   },[]);
-
-  // Group by delivery method
-  const grouped = new Map<string, TemplateSummary[]>();
-  const ungrouped: TemplateSummary[] = [];
-
-  for (const t of templates) {
-    if (t.deliveryMethod && METHOD_ORDER.includes(t.deliveryMethod)) {
-      const list = grouped.get(t.deliveryMethod) || [];
-      list.push(t);
-      grouped.set(t.deliveryMethod, list);
-    } else {
-      ungrouped.push(t);
-    }
-  }
 
   const selected = templates.find(t => t.id === value);
 
@@ -88,24 +77,11 @@ function TemplateSelector({onSelect}:{onSelect:(id:string|null)=>void}){
         disabled={loading}
       >
         <option value="">Start from scratch</option>
-        {METHOD_ORDER.map(method => {
-          const list = grouped.get(method);
-          if (!list || list.length === 0) return null;
-          return (
-            <optgroup key={method} label={METHOD_LABELS[method] || method}>
-              {list.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.name}{t.boundKpiCount ? ` (${t.boundKpiCount} KPIs)` : ''}
-                </option>
-              ))}
-            </optgroup>
-          );
-        })}
-        {ungrouped.length > 0 && (
-          <optgroup label="Other">
-            {ungrouped.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </optgroup>
-        )}
+        {templates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
       </select>
       {loading && <span className="text-xs text-gray-500 mt-1">Loading templates...</span>}
       {selected?.description && (
@@ -135,16 +111,22 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
     if (!name.trim() || !effectiveWorkspaceId) return;
     setBusy(true);
     try {
-      let project;
-
       if (selectedTemplateId) {
-        // Use template apply endpoint
-        const response = await apiClient.post<{ data: { id?: string; projectId?: string } }>(`/admin/templates/${selectedTemplateId}/apply`, {
-          name,
+        const created = await createProjectFromTemplate({
+          templateId: selectedTemplateId,
           workspaceId: effectiveWorkspaceId,
+          projectName: name,
+          importOptions: {
+            includeViews: true,
+            includeTasks: true,
+            includePhases: true,
+            includeMilestones: true,
+            includeCustomFields: false,
+            includeDependencies: false,
+            remapDates: true,
+          },
         });
-        project = response.data?.data ?? response.data;
-        const projectId = (project as { id?: string; projectId?: string })?.id || (project as { projectId?: string })?.projectId;
+        const projectId = created?.id;
         telemetry.track('project.create.templateSelected', { projectId, templateId: selectedTemplateId });
 
         // Emit event to invalidate KPI cache in dashboards
@@ -157,7 +139,7 @@ export function ProjectCreateModal({ open, onClose, onCreated, workspaceId }: Pr
         if (projectId) onCreated(projectId);
       } else {
         // Use regular project creation
-        project = await createProject({
+        const project = await createProject({
           name,
           workspaceId: effectiveWorkspaceId,
         });

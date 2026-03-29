@@ -120,6 +120,172 @@ export type AdminAuditEvent = {
   description: string;
 };
 
+export type AdminSystemHealth = {
+  status: string;
+  timestamp?: string;
+  database?: string;
+};
+
+export type OrganizationProfile = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  website: string | null;
+  industry: string | null;
+  size: string | null;
+  description: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  planCode: string | null;
+  planStatus: string | null;
+  planExpiresAt: string | null;
+  metadataSummary: {
+    trialEndsAt: string | null;
+    dataRegion: string | null;
+    allowedEmailDomain: string | null;
+  };
+  tenantSummary?: {
+    totalUsers: number;
+    totalWorkspaces: number;
+  };
+};
+
+export type AccessControlSummary = {
+  platformRoles: Array<{
+    role: "ADMIN" | "MEMBER" | "VIEWER";
+    canCreateWorkspaces: boolean;
+    canManageOrganizationGovernance: boolean;
+    defaultAccessMode: "read_write" | "read_only";
+  }>;
+  workspaceRoles: Array<{
+    role: "workspace_owner" | "workspace_member" | "workspace_viewer";
+    hierarchyRank: number;
+    mutable: boolean;
+  }>;
+  roleMappings: Array<{
+    legacyRole: string;
+    normalizedRole: "ADMIN" | "MEMBER" | "VIEWER";
+  }>;
+  policyNotes: string[];
+};
+
+export type IntegrationsGovernanceSummary = {
+  totals: {
+    totalConnections: number;
+    enabledConnections: number;
+    webhookEnabledConnections: number;
+    erroredConnections: number;
+    providerCount: number;
+  };
+  providers: string[];
+  editableControls: {
+    adminMutationEnabled: boolean;
+    reason: string;
+  };
+};
+
+export type IntegrationApiAccessItem = {
+  id: string;
+  provider: string;
+  authType: string;
+  baseUrl: string;
+  email: string;
+  enabled: boolean;
+  pollingEnabled: boolean;
+  webhookEnabled: boolean;
+  status: string;
+  errorCount: number;
+  lastSyncStatus: string | null;
+  lastSyncRunAt: string | null;
+  updatedAt: string | null;
+};
+
+export type IntegrationsApiAccess = {
+  items: IntegrationApiAccessItem[];
+  mode: "read_only";
+};
+
+export type IntegrationsWebhooks = {
+  items: Array<{
+    connectionId: string;
+    provider: string;
+    destination: string;
+    enabled: boolean;
+    status: string;
+    updatedAt: string | null;
+  }>;
+  mode: "read_only";
+};
+
+export type AIGovernanceSummary = {
+  aiEnabled: boolean;
+  advisoryOnly: boolean;
+  policyVersion: string;
+  dataTrainingStatement: string;
+  roleAccess: Array<{
+    role: "ADMIN" | "MEMBER" | "VIEWER";
+    aiAdvisoryAccess: "allowed_with_workspace_access" | "no_access_without_workspace_access";
+    visibilityMode: "full_context" | "redacted_viewer";
+  }>;
+  workspaceRoleAccess: Array<{
+    role: "workspace_owner" | "workspace_member" | "workspace_viewer";
+    hierarchyRank: number;
+    canReadAdvisory: boolean;
+  }>;
+  policyNotes: string[];
+  editableControls: {
+    policyEditingEnabled: boolean;
+    reason: string;
+  };
+};
+
+export type AIGovernanceUsage = {
+  windowDays: number;
+  totalEvents: number;
+  advisoryEvents: number;
+  cardAdvisoryEvents: number;
+  uniqueActors: number;
+  workspaceCoverage: number;
+  mode: "read_only";
+};
+
+export type DataManagementSummary = {
+  storage: {
+    usedBytes: number;
+    effectiveBytes: number;
+  };
+  retention: {
+    attachmentRetentionDays: number | null;
+    policySource: string;
+  };
+  residency: {
+    dataRegion: string | null;
+  };
+  cleanup: {
+    expiredAttachmentPurgeAvailable: boolean;
+    mode: "read_only";
+    reason: string;
+  };
+};
+
+export type DataManagementExports = {
+  items: Array<{
+    id?: string;
+    type?: string;
+    status?: string;
+    createdAt?: string;
+  }>;
+  mode: "read_only";
+  reason: string;
+};
+
+export type DataManagementRetention = {
+  attachmentRetentionDays: number | null;
+  policySource: string;
+  mode: "read_only";
+};
+
 function unwrapData<T>(payload: T | Envelope<T>): T {
   if (payload && typeof payload === "object" && "data" in (payload as any)) {
     return (payload as Envelope<T>).data;
@@ -296,6 +462,75 @@ export const administrationApi = {
     return unwrapData(payload);
   },
 
+  async getSystemHealth(): Promise<AdminSystemHealth> {
+    const payload = await request.get<Envelope<AdminSystemHealth>>("/admin/health");
+    return unwrapData(payload);
+  },
+
+  async getOrganizationProfile(): Promise<OrganizationProfile> {
+    const payload = await request.get<Envelope<OrganizationProfile>>(
+      "/admin/organization/profile",
+    );
+    return unwrapData(payload);
+  },
+
+  async updateOrganizationProfile(
+    input: Partial<
+      Pick<
+        OrganizationProfile,
+        "name" | "description" | "website" | "industry" | "size"
+      >
+    >,
+  ): Promise<OrganizationProfile> {
+    const payload = await request.patch<Envelope<OrganizationProfile>>(
+      "/admin/organization/profile",
+      input,
+    );
+    return unwrapData(payload);
+  },
+
+  async getAccessControlSummary(): Promise<AccessControlSummary> {
+    const payload = await request.get<Envelope<AccessControlSummary>>(
+      "/admin/access-control/summary",
+    );
+    return unwrapData(payload);
+  },
+
+  async getIntegrationsSummary(): Promise<IntegrationsGovernanceSummary> {
+    const payload = await request.get<Envelope<IntegrationsGovernanceSummary>>(
+      "/admin/integrations/summary",
+    );
+    return unwrapData(payload);
+  },
+
+  async getIntegrationsApiAccess(): Promise<IntegrationsApiAccess> {
+    const payload = await request.get<Envelope<IntegrationsApiAccess>>(
+      "/admin/integrations/api-access",
+    );
+    return unwrapData(payload);
+  },
+
+  async getIntegrationsWebhooks(): Promise<IntegrationsWebhooks> {
+    const payload = await request.get<Envelope<IntegrationsWebhooks>>(
+      "/admin/integrations/webhooks",
+    );
+    return unwrapData(payload);
+  },
+
+  async getAIGovernanceSummary(): Promise<AIGovernanceSummary> {
+    const payload = await request.get<Envelope<AIGovernanceSummary>>(
+      "/admin/ai-governance/summary",
+    );
+    return unwrapData(payload);
+  },
+
+  async getAIGovernanceUsage(): Promise<AIGovernanceUsage> {
+    const payload = await request.get<Envelope<AIGovernanceUsage>>(
+      "/admin/ai-governance/usage",
+    );
+    return unwrapData(payload);
+  },
+
   async getBillingInvoices(params?: {
     page?: number;
     limit?: number;
@@ -304,6 +539,27 @@ export const administrationApi = {
       `/admin/billing/invoices${buildQuery(params || {})}`,
     );
     return { data: asArray(unwrapData(payload)), meta: unwrapMeta(payload) };
+  },
+
+  async getDataManagementSummary(): Promise<DataManagementSummary> {
+    const payload = await request.get<Envelope<DataManagementSummary>>(
+      "/admin/data-management/summary",
+    );
+    return unwrapData(payload);
+  },
+
+  async getDataManagementExports(): Promise<DataManagementExports> {
+    const payload = await request.get<Envelope<DataManagementExports>>(
+      "/admin/data-management/exports",
+    );
+    return unwrapData(payload);
+  },
+
+  async getDataManagementRetention(): Promise<DataManagementRetention> {
+    const payload = await request.get<Envelope<DataManagementRetention>>(
+      "/admin/data-management/retention",
+    );
+    return unwrapData(payload);
   },
 
   async listAuditEvents(params?: {

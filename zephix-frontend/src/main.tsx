@@ -16,9 +16,12 @@ const BLOCKED_PRODUCTION_DOMAINS = [
   'getzephix.com',
   'zephix-backend-production.up.railway.app',
 ];
+// VITE_API_URL is the API origin (e.g. Railway), not the browser hostname — production
+// legitimately uses zephix-backend-production.up.railway.app while the app is served from getzephix.com.
 const isProductionBuild =
   import.meta.env.MODE === 'production' &&
-  VITE_API_URL.includes('getzephix.com');
+  (VITE_API_URL.includes('getzephix.com') ||
+    VITE_API_URL.includes('zephix-backend-production.up.railway.app'));
 
 if (!isProductionBuild && VITE_API_URL) {
   for (const domain of BLOCKED_PRODUCTION_DOMAINS) {
