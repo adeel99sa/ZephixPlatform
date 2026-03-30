@@ -22,7 +22,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, RegisterResponseDto } from './dto/register.dto';
 import { SmokeLoginDto } from './dto/smoke-login.dto';
@@ -96,19 +95,15 @@ export class AuthController {
 
   /**
    * POST /api/auth/register (canonical endpoint)
-   * POST /api/auth/signup (backward compatibility alias)
+   * POST /api/auth/signup (alias, same body as register)
    *
-   * Production-grade self-serve registration with:
-   * - Neutral response (no account enumeration)
-   * - Transactional creation (user, org, workspace, token, outbox)
-   * - Token hashing (never stores raw tokens)
-   * - Rate limiting
+   * Self-serve registration: user account only; org/workspace via onboarding after verify.
    */
   @Post('register')
-  @Post('signup') // Backward compatibility alias
+  @Post('signup')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
-  @ApiOperation({ summary: 'Register a new user and organization' })
+  @ApiOperation({ summary: 'Register a new user account' })
   @ApiResponse({
     status: 200,
     description: 'Registration request processed (neutral response)',
@@ -117,41 +112,16 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid input' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async register(
-    @Body() dto: RegisterDto | SignupDto,
+    @Body() dto: RegisterDto,
     @Request() req: Request,
   ): Promise<RegisterResponseDto> {
     const ip = (req as any).ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Handle both DTO formats (RegisterDto or SignupDto)
-    let email: string;
-    let password: string;
-    let fullName: string;
-    let orgName: string;
-    let orgSlug: string | undefined;
-
-    if ('fullName' in dto && 'orgName' in dto) {
-      // RegisterDto format
-      email = dto.email;
-      password = dto.password;
-      fullName = dto.fullName;
-      orgName = dto.orgName;
-      orgSlug = (dto as any).orgSlug; // RegisterDto has orgSlug
-    } else {
-      // SignupDto format (backward compatibility)
-      email = dto.email;
-      password = dto.password;
-      fullName = `${dto.firstName} ${dto.lastName}`.trim();
-      orgName = dto.organizationName;
-      orgSlug = undefined; // SignupDto doesn't have orgSlug
-    }
-
     return this.authRegistrationService.registerSelfServe({
-      email,
-      password,
-      fullName,
-      orgName,
-      orgSlug,
+      email: dto.email,
+      password: dto.password,
+      fullName: dto.fullName,
       ip: typeof ip === 'string' ? ip : ip[0],
       userAgent,
     });

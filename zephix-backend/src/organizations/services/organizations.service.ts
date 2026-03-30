@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Organization } from '../entities/organization.entity';
 import { UserOrganization } from '../entities/user-organization.entity';
 import { User } from '../../modules/users/entities/user.entity';
@@ -16,6 +16,10 @@ import {
   UpdateOrganizationDto,
   InviteUserDto,
 } from '../dto';
+import {
+  toApiOrgRole,
+  toLegacyOrgRole,
+} from '../../common/auth/org-role-mapping';
 
 @Injectable()
 export class OrganizationsService {
@@ -182,7 +186,7 @@ export class OrganizationsService {
       } else {
         // Reactivate the user
         existingUserOrg.isActive = true;
-        existingUserOrg.role = inviteDto.role;
+        existingUserOrg.role = toLegacyOrgRole(inviteDto.role);
         await this.userOrganizationRepository.save(existingUserOrg);
         return { success: true, message: 'User invitation reactivated' };
       }
@@ -192,7 +196,7 @@ export class OrganizationsService {
     const userOrganization = this.userOrganizationRepository.create({
       userId: user.id,
       organizationId,
-      role: inviteDto.role,
+      role: toLegacyOrgRole(inviteDto.role),
       isActive: true,
       joinedAt: new Date(),
     });
@@ -240,7 +244,7 @@ export class OrganizationsService {
   async updateUserRole(
     organizationId: string,
     userIdToUpdate: string,
-    newRole: 'admin' | 'pm' | 'viewer',
+    newRole: 'admin' | 'member' | 'viewer',
     updatingUserId: string,
   ): Promise<void> {
     // Check if updater has permission
@@ -267,7 +271,7 @@ export class OrganizationsService {
       throw new ForbiddenException('Cannot change owner role');
     }
 
-    userToUpdate.role = newRole;
+    userToUpdate.role = toLegacyOrgRole(newRole);
     await this.userOrganizationRepository.save(userToUpdate);
   }
 
@@ -308,7 +312,7 @@ export class OrganizationsService {
       email: uo.user.email,
       firstName: uo.user.firstName,
       lastName: uo.user.lastName,
-      role: uo.role,
+      role: toApiOrgRole(uo.role),
       organization: uo.organization.name,
       joinedAt: uo.joinedAt,
       lastActive: uo.lastAccessAt || uo.joinedAt,
@@ -353,7 +357,7 @@ export class OrganizationsService {
       email: uo.user.email,
       firstName: uo.user.firstName,
       lastName: uo.user.lastName,
-      role: uo.role,
+      role: toApiOrgRole(uo.role),
       joinedAt: uo.joinedAt,
       lastActive: uo.lastAccessAt || uo.joinedAt,
     }));
@@ -371,29 +375,31 @@ export class OrganizationsService {
       .substring(0, 100); // Limit length
   }
 
-  // Onboarding methods - computed based on workspace count and skipped flag
+  // Onboarding methods - user-scoped completion flag with org progress metadata
 
-  async getOnboardingStatus(organizationId: string) {
+  async getOnboardingStatus(organizationId: string, userId: string) {
     const organization = await this.findOne(organizationId);
+    const user = await this.userRepository.findOne({
+      where: { id: userId, organizationId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found in organization');
+    }
 
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
 
     const workspaceCount = await this.workspaceRepository.count({
-      where: { organizationId },
+      where: { organizationId, deletedAt: IsNull() },
     });
 
+    const completed = Boolean(user.onboardingCompleted);
     const skipped = onboarding.skipped === true;
-
-    // Workspace count is the ONLY source of truth for completion
-    // Having at least one workspace means onboarding is truly complete
-    const completed = workspaceCount > 0;
-
-    // Must onboard if: no workspaces AND didn't skip
-    const mustOnboard = workspaceCount === 0 && skipped === false;
+    const mustOnboard = !completed;
 
     return {
       completed,
+      onboardingCompleted: completed,
       mustOnboard,
       skipped,
       workspaceCount,
@@ -404,8 +410,8 @@ export class OrganizationsService {
     };
   }
 
-  async getOnboardingProgress(organizationId: string) {
-    const status = await this.getOnboardingStatus(organizationId);
+  async getOnboardingProgress(organizationId: string, userId: string) {
+    const status = await this.getOnboardingStatus(organizationId, userId);
 
     const totalSteps = 6;
     const completedCount = Array.isArray(status.completedSteps)
@@ -450,8 +456,14 @@ export class OrganizationsService {
     };
   }
 
-  async completeOnboarding(organizationId: string) {
+  async completeOnboarding(organizationId: string, userId: string) {
     const organization = await this.findOne(organizationId);
+    const user = await this.userRepository.findOne({
+      where: { id: userId, organizationId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found in organization');
+    }
 
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
@@ -467,6 +479,7 @@ export class OrganizationsService {
     };
 
     await this.organizationRepository.save(organization);
+    await this.userRepository.update(user.id, { onboardingCompleted: true });
 
     return {
       success: true,
@@ -474,8 +487,14 @@ export class OrganizationsService {
     };
   }
 
-  async skipOnboarding(organizationId: string) {
+  async skipOnboarding(organizationId: string, userId: string) {
     const organization = await this.findOne(organizationId);
+    const user = await this.userRepository.findOne({
+      where: { id: userId, organizationId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found in organization');
+    }
 
     const settings = (organization.settings as any) || {};
     const onboarding = settings.onboarding || {};
@@ -493,6 +512,7 @@ export class OrganizationsService {
     };
 
     await this.organizationRepository.save(organization);
+    await this.userRepository.update(user.id, { onboardingCompleted: true });
 
     return {
       success: true,

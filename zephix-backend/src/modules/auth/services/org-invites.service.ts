@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { Organization } from '../../../organizations/entities/organization.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
@@ -23,11 +23,16 @@ import { Workspace } from '../../workspaces/entities/workspace.entity';
 import { WorkspaceMember } from '../../workspaces/entities/workspace-member.entity';
 import { WorkspaceRole } from '../../workspaces/entities/workspace.entity';
 import { NotificationDispatchService } from '../../notifications/notification-dispatch.service';
+import {
+  isEmailAllowedForOrganization,
+  resolveOrganizationAllowedEmailDomain,
+} from '../utils/org-email-policy.util';
+import { toLegacyOrgRole } from '../../../common/auth/org-role-mapping';
 
 export interface CreateInviteInput {
   orgId: string;
   email: string;
-  role: 'owner' | 'admin' | 'pm' | 'viewer';
+  role: 'admin' | 'member' | 'viewer';
   createdBy: string;
   message?: string;
 }
@@ -82,6 +87,18 @@ export class OrgInvitesService {
       throw new NotFoundException('Organization not found');
     }
 
+    const orgAllowedDomain = resolveOrganizationAllowedEmailDomain(organization);
+    if (!orgAllowedDomain) {
+      throw new BadRequestException(
+        'Organization email domain policy is not configured',
+      );
+    }
+    if (!isEmailAllowedForOrganization(normalizedEmail, organization)) {
+      throw new BadRequestException(
+        `Invite email must match organization domain (${orgAllowedDomain})`,
+      );
+    }
+
     // Check permissions: Only ADMIN or workspace_owner can create invites
     // For now, we check if user is org owner/admin via UserOrganization
     const creatorUserOrg = await this.userOrgRepository.findOne({
@@ -109,6 +126,19 @@ export class OrgInvitesService {
     });
 
     if (existingUser) {
+      const crossOrgMembership = await this.userOrgRepository.findOne({
+        where: {
+          userId: existingUser.id,
+          isActive: true,
+          organizationId: Not(orgId),
+        },
+      });
+      if (crossOrgMembership) {
+        throw new BadRequestException(
+          'MVP policy: users can only belong to one organization',
+        );
+      }
+
       const existingMembership = await this.userOrgRepository.findOne({
         where: {
           userId: existingUser.id,
@@ -241,6 +271,31 @@ export class OrgInvitesService {
       throw new NotFoundException('Organization not found');
     }
 
+    const orgAllowedDomain = resolveOrganizationAllowedEmailDomain(organization);
+    if (!orgAllowedDomain) {
+      throw new BadRequestException(
+        'Organization email domain policy is not configured',
+      );
+    }
+    if (!isEmailAllowedForOrganization(user.email, organization)) {
+      throw new BadRequestException(
+        `Account email must match organization domain (${orgAllowedDomain})`,
+      );
+    }
+
+    const crossOrgMembership = await this.userOrgRepository.findOne({
+      where: {
+        userId,
+        isActive: true,
+        organizationId: Not(invite.orgId),
+      },
+    });
+    if (crossOrgMembership) {
+      throw new BadRequestException(
+        'MVP policy: users can only belong to one organization',
+      );
+    }
+
     // Accept invite in transaction (idempotent)
     return this.dataSource.transaction(async (manager) => {
       const inviteRepo = manager.getRepository(OrgInvite);
@@ -274,10 +329,17 @@ export class OrgInvitesService {
       });
 
       // Create new membership
+      const apiInviteRole =
+        invite.role === 'owner' || invite.role === 'admin'
+          ? 'admin'
+          : invite.role === 'pm' || invite.role === 'member'
+            ? 'member'
+            : 'viewer';
+      const membershipRole = toLegacyOrgRole(apiInviteRole);
       const membership = userOrgRepo.create({
         userId,
         organizationId: invite.orgId,
-        role: invite.role as 'owner' | 'admin' | 'pm' | 'viewer',
+        role: membershipRole,
         isActive: true,
         joinedAt: new Date(),
       });
@@ -333,7 +395,7 @@ export class OrgInvitesService {
   async adminInviteWithWorkspaces(
     orgId: string,
     emails: string[],
-    platformRole: 'Member' | 'Guest',
+    platformRole: 'Admin' | 'Member' | 'Guest',
     workspaceAssignments:
       | Array<{ workspaceId: string; accessLevel: 'Member' | 'Guest' }>
       | undefined,
@@ -350,6 +412,13 @@ export class OrgInvitesService {
       throw new NotFoundException('Organization not found');
     }
 
+    const orgAllowedDomain = resolveOrganizationAllowedEmailDomain(organization);
+    if (!orgAllowedDomain) {
+      throw new BadRequestException(
+        'Organization email domain policy is not configured',
+      );
+    }
+
     // Check permissions: Only ADMIN can use this endpoint
     if (actorPlatformRole !== PlatformRole.ADMIN) {
       throw new ForbiddenException({
@@ -359,7 +428,12 @@ export class OrgInvitesService {
     }
 
     // Map platform role to legacy role
-    const legacyRole = platformRole === 'Member' ? 'pm' : 'viewer';
+    const legacyRole =
+      platformRole === 'Admin'
+        ? 'admin'
+        : platformRole === 'Member'
+          ? 'pm'
+          : 'viewer';
 
     const results: Array<{
       email: string;
@@ -371,12 +445,39 @@ export class OrgInvitesService {
       const normalizedEmail = email.toLowerCase().trim();
 
       try {
+        if (!isEmailAllowedForOrganization(normalizedEmail, organization)) {
+          results.push({
+            email,
+            status: 'error',
+            message: `Invite email must match organization domain (${orgAllowedDomain})`,
+          });
+          continue;
+        }
+
         // Check if user exists
         const existingUser = await this.userRepository.findOne({
           where: { email: normalizedEmail },
         });
 
         if (existingUser) {
+          const crossOrgMembership = await this.userOrgRepository.findOne({
+            where: {
+              userId: existingUser.id,
+              isActive: true,
+              organizationId: Not(orgId),
+            },
+          });
+
+          if (crossOrgMembership) {
+            results.push({
+              email,
+              status: 'error',
+              message:
+                'MVP policy: users can only belong to one organization',
+            });
+            continue;
+          }
+
           // User exists - check if in org
           const existingMembership = await this.userOrgRepository.findOne({
             where: {
@@ -542,7 +643,7 @@ export class OrgInvitesService {
       workspaceId: string;
       accessLevel: 'Member' | 'Guest';
     }>,
-    platformRole: 'Member' | 'Guest',
+    platformRole: 'Admin' | 'Member' | 'Guest',
     actorId: string,
   ): Promise<{ coerced: boolean }> {
     let coerced = false;

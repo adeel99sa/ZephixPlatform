@@ -10,7 +10,10 @@ import { UserOrganization } from '../entities/user-organization.entity';
 import { Organization } from '../entities/organization.entity';
 import { User } from '../../modules/users/entities/user.entity';
 import { TeamMemberResponseDto, UpdateMemberRoleDto } from '../dto';
-
+import {
+  toApiOrgRole,
+  toLegacyOrgRole,
+} from '../../common/auth/org-role-mapping';
 @Injectable()
 export class TeamManagementService {
   constructor(
@@ -49,7 +52,7 @@ export class TeamManagementService {
         firstName: member.user.firstName,
         lastName: member.user.lastName,
       },
-      role: member.role,
+      role: toApiOrgRole(member.role),
       status: member.isActive ? 'active' : 'inactive',
       joinedAt: member.joinedAt,
     }));
@@ -100,7 +103,7 @@ export class TeamManagementService {
     }
 
     // Update the role
-    memberUserOrg.role = updateRoleDto.role;
+    memberUserOrg.role = toLegacyOrgRole(updateRoleDto.role);
     await this.userOrganizationRepository.save(memberUserOrg);
 
     return {
@@ -111,7 +114,7 @@ export class TeamManagementService {
         firstName: memberUserOrg.user.firstName,
         lastName: memberUserOrg.user.lastName,
       },
-      role: memberUserOrg.role,
+      role: toApiOrgRole(memberUserOrg.role),
       status: memberUserOrg.isActive ? 'active' : 'inactive',
       joinedAt: memberUserOrg.joinedAt,
     };
