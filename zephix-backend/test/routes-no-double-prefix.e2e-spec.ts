@@ -80,7 +80,6 @@ describe('Routes - No Double Prefix (e2e)', () => {
         email: 'test@example.com',
         password: 'Test123!@#',
         fullName: 'Test User',
-        orgName: 'Test Org',
       });
 
     // Route exists if status is not 404

@@ -21,9 +21,8 @@ import { WorkspaceMember } from '../entities/workspace-member.entity';
 import { Workspace } from '../entities/workspace.entity';
 import { WorkspaceRole } from '../entities/workspace.entity';
 import {
-  normalizePlatformRole,
-  PlatformRole,
   isAdminRole,
+  resolvePlatformRoleFromRequestUser,
 } from '../../../shared/enums/platform-roles.enum';
 import { TenantAwareRepository } from '../../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.repository';
@@ -119,9 +118,8 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     }
 
     // Check if user is org admin (admins have access to all workspaces)
-    // Use normalizePlatformRole and isAdminRole helper, with fallback to permissions.isAdmin
-    const userRole = user.role || 'viewer';
-    const normalizedRole = normalizePlatformRole(userRole);
+    // Canonical: platformRole ?? role (see resolvePlatformRoleFromRequestUser)
+    const normalizedRole = resolvePlatformRoleFromRequestUser(user);
     const isAdmin =
       isAdminRole(normalizedRole) || (user.permissions?.isAdmin ?? false);
 
@@ -149,6 +147,8 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
     // Attach workspace role to request
     request.workspaceRole = wsRole;
 
+    const isWorkspaceMember = wsRole !== null;
+
     // Check access based on mode.
     // 'read' is an explicit alias for 'viewer' (any workspace member can read).
     // 'write' is an explicit alias for 'member' (owner or member can write).
@@ -156,12 +156,16 @@ export class RequireWorkspaceAccessGuard implements CanActivate {
       case 'read':
       case 'viewer':
         // Any workspace role (or admin) can read — if not suspended.
-        return true;
+        return isWorkspaceMember || isAdmin;
 
       case 'write':
       case 'member':
-        // Workspace owner or member can mutate.
-        return wsRole === 'workspace_owner' || wsRole === 'workspace_member';
+        // Workspace owner or member can mutate. Admins can always mutate.
+        return (
+          isAdmin ||
+          wsRole === 'workspace_owner' ||
+          wsRole === 'workspace_member'
+        );
 
       case 'ownerOrAdmin':
         // Workspace owner or org admin only.

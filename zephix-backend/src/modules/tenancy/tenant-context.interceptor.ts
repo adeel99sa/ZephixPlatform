@@ -42,6 +42,14 @@ export class TenantContextInterceptor implements NestInterceptor {
   ) {}
 
   /**
+   * Normalize Express path for bootstrap bypass checks (e.g. trailing slash on GET /api/workspaces).
+   */
+  private normalizePathForBypass(path: string | undefined): string {
+    if (!path) return '';
+    return path.replace(/\/$/, '') || '/';
+  }
+
+  /**
    * Extract workspaceId from request.
    * Only accepts workspaceId from:
    * 1. Header: x-workspace-id
@@ -103,9 +111,10 @@ export class TenantContextInterceptor implements NestInterceptor {
     // For bootstrap endpoints like GET /api/workspaces, ignore workspace header
     // so a stale client workspace context cannot block login bootstrap.
     let workspaceId: string | undefined;
+    const pathForBypass = this.normalizePathForBypass(request.path);
     const shouldBypassWorkspaceValidation =
       request.method === 'GET' &&
-      this.workspaceHeaderValidationBypassPaths.includes(request.path);
+      this.workspaceHeaderValidationBypassPaths.includes(pathForBypass);
     const extractedWorkspaceId = shouldBypassWorkspaceValidation
       ? undefined
       : this.extractWorkspaceId(request);

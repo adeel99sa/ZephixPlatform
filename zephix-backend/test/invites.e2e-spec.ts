@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import {
-  registerUser,
+  registerUserWithOrg,
   loginUser,
   createInvite,
   acceptInvite,
@@ -64,7 +64,7 @@ describe('Organization Invites (E2E)', () => {
       const email = `unverified-${timestamp}@test.com`;
 
       // Register user (not verified)
-      const { userId, orgId } = await registerUser(
+      const { userId, orgId } = await registerUserWithOrg(
         app,
         email,
         'SecurePass123!@#',
@@ -91,7 +91,7 @@ describe('Organization Invites (E2E)', () => {
       const email = `verified-${timestamp}@test.com`;
 
       // Register and verify user
-      const { userId, orgId } = await registerUser(
+      const { userId, orgId } = await registerUserWithOrg(
         app,
         email,
         'SecurePass123!@#',
@@ -142,7 +142,7 @@ describe('Organization Invites (E2E)', () => {
       const inviteeEmail = `invitee-${timestamp}@test.com`;
 
       // Create inviter (verified)
-      const { userId: inviterId, orgId } = await registerUser(
+      const { userId: inviterId, orgId } = await registerUserWithOrg(
         app,
         inviterEmail,
         'SecurePass123!@#',
@@ -162,7 +162,7 @@ describe('Organization Invites (E2E)', () => {
       await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
 
       // Register invitee
-      const { userId: inviteeId } = await registerUser(
+      const { userId: inviteeId } = await registerUserWithOrg(
         app,
         inviteeEmail,
         'SecurePass123!@#',
@@ -217,7 +217,7 @@ describe('Organization Invites (E2E)', () => {
       const inviteeEmail = `invitee2-${timestamp}@test.com`;
 
       // Setup: Create inviter and invite
-      const { userId: inviterId, orgId } = await registerUser(
+      const { userId: inviterId, orgId } = await registerUserWithOrg(
         app,
         inviterEmail,
         'SecurePass123!@#',
@@ -235,7 +235,7 @@ describe('Organization Invites (E2E)', () => {
       await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
 
       // Register and verify invitee
-      const { userId: inviteeId } = await registerUser(
+      const { userId: inviteeId } = await registerUserWithOrg(
         app,
         inviteeEmail,
         'SecurePass123!@#',
@@ -291,7 +291,7 @@ describe('Organization Invites (E2E)', () => {
       const inviteeEmail = `invitee3-${timestamp}@test.com`;
 
       // Setup
-      const { userId: inviterId, orgId } = await registerUser(
+      const { userId: inviterId, orgId } = await registerUserWithOrg(
         app,
         inviterEmail,
         'SecurePass123!@#',
@@ -309,7 +309,7 @@ describe('Organization Invites (E2E)', () => {
       await createInvite(app, inviterToken, orgId, inviteeEmail, 'pm');
 
       // Register invitee
-      const { userId: inviteeId } = await registerUser(
+      const { userId: inviteeId } = await registerUserWithOrg(
         app,
         inviteeEmail,
         'SecurePass123!@#',
@@ -358,7 +358,7 @@ describe('Organization Invites (E2E)', () => {
       const email = `guarded-${timestamp}@test.com`;
 
       // Register unverified user
-      const { userId } = await registerUser(
+      const { userId } = await registerUserWithOrg(
         app,
         email,
         'SecurePass123!@#',

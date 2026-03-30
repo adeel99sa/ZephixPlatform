@@ -42,7 +42,8 @@ export class RequireWorkspacePermissionGuard implements CanActivate {
     const userContext = {
       id: user.id,
       organizationId: user.organizationId,
-      role: user.platformRole ?? user.role ?? 'viewer',
+      role: user.role ?? null,
+      platformRole: user.platformRole ?? null,
     };
 
     const isAllowed = await this.permissionService.isAllowed(

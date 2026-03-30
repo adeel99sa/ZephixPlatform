@@ -11,7 +11,6 @@ import {
   extractTokenFromOutboxPayload,
 } from './helpers/auth-test-helpers';
 import { AuthOutbox } from '../src/modules/auth/entities/auth-outbox.entity';
-import { Organization } from '../src/organizations/entities/organization.entity';
 import { EmailVerificationService } from '../src/modules/auth/services/email-verification.service';
 
 describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
@@ -55,46 +54,9 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
   });
 
   describe('Registration API Contract', () => {
-    it('should register new org and user with generated slug (200)', async () => {
+    it('should register a new user without organization (200)', async () => {
       const timestamp = Date.now();
       const email = `new-${timestamp}@test.com`;
-      const password = 'SecurePass123!@#';
-      const fullName = 'Test User';
-      const orgName = `Test Org ${timestamp}`;
-
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email,
-          password,
-          fullName,
-          orgName,
-        })
-        .expect(200);
-
-      expect(response.body.data?.message || response.body.message).toContain(
-        'If an account with this email exists',
-      );
-
-      // Verify user was created
-      const user = await getUserByEmail(dataSource, email);
-      expect(user).toBeDefined();
-      expect(user?.email).toBe(email.toLowerCase());
-      expect(user?.isEmailVerified).toBe(false);
-
-      // Verify org was created with slugified name
-      const orgRepo = dataSource.getRepository(Organization);
-      const org = await orgRepo.findOne({
-        where: { id: user!.organizationId },
-      });
-      expect(org).toBeDefined();
-      expect(org?.slug).toMatch(/^test-org-\d+$/);
-    });
-
-    it('should register with explicit orgSlug when provided', async () => {
-      const timestamp = Date.now();
-      const email = `explicit-slug-${timestamp}@test.com`;
-      const orgSlug = `my-custom-slug-${timestamp}`;
 
       const response = await request(app.getHttpServer())
         .post('/api/auth/register')
@@ -102,83 +64,46 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
           email,
           password: 'SecurePass123!@#',
           fullName: 'Test User',
-          orgName: 'My Custom Org',
-          orgSlug,
         })
         .expect(200);
+
+      expect(response.body.data?.message || response.body.message).toContain(
+        'If an account with this email exists',
+      );
 
       const user = await getUserByEmail(dataSource, email);
-      const orgRepo = dataSource.getRepository(Organization);
-      const org = await orgRepo.findOne({
-        where: { id: user!.organizationId },
-      });
-      expect(org?.slug).toBe(orgSlug);
-    });
-
-    it('should return 409 Conflict for duplicate orgSlug', async () => {
-      const timestamp = Date.now();
-      const orgSlug = `duplicate-slug-${timestamp}`;
-
-      // First registration
-      await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `first-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'First User',
-          orgName: 'First Org',
-          orgSlug,
-        })
-        .expect(200);
-
-      // Second registration with same orgSlug (different email)
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `second-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Second User',
-          orgName: 'Second Org',
-          orgSlug,
-        })
-        .expect(409);
-
-      expect(response.body.message || response.body.error?.message).toContain(
-        'Organization slug already exists',
-      );
+      expect(user).toBeDefined();
+      expect(user?.email).toBe(email.toLowerCase());
+      expect(user?.isEmailVerified).toBe(false);
+      expect(user?.organizationId).toBeNull();
     });
 
     it('should return 200 neutral for duplicate email (anti-enumeration)', async () => {
       const timestamp = Date.now();
       const email = `duplicate-email-${timestamp}@test.com`;
 
-      // First registration
       await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
           email,
           password: 'SecurePass123!@#',
           fullName: 'First User',
-          orgName: `First Org ${timestamp}`,
         })
         .expect(200);
 
-      // Second registration with same email (different org)
       const response = await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
           email,
           password: 'SecurePass123!@#',
           fullName: 'Second User',
-          orgName: `Second Org ${timestamp}`,
         })
-        .expect(200); // Should return 200, not 409
+        .expect(200);
 
       expect(response.body.data?.message || response.body.message).toContain(
         'If an account with this email exists',
       );
 
-      // Verify only one user exists
       const userRepo = dataSource.getRepository(
         require('../src/modules/users/entities/user.entity').User,
       );
@@ -188,106 +113,24 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       expect(users.length).toBe(1);
     });
 
-    it('should return 400 for invalid orgSlug (uppercase)', async () => {
+    it('should validate fullName length (2-200 characters)', async () => {
       const timestamp = Date.now();
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `invalid-slug-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Test User',
-          orgName: 'Test Org',
-          orgSlug: 'Invalid-Slug', // Uppercase not allowed
-        })
-        .expect(400);
-    });
 
-    it('should return 400 for invalid orgSlug (special chars)', async () => {
-      const timestamp = Date.now();
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `invalid-slug-2-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Test User',
-          orgName: 'Test Org',
-          orgSlug: 'invalid_slug', // Underscore not allowed
-        })
-        .expect(400);
-    });
-
-    it('should return 400 for reserved orgSlug', async () => {
-      const timestamp = Date.now();
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `reserved-slug-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Test User',
-          orgName: 'Test Org',
-          orgSlug: 'admin', // Reserved slug
-        })
-        .expect(400);
-    });
-
-    it('should generate deterministic suffix for slug collisions', async () => {
-      const timestamp = Date.now();
-      const orgName = `Same Org Name ${timestamp}`;
-
-      // First registration - generates slug from orgName
       await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
-          email: `first-${timestamp}@test.com`,
+          email: `short-name-${timestamp}@test.com`,
           password: 'SecurePass123!@#',
-          fullName: 'First User',
-          orgName,
-        })
-        .expect(200);
-
-      // Second registration with same orgName - should get -2 suffix
-      await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `second-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Second User',
-          orgName,
-        })
-        .expect(200);
-
-      // Verify both orgs exist with different slugs
-      const orgRepo = dataSource.getRepository(Organization);
-      const baseSlug = orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const org1 = await orgRepo.findOne({ where: { slug: baseSlug } });
-      const org2 = await orgRepo.findOne({ where: { slug: `${baseSlug}-2` } });
-
-      expect(org1).toBeDefined();
-      expect(org2).toBeDefined();
-    });
-
-    it('should validate orgName length (2-80 characters)', async () => {
-      const timestamp = Date.now();
-
-      // Too short
-      await request(app.getHttpServer())
-        .post('/api/auth/register')
-        .send({
-          email: `short-${timestamp}@test.com`,
-          password: 'SecurePass123!@#',
-          fullName: 'Test User',
-          orgName: 'A', // Too short
+          fullName: 'A',
         })
         .expect(400);
 
-      // Too long
       await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
-          email: `long-${timestamp}@test.com`,
+          email: `long-name-${timestamp}@test.com`,
           password: 'SecurePass123!@#',
-          fullName: 'Test User',
-          orgName: 'A'.repeat(81), // Too long
+          fullName: 'A'.repeat(201),
         })
         .expect(400);
     });
@@ -312,13 +155,7 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       const email = `resend-${timestamp}@test.com`;
 
       // Register user
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Resend User',
-        `Resend Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Resend User');
 
       // Count outbox events before resend
       const outboxRepo = dataSource.getRepository(AuthOutbox);
@@ -343,13 +180,7 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       const email = `verify-get-${timestamp}@test.com`;
 
       // Register user
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Verify User',
-        `Verify Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Verify User');
 
       // Get token from outbox
       const outboxEvent = await getLatestOutboxEvent(
@@ -391,13 +222,7 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       const email = `single-use-${timestamp}@test.com`;
 
       // Register and verify
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Single Use User',
-        `Single Use Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Single Use User');
 
       const outboxEvent = await getLatestOutboxEvent(
         dataSource,
@@ -422,13 +247,7 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       const timestamp = Date.now();
       const email = `outbox-${timestamp}@test.com`;
 
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Outbox User',
-        `Outbox Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Outbox User');
 
       const user = await getUserByEmail(dataSource, email);
       const outboxEvents = await emailVerificationService.getLatestOutboxByUserId(
@@ -446,13 +265,7 @@ describe('Auth Phase 1 - Registration and Org Boundary Hardening (E2E)', () => {
       const timestamp = Date.now();
       const email = `resend-outbox-${timestamp}@test.com`;
 
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Resend Outbox User',
-        `Resend Outbox Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Resend Outbox User');
 
       const user = await getUserByEmail(dataSource, email);
       const beforeCount = (

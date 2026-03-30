@@ -11,9 +11,12 @@ export class DemoRequestService {
 
   async createDemoRequest(createDemoRequestDto: CreateDemoRequestDto) {
     try {
-      this.logger.log(
-        `Creating demo request for company: ${createDemoRequestDto.companyName}`,
-      );
+      this.logger.log({
+        action: 'demo_request_create',
+        companyName: createDemoRequestDto.companyName,
+        campaignSlug: createDemoRequestDto.campaignSlug ?? null,
+        leadIntent: createDemoRequestDto.leadIntent ?? null,
+      });
 
       // For now, just return a mock response
       // TODO: Implement actual database storage

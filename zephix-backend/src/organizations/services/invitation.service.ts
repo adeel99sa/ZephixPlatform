@@ -19,6 +19,10 @@ import {
 } from '../../shared/services/email.service';
 import { InviteTeamMemberDto, InvitationResponseDto } from '../dto';
 import { randomBytes } from 'crypto';
+import {
+  toApiOrgRole,
+  toLegacyOrgRole,
+} from '../../common/auth/org-role-mapping';
 
 @Injectable()
 export class InvitationService {
@@ -104,7 +108,7 @@ export class InvitationService {
     const invitation = this.invitationRepository.create({
       token,
       email: inviteDto.email,
-      role: inviteDto.role,
+      role: toLegacyOrgRole(inviteDto.role),
       message: inviteDto.message,
       expiresAt,
       organizationId,
@@ -389,7 +393,7 @@ export class InvitationService {
     return {
       id: invitation.id,
       email: invitation.email,
-      role: invitation.role,
+      role: toApiOrgRole(invitation.role),
       status: invitation.status,
       message: invitation.message,
       expiresAt: invitation.expiresAt,

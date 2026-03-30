@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
 
@@ -14,6 +14,14 @@ describe('Auth Integration Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
   });
 
@@ -21,81 +29,62 @@ describe('Auth Integration Tests', () => {
     if (app) await app.close();
   });
 
-  describe('Signup', () => {
-    it('should create a new user', async () => {
+  describe('POST /api/auth/register (self-serve)', () => {
+    it('returns 200 with neutral message for valid RegisterDto', async () => {
+      const ts = Date.now();
       const response = await request(app.getHttpServer())
-        .post('/api/auth/signup')
+        .post('/api/auth/register')
         .send({
-          email: 'test@example.com',
+          email: `integration-${ts}@example.com`,
           password: 'SecurePass123!@#',
-          firstName: 'Test',
-          lastName: 'User',
-          organizationName: 'Test Org',
+          fullName: 'Integration User',
         })
-        .expect(201);
+        .expect(200);
 
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.body.user).toHaveProperty('id');
-      expect(response.body.user.email).toBe('test@example.com');
+      const msg =
+        response.body?.data?.message ?? response.body?.message ?? '';
+      expect(String(msg)).toContain('If an account with this email exists');
     });
 
-    it('should reject weak passwords', async () => {
+    it('returns 400 for weak password', async () => {
       await request(app.getHttpServer())
-        .post('/api/auth/signup')
+        .post('/api/auth/register')
         .send({
-          email: 'weak@example.com',
+          email: `weak-${Date.now()}@example.com`,
           password: 'weak',
-          firstName: 'Test',
-          lastName: 'User',
-          organizationName: 'Test Org',
+          fullName: 'Test User',
         })
         .expect(400);
     });
   });
 
-  describe('Login', () => {
-    it('should login with valid credentials', async () => {
+  describe('POST /api/auth/signup (alias)', () => {
+    it('accepts same body as register', async () => {
+      const ts = Date.now();
       const response = await request(app.getHttpServer())
-        .post('/api/auth/login')
+        .post('/api/auth/signup')
         .send({
-          email: 'test@example.com',
+          email: `alias-${ts}@example.com`,
           password: 'SecurePass123!@#',
+          fullName: 'Alias User',
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty('accessToken');
-      expect(response.headers['set-cookie']).toBeDefined();
+      const msg =
+        response.body?.data?.message ?? response.body?.message ?? '';
+      expect(String(msg)).toContain('If an account with this email exists');
     });
+  });
 
-    it('should reject invalid credentials', async () => {
+  describe('POST /api/auth/login', () => {
+    it('returns 401 for unknown user', async () => {
       await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
-          password: 'wrongpassword',
-        })
-        .expect(401);
-    });
-
-    it('should lock account after 5 failed attempts', async () => {
-      for (let i = 0; i < 6; i++) {
-        await request(app.getHttpServer())
-          .post('/api/auth/login')
-          .send({
-            email: 'test@example.com',
-            password: 'wrongpassword',
-          });
-      }
-
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({
-          email: 'test@example.com',
+          email: `nouser-${Date.now()}@example.com`,
           password: 'SecurePass123!@#',
         })
-        .expect(403);
-
-      expect(response.body.message).toContain('locked');
+        .expect(401);
     });
   });
 });

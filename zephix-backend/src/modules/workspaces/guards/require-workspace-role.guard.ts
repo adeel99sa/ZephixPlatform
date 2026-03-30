@@ -17,6 +17,7 @@ import {
   normalizePlatformRole,
   PlatformRole,
   isAdminRole,
+  resolvePlatformRoleFromRequestUser,
 } from '../../../common/auth/platform-roles';
 
 @Injectable()
@@ -63,7 +64,7 @@ export class RequireWorkspaceRoleGuard implements CanActivate {
 
     const organizationId = user.organizationId;
     const userId = user.id || user.sub;
-    const userRole = user.role;
+    const effectivePlatformRole = resolvePlatformRoleFromRequestUser(user);
 
     if (!organizationId || !userId) {
       throw new ForbiddenException('User context required');
@@ -79,12 +80,12 @@ export class RequireWorkspaceRoleGuard implements CanActivate {
     }
 
     // Resolve platform role using platformRole (org-context) with fallback to legacy role field.
-    const normalizedRole = normalizePlatformRole(user.platformRole ?? userRole);
+    const normalizedRole = normalizePlatformRole(effectivePlatformRole);
     const isAdmin =
       isAdminRole(normalizedRole) || (user.permissions?.isAdmin ?? false);
 
     this.logger.debug(
-      `RBAC check user=${userId} platformRole=${user.platformRole} role=${userRole} resolvedRole=${normalizedRole} isAdmin=${isAdmin}`,
+      `RBAC check user=${userId} platformRole=${user.platformRole} role=${user.role} resolvedRole=${normalizedRole} isAdmin=${isAdmin}`,
     );
 
     // If admin override is enabled and user is admin, allow
@@ -97,7 +98,7 @@ export class RequireWorkspaceRoleGuard implements CanActivate {
       organizationId,
       workspaceId,
       userId,
-      userRole,
+      effectivePlatformRole,
     );
 
     // If no membership and not admin, deny

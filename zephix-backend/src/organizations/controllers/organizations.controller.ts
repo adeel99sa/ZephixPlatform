@@ -161,7 +161,7 @@ export class OrganizationsController {
   async updateUserRole(
     @Param('organizationId') organizationId: string,
     @Param('userId') userId: string,
-    @Body() body: { role: 'admin' | 'pm' | 'viewer' },
+    @Body() body: { role: 'admin' | 'member' | 'viewer' },
     @Request() req: AuthRequest,
   ) {
     const { userId: actorUserId } = getAuthContext(req);
@@ -215,8 +215,8 @@ export class OrganizationsController {
     description: 'Onboarding status retrieved successfully',
   })
   async getOnboardingStatus(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOnboardingStatus(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingStatus(organizationId, userId);
   }
 
   @Get('onboarding/progress')
@@ -226,8 +226,8 @@ export class OrganizationsController {
     description: 'Onboarding progress retrieved successfully',
   })
   async getOnboardingProgress(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOnboardingProgress(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingProgress(organizationId, userId);
   }
 
   @Post('onboarding/complete-step')
@@ -254,8 +254,8 @@ export class OrganizationsController {
     description: 'Onboarding completed successfully',
   })
   async completeOnboarding(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.completeOnboarding(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.completeOnboarding(organizationId, userId);
   }
 
   @Post('onboarding/skip')
@@ -265,7 +265,7 @@ export class OrganizationsController {
     description: 'Onboarding skipped successfully',
   })
   async skipOnboarding(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.skipOnboarding(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.skipOnboarding(organizationId, userId);
   }
 }

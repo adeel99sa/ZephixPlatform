@@ -8,6 +8,7 @@ import {
   PlatformRole,
   normalizePlatformRole,
   isAdminRole,
+  resolvePlatformRoleFromRequestUser,
 } from '../../../shared/enums/platform-roles.enum';
 
 /**
@@ -28,7 +29,10 @@ export type WorkspacePermissionAction =
 export interface UserContext {
   id: string;
   organizationId: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
+  /** Legacy User.role (fallback only) */
+  role?: string | null;
+  /** Org-context platform role from JWT (preferred) */
+  platformRole?: string | null;
 }
 
 @Injectable()
@@ -48,7 +52,7 @@ export class WorkspacePermissionService {
    */
   async getRoleForUserInWorkspace(
     userId: string,
-    orgRole: 'owner' | 'admin' | 'member' | 'viewer',
+    orgRole: string,
     workspaceId: string,
   ): Promise<WorkspaceRole | null> {
     // Platform ADMIN always has workspace_owner power
@@ -90,15 +94,17 @@ export class WorkspacePermissionService {
         return false;
       }
 
+      const effectivePlatformRole = resolvePlatformRoleFromRequestUser(user);
+
       // Platform ADMIN always allowed for all actions
-      if (isAdminRole(user.role)) {
+      if (isAdminRole(effectivePlatformRole)) {
         return true;
       }
 
       // Get user's workspace role
       const workspaceRole = await this.getRoleForUserInWorkspace(
         user.id,
-        user.role,
+        effectivePlatformRole,
         workspaceId,
       );
 

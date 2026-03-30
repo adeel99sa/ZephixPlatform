@@ -2,13 +2,12 @@
 
 /**
  * Authentication Testing Script for Zephix Backend
- * 
- * This script tests the complete authentication flow including:
- * - Signup endpoint
- * - Login endpoint
- * - JWT token validation
- * - Protected endpoints
- * - Error handling
+ *
+ * Covers self-serve registration (register → neutral 200, no org/tokens),
+ * login, JWT usage, protected routes, and validation errors.
+ *
+ * Note: After register, login may return 403 EMAIL_NOT_VERIFIED until the user
+ * verifies email (unless staging bypass applies). Token-dependent tests skip in that case.
  */
 
 const https = require('https');
@@ -18,13 +17,11 @@ const http = require('http');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://zephix-frontend-production.up.railway.app';
 
-// Test user data
+// Test user data (RegisterDto: email, password, fullName — no org at register)
 const testUser = {
   email: `test-${Date.now()}@example.com`,
   password: 'SecurePassword123!',
-  firstName: 'Test',
-  lastName: 'User',
-  organizationName: 'Test Corp'
+  fullName: 'Test User',
 };
 
 let authToken = null;
@@ -43,16 +40,17 @@ const testScenarios = [
     description: 'Basic health check should work without authentication'
   },
   {
-    name: 'User Signup',
+    name: 'User Register (self-serve)',
     method: 'POST',
-    path: '/api/auth/signup',
+    path: '/api/auth/register',
     headers: {
       'Origin': FRONTEND_URL,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(testUser),
-    expectedStatus: 201,
-    description: 'User signup should create a new account and return tokens'
+    expectedStatus: 200,
+    description:
+      'Register creates user only (neutral 200); org/workspace come after verify + onboarding',
   },
   {
     name: 'User Login',
@@ -67,7 +65,9 @@ const testScenarios = [
       password: testUser.password,
     }),
     expectedStatus: 200,
-    description: 'User login should authenticate and return tokens'
+    description:
+      'Login should return tokens when email is verified (403 EMAIL_NOT_VERIFIED otherwise)',
+    allowEmailNotVerified: true,
   },
   {
     name: 'Get User Profile (Authenticated)',
@@ -107,17 +107,18 @@ const testScenarios = [
     description: 'Login should fail with invalid credentials'
   },
   {
-    name: 'Signup with Existing Email',
+    name: 'Register with same email again (neutral)',
     method: 'POST',
-    path: '/api/auth/signup',
+    path: '/api/auth/register',
     headers: {
       'Origin': FRONTEND_URL,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(testUser),
-    expectedStatus: 400,
-    description: 'Signup should fail with duplicate email'
-  }
+    expectedStatus: 200,
+    description:
+      'Duplicate register returns same neutral 200 (does not reveal existing email)',
+  },
 ];
 
 /**
@@ -181,10 +182,29 @@ async function testScenario(scenario) {
     };
     
     const response = await makeRequest(url.toString(), options, scenario.body);
-    
-    // Check status code
-    const statusOk = response.statusCode === scenario.expectedStatus;
-    
+
+    // Parse response data early (login email-not-verified path)
+    let responseData = null;
+    try {
+      responseData = JSON.parse(response.data);
+    } catch (e) {
+      // Response might not be JSON
+    }
+
+    let statusOk = response.statusCode === scenario.expectedStatus;
+    if (
+      scenario.allowEmailNotVerified &&
+      response.statusCode === 403 &&
+      responseData &&
+      (responseData.code === 'EMAIL_NOT_VERIFIED' ||
+        String(responseData.message || '').toLowerCase().includes('verify'))
+    ) {
+      statusOk = true;
+      console.log(
+        '   ℹ️  Login returned 403 EMAIL_NOT_VERIFIED (expected for unverified self-serve users).',
+      );
+    }
+
     console.log(`   Status: ${response.statusCode} ${statusOk ? '✅' : '❌'}`);
     console.log(`   Expected: ${scenario.expectedStatus}`);
     
@@ -199,17 +219,14 @@ async function testScenario(scenario) {
       console.log(`     ${key}: ${value || 'Not set'}`);
     });
     
-    // Parse response data for token extraction
-    let responseData = null;
-    try {
-      responseData = JSON.parse(response.data);
-    } catch (e) {
-      // Response might not be JSON
-    }
-    
-    // Extract tokens from successful auth responses
-    if (responseData && responseData.token && responseData.refreshToken) {
-      authToken = responseData.token;
+    // Extract tokens from successful login (JSON body; cookies also set by API)
+    const access = responseData.accessToken || responseData.token;
+    if (
+      response.statusCode === 200 &&
+      access &&
+      responseData.refreshToken
+    ) {
+      authToken = access;
       refreshToken = responseData.refreshToken;
       console.log('   🔑 Tokens extracted successfully');
       console.log(`   Access Token: ${authToken.substring(0, 20)}...`);
@@ -287,16 +304,19 @@ async function runTests() {
   // Authentication flow summary
   if (authToken && refreshToken) {
     console.log('\n🔑 Authentication Flow Summary:');
-    console.log('✅ User signup successful');
+    console.log('✅ User register returned neutral 200');
     console.log('✅ User login successful');
     console.log('✅ JWT tokens generated');
     console.log('✅ Protected endpoints accessible');
     console.log('\n💡 The authentication system is working correctly!');
   } else {
-    console.log('\n❌ Authentication Flow Failed:');
-    console.log('❌ Could not obtain valid JWT tokens');
-    console.log('❌ Protected endpoints may not work');
-    console.log('\n🔧 Check the authentication configuration and try again.');
+    console.log('\n⚠️  Authentication Flow (partial):');
+    console.log(
+      '   No JWT in response body — common when login is blocked until email verification.',
+    );
+    console.log(
+      '   Use a verified user, staging bypass allowlist, or complete verify-email first.',
+    );
   }
   
   console.log('\n💡 Next Steps:');

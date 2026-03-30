@@ -1,5 +1,5 @@
 /**
- * PROMPT 6 E1: Backend E2E Tests for Workspace Admin Creation
+ * PROMPT 6 E1: Backend E2E tests for workspace creation and Workspace Owner assignment
  *
  * Tests:
  * 1. Admin creates workspace with owners

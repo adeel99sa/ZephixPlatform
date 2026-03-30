@@ -1,8 +1,6 @@
 import { DataSource } from 'typeorm';
 import { AuthRegistrationService } from './auth-registration.service';
 import { User } from '../../users/entities/user.entity';
-import { Organization } from '../../../organizations/entities/organization.entity';
-import { UserOrganization } from '../../../organizations/entities/user-organization.entity';
 import { EmailVerificationToken } from '../entities/email-verification-token.entity';
 import { AuthOutbox } from '../entities/auth-outbox.entity';
 import { AuditAction } from '../../audit/audit.constants';
@@ -21,22 +19,8 @@ describe('AuthRegistrationService (skip email verification)', () => {
       create: jest.fn((v) => v),
       save: jest.fn().mockResolvedValue({
         id: 'user-1',
-        organizationId: 'org-1',
+        organizationId: null,
       }),
-    };
-    const orgRepo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((v) => v),
-      save: jest.fn().mockResolvedValue({
-        id: 'org-1',
-        name: 'Acme Group',
-        slug: 'acme-group',
-        status: 'trial',
-      }),
-    };
-    const userOrgRepo = {
-      create: jest.fn((v) => v),
-      save: jest.fn().mockResolvedValue({ id: 'user-org-1' }),
     };
     const tokenRepo = {
       create: jest.fn((v) => v),
@@ -50,8 +34,6 @@ describe('AuthRegistrationService (skip email verification)', () => {
     const manager = {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === User) return userRepo;
-        if (entity === Organization) return orgRepo;
-        if (entity === UserOrganization) return userOrgRepo;
         if (entity === EmailVerificationToken) return tokenRepo;
         if (entity === AuthOutbox) return outboxRepo;
         throw new Error('Unexpected repository request');
@@ -66,21 +48,12 @@ describe('AuthRegistrationService (skip email verification)', () => {
       record: jest.fn().mockResolvedValue(undefined),
     };
 
-    const service = new AuthRegistrationService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      dataSource,
-      auditService as any,
-    );
+    const service = new AuthRegistrationService(dataSource, auditService as any);
 
     const result = await service.registerSelfServe({
       email: 'staging.test@example.com',
       password: 'Passw0rd!@#',
       fullName: 'Test User',
-      orgName: 'Acme Group',
     });
 
     expect(result).toEqual({
@@ -90,6 +63,7 @@ describe('AuthRegistrationService (skip email verification)', () => {
     expect(userRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         isEmailVerified: true,
+        organizationId: null,
       }),
     );
     expect(tokenRepo.save).not.toHaveBeenCalled();
