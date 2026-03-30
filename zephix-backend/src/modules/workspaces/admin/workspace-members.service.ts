@@ -133,7 +133,12 @@ export class AdminWorkspaceMembersService {
 
     const workspaceRole = mapToWorkspaceRole(role);
     const created = await this.memberRepo.save(
-      this.memberRepo.create({ workspaceId, userId, role: workspaceRole }),
+      this.memberRepo.create({
+        workspaceId,
+        userId,
+        organizationId: orgId,
+        role: workspaceRole,
+      }),
     );
 
     return { id: created.id };
