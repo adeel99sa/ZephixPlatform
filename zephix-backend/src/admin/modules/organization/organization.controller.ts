@@ -111,10 +111,10 @@ export class OrganizationAdminController {
         },
         {
           id: '2',
-          email: 'pm@zephix.ai',
-          firstName: 'Project',
-          lastName: 'Manager',
-          role: 'pm',
+          email: 'member@zephix.ai',
+          firstName: 'Team',
+          lastName: 'Member',
+          role: 'member',
           status: 'active',
           lastActive: new Date(),
           joinedAt: new Date('2024-01-15'),
@@ -154,7 +154,7 @@ export class OrganizationAdminController {
     const results = await this.orgInvitesService.adminInviteWithWorkspaces(
       organizationId,
       inviteDto.emails,
-      inviteDto.platformRole,
+      inviteDto.platformRole as 'Member' | 'Guest',
       inviteDto.workspaceAssignments,
       userId,
       normalizedPlatformRole,
