@@ -17,6 +17,7 @@ import { WorkspaceRole } from './workspace.entity';
 @Index('IDX_wm_workspace_id', ['workspaceId'])
 @Index('IDX_wm_user_id', ['userId'])
 @Index('IDX_wm_role', ['role'])
+@Index('IDX_wm_org_id', ['organizationId'])
 export class WorkspaceMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,6 +35,9 @@ export class WorkspaceMember {
 
   @Column({ type: 'uuid', name: 'user_id' })
   userId: string;
+
+  @Column({ type: 'uuid', name: 'organization_id' })
+  organizationId: string;
 
   @Column({ type: 'text' })
   role: WorkspaceRole;

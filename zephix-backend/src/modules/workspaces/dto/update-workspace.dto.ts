@@ -6,6 +6,8 @@ import {
   Matches,
   IsObject,
   IsIn,
+  IsArray,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdateWorkspaceDto {
@@ -41,6 +43,29 @@ export class UpdateWorkspaceDto {
   @IsObject()
   @IsOptional()
   permissionsConfig?: Record<string, string[]>;
+
+  @IsString()
+  @Length(1, 120)
+  @IsOptional()
+  businessUnitLabel?: string;
+
+  @IsString()
+  @IsOptional()
+  defaultTemplateId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  inheritOrgDefaultTemplate?: boolean;
+
+  @IsString()
+  @IsIn(['ORG_DEFAULT', 'WORKSPACE_OVERRIDE'])
+  @IsOptional()
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  allowedTemplateIds?: string[];
 
   // PHASE 5.1: Workspace notes for Workspace Home page
   @IsString()
