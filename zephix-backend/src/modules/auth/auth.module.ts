@@ -5,14 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { OrganizationSignupController } from './controllers/organization-signup.controller';
 import {
   OrgInvitesController,
   InvitesController,
 } from './controllers/org-invites.controller';
 import { SmokeInvitesController } from './controllers/smoke-invites.controller';
 import { SmokeUsersController } from './controllers/smoke-users.controller';
-import { OrganizationSignupService } from './services/organization-signup.service';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { OrgInvitesService } from './services/org-invites.service';
@@ -35,6 +33,7 @@ import { CsrfGuard } from './guards/csrf.guard';
 import { SmokeKeyGuard } from './guards/smoke-key.guard';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
+import { ResourceModule } from '../resources/resource.module';
 
 @Module({
   imports: [
@@ -62,10 +61,10 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
       inject: [ConfigService],
     }),
     NotificationsModule,
+    ResourceModule,
   ],
   controllers: [
     AuthController,
-    OrganizationSignupController,
     OrgInvitesController,
     InvitesController,
     SessionsController,
@@ -75,7 +74,6 @@ import { NoopAuthRateLimitStore } from './services/auth-rate-limit-store';
   providers: [
     AuthService,
     JwtStrategy,
-    OrganizationSignupService,
     AuthRegistrationService,
     EmailVerificationService,
     OrgInvitesService,

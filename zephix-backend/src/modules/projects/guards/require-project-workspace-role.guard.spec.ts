@@ -55,15 +55,20 @@ function makeGuard(flagEnabled: boolean, workspaceRole: string | null = 'workspa
 function makeContext(
   user: Record<string, any> | null,
   method = 'POST',
-  workspaceId = 'ws-1',
+  workspaceId: string | undefined = 'ws-1',
+  paramMode: 'id' | 'projectId' = 'id',
 ): ExecutionContext {
+  const params =
+    paramMode === 'projectId'
+      ? { projectId: 'proj-1' }
+      : { id: 'proj-1' };
   return {
     switchToHttp: () => ({
       getRequest: () => ({
         user,
         method,
-        params: { id: 'proj-1' },
-        body: { workspaceId },
+        params,
+        body: workspaceId ? { workspaceId } : {},
       }),
     }),
     getHandler: () => ({}),
@@ -124,6 +129,19 @@ describe('RequireProjectWorkspaceRoleGuard', () => {
         role: 'admin',
       };
       await expect(guard.canActivate(makeContext(user))).resolves.toBe(true);
+    });
+
+    it('supports :projectId routes when workspaceId is not in POST body', async () => {
+      const guard = makeGuard(true, 'workspace_owner');
+      const user = {
+        id: 'u1',
+        organizationId: 'org-1',
+        platformRole: 'MEMBER',
+        role: 'member',
+      };
+      await expect(
+        guard.canActivate(makeContext(user, 'POST', undefined, 'projectId')),
+      ).resolves.toBe(true);
     });
 
     it('should deny VIEWER without workspace membership', async () => {

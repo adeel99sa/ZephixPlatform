@@ -17,8 +17,8 @@ import { OrgInvite } from '../../src/modules/auth/entities/org-invite.entity';
 
 export interface RegisterUserResult {
   userId: string;
-  orgId: string;
-  workspaceId: string;
+  orgId: string | null;
+  workspaceId: string | null;
   email: string;
 }
 
@@ -70,26 +70,23 @@ export async function createOrgAndWorkspace(
 }
 
 /**
- * Register a new user via API
+ * Register a new user via public API (no organization yet — onboarding creates org/workspace).
  */
 export async function registerUser(
   app: INestApplication,
   email: string,
   password: string,
   fullName: string,
-  orgName: string,
 ): Promise<RegisterUserResult> {
-  const response = await request(app.getHttpServer())
+  await request(app.getHttpServer())
     .post('/api/auth/register')
     .send({
       email,
       password,
       fullName,
-      orgName,
     })
     .expect(200);
 
-  // Response is neutral, so we need to find the user by email
   const dataSource = app.get(DataSource);
   const userRepo = dataSource.getRepository(User);
   const user = await userRepo.findOne({ where: { email: email.toLowerCase() } });
@@ -98,27 +95,51 @@ export async function registerUser(
     throw new Error('User not found after registration');
   }
 
-  const orgRepo = dataSource.getRepository(Organization);
-  const org = await orgRepo.findOne({ where: { id: user.organizationId } });
-
-  if (!org) {
-    throw new Error('Organization not found after registration');
-  }
-
-  const workspaceRepo = dataSource.getRepository(Workspace);
-  const workspace = await workspaceRepo.findOne({
-    where: { organizationId: org.id },
-  });
-
-  if (!workspace) {
-    throw new Error('Workspace not found after registration');
-  }
-
   return {
     userId: user.id,
+    orgId: user.organizationId ?? null,
+    workspaceId: null,
+    email: user.email,
+  };
+}
+
+/**
+ * For E2E tests that require an organization (invites, org-scoped APIs): register, then attach org + workspace.
+ */
+export async function registerUserWithOrg(
+  app: INestApplication,
+  email: string,
+  password: string,
+  fullName: string,
+  orgName: string,
+): Promise<RegisterUserResult> {
+  const reg = await registerUser(app, email, password, fullName);
+  const dataSource = app.get(DataSource);
+  const userRepo = dataSource.getRepository(User);
+  const userOrgRepo = dataSource.getRepository(UserOrganization);
+
+  const { org, workspace } = await createOrgAndWorkspace(
+    dataSource,
+    orgName,
+    reg.userId,
+  );
+
+  await userRepo.update(reg.userId, { organizationId: org.id });
+
+  const link = userOrgRepo.create({
+    userId: reg.userId,
+    organizationId: org.id,
+    role: 'owner',
+    isActive: true,
+    joinedAt: new Date(),
+  });
+  await userOrgRepo.save(link);
+
+  return {
+    userId: reg.userId,
     orgId: org.id,
     workspaceId: workspace.id,
-    email: user.email,
+    email: reg.email,
   };
 }
 

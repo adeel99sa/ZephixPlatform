@@ -66,9 +66,27 @@ test_endpoint() {
     fi
 }
 
-# Test 1: Health Check (should work without database)
+# Login may return 200 (verified) or 403 EMAIL_NOT_VERIFIED (self-serve until verify)
+test_login_flexible() {
+    local data=$1
+    echo -n "Testing POST /api/auth/login... "
+    response=$(curl -s -w "%{http_code}" -X POST "$BACKEND_URL/api/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "$data" \
+        -o /tmp/response.json)
+    http_code="${response: -3}"
+    response_body=$(cat /tmp/response.json)
+    if [ "$http_code" = "200" ] || [ "$http_code" = "403" ]; then
+        print_status "SUCCESS" "HTTP $http_code (200=session; 403=verify email first)"
+    else
+        print_status "FAILED" "Expected 200 or 403, got $http_code"
+        echo "Response: $response_body"
+    fi
+}
+
+# Test 1: Health Check (readiness; global prefix /api)
 echo -e "${BLUE}1. Testing Health Endpoint${NC}"
-test_endpoint "GET" "/health" "" "200"
+test_endpoint "GET" "/api/health" "" "200"
 echo ""
 
 # Test 2: Auth Endpoints (should be accessible)
@@ -106,24 +124,24 @@ echo ""
 # Test 4: Authentication Flow (when database available)
 echo -e "${BLUE}4. Testing Authentication Flow${NC}"
 
-# Test signup with valid data
-echo -e "${BLUE}   Testing user signup...${NC}"
-signup_data='{"email":"test@example.com","password":"TestPass123!","firstName":"Test","lastName":"User"}'
-test_endpoint "POST" "/api/auth/signup" "$signup_data" "201"
+# Test register with valid data (self-serve: no org; neutral 200)
+echo -e "${BLUE}   Testing user register...${NC}"
+signup_data='{"email":"test@example.com","password":"TestPass123!@#","fullName":"Test User"}'
+test_endpoint "POST" "/api/auth/signup" "$signup_data" "200"
 echo ""
 
-# Test login with valid credentials
+# Test login (200 if verified, 403 if account exists but email not verified)
 echo -e "${BLUE}   Testing user login...${NC}"
-login_data='{"email":"test@example.com","password":"TestPass123!"}'
-test_endpoint "POST" "/api/auth/login" "$login_data" "200"
+login_data='{"email":"test@example.com","password":"TestPass123!@#"}'
+test_login_flexible "$login_data"
 echo ""
 
 # Test 5: Error Handling
 echo -e "${BLUE}5. Testing Error Handling${NC}"
 
-# Test signup with invalid data
-echo -e "${BLUE}   Testing signup validation...${NC}"
-invalid_signup='{"email":"invalid-email","password":"123","firstName":"","lastName":""}'
+# Test register with invalid data (RegisterDto)
+echo -e "${BLUE}   Testing register validation...${NC}"
+invalid_signup='{"email":"invalid-email","password":"123","fullName":"No"}'
 test_endpoint "POST" "/api/auth/signup" "$invalid_signup" "400"
 echo ""
 
@@ -136,9 +154,9 @@ echo ""
 # Test 6: Protected Endpoints
 echo -e "${BLUE}6. Testing Protected Endpoints${NC}"
 
-# Test accessing protected endpoint without token
-echo -e "${BLUE}   Testing protected endpoint without token...${NC}"
-test_endpoint "GET" "/api/auth/me" "" "401"
+# /auth/me uses OptionalJwtAuthGuard — no token returns 200 with { user: null }
+echo -e "${BLUE}   Testing /api/auth/me without token (optional auth)...${NC}"
+test_endpoint "GET" "/api/auth/me" "" "200"
 echo ""
 
 # Cleanup
@@ -156,7 +174,7 @@ echo "✅ Auth endpoints accessible"
 echo "✅ CORS properly configured"
 echo "✅ Authentication flow functional"
 echo "✅ Error handling working"
-echo "✅ Protected endpoints secured"
+echo "✅ /auth/me without token returns 200 (optional JWT)"
 
 echo ""
 echo -e "${GREEN}🎉 Authentication system is fully operational!${NC}"

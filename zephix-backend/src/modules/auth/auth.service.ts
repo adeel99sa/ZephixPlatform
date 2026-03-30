@@ -12,7 +12,6 @@ import {
   Logger,
   Optional,
   UnauthorizedException,
-  ConflictException,
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -20,12 +19,11 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 import { User } from '../users/entities/user.entity'; // Fixed path
 import { Organization } from '../../organizations/entities/organization.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
 import { AuthSession } from './entities/auth-session.entity';
-import { Workspace } from '../workspaces/entities/workspace.entity';
-import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import {
   PlatformRole,
@@ -40,6 +38,7 @@ import {
 } from './services/staging-email-verification-bypass';
 import { AUTH_RATE_LIMIT_STORE } from './tokens';
 import type { AuthRateLimitStore } from './services/auth-rate-limit-store';
+import { extractEmailDomain } from './utils/org-email-policy.util';
 
 @Injectable()
 export class AuthService {
@@ -54,8 +53,6 @@ export class AuthService {
     private userOrgRepository: Repository<UserOrganization>,
     @InjectRepository(AuthSession)
     private authSessionRepository: Repository<AuthSession>,
-    @InjectRepository(Workspace)
-    private workspaceRepository: Repository<Workspace>,
     private jwtService: JwtService,
     private dataSource: DataSource,
     @Optional()
@@ -64,104 +61,6 @@ export class AuthService {
     @Optional()
     private readonly auditService?: AuditService,
   ) {}
-
-  async signup(signupDto: SignupDto) {
-    const { email, password, firstName, lastName, organizationName } =
-      signupDto;
-
-    // Check if user exists
-    const existingUser = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('Email already registered');
-    }
-
-    // Simple password validation
-    if (password.length < 8) {
-      throw new BadRequestException('Password must be at least 8 characters');
-    }
-
-    // Use transaction for consistency
-    return this.dataSource.transaction(async (manager) => {
-      // Create organization
-      const organization = manager.create(Organization, {
-        name: organizationName,
-        slug: organizationName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        settings: {
-          resourceManagement: {
-            maxAllocationPercentage: 150,
-            warningThreshold: 80,
-            criticalThreshold: 100,
-          },
-        },
-      });
-      const savedOrg = await manager.save(organization);
-
-      // Create user
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = manager.create(User, {
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        firstName,
-        lastName,
-        organizationId: savedOrg.id,
-        isEmailVerified: true, // Skip email verification for MVP
-        role: 'admin', // First user is admin
-      });
-      const savedUser = await manager.save(user);
-
-      // Generate JWT tokens
-      const accessToken = await this.generateToken(savedUser);
-
-      // Create session first to get sessionId for refresh token
-      const refreshTokenHash = TokenHashUtil.hashRefreshToken('temp'); // Will be updated after token generation
-      const refreshExpiresAt = new Date();
-      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7); // 7 days
-
-      const session = manager.create(AuthSession, {
-        userId: savedUser.id,
-        organizationId: savedOrg.id,
-        userAgent: null, // Signup doesn't have IP/userAgent yet
-        ipAddress: null,
-        currentRefreshTokenHash: null, // Will be set after token generation
-        refreshExpiresAt,
-      });
-      const savedSession = await manager.save(session);
-
-      const refreshToken = await this.generateRefreshToken(
-        savedUser,
-        savedSession.id,
-      );
-      const finalRefreshTokenHash =
-        TokenHashUtil.hashRefreshToken(refreshToken);
-      savedSession.currentRefreshTokenHash = finalRefreshTokenHash;
-      await manager.save(savedSession);
-
-      // Create UserOrganization record for the first user (admin)
-      const userOrg = manager.create(UserOrganization, {
-        userId: savedUser.id,
-        organizationId: savedOrg.id,
-        role: 'admin', // First user is admin
-        isActive: true,
-      });
-      await manager.save(userOrg);
-
-      // Build complete user response with permissions
-      // Pass the org role explicitly
-      // savedOrg is already available in the transaction scope
-      const userResponse = this.buildUserResponse(savedUser, 'admin', savedOrg);
-
-      return {
-        user: userResponse,
-        accessToken,
-        refreshToken,
-        organizationId: savedOrg.id,
-        expiresIn: 900, // 15 minutes in seconds
-      };
-    });
-  }
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
     const { email, password } = loginDto;
@@ -179,7 +78,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await this.verifyPasswordAndRehashIfLegacy(
+      user,
+      password,
+    );
     if (!isPasswordValid) {
       await this.rateLimitStore?.hit(`auth:fail:${emailHash}`, 3600, 1_000_000);
       throw new UnauthorizedException('Invalid credentials');
@@ -187,6 +89,41 @@ export class AuthService {
 
     await this.ensureEmailVerificationAllowed(user);
     return this.createLoginResult(user, emailHash, ip, userAgent);
+  }
+
+  /**
+   * Supports bcrypt (legacy) and Argon2id (current) hashes in `users.password`.
+   * After a successful bcrypt verification, migrates the stored hash to Argon2id.
+   */
+  private async verifyPasswordAndRehashIfLegacy(
+    user: User,
+    plainPassword: string,
+  ): Promise<boolean> {
+    const stored = user.password || '';
+    if (stored.startsWith('$argon2')) {
+      try {
+        return await argon2.verify(stored, plainPassword);
+      } catch {
+        return false;
+      }
+    }
+    if (
+      stored.startsWith('$2a$') ||
+      stored.startsWith('$2b$') ||
+      stored.startsWith('$2y$')
+    ) {
+      const ok = await bcrypt.compare(plainPassword, stored);
+      if (ok) {
+        const newHash = await argon2.hash(plainPassword, { type: argon2.argon2id });
+        await this.userRepository.update(user.id, { password: newHash });
+        user.password = newHash;
+      }
+      return ok;
+    }
+    this.logger.warn('User password hash uses unknown format; denying login', {
+      userId: user.id,
+    });
+    return false;
   }
 
   async smokeLogin(email: string, ip?: string, userAgent?: string) {
@@ -314,29 +251,8 @@ export class AuthService {
     // Pass the org role and organization explicitly
     const userResponse = this.buildUserResponse(user, orgRole, organization);
 
-    // Get default workspace slug (most recently used, or earliest created)
-    let defaultWorkspaceSlug: string | null = null;
-    if (user.organizationId) {
-      try {
-        // Try to get most recently accessed workspace (if we track lastWorkspaceId)
-        // For now, get the earliest created workspace as default
-        const defaultWorkspace = await this.workspaceRepository.findOne({
-          where: {
-            organizationId: user.organizationId,
-            deletedAt: null,
-          },
-          order: {
-            createdAt: 'ASC', // Earliest created
-          },
-        });
-        if (defaultWorkspace?.slug) {
-          defaultWorkspaceSlug = defaultWorkspace.slug;
-        }
-      } catch (error) {
-        // Silently fail - defaultWorkspaceSlug will be null
-        console.warn('Failed to get default workspace:', error);
-      }
-    }
+    // Workspace selection is user initiated in onboarding/shell flows.
+    const defaultWorkspaceSlug: string | null = null;
 
     // Optional store: no-op store means auth remains allowed if not configured.
     await this.rateLimitStore?.hit(`auth:success:${emailHash}`, 60, 1_000_000);

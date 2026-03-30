@@ -24,17 +24,20 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-    // Skip CSRF check for login, refresh, csrf, health, and onboarding endpoints
-    // Onboarding runs during initial setup before full CSRF flow is established
+    // Skip CSRF check for login, register, refresh, csrf, health, and onboarding endpoints
+    // Register/signup: no session yet, CSRF not applicable. Onboarding: initial setup.
     const path = request.path.toLowerCase();
     if (
       path.includes('/auth/login') ||
+      path.includes('/auth/register') ||
+      path.includes('/auth/signup') ||
       path.includes('/auth/refresh') ||
       path.includes('/auth/csrf') ||
       path.includes('/health') ||
       path.includes('/api/health') ||
       path.includes('/organizations/onboarding') ||
-      path.includes('/smoke/')  // Smoke endpoints are protected by SmokeKeyGuard
+      path.includes('/smoke/') ||  // Smoke endpoints are protected by SmokeKeyGuard
+      path.includes('/smoke-login')  // smoke-login is also SmokeKeyGuard-protected
     ) {
       return true;
     }

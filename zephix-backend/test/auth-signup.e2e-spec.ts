@@ -65,15 +65,8 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `newuser-${timestamp}@test.com`;
       const password = 'SecurePass123!@#';
       const fullName = 'Test User';
-      const orgName = `Test Org ${timestamp}`;
 
-      const response = await registerUser(
-        app,
-        email,
-        password,
-        fullName,
-        orgName,
-      );
+      await registerUser(app, email, password, fullName);
 
       // Verify user was created
       const user = await getUserByEmail(dataSource, email);
@@ -101,19 +94,12 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `existing-${timestamp}@test.com`;
       const password = 'SecurePass123!@#';
       const fullName = 'Existing User';
-      const orgName = `Existing Org ${timestamp}`;
 
       // First registration
-      await registerUser(app, email, password, fullName, orgName);
+      await registerUser(app, email, password, fullName);
 
       // Second registration with same email (should return neutral response)
-      const response = await registerUser(
-        app,
-        email,
-        password,
-        fullName,
-        `Different Org ${timestamp}`,
-      );
+      await registerUser(app, email, password, fullName);
 
       // Should still return success (neutral response)
       // Verify only one user exists
@@ -144,13 +130,7 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `resend-${timestamp}@test.com`;
 
       // Register user
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Resend User',
-        `Resend Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Resend User');
 
       // Resend verification
       const response = await resendVerification(app, email);
@@ -178,13 +158,7 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `verify-${timestamp}@test.com`;
 
       // Register user
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Verify User',
-        `Verify Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Verify User');
 
       // Get outbox event and extract token
       const outboxEvent = await getLatestOutboxEvent(
@@ -214,13 +188,7 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `expired-${timestamp}@test.com`;
 
       // Register user
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Expired User',
-        `Expired Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Expired User');
 
       // Get token and manually expire it
       const user = await getUserByEmail(dataSource, email);
@@ -257,13 +225,7 @@ describe('Auth Signup Flow (E2E)', () => {
       const email = `idempotent-${timestamp}@test.com`;
 
       // Register and verify
-      await registerUser(
-        app,
-        email,
-        'SecurePass123!@#',
-        'Idempotent User',
-        `Idempotent Org ${timestamp}`,
-      );
+      await registerUser(app, email, 'SecurePass123!@#', 'Idempotent User');
 
       const outboxEvent = await getLatestOutboxEvent(
         dataSource,

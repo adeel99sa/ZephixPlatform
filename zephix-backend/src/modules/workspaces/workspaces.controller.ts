@@ -31,6 +31,7 @@ import { JoinWorkspaceDto } from './dto/join-workspace.dto';
 import { InviteMembersEmailDto } from './dto/invite-members-email.dto';
 import { SuspendMemberDto } from './dto/suspend-member.dto';
 import { ReinstateMemberDto } from './dto/reinstate-member.dto';
+import { UpdateWorkspaceSettingsDto } from './dto/update-workspace-settings.dto';
 import { WorkspaceInviteService } from './services/workspace-invite.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -56,20 +57,35 @@ import { getAuthContextOptional } from '../../common/http/get-auth-context-optio
 import {
   normalizePlatformRole,
   PlatformRole,
+  resolvePlatformRoleFromRequestUser,
 } from '../../shared/enums/platform-roles.enum';
 import {
   formatResponse,
   formatArrayResponse,
 } from '../../shared/helpers/response.helper';
 import { WorkspaceHealthService } from './services/workspace-health.service';
+import type { GovernanceConfigResponseDto } from '../governance/dto/governance-config-response.dto';
+import { ValidateGovernanceChangeDto } from '../governance/dto/validate-governance-change.dto';
+import { WorkspaceGovernanceService } from '../governance/services/workspace-governance.service';
+import { WorkspaceOnboardingDto } from './dto/workspace-onboarding.dto';
 
 type UserJwt = {
   id: string;
-  organizationId: string;
+  organizationId?: string | null;
   role: 'admin' | 'member' | 'guest';
-  platformRole?: PlatformRole;
+  platformRole?: PlatformRole | string;
   email?: string; // Email is available from JWT payload
 };
+
+/** Map resolved platform role to WorkspacePolicy OrgRole literal. */
+function orgRoleForPolicy(
+  u: UserJwt & { platformRole?: string },
+): 'admin' | 'member' | 'guest' {
+  const p = resolvePlatformRoleFromRequestUser(u);
+  if (p === PlatformRole.ADMIN) return 'admin';
+  if (p === PlatformRole.MEMBER) return 'member';
+  return 'guest';
+}
 
 @Controller('workspaces')
 @UseGuards(JwtAuthGuard)
@@ -86,7 +102,27 @@ export class WorkspacesController {
     private readonly inviteService: WorkspaceInviteService,
     private readonly workspaceHealthService: WorkspaceHealthService,
     private readonly tenantContextService: TenantContextService,
+    private readonly workspaceGovernanceService: WorkspaceGovernanceService,
   ) {}
+
+  /**
+   * POST /api/workspaces/onboarding
+   * Create organization + first workspace after email-verified self-serve signup.
+   */
+  @Post('onboarding')
+  async completeSelfServeOnboarding(
+    @Body() dto: WorkspaceOnboardingDto,
+    @CurrentUser() u: UserJwt,
+  ) {
+    if (!u?.id) {
+      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+    const result = await this.svc.completeSelfServeOnboarding(
+      u.id,
+      dto.workspaceName,
+    );
+    return formatResponse(result);
+  }
 
   /**
    * PROMPT 10: Resolve workspace by slug
@@ -107,7 +143,7 @@ export class WorkspacesController {
       workspace.id,
       u.organizationId,
       u.id,
-      u.role,
+      resolvePlatformRoleFromRequestUser(u),
     );
 
     if (!canAccess) {
@@ -142,7 +178,7 @@ export class WorkspacesController {
       workspace.id,
       u.organizationId,
       u.id,
-      u.role,
+      resolvePlatformRoleFromRequestUser(u),
     );
 
     if (!canAccess) {
@@ -170,10 +206,7 @@ export class WorkspacesController {
   ) {
     // Fix 2: Normalize platformRole before passing to service (use platformRole first, fallback to role)
     // JWT payload may have platformRole even if UserJwt type doesn't include it
-    const userPayload = u as UserJwt & { platformRole?: string };
-    const platformRole = normalizePlatformRole(
-      userPayload.platformRole || u.role,
-    );
+    const platformRole = resolvePlatformRoleFromRequestUser(u);
     const data = await this.workspaceHealthService.getWorkspaceHomeData(
       slug,
       u.organizationId,
@@ -189,7 +222,7 @@ export class WorkspacesController {
       const workspaces = await this.svc.listByOrg(
         u.organizationId,
         u.id,
-        u.role,
+        resolvePlatformRoleFromRequestUser(u),
       );
       // Standardized response contract: { data: Workspace[] }
       return formatArrayResponse(workspaces || []);
@@ -216,29 +249,21 @@ export class WorkspacesController {
     @Req() req: Request,
   ) {
     try {
-      // Enforce workspace membership when feature flag is enabled
-      const canAccess = await this.accessService.canAccessWorkspace(
-        id,
-        u.organizationId,
-        u.id,
-        u.role,
-      );
-
-      if (!canAccess) {
-        throw new ForbiddenException(
-          'You do not have access to this workspace',
-        );
-      }
-
-      const workspace = await this.svc.getById(u.organizationId, id);
-      // Standardized response contract: { data: Workspace | null }
-      return formatResponse(workspace || null);
+      const workspace = await this.svc.getWorkspaceForReadOrThrow({
+        organizationId: u.organizationId,
+        workspaceId: id,
+        userId: u.id,
+        userRole: resolvePlatformRoleFromRequestUser(u),
+      });
+      return formatResponse(workspace);
     } catch (error) {
-      // Re-throw auth errors (403)
-      if (error instanceof ForbiddenException) {
+      // Re-throw deterministic entity read errors.
+      if (
+        error instanceof ForbiddenException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      // Never throw 500 - return null for not found
       const requestId = req.headers['x-request-id'] || 'unknown';
       this.logger.error('Failed to get workspace', {
         error: error instanceof Error ? error.message : String(error),
@@ -249,8 +274,7 @@ export class WorkspacesController {
         requestId,
         endpoint: 'GET /api/workspaces/:id',
       });
-      // Return null for not found (200 status)
-      return formatResponse(null);
+      throw new NotFoundException('Workspace not found');
     }
   }
 
@@ -277,10 +301,7 @@ export class WorkspacesController {
     const requestId = req.headers['x-request-id'] || 'unknown';
 
     // Block Guest writes (VIEWER)
-    const userPayload = u as UserJwt & { platformRole?: string };
-    const userPlatformRole = normalizePlatformRole(
-      userPayload.platformRole || u.role,
-    );
+    const userPlatformRole = resolvePlatformRoleFromRequestUser(u);
     if (userPlatformRole === PlatformRole.VIEWER) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
@@ -331,6 +352,11 @@ export class WorkspacesController {
         slug: dto.slug, // Service handles slugification and uniqueness
         description: dto.description,
         defaultMethodology: dto.defaultMethodology,
+        businessUnitLabel: dto.businessUnitLabel,
+        defaultTemplateId: dto.defaultTemplateId,
+        inheritOrgDefaultTemplate: dto.inheritOrgDefaultTemplate,
+        governanceInheritanceMode: dto.governanceInheritanceMode,
+        allowedTemplateIds: dto.allowedTemplateIds,
         isPrivate,
         organizationId: u.organizationId,
         ownerUserIds: ownerUserIds, // Derived from auth context if not provided
@@ -346,7 +372,7 @@ export class WorkspacesController {
           organizationId: u.organizationId,
           workspaceId: workspace.id,
           creatorUserId: u.id,
-          creatorPlatformRole: u.role,
+          creatorPlatformRole: resolvePlatformRoleFromRequestUser(u),
           ownerUserIds: ownerUserIds,
           workspaceName: workspace.name,
           requestId,
@@ -388,7 +414,7 @@ export class WorkspacesController {
         organizationId: u.organizationId,
         workspaceId: workspace.id,
         creatorUserId: u.id,
-        creatorPlatformRole: u.role,
+        creatorPlatformRole: resolvePlatformRoleFromRequestUser(u),
         ownerUserIds: ownerUserIds,
         workspaceName: workspace.name,
         requestId,
@@ -507,6 +533,15 @@ export class WorkspacesController {
         ownerId: workspace.ownerId,
         visibility: workspace.isPrivate ? 'private' : 'public',
         defaultMethodology: workspace.defaultMethodology || 'waterfall',
+        defaultTemplateId: workspace.defaultTemplateId || null,
+        inheritOrgDefaultTemplate: workspace.inheritOrgDefaultTemplate ?? true,
+        governanceInheritanceMode:
+          workspace.governanceInheritanceMode || 'ORG_DEFAULT',
+        allowedTemplateIds:
+          workspace.allowedTemplateIds &&
+          workspace.allowedTemplateIds.length > 0
+            ? workspace.allowedTemplateIds
+            : null,
         permissionsConfig: workspace.permissionsConfig || null,
       });
     } catch (error) {
@@ -526,20 +561,53 @@ export class WorkspacesController {
     }
   }
 
+  /**
+   * Phase 2: Template Governance — GET /api/workspaces/:id/governance-config
+   */
+  @Get(':id/governance-config')
+  @UseGuards(RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('view_workspace')
+  async getGovernanceConfig(
+    @Param('id') workspaceId: string,
+    @CurrentUser() u: UserJwt,
+  ): Promise<GovernanceConfigResponseDto> {
+    const workspace = await this.svc.getById(u.organizationId, workspaceId);
+    if (!workspace) {
+      throw new NotFoundException({ code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' });
+    }
+    return this.workspaceGovernanceService.getConfig(u.organizationId, workspaceId);
+  }
+
+  /**
+   * Phase 2: Template Governance — POST /api/workspaces/:id/validate
+   * Returns HTTP 200 for both allowed and blocked (403 only for permission denial).
+   */
+  @Post(':id/validate')
+  @UseGuards(RequireWorkspacePermissionGuard)
+  @RequireWorkspacePermission('edit_workspace_settings')
+  async validateGovernanceChange(
+    @Param('id') workspaceId: string,
+    @Body() dto: ValidateGovernanceChangeDto,
+    @CurrentUser() u: UserJwt,
+  ): Promise<{ allowed: boolean; reason?: string; policyName?: string; code?: string }> {
+    const workspace = await this.svc.getById(u.organizationId, workspaceId);
+    if (!workspace) {
+      throw new NotFoundException({ code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found' });
+    }
+    return this.workspaceGovernanceService.validate(
+      u.organizationId,
+      workspaceId,
+      dto.action,
+      dto.component,
+    );
+  }
+
   @Patch(':id/settings')
   @UseGuards(RequireWorkspacePermissionGuard)
   @RequireWorkspacePermission('edit_workspace_settings')
   async updateSettings(
     @Param('id') id: string,
-    @Body()
-    dto: {
-      name?: string;
-      description?: string;
-      ownerId?: string;
-      visibility?: 'public' | 'private';
-      defaultMethodology?: string;
-      permissionsConfig?: Record<string, string[]>;
-    },
+    @Body() dto: UpdateWorkspaceSettingsDto,
     @CurrentUser() u: UserJwt,
   ) {
     const updates: any = {};
@@ -554,6 +622,21 @@ export class WorkspacesController {
     }
     if (dto.defaultMethodology !== undefined) {
       updates.defaultMethodology = dto.defaultMethodology;
+    }
+    if (dto.defaultTemplateId !== undefined) {
+      updates.defaultTemplateId = dto.defaultTemplateId || null;
+    }
+    if (dto.inheritOrgDefaultTemplate !== undefined) {
+      updates.inheritOrgDefaultTemplate = dto.inheritOrgDefaultTemplate;
+    }
+    if (dto.governanceInheritanceMode !== undefined) {
+      updates.governanceInheritanceMode = dto.governanceInheritanceMode;
+    }
+    if (dto.allowedTemplateIds !== undefined) {
+      updates.allowedTemplateIds =
+        dto.allowedTemplateIds && dto.allowedTemplateIds.length > 0
+          ? dto.allowedTemplateIds
+          : null;
     }
     if (dto.permissionsConfig !== undefined) {
       updates.permissionsConfig = dto.permissionsConfig;
@@ -587,7 +670,7 @@ export class WorkspacesController {
   // Restore from trash
   @Post(':id/restore')
   async restore(@Param('id') id: string, @CurrentUser() u: UserJwt) {
-    this.policy.enforceUpdate(u.role);
+    this.policy.enforceUpdate(orgRoleForPolicy(u));
     const result = await this.svc.restore(id);
     return formatResponse(result);
   }
@@ -632,7 +715,7 @@ export class WorkspacesController {
         workspaceId,
         u.organizationId,
         u.id,
-        u.role,
+        resolvePlatformRoleFromRequestUser(u),
       );
 
       if (!canAccess) {
@@ -819,7 +902,7 @@ export class WorkspacesController {
   ) {
     // Explicitly forbid workspace owners from changing owner (only platform ADMIN can)
     // This is already enforced by RequireOrgRole('ADMIN'), but adding explicit check for clarity
-    const userPlatformRole = normalizePlatformRole(u.role);
+    const userPlatformRole = resolvePlatformRoleFromRequestUser(u);
     if (userPlatformRole !== PlatformRole.ADMIN) {
       throw new ForbiddenException(
         'Only organization administrators can change workspace owner',
@@ -851,7 +934,7 @@ export class WorkspacesController {
     const requestId = req.headers['x-request-id'] || 'unknown';
 
     // PROMPT 6: Explicit platform role check
-    const userPlatformRole = normalizePlatformRole(u.role);
+    const userPlatformRole = resolvePlatformRoleFromRequestUser(u);
     if (userPlatformRole !== PlatformRole.ADMIN) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
@@ -1121,7 +1204,7 @@ export class WorkspacesController {
           limit,
           minRiskScore,
           userId: u.id,
-          userRole: u.role,
+          userRole: resolvePlatformRoleFromRequestUser(u),
         });
 
       return formatResponse(result);

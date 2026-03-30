@@ -272,6 +272,7 @@ export class WorkspaceInviteService {
     const member = this.memberRepo.create({
       workspaceId: inviteLink.workspaceId,
       userId,
+      organizationId: inviteLink.workspace.organizationId,
       role: defaultWorkspaceRole,
       createdBy: userId,
     });

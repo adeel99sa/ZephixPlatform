@@ -8,6 +8,7 @@ import {
   MaxLength,
   IsEnum,
   IsBoolean,
+  IsIn,
 } from 'class-validator';
 import { WorkspaceVisibility } from '../entities/workspace.entity';
 
@@ -45,6 +46,29 @@ export class CreateWorkspaceDto {
   @IsOptional()
   @IsString()
   defaultMethodology?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  businessUnitLabel?: string;
+
+  @IsOptional()
+  @IsUUID('4')
+  defaultTemplateId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inheritOrgDefaultTemplate?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ORG_DEFAULT', 'WORKSPACE_OVERRIDE'])
+  governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true, message: 'Each template ID must be a valid UUID' })
+  allowedTemplateIds?: string[];
 
   @IsOptional()
   @IsBoolean()
