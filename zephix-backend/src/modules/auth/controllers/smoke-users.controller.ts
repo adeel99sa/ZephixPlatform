@@ -41,10 +41,6 @@ class SmokeCreateUserDto {
   @IsString()
   @IsNotEmpty()
   fullName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  orgName: string;
 }
 
 /**
@@ -74,7 +70,7 @@ export class SmokeUsersController {
   /**
    * POST /api/smoke/users/create
    *
-   * Staging-only. Creates a user + org via AuthRegistrationService.registerSelfServe,
+   * Staging-only. Creates a user via AuthRegistrationService.registerSelfServe,
    * bypassing the HTTP-layer rate limiter on /auth/register.
    * Intended for smoke test setup only — never call from production flows.
    *
@@ -93,7 +89,6 @@ export class SmokeUsersController {
       email: dto.email,
       password: dto.password,
       fullName: dto.fullName,
-      orgName: dto.orgName,
     });
     // registerSelfServe returns a neutral message regardless of whether the user
     // already existed — that's intentional for the public endpoint. For smoke use

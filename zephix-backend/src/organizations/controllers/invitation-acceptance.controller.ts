@@ -20,6 +20,7 @@ import { CurrentUser } from '../../modules/auth/decorators/current-user.decorato
 import { User } from '../../modules/users/entities/user.entity';
 import { InvitationService } from '../services/invitation.service';
 import { Organization } from '../entities/organization.entity';
+import { toApiOrgRole } from '../../common/auth/org-role-mapping';
 
 @ApiTags('Invitation Acceptance')
 @Controller('invitations')
@@ -36,7 +37,7 @@ export class InvitationAcceptanceController {
       type: 'object',
       properties: {
         email: { type: 'string' },
-        role: { type: 'string', enum: ['admin', 'pm', 'viewer'] },
+          role: { type: 'string', enum: ['admin', 'member', 'viewer'] },
         organization: {
           type: 'object',
           properties: {
@@ -75,7 +76,7 @@ export class InvitationAcceptanceController {
 
     return {
       email: invitation.email,
-      role: invitation.role,
+      role: toApiOrgRole(invitation.role),
       organization: {
         id: invitation.organization.id,
         name: invitation.organization.name,

@@ -489,12 +489,10 @@ export class AdminController {
       const { organizationId, userId: currentUserId } = getAuthContext(req);
       // TODO: Implement full user update logic
       if (body.role) {
-        // Map 'member' to 'pm' for backend compatibility
-        const backendRole = body.role === 'member' ? 'pm' : body.role;
         await this.organizationsService.updateUserRole(
           organizationId,
           userId,
-          backendRole,
+          body.role,
           currentUserId,
         );
       }
@@ -538,12 +536,10 @@ export class AdminController {
   ) {
     try {
       const { organizationId, userId: currentUserId } = getAuthContext(req);
-      // Map 'member' to 'pm' for backend compatibility
-      const backendRole = body.role === 'member' ? 'pm' : body.role;
       await this.organizationsService.updateUserRole(
         organizationId,
         userId,
-        backendRole,
+        body.role,
         currentUserId,
       );
       return { message: 'User role updated successfully' };

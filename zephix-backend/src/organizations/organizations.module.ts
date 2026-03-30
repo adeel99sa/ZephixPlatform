@@ -10,6 +10,7 @@ import { Organization, UserOrganization, Invitation } from './entities';
 import { User } from '../modules/users/entities/user.entity';
 import { Workspace } from '../modules/workspaces/entities/workspace.entity';
 import { SharedModule } from '../shared/shared.module';
+import { ResourceModule } from '../modules/resources/resource.module';
 
 @Global() // Make OrganizationsModule globally available
 @Module({
@@ -22,6 +23,7 @@ import { SharedModule } from '../shared/shared.module';
       Workspace,
     ]),
     SharedModule, // For EmailService used by InvitationService
+    ResourceModule,
     // ENTERPRISE APPROACH: Remove JWT module duplication - it's already global in app.module.ts
   ],
   controllers: [
