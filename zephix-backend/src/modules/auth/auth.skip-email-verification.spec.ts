@@ -58,7 +58,6 @@ describe('AuthService login (skip email verification)', () => {
       {} as any,
       { findOne: jest.fn().mockResolvedValue(null) } as any,
       authSessionRepository as any,
-      {} as any,
       jwtService as any,
       {} as any,
       { hit: jest.fn().mockResolvedValue({ allowed: true, remaining: 999 }) } as any,
@@ -131,7 +130,6 @@ describe('AuthService login (skip email verification)', () => {
       {} as any,
       { findOne: jest.fn().mockResolvedValue(null) } as any,
       authSessionRepository as any,
-      {} as any,
       jwtService as any,
       {} as any,
       rateLimitStore as any,
@@ -191,7 +189,6 @@ describe('AuthService login (skip email verification)', () => {
       {} as any,
       { findOne: jest.fn().mockResolvedValue(null) } as any,
       { create: jest.fn(), save: jest.fn() } as any,
-      {} as any,
       { sign: jest.fn().mockReturnValue('token') } as any,
       {} as any,
       {
@@ -259,7 +256,6 @@ describe('AuthService login (skip email verification)', () => {
       {} as any,
       { findOne: jest.fn().mockResolvedValue(null) } as any,
       { create: jest.fn(), save: jest.fn() } as any,
-      {} as any,
       { sign: jest.fn().mockReturnValue('token') } as any,
       {} as any,
       {
