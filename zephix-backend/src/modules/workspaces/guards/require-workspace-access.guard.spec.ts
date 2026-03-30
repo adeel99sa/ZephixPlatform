@@ -267,4 +267,51 @@ describe('RequireWorkspaceAccessGuard', () => {
       ForbiddenException,
     );
   });
+
+  // Issue A: resolvePlatformRoleFromRequestUser (platformRole ?? role)
+  describe('platformRole resolution', () => {
+    it('allows ownerOrAdmin when platformRole is ADMIN and role is absent', async () => {
+      const user = mockUser({
+        role: undefined,
+        platformRole: 'ADMIN',
+        permissions: { isAdmin: false },
+      });
+      const { context, reflector } = mockContext('ownerOrAdmin', user);
+      const guard = createGuard(reflector, WORKSPACE, null);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it('allows ownerOrAdmin when platformRole is ADMIN and role is member', async () => {
+      const user = mockUser({
+        role: 'member',
+        platformRole: 'ADMIN',
+        permissions: { isAdmin: false },
+      });
+      const { context, reflector } = mockContext('ownerOrAdmin', user);
+      const guard = createGuard(reflector, WORKSPACE, null);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it('allows ownerOrAdmin when platformRole absent and role is ADMIN', async () => {
+      const user = mockUser({
+        role: 'ADMIN',
+        platformRole: undefined,
+        permissions: { isAdmin: false },
+      });
+      const { context, reflector } = mockContext('ownerOrAdmin', user);
+      const guard = createGuard(reflector, WORKSPACE, null);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it('allows ownerOrAdmin when platformRole absent and role is admin (legacy lowercase)', async () => {
+      const user = mockUser({
+        role: 'admin',
+        platformRole: undefined,
+        permissions: { isAdmin: false },
+      });
+      const { context, reflector } = mockContext('ownerOrAdmin', user);
+      const guard = createGuard(reflector, WORKSPACE, null);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+  });
 });

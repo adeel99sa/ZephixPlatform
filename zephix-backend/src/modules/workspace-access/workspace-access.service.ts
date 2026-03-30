@@ -2,11 +2,12 @@ import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WorkspaceMember } from '../workspaces/entities/workspace-member.entity';
 import { WorkspaceRole } from '../workspaces/entities/workspace.entity';
+import { Project } from '../projects/entities/project.entity';
 import {
   PlatformRole,
   normalizePlatformRole,
-  isAdminRole,
 } from '../../shared/enums/platform-roles.enum';
+import { IsNull } from 'typeorm';
 import { TenantAwareRepository } from '../tenancy/tenant-aware.repository';
 import { getTenantAwareRepositoryToken } from '../tenancy/tenant-aware.repository';
 import { TenantContextService } from '../tenancy/tenant-context.service';
@@ -20,6 +21,8 @@ export class WorkspaceAccessService {
   constructor(
     @Inject(getTenantAwareRepositoryToken(WorkspaceMember))
     private memberRepo: TenantAwareRepository<WorkspaceMember>,
+    @Inject(getTenantAwareRepositoryToken(Project))
+    private projectRepo: TenantAwareRepository<Project>,
     private configService: ConfigService,
     private readonly tenantContextService: TenantContextService,
   ) {}
@@ -99,7 +102,20 @@ export class WorkspaceAccessService {
     }
 
     // Check if workspaceId is in accessible list
-    return accessibleIds.includes(workspaceId);
+    if (accessibleIds.includes(workspaceId)) {
+      return true;
+    }
+
+    // Project-only visibility: allow workspace container read when user is assigned
+    // directly to at least one project in that workspace.
+    const featureEnabled =
+      this.configService.get<string>('ZEPHIX_WS_MEMBERSHIP_V1') === '1';
+    const normalizedRole = normalizePlatformRole(platformRole);
+    if (!featureEnabled || normalizedRole === PlatformRole.ADMIN || !userId) {
+      return false;
+    }
+
+    return this.hasProjectAccessInWorkspace(organizationId, userId, workspaceId);
   }
 
   /**
@@ -201,6 +217,71 @@ export class WorkspaceAccessService {
 
     // Return the membership role directly (already in workspace_owner, workspace_member, workspace_viewer format)
     return member.role;
+  }
+
+  async getProjectSharedWorkspaceIds(
+    organizationId: string,
+    userId: string,
+  ): Promise<string[]> {
+    this.tenantContextService.assertOrganizationId();
+    const rows = await this.projectRepo
+      .qb('p')
+      .select('DISTINCT p.workspaceId', 'workspaceId')
+      .andWhere('p.deletedAt IS NULL')
+      .andWhere('p.workspaceId IS NOT NULL')
+      .andWhere(
+        '(p.projectManagerId = :userId OR p.deliveryOwnerUserId = :userId)',
+        { userId },
+      )
+      .getRawMany<{ workspaceId: string | null }>();
+
+    return rows
+      .map((row) => row.workspaceId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  }
+
+  async getProjectOnlyVisibleProjectIdsInWorkspace(
+    organizationId: string,
+    userId: string,
+    workspaceId: string,
+  ): Promise<string[]> {
+    this.tenantContextService.assertOrganizationId();
+    const rows = await this.projectRepo
+      .qb('p')
+      .select('p.id', 'id')
+      .andWhere('p.workspaceId = :workspaceId', { workspaceId })
+      .andWhere('p.deletedAt IS NULL')
+      .andWhere(
+        '(p.projectManagerId = :userId OR p.deliveryOwnerUserId = :userId)',
+        { userId },
+      )
+      .getRawMany<{ id: string | null }>();
+
+    return rows
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  }
+
+  private async hasProjectAccessInWorkspace(
+    organizationId: string,
+    userId: string,
+    workspaceId: string,
+  ): Promise<boolean> {
+    const count = await this.projectRepo.count({
+      where: [
+        {
+          workspaceId,
+          projectManagerId: userId,
+          deletedAt: IsNull(),
+        } as any,
+        {
+          workspaceId,
+          deliveryOwnerUserId: userId,
+          deletedAt: IsNull(),
+        } as any,
+      ],
+    });
+    return count > 0;
   }
 
   /**

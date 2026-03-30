@@ -291,6 +291,7 @@ export class WorkspaceBackfillService {
           const newMember = queryRunner.manager.create(WorkspaceMember, {
             workspaceId: workspace.id,
             userId: desiredOwnerId,
+            organizationId: workspace.organizationId,
             role: 'workspace_owner' as WorkspaceRole,
           });
           await queryRunner.manager.save(newMember);

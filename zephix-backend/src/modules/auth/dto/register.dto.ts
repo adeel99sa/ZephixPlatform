@@ -4,17 +4,12 @@ import {
   MinLength,
   IsNotEmpty,
   Matches,
-  IsOptional,
   Length,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * Register DTO for self-serve signup
- *
- * Phase 1 specification:
- * - email, password, fullName, orgName (required)
- * - orgSlug (optional, validated if provided)
+ * Register DTO for self-serve signup (organization is created in onboarding after verification).
  */
 export class RegisterDto {
   @ApiProperty({
@@ -49,29 +44,6 @@ export class RegisterDto {
   @IsNotEmpty()
   @Length(2, 200)
   fullName: string;
-
-  @ApiProperty({
-    description: 'Organization name (required, 2-80 characters)',
-    example: 'Acme Corp',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @Length(2, 80)
-  orgName: string;
-
-  @ApiProperty({
-    description:
-      'Organization slug (optional, 3-48 chars, lowercase letters, numbers, hyphens only). If not provided, generated from orgName.',
-    example: 'acme-corp',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @Length(3, 48)
-  @Matches(/^[a-z0-9-]+$/, {
-    message: 'Slug can only contain lowercase letters, numbers, and hyphens',
-  })
-  orgSlug?: string;
 }
 
 export class RegisterResponseDto {

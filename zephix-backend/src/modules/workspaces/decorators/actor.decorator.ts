@@ -3,7 +3,7 @@ import { Actor as ActorType } from '../rbac';
 import { WorkspaceRole } from '../entities/workspace.entity';
 import {
   PlatformRole,
-  normalizePlatformRole,
+  resolvePlatformRoleFromRequestUser,
 } from '../../../shared/enums/platform-roles.enum';
 
 export const Actor = createParamDecorator(
@@ -17,7 +17,7 @@ export const Actor = createParamDecorator(
 
     // Normalize user role to PlatformRole, then map to legacy OrgRole for Actor interface
     // This maintains backward compatibility while using the new role system
-    const userPlatformRole = normalizePlatformRole(user.role);
+    const userPlatformRole = resolvePlatformRoleFromRequestUser(user);
 
     // Map PlatformRole to legacy OrgRole format for Actor interface
     // ADMIN -> 'admin', MEMBER -> 'project_manager', VIEWER -> 'viewer'

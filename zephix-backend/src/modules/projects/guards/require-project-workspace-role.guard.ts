@@ -91,13 +91,34 @@ export class RequireProjectWorkspaceRoleGuard implements CanActivate {
     // Extract workspace ID
     let workspaceId: string | undefined;
 
-    // For POST (create), workspaceId comes from request body
+    const projectIdFromParams = request.params.id || request.params.projectId;
+
+    // For POST (create), workspaceId usually comes from request body.
+    // Share contract endpoints use :projectId and must resolve workspace via project lookup.
     if (request.method === 'POST') {
       workspaceId = request.body?.workspaceId;
+      if (!workspaceId && projectIdFromParams) {
+        const project = await this.projectRepo.findOne({
+          where: { id: projectIdFromParams, organizationId },
+          select: ['id', 'workspaceId', 'organizationId'],
+        });
+
+        if (!project) {
+          throw new ForbiddenException('Project not found or access denied');
+        }
+
+        if (project.organizationId !== organizationId) {
+          throw new ForbiddenException(
+            'Project does not belong to your organization',
+          );
+        }
+
+        workspaceId = project.workspaceId;
+      }
     }
     // For PATCH/DELETE (update/delete), get workspaceId from project
     else if (request.method === 'PATCH' || request.method === 'DELETE') {
-      const projectId = request.params.id;
+      const projectId = projectIdFromParams;
       if (projectId) {
         const project = await this.projectRepo.findOne({
           where: { id: projectId, organizationId },

@@ -6,11 +6,13 @@ import {
   IsEmail,
   IsEnum,
   IsOptional,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum PlatformRoleEnum {
+  ADMIN = 'Admin',
   MEMBER = 'Member',
   GUEST = 'Guest',
 }
@@ -19,6 +21,7 @@ export class WorkspaceAssignmentDto {
   @IsEnum(['Member', 'Guest'])
   accessLevel: 'Member' | 'Guest';
 
+  @IsUUID()
   workspaceId: string;
 }
 
@@ -28,7 +31,7 @@ export class AdminInviteDto {
   emails: string[];
 
   @IsEnum(PlatformRoleEnum)
-  platformRole: 'Member' | 'Guest';
+  platformRole: 'Admin' | 'Member' | 'Guest';
 
   @IsOptional()
   @IsArray()
