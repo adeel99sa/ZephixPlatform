@@ -8,6 +8,7 @@ import { WorkspaceMember } from './entities/workspace-member.entity';
 import { WorkspaceInviteLink } from './entities/workspace-invite-link.entity';
 import { User } from '../users/entities/user.entity';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
 // WorkspaceAccessService is imported from WorkspaceAccessModule (not local service)
@@ -47,6 +48,7 @@ import {
       WorkspaceInviteLink, // PHASE 7.4.3: Fix DI - WorkspaceInviteService needs this
       User,
       UserOrganization,
+      Organization,
       Project, // PHASE 7.4.3: Fix DI - WorkspaceHealthService needs this
       WorkItem, // PHASE 7 MODULE 7.3: For execution summary
       WorkItemActivity, // PHASE 7 MODULE 7.3: For execution summary

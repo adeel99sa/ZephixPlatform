@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
   ConflictException,
   Inject,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { LessThan, DataSource, Repository, In } from 'typeorm';
 import { Workspace } from './entities/workspace.entity';
@@ -31,6 +33,16 @@ import { bootLog } from '../../common/utils/debug-boot';
 // Use WorkspaceAccessService from WorkspaceAccessModule (imported in module)
 // Import it from the module, not the local service
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
+import { Organization } from '../../organizations/entities/organization.entity';
+import {
+  generateAvailableSlug,
+  slugify as slugifyOrgName,
+} from '../../common/utils/slug.util';
+/** Temporary local copy — replace with shared util after Branch 1.1 merges */
+function extractEmailDomain(email: string): string | null {
+  return email.split('@')[1]?.toLowerCase() ?? null;
+}
+import { randomBytes } from 'crypto';
 
 const DEFAULT_RETENTION_DAYS = Number(process.env.TRASH_RETENTION_DAYS ?? 30); // admin can change later
 
@@ -57,6 +69,39 @@ export class WorkspacesService {
       'deleteDateColumn:',
       this.repo.metadata.deleteDateColumn?.propertyName || 'none',
     );
+  }
+
+  /* ─── Name uniqueness ─────────────────────────────────────── */
+
+  /**
+   * Check that no active (non-deleted) workspace in the same org
+   * already uses this name (case-insensitive).
+   * Runs against the provided repo (for use inside transactions) or
+   * falls back to the injected tenant-aware repo.
+   */
+  private async assertUniqueActiveName(
+    organizationId: string,
+    name: string,
+    repo?: Repository<Workspace>,
+  ): Promise<void> {
+    const trimmed = name?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Workspace name is required.');
+    }
+
+    const qb = repo
+      ? repo.createQueryBuilder('w')
+      : this.repo.createQueryBuilder('w');
+
+    const duplicate = await qb
+      .where('w.organization_id = :organizationId', { organizationId })
+      .andWhere('w.deleted_at IS NULL')
+      .andWhere('lower(w.name) = lower(:name)', { name: trimmed })
+      .getOne();
+
+    if (duplicate) {
+      throw new ConflictException(`A workspace named "${trimmed}" already exists.`);
+    }
   }
 
   /* ─── Slug helpers ─────────────────────────────────────────── */
@@ -129,12 +174,9 @@ export class WorkspacesService {
       const normalizedRole = normalizePlatformRole(userRole);
       if (!featureEnabled || normalizedRole === PlatformRole.ADMIN) {
         // TenantAwareRepository automatically scopes by organizationId
-        const result = await this.repo
-          .find({
-            order: { createdAt: 'DESC' },
-          })
-          .catch(() => []);
-        return result || [];
+        return await this.repo.find({
+          order: { createdAt: 'DESC' },
+        });
       }
 
       // Feature enabled and user is not admin - filter by workspace membership
@@ -148,29 +190,38 @@ export class WorkspacesService {
         .find({
           where: { userId },
           relations: ['workspace'],
-        })
-        .catch(() => []);
+        });
 
       const workspaceIds = memberWorkspaces
         .map((m) => m.workspace?.id)
         .filter((id): id is string => !!id);
 
-      if (workspaceIds.length === 0) {
+      const sharedWorkspaceIds =
+        await this.workspaceAccessService.getProjectSharedWorkspaceIds(
+          orgId,
+          userId,
+        );
+
+      const authorizedWorkspaceIds = Array.from(
+        new Set([...workspaceIds, ...sharedWorkspaceIds]),
+      );
+
+      if (authorizedWorkspaceIds.length === 0) {
         return [];
       }
 
       // Use tenant-aware query builder - organizationId filter is automatic
       const result = await this.repo
         .qb('w')
-        .andWhere('w.id IN (:...workspaceIds)', { workspaceIds })
+        .andWhere('w.id IN (:...workspaceIds)', {
+          workspaceIds: authorizedWorkspaceIds,
+        })
         .andWhere('w.deletedAt IS NULL')
         .orderBy('w.createdAt', 'DESC')
-        .getMany()
-        .catch(() => []);
-      return result || [];
+        .getMany();
+      return result;
     } catch (error) {
-      // Never throw - return empty array on any error
-      return [];
+      throw new InternalServerErrorException('Failed to list workspaces');
     }
   }
 
@@ -192,6 +243,35 @@ export class WorkspacesService {
       // Never throw - return null on any error
       return null;
     }
+  }
+
+  /**
+   * Centralized workspace read path for entity endpoints.
+   * Enforces access check first, then deterministic 404 for missing entity.
+   */
+  async getWorkspaceForReadOrThrow(params: {
+    organizationId: string;
+    workspaceId: string;
+    userId: string;
+    userRole?: string;
+  }): Promise<Workspace> {
+    const { organizationId, workspaceId, userId, userRole } = params;
+    const canAccess = await this.workspaceAccessService.canAccessWorkspace(
+      workspaceId,
+      organizationId,
+      userId,
+      userRole,
+    );
+    if (!canAccess) {
+      throw new ForbiddenException('You do not have access to this workspace');
+    }
+
+    const workspace = await this.getById(organizationId, workspaceId);
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    return workspace;
   }
 
   async getUserRole(
@@ -269,13 +349,17 @@ export class WorkspacesService {
     createdBy: string;
     ownerId?: string;
   }) {
-    const useRaw = process.env.USE_RAW_SOFT_DELETE_QUERIES === 'true';
+    return this.dataSource.transaction(async (manager) => {
+      const workspaceRepo = manager.getRepository(Workspace);
 
-    if (useRaw) {
-      // Replace raw query with save() for tenant safety
-      // The raw query path is no longer needed - use standard save() which is tenant-safe
-      const orgId = this.tenantContextService.assertOrganizationId();
-      const entity = this.repo.create({
+      await this.assertUniqueActiveName(input.organizationId, input.name, workspaceRepo);
+
+      const orgId =
+        process.env.USE_RAW_SOFT_DELETE_QUERIES === 'true'
+          ? this.tenantContextService.assertOrganizationId()
+          : input.organizationId;
+
+      const entity = workspaceRepo.create({
         name: input.name,
         slug: input.slug,
         isPrivate: !!input.isPrivate,
@@ -283,18 +367,11 @@ export class WorkspacesService {
         createdBy: input.createdBy,
         ownerId: input.ownerId || null,
       });
-      return this.repo.save(entity);
-    }
+      const saved = await workspaceRepo.save(entity);
+      // TODO: Re-add governance policy hook after governance workstream merges
 
-    const entity = this.repo.create({
-      name: input.name,
-      slug: input.slug,
-      isPrivate: !!input.isPrivate,
-      organizationId: input.organizationId,
-      createdBy: input.createdBy,
-      ownerId: input.ownerId || null,
+      return saved;
     });
-    return this.repo.save(entity);
   }
 
   /**
@@ -313,6 +390,11 @@ export class WorkspacesService {
     slug?: string;
     description?: string;
     defaultMethodology?: string;
+    businessUnitLabel?: string;
+    defaultTemplateId?: string;
+    inheritOrgDefaultTemplate?: boolean;
+    governanceInheritanceMode?: 'ORG_DEFAULT' | 'WORKSPACE_OVERRIDE';
+    allowedTemplateIds?: string[];
     isPrivate?: boolean;
     organizationId: string;
     createdBy: string;
@@ -323,6 +405,13 @@ export class WorkspacesService {
       const memberRepo = manager.getRepository(WorkspaceMember);
       const userRepo = manager.getRepository(User);
       const userOrgRepo = manager.getRepository(UserOrganization);
+
+      // Guard: reject duplicate active names within the same org
+      await this.assertUniqueActiveName(
+        input.organizationId,
+        input.name,
+        workspaceRepo,
+      );
 
       // Generate unique slug (from provided slug or from name)
       const baseSlug = input.slug?.trim()
@@ -411,12 +500,22 @@ export class WorkspacesService {
         slug, // server-generated unique slug
         description: input.description,
         defaultMethodology: input.defaultMethodology,
+        businessUnitLabel: input.businessUnitLabel || null,
+        defaultTemplateId: input.defaultTemplateId || null,
+        inheritOrgDefaultTemplate: input.inheritOrgDefaultTemplate ?? true,
+        governanceInheritanceMode:
+          input.governanceInheritanceMode || 'ORG_DEFAULT',
+        allowedTemplateIds:
+          input.allowedTemplateIds && input.allowedTemplateIds.length > 0
+            ? input.allowedTemplateIds
+            : null,
         isPrivate: !!input.isPrivate,
         organizationId: input.organizationId,
         createdBy: input.createdBy,
         ownerId: primaryOwnerId,
       });
       const savedWorkspace = await workspaceRepo.save(entity);
+      // TODO: Re-add governance policy hook after governance workstream merges
 
       // PROMPT 6: Create workspace_members rows for all owners
       const ownerIdsSet = new Set(ownerUserIds);
@@ -440,6 +539,7 @@ export class WorkspacesService {
           const member = memberRepo.create({
             workspaceId: savedWorkspace.id,
             userId: ownerUserId,
+            organizationId: input.organizationId,
             role: 'workspace_owner',
             createdBy: input.createdBy,
           });
@@ -603,6 +703,7 @@ export class WorkspacesService {
           const member = memberRepo.create({
             workspaceId,
             userId: ownerUserId,
+            organizationId,
             role: 'workspace_owner',
             createdBy: updatedBy,
           });
@@ -691,6 +792,9 @@ export class WorkspacesService {
 
   async update(organizationId: string, id: string, dto: UpdateWorkspaceDto) {
     const ws = await this.getById(organizationId, id);
+    if (!ws) {
+      throw new NotFoundException('Workspace not found');
+    }
     Object.assign(ws, dto);
     return this.repo.save(ws);
   }
@@ -752,5 +856,168 @@ export class WorkspacesService {
       .delete()
       .where('deleted_at < :cutoff', { cutoff })
       .execute();
+  }
+
+  /**
+   * Post-registration onboarding: create organization + first workspace (no 409 on slug collisions).
+   */
+  async completeSelfServeOnboarding(
+    userId: string,
+    workspaceDisplayName: string,
+  ): Promise<{
+    organizationId: string;
+    workspaceId: string;
+    workspaceSlug: string;
+    alreadyCompleted: boolean;
+  }> {
+    const trimmed = workspaceDisplayName.trim();
+    if (trimmed.length < 2 || trimmed.length > 120) {
+      throw new BadRequestException({
+        code: 'INVALID_WORKSPACE_NAME',
+        message: 'Workspace name must be between 2 and 120 characters',
+      });
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const orgRepo = manager.getRepository(Organization);
+      const userOrgRepo = manager.getRepository(UserOrganization);
+      const workspaceRepo = manager.getRepository(Workspace);
+      const memberRepo = manager.getRepository(WorkspaceMember);
+
+      const user = await userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      if (user.organizationId) {
+        const existingWs = await workspaceRepo.findOne({
+          where: { organizationId: user.organizationId },
+          order: { createdAt: 'ASC' },
+        });
+        if (existingWs) {
+          await userRepo.update(userId, { onboardingCompleted: true });
+          return {
+            organizationId: user.organizationId,
+            workspaceId: existingWs.id,
+            workspaceSlug: existingWs.slug || existingWs.id,
+            alreadyCompleted: true,
+          };
+        }
+      }
+
+      let organizationId = user.organizationId;
+
+      if (!organizationId) {
+        const domain = extractEmailDomain(user.email);
+        if (!domain) {
+          throw new BadRequestException({
+            code: 'EMAIL_DOMAIN_REQUIRED',
+            message: 'Email domain is required for organization setup',
+          });
+        }
+
+        let baseOrgSlug = slugifyOrgName(trimmed) || 'workspace';
+        if (baseOrgSlug.length < 3) {
+          baseOrgSlug = `${baseOrgSlug}-x`.slice(0, 48);
+        }
+
+        const checkSlugExists = async (slug: string): Promise<boolean> => {
+          const existing = await orgRepo.findOne({ where: { slug } });
+          return !!existing;
+        };
+
+        let availableOrgSlug: string;
+        try {
+          availableOrgSlug = await generateAvailableSlug(
+            baseOrgSlug,
+            checkSlugExists,
+            10,
+          );
+        } catch {
+          availableOrgSlug = `${baseOrgSlug}-${randomBytes(4).toString('hex')}`.slice(
+            0,
+            48,
+          );
+          if (await checkSlugExists(availableOrgSlug)) {
+            availableOrgSlug = `org-${randomBytes(8).toString('hex')}`.slice(0, 48);
+          }
+        }
+
+        const org = orgRepo.create({
+          name: trimmed,
+          slug: availableOrgSlug,
+          status: 'trial',
+          settings: {
+            identity: {
+              allowedEmailDomain: domain,
+              singleOrganizationMode: true,
+            },
+            resourceManagement: {
+              maxAllocationPercentage: 150,
+              warningThreshold: 80,
+              criticalThreshold: 100,
+            },
+          },
+        });
+        const savedOrg = await orgRepo.save(org);
+        organizationId = savedOrg.id;
+
+        await userRepo.update(userId, {
+          organizationId: savedOrg.id,
+          role: 'admin',
+        });
+
+        const userOrg = userOrgRepo.create({
+          userId,
+          organizationId: savedOrg.id,
+          role: 'owner',
+          isActive: true,
+          joinedAt: new Date(),
+        });
+        await userOrgRepo.save(userOrg);
+      }
+
+      await this.assertUniqueActiveName(organizationId, trimmed, workspaceRepo);
+
+      const baseWorkspaceSlug = this.slugify(trimmed);
+      const wsSlug = await this.ensureUniqueSlug(
+        organizationId,
+        baseWorkspaceSlug,
+        workspaceRepo,
+      );
+
+      const entity = workspaceRepo.create({
+        name: trimmed,
+        slug: wsSlug,
+        isPrivate: false,
+        organizationId,
+        createdBy: userId,
+        ownerId: userId,
+      });
+      const savedWs = await workspaceRepo.save(entity);
+      // TODO: Re-add governance policy hook after governance workstream merges
+
+      const member = memberRepo.create({
+        workspaceId: savedWs.id,
+        userId,
+        organizationId,
+        role: 'workspace_owner',
+        createdBy: userId,
+      });
+      await memberRepo.save(member);
+
+      await userRepo.update(userId, { onboardingCompleted: true });
+
+      return {
+        organizationId,
+        workspaceId: savedWs.id,
+        workspaceSlug: savedWs.slug || '',
+        alreadyCompleted: false,
+      };
+    });
   }
 }
