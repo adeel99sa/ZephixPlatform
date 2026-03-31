@@ -6,6 +6,16 @@ import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
 import { AuditService } from '../modules/audit/services/audit.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
+import { Project } from '../modules/projects/entities/project.entity';
+import { GovernanceEvaluation } from '../modules/governance-rules/entities/governance-evaluation.entity';
+import { buildAccessControlSummaryContract } from './contracts/access-control-summary.contract';
+import { buildAIGovernanceSummaryContract } from './contracts/ai-governance-summary.contract';
+import { IntegrationConnection } from '../modules/integrations/entities/integration-connection.entity';
+import { AuditEvent } from '../modules/audit/entities/audit-event.entity';
+import { EntitlementService } from '../modules/billing/entitlements/entitlement.service';
+// TODO: Re-add GovernancePoliciesService after governance workstream merges
 
 // Jest types are available via @types/jest in package.json
 
@@ -36,7 +46,10 @@ describe('AdminController - Contract Tests', () => {
         },
         {
           provide: OrganizationsService,
-          useValue: {},
+          useValue: {
+            findOne: jest.fn(),
+            update: jest.fn(),
+          },
         },
         {
           provide: WorkspacesService,
@@ -48,11 +61,52 @@ describe('AdminController - Contract Tests', () => {
         },
         {
           provide: AttachmentsService,
-          useValue: {},
+          useValue: {
+            getOrgStorageUsed: jest.fn().mockResolvedValue(0),
+            getOrgEffectiveUsage: jest.fn().mockResolvedValue(0),
+          },
         },
+        { provide: EntitlementService, useValue: { getLimit: jest.fn().mockResolvedValue(30) } },
         {
           provide: AuditService,
           useValue: {},
+        },
+        // TODO: Re-add GovernancePoliciesService mock after governance workstream merges
+        {
+          provide: getRepositoryToken(WorkspaceMember),
+          useValue: {
+            createQueryBuilder: jest.fn(() => ({
+              innerJoin: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              select: jest.fn().mockReturnThis(),
+              getRawMany: jest.fn().mockResolvedValue([]),
+            })),
+          },
+        },
+        {
+          provide: getRepositoryToken(Project),
+          useValue: {},
+        },
+        {
+          provide: getRepositoryToken(GovernanceEvaluation),
+          useValue: {},
+        },
+        {
+          provide: getRepositoryToken(IntegrationConnection),
+          useValue: { find: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: getRepositoryToken(AuditEvent),
+          useValue: {
+            createQueryBuilder: jest.fn(() => ({
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              orderBy: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
+              getMany: jest.fn().mockResolvedValue([]),
+            })),
+          },
         },
       ],
     }).compile();
@@ -171,6 +225,62 @@ describe('AdminController - Contract Tests', () => {
       });
     });
   });
+
+  describe('GET /admin/organization/profile', () => {
+    it('returns organization profile with tenant summary', async () => {
+      const organizationsService = (controller as any).organizationsService;
+      jest.spyOn(adminService, 'getOrgSummary').mockResolvedValue({
+        name: 'Test Org',
+        id: 'test-org-id',
+        slug: 'test-org',
+        totalUsers: 11,
+        totalWorkspaces: 4,
+      });
+      organizationsService.findOne.mockResolvedValue({
+        id: 'test-org-id',
+        name: 'Test Org',
+        slug: 'test-org',
+        status: 'active',
+        website: 'https://example.com',
+        industry: 'Technology',
+        size: 'enterprise',
+        description: 'Org',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        planCode: 'enterprise',
+        planStatus: 'active',
+        planExpiresAt: null,
+        trialEndsAt: null,
+        settings: { identity: { allowedEmailDomain: 'example.com' } },
+      });
+      const req = { user: mockUser, headers: {} };
+      const result = await controller.getOrganizationProfile(req as any);
+      expect(result.data).toMatchObject({
+        id: 'test-org-id',
+        name: 'Test Org',
+      });
+      expect(result.data.tenantSummary).toMatchObject({
+        totalUsers: 11,
+        totalWorkspaces: 4,
+      });
+    });
+  });
+
+  describe('GET /admin/access-control/summary', () => {
+    it('returns platform and workspace role summary from canonical contract', () => {
+      const result = controller.getAccessControlSummary();
+      expect(result.data).toEqual(buildAccessControlSummaryContract());
+    });
+  });
+
+  describe('GET /admin/ai-governance/summary', () => {
+    it('returns AI governance summary from canonical contract', () => {
+      const result = controller.getAIGovernanceSummary();
+      expect(result.data).toEqual(buildAIGovernanceSummaryContract());
+    });
+  });
+
+  // TODO: PATCH /admin/organization/profile tests deferred to Branch B (mutations)
 
   describe('GET /admin/users/summary', () => {
     it('should return { data: UserSummary } format', async () => {
