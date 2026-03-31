@@ -280,7 +280,36 @@ describe('AdminController - Contract Tests', () => {
     });
   });
 
-  // TODO: PATCH /admin/organization/profile tests deferred to Branch B (mutations)
+  describe('PATCH /admin/organization/profile', () => {
+    it('updates organization profile and returns mapped response', async () => {
+      const organizationsService = (controller as any).organizationsService;
+      organizationsService.update.mockResolvedValue(undefined);
+      organizationsService.findOne.mockResolvedValue({
+        id: 'test-org-id',
+        name: 'Renamed Org',
+        slug: 'test-org',
+        status: 'active',
+        website: 'https://example.com',
+        industry: 'Technology',
+        size: 'enterprise',
+        description: 'Updated description',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-03T00:00:00.000Z'),
+        planCode: 'enterprise',
+        planStatus: 'active',
+        planExpiresAt: null,
+        trialEndsAt: null,
+        settings: {},
+      });
+      const req = { user: mockUser, headers: {} };
+      const result = await controller.updateOrganizationProfile(req as any, {
+        name: 'Renamed Org',
+        description: 'Updated description',
+      } as any);
+      expect(result.data.name).toBe('Renamed Org');
+      expect(organizationsService.update).toHaveBeenCalled();
+    });
+  });
 
   describe('GET /admin/users/summary', () => {
     it('should return { data: UserSummary } format', async () => {

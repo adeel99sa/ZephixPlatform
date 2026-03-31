@@ -189,7 +189,38 @@ describe('Admin governance endpoint authz', () => {
     });
   });
 
-  // TODO: PATCH /admin/organization/profile authz tests deferred to Branch B (mutations)
+  describe('PATCH /admin/organization/profile', () => {
+    it('allows admin', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/organization/profile')
+        .set('Authorization', 'Bearer token-admin')
+        .send({ name: 'Updated Org' })
+        .expect(200);
+    });
+
+    it('forbids member', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/organization/profile')
+        .set('Authorization', 'Bearer token-member')
+        .send({ name: 'Updated Org' })
+        .expect(403);
+    });
+
+    it('forbids viewer', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/organization/profile')
+        .set('Authorization', 'Bearer token-viewer')
+        .send({ name: 'Updated Org' })
+        .expect(403);
+    });
+
+    it('rejects unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .patch('/admin/organization/profile')
+        .send({ name: 'Updated Org' })
+        .expect(401);
+    });
+  });
 
   describe('GET /admin/access-control/summary', () => {
     it('allows admin', async () => {

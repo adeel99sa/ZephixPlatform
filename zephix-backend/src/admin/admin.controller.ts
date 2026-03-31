@@ -1,8 +1,12 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
+  Delete,
   Query,
   Param,
+  Body,
   UseGuards,
   Request,
   InternalServerErrorException,
@@ -25,6 +29,8 @@ import { OrganizationsService } from '../organizations/services/organizations.se
 import { WorkspacesService } from '../modules/workspaces/workspaces.service';
 import { TeamsService } from '../modules/teams/teams.service';
 import { AttachmentsService } from '../modules/attachments/services/attachments.service';
+import { CreateTeamDto } from '../modules/teams/dto/create-team.dto';
+import { UpdateTeamDto } from '../modules/teams/dto/update-team.dto';
 import { ListTeamsQueryDto } from '../modules/teams/dto/list-teams-query.dto';
 import { AuthRequest } from '../common/http/auth-request';
 import { getAuthContext } from '../common/http/get-auth-context';
@@ -33,8 +39,7 @@ import { toAuditEventDto } from '../modules/audit/dto/audit-event.dto';
 import { WorkspaceMember } from '../modules/workspaces/entities/workspace-member.entity';
 import { Project } from '../modules/projects/entities/project.entity';
 import { Organization } from '../organizations/entities/organization.entity';
-// TODO: Re-add UpdateOrganizationDto when PATCH organization/profile ships (Branch B)
-// import { UpdateOrganizationDto } from '../organizations/dto/update-organization.dto';
+import { UpdateOrganizationDto } from '../organizations/dto/update-organization.dto';
 import {
   EvaluationDecision,
   GovernanceEvaluation,
@@ -303,6 +308,15 @@ export class AdminController {
       data,
       meta: { page, limit, total: filtered.length },
     };
+  }
+
+  private mapVisibilityToBackend(visibility: string): string {
+    const map: Record<string, string> = {
+      public: 'ORG',
+      workspace: 'WORKSPACE',
+      private: 'PRIVATE',
+    };
+    return map[visibility?.toLowerCase()] || 'ORG';
   }
 
   // Helper to map backend visibility to frontend format
@@ -1334,5 +1348,455 @@ export class AdminController {
       }
       throw new InternalServerErrorException('Failed to fetch team');
     }
+  }
+
+  // ==================== Mutation Endpoints (Branch B) ====================
+
+  @Patch('organization/profile')
+  @ApiOperation({
+    summary: 'Update organization profile fields for admin governance',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization profile updated successfully',
+  })
+  async updateOrganizationProfile(
+    @Request() req: AuthRequest,
+    @Body() body: UpdateOrganizationDto,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    await this.organizationsService.update(organizationId, body, userId);
+    const updated = await this.organizationsService.findOne(organizationId);
+    return { data: this.mapOrganizationProfile(updated) };
+  }
+
+  // ==================== User Mutations ====================
+
+  @Post('users')
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiResponse({ status: 201, description: 'User created successfully' })
+  async createUser(
+    @Request() _req: AuthRequest,
+    @Body()
+    _body: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      role: 'admin' | 'pm' | 'viewer';
+      status?: 'active' | 'inactive';
+    },
+  ) {
+    // TODO: Implement user creation logic
+    throw new InternalServerErrorException('User creation not yet implemented');
+  }
+
+  @Patch('users/:userId')
+  @ApiOperation({ summary: 'Update user' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  async updateUser(
+    @Request() req: AuthRequest,
+    @Param('userId') userId: string,
+    @Body()
+    body: {
+      firstName?: string;
+      lastName?: string;
+      role?: 'admin' | 'pm' | 'viewer';
+      status?: 'active' | 'inactive';
+    },
+  ) {
+    try {
+      const { organizationId, userId: currentUserId } = getAuthContext(req);
+      if (body.role) {
+        await this.organizationsService.updateUserRole(
+          organizationId,
+          userId,
+          body.role,
+          currentUserId,
+        );
+      }
+      return { message: 'User updated successfully' };
+    } catch (_error) {
+      throw new InternalServerErrorException('Failed to update user');
+    }
+  }
+
+  @Delete('users/:userId')
+  @ApiOperation({ summary: 'Delete user' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  async deleteUser(
+    @Request() req: AuthRequest,
+    @Param('userId') userId: string,
+  ) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      await this.organizationsService['userOrganizationRepository'].update(
+        {
+          organizationId,
+          userId,
+        },
+        { isActive: false },
+      );
+      return { message: 'User removed successfully' };
+    } catch (_error) {
+      throw new InternalServerErrorException('Failed to delete user');
+    }
+  }
+
+  @Patch('users/:userId/role')
+  @ApiOperation({ summary: 'Update user role' })
+  @ApiResponse({ status: 200, description: 'User role updated successfully' })
+  async updateUserRole(
+    @Request() req: AuthRequest,
+    @Param('userId') userId: string,
+    @Body() body: { role: 'admin' | 'pm' | 'viewer' },
+  ) {
+    if (!body?.role || !['admin', 'pm', 'viewer'].includes(body.role)) {
+      throw new BadRequestException({
+        code: 'INVALID_ROLE',
+        message: 'Role must be one of admin, pm, viewer',
+      });
+    }
+    const { organizationId, userId: currentUserId } = getAuthContext(req);
+    await this.organizationsService.updateUserRole(
+      organizationId,
+      userId,
+      body.role,
+      currentUserId,
+    );
+    return {
+      data: {
+        userId,
+        role: body.role,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  @Post('users/:userId/deactivate')
+  @ApiOperation({ summary: 'Deactivate user' })
+  @ApiResponse({ status: 200, description: 'User deactivated successfully' })
+  async deactivateUser(
+    @Request() req: AuthRequest,
+    @Param('userId') userId: string,
+    @Body() _body?: { reason?: string | null },
+  ) {
+    const { organizationId, userId: actorUserId } = getAuthContext(req);
+    await this.organizationsService.removeUser(
+      organizationId,
+      userId,
+      actorUserId,
+    );
+    return {
+      data: {
+        userId,
+        status: 'inactive',
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  // ==================== Workspace Mutations ====================
+
+  @Post('workspaces')
+  @ApiOperation({ summary: 'Create workspace' })
+  @ApiResponse({ status: 201, description: 'Workspace created successfully' })
+  async createWorkspace(
+    @Request() req: AuthRequest,
+    @Body()
+    body: {
+      name: string;
+      description?: string;
+      ownerId: string;
+      visibility?: 'public' | 'private';
+      defaultMethodology?: string;
+      memberIds?: string[];
+    },
+  ) {
+    try {
+      const { organizationId, userId } = getAuthContext(req);
+      const slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+      const workspace = await this.workspacesService.create({
+        name: body.name,
+        slug,
+        ownerId: body.ownerId,
+        isPrivate: body.visibility === 'private',
+        organizationId,
+        createdBy: userId,
+      });
+      return workspace;
+    } catch (_error) {
+      throw new InternalServerErrorException('Failed to create workspace');
+    }
+  }
+
+  @Patch('workspaces/:id')
+  @ApiOperation({ summary: 'Update workspace (owner, visibility, status)' })
+  @ApiResponse({ status: 200, description: 'Workspace updated successfully' })
+  async updateWorkspace(
+    @Request() req: AuthRequest,
+    @Param('id') workspaceId: string,
+    @Body()
+    body: {
+      ownerId?: string;
+      visibility?: 'public' | 'private';
+      status?: 'active' | 'archived';
+      name?: string;
+      description?: string;
+    },
+  ) {
+    try {
+      const { organizationId, userId } = getAuthContext(req);
+      const workspace = await this.workspacesService.getById(
+        organizationId,
+        workspaceId,
+      );
+      if (!workspace) {
+        throw new InternalServerErrorException('Workspace not found');
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (body.name !== undefined) {
+        updates.name = body.name;
+      }
+      if (body.description !== undefined) {
+        updates.description = body.description;
+      }
+      if (body.ownerId !== undefined) {
+        updates.ownerId = body.ownerId;
+      }
+      if (body.visibility !== undefined) {
+        updates.isPrivate = body.visibility === 'private';
+      }
+      if (body.status === 'archived' && !workspace.deletedAt) {
+        updates.deletedAt = new Date();
+        updates.deletedBy = userId;
+      } else if (body.status === 'active' && workspace.deletedAt) {
+        updates.deletedAt = null;
+        updates.deletedBy = null;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await this.workspacesService['repo'].update(workspaceId, updates);
+      }
+
+      return { message: 'Workspace updated successfully' };
+    } catch (_error) {
+      throw new InternalServerErrorException('Failed to update workspace');
+    }
+  }
+
+  @Delete('workspaces/:id')
+  @ApiOperation({ summary: 'Delete workspace' })
+  @ApiResponse({ status: 200, description: 'Workspace deleted successfully' })
+  async deleteWorkspace(
+    @Request() _req: AuthRequest,
+    @Param('id') _workspaceId: string,
+  ) {
+    // TODO: Implement workspace deletion logic
+    throw new InternalServerErrorException(
+      'Workspace deletion not yet implemented',
+    );
+  }
+
+  // ==================== Group Mutations (stubs) ====================
+
+  @Post('groups')
+  @ApiOperation({ summary: 'Create group' })
+  @ApiResponse({ status: 201, description: 'Group created successfully' })
+  async createGroup(
+    @Request() _req: AuthRequest,
+    @Body() _body: { name: string; description?: string },
+  ) {
+    // TODO: Implement group creation
+    throw new InternalServerErrorException(
+      'Group creation not yet implemented',
+    );
+  }
+
+  @Patch('groups/:id')
+  @ApiOperation({ summary: 'Update group' })
+  @ApiResponse({ status: 200, description: 'Group updated successfully' })
+  async updateGroup(
+    @Request() _req: AuthRequest,
+    @Param('id') _groupId: string,
+    @Body() _body: { name?: string; description?: string },
+  ) {
+    // TODO: Implement group update
+    throw new InternalServerErrorException('Group update not yet implemented');
+  }
+
+  @Delete('groups/:id')
+  @ApiOperation({ summary: 'Delete group' })
+  @ApiResponse({ status: 200, description: 'Group deleted successfully' })
+  async deleteGroup(
+    @Request() _req: AuthRequest,
+    @Param('id') _groupId: string,
+  ) {
+    // TODO: Implement group deletion
+    throw new InternalServerErrorException(
+      'Group deletion not yet implemented',
+    );
+  }
+
+  // ==================== Team Mutations ====================
+
+  @Post('teams')
+  @ApiOperation({ summary: 'Create a new team' })
+  @ApiResponse({ status: 201, description: 'Team created successfully' })
+  async createTeam(
+    @Request() req: AuthRequest,
+    @Body() body: Record<string, unknown>,
+  ) {
+    try {
+      const { organizationId, userId } = getAuthContext(req);
+      const backendVisibility = this.mapVisibilityToBackend(
+        (body.visibility as string) || 'public',
+      );
+
+      const createDto: CreateTeamDto = {
+        name: body.name as string,
+        slug: body.shortCode as string,
+        color: body.color as string,
+        visibility: backendVisibility as any,
+        description: body.description as string,
+        workspaceId: body.workspaceId as string,
+      };
+
+      const team = await this.teamsService.createTeam(
+        organizationId,
+        createDto,
+        userId,
+      );
+
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to create team');
+    }
+  }
+
+  @Patch('teams/:id')
+  @ApiOperation({ summary: 'Update team' })
+  @ApiResponse({ status: 200, description: 'Team updated successfully' })
+  async updateTeam(
+    @Request() req: AuthRequest,
+    @Param('id') teamId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    try {
+      let backendVisibility = undefined;
+      if (body.visibility && typeof body.visibility === 'string') {
+        backendVisibility = this.mapVisibilityToBackend(body.visibility);
+      }
+
+      const { organizationId } = getAuthContext(req);
+      const updateDto: UpdateTeamDto = {
+        name: body.name as string,
+        slug: body.shortCode as string,
+        color: body.color as string,
+        visibility: backendVisibility,
+        description: body.description as string,
+        workspaceId: body.workspaceId as string,
+        isArchived: body.status === 'archived',
+      };
+
+      const team = await this.teamsService.updateTeam(
+        organizationId,
+        teamId,
+        updateDto,
+      );
+
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: team.isArchived ? 'archived' : 'active',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+      };
+    } catch (_error) {
+      if (
+        _error instanceof NotFoundException ||
+        _error instanceof BadRequestException
+      ) {
+        throw _error;
+      }
+      throw new InternalServerErrorException('Failed to update team');
+    }
+  }
+
+  @Delete('teams/:id')
+  @ApiOperation({ summary: 'Delete (archive) team' })
+  @ApiResponse({ status: 200, description: 'Team archived successfully' })
+  async deleteTeam(@Request() req: AuthRequest, @Param('id') teamId: string) {
+    try {
+      const { organizationId } = getAuthContext(req);
+      const team = await this.teamsService.deleteTeam(organizationId, teamId);
+
+      const frontendVisibility = this.mapVisibilityToFrontend(team.visibility);
+
+      return {
+        id: team.id,
+        name: team.name,
+        shortCode: team.slug,
+        color: team.color,
+        visibility: frontendVisibility,
+        description: team.description,
+        workspaceId: team.workspaceId,
+        status: 'archived',
+        memberCount: (team as any).membersCount || 0,
+        projectCount: (team as any).projectsCount || 0,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+      };
+    } catch (_error) {
+      if (_error instanceof NotFoundException) {
+        throw _error;
+      }
+      throw new InternalServerErrorException('Failed to delete team');
+    }
+  }
+
+  // ==================== Attachment Retention Purge ====================
+
+  @Post('attachments/purge-expired')
+  @ApiOperation({ summary: 'Purge expired attachments (retention job)' })
+  @ApiResponse({ status: 200, description: 'Expired attachments purged' })
+  async purgeExpiredAttachments(
+    @Request() _req: AuthRequest,
+    @Body() body?: { limit?: number },
+  ) {
+    const limit = body?.limit ? Math.min(body.limit, 1000) : 500;
+    const result = await this.attachmentsService.purgeExpired(limit);
+    return { data: result };
   }
 }
