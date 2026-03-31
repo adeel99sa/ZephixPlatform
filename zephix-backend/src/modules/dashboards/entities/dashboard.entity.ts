@@ -36,6 +36,9 @@ export class Dashboard {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  @Column({ type: 'jsonb', name: 'layout_config', default: () => "'{}'::jsonb" })
+  layoutConfig: Record<string, unknown>;
+
   @Column({ type: 'uuid', name: 'owner_user_id' })
   ownerUserId: string;
 
