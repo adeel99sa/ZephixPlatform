@@ -63,7 +63,7 @@ export class DashboardsController {
     @Req() req: AuthRequest,
     @Headers('x-workspace-id') workspaceId?: string,
   ) {
-    const { organizationId, userId } = getAuthContext(req);
+    const { organizationId, userId, platformRole } = getAuthContext(req);
 
     if (!organizationId || !userId) {
       throw new BadRequestException('Organization ID and User ID are required');
@@ -72,6 +72,7 @@ export class DashboardsController {
     const dashboards = await this.dashboardsService.listDashboards(
       organizationId,
       userId,
+      platformRole,
       workspaceId,
     );
     return this.responseService.success(dashboards);
