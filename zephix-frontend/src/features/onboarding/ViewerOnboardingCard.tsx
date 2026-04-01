@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { skipOnboarding } from "@/features/organizations/onboarding.api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { track } from "@/lib/telemetry";
 import { LayoutDashboard, Briefcase, UserCircle, X } from "lucide-react";
 import { useState } from "react";
@@ -10,7 +11,16 @@ export function ViewerOnboardingCard() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const { onboardingStatus } = useOrgHomeState();
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const [dismissing, setDismissing] = useState(false);
+
+  function navIfWorkspace(path: string) {
+    if (!activeWorkspaceId) {
+      nav("/workspaces");
+      return;
+    }
+    nav(path);
+  }
 
   if (onboardingStatus === "completed" || onboardingStatus === "dismissed") {
     return null;
@@ -44,7 +54,7 @@ export function ViewerOnboardingCard() {
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
-        <QuickAction icon={<LayoutDashboard className="h-3.5 w-3.5" />} label="Dashboards" onClick={() => nav("/dashboards")} />
+        <QuickAction icon={<LayoutDashboard className="h-3.5 w-3.5" />} label="Dashboards" onClick={() => navIfWorkspace("/dashboards")} />
         <QuickAction icon={<Briefcase className="h-3.5 w-3.5" />} label="Workspaces" onClick={() => nav("/workspaces")} />
         <QuickAction icon={<UserCircle className="h-3.5 w-3.5" />} label="Set up profile" onClick={() => nav("/settings/profile")} />
       </div>

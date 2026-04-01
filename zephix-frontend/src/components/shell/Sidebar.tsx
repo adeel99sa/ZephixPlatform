@@ -14,6 +14,7 @@ import {
   HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  Inbox,
 } from "lucide-react";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
@@ -149,6 +150,7 @@ export function Sidebar() {
   if (isAdmin) {
     const adminNavItems = [
       { key: "home", label: "Home", icon: Home, to: "/home" },
+      { key: "inbox", label: "Inbox", icon: Inbox, to: "/inbox" },
       { key: "work", label: "Work", icon: Briefcase, to: "/work", active: isInWorkSection },
       { key: "templates", label: "Templates", icon: LayoutTemplate, to: "/templates" },
       { key: "documents", label: "Documents", icon: FileText, to: "/documents" },
@@ -189,8 +191,10 @@ export function Sidebar() {
           {adminNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = "active" in item ? item.active : undefined;
+            const isInbox = item.key === "inbox";
             const baseClass =
-              "rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2";
+              "rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2" +
+              (isInbox && !collapsed ? " justify-between" : "");
             if (isActive !== undefined) {
               return (
                 <NavLink
@@ -200,8 +204,11 @@ export function Sidebar() {
                   title={collapsed ? item.label : undefined}
                   className={`${baseClass} ${isActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed ? <span>{item.label}</span> : null}
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!collapsed ? <span>{item.label}</span> : null}
+                  </span>
+                  {!collapsed && isInbox ? <InboxBadge /> : null}
                 </NavLink>
               );
             }
@@ -215,8 +222,11 @@ export function Sidebar() {
                   `${baseClass} ${routeIsActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`
                 }
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed ? <span>{item.label}</span> : null}
+                <span className="flex items-center gap-2 min-w-0">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed ? <span>{item.label}</span> : null}
+                </span>
+                {!collapsed && isInbox ? <InboxBadge /> : null}
               </NavLink>
             );
           })}
@@ -333,6 +343,20 @@ export function Sidebar() {
           Home
         </NavLink>
 
+        {/* Inbox — paid users only (Batch 2: separate from Home) */}
+        {isPaidUser(user) && (
+          <NavLink
+            data-testid="nav-inbox"
+            to="/inbox"
+            className={({ isActive }) =>
+              `flex items-center justify-between rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+            }
+          >
+            <span>Inbox</span>
+            <InboxBadge />
+          </NavLink>
+        )}
+
         {/* PHASE 7 MODULE 7.2: My Work - Paid users only */}
         {isPaidUser(user) && (
           <NavLink
@@ -346,20 +370,6 @@ export function Sidebar() {
             }
           >
             <span>My Work</span>
-          </NavLink>
-        )}
-
-        {/* Inbox - Paid users only */}
-        {isPaidUser(user) && (
-          <NavLink
-            data-testid="nav-inbox"
-            to="/inbox"
-            className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"} flex items-center justify-between`
-            }
-          >
-            <span>Inbox</span>
-            <InboxBadge />
           </NavLink>
         )}
 
