@@ -274,3 +274,39 @@ export async function fetchDashboardPublic(dashboardId: string, shareToken: stri
   const rawResponse = response as { data?: unknown };
   return SharedDashboardSchema.parse(rawResponse.data || response) as SharedDashboardEntity;
 }
+
+// ── Dashboard Publishing (Batch 4) ──
+
+export async function publishDashboard(
+  dashboardId: string,
+  audience: string[] = ['MEMBER', 'VIEWER'],
+  setAsDefault?: boolean,
+): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/publish`, { audience, setAsDefault }, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function unpublishDashboard(dashboardId: string): Promise<void> {
+  const headers = getWorkspaceHeader();
+  await api.post(`/api/dashboards/${dashboardId}/unpublish`, {}, { headers });
+}
+
+export async function updateDashboardAudience(
+  dashboardId: string,
+  audience: string[],
+): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.patch(`/api/dashboards/${dashboardId}/audience`, { audience }, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function listPublishedDashboards(workspaceId: string): Promise<DashboardEntity[]> {
+  const headers = getWorkspaceHeader();
+  const response = await api.get(`/api/dashboards/published/workspace/${workspaceId}`, { headers });
+  const raw = response as { data?: unknown };
+  const arr = raw.data || response;
+  return Array.isArray(arr) ? arr : [];
+}
