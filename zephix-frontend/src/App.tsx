@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -8,83 +8,119 @@ import { AuthProvider, useAuth } from "@/state/AuthContext";
 import { platformRoleFromUser } from "@/utils/roles";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import { RouteLogger } from "@/components/routing/RouteLogger";
+import { lazyDefault } from "@/lib/lazyDefault";
 
-// Auth pages
+// Auth pages — eager (critical path)
 import LoginPage from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { InvitePage } from "@/pages/auth/InvitePage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { InviteAcceptPage } from "@/pages/auth/InviteAcceptPage";
 
-// System pages
+// System pages — eager (lightweight, always needed)
 import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
-// Views
+// Home/navigation — eager (shown immediately after login)
 import OrgHomePage from "@/pages/home/OrgHomePage";
 import AdminHomePage from "@/pages/home/AdminHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
-import RequireWorkspace from "@/routes/RequireWorkspace";
-import { DashboardsIndex } from "@/views/dashboards/Index";
-import { DashboardBuilder } from "@/views/dashboards/Builder";
-import DashboardView from "@/views/dashboards/View";
-import WorkspacesIndexPage from "@/views/workspaces/WorkspacesIndexPage";
-import WorkspaceView from "@/views/workspaces/WorkspaceView";
-import WorkspaceMembersPage from "@/features/workspaces/pages/WorkspaceMembersPage";
-import WorkspaceHomePage from "@/pages/workspaces/WorkspaceHomePage";
-import TemplateRouteSwitch from "@/pages/templates/TemplateRouteSwitch";
-import DocsPage from "@/pages/docs/DocsPage";
-import FormsPage from "@/pages/forms/FormsPage";
-import { ProjectPlanView } from "@/views/work-management/ProjectPlanView";
-import { ProjectPageLayout } from "@/features/projects/layout";
-import { ProjectOverviewTab, ProjectPlanTab, ProjectTasksTab, ProjectBoardTab, ProjectGanttTab, ProjectRisksTab, ProjectResourcesTab, ProjectChangeRequestsTab, ProjectDocumentsTab, ProjectBudgetTab, ProjectKpisTab } from "@/features/projects/tabs";
-import ProjectsPage from "@/pages/projects/ProjectsPage";
-import SettingsPage from "@/pages/settings/SettingsPage";
-import NotificationsSettingsPage from "@/pages/settings/NotificationsSettingsPage";
-import SecuritySettingsPage from "@/pages/settings/SecuritySettingsPage";
-import InboxPage from "@/pages/InboxPage";
-import ResourcesPage from "@/pages/ResourcesPage";
-import AnalyticsPage from "@/pages/AnalyticsPage";
-import OnboardingPage from "@/pages/onboarding/OnboardingPage";
-import CreateFirstWorkspacePage from "@/pages/onboarding/CreateFirstWorkspacePage";
-import BillingPage from "@/pages/billing/BillingPage";
 import LandingPage from "@/pages/LandingPage";
 import { isStagingMarketingLandingEnabled } from "@/lib/flags";
 
-const StagingMarketingLandingPage = React.lazy(
-  () => import("@/pages/staging/StagingMarketingLandingPage"),
-);
-import { ResourceHeatmapPage } from "@/pages/resources/ResourceHeatmapPage";
-import { ResourceTimelinePage } from "@/pages/resources/ResourceTimelinePage";
+// Route guards — eager (structural, no UI weight)
+import RequireWorkspace from "@/routes/RequireWorkspace";
+import FeaturesRoute from "@/routes/FeaturesRoute";
+import { useWorkspaceStore } from "@/state/workspace.store";
+
+// Public workspace routes — eager (entry points)
 import JoinWorkspacePage from "@/views/workspaces/JoinWorkspacePage";
 import WorkspaceSlugRedirect from "@/views/workspaces/WorkspaceSlugRedirect";
 import WorkspaceHomeBySlug from "@/views/workspaces/WorkspaceHomeBySlug";
-// PHASE 6 MODULE 3-4: Program and Portfolio pages
-import ProgramsListPage from "@/pages/programs/ProgramsListPage";
-import ProgramDetailPage from "@/pages/programs/ProgramDetailPage";
-import PortfoliosListPage from "@/pages/portfolios/PortfoliosListPage";
-import PortfolioDetailPage from "@/pages/portfolios/PortfolioDetailPage";
-import FeaturesRoute from "@/routes/FeaturesRoute";
-// PHASE 7 MODULE 7.2: My Work
-import MyWorkPage from "@/pages/my-work/MyWorkPage";
-// Phase 2E: Capacity Engine
-import CapacityPage from "@/features/capacity/CapacityPage";
-// Phase 2F: What-If Scenarios
-import ScenarioPage from "@/features/scenarios/ScenarioPage";
-// Phase 4A: Organization Command Center
-import OrgDashboardPage from "@/features/org-dashboard/OrgDashboardPage";
-import AdministrationLayout from "@/features/administration/layout/AdministrationLayout";
-import AdministrationOverviewPage from "@/features/administration/pages/AdministrationOverviewPage";
-import AdministrationGovernancePage from "@/features/administration/pages/AdministrationGovernancePage";
-import AdministrationWorkspacesPage from "@/features/administration/pages/AdministrationWorkspacesPage";
-import AdministrationTemplatesPage from "@/features/administration/pages/AdministrationTemplatesPage";
-import AdministrationUsersPage from "@/features/administration/pages/AdministrationUsersPage";
-import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
-import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
-import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
-import RisksPage from "@/features/risks/pages/RisksPage";
-import { useWorkspaceStore } from "@/state/workspace.store";
+
+// ── Lazy-loaded feature pages (code-split) ──
+
+const StagingMarketingLandingPage = lazyDefault(() => import("@/pages/staging/StagingMarketingLandingPage"));
+
+// Dashboards
+const DashboardsIndex = lazyDefault(() => import("@/views/dashboards/Index").then(m => ({ default: m.DashboardsIndex })));
+const DashboardBuilder = lazyDefault(() => import("@/views/dashboards/Builder").then(m => ({ default: m.DashboardBuilder })));
+const DashboardView = lazyDefault(() => import("@/views/dashboards/View"));
+
+// Workspaces
+const WorkspacesIndexPage = lazyDefault(() => import("@/views/workspaces/WorkspacesIndexPage"));
+const WorkspaceView = lazyDefault(() => import("@/views/workspaces/WorkspaceView"));
+const WorkspaceMembersPage = lazyDefault(() => import("@/features/workspaces/pages/WorkspaceMembersPage"));
+const WorkspaceHomePage = lazyDefault(() => import("@/pages/workspaces/WorkspaceHomePage"));
+
+// Projects
+const ProjectsPage = lazyDefault(() => import("@/pages/projects/ProjectsPage"));
+const ProjectPageLayout = lazyDefault(() => import("@/features/projects/layout").then(m => ({ default: m.ProjectPageLayout })));
+const ProjectPlanView = lazyDefault(() => import("@/views/work-management/ProjectPlanView").then(m => ({ default: m.ProjectPlanView })));
+const ProjectOverviewTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectOverviewTab })));
+const ProjectPlanTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectPlanTab })));
+const ProjectTasksTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectTasksTab })));
+const ProjectBoardTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectBoardTab })));
+const ProjectGanttTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectGanttTab })));
+const ProjectRisksTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectRisksTab })));
+const ProjectResourcesTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectResourcesTab })));
+const ProjectChangeRequestsTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectChangeRequestsTab })));
+const ProjectDocumentsTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectDocumentsTab })));
+const ProjectBudgetTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectBudgetTab })));
+const ProjectKpisTab = lazyDefault(() => import("@/features/projects/tabs").then(m => ({ default: m.ProjectKpisTab })));
+
+// Templates, Docs, Forms
+const TemplateRouteSwitch = lazyDefault(() => import("@/pages/templates/TemplateRouteSwitch"));
+const DocsPage = lazyDefault(() => import("@/pages/docs/DocsPage"));
+const FormsPage = lazyDefault(() => import("@/pages/forms/FormsPage"));
+
+// Settings
+const SettingsPage = lazyDefault(() => import("@/pages/settings/SettingsPage"));
+const NotificationsSettingsPage = lazyDefault(() => import("@/pages/settings/NotificationsSettingsPage"));
+const SecuritySettingsPage = lazyDefault(() => import("@/pages/settings/SecuritySettingsPage"));
+
+// Resources
+const ResourcesPage = lazyDefault(() => import("@/pages/ResourcesPage"));
+const ResourceHeatmapPage = lazyDefault(() => import("@/pages/resources/ResourceHeatmapPage").then(m => ({ default: m.ResourceHeatmapPage })));
+const ResourceTimelinePage = lazyDefault(() => import("@/pages/resources/ResourceTimelinePage").then(m => ({ default: m.ResourceTimelinePage })));
+
+// Analytics, Inbox, My Work
+const AnalyticsPage = lazyDefault(() => import("@/pages/AnalyticsPage"));
+const InboxPage = lazyDefault(() => import("@/pages/InboxPage"));
+const MyWorkPage = lazyDefault(() => import("@/pages/my-work/MyWorkPage"));
+
+// Onboarding, Billing
+const OnboardingPage = lazyDefault(() => import("@/pages/onboarding/OnboardingPage"));
+const CreateFirstWorkspacePage = lazyDefault(() => import("@/pages/onboarding/CreateFirstWorkspacePage"));
+const BillingPage = lazyDefault(() => import("@/pages/billing/BillingPage"));
+
+// Capacity, Scenarios
+const CapacityPage = lazyDefault(() => import("@/features/capacity/CapacityPage"));
+const ScenarioPage = lazyDefault(() => import("@/features/scenarios/ScenarioPage"));
+
+// Org Dashboard
+const OrgDashboardPage = lazyDefault(() => import("@/features/org-dashboard/OrgDashboardPage"));
+
+// Risks
+const RisksPage = lazyDefault(() => import("@/features/risks/pages/RisksPage"));
+
+// Programs & Portfolios
+const ProgramsListPage = lazyDefault(() => import("@/pages/programs/ProgramsListPage"));
+const ProgramDetailPage = lazyDefault(() => import("@/pages/programs/ProgramDetailPage"));
+const PortfoliosListPage = lazyDefault(() => import("@/pages/portfolios/PortfoliosListPage"));
+const PortfolioDetailPage = lazyDefault(() => import("@/pages/portfolios/PortfolioDetailPage"));
+
+// Administration
+const AdministrationLayout = lazyDefault(() => import("@/features/administration/layout/AdministrationLayout"));
+const AdministrationOverviewPage = lazyDefault(() => import("@/features/administration/pages/AdministrationOverviewPage"));
+const AdministrationGovernancePage = lazyDefault(() => import("@/features/administration/pages/AdministrationGovernancePage"));
+const AdministrationWorkspacesPage = lazyDefault(() => import("@/features/administration/pages/AdministrationWorkspacesPage"));
+const AdministrationTemplatesPage = lazyDefault(() => import("@/features/administration/pages/AdministrationTemplatesPage"));
+const AdministrationUsersPage = lazyDefault(() => import("@/features/administration/pages/AdministrationUsersPage"));
+const AdministrationAuditLogPage = lazyDefault(() => import("@/features/administration/pages/AdministrationAuditLogPage"));
+const AdministrationSettingsPage = lazyDefault(() => import("@/features/administration/pages/AdministrationSettingsPage"));
+const AdministrationBillingPage = lazyDefault(() => import("@/features/administration/pages/AdministrationBillingPage"));
 
 /** "/" — authenticated users go to /home, guests see the marketing page */
 function RootRoute() {
@@ -172,13 +208,15 @@ export default function App() {
           {/* Protected routes with shell */}
           <Route element={<ProtectedRoute />}>
             {/* Onboarding route (no layout) */}
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/setup/workspace" element={<CreateFirstWorkspacePage />} />
+            <Route path="/onboarding" element={<Suspense fallback={null}><OnboardingPage /></Suspense>} />
+            <Route path="/setup/workspace" element={<Suspense fallback={null}><CreateFirstWorkspacePage /></Suspense>} />
 
             {/* Main app routes with DashboardLayout */}
             <Route element={
               <ErrorBoundary>
-                <DashboardLayout />
+                <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading…</div>}>
+                  <DashboardLayout />
+                </Suspense>
               </ErrorBoundary>
             }>
               {/* ── Org-level routes (no workspace required) ── */}
