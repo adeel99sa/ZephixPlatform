@@ -157,10 +157,10 @@ export class WorkspaceDashboardDataService {
       .innerJoin(
         Project,
         'project',
-        'project.id = risk.project_id AND project.organization_id = CAST(:organizationId AS uuid) AND project.workspace_id = CAST(:workspaceId AS uuid) AND project.deleted_at IS NULL',
-        { organizationId, workspaceId },
+        'project.id = risk.project_id::uuid AND project.organization_id = risk.organization_id::uuid AND project.workspace_id = :workspaceId::uuid AND project.deleted_at IS NULL',
+        { workspaceId },
       )
-      .where('risk.organization_id = CAST(:riskOrgId AS uuid)', { riskOrgId: organizationId })
+      .where('risk.organization_id = :organizationId', { organizationId })
       .andWhere("COALESCE(risk.status, 'open') <> 'closed'")
       .orderBy('risk.created_at', 'DESC')
       .limit(20)
@@ -202,10 +202,10 @@ export class WorkspaceDashboardDataService {
       .innerJoin(
         Project,
         'project',
-        'project.id = risk.project_id AND project.organization_id = CAST(:organizationId AS uuid) AND project.workspace_id = CAST(:workspaceId AS uuid) AND project.deleted_at IS NULL',
-        { organizationId, workspaceId },
+        'project.id = risk.project_id::uuid AND project.organization_id = risk.organization_id::uuid AND project.workspace_id = :workspaceId::uuid AND project.deleted_at IS NULL',
+        { workspaceId },
       )
-      .where('risk.organization_id = CAST(:riskOrgId AS uuid)', { riskOrgId: organizationId })
+      .where('risk.organization_id = :organizationId', { organizationId })
       .andWhere("COALESCE(risk.status, 'open') <> 'closed'")
       .getRawOne<{ count?: string }>();
     return Number(row?.count || 0);

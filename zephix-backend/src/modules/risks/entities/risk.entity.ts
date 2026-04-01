@@ -11,10 +11,10 @@ export class Risk {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'project_id', type: 'uuid' })
+  @Column({ name: 'project_id' })
   projectId: string;
 
-  @Column({ name: 'organization_id', type: 'uuid' })
+  @Column({ name: 'organization_id' })
   organizationId: string;
 
   @Column()
