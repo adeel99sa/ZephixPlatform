@@ -279,6 +279,8 @@ export function DashboardsIndex() {
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
                     {dashboard.visibility === "PRIVATE" ? "Private" : dashboard.visibility === "ORG" ? "Organization" : "Workspace"}
+                    {dashboard.isPublished && <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Published</span>}
+                    {dashboard.isDefault && <span className="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Default</span>}
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">
@@ -305,6 +307,8 @@ export function DashboardsIndex() {
                     </h3>
                     <p className="text-sm text-gray-600">
                       {dashboard.visibility === "PRIVATE" ? "Private" : dashboard.visibility === "ORG" ? "Organization" : "Workspace"}
+                    {dashboard.isPublished && <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Published</span>}
+                    {dashboard.isDefault && <span className="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Default</span>}
                     </p>
                   </div>
                   <div className="flex items-center space-x-4">

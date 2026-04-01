@@ -447,4 +447,87 @@ export class DashboardsController {
 
     return this.responseService.success({ message: 'Widget deleted' });
   }
+
+  // ── Dashboard Publishing (Batch 4) ──
+
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Publish a dashboard to workspace with audience targeting' })
+  async publishDashboard(
+    @Param('id') id: string,
+    @Body() body: { audience?: string[]; setAsDefault?: boolean },
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboard = await this.dashboardsService.publishDashboard(
+      id,
+      organizationId,
+      userId,
+      platformRole,
+      body.audience ?? ['MEMBER', 'VIEWER'],
+      body.setAsDefault,
+    );
+    return this.responseService.success(dashboard);
+  }
+
+  @Post(':id/unpublish')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Unpublish a dashboard' })
+  async unpublishDashboard(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboard = await this.dashboardsService.unpublishDashboard(
+      id,
+      organizationId,
+      userId,
+      platformRole,
+    );
+    return this.responseService.success(dashboard);
+  }
+
+  @Patch(':id/audience')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update dashboard audience targeting' })
+  async updateAudience(
+    @Param('id') id: string,
+    @Body() body: { audience: string[] },
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboard = await this.dashboardsService.updateAudience(
+      id,
+      organizationId,
+      userId,
+      platformRole,
+      body.audience,
+    );
+    return this.responseService.success(dashboard);
+  }
+
+  @Get('published/workspace/:workspaceId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List published dashboards visible to current user in a workspace' })
+  async listPublishedDashboards(
+    @Param('workspaceId') workspaceId: string,
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboards = await this.dashboardsService.listPublishedDashboards(
+      organizationId,
+      workspaceId,
+      userId,
+      platformRole,
+    );
+    return this.responseService.success(dashboards);
+  }
 }
