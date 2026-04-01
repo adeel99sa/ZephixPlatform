@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
@@ -8,6 +9,9 @@ import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
+
+/** After this, render shell even if onboarding check is stuck (fail open). */
+const ONBOARDING_GATE_FAIL_OPEN_MS = 10_000;
 
 /**
  * DashboardLayout — always renders the app shell (Sidebar + Header).
@@ -27,22 +31,40 @@ export default function DashboardLayout() {
    */
   const { checking: onboardingChecking, onboardingComplete } = useOnboardingCheck();
 
+  const [onboardingFailOpen, setOnboardingFailOpen] = useState(false);
+  useEffect(() => {
+    if (!onboardingChecking) {
+      setOnboardingFailOpen(false);
+      return;
+    }
+    const id = window.setTimeout(
+      () => setOnboardingFailOpen(true),
+      ONBOARDING_GATE_FAIL_OPEN_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [onboardingChecking]);
+
+  const blockOnOnboarding = onboardingChecking && !onboardingFailOpen;
+
   /**
    * GATE 2: Workspace validation — only runs after onboarding is complete
    * AND when a workspace is actually selected. Prevents 403 errors on
    * workspace APIs for new users with zero workspaces.
    */
+  const effectiveOnboardingComplete =
+    onboardingComplete || onboardingFailOpen;
+
   useWorkspaceValidation({
-    enabled: onboardingComplete && Boolean(activeWorkspaceId),
+    enabled: effectiveOnboardingComplete && Boolean(activeWorkspaceId),
   });
 
   // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
   usePhase5_1Redirect();
 
   /**
-   * GATE 1 CHECK: Block everything while checking onboarding status.
+   * GATE 1 CHECK: Brief block while onboarding status loads; fail open after timeout.
    */
-  if (onboardingChecking) {
+  if (blockOnOnboarding) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="text-center">

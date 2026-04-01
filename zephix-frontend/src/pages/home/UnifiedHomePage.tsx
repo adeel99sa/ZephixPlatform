@@ -34,13 +34,7 @@ import {
 export default function UnifiedHomePage() {
   const nav = useNavigate();
   const { user } = useAuth();
-  const {
-    isLoading,
-    workspaceCount,
-    isAdmin,
-    isMember,
-    isViewer,
-  } = useOrgHomeState();
+  const { workspaceCount, isAdmin, isMember, isViewer } = useOrgHomeState();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
 
@@ -60,13 +54,7 @@ export default function UnifiedHomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-r-transparent" />
-      </div>
-    );
-  }
+  // Fail open: never block the whole Home on onboarding-status fetch (handled by shared RQ + layout gate).
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
