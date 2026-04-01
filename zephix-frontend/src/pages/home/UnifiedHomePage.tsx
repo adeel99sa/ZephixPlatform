@@ -29,7 +29,7 @@ import {
  * Admin, Member, and Viewer share the same page structure with
  * role-aware content sections and onboarding surfaces.
  *
- * Inbox remains a separate full-page destination at /inbox.
+ * Home ≠ Inbox: this page is the personalized operational landing; /inbox is the notifications feed only (Batch 2).
  */
 export default function UnifiedHomePage() {
   const nav = useNavigate();
@@ -38,13 +38,23 @@ export default function UnifiedHomePage() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
 
+  /** Load workspaces whenever the user is signed in — do not gate on onboarding status count (avoids empty Home while status is loading). */
   const wsQuery = useQuery({
     queryKey: ["workspaces-list-home"],
     queryFn: listWorkspaces,
-    enabled: workspaceCount > 0,
+    enabled: Boolean(user?.id),
     staleTime: 30_000,
   });
   const workspaces = wsQuery.data ?? [];
+
+  /** Workspace-scoped routes require a selected workspace; send users to pick one first. */
+  function navIfWorkspace(path: string) {
+    if (!activeWorkspaceId) {
+      nav("/workspaces");
+      return;
+    }
+    nav(path);
+  }
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const role = platformRoleFromUser(user);
@@ -70,7 +80,7 @@ export default function UnifiedHomePage() {
         </p>
       </header>
 
-      {/* ── Role-based onboarding surface ── */}
+      {/* ── Role-based onboarding (non-blocking, in-shell; Batch 2) ── */}
       {isAdmin && <AdminOnboardingPanel />}
       {isMember && <MemberOnboardingCard />}
       {isViewer && <ViewerOnboardingCard />}
@@ -129,19 +139,19 @@ export default function UnifiedHomePage() {
               icon={<Users className="h-4 w-4" />}
               label="Invite members"
               description="Grow your team"
-              onClick={() => nav("/admin/invite")}
+              onClick={() => nav("/administration/users")}
             />
             <ActionCard
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
               description="Create from template"
-              onClick={() => nav("/templates")}
+              onClick={() => navIfWorkspace("/templates")}
             />
             <ActionCard
               icon={<LayoutDashboard className="h-4 w-4" />}
               label="Dashboards"
               description="View workspace metrics"
-              onClick={() => nav("/dashboards")}
+              onClick={() => navIfWorkspace("/dashboards")}
             />
           </div>
         </Section>
@@ -155,13 +165,13 @@ export default function UnifiedHomePage() {
               icon={<ListChecks className="h-4 w-4" />}
               label="My Tasks"
               description="Assigned and due items"
-              onClick={() => nav("/projects")}
+              onClick={() => navIfWorkspace("/projects")}
             />
             <ActionCard
               icon={<Clock className="h-4 w-4" />}
               label="Recent activity"
               description="Latest workspace updates"
-              onClick={() => nav("/inbox")}
+              onClick={() => navIfWorkspace("/inbox")}
             />
             <ActionCard
               icon={<Briefcase className="h-4 w-4" />}
@@ -181,7 +191,7 @@ export default function UnifiedHomePage() {
               icon={<LayoutDashboard className="h-4 w-4" />}
               label="Dashboards"
               description="Published dashboards"
-              onClick={() => nav("/dashboards")}
+              onClick={() => navIfWorkspace("/dashboards")}
             />
             <ActionCard
               icon={<Briefcase className="h-4 w-4" />}
@@ -215,7 +225,7 @@ export default function UnifiedHomePage() {
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
               description="Browse project templates"
-              onClick={() => nav("/templates")}
+              onClick={() => navIfWorkspace("/templates")}
               muted
             />
           )}
