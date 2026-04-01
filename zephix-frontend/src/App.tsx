@@ -188,6 +188,7 @@ export default function App() {
               <Route path="/guest/home" element={<GuestHomePage />} />
               <Route path="/workspaces" element={<WorkspacesIndexPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/profile" element={<Navigate to="/settings" replace />} />
               {/* Phase 2A: Billing restricted to platform admin */}
               <Route path="/billing" element={<RequireAdminInline><BillingPage /></RequireAdminInline>} />
               {/* Administration control plane - admin only */}
