@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ChevronDown, 
   ChevronRight, 
-  Trash2, 
-  RotateCcw, 
-  MoreVertical, 
-  AlertCircle,
+  Trash2,
+  MoreVertical,
   Plus,
   Check,
   X,
@@ -31,7 +29,7 @@ import {
   restorePhase,
   createPhase,
   updatePhase as updatePhaseApi,
-  getAllowedTransitions,
+  // getAllowedTransitions moved to PlanTaskRow
   type WorkPhase,
   type WorkPlanTask,
   type ProjectPlan,
@@ -40,6 +38,7 @@ import {
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
 import { track } from '@/lib/telemetry';
+import { PlanTaskRow, PlanDeletedPhasesPanel } from './project-plan';
 
 export function ProjectPlanView() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -1067,106 +1066,28 @@ export function ProjectPlanView() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {phase.tasks.map((task) => {
-                        const taskAllowedTransitions = getAllowedTransitions(task.status);
-                        const isEditingThis = editingTaskId === task.id;
-                        
-                        return (
-                          <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
-                            <div className="flex-1 min-w-0">
-                              {/* Task title - inline edit */}
-                              {isEditingThis ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    value={editingTaskTitle}
-                                    onChange={(e) => setEditingTaskTitle(e.target.value)}
-                                    className="text-sm font-medium border border-gray-300 rounded px-2 py-1 flex-1"
-                                    autoFocus
-                                    disabled={savingTaskTitle}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveTaskTitle(task.id);
-                                      if (e.key === 'Escape') handleCancelEditTask();
-                                    }}
-                                    onBlur={() => handleSaveTaskTitle(task.id)}
-                                  />
-                                  {savingTaskTitle && <span className="text-xs text-gray-500">Saving...</span>}
-                                </div>
-                              ) : (
-                                <p 
-                                  className={`text-sm font-medium text-gray-900 truncate ${canWrite ? 'cursor-pointer hover:text-blue-600' : ''}`}
-                                  onClick={() => canWrite && handleStartEditTask(task)}
-                                >
-                                  {task.title}
-                                </p>
-                              )}
-                              
-                              <div className="flex items-center gap-3 mt-1">
-                                {/* Status dropdown with allowed transitions */}
-                                {canWrite && taskAllowedTransitions.length > 0 ? (
-                                  <select
-                                    value={task.status}
-                                    onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
-                                    disabled={changingStatusTaskId === task.id}
-                                    className={`text-xs px-2 py-0.5 rounded border-0 cursor-pointer ${
-                                      task.status === 'DONE' ? 'bg-green-100 text-green-800' :
-                                      task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                                      task.status === 'BLOCKED' ? 'bg-red-100 text-red-800' :
-                                      task.status === 'IN_REVIEW' ? 'bg-purple-100 text-purple-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}
-                                  >
-                                    <option value={task.status}>{task.status}</option>
-                                    {taskAllowedTransitions.map((status) => (
-                                      <option key={status} value={status}>{status}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className={`text-xs px-2 py-0.5 rounded ${
-                                    task.status === 'DONE' ? 'bg-green-100 text-green-800' :
-                                    task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                                    task.status === 'BLOCKED' ? 'bg-red-100 text-red-800' :
-                                    task.status === 'IN_REVIEW' ? 'bg-purple-100 text-purple-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {task.status}
-                                  </span>
-                                )}
-                                
-                                {task.dueDate && (
-                                  <span className="text-xs text-gray-500">
-                                    Due: {new Date(task.dueDate).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Task actions */}
-                            {isAdmin && canWrite && (
-                              <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => setTaskMenuOpenId(taskMenuOpenId === task.id ? null : task.id)}
-                                  className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
-                                  disabled={deletingTaskId === task.id}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </button>
-                                {taskMenuOpenId === task.id && (
-                                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[140px]">
-                                    <button
-                                      onClick={() => setConfirmDeleteTaskId(task.id)}
-                                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      Delete task
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {phase.tasks.map((task) => (
+                        <PlanTaskRow
+                          key={task.id}
+                          task={task}
+                          canWrite={canWrite}
+                          isAdmin={isAdmin}
+                          isEditing={editingTaskId === task.id}
+                          editingTitle={editingTaskTitle}
+                          savingTitle={savingTaskTitle}
+                          changingStatus={changingStatusTaskId === task.id}
+                          deletingTask={deletingTaskId === task.id}
+                          menuOpen={taskMenuOpenId === task.id}
+                          confirmingDelete={confirmDeleteTaskId === task.id}
+                          onEditTitleChange={setEditingTaskTitle}
+                          onStartEdit={handleStartEditTask}
+                          onCancelEdit={handleCancelEditTask}
+                          onSaveTitle={handleSaveTaskTitle}
+                          onStatusChange={handleStatusChange}
+                          onToggleMenu={setTaskMenuOpenId}
+                          onConfirmDelete={setConfirmDeleteTaskId}
+                        />
+                      ))}
                       
                       {/* Add task button at bottom of phase */}
                       {canWrite && (
@@ -1245,78 +1166,15 @@ export function ProjectPlanView() {
 
       {/* Admin-only: Recently deleted phases panel */}
       {isAdmin && (
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <button
-            onClick={handleToggleDeletedPanel}
-            className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-gray-50"
-          >
-            <div className="flex items-center gap-2">
-              {deletedPanelOpen ? (
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-              )}
-              <span className="text-sm font-medium text-gray-700">Recently deleted phases</span>
-              {deletedPhases.length > 0 && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                  {deletedPhases.length}
-                </span>
-              )}
-            </div>
-          </button>
-
-          {deletedPanelOpen && (
-            <div className="border-t border-gray-200 px-4 py-3">
-              {deletedPhasesLoading && (
-                <div className="flex items-center gap-2 py-4">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600" />
-                  <span className="text-sm text-gray-500">Loading...</span>
-                </div>
-              )}
-
-              {deletedPhasesError && (
-                <div className="flex items-center gap-2 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  {deletedPhasesError}
-                </div>
-              )}
-
-              {!deletedPhasesLoading && !deletedPhasesError && deletedPhases.length === 0 && (
-                <div className="py-4 text-sm text-gray-500">
-                  No deleted phases
-                </div>
-              )}
-
-              {!deletedPhasesLoading && deletedPhases.length > 0 && (
-                <ul className="space-y-2">
-                  {deletedPhases.map((phase) => (
-                    <li
-                      key={phase.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{phase.name}</p>
-                        {phase.deletedAt && (
-                          <p className="text-xs text-gray-500">
-                            Deleted {new Date(phase.deletedAt).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleRestorePhase(phase.id)}
-                        disabled={restoringPhaseIds.has(phase.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <RotateCcw className={`h-4 w-4 ${restoringPhaseIds.has(phase.id) ? 'animate-spin' : ''}`} />
-                        {restoringPhaseIds.has(phase.id) ? 'Restoring...' : 'Restore'}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+        <PlanDeletedPhasesPanel
+          isOpen={deletedPanelOpen}
+          deletedPhases={deletedPhases}
+          loading={deletedPhasesLoading}
+          error={deletedPhasesError}
+          restoringPhaseIds={restoringPhaseIds}
+          onToggle={handleToggleDeletedPanel}
+          onRestore={handleRestorePhase}
+        />
       )}
 
       {/* Confirm delete phase dialog */}
