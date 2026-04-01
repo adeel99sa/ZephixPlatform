@@ -1,14 +1,20 @@
 import { apiClient } from "@/lib/api/client";
 
+export type OnboardingStatusValue =
+  | 'not_started'
+  | 'in_progress'
+  | 'completed'
+  | 'dismissed';
+
 export type OnboardingStatus = {
+  onboardingStatus: OnboardingStatusValue;
   completed: boolean;
+  dismissed: boolean;
   mustOnboard: boolean;
-  skipped: boolean;
+  skipped: boolean; // backwards-compat alias for dismissed
   workspaceCount: number;
-  currentStep: string;
-  completedSteps: string[];
   completedAt: string | null;
-  skippedAt: string | null;
+  dismissedAt: string | null;
 };
 
 /**

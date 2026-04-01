@@ -9,6 +9,8 @@ export type OrgHomeState = {
   workspaceCount: number;
   mustOnboard: boolean;
   skipped: boolean;
+  dismissed: boolean;
+  onboardingStatus: OnboardingStatus["onboardingStatus"] | undefined;
   isAdmin: boolean;
   isMember: boolean;
   isViewer: boolean;
@@ -28,6 +30,7 @@ export function useOrgHomeState(): OrgHomeState {
   const workspaceCount = Number(status?.workspaceCount ?? 0);
   const mustOnboard = Boolean(status?.mustOnboard ?? false);
   const skipped = Boolean(status?.skipped ?? false);
+  const dismissed = Boolean(status?.dismissed ?? status?.skipped ?? false);
 
   const platformRole = platformRoleFromUser(user);
   const isAdmin = platformRole === "ADMIN";
@@ -40,6 +43,8 @@ export function useOrgHomeState(): OrgHomeState {
     workspaceCount,
     mustOnboard,
     skipped,
+    dismissed,
+    onboardingStatus: status?.onboardingStatus,
     isAdmin,
     isMember,
     isViewer,
