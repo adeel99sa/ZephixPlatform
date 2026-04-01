@@ -44,7 +44,10 @@ import {
   type WorkTaskStatus,
 } from '@/features/work-management/workTasks.api';
 import { invalidateStatsCache } from '@/features/work-management/workTasks.stats.api';
-import { AcceptanceCriteriaEditor } from '@/features/work-management/components/AcceptanceCriteriaEditor';
+import { TaskCreateForm } from './task-list/TaskCreateForm';
+import { TaskBulkActions } from './task-list/TaskBulkActions';
+import { TaskRow } from './task-list/TaskRow';
+import { TaskDeletedPanel } from './task-list/TaskDeletedPanel';
 
 // Generate temporary ID for optimistic inserts
 function tempId(): string {
@@ -65,16 +68,7 @@ function getErrorDetails(error: any): { code?: string; message?: string; invalid
   };
 }
 
-type WorkspaceMember = {
-  id: string;
-  userId: string;
-  user?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-  };
-};
+import type { WorkspaceMember } from './task-list/types';
 
 interface Props {
   projectId: string;
@@ -518,44 +512,6 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }
 
-  function getStatusColor(status: WorkTaskStatus): string {
-    switch (status) {
-      case 'TODO':
-      case 'BACKLOG':
-        return 'bg-gray-100 text-gray-800';
-      case 'IN_PROGRESS':
-      case 'IN_REVIEW':
-      case 'BLOCKED':
-        return 'bg-blue-100 text-blue-800';
-      case 'DONE':
-      case 'CANCELED':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  }
-
-  function getStatusLabel(status: WorkTaskStatus): string {
-    switch (status) {
-      case 'BACKLOG':
-        return 'Backlog';
-      case 'TODO':
-        return 'Todo';
-      case 'IN_PROGRESS':
-        return 'In Progress';
-      case 'BLOCKED':
-        return 'Blocked';
-      case 'IN_REVIEW':
-        return 'In Review';
-      case 'DONE':
-        return 'Done';
-      case 'CANCELED':
-        return 'Canceled';
-      default:
-        return status;
-    }
-  }
-
   function getUserLabel(userId?: string | null): string {
     if (!userId) return 'Unknown';
     const member = workspaceMembers.find((m: any) => m.userId === userId);
@@ -901,6 +857,9 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
     }
   }
 
+  // Parse highlighted task ID once (avoid re-parsing per row)
+  const highlightedTaskId = new URLSearchParams(window.location.search).get('taskId');
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -925,225 +884,34 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
 
       {/* Create Task Form */}
       {showCreateForm && canEdit && (
-        <form onSubmit={handleCreateTask} className="mb-6 p-4 border rounded-lg bg-gray-50">
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="title"
-                required
-                className="w-full px-3 py-2 border rounded-md"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                name="description"
-                rows={2}
-                className="w-full px-3 py-2 border rounded-md"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assignee
-                </label>
-                <select
-                  name="assigneeId"
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
-                    const user = member.user || { id: member.userId, email: 'Unknown' };
-                    const displayName = user.firstName && user.lastName
-                      ? `${user.firstName} ${user.lastName}`
-                      : user.email;
-                    return (
-                      <option key={member.userId} value={member.userId}>
-                        {displayName}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  name="dueDate"
-                  className="w-full px-3 py-2 border rounded-md"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowCreateForm(false)}
-                  disabled={creating}
-                >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={creating}>
-                {creating ? 'Creating...' : 'Create Task'}
-              </Button>
-            </div>
-          </div>
-        </form>
+        <TaskCreateForm
+          onSubmit={handleCreateTask}
+          onCancel={() => setShowCreateForm(false)}
+          creating={creating}
+          workspaceMembers={workspaceMembers}
+        />
       )}
 
-      {/* PHASE 7 MODULE 7.4: Bulk Action Bar */}
+      {/* Bulk Action Bar */}
       {selectedTaskIds.size > 0 && canEdit && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-900">
-              {selectedTaskIds.size} task{selectedTaskIds.size > 1 ? 's' : ''} selected
-            </span>
-            <button
-              onClick={clearSelection}
-              className="text-sm text-gray-600 hover:text-gray-800"
-            >
-              Clear
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {bulkAction === null && (
-              <>
-                <Button
-                  onClick={() => setBulkAction('status')}
-                  variant="ghost"
-                  className="text-sm"
-                  disabled={bulkProcessing || loading}
-                >
-                  Change Status
-                </Button>
-                <Button
-                  onClick={() => setBulkAction('assign')}
-                  variant="ghost"
-                  className="text-sm"
-                  disabled={bulkProcessing || loading}
-                >
-                  Assign To
-                </Button>
-                <Button
-                  onClick={() => setBulkAction('dueDate')}
-                  variant="ghost"
-                  className="text-sm"
-                  disabled={bulkProcessing || loading}
-                >
-                  Set Due Date
-                </Button>
-                <Button
-                  onClick={() => setBulkAction('clearDueDate')}
-                  variant="ghost"
-                  className="text-sm"
-                  disabled={bulkProcessing || loading}
-                >
-                  Clear Due Date
-                </Button>
-                <Button
-                  onClick={() => setBulkAction('unassign')}
-                  variant="ghost"
-                  className="text-sm"
-                  disabled={bulkProcessing || loading}
-                >
-                  Unassign
-                </Button>
-                {isAdmin && (
-                  <Button
-                    onClick={handleBulkDelete}
-                    variant="ghost"
-                    className="text-sm text-red-600 border-red-300 hover:bg-red-50"
-                    disabled={bulkProcessing || loading}
-                  >
-                    Delete
-                  </Button>
-                )}
-              </>
-            )}
-            {bulkAction === 'status' && (
-              <div className="flex items-center gap-2">
-                <select
-                  value={bulkStatus}
-                  onChange={(e) => setBulkStatus(e.target.value as WorkTaskStatus)}
-                  className="px-2 py-1 border rounded text-sm"
-                >
-                  <option value="TODO">Todo</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="DONE">Done</option>
-                </select>
-                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
-                  {bulkProcessing ? 'Updating...' : 'Update'}
-                </Button>
-                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
-                  Cancel
-                </Button>
-              </div>
-            )}
-            {bulkAction === 'assign' && (
-              <div className="flex items-center gap-2">
-                <select
-                  value={bulkAssigneeId}
-                  onChange={(e) => setBulkAssigneeId(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
-                >
-                  <option value="">Unassigned</option>
-                  {workspaceMembers.map((member) => {
-                    const user = member.user || { id: member.userId, email: 'Unknown' };
-                    const displayName = user.firstName && user.lastName
-                      ? `${user.firstName} ${user.lastName}`
-                      : user.email;
-                    return (
-                      <option key={member.userId} value={member.userId}>
-                        {displayName}
-                      </option>
-                    );
-                  })}
-                </select>
-                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
-                  {bulkProcessing ? 'Updating...' : 'Update'}
-                </Button>
-                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
-                  Cancel
-                </Button>
-              </div>
-            )}
-            {bulkAction === 'dueDate' && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={bulkDueDate}
-                  onChange={(e) => setBulkDueDate(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
-                />
-                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
-                  {bulkProcessing ? 'Updating...' : 'Update'}
-                </Button>
-                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
-                  Cancel
-                </Button>
-              </div>
-            )}
-            {(bulkAction === 'clearDueDate' || bulkAction === 'unassign') && (
-              <div className="flex items-center gap-2">
-                <Button onClick={handleBulkUpdate} className="text-sm" disabled={bulkProcessing || loading}>
-                  {bulkProcessing ? 'Updating...' : 'Update'}
-                </Button>
-                <Button onClick={() => setBulkAction(null)} variant="ghost" className="text-sm">
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+        <TaskBulkActions
+          selectedCount={selectedTaskIds.size}
+          bulkAction={bulkAction}
+          bulkStatus={bulkStatus}
+          bulkAssigneeId={bulkAssigneeId}
+          bulkDueDate={bulkDueDate}
+          bulkProcessing={bulkProcessing}
+          loading={loading}
+          isAdmin={isAdmin}
+          workspaceMembers={workspaceMembers}
+          onSetBulkAction={setBulkAction}
+          onSetBulkStatus={setBulkStatus}
+          onSetBulkAssigneeId={setBulkAssigneeId}
+          onSetBulkDueDate={setBulkDueDate}
+          onBulkUpdate={handleBulkUpdate}
+          onBulkDelete={handleBulkDelete}
+          onClearSelection={clearSelection}
+        />
       )}
 
       {/* Task List */}
@@ -1151,18 +919,13 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         <div className="text-center py-8 text-gray-500">
           <p>No tasks yet</p>
           {canEdit && (
-            <Button
-              onClick={() => setShowCreateForm(true)}
-              variant="ghost"
-              className="mt-4"
-            >
+            <Button onClick={() => setShowCreateForm(true)} variant="ghost" className="mt-4">
               Create first task
             </Button>
           )}
         </div>
       ) : (
         <div className="space-y-3">
-          {/* PHASE 7 MODULE 7.4: Header checkbox */}
           {canEdit && (
             <div className="flex items-center gap-2 pb-2 border-b">
               <input
@@ -1175,292 +938,55 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
               <span className="text-sm text-gray-600">Select all</span>
             </div>
           )}
-          {tasks.map((task) => {
-            // PHASE 7 MODULE 7.2: Check if this is the highlighted task from query param
-            const urlParams = new URLSearchParams(window.location.search);
-            const taskId = urlParams.get('taskId');
-            const isHighlighted = taskId === task.id;
-
-            return (
-            <div
+          {tasks.map((task) => (
+            <TaskRow
               key={task.id}
-              data-task-id={task.id}
-              className={`border rounded-lg p-4 ${isHighlighted ? 'ring-2 ring-blue-500 bg-blue-50' : ''} ${selectedTaskIds.has(task.id) ? 'bg-blue-50 border-blue-300' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                {/* PHASE 7 MODULE 7.4: Checkbox */}
-                {canEdit && (
-                  <input
-                    type="checkbox"
-                    checked={selectedTaskIds.has(task.id)}
-                    onChange={() => toggleTaskSelection(task.id)}
-                    disabled={loading}
-                    className="mt-1 mr-3 w-4 h-4 rounded border-gray-300"
-                  />
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-medium text-gray-900">{task.title}</h3>
-                    {canEdit ? (
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as WorkTaskStatus)}
-                        className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)} border-0`}
-                      >
-                        <option value="TODO">Todo</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="DONE">Done</option>
-                      </select>
-                    ) : (
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusColor(task.status)}`}>
-                        {getStatusLabel(task.status)}
-                      </span>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="text-sm text-gray-600 mb-2">{task.description}</p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    {task.assigneeUserId && (
-                      <span>Assigned to: {getUserLabel(task.assigneeUserId)}</span>
-                    )}
-                    {task.dueDate && (
-                      <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Comments, Activity, Dependencies, AC Toggles */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={() => toggleAC(task.id)}
-                  className="text-xs text-emerald-600 hover:text-emerald-800"
-                >
-                  {showAC[task.id] ? 'Hide' : 'Show'} Acceptance Criteria ({task.acceptanceCriteria?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleComments(task.id)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {showComments[task.id] ? 'Hide' : 'Show'} Comments ({comments[task.id]?.length || 0})
-                </button>
-                <button
-                  onClick={() => toggleActivity(task.id)}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  {showActivity[task.id] ? 'Hide' : 'Show'} Activity
-                </button>
-                <button
-                  onClick={() => toggleDeps(task.id)}
-                  className="text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  {showDeps[task.id] ? 'Hide' : 'Show'} Dependencies
-                </button>
-              </div>
-
-              {/* Acceptance Criteria Panel */}
-              {showAC[task.id] && (
-                <AcceptanceCriteriaEditor
-                  items={task.acceptanceCriteria || []}
-                  onSave={(items) => handleSaveAC(task.id, items)}
-                  readOnly={!canEdit}
-                />
-              )}
-
-              {/* Comments Panel */}
-              {showComments[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Comments</h4>
-                  <div className="space-y-2 mb-3">
-                    {comments[task.id]?.map((comment) => (
-                      <div key={comment.id} className="text-sm bg-gray-50 p-2 rounded">
-                        <div className="font-medium text-gray-700">
-                          {getUserLabel(comment.authorUserId)}
-                        </div>
-                        <div className="text-gray-600 mt-1">{comment.body}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newComment[task.id] || ''}
-                        onChange={(e) => setNewComment(prev => ({ ...prev, [task.id]: e.target.value }))}
-                        placeholder="Add a comment..."
-                        className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddComment(task.id);
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={() => handleAddComment(task.id)}
-                        disabled={!newComment[task.id]?.trim() || postingComment[task.id]}
-                        className="text-sm"
-                      >
-                        {postingComment[task.id] ? 'Posting...' : 'Post'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Activity Log */}
-              {showActivity[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Activity</h4>
-                  <div className="space-y-2">
-                    {activities[task.id]?.map((activity) => (
-                      <div key={activity.id} className="text-xs text-gray-600">
-                        <span className="font-medium">{formatActivity(activity)}</span>
-                        <span className="text-gray-400 ml-2">
-                          {new Date(activity.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Dependencies Panel */}
-              {showDeps[task.id] && (
-                <div className="mt-3 pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">Dependencies</h4>
-                  {/* Blocked by (predecessors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocked by</p>
-                    {deps[task.id]?.predecessors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].predecessors.map((dep) => (
-                          <div key={dep.id} className="flex items-center justify-between text-sm bg-red-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.predecessorTitle || dep.predecessorTaskId}</span>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleRemoveDep(task.id, dep.predecessorTaskId)}
-                                className="text-xs text-red-600 hover:text-red-800"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Blocking (successors) */}
-                  <div className="mb-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Blocking</p>
-                    {deps[task.id]?.successors?.length ? (
-                      <div className="space-y-1">
-                        {deps[task.id].successors.map((dep) => (
-                          <div key={dep.id} className="flex items-center text-sm bg-amber-50 p-2 rounded">
-                            <span className="text-gray-700">{dep.successorTitle || dep.successorTaskId}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400">None</p>
-                    )}
-                  </div>
-                  {/* Add dependency */}
-                  {canEdit && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Add "blocked by" dependency</p>
-                      <div className="flex gap-2">
-                        <select
-                          value={depSearch[task.id] || ''}
-                          onChange={(e) => setDepSearch(prev => ({ ...prev, [task.id]: e.target.value }))}
-                          className="flex-1 px-3 py-2 border rounded-md text-sm"
-                        >
-                          <option value="">Select a task...</option>
-                          {tasks
-                            .filter(t => t.id !== task.id && !t.deletedAt)
-                            .map(t => (
-                              <option key={t.id} value={t.id}>{t.title}</option>
-                            ))}
-                        </select>
-                        <button
-                          onClick={() => depSearch[task.id] && handleAddDep(task.id, depSearch[task.id])}
-                          disabled={!depSearch[task.id] || addingDep[task.id]}
-                          className="px-3 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {addingDep[task.id] ? 'Adding...' : 'Add'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            );
-          })}
+              task={task}
+              tasks={tasks}
+              isHighlighted={highlightedTaskId === task.id}
+              isSelected={selectedTaskIds.has(task.id)}
+              canEdit={canEdit}
+              loading={loading}
+              showComments={!!showComments[task.id]}
+              showActivity={!!showActivity[task.id]}
+              showDeps={!!showDeps[task.id]}
+              showAC={!!showAC[task.id]}
+              comments={comments[task.id] || []}
+              activities={activities[task.id] || []}
+              deps={deps[task.id]}
+              newComment={newComment[task.id] || ''}
+              postingComment={!!postingComment[task.id]}
+              depSearch={depSearch[task.id] || ''}
+              addingDep={!!addingDep[task.id]}
+              getUserLabel={getUserLabel}
+              formatActivity={formatActivity}
+              onStatusChange={handleStatusChange}
+              onToggleSelection={toggleTaskSelection}
+              onToggleComments={toggleComments}
+              onToggleActivity={toggleActivity}
+              onToggleDeps={toggleDeps}
+              onToggleAC={toggleAC}
+              onNewCommentChange={(id, val) => setNewComment(prev => ({ ...prev, [id]: val }))}
+              onAddComment={handleAddComment}
+              onDepSearchChange={(id, val) => setDepSearch(prev => ({ ...prev, [id]: val }))}
+              onAddDep={handleAddDep}
+              onRemoveDep={handleRemoveDep}
+              onSaveAC={handleSaveAC}
+            />
+          ))}
         </div>
       )}
 
       {/* ADMIN ONLY: Recently Deleted Tasks Panel */}
       {isAdmin && (
-        <div className="mt-6 border-t pt-4">
-          <button
-            type="button"
-            onClick={() => setShowDeletedPanel(prev => !prev)}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-          >
-            <span className={`transform transition-transform ${showDeletedPanel ? 'rotate-90' : ''}`}>
-              ▶
-            </span>
-            <span>Recently deleted</span>
-            {deletedTasks.length > 0 && (
-              <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-full">
-                {deletedTasks.length}
-              </span>
-            )}
-          </button>
-
-          {showDeletedPanel && (
-            <div className="mt-3 space-y-2">
-              {deletedLoading ? (
-                <div className="text-sm text-gray-500 py-2">Loading deleted tasks...</div>
-              ) : deletedTasks.length === 0 ? (
-                <div className="text-sm text-gray-500 py-2">No deleted tasks</div>
-              ) : (
-                deletedTasks.map(task => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 ${
-                      restoringTaskIds.has(task.id) ? 'opacity-50' : ''
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-700 line-through">
-                        {task.title}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Deleted {task.deletedAt ? new Date(task.deletedAt).toLocaleDateString() : 'recently'}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => handleRestoreTask(task.id)}
-                      disabled={restoringTaskIds.has(task.id)}
-                      className="ml-3 text-sm"
-                      variant="ghost"
-                    >
-                      {restoringTaskIds.has(task.id) ? 'Restoring...' : 'Restore'}
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+        <TaskDeletedPanel
+          showPanel={showDeletedPanel}
+          deletedTasks={deletedTasks}
+          deletedLoading={deletedLoading}
+          restoringTaskIds={restoringTaskIds}
+          onTogglePanel={() => setShowDeletedPanel(prev => !prev)}
+          onRestore={handleRestoreTask}
+        />
       )}
     </div>
   );
