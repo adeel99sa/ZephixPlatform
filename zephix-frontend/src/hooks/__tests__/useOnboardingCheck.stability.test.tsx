@@ -70,7 +70,7 @@ describe("useOnboardingCheck + org onboarding query", () => {
     spy.mockRestore();
   });
 
-  it("returns onboardingComplete for MEMBER without blocking on fetch", async () => {
+  it("returns onboardingComplete for MEMBER without calling onboarding API", async () => {
     mockUseAuth.mockReturnValue({
       user: {
         id: "user-2",
@@ -97,9 +97,7 @@ describe("useOnboardingCheck + org onboarding query", () => {
 
     expect(result.current.checking).toBe(false);
     expect(result.current.onboardingComplete).toBe(true);
-
-    await waitFor(() => expect(spy).toHaveBeenCalled());
-    expect(result.current.onboardingComplete).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 });

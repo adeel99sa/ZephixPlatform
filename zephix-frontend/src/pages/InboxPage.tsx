@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { request } from "@/lib/api";
 import { useUIStore } from "@/stores/uiStore";
 import { Bell } from "lucide-react";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
-
 interface Notification {
   id: string;
   eventType: string;
@@ -105,10 +104,6 @@ export default function InboxPage() {
       });
     }
   };
-
-  useEffect(() => {
-    loadNotifications();
-  }, [tab]);
 
   const filteredNotifications = tab === "unread"
     ? notifications.filter((n) => !n.read)

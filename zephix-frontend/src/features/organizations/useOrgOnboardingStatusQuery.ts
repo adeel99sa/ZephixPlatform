@@ -4,7 +4,7 @@ import { getOnboardingStatus } from "./onboarding.api";
 
 /**
  * Single React Query source for org onboarding status.
- * Dedupes fetches across DashboardLayout (useOnboardingCheck) and home surfaces (useOrgHomeState).
+ * Dedupes fetches across surfaces that call useOrgHomeState (Unified Home onboarding panels).
  */
 export const orgOnboardingStatusQueryKey = (userId: string) =>
   ["org-onboarding-status", userId] as const;
