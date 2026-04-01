@@ -158,7 +158,7 @@ export class AuthService {
         accessToken,
         refreshToken,
         organizationId: savedOrg.id,
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: this.parseExpiryToSeconds(this.getAccessTokenExpiry()),
       };
     });
   }
@@ -348,7 +348,7 @@ export class AuthService {
       sessionId: savedSession.id,
       organizationId: user.organizationId,
       defaultWorkspaceSlug,
-      expiresIn: 900,
+      expiresIn: this.parseExpiryToSeconds(this.getAccessTokenExpiry()),
     };
   }
 
@@ -362,6 +362,32 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  /**
+   * Returns the configured access-token lifetime string (e.g. '15m', '7d').
+   * Dev defaults to 7d for convenience; all other environments default to 15m.
+   */
+  private getAccessTokenExpiry(): string {
+    return process.env.NODE_ENV === 'development'
+      ? process.env.JWT_EXPIRES_IN || '7d'
+      : process.env.JWT_EXPIRES_IN || '15m';
+  }
+
+  /**
+   * Converts a JWT expiry string like '15m', '1h', '7d' to seconds.
+   */
+  private parseExpiryToSeconds(expiry: string): number {
+    const match = expiry.match(/^(\d+)(s|m|h|d)$/);
+    if (!match) return 900; // fallback 15 minutes
+    const value = parseInt(match[1], 10);
+    switch (match[2]) {
+      case 's': return value;
+      case 'm': return value * 60;
+      case 'h': return value * 3600;
+      case 'd': return value * 86400;
+      default: return 900;
+    }
   }
 
   private async generateToken(user: User): Promise<string> {
@@ -390,11 +416,7 @@ export class AuthService {
       platformRole: platformRole, // Normalized platform role
     };
 
-    // Use config service for expiration, with dev-friendly default
-    const expiresIn =
-      process.env.NODE_ENV === 'development'
-        ? process.env.JWT_EXPIRES_IN || '7d' // 7 days for dev testing
-        : process.env.JWT_EXPIRES_IN || '15m'; // 15 minutes for production
+    const expiresIn = this.getAccessTokenExpiry();
 
     const secret = process.env.JWT_SECRET;
     if (!secret) {
@@ -644,7 +666,7 @@ export class AuthService {
         accessToken,
         refreshToken: newRefreshToken,
         sessionId: session.id,
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: this.parseExpiryToSeconds(this.getAccessTokenExpiry()),
       };
 
       // No fallback path - sessionId is required
