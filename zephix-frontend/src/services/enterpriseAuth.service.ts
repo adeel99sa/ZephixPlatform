@@ -59,7 +59,7 @@ class EnterpriseAuthService {
     timestamp: string;
     event: string;
     severity: 'low' | 'medium' | 'high' | 'critical';
-    details: any;
+    details: Record<string, unknown>;
     sessionId: string;
   }> = [];
 
@@ -366,7 +366,7 @@ class EnterpriseAuthService {
   /**
    * Validate input security
    */
-  private validateInputSecurity(data: any, skipPasswordValidation: boolean = false): void {
+  private validateInputSecurity(data: { email?: string; password?: string; firstName?: string; lastName?: string; [key: string]: unknown }, skipPasswordValidation: boolean = false): void {
     // Email validation
     if (data.email && !this.isValidEmail(data.email)) {
       throw new Error('Invalid email format');
@@ -412,7 +412,7 @@ class EnterpriseAuthService {
   /**
    * Check for XSS attempts
    */
-  private containsXSS(data: any): boolean {
+  private containsXSS(data: unknown): boolean {
     const xssPatterns = [
       /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
       /javascript:/gi,
@@ -585,7 +585,7 @@ class EnterpriseAuthService {
   private logSecurityEvent(
     event: string,
     severity: 'low' | 'medium' | 'high' | 'critical',
-    details: any
+    details: Record<string, unknown>
   ): void {
     const securityEvent = {
       timestamp: new Date().toISOString(),

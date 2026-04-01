@@ -296,27 +296,27 @@ class ApiClient {
   }
 
   // Public API methods
-  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<any> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.get(url, config);
     return unwrapOneDataLayer(response.data) as T;
   }
 
-  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.post(url, data, config);
     return unwrapOneDataLayer(response.data) as T;
   }
 
-  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
+  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.put(url, data, config);
     return unwrapOneDataLayer(response.data) as T;
   }
 
-  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<any> {
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.patch(url, data, config);
     return unwrapOneDataLayer(response.data) as T;
   }
 
-  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<any> {
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.delete(url, config);
     return unwrapOneDataLayer(response.data) as T;
   }

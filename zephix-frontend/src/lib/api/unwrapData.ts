@@ -15,29 +15,31 @@
  *   - null/undefined (safe defaults)
  */
 
-export function unwrapData<T>(response: any): T | null {
+export function unwrapData<T>(response: unknown): T | null {
   if (response === null || response === undefined) {
     return null;
   }
 
+  const res = response as Record<string, unknown>;
+
   // Handle axios interceptor wrapped response: { data: { data: T } }
-  if (response?.data?.data !== undefined) {
-    return response.data.data;
+  if (res.data && typeof res.data === 'object' && 'data' in (res.data as Record<string, unknown>)) {
+    return (res.data as Record<string, unknown>).data as T;
   }
 
   // Handle new format: { data: T }
-  if (response?.data !== undefined) {
-    return response.data;
+  if (res.data !== undefined) {
+    return res.data as T;
   }
 
   // Handle old format: T (direct value)
-  return response;
+  return response as T;
 }
 
 /**
  * Unwrap data with default value
  */
-export function unwrapDataWithDefault<T>(response: any, defaultValue: T): T {
+export function unwrapDataWithDefault<T>(response: unknown, defaultValue: T): T {
   const data = unwrapData<T>(response);
   return data !== null ? data : defaultValue;
 }
@@ -45,7 +47,7 @@ export function unwrapDataWithDefault<T>(response: any, defaultValue: T): T {
 /**
  * Unwrap array data with empty array default
  */
-export function unwrapArray<T>(response: any): T[] {
+export function unwrapArray<T>(response: unknown): T[] {
   const data = unwrapData<T[]>(response);
   if (Array.isArray(data)) {
     return data;
@@ -56,7 +58,7 @@ export function unwrapArray<T>(response: any): T[] {
 /**
  * Unwrap paginated data with safe defaults
  */
-export function unwrapPaginated<T>(response: any): {
+export function unwrapPaginated<T>(response: unknown): {
   items: T[];
   total: number;
   page: number;
