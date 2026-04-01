@@ -70,6 +70,7 @@ type AuthUser = {
   role?: string;
   organizationId?: string;
   permissions?: string[];
+  emailVerified?: boolean;
 };
 
 type AuthContextValue = {

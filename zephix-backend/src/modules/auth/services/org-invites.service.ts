@@ -192,7 +192,7 @@ export class OrgInvitesService {
    * Idempotent: If membership exists or invite already accepted, returns success.
    * Uses indexed lookup by deterministic hash (HMAC-SHA256).
    */
-  async acceptInvite(input: AcceptInviteInput): Promise<{ orgId: string }> {
+  async acceptInvite(input: AcceptInviteInput): Promise<{ orgId: string; workspaceIds: string[] }> {
     const { rawToken, userId } = input;
 
     // Compute hash and do indexed lookup
@@ -213,7 +213,7 @@ export class OrgInvitesService {
       this.logger.log(
         `Invite already accepted: ${invite.id}, returning success (idempotent)`,
       );
-      return { orgId: invite.orgId };
+      return { orgId: invite.orgId, workspaceIds: [] };
     }
 
     // Check if expired
@@ -265,7 +265,7 @@ export class OrgInvitesService {
           `Invite accept (idempotent): membership already exists for ${user.email} -> ${invite.orgId}`,
         );
 
-        return { orgId: invite.orgId };
+        return { orgId: invite.orgId, workspaceIds: [] };
       }
 
       // Mark invite as accepted
@@ -316,7 +316,14 @@ export class OrgInvitesService {
         `Invite accepted: ${user.email} -> ${invite.orgId} (${invite.role})`,
       );
 
-      return { orgId: invite.orgId };
+      // Collect workspace IDs the user was assigned to
+      const memberRows = await this.workspaceMemberRepository.find({
+        where: { userId, status: 'active' },
+        select: ['workspaceId'],
+      });
+      const workspaceIds = memberRows.map((m) => m.workspaceId);
+
+      return { orgId: invite.orgId, workspaceIds };
     });
   }
 
