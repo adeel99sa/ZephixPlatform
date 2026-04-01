@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { skipOnboarding } from "@/features/organizations/onboarding.api";
+import { orgOnboardingStatusQueryKey } from "@/features/organizations/useOrgOnboardingStatusQuery";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { useAuth } from "@/state/AuthContext";
 import { track } from "@/lib/telemetry";
 import { ListChecks, Inbox, UserCircle, X } from "lucide-react";
 import { useState } from "react";
@@ -10,6 +12,8 @@ import { useState } from "react";
 export function MemberOnboardingCard() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const uid = user?.id ?? "";
   const { onboardingStatus } = useOrgHomeState();
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const [dismissing, setDismissing] = useState(false);
@@ -31,7 +35,8 @@ export function MemberOnboardingCard() {
     try {
       await skipOnboarding();
       track("onboarding_dismissed", { role: "member" });
-      qc.invalidateQueries({ queryKey: ["org-onboarding-status"] });
+      if (uid) await qc.invalidateQueries({ queryKey: orgOnboardingStatusQueryKey(uid) });
+      else await qc.invalidateQueries({ queryKey: ["org-onboarding-status"] });
     } finally {
       setDismissing(false);
     }

@@ -10,8 +10,8 @@ export interface OnboardingCheckState {
 }
 
 /**
- * Onboarding UI lives on Unified Home (Admin panel + Member/Viewer cards; Batch 2).
- * Shell is not blocked and we do not redirect into the legacy full-page /onboarding wizard.
+ * Shell must never block on onboarding fetches (Batch 1 + 2).
+ * Full-page /onboarding is optional and self-gated in OnboardingPage; we do not redirect from the shell into it.
  */
 export function useOnboardingCheck(): OnboardingCheckState {
   const { user, loading: authLoading } = useAuth();
