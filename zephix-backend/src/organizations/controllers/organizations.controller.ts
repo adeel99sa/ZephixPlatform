@@ -207,16 +207,19 @@ export class OrganizationsController {
     return this.organizationsService.findAllUsers();
   }
 
-  // Onboarding endpoints
+  // Onboarding endpoints — user-level state (Batch 1 spec)
   @Get('onboarding/status')
-  @ApiOperation({ summary: 'Get onboarding status for current organization' })
+  @ApiOperation({ summary: 'Get onboarding status for current user' })
   @ApiResponse({
     status: 200,
     description: 'Onboarding status retrieved successfully',
   })
   async getOnboardingStatus(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOnboardingStatus(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingStatus(
+      organizationId,
+      userId,
+    );
   }
 
   @Get('onboarding/progress')
@@ -226,8 +229,11 @@ export class OrganizationsController {
     description: 'Onboarding progress retrieved successfully',
   })
   async getOnboardingProgress(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.getOnboardingProgress(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.getOnboardingProgress(
+      organizationId,
+      userId,
+    );
   }
 
   @Post('onboarding/complete-step')
@@ -254,18 +260,21 @@ export class OrganizationsController {
     description: 'Onboarding completed successfully',
   })
   async completeOnboarding(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.completeOnboarding(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.completeOnboarding(
+      organizationId,
+      userId,
+    );
   }
 
   @Post('onboarding/skip')
-  @ApiOperation({ summary: 'Skip onboarding' })
+  @ApiOperation({ summary: 'Dismiss onboarding' })
   @ApiResponse({
     status: 200,
-    description: 'Onboarding skipped successfully',
+    description: 'Onboarding dismissed successfully',
   })
   async skipOnboarding(@Request() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.organizationsService.skipOnboarding(organizationId);
+    const { organizationId, userId } = getAuthContext(req);
+    return this.organizationsService.skipOnboarding(organizationId, userId);
   }
 }
