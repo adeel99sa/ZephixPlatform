@@ -9,6 +9,7 @@ import { platformRoleFromUser } from "@/utils/roles";
 import { AdminOnboardingPanel } from "@/features/onboarding/AdminOnboardingPanel";
 import { MemberOnboardingCard } from "@/features/onboarding/MemberOnboardingCard";
 import { ViewerOnboardingCard } from "@/features/onboarding/ViewerOnboardingCard";
+import { FirstValuePrompt } from "@/features/onboarding/FirstValuePrompt";
 import { track } from "@/lib/telemetry";
 import {
   Briefcase,
@@ -86,6 +87,9 @@ export default function UnifiedHomePage() {
       {isAdmin && <AdminOnboardingPanel />}
       {isMember && <MemberOnboardingCard />}
       {isViewer && <ViewerOnboardingCard />}
+
+      {/* ── First-value prompt (after workspace creation) ── */}
+      {isAdmin && workspaces.length > 0 && <FirstValuePrompt />}
 
       {/* ── Continue working (active workspace banner) ── */}
       {activeWorkspaceId && workspaces.length > 0 && (
