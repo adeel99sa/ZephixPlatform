@@ -434,6 +434,9 @@ export default function DashboardView() {
           dashboardId={dashboard.id}
           initialVisibility={dashboard.visibility ?? "PRIVATE"}
           initialShareEnabled={dashboard.shareEnabled ?? false}
+          initialIsPublished={dashboard.isPublished ?? false}
+          initialAudience={dashboard.audience ?? []}
+          initialIsDefault={dashboard.isDefault ?? false}
           onSave={saveShare}
           onClose={() => setShareOpen(false)}
         />
