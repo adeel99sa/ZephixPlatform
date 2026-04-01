@@ -4,7 +4,6 @@ import { getTenantAwareRepositoryToken } from '../../tenancy/tenant-aware.reposi
 import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkItem } from '../../work-items/entities/work-item.entity';
 import { Project } from '../../projects/entities/project.entity';
-import { IsNull, LessThanOrEqual } from 'typeorm';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -79,10 +78,7 @@ export class MemberHomeService {
       );
     }
 
-    const assignedWorkItemsDueSoon = await workItemQuery.take(50).getMany();
-    const assignedWorkItemsDueSoonCount = assignedWorkItemsDueSoon.length;
-
-    // Count projects where user is delivery owner or assigned, filtered by accessible workspaces
+    // Build project query (used for both active projects and milestones)
     let projectQuery = this.projectRepo
       .createQueryBuilder('project')
       .where('project.organizationId = :organizationId', {
@@ -93,7 +89,6 @@ export class MemberHomeService {
         { userId },
       );
 
-    // Filter by accessible workspaces (if not admin)
     if (accessibleWorkspaceIds !== null) {
       projectQuery = projectQuery.andWhere(
         'project.workspaceId IN (:...workspaceIds)',
@@ -103,40 +98,7 @@ export class MemberHomeService {
       );
     }
 
-    const myActiveProjects = await projectQuery.getMany();
-    const myActiveProjectsCount = myActiveProjects.length;
-
-    // Count risks owned by user, filtered by accessible workspaces
-    let risksIOwnCount = 0;
-    try {
-      let riskQuery = `
-        SELECT COUNT(*) as count
-        FROM risks r
-        INNER JOIN projects p ON r.project_id = p.id
-        WHERE p.organization_id = $1
-        AND r.owner_id = $2
-        AND r.deleted_at IS NULL
-        AND r.status = 'active'
-      `;
-      const riskParams: any[] = [organizationId, userId];
-
-      // Filter by accessible workspaces (if not admin)
-      if (accessibleWorkspaceIds !== null) {
-        riskQuery += ` AND p.workspace_id = ANY($3::uuid[])`;
-        riskParams.push(accessibleWorkspaceIds);
-      }
-
-      const riskCount = await this.dataSource.query(riskQuery, riskParams);
-      risksIOwnCount = parseInt(riskCount[0]?.count || '0', 10);
-    } catch (error) {
-      // Risk table may not exist - silent fail
-      console.warn(
-        '[MemberHomeService] Risk query failed (table may not exist):',
-        error,
-      );
-    }
-
-    // Count upcoming milestones (projects with endDate in next 30 days), filtered by accessible workspaces
+    // Build milestone query
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
     let milestoneQuery = this.projectRepo
@@ -149,7 +111,6 @@ export class MemberHomeService {
         thirtyDays: thirtyDaysFromNow,
       });
 
-    // Filter by accessible workspaces (if not admin)
     if (accessibleWorkspaceIds !== null) {
       milestoneQuery = milestoneQuery.andWhere(
         'project.workspaceId IN (:...workspaceIds)',
@@ -159,33 +120,53 @@ export class MemberHomeService {
       );
     }
 
-    const upcomingMilestonesCount = await milestoneQuery.getCount();
-
-    // Get inbox preview (paid only - Member)
-    let unreadCount = 0;
-    let topNotifications: any[] = [];
-
-    try {
-      unreadCount = await this.notificationsService.getUnreadCount(
-        userId,
-        organizationId,
-      );
-
-      const notificationsResult =
-        await this.notificationsService.getNotifications(
-          userId,
-          organizationId,
-          {
-            status: 'unread',
-            limit: 5,
-          },
-        );
-
-      topNotifications = notificationsResult.notifications || [];
-    } catch (error) {
-      // Silent fail for notifications
-      console.warn('[MemberHomeService] Failed to load notifications:', error);
+    // Build risk query
+    let riskSql = `
+      SELECT COUNT(*) as count
+      FROM risks r
+      INNER JOIN projects p ON r.project_id = p.id
+      WHERE p.organization_id = $1
+      AND r.owner_id = $2
+      AND r.deleted_at IS NULL
+      AND r.status = 'active'
+    `;
+    const riskParams: any[] = [organizationId, userId];
+    if (accessibleWorkspaceIds !== null) {
+      riskSql += ` AND p.workspace_id = ANY($3::uuid[])`;
+      riskParams.push(accessibleWorkspaceIds);
     }
+
+    // Execute all independent queries in parallel
+    const [
+      assignedWorkItemsDueSoon,
+      myActiveProjects,
+      riskResult,
+      upcomingMilestonesCount,
+      notificationsResult,
+    ] = await Promise.all([
+      workItemQuery.take(50).getMany(),
+      projectQuery.getMany(),
+      this.dataSource.query(riskSql, riskParams).catch((error) => {
+        console.warn('[MemberHomeService] Risk query failed (table may not exist):', error);
+        return [{ count: '0' }];
+      }),
+      milestoneQuery.getCount(),
+      this.notificationsService.getUnreadCount(userId, organizationId)
+        .then(async (unread) => ({
+          unreadCount: unread,
+          topNotifications: (await this.notificationsService.getNotifications(userId, organizationId, { status: 'unread', limit: 5 })).notifications || [],
+        }))
+        .catch((error) => {
+          console.warn('[MemberHomeService] Failed to load notifications:', error);
+          return { unreadCount: 0, topNotifications: [] as any[] };
+        }),
+    ]);
+
+    const assignedWorkItemsDueSoonCount = assignedWorkItemsDueSoon.length;
+    const myActiveProjectsCount = myActiveProjects.length;
+    const risksIOwnCount = parseInt(riskResult[0]?.count || '0', 10);
+    const unreadCount = notificationsResult.unreadCount;
+    const topNotifications = notificationsResult.topNotifications;
 
     return {
       myWork: {

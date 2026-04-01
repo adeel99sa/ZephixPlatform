@@ -67,9 +67,22 @@ export class TasksService {
     return savedTask;
   }
 
-  async findAll(projectId: string, organizationId: string): Promise<Task[]> {
+  async findAll(projectId: string, organizationId: string): Promise<Task[]>;
+  async findAll(projectId: string, organizationId: string, page: number, pageSize: number): Promise<{ data: Task[]; total: number; page: number; pageSize: number; totalPages: number }>;
+  async findAll(projectId: string, organizationId: string, page?: number, pageSize?: number) {
     // organizationId parameter kept for backward compatibility
     // TenantAwareRepository automatically scopes by organizationId
+    if (page != null && pageSize != null) {
+      const [tasks, total] = await this.taskRepository.findAndCount({
+        where: { projectId },
+        order: { createdAt: 'DESC' },
+        relations: ['assignee', 'phase'],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+      return { data: tasks, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    }
+
     return await this.taskRepository.find({
       where: { projectId },
       order: { createdAt: 'DESC' },

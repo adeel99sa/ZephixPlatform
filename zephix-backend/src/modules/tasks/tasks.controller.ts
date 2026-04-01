@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -29,9 +30,16 @@ export class TasksController {
   }
 
   @Get('project/:projectId')
-  findAll(@Param('projectId') projectId: string, @Req() req: AuthRequest) {
-    const { organizationId } = getAuthContext(req);
-    return this.tasksService.findAll(projectId, organizationId);
+  findAll(
+    @Param('projectId') projectId: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Req() req?: AuthRequest,
+  ) {
+    const { organizationId } = getAuthContext(req!);
+    const p = Math.max(1, parseInt(page || '1', 10) || 1);
+    const ps = Math.min(100, Math.max(1, parseInt(pageSize || '50', 10) || 50));
+    return this.tasksService.findAll(projectId, organizationId, p, ps);
   }
 
   @Get(':id')
