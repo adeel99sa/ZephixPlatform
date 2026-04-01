@@ -278,36 +278,22 @@ export class WorkPlanService {
       select: ['id', 'name'],
     });
 
-    // For each project, get its work plan
-    const projectPlans: Array<{
-      projectId: string;
-      projectName: string;
-      projectState: string;
-      structureLocked: boolean;
-      phases: WorkPlanPhaseDto[];
-    }> = [];
+    // Fetch all project work plans in parallel (skip failures like access denied)
+    const planResults = await Promise.allSettled(
+      projects.map((project) =>
+        this.getProjectWorkPlan(organizationId, workspaceId, project.id, userId, platformRole),
+      ),
+    );
 
-    for (const project of projects) {
-      try {
-        const plan = await this.getProjectWorkPlan(
-          organizationId,
-          workspaceId,
-          project.id,
-          userId,
-          platformRole,
-        );
-        projectPlans.push({
-          projectId: plan.projectId,
-          projectName: plan.projectName,
-          projectState: plan.projectState,
-          structureLocked: plan.structureLocked,
-          phases: plan.phases,
-        });
-      } catch (error) {
-        // Skip projects that fail (e.g., access denied)
-        continue;
-      }
-    }
+    const projectPlans = planResults
+      .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof this.getProjectWorkPlan>>> => r.status === 'fulfilled')
+      .map((r) => ({
+        projectId: r.value.projectId,
+        projectName: r.value.projectName,
+        projectState: r.value.projectState,
+        structureLocked: r.value.structureLocked,
+        phases: r.value.phases,
+      }));
 
     return {
       programId: program.id,

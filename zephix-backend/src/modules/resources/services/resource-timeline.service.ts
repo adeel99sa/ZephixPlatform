@@ -66,9 +66,26 @@ export class ResourceTimelineService {
         )
         .getMany();
 
-      // Process each day in the range
+      // Pre-fetch all existing daily loads for the date range in one query
+      const existingLoads = await this.dailyLoadRepository.find({
+        where: {
+          organizationId,
+          resourceId,
+          date: Between(startDate, endDate),
+        },
+      });
+
+      // Build lookup by date string for O(1) access
+      const loadsByDate = new Map<string, ResourceDailyLoad>();
+      for (const load of existingLoads) {
+        const key = new Date(load.date).toISOString().split('T')[0];
+        loadsByDate.set(key, load);
+      }
+
+      // Process each day in the range, collecting entities to save in batch
       const currentDate = new Date(startDate);
       const end = new Date(endDate);
+      const toSave: ResourceDailyLoad[] = [];
 
       while (currentDate <= end) {
         const dateKey = new Date(currentDate);
@@ -84,7 +101,6 @@ export class ResourceTimelineService {
           const allocEnd = new Date(allocation.endDate);
           allocEnd.setHours(0, 0, 0, 0);
 
-          // Check if this day falls within the allocation range
           if (dateKey >= allocStart && dateKey <= allocEnd) {
             if (allocation.type === AllocationType.HARD) {
               hardLoad += allocation.allocationPercentage || 0;
@@ -102,14 +118,9 @@ export class ResourceTimelineService {
           classification = 'WARNING';
         }
 
-        // Upsert the daily load record
-        const existing = await this.dailyLoadRepository.findOne({
-          where: {
-            organizationId,
-            resourceId,
-            date: dateKey,
-          },
-        });
+        // Update existing or create new record
+        const dateStr = dateKey.toISOString().split('T')[0];
+        const existing = loadsByDate.get(dateStr);
 
         if (existing) {
           existing.capacityPercent = 100;
@@ -119,13 +130,13 @@ export class ResourceTimelineService {
           existing.criticalThreshold = settings.criticalThreshold;
           existing.hardCap = settings.hardCap;
           existing.classification = classification;
-          await this.dailyLoadRepository.save(existing);
+          toSave.push(existing);
         } else {
-          await this.dailyLoadRepository.save({
+          const record = this.dailyLoadRepository.create({
             organizationId,
             resourceId,
             date: dateKey,
-            capacityPercent: 100, // Default capacity, can be overridden from UserDailyCapacity
+            capacityPercent: 100,
             hardLoadPercent: hardLoad,
             softLoadPercent: softLoad,
             warningThreshold: settings.warningThreshold,
@@ -133,10 +144,15 @@ export class ResourceTimelineService {
             hardCap: settings.hardCap,
             classification,
           });
+          toSave.push(record);
         }
 
-        // Move to next day
         currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Batch save all daily load records
+      if (toSave.length > 0) {
+        await this.dailyLoadRepository.save(toSave);
       }
 
       this.logger.debug(
