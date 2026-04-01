@@ -21,8 +21,7 @@ import { NotFound } from "@/pages/system/NotFound";
 import { Forbidden } from "@/pages/system/Forbidden";
 
 // Views
-import OrgHomePage from "@/pages/home/OrgHomePage";
-import AdminHomePage from "@/pages/home/AdminHomePage";
+import UnifiedHomePage from "@/pages/home/UnifiedHomePage";
 import SelectWorkspacePage from "@/pages/workspaces/SelectWorkspacePage";
 import GuestHomePage from "@/pages/home/GuestHomePage";
 import RequireWorkspace from "@/routes/RequireWorkspace";
@@ -106,7 +105,7 @@ function HomeRoute() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  return platformRoleFromUser(user) === "ADMIN" ? <AdminHomePage /> : <OrgHomePage />;
+  return <UnifiedHomePage />;
 }
 
 /** Primary "Work" route: workspace-aware entrypoint */
