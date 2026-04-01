@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useWorkspaceStore } from "@/state/workspace.store";
 import { useQueryClient } from "@tanstack/react-query";
 import { skipOnboarding, completeOnboarding } from "@/features/organizations/onboarding.api";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
@@ -29,7 +30,16 @@ type Step = "welcome" | "use_case" | "complete";
 export function AdminOnboardingPanel() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const { workspaceCount, onboardingStatus } = useOrgHomeState();
+
+  function navIfWorkspace(path: string) {
+    if (!activeWorkspaceId) {
+      nav("/workspaces");
+      return;
+    }
+    nav(path);
+  }
   const [step, setStep] = useState<Step>("welcome");
   const [selectedUseCase, setSelectedUseCase] = useState<string | null>(null);
   const [dismissing, setDismissing] = useState(false);
@@ -96,13 +106,13 @@ export function AdminOnboardingPanel() {
             </button>
           )}
           <button
-            onClick={() => nav("/templates")}
+            onClick={() => navIfWorkspace("/templates")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <Rocket className="h-3.5 w-3.5" /> Create first project
           </button>
           <button
-            onClick={() => nav("/admin/invite")}
+            onClick={() => nav("/administration/users")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             <UserPlus className="h-3.5 w-3.5" /> Invite team
@@ -192,7 +202,7 @@ export function AdminOnboardingPanel() {
             <ActionItem
               icon={<UserPlus className="h-4 w-4" />}
               label="Invite team members"
-              onClick={() => nav("/admin/invite")}
+              onClick={() => nav("/administration/users")}
             />
             <ActionItem
               icon={<Compass className="h-4 w-4" />}
@@ -205,12 +215,12 @@ export function AdminOnboardingPanel() {
             <ActionItem
               icon={<Rocket className="h-4 w-4" />}
               label="Create first project from template"
-              onClick={() => nav("/templates")}
+              onClick={() => navIfWorkspace("/templates")}
             />
             <ActionItem
               icon={<UserPlus className="h-4 w-4" />}
               label="Invite team members"
-              onClick={() => nav("/admin/invite")}
+              onClick={() => nav("/administration/users")}
             />
             <ActionItem
               icon={<Briefcase className="h-4 w-4" />}
