@@ -47,6 +47,14 @@ export default function UnifiedHomePage() {
   });
   const workspaces = wsQuery.data ?? [];
 
+  /**
+   * Admin bootstrap onboarding (invite / skip / create workspace) must not block returning admins.
+   * Onboarding status `workspaceCount` can disagree with GET /workspaces (org-wide vs accessible list);
+   * the list is the product truth for "already inside the shell with workspaces".
+   */
+  const showAdminBootstrapOnboarding =
+    isAdmin && wsQuery.isSuccess && workspaces.length === 0;
+
   /** Workspace-scoped routes require a selected workspace; send users to pick one first. */
   function navIfWorkspace(path: string) {
     if (!activeWorkspaceId) {
@@ -81,7 +89,7 @@ export default function UnifiedHomePage() {
       </header>
 
       {/* ── Role-based onboarding (non-blocking, in-shell; Batch 2) ── */}
-      {isAdmin && <AdminOnboardingPanel />}
+      {showAdminBootstrapOnboarding && <AdminOnboardingPanel />}
       {isMember && <MemberOnboardingCard />}
       {isViewer && <ViewerOnboardingCard />}
 
