@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
@@ -129,7 +130,7 @@ export class VirusScanService {
     return new Promise((resolve, reject) => {
       // Write file to temporary location for ClamAV
       const tempDir = this.configService.get<string>('TEMP_DIR', '/tmp');
-      const tempFile = path.join(tempDir, `scan_${Date.now()}_${filename}`);
+      const tempFile = path.join(tempDir, `scan_${crypto.randomUUID()}`);
 
       fs.writeFileSync(tempFile, file);
 
@@ -292,7 +293,6 @@ export class VirusScanService {
    * Calculate SHA-256 hash of file
    */
   private calculateFileHash(file: Buffer): string {
-    const crypto = require('crypto');
     return crypto.createHash('sha256').update(file).digest('hex');
   }
 

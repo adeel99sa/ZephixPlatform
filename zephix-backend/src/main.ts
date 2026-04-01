@@ -317,7 +317,16 @@ async function bootstrap() {
   }
   const extraOrigins = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   for (const origin of extraOrigins) {
-    if (!corsOrigins.includes(origin)) corsOrigins.push(origin);
+    try {
+      const parsed = new URL(origin);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        console.warn(`CORS: skipping origin with non-HTTP protocol: ${origin}`);
+        continue;
+      }
+      if (!corsOrigins.includes(origin)) corsOrigins.push(origin);
+    } catch {
+      console.warn(`CORS: skipping malformed origin: ${origin}`);
+    }
   }
   app.enableCors({
     origin: corsOrigins,
