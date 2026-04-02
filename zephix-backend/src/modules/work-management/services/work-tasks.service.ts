@@ -978,59 +978,73 @@ export class WorkTasksService {
       });
     }
 
-    // STRICT validation: check all transitions before applying any
-    const invalidTransitions: Array<{
-      id: string;
-      from: TaskStatus;
-      to: TaskStatus;
-      reason: string;
-    }> = [];
+    // Build the update payload from provided fields
+    const updatePayload: Record<string, any> = {};
+    if (dto.status !== undefined) updatePayload.status = dto.status;
+    if (dto.assigneeUserId !== undefined) updatePayload.assigneeUserId = dto.assigneeUserId;
+    if (dto.dueDate !== undefined) updatePayload.dueDate = dto.dueDate;
+    if (dto.priority !== undefined) updatePayload.priority = dto.priority;
 
-    for (const task of tasks) {
-      const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
-      if (!allowed.includes(dto.status)) {
-        invalidTransitions.push({
-          id: task.id,
-          from: task.status,
-          to: dto.status,
-          reason: `Cannot transition from ${task.status} to ${dto.status}`,
-        });
-      }
-    }
-
-    if (invalidTransitions.length > 0) {
+    if (Object.keys(updatePayload).length === 0) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
-        message: 'One or more invalid status transitions',
-        invalidTransitions,
+        message: 'At least one update field must be provided',
       });
+    }
+
+    // STRICT validation for status transitions (only if status is being changed)
+    if (dto.status !== undefined) {
+      const invalidTransitions: Array<{
+        id: string;
+        from: TaskStatus;
+        to: TaskStatus;
+        reason: string;
+      }> = [];
+
+      for (const task of tasks) {
+        const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] ?? [];
+        if (!allowed.includes(dto.status)) {
+          invalidTransitions.push({
+            id: task.id,
+            from: task.status,
+            to: dto.status,
+            reason: `Cannot transition from ${task.status} to ${dto.status}`,
+          });
+        }
+      }
+
+      if (invalidTransitions.length > 0) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'One or more invalid status transitions',
+          invalidTransitions,
+        });
+      }
     }
 
     // Get projectIds for health recalculation (before update)
     const projectIds = [...new Set(tasks.map((t) => t.projectId))];
 
-    // WIP limit enforcement per project
-    for (const pid of projectIds) {
-      const projectTaskIds = tasks
-        .filter((t) => t.projectId === pid)
-        .map((t) => t.id);
-      await this.wipLimitsService.enforceWipLimitBulkOrThrow(
-        auth,
-        workspaceId,
-        pid,
-        projectTaskIds,
-        dto.status,
-      );
+    // WIP limit enforcement per project (only if status is being changed)
+    if (dto.status !== undefined) {
+      for (const pid of projectIds) {
+        const projectTaskIds = tasks
+          .filter((t) => t.projectId === pid)
+          .map((t) => t.id);
+        await this.wipLimitsService.enforceWipLimitBulkOrThrow(
+          auth,
+          workspaceId,
+          pid,
+          projectTaskIds,
+          dto.status,
+        );
+      }
     }
 
-    // Update all tasks.
-    // Uses TenantAwareRepository.update() instead of qb().update() to avoid
-    // the SQL alias error that occurs when SelectQueryBuilder.update() generates
-    // 'UPDATE "work_tasks" "task" SET ... WHERE "task"."workspaceId"' — TypeORM
-    // does not always resolve alias.propertyName to column names in UPDATE context.
+    // Update all tasks atomically
     await this.taskRepo.update(
       { id: In(dto.taskIds), workspaceId, deletedAt: IsNull() } as any,
-      { status: dto.status } as any,
+      updatePayload as any,
     );
 
     // Trigger health recalculation for affected projects
