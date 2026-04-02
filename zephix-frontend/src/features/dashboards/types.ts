@@ -54,12 +54,6 @@ export interface DashboardEntity {
   shareToken?: string | null;
   shareEnabled?: boolean;
   shareExpiresAt?: string | null;
-  // Batch 4: Publishing
-  isPublished?: boolean;
-  audience?: string[];
-  isDefault?: boolean;
-  publishedAt?: string | null;
-  publishedByUserId?: string | null;
 }
 
 export interface SharedDashboardEntity {
