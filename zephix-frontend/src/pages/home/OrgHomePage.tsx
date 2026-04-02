@@ -335,8 +335,6 @@ export default function OrgHomePage() {
   const {
     isLoading: orgLoading,
     workspaceCount,
-    dismissed,
-    onboardingStatus,
     isAdmin,
     isMember,
     isViewer,
@@ -508,8 +506,8 @@ export default function OrgHomePage() {
           </div>
         )}
 
-        {/* ── MODE 1: Guided Setup — Admin, zero workspaces, onboarding not done ── */}
-        {workspaceCount === 0 && isAdmin && !dismissed && onboardingStatus !== 'completed' && (
+        {/* ── MODE 1: Guided Setup — Admin, zero workspaces ── */}
+        {workspaceCount === 0 && isAdmin && (
           <>
             <div className="rounded-xl border-2 border-indigo-200 bg-white p-8 shadow-sm text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
