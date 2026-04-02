@@ -11,7 +11,9 @@ export interface OnboardingCheckState {
 
 /**
  * Shell must never block on onboarding fetches (Batch 1 + 2).
- * Full-page /onboarding is optional and self-gated in OnboardingPage; we do not redirect from the shell into it.
+ *
+ * Full-page `/onboarding` is guarded by OnboardingGuard; shell may redirect via DashboardLayout
+ * when `shouldRunAdminFirstTimeOnboarding` is true. This hook only gates on auth loading.
  */
 export function useOnboardingCheck(): OnboardingCheckState {
   const { user, loading: authLoading } = useAuth();

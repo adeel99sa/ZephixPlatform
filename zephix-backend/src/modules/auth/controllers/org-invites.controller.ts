@@ -109,14 +109,15 @@ export class InvitesController {
   ): Promise<AcceptInviteResponseDto> {
     const { userId } = getAuthContext(req);
 
-    const { orgId } = await this.orgInvitesService.acceptInvite({
+    const result = await this.orgInvitesService.acceptInvite({
       rawToken: dto.token,
       userId,
     });
 
     return {
-      orgId,
+      orgId: result.orgId,
       message: 'Invitation accepted successfully',
+      workspaceIds: result.workspaceIds ?? [],
     };
   }
 }
