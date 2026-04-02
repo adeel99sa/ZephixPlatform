@@ -32,6 +32,7 @@ import {
   listActivity,
   listComments,
   listDependencies,
+  bulkUpdate,
   listTasks,
   removeDependency,
   restoreTask,
@@ -621,43 +622,33 @@ export function TaskListSection({ projectId, workspaceId }: Props) {
         patch.dueDate = null;
       }
 
-      // BULK STATUS: NOT optimistic due to STRICT validation
-      // Server may reject entire batch if any transition is invalid
-      // For non-status actions: also keep non-optimistic for simplicity (MVP)
-      const results = await Promise.allSettled(
-        ids.map((id) => updateTask(id, patch as any))
-      );
+      // Use atomic bulk API (PATCH /work/tasks/actions/bulk-update)
+      try {
+        const bulkInput: any = { taskIds: ids };
+        if (patch.status !== undefined) bulkInput.status = patch.status;
+        if (patch.assigneeUserId !== undefined) bulkInput.assigneeUserId = patch.assigneeUserId;
+        if (patch.dueDate !== undefined) bulkInput.dueDate = patch.dueDate;
 
-      const fulfilled = results.filter((r): r is PromiseFulfilledResult<WorkTask> => r.status === 'fulfilled');
-      const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        const result = await bulkUpdate(bulkInput);
+        toast.success(`Updated ${result.updated} task${result.updated > 1 ? 's' : ''}`);
 
-      // Apply successful updates to local state (in-place, no full reload)
-      if (fulfilled.length > 0) {
-        const updatedMap = new Map(fulfilled.map(r => [r.value.id, r.value]));
-        setTasks(prev => prev.map(t => updatedMap.get(t.id) || t));
-        toast.success(`Updated ${fulfilled.length} task${fulfilled.length > 1 ? 's' : ''}`);
-
-        // Invalidate stats cache (only when changes applied) and dispatch event
+        // Refresh task list to reflect changes
         invalidateStatsCache(projectId);
         window.dispatchEvent(new CustomEvent('task:changed', { detail: { projectId } }));
-      }
-      // Note: Do NOT invalidate stats when all rejected (VALIDATION_ERROR)
-
-      // Handle errors with detailed messages
-      if (rejected.length > 0) {
-        const firstError = rejected[0]?.reason;
-        const { code, message, invalidTransitions } = getErrorDetails(firstError);
+        const refreshed = await listTasks({ projectId });
+        setTasks(refreshed.items);
+      } catch (bulkError: any) {
+        const { code, message, invalidTransitions } = getErrorDetails(bulkError);
 
         if (code === ERR_VALIDATION_ERROR && invalidTransitions?.length) {
-          // Show first 3 invalid transitions
           const details = invalidTransitions.slice(0, 3)
-            .map(t => `${t.from} → ${t.to}`)
+            .map((t: any) => `${t.from} → ${t.to}`)
             .join(', ');
-          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${details}`);
+          toast.error(`Bulk update failed: ${details}`);
         } else if (code === ERR_WORKSPACE_REQUIRED) {
           handleWorkspaceError();
         } else {
-          toast.error(`${rejected.length} task${rejected.length > 1 ? 's' : ''} failed: ${message}`);
+          toast.error(message || 'Bulk update failed');
         }
       }
 
