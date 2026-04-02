@@ -38,17 +38,9 @@ export function CommandPalette() {
     }
   };
 
-  const createProject = async () => {
-    const projectName = prompt('Project name:');
-    if (projectName) {
-      try {
-        await api.post('/projects', { name: projectName });
-        toast.success('Project created successfully');
-        setOpen(false);
-      } catch (error) {
-        toast.error('Failed to create project');
-      }
-    }
+  const createProject = () => {
+    setOpen(false);
+    navigate('/templates');
   };
 
   if (!open) return null;

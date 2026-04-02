@@ -36,20 +36,9 @@ export function WorkspaceQuickAddMenu({ workspaceId, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [onClose]);
 
-  async function createProject() {
-    try {
-      const res = await api.post(`/workspaces/${workspaceId}/projects`, {
-        name: 'New Project',
-      });
-      const data = unwrapApiData<CreateProjectResponse>(res.data);
-      const projectId = getId(data);
-      if (!projectId) throw new Error('Create project failed. Missing id.');
-      toast.success('Project created');
-      onClose();
-      nav(`/workspaces/${workspaceId}/projects/${projectId}?view=list`, { replace: true });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || e?.message || 'Create project failed');
-    }
+  function createProject() {
+    onClose();
+    nav('/templates');
   }
 
   async function createDoc() {
