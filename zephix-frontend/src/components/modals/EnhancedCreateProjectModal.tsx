@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 1 Workstream A: This modal is retired.
+ * It does not send workspaceId and discards most collected data before API call.
+ * The canonical project creation flow is: /templates → TemplateCenterPage → InstantiateTemplateModal
+ * Kept temporarily to avoid breaking imports. Do not use in new code.
+ */
 import React, { useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
