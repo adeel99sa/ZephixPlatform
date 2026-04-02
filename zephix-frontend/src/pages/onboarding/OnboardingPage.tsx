@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Sparkles, Users, Building2, ArrowRight, Mail } from "lucide-react";
+import { Sparkles, Users, Building2, ArrowRight, Mail, Lock, Loader2 } from "lucide-react";
 import { createWorkspace, listWorkspaces } from "@/features/workspaces/api";
 import { useWorkspaceStore } from "@/state/workspace.store";
-import { completeOnboarding } from "@/features/organizations/onboarding.api";
+import { finalizeAdminOnboardingOnServer } from "@/features/organizations/finalizeAdminOnboarding";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { administrationApi } from "@/features/administration/api/administration.api";
 
@@ -63,6 +63,11 @@ export default function OnboardingPage() {
   const userSkippedWorkspace = workspaceCount === 0 && !createdWorkspaceId;
   const workspaceIdForInvite = createdWorkspaceId ?? firstWorkspaceId;
   const canSendInvites = Boolean(workspaceIdForInvite) && !userSkippedWorkspace;
+  const inviteWorkspaceLoading =
+    !userSkippedWorkspace &&
+    workspaceCount > 0 &&
+    !workspaceIdForInvite &&
+    (workspacesQuery.isFetching || workspacesQuery.isLoading);
 
   useEffect(() => {
     try {
@@ -81,10 +86,10 @@ export default function OnboardingPage() {
   );
 
   async function finishOnboarding() {
-    try {
-      await completeOnboarding();
-    } catch {
-      /* non-blocking — user still lands in shell */
+    const ok = await finalizeAdminOnboardingOnServer();
+    if (!ok) {
+      toast.error("We could not save your setup. Check your connection, then try again.");
+      return;
     }
     try {
       sessionStorage.removeItem(INVITE_PHASE_KEY);
@@ -181,52 +186,75 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#0b0f19] text-white antialiased">
       <div
-        className="pointer-events-none absolute inset-0 opacity-90"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99, 102, 241, 0.45), transparent 55%), radial-gradient(ellipse 70% 50% at 80% 10%, rgba(236, 72, 153, 0.35), transparent 50%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(34, 211, 238, 0.25), transparent 55%)",
+            "radial-gradient(ellipse 90% 70% at 15% 0%, rgba(79, 70, 229, 0.35), transparent 50%), radial-gradient(ellipse 80% 60% at 95% 15%, rgba(14, 165, 233, 0.2), transparent 45%), radial-gradient(ellipse 70% 50% at 50% 100%, rgba(217, 70, 239, 0.12), transparent 50%)",
         }}
       />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-10 sm:px-8">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-indigo-200/90">
-            <Sparkles className="h-4 w-4 text-cyan-300" aria-hidden />
-            <span>Zephix</span>
-          </div>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-indigo-100/80">
-            {progressLabel}
-          </span>
-        </div>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
 
-        <div className="grid flex-1 items-center gap-10 lg:grid-cols-2">
-          <div className="space-y-4 lg:pr-4">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-10 sm:py-12">
+        <header className="mb-10 flex flex-col gap-6 sm:mb-12 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
+              <Sparkles className="h-5 w-5 text-cyan-300" aria-hidden />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Zephix</p>
+              <p className="text-sm font-medium text-slate-200">Organization setup</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <span className="text-xs font-medium text-slate-400">{progressLabel}</span>
+            <div className="flex h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-white/10 sm:w-[200px]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400 transition-all duration-500 ease-out"
+                style={{ width: phase === "workspace" ? "50%" : "100%" }}
+              />
+            </div>
+          </div>
+        </header>
+
+        <div className="grid flex-1 items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
+          <div className="space-y-5 lg:pr-2">
+            <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl lg:text-[2.25rem]">
               {phase === "workspace" ? "Create your workspace" : "Invite your team"}
             </h1>
-            <p className="max-w-md text-base leading-relaxed text-indigo-100/75">
+            <p className="max-w-lg text-base leading-relaxed text-slate-300 sm:text-[17px]">
               {phase === "workspace"
                 ? "Set up your workspace to organize projects, dashboards, documents, and risks."
                 : "Bring your team into Zephix so they can access work, dashboards, and updates."}
             </p>
             {phase === "invite" && userSkippedWorkspace ? (
-              <p className="max-w-md rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
-                You skipped workspace creation. You can create a workspace anytime from Home. Team invites
-                need a workspace — use &quot;Do this later&quot; to continue.
-              </p>
+              <div className="max-w-lg rounded-xl border border-amber-400/25 bg-amber-500/[0.08] px-4 py-3 text-sm leading-relaxed text-amber-50/95">
+                <p className="font-medium text-amber-100">No workspace yet</p>
+                <p className="mt-1 text-amber-100/85">
+                  Invites are sent in the context of a workspace. Create one from Home when you are ready, or
+                  choose <strong className="font-semibold">Do this later</strong> below to enter the app now.
+                </p>
+              </div>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/95 p-6 text-gray-900 shadow-2xl shadow-indigo-950/40 backdrop-blur sm:p-8">
+          <div className="rounded-3xl border border-slate-200/10 bg-white p-8 text-slate-900 shadow-[0_24px_80px_-12px_rgba(15,23,42,0.45)] ring-1 ring-slate-900/[0.04] sm:p-10">
             {phase === "workspace" ? (
               <div className="space-y-5">
-                <div className="flex items-center gap-2 text-sm font-medium text-indigo-600">
+                <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
                   <Building2 className="h-4 w-4" aria-hidden />
                   Workspace
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ws-name">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="ws-name">
                     Workspace name
                   </label>
                   <input
@@ -241,21 +269,22 @@ export default function OnboardingPage() {
                       }
                     }}
                     placeholder="e.g. Engineering"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-900 outline-none ring-indigo-500/0 transition focus:ring-2"
+                    autoComplete="organization"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 {!showSlug ? (
                   <button
                     type="button"
                     onClick={() => setShowSlug(true)}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                    className="text-left text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                   >
                     Add custom slug (optional)
                   </button>
                 ) : (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ws-slug">
-                      Slug <span className="font-normal text-gray-400">(optional)</span>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="ws-slug">
+                      Slug <span className="font-normal text-slate-400">(optional)</span>
                     </label>
                     <input
                       id="ws-slug"
@@ -266,16 +295,16 @@ export default function OnboardingPage() {
                         setWorkspaceSlug(slugify(e.target.value));
                       }}
                       placeholder="engineering"
-                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-900 outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20"
                     />
                   </div>
                 )}
-                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                <div className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={handleSkipWorkspace}
                     disabled={submitting}
-                    className="order-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:order-1"
+                    className="order-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 sm:order-1"
                   >
                     Skip for now
                   </button>
@@ -283,7 +312,7 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={handleCreateWorkspace}
                     disabled={submitting || !workspaceName.trim()}
-                    className="order-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700 disabled:opacity-50 sm:order-2"
+                    className="order-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 disabled:opacity-40 sm:order-2"
                   >
                     {submitting ? "Creating…" : "Create workspace"}
                     <ArrowRight className="h-4 w-4" aria-hidden />
@@ -292,12 +321,28 @@ export default function OnboardingPage() {
               </div>
             ) : (
               <div className="space-y-5">
-                <div className="flex items-center gap-2 text-sm font-medium text-indigo-600">
+                <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
                   <Users className="h-4 w-4" aria-hidden />
                   Invites
                 </div>
+
+                {userSkippedWorkspace ? (
+                  <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                    <div>
+                      <p className="font-medium text-slate-800">Sending invites is unavailable</p>
+                      <p className="mt-1 leading-relaxed">
+                        Workspace-scoped invites need an active workspace. Use{" "}
+                        <span className="font-medium text-slate-900">Do this later</span> to continue, then create
+                        a workspace from Home and invite people from{" "}
+                        <span className="font-medium text-slate-900">Administration → Users</span>.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="emails">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="emails">
                     Email addresses
                   </label>
                   <textarea
@@ -307,15 +352,15 @@ export default function OnboardingPage() {
                     onChange={(e) => setInviteEmails(e.target.value)}
                     disabled={userSkippedWorkspace}
                     placeholder="colleague@company.com, teammate@company.com"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                   />
-                  <p className="mt-1 flex items-start gap-1 text-xs text-gray-500">
-                    <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">
+                    <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
                     Separate multiple emails with commas or new lines.
                   </p>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="role">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="role">
                     Role
                   </label>
                   <select
@@ -323,18 +368,26 @@ export default function OnboardingPage() {
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value as InvitePlatformRole)}
                     disabled={userSkippedWorkspace}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:bg-gray-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-50"
                   >
                     <option value="Member">Member</option>
                     <option value="Guest">Guest (viewer)</option>
                   </select>
                 </div>
-                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+
+                {inviteWorkspaceLoading ? (
+                  <p className="flex items-center gap-2 text-xs text-slate-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" aria-hidden />
+                    Loading workspace so invites can be attached…
+                  </p>
+                ) : null}
+
+                <div className="flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={finishOnboarding}
+                    onClick={() => void finishOnboarding()}
                     disabled={submitting}
-                    className="order-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:order-1"
+                    className="order-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 sm:order-1"
                   >
                     Do this later
                   </button>
@@ -342,7 +395,12 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={handleSendInvites}
                     disabled={submitting || !canSendInvites}
-                    className="order-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700 disabled:opacity-50 sm:order-2"
+                    title={
+                      !canSendInvites && !userSkippedWorkspace
+                        ? "Wait for workspace to load, or create a workspace in step 1"
+                        : undefined
+                    }
+                    className="order-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-700 disabled:pointer-events-none disabled:opacity-40 sm:order-2"
                   >
                     {submitting ? "Sending…" : "Send invites"}
                     <ArrowRight className="h-4 w-4" aria-hidden />

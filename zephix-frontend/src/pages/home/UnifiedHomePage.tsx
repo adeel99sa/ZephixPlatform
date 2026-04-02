@@ -22,6 +22,8 @@ import {
   PlusCircle,
 } from "lucide-react";
 
+const DOCS_BASE = "https://docs.zephix.io";
+
 /**
  * UnifiedHomePage — Personalized operational landing for all roles.
  * Admin first-time setup runs on /onboarding only; Home stays a hub (no giant wizard).
@@ -60,10 +62,10 @@ export default function UnifiedHomePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-gray-900">Welcome back, {firstName}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {isAdmin && "Your organization overview and priority actions."}
+      <header className="border-b border-slate-100 pb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Welcome back, {firstName}</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+          {isAdmin && "Your operational hub — workspaces, team, and shortcuts in one place."}
           {isMember && "Your work and recent activity."}
           {isViewer && "Your read-only view of shared content."}
         </p>
@@ -76,39 +78,50 @@ export default function UnifiedHomePage() {
       {/* Admin empty hub — no oversized onboarding hero */}
       {isAdmin && workspaceCount === 0 && (
         <div
-          className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/90 via-white to-cyan-50/80 p-6 shadow-sm"
+          className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-8 shadow-sm ring-1 ring-slate-900/[0.04]"
           data-testid="admin-empty-hub"
         >
-          <h2 className="text-lg font-semibold text-gray-900">Your hub is ready</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Create a workspace when you are ready, or explore help and learning resources.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              to="/workspaces"
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Create workspace
-            </Link>
-            <a
-              href="https://zephix.dev/help"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <HelpCircle className="h-4 w-4 text-gray-500" />
-              Help center
-            </a>
-            <a
-              href="https://zephix.dev/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <BookOpen className="h-4 w-4 text-gray-500" />
-              Learn Zephix
-            </a>
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-500 via-violet-500 to-cyan-500"
+            aria-hidden
+          />
+          <div className="relative pl-2 sm:pl-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Next step</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Set up your first workspace</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
+              You are in the app. When you create a workspace, projects, dashboards, and invites connect to it.
+              Until then, use the links below — nothing here is broken.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                to="/workspaces"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              >
+                <PlusCircle className="h-4 w-4" aria-hidden />
+                Create workspace
+              </Link>
+              <a
+                href={`${DOCS_BASE}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+              >
+                <HelpCircle className="h-4 w-4 text-slate-500" aria-hidden />
+                Help center
+              </a>
+              <a
+                href={`${DOCS_BASE}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+              >
+                <BookOpen className="h-4 w-4 text-slate-500" aria-hidden />
+                Learn Zephix
+              </a>
+            </div>
+            <p className="mt-6 text-xs leading-relaxed text-slate-400">
+              Dashboards and templates need a selected workspace; they appear in the sidebar once you create one.
+            </p>
           </div>
         </div>
       )}
@@ -234,17 +247,17 @@ export default function UnifiedHomePage() {
             icon={<BookOpen className="h-4 w-4" />}
             label="Learn Zephix"
             description="Guides and tutorials"
-            onClick={() => window.open("https://zephix.dev/docs", "_blank")}
+            onClick={() => window.open(DOCS_BASE, "_blank")}
             muted
           />
           <ActionCard
             icon={<HelpCircle className="h-4 w-4" />}
             label="Help center"
             description="FAQ and support"
-            onClick={() => window.open("https://zephix.dev/help", "_blank")}
+            onClick={() => window.open(DOCS_BASE, "_blank")}
             muted
           />
-          {isAdmin && (
+          {isAdmin && workspaceCount > 0 && (
             <ActionCard
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
