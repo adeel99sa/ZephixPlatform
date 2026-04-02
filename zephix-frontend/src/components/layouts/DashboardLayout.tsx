@@ -22,7 +22,7 @@ import { shouldRunAdminFirstTimeOnboarding } from "@/routing/adminOnboardingPoli
  * Admin + (`not_started` | `in_progress`). Never for completed, dismissed, Member, or Viewer.
  * Waits until org onboarding status has loaded (`!orgHomeLoading`) so we do not redirect on `undefined`.
  *
- * GATE 2 — Workspace validation (validates persisted ID if one exists).
+ * GATE 2 — Workspace validation (validates persisted ID when a workspace is selected).
  */
 export default function DashboardLayout() {
   const { user } = useAuth();
@@ -39,11 +39,6 @@ export default function DashboardLayout() {
     !orgHomeLoading &&
     shouldRunAdminFirstTimeOnboarding({ platformRole, onboardingStatus });
 
-  /**
-   * GATE 2: Workspace validation — only runs after onboarding is complete
-   * AND when a workspace is actually selected. Prevents 403 errors on
-   * workspace APIs for new users with zero workspaces.
-   */
   useWorkspaceValidation({
     enabled: onboardingComplete && Boolean(activeWorkspaceId),
   });

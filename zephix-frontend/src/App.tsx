@@ -85,7 +85,7 @@ import AdministrationBillingPage from "@/features/administration/pages/Administr
 import RisksPage from "@/features/risks/pages/RisksPage";
 import { useWorkspaceStore } from "@/state/workspace.store";
 
-/** "/" — authenticated users go to /home, guests see the marketing page */
+/** "/" — authenticated users go to Unified Home (Batch 2); guests see the marketing page */
 function RootRoute() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null; // wait for auth check
@@ -100,7 +100,7 @@ function RootRoute() {
   return <LandingPage />;
 }
 
-/** Canonical /home ownership by role */
+/** Unified Home — personalized landing for Admin / Member / Viewer (Batch 2). Inbox is separate at /inbox. */
 function HomeRoute() {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -258,9 +258,9 @@ export default function App() {
                 <Route path="/scenarios" element={<ScenarioPage />} />
                 {/* Paid routes - Admin and Member only */}
                 <Route element={<PaidRoute />}>
+                  <Route path="/inbox" element={<InboxPage />} />
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
-                  <Route path="/inbox" element={<InboxPage />} />
                   {/* PHASE 7 MODULE 7.2: My Work */}
                   <Route path="/my-work" element={<MyWorkPage />} />
                 </Route>

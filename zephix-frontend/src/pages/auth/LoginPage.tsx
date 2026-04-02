@@ -34,19 +34,14 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
+      // Batch 2 / org home: always land on Unified Home unless returnUrl says otherwise.
+      // Do not auto-open the first workspace (avoids /w/main/home when org has seed/sandbox workspaces).
       try {
-        const workspaces = await request.get<any[]>("/workspaces");
-        const list = Array.isArray(workspaces) ? workspaces : [];
-        if (list.length > 0) {
-          const slug = list[0].slug;
-          nav(returnUrl || `/w/${slug}/home`, { replace: true });
-        } else {
-          nav(returnUrl || "/home", { replace: true });
-        }
+        await request.get<any[]>("/workspaces");
       } catch {
-        // Login must not fail because post-login workspace bootstrap failed.
-        nav(returnUrl || "/home", { replace: true });
+        // Warm session / cache only; routing must not depend on this call.
       }
+      nav(returnUrl || "/home", { replace: true });
     } catch (e: any) {
       const code = e?.response?.data?.code;
       if (code === "EMAIL_NOT_VERIFIED") {

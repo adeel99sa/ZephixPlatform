@@ -4,7 +4,7 @@ import { isPaidUser } from "@/utils/roles";
 
 /**
  * PaidRoute - Restricts access to Admin and Member only
- * Guest (Viewer) users are redirected to /workspaces
+ * Guest (Viewer) users are redirected to Unified Home
  */
 export default function PaidRoute() {
   const { user, loading } = useAuth();

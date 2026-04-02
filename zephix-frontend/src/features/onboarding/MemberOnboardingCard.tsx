@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { skipOnboarding } from "@/features/organizations/onboarding.api";
+import { orgOnboardingStatusQueryKey } from "@/features/organizations/useOrgOnboardingStatusQuery";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
+import { useWorkspaceStore } from "@/state/workspace.store";
+import { useAuth } from "@/state/AuthContext";
 import { track } from "@/lib/telemetry";
 import { ListChecks, Inbox, UserCircle, X } from "lucide-react";
 import { useState } from "react";
@@ -9,8 +12,19 @@ import { useState } from "react";
 export function MemberOnboardingCard() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const uid = user?.id ?? "";
   const { onboardingStatus } = useOrgHomeState();
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const [dismissing, setDismissing] = useState(false);
+
+  function navIfWorkspace(path: string) {
+    if (!activeWorkspaceId) {
+      nav("/workspaces");
+      return;
+    }
+    nav(path);
+  }
 
   if (onboardingStatus === "completed" || onboardingStatus === "dismissed") {
     return null;
@@ -21,7 +35,8 @@ export function MemberOnboardingCard() {
     try {
       await skipOnboarding();
       track("onboarding_dismissed", { role: "member" });
-      qc.invalidateQueries({ queryKey: ["org-onboarding-status"] });
+      if (uid) await qc.invalidateQueries({ queryKey: orgOnboardingStatusQueryKey(uid) });
+      else await qc.invalidateQueries({ queryKey: ["org-onboarding-status"] });
     } finally {
       setDismissing(false);
     }
@@ -44,8 +59,8 @@ export function MemberOnboardingCard() {
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
-        <QuickAction icon={<ListChecks className="h-3.5 w-3.5" />} label="My Tasks" onClick={() => nav("/projects")} />
-        <QuickAction icon={<Inbox className="h-3.5 w-3.5" />} label="Inbox" onClick={() => nav("/inbox")} />
+        <QuickAction icon={<ListChecks className="h-3.5 w-3.5" />} label="My Tasks" onClick={() => navIfWorkspace("/projects")} />
+        <QuickAction icon={<Inbox className="h-3.5 w-3.5" />} label="Inbox" onClick={() => navIfWorkspace("/inbox")} />
         <QuickAction icon={<UserCircle className="h-3.5 w-3.5" />} label="Set up profile" onClick={() => nav("/settings/profile")} />
       </div>
     </div>
