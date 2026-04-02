@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsOptional,
   IsUUID,
+  IsObject,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -36,4 +37,12 @@ export class UpdateDashboardDto {
   @IsEnum(DashboardVisibility)
   @IsOptional()
   visibility?: DashboardVisibility;
+
+  @ApiPropertyOptional({
+    description: 'Dashboard layout configuration',
+    type: Object,
+  })
+  @IsObject()
+  @IsOptional()
+  layoutConfig?: Record<string, unknown>;
 }
