@@ -1,35 +1,27 @@
+import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/state/AuthContext";
 import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 import { platformRoleFromUser } from "@/utils/roles";
+import { shouldRunAdminFirstTimeOnboarding } from "@/routing/adminOnboardingPolicy";
 
 /**
- * Guard for the full-page /onboarding route.
- *
- * Only allows access when ALL of these are true:
- * - role is ADMIN
- * - onboardingStatus is not_started or in_progress
- * - user has zero accessible workspaces
- *
- * Otherwise redirects to /home.
- * Returning admins, completed users, and dismissed users always go to /home.
+ * Guard for the full-page /onboarding route (Admin-only two-step flow).
+ * Allows access while org onboarding status is not_started or in_progress — including
+ * after a workspace is created (invite step). Everyone else redirects to /home.
  */
-export function OnboardingGuard({ children }: { children: React.ReactNode }) {
+export function OnboardingGuard({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const { isLoading, onboardingStatus, workspaceCount } = useOrgHomeState();
+  const { isLoading, onboardingStatus } = useOrgHomeState();
 
-  // While auth or onboarding status is loading, show nothing (fail-open on next render)
   if (loading || isLoading) return null;
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const isAdmin = platformRoleFromUser(user) === "ADMIN";
-  const isBootstrap =
-    isAdmin &&
-    (onboardingStatus === "not_started" || onboardingStatus === "in_progress") &&
-    workspaceCount === 0;
+  const platformRole = platformRoleFromUser(user);
+  const allow = shouldRunAdminFirstTimeOnboarding({ platformRole, onboardingStatus });
 
-  if (!isBootstrap) {
+  if (!allow) {
     return <Navigate to="/home" replace />;
   }
 

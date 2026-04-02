@@ -6,7 +6,7 @@
  * 2. Guest does not see Administration nav entry
  * 3. Guest does not see Template Center
  * 4. Member does not see Administration nav entry
- * 5. Admin sees Administration entry
+ * 5. Admin does not see Administration in the left sidebar
  * 6. Guest does not see Members workspace nav
  */
 import { render, screen } from '@testing-library/react';
@@ -53,10 +53,6 @@ vi.mock('@/features/workspaces/components/WorkspaceSettingsModal/controller', ()
 
 vi.mock('@/features/workspaces/api', () => ({
   deleteWorkspace: vi.fn(),
-}));
-
-vi.mock('./UserProfileDropdown', () => ({
-  UserProfileDropdown: () => <div data-testid="user-profile-dropdown" />,
 }));
 
 import { useAuth } from '@/state/AuthContext';
@@ -118,13 +114,13 @@ describe('Sidebar — Phase 2A role gating', () => {
     expect(screen.queryByTestId('nav-administration')).not.toBeInTheDocument();
   });
 
-  // ── 5. Admin sees Administration ────────────────────────────────────
-  it('admin sees Administration nav entry', () => {
+  // ── 5. Admin does not see Administration in sidebar ───────────────────
+  it('admin does not see Administration nav entry in sidebar', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', platformRole: 'ADMIN', email: 'admin@test.com' },
     });
     renderSidebar();
-    expect(screen.getByTestId('nav-administration')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-administration')).not.toBeInTheDocument();
   });
 
   // ── 6. Guest does not see Members workspace nav ─────────────────────
