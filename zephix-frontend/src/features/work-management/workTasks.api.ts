@@ -169,7 +169,10 @@ export interface UpdateTaskPatch {
 
 export interface BulkUpdateInput {
   taskIds: string[];
-  status: WorkTaskStatus;
+  status?: WorkTaskStatus;
+  assigneeUserId?: string | null;
+  dueDate?: string | null;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
 export interface TaskComment {
@@ -384,10 +387,12 @@ export async function restoreTask(id: string): Promise<WorkTask> {
 
 export async function bulkUpdate(input: BulkUpdateInput): Promise<{ updated: number }> {
   requireActiveWorkspace();
-  const data = await request.patch<{ updated?: number }>("/work/tasks/bulk", {
-    taskIds: input.taskIds,
-    status: input.status,
-  });
+  const payload: Record<string, unknown> = { taskIds: input.taskIds };
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.assigneeUserId !== undefined) payload.assigneeUserId = input.assigneeUserId;
+  if (input.dueDate !== undefined) payload.dueDate = input.dueDate;
+  if (input.priority !== undefined) payload.priority = input.priority;
+  const data = await request.patch<{ updated?: number }>("/work/tasks/bulk", payload);
   return { updated: typeof data?.updated === "number" ? data.updated : input.taskIds.length };
 }
 
