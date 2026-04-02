@@ -20,6 +20,7 @@ import { TenantContextService } from '../../tenancy/tenant-context.service';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { normalizePlatformRole } from '../../../shared/enums/platform-roles.enum';
 import { isWidgetKeyAllowed, WidgetKey } from '../widgets/widget-allowlist';
+import { validateDashboardLayoutConfig } from '../contracts/dashboard-layout.contract';
 
 type WidgetConfigSchema = {
   [key: string]: {
@@ -42,6 +43,16 @@ const SHARED_WIDGET_CONFIG_SCHEMA: Record<WidgetKey, WidgetConfigSchema> = {
   program_summary: {},
   critical_path_risk: {},
   earned_value_summary: {},
+  my_tasks_today: {},
+  overdue_tasks: {},
+  blocked_tasks: {},
+  tasks_by_status: {},
+  projects_at_risk: {},
+  upcoming_deadlines: {},
+  milestone_progress: {},
+  workload_distribution: {},
+  resource_capacity: {},
+  active_risks: {},
 };
 
 const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
@@ -55,6 +66,16 @@ const SHARED_WIDGET_CONFIG_ALLOWLIST: Record<WidgetKey, string[]> = {
   program_summary: [],
   critical_path_risk: [],
   earned_value_summary: [],
+  my_tasks_today: [],
+  overdue_tasks: [],
+  blocked_tasks: [],
+  tasks_by_status: [],
+  projects_at_risk: [],
+  upcoming_deadlines: [],
+  milestone_progress: [],
+  workload_distribution: [],
+  resource_capacity: [],
+  active_risks: [],
 };
 const SQL_LIKE_PATTERN =
   /\b(select|insert|update|delete|drop|alter|create|truncate)\b/i;
@@ -391,7 +412,10 @@ export class DashboardsService {
       organizationId,
       ownerUserId: userId,
       workspaceId: dto.workspaceId || workspaceId || null,
-    });
+      layoutConfig: validateDashboardLayoutConfig(
+        dto.layoutConfig,
+      ) as unknown as Record<string, unknown>,
+    } as Partial<Dashboard>);
 
     return await this.dashboardRepository.save(dashboard);
   }
@@ -566,9 +590,16 @@ export class DashboardsService {
       }
     }
 
-    Object.assign(dashboard, dto);
+    const dashboardPatch: Partial<UpdateDashboardDto> = { ...dto };
+    delete (dashboardPatch as Record<string, unknown>).layoutConfig;
+    Object.assign(dashboard, dashboardPatch);
     if (dto.workspaceId !== undefined) {
       dashboard.workspaceId = dto.workspaceId || null;
+    }
+    if (dto.layoutConfig !== undefined) {
+      dashboard.layoutConfig = validateDashboardLayoutConfig(
+        dto.layoutConfig,
+      ) as unknown as Record<string, unknown>;
     }
 
     return await this.dashboardRepository.save(dashboard);
