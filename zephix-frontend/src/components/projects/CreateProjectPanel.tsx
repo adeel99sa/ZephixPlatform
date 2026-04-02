@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 1 Workstream A: This panel is retired.
+ * It does not send workspaceId (required by backend) and does not use templates.
+ * The canonical project creation flow is: /templates → TemplateCenterPage → InstantiateTemplateModal → POST /templates/:id/instantiate-v5_1
+ * Kept temporarily to avoid breaking imports. Do not use in new code.
+ */
 import React, { useState } from 'react';
 import { X, Calendar, User, Flag, ChevronRight } from 'lucide-react';
 import { projectService } from '../../services/projectService';
