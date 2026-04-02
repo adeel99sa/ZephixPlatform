@@ -72,29 +72,16 @@ export function useOnboardingCheck(): OnboardingCheckState {
 
     try {
       const status = await onboardingApi.getOnboardingStatus() as {
-        onboardingStatus?: string;
         completed?: boolean;
-        dismissed?: boolean;
         mustOnboard?: boolean;
         skipped?: boolean;
         workspaceCount?: number;
       };
 
-      // Hard rule: if onboardingStatus is completed or dismissed, NEVER redirect
-      const isDone =
-        status?.onboardingStatus === 'completed' ||
-        status?.onboardingStatus === 'dismissed' ||
-        status?.completed === true ||
-        status?.dismissed === true ||
-        status?.skipped === true;
-
-      if (isDone) {
-        setState({
-          checking: false,
-          onboardingComplete: true,
-          error: null,
-        });
-      } else if (status?.mustOnboard === true) {
+      // Use mustOnboard as the source of truth for redirect (admin only)
+      // mustOnboard = true means: no workspaces AND not skipped
+      if (status?.mustOnboard === true) {
+        console.log('[OnboardingCheck] Admin mustOnboard=true, redirecting to /onboarding');
         navigate('/onboarding', { replace: true });
         setState({
           checking: false,
@@ -102,7 +89,12 @@ export function useOnboardingCheck(): OnboardingCheckState {
           error: null,
         });
       } else {
-        // Fallback: safe to proceed
+        // Either completed (has workspaces) or skipped - safe to proceed
+        console.log('[OnboardingCheck] Safe to proceed:', {
+          completed: status?.completed,
+          skipped: status?.skipped,
+          workspaceCount: status?.workspaceCount,
+        });
         setState({
           checking: false,
           onboardingComplete: true,
@@ -114,7 +106,7 @@ export function useOnboardingCheck(): OnboardingCheckState {
       // On error, allow user to proceed (don't block the app)
       setState({
         checking: false,
-        onboardingComplete: true,
+        onboardingComplete: true, // Assume complete on error to not block
         error: error?.message || 'Failed to check onboarding status',
       });
     }
