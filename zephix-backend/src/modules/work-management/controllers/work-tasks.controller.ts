@@ -204,9 +204,9 @@ export class WorkTasksController {
     return this.responseService.success(task);
   }
 
-  // 3. PATCH /api/work/tasks/bulk
-  @Patch('bulk')
-  @ApiOperation({ summary: 'Bulk update task status' })
+  // 3. PATCH /api/work/tasks/bulk-update (collision-proof — 'bulk' was caught by @Patch(':id'))
+  @Patch('bulk-update')
+  @ApiOperation({ summary: 'Bulk update tasks (status, assign, dueDate, priority)' })
   @ApiHeader({
     name: 'x-workspace-id',
     description: 'Workspace ID',
