@@ -144,7 +144,9 @@ export function Sidebar() {
     location.pathname.startsWith("/my-work") ||
     location.pathname.startsWith("/inbox");
 
-  if (isAdmin) {
+  // Batch 2 spec: one shared sidebar for all roles. Admin-specific sidebar disabled.
+  // Admin gets "Administration" link in the shared sidebar below instead.
+  if (false) {
     const adminNavItems = [
       { key: "home", label: "Home", icon: Home, to: "/home" },
       { key: "inbox", label: "Inbox", icon: Inbox, to: "/inbox" },
