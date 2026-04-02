@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { CreateProjectPanel } from '../../components/projects/CreateProjectPanel';
 import { Button } from '../../components/ui/button/Button';
 import { apiClient } from '../../lib/api/client';
 import { API_ENDPOINTS } from '../../lib/api/endpoints';
@@ -13,7 +12,6 @@ import { useAuth } from '../../state/AuthContext';
 
 const ProjectsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const [showCreatePanel, setShowCreatePanel] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -76,7 +74,7 @@ const ProjectsPage: React.FC = () => {
   };
 
   const handleCreateProject = () => {
-    setShowCreatePanel(true);
+    navigate('/templates');
   };
 
   // Handle project click - navigate to project overview
@@ -135,7 +133,7 @@ const ProjectsPage: React.FC = () => {
           <div className="text-center">
             <div className="text-sm font-medium text-slate-600">No projects yet</div>
             <div className="mt-1 text-sm text-slate-500">
-              Create a new project to get started
+              Create a project from a template to get started
             </div>
             <Button
               variant="primary"
@@ -187,15 +185,6 @@ const ProjectsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Create Project Panel */}
-      <CreateProjectPanel
-        isOpen={showCreatePanel}
-        onClose={() => setShowCreatePanel(false)}
-        onSuccess={() => {
-          setShowCreatePanel(false);
-          queryClient.invalidateQueries({ queryKey: ['projects'] });
-        }}
-      />
     </div>
   );
 };
