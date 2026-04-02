@@ -81,6 +81,7 @@ import { CapacityCalendarService } from './services/capacity-calendar.service';
 import { DemandModelService } from './services/demand-model.service';
 import { CapacityAnalyticsService } from './services/capacity-analytics.service';
 import { CapacityLevelingService } from './services/capacity-leveling.service';
+import { CapacityGovernanceService } from './services/capacity-governance.service';
 import { CapacityCalendarController } from './controllers/capacity-calendar.controller';
 import { CapacityAnalyticsController } from './controllers/capacity-analytics.controller';
 import { CapacityLevelingController } from './controllers/capacity-leveling.controller';
@@ -185,6 +186,7 @@ import { CapacityLevelingController } from './controllers/capacity-leveling.cont
     DemandModelService,
     CapacityAnalyticsService,
     CapacityLevelingService,
+    CapacityGovernanceService,
   ],
   exports: [
     TypeOrmModule,
