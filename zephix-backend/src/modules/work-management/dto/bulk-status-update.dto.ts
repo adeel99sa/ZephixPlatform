@@ -1,4 +1,5 @@
 import { IsArray, IsEnum, IsUUID, IsOptional, IsDateString, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { TaskStatus, TaskPriority } from '../enums/task.enums';
 
@@ -12,6 +13,7 @@ export class BulkStatusUpdateDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
+  @Type(() => String)
   taskIds: string[];
 
   @ApiProperty({ description: 'New status for all tasks', enum: TaskStatus, required: false })
