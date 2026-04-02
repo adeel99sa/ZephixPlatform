@@ -204,6 +204,18 @@ export class WorkTasksController {
     return this.responseService.success(task);
   }
 
+  // DIAGNOSTIC: Prove which handler resolves for this route
+  @Patch('actions/bulk-diag')
+  async bulkDiagnostic(@Req() req: any, @Body() body: any) {
+    return {
+      handler: 'bulkDiagnostic',
+      route: 'actions/bulk-diag',
+      bodyKeys: Object.keys(body || {}),
+      bodyTaskIds: body?.taskIds ? `${body.taskIds.length} items` : 'missing',
+      dtoConstructor: 'raw body - no DTO validation',
+    };
+  }
+
   // 3. PATCH /api/work/tasks/actions/bulk-update
   // Two-segment sub-path avoids collision with @Patch(':id') which matches any single segment
   @Patch('actions/bulk-update')
