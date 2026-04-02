@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { Zap, CheckCircle, XCircle, Loader, Clock } from 'lucide-react';
+import { Zap, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '../../state/AuthContext';
-import { useWorkspaceStore } from '@/state/workspace.store';
 
 export const InviteAcceptPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
-  const [status, setStatus] = useState<'loading' | 'checking' | 'success' | 'error' | 'expired' | 'login-required'>('loading');
+  const [status, setStatus] = useState<'loading' | 'checking' | 'success' | 'error' | 'login-required'>('loading');
   const [message, setMessage] = useState<string>('');
 
   useEffect(() => {
@@ -22,48 +20,42 @@ export const InviteAcceptPage: React.FC = () => {
       return;
     }
 
-    if (authLoading) return;
+    // Wait for auth to load
+    if (authLoading) {
+      return;
+    }
 
+    // If not logged in, prompt login
     if (!user) {
       setStatus('login-required');
       setMessage('Please log in to accept the invitation');
       return;
     }
 
+    // User is logged in, accept invite
     const acceptInvite = async () => {
       setStatus('checking');
       try {
         const response = await api.post('/invites/accept', { token });
-        const data = response?.data ?? response;
-        const workspaceIds: string[] = data?.workspaceIds ?? [];
-
         setStatus('success');
+        setMessage('Invitation accepted successfully! Redirecting...');
 
-        // Land in assigned workspace if available, else first accessible, else /home
-        if (workspaceIds.length > 0) {
-          const wsId = workspaceIds[0];
-          setActiveWorkspace(wsId);
-          setMessage('Invitation accepted! Opening your workspace...');
-          setTimeout(() => navigate(`/workspaces/${wsId}`, { replace: true }), 1500);
-        } else {
-          setMessage('Invitation accepted! Redirecting...');
-          setTimeout(() => navigate('/home', { replace: true }), 1500);
-        }
+        // Redirect to home after 2 seconds
+        setTimeout(() => {
+          navigate('/home');
+        }, 2000);
       } catch (error: any) {
-        const errMsg = error.response?.data?.message || '';
-        const isExpired = errMsg.toLowerCase().includes('expired');
-        if (isExpired) {
-          setStatus('expired');
-          setMessage('This invitation has expired.');
-        } else {
-          setStatus('error');
-          setMessage(errMsg || 'Invalid or expired invitation token.');
-        }
+        console.error('Invite acceptance error:', error);
+        setStatus('error');
+        setMessage(
+          error.response?.data?.message ||
+          'Invalid or expired invitation token.',
+        );
       }
     };
 
     acceptInvite();
-  }, [searchParams, navigate, user, authLoading, setActiveWorkspace]);
+  }, [searchParams, navigate, user, authLoading]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -88,7 +80,11 @@ export const InviteAcceptPage: React.FC = () => {
               <h3 className="mt-4 text-lg font-medium text-gray-900">
                 {status === 'loading' ? 'Loading...' : 'Accepting Invitation...'}
               </h3>
-              <p className="mt-2 text-sm text-gray-500">Please wait...</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {status === 'loading'
+                  ? 'Please wait...'
+                  : 'Please wait while we process your invitation.'}
+              </p>
             </>
           )}
 
@@ -97,24 +93,17 @@ export const InviteAcceptPage: React.FC = () => {
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
                 <Zap className="h-6 w-6 text-yellow-600" />
               </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Login Required</h3>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Login Required
+              </h3>
               <p className="mt-2 text-sm text-gray-500">{message}</p>
-              <div className="mt-6 space-y-3">
+              <div className="mt-6">
                 <Link
-                  to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+                  to={`/login?redirect=${encodeURIComponent(window.location.href)}`}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
                 >
                   Log In
                 </Link>
-                <p className="text-xs text-gray-400">
-                  Don't have an account?{' '}
-                  <Link
-                    to={`/signup?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-                    className="text-indigo-600 hover:text-indigo-700"
-                  >
-                    Sign up
-                  </Link>
-                </p>
               </div>
             </>
           )}
@@ -124,29 +113,10 @@ export const InviteAcceptPage: React.FC = () => {
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Invitation Accepted!</h3>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Invitation Accepted!
+              </h3>
               <p className="mt-2 text-sm text-gray-500">{message}</p>
-            </>
-          )}
-
-          {status === 'expired' && (
-            <>
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100">
-                <Clock className="h-6 w-6 text-amber-600" />
-              </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Invitation Expired</h3>
-              <p className="mt-2 text-sm text-gray-500">{message}</p>
-              <p className="mt-4 text-sm text-gray-500">
-                Please contact the person who invited you to request a new invitation.
-              </p>
-              <div className="mt-6">
-                <Link
-                  to="/home"
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  Go to Home
-                </Link>
-              </div>
             </>
           )}
 
@@ -155,14 +125,16 @@ export const InviteAcceptPage: React.FC = () => {
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <XCircle className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Invitation Failed</h3>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Invitation Failed
+              </h3>
               <p className="mt-2 text-sm text-gray-500">{message}</p>
               <div className="mt-6">
                 <Link
-                  to="/home"
+                  to="/login"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
                 >
-                  Go to Home
+                  Go to Login
                 </Link>
               </div>
             </>
@@ -172,3 +144,4 @@ export const InviteAcceptPage: React.FC = () => {
     </div>
   );
 };
+
