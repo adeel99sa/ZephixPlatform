@@ -204,8 +204,9 @@ export class WorkTasksController {
     return this.responseService.success(task);
   }
 
-  // 3. PATCH /api/work/tasks/bulk-update (collision-proof — 'bulk' was caught by @Patch(':id'))
-  @Patch('bulk-update')
+  // 3. PATCH /api/work/tasks/actions/bulk-update
+  // Route uses sub-path 'actions/bulk-update' to avoid collision with @Patch(':id')
+  @Patch('actions/bulk-update')
   @ApiOperation({ summary: 'Bulk update tasks (status, assign, dueDate, priority)' })
   @ApiHeader({
     name: 'x-workspace-id',
