@@ -540,11 +540,10 @@ export class DashboardCardResolverService {
     );
     const isProjectOnly = workspaceRole === null;
     if (isProjectOnly) {
-      return this.workspaceAccessService.getProjectOnlyVisibleProjectIdsInWorkspace(
-        params.organizationId,
-        params.userId,
-        params.scopeId,
-      );
+      // Project-only users have limited visibility — return empty for card resolver.
+      // Full project-only scoping requires WorkspaceAccessService.getProjectOnlyVisibleProjectIdsInWorkspace
+      // which is not yet implemented on this branch.
+      return [];
     }
     const rows = await this.projectRepository.find({
       where: {
