@@ -18,6 +18,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
+import { SampleProjectSeederService } from './sample-project-seeder.service';
 import { WorkspaceMembersService } from './services/workspace-members.service';
 import { WorkspaceAccessService } from '../workspace-access/workspace-access.service';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
@@ -86,6 +87,7 @@ export class WorkspacesController {
     private readonly inviteService: WorkspaceInviteService,
     private readonly workspaceHealthService: WorkspaceHealthService,
     private readonly tenantContextService: TenantContextService,
+    private readonly sampleSeeder: SampleProjectSeederService,
   ) {}
 
   /**
@@ -340,7 +342,6 @@ export class WorkspacesController {
       // Early dev bypass - skip all demo and feature flag checks
       if (isDev) {
         const workspace = await this.svc.createWithOwners(payload);
-        // Structured logging for workspace creation
         this.logger.log('Workspace created', {
           event: 'workspace.created',
           organizationId: u.organizationId,
@@ -352,7 +353,12 @@ export class WorkspacesController {
           requestId,
           endpoint: 'POST /api/workspaces',
         });
-        // Return workspace data for onboarding
+        // Batch 3: Seed sample project (non-blocking)
+        this.sampleSeeder.seedIfNeeded({
+          workspaceId: workspace.id,
+          organizationId: u.organizationId,
+          creatorUserId: u.id,
+        }).catch(() => {});
         return formatResponse({
           id: workspace.id,
           workspaceId: workspace.id,
@@ -382,7 +388,6 @@ export class WorkspacesController {
 
       const workspace = await this.svc.createWithOwners(payload);
 
-      // Structured logging for workspace creation
       this.logger.log('Workspace created', {
         event: 'workspace.created',
         organizationId: u.organizationId,
@@ -395,7 +400,13 @@ export class WorkspacesController {
         endpoint: 'POST /api/workspaces',
       });
 
-      // Return workspace data for onboarding
+      // Batch 3: Seed sample project (non-blocking)
+      this.sampleSeeder.seedIfNeeded({
+        workspaceId: workspace.id,
+        organizationId: u.organizationId,
+        creatorUserId: u.id,
+      }).catch(() => {});
+
       return formatResponse({
         id: workspace.id,
         workspaceId: workspace.id,

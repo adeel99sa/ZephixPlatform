@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CommandPalette } from '@/components/command/CommandPalette';
 import { AiToggleButton } from './AiToggleButton';
+import { UserProfileDropdown } from './UserProfileDropdown';
 import { track } from '@/lib/telemetry';
 
 export function Header() {
   const [cmdkMounted, setCmdkMounted] = useState(false);
-  const nav = useNavigate();
 
   useEffect(() => setCmdkMounted(true), []);
 
@@ -18,8 +17,8 @@ export function Header() {
   };
 
   return (
-    <header data-testid="app-header" className="h-12 border-b bg-white flex items-center justify-end px-4">
-      <div className="flex items-center gap-2">
+    <header data-testid="app-header" className="h-12 border-b bg-white flex items-center justify-end gap-3 px-4">
+      <div className="flex flex-1 items-center justify-end gap-2">
         <button
           data-testid="cmdk-button"
           aria-label="Open Command Palette"
@@ -30,6 +29,10 @@ export function Header() {
         </button>
 
         <AiToggleButton />
+      </div>
+
+      <div className="shrink-0 border-l border-gray-200 pl-3">
+        <UserProfileDropdown align="right" />
       </div>
 
       {cmdkMounted && <CommandPalette />}
