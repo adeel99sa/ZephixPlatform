@@ -8,7 +8,7 @@
  * Guest: read-only, no drag. Member: drag if canEdit. Admin/Owner: full drag.
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useAuth } from '@/state/AuthContext';
 import { platformRoleFromUser } from '@/utils/roles';
@@ -44,6 +44,7 @@ function canDragTask(platformRole?: string): boolean {
 
 export const ProjectBoardTab: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const { activeWorkspaceId } = useWorkspaceStore();
   const { user } = useAuth();
   const isDragAllowed = canDragTask(platformRoleFromUser(user));
@@ -378,7 +379,13 @@ function TaskCard({
         {canDrag && (
           <GripVertical className="h-4 w-4 text-slate-300 mt-0.5 shrink-0" data-testid="drag-handle" />
         )}
-        <p className="text-sm font-medium text-slate-900 flex-1">{task.title}</p>
+        <button
+          type="button"
+          className="text-sm font-medium text-slate-900 flex-1 text-left hover:text-indigo-600 transition-colors"
+          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/table?task=${task.id}`); }}
+        >
+          {task.title}
+        </button>
       </div>
 
       {/* Meta row */}
