@@ -3,7 +3,6 @@ import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { AiAssistantPanel } from '@/components/shell/AiAssistantPanel';
 import DemoBanner from '@/components/shell/DemoBanner';
-import { EmailVerificationBanner } from '@/components/shell/EmailVerificationBanner';
 import { useAuth } from '@/state/AuthContext';
 import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
@@ -59,7 +58,6 @@ export default function DashboardLayout() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <EmailVerificationBanner />
         <DemoBanner email={user?.email} />
         <main className="relative min-w-0 flex-1 overflow-auto" data-testid="main-content">
           <Outlet />
