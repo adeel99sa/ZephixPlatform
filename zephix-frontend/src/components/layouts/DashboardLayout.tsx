@@ -17,9 +17,12 @@ import { shouldRunAdminFirstTimeOnboarding } from "@/routing/adminOnboardingPoli
  * DashboardLayout — always renders the app shell (Sidebar + Header).
  *
  * Workspace gating is handled at the route level by <RequireWorkspace />.
- * This layout only manages:
- *   GATE 1 — Admin first-time onboarding redirect to /onboarding
- *   GATE 2 — Workspace validation (validates persisted ID if one exists)
+ *
+ * GATE 1 — Redirect to `/onboarding` **only** when `shouldRunAdminFirstTimeOnboarding` is true:
+ * Admin + (`not_started` | `in_progress`). Never for completed, dismissed, Member, or Viewer.
+ * Waits until org onboarding status has loaded (`!orgHomeLoading`) so we do not redirect on `undefined`.
+ *
+ * GATE 2 — Workspace validation (validates persisted ID if one exists).
  */
 export default function DashboardLayout() {
   const { user } = useAuth();

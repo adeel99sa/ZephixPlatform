@@ -17,6 +17,7 @@ import {
 import { track } from "@/lib/telemetry";
 import { isPaidUser, platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 
+/** Aligned with Home / shell help entry points */
 const HELP_URL = "https://docs.zephix.io";
 
 type Align = "left" | "right";
