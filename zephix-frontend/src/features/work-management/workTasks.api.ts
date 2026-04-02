@@ -392,7 +392,7 @@ export async function bulkUpdate(input: BulkUpdateInput): Promise<{ updated: num
   if (input.assigneeUserId !== undefined) payload.assigneeUserId = input.assigneeUserId;
   if (input.dueDate !== undefined) payload.dueDate = input.dueDate;
   if (input.priority !== undefined) payload.priority = input.priority;
-  const data = await request.patch<{ updated?: number }>("/work/tasks/bulk-update", payload);
+  const data = await request.patch<{ updated?: number }>("/work/tasks/actions/bulk-update", payload);
   return { updated: typeof data?.updated === "number" ? data.updated : input.taskIds.length };
 }
 
