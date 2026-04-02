@@ -11,7 +11,7 @@
  */
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../Sidebar';
 
 // Mock all external dependencies
@@ -61,11 +61,11 @@ import { useWorkspaceStore } from '@/state/workspace.store';
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>;
 const mockUseWorkspaceStore = useWorkspaceStore as ReturnType<typeof vi.fn>;
 
-function renderSidebar() {
+function renderSidebar(initialPath = "/inbox") {
   return render(
-    <BrowserRouter>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Sidebar />
-    </BrowserRouter>,
+    </MemoryRouter>,
   );
 }
 
@@ -132,24 +132,25 @@ describe('Sidebar — Phase 2A role gating', () => {
     expect(screen.queryByTestId('ws-nav-members')).not.toBeInTheDocument();
   });
 
-  // ── 7. Admin sees workspace Dashboard and Members ───────────────────
-  it('admin sees Dashboard and Members in workspace nav', () => {
+  // ── 7. Admin sees workspace Dashboard and Projects in Work section ───
+  it('admin sees Dashboard and Projects in workspace nav', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', platformRole: 'ADMIN', email: 'admin@test.com' },
     });
     renderSidebar();
     expect(screen.getByTestId('ws-nav-dashboard')).toBeInTheDocument();
-    expect(screen.getByTestId('ws-nav-members')).toBeInTheDocument();
+    expect(screen.getByTestId('ws-nav-projects')).toBeInTheDocument();
   });
 
-  // ── 8. Guest does not see My Work or Inbox ──────────────────────────
-  it('guest does not see My Work or Inbox', () => {
+  // ── 8. Guest sees Home but not Inbox or My Work (Batch 2) ─────────────
+  it('guest sees Home but not Inbox or My Work', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', platformRole: 'VIEWER', email: 'guest@test.com' },
     });
     renderSidebar();
     expect(screen.queryByText('My Work')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-inbox')).not.toBeInTheDocument();
+    expect(screen.getByTestId('nav-home')).toBeInTheDocument();
   });
 
   // ── 9. Member sees Template Center ──────────────────────────────────

@@ -26,8 +26,8 @@ const DOCS_BASE = "https://docs.zephix.io";
 
 /**
  * UnifiedHomePage — Personalized operational landing for all roles.
- * Admin first-time setup runs on /onboarding only; Home stays a hub (no giant wizard).
- * Inbox remains a separate destination at /inbox.
+ * Admin first-time setup runs on `/onboarding` only; Home stays a hub (no giant wizard).
+ * Home ≠ Inbox: `/inbox` is the notifications feed; this page is the operational hub.
  */
 export default function UnifiedHomePage() {
   const nav = useNavigate();
@@ -36,13 +36,23 @@ export default function UnifiedHomePage() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
 
+  /** Load workspaces whenever the user is signed in — do not gate on onboarding status count (avoids empty Home while status is loading). */
   const wsQuery = useQuery({
     queryKey: ["workspaces-list-home"],
     queryFn: listWorkspaces,
-    enabled: workspaceCount > 0,
+    enabled: Boolean(user?.id),
     staleTime: 30_000,
   });
   const workspaces = wsQuery.data ?? [];
+
+  /** Workspace-scoped routes require a selected workspace; send users to pick one first. */
+  function navIfWorkspace(path: string) {
+    if (!activeWorkspaceId) {
+      nav("/workspaces");
+      return;
+    }
+    nav(path);
+  }
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const role = platformRoleFromUser(user);
@@ -71,7 +81,7 @@ export default function UnifiedHomePage() {
         </p>
       </header>
 
-      {/* Compact role guidance (not Admin full-page onboarding) */}
+      {/* Compact role guidance (Admin full-page onboarding lives on /onboarding only) */}
       {isMember && <MemberOnboardingCard />}
       {isViewer && <ViewerOnboardingCard />}
 
@@ -185,13 +195,13 @@ export default function UnifiedHomePage() {
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
               description="Create from template"
-              onClick={() => nav("/templates")}
+              onClick={() => navIfWorkspace("/templates")}
             />
             <ActionCard
               icon={<LayoutDashboard className="h-4 w-4" />}
               label="Dashboards"
               description="View workspace metrics"
-              onClick={() => nav("/dashboards")}
+              onClick={() => navIfWorkspace("/dashboards")}
             />
           </div>
         </Section>
@@ -204,13 +214,13 @@ export default function UnifiedHomePage() {
               icon={<ListChecks className="h-4 w-4" />}
               label="My Tasks"
               description="Assigned and due items"
-              onClick={() => nav("/projects")}
+              onClick={() => navIfWorkspace("/projects")}
             />
             <ActionCard
               icon={<Clock className="h-4 w-4" />}
               label="Recent activity"
               description="Latest workspace updates"
-              onClick={() => nav("/inbox")}
+              onClick={() => navIfWorkspace("/inbox")}
             />
             <ActionCard
               icon={<Briefcase className="h-4 w-4" />}
@@ -229,7 +239,7 @@ export default function UnifiedHomePage() {
               icon={<LayoutDashboard className="h-4 w-4" />}
               label="Dashboards"
               description="Published dashboards"
-              onClick={() => nav("/dashboards")}
+              onClick={() => navIfWorkspace("/dashboards")}
             />
             <ActionCard
               icon={<Briefcase className="h-4 w-4" />}
@@ -262,7 +272,7 @@ export default function UnifiedHomePage() {
               icon={<Layers className="h-4 w-4" />}
               label="Templates"
               description="Browse project templates"
-              onClick={() => nav("/templates")}
+              onClick={() => navIfWorkspace("/templates")}
               muted
             />
           )}

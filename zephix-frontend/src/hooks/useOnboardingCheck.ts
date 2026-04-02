@@ -1,4 +1,4 @@
-import { useAuth } from '@/state/AuthContext';
+import { useAuth } from "@/state/AuthContext";
 
 export interface OnboardingCheckState {
   /** True while checking onboarding status */
@@ -12,9 +12,8 @@ export interface OnboardingCheckState {
 /**
  * Shell must never block on onboarding fetches (Batch 1 + 2).
  *
- * Full-page /onboarding is guarded by OnboardingGuard at the route level.
- * In-shell onboarding panels are rendered by UnifiedHomePage.
- * This hook only gates on auth loading — it never redirects or fetches onboarding status.
+ * Full-page `/onboarding` is guarded by OnboardingGuard; shell may redirect via DashboardLayout
+ * when `shouldRunAdminFirstTimeOnboarding` is true. This hook only gates on auth loading.
  */
 export function useOnboardingCheck(): OnboardingCheckState {
   const { user, loading: authLoading } = useAuth();

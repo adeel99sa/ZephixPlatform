@@ -23,7 +23,7 @@ export function usePhase5_1Redirect(): { isRedirecting: boolean } {
 
   useEffect(() => {
     // Never redirect on org-level routes — Home must stay Home
-    const ORG_LEVEL_PREFIXES = ['/home', '/workspaces', '/settings', '/billing', '/admin', '/onboarding'];
+    const ORG_LEVEL_PREFIXES = ['/home', '/inbox', '/workspaces', '/settings', '/billing', '/admin', '/onboarding'];
     if (ORG_LEVEL_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))) {
       setIsRedirecting(false);
       return;
