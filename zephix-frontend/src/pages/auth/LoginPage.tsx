@@ -41,7 +41,7 @@ export default function LoginPage() {
           const slug = list[0].slug;
           nav(returnUrl || `/w/${slug}/home`, { replace: true });
         } else {
-          nav("/setup/workspace", { replace: true });
+          nav(returnUrl || "/home", { replace: true });
         }
       } catch {
         // Login must not fail because post-login workspace bootstrap failed.

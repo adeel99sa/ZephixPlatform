@@ -9,23 +9,21 @@ import {
   LayoutTemplate,
   FileText,
   ShieldAlert,
-  BarChart3,
-  Settings,
-  HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  Inbox,
+  ListChecks,
+  LayoutDashboard,
 } from "lucide-react";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import { track } from "@/lib/telemetry";
-import { UserProfileDropdown } from "./UserProfileDropdown";
 import { openWorkspaceSettingsModal } from "@/features/workspaces/components/WorkspaceSettingsModal/controller";
 import { deleteWorkspace } from "@/features/workspaces/api";
 import { useUIStore } from "@/stores/uiStore";
 import { useAuth } from "@/state/AuthContext";
-import { isAdminRole } from "@/types/roles";
 import { isPaidUser } from "@/utils/roles";
 import { isPlatformAdmin, isPlatformViewer } from "@/utils/access";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
@@ -150,11 +148,6 @@ export function Sidebar() {
     const adminNavItems = [
       { key: "home", label: "Home", icon: Home, to: "/home" },
       { key: "work", label: "Work", icon: Briefcase, to: "/work", active: isInWorkSection },
-      { key: "templates", label: "Templates", icon: LayoutTemplate, to: "/templates" },
-      { key: "documents", label: "Documents", icon: FileText, to: "/documents" },
-      { key: "risks", label: "Risks", icon: ShieldAlert, to: "/risks" },
-      { key: "reports", label: "Reports", icon: BarChart3, to: "/reports" },
-      { key: "administration", label: "Administration", icon: Settings, to: "/administration" },
     ] as const;
 
     return (
@@ -178,12 +171,6 @@ export function Sidebar() {
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         </div>
-
-        {!collapsed ? (
-          <div className="p-2 border-b">
-            <UserProfileDropdown />
-          </div>
-        ) : null}
 
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {adminNavItems.map((item) => {
@@ -221,77 +208,150 @@ export function Sidebar() {
             );
           })}
 
-          <a
-            href="https://docs.zephix.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="nav-help"
-            title={collapsed ? "Help" : undefined}
-            className={`rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${collapsed ? "justify-center px-2" : ""}`}
-          >
-            <HelpCircle className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span>Help</span> : null}
-          </a>
+          {isPaidUser(user) && (
+            <NavLink
+              data-testid="nav-inbox"
+              to="/inbox"
+              title={collapsed ? "Inbox" : undefined}
+              className={({ isActive }) =>
+                `rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between gap-2 ${isActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`
+              }
+            >
+              <span className={`flex items-center gap-2 ${collapsed ? "" : ""}`}>
+                <Inbox className="h-4 w-4 shrink-0" />
+                {!collapsed ? <span>Inbox</span> : null}
+              </span>
+              {!collapsed ? <InboxBadge /> : null}
+            </NavLink>
+          )}
 
-          {/* Work-specific secondary navigation lives under Work only. */}
-          {isInWorkSection ? (
-            <div className="mt-3 border-t border-gray-200 pt-3">
-              {!collapsed ? (
-                <>
-                  <div className="text-xs font-medium uppercase tracking-wide text-gray-500 px-3 pb-2">
-                    Workspaces
-                  </div>
-                  <div className="px-1">
-                    <SidebarWorkspaces />
-                  </div>
-                </>
-              ) : null}
-              {activeWorkspaceId && !collapsed ? (
-                <div className="pl-4 pr-2 mt-2 space-y-1" data-testid="ws-nav-root">
-                  <NavLink
-                    data-testid="ws-nav-dashboard"
-                    to={`/workspaces/${activeWorkspaceId}`}
-                    className={({ isActive }) =>
-                      `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                    }
-                  >
-                    Dashboard
-                  </NavLink>
-                  <NavLink
-                    data-testid="ws-nav-projects"
-                    to="/projects"
-                    className={({ isActive }) =>
-                      `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                    }
-                  >
-                    Projects
-                  </NavLink>
-                  {enableProgramsPortfolios ? (
-                    <>
-                      <NavLink
-                        data-testid="ws-nav-portfolios"
-                        to={`/workspaces/${activeWorkspaceId}/portfolios`}
-                        className={({ isActive }) =>
-                          `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                        }
-                      >
-                        Portfolios
-                      </NavLink>
-                      <NavLink
-                        data-testid="ws-nav-programs"
-                        to={`/workspaces/${activeWorkspaceId}/programs`}
-                        className={({ isActive }) =>
-                          `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-                        }
-                      >
-                        Programs
-                      </NavLink>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+          {isPaidUser(user) && (
+            <NavLink
+              data-testid="nav-my-work"
+              to="/my-work"
+              title={collapsed ? "My Work" : undefined}
+              className={({ isActive }) =>
+                `rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${isActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`
+              }
+            >
+              <ListChecks className="h-4 w-4 shrink-0" />
+              {!collapsed ? <span>My Work</span> : null}
+            </NavLink>
+          )}
+
+          {activeWorkspaceId ? (
+            <NavLink
+              data-testid="nav-dashboards"
+              to="/dashboards"
+              title={collapsed ? "Dashboards" : undefined}
+              className={({ isActive }) =>
+                `rounded px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${isActive ? "bg-gray-100 font-medium" : ""} ${collapsed ? "justify-center px-2" : ""}`
+              }
+            >
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              {!collapsed ? <span>Dashboards</span> : null}
+            </NavLink>
           ) : null}
+
+          <div className="mt-3 border-t border-gray-200 pt-3">
+            {!collapsed ? (
+              <>
+                <div className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Workspaces</div>
+                <div className="px-1">
+                  <SidebarWorkspaces />
+                </div>
+              </>
+            ) : null}
+            {activeWorkspaceId && !collapsed ? (
+              <div className="mt-2 space-y-1 pl-4 pr-2" data-testid="ws-nav-root">
+                <NavLink
+                  data-testid="ws-nav-dashboard"
+                  to={`/workspaces/${activeWorkspaceId}`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Dashboard
+                </NavLink>
+                <NavLink
+                  data-testid="ws-nav-projects"
+                  to="/projects"
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Projects
+                </NavLink>
+                <NavLink
+                  data-testid="nav-templates"
+                  to="/templates"
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <LayoutTemplate className="h-4 w-4 shrink-0" />
+                    Templates
+                  </span>
+                </NavLink>
+                <NavLink
+                  data-testid="nav-documents"
+                  to="/documents"
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    Documents
+                  </span>
+                </NavLink>
+                <NavLink
+                  data-testid="nav-risks"
+                  to="/risks"
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    Risks
+                  </span>
+                </NavLink>
+                <NavLink
+                  data-testid="ws-nav-members"
+                  to={`/workspaces/${activeWorkspaceId}/members`}
+                  className={({ isActive }) =>
+                    `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                  }
+                >
+                  Members
+                </NavLink>
+                {enableProgramsPortfolios ? (
+                  <>
+                    <NavLink
+                      data-testid="ws-nav-portfolios"
+                      to={`/workspaces/${activeWorkspaceId}/portfolios`}
+                      className={({ isActive }) =>
+                        `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                      }
+                    >
+                      Portfolios
+                    </NavLink>
+                    <NavLink
+                      data-testid="ws-nav-programs"
+                      to={`/workspaces/${activeWorkspaceId}/programs`}
+                      className={({ isActive }) =>
+                        `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+                      }
+                    >
+                      Programs
+                    </NavLink>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
         <WorkspaceCreateModal
@@ -317,12 +377,7 @@ export function Sidebar() {
         </NavLink>
       </div>
 
-      {/* User Profile Dropdown - Right under company name */}
-      <div className="p-2 border-b">
-        <UserProfileDropdown />
-      </div>
-
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 space-y-1 p-2">
         <NavLink
           data-testid="nav-home"
           to="/home"
@@ -333,35 +388,58 @@ export function Sidebar() {
           Home
         </NavLink>
 
-        {/* PHASE 7 MODULE 7.2: My Work - Paid users only */}
-        {isPaidUser(user) && (
-          <NavLink
-            to="/my-work"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`
-            }
-          >
-            <span>My Work</span>
-          </NavLink>
-        )}
-
         {/* Inbox - Paid users only */}
         {isPaidUser(user) && (
           <NavLink
             data-testid="nav-inbox"
             to="/inbox"
             className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"} flex items-center justify-between`
+              `flex items-center justify-between rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
             }
           >
             <span>Inbox</span>
             <InboxBadge />
           </NavLink>
         )}
+
+        {/* PHASE 7 MODULE 7.2: My Work - Paid users only */}
+        {isPaidUser(user) && (
+          <NavLink
+            data-testid="nav-my-work"
+            to="/my-work"
+            className={({ isActive }) =>
+              `block rounded px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-100"
+              }`
+            }
+          >
+            My Work
+          </NavLink>
+        )}
+
+        <NavLink
+          data-testid="nav-work"
+          to="/work"
+          className={({ isActive }) =>
+            `flex items-center gap-2 rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+          }
+        >
+          <Briefcase className="h-4 w-4 shrink-0 text-gray-500" />
+          Work
+        </NavLink>
+
+        {activeWorkspaceId ? (
+          <NavLink
+            data-testid="nav-dashboards"
+            to="/dashboards"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
+            }
+          >
+            <LayoutDashboard className="h-4 w-4 shrink-0 text-gray-500" />
+            Dashboards
+          </NavLink>
+        ) : null}
 
         <div className="relative">
           <div className="flex items-center justify-between w-full rounded px-3 py-2 text-sm hover:bg-gray-50 group">
@@ -546,32 +624,7 @@ export function Sidebar() {
             Template Center
           </NavLink>
         )}
-
-        <NavLink
-          data-testid="nav-settings"
-          to="/settings"
-          className={({ isActive }) =>
-            `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-          }
-        >
-          Settings
-        </NavLink>
-
-        {/* Phase 2A: Administration — platform admin only */}
-        {isPlatformAdmin(user) && (
-          <NavLink
-            data-testid="nav-administration"
-            to="/administration"
-            className={({ isActive }) =>
-              `block rounded px-3 py-2 text-sm ${isActive ? "bg-gray-100 font-medium" : "hover:bg-gray-50"}`
-            }
-          >
-            Administration
-          </NavLink>
-        )}
       </nav>
-
-      {/* Removed bottom account block; profile is handled at top-left */}
 
       <WorkspaceCreateModal
         open={showCreateModal}

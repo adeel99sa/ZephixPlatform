@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { AiAssistantPanel } from '@/components/shell/AiAssistantPanel';
@@ -9,24 +9,32 @@ import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
+import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
+import { platformRoleFromUser } from "@/utils/roles";
+import { shouldRunAdminFirstTimeOnboarding } from "@/routing/adminOnboardingPolicy";
 
 /**
  * DashboardLayout — always renders the app shell (Sidebar + Header).
  *
  * Workspace gating is handled at the route level by <RequireWorkspace />.
  * This layout only manages:
- *   GATE 1 — Onboarding check (admin redirect to /onboarding)
+ *   GATE 1 — Admin first-time onboarding redirect to /onboarding
  *   GATE 2 — Workspace validation (validates persisted ID if one exists)
  */
 export default function DashboardLayout() {
   const { user } = useAuth();
   const { activeWorkspaceId } = useWorkspaceStore();
+  const { isLoading: orgHomeLoading, onboardingStatus } = useOrgHomeState();
 
   /**
-   * GATE 1: Onboarding check — MUST run FIRST before any workspace calls.
-   * If onboarding is incomplete (admin only), user is redirected to /onboarding.
+   * GATE 1: Brand-new Admin with incomplete org onboarding → full-page flow.
    */
   const { checking: onboardingChecking, onboardingComplete } = useOnboardingCheck();
+  const platformRole = platformRoleFromUser(user);
+  const needsAdminOnboarding =
+    Boolean(user) &&
+    !orgHomeLoading &&
+    shouldRunAdminFirstTimeOnboarding({ platformRole, onboardingStatus });
 
   /**
    * GATE 2: Workspace validation — only runs after onboarding is complete
@@ -41,7 +49,7 @@ export default function DashboardLayout() {
   usePhase5_1Redirect();
 
   /**
-   * GATE 1 CHECK: Block everything while checking onboarding status.
+   * GATE 1 CHECK: Legacy hook only gates on auth loading.
    */
   if (onboardingChecking) {
     return (
@@ -52,6 +60,10 @@ export default function DashboardLayout() {
         </div>
       </div>
     );
+  }
+
+  if (needsAdminOnboarding) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (
