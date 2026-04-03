@@ -438,6 +438,7 @@ export class WorkspacesService {
           }
         } else {
           const member = memberRepo.create({
+            organizationId: input.organizationId,
             workspaceId: savedWorkspace.id,
             userId: ownerUserId,
             role: 'workspace_owner',
