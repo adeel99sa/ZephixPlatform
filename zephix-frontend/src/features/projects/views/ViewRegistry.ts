@@ -1,4 +1,8 @@
 /**
+ * @deprecated Phase 3B: Dead code — exported singleton imported by nothing.
+ * Backend view endpoints only support enableView toggle, not full config persistence.
+ * Column visibility persists via localStorage in ProjectTableTab.
+ *
  * ViewRegistry — UX Step 2
  *
  * Service that loads views from the API, merges with hardcoded defaults,

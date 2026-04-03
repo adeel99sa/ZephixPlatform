@@ -1,4 +1,7 @@
 /**
+ * @deprecated Phase 3B: Dead code — no component imports useViewConfigStore.
+ * Backend view endpoints only support enableView toggle, not config sync.
+ *
  * View Config Store — UX Step 2
  *
  * Zustand store managing the active view configuration for the current project.
