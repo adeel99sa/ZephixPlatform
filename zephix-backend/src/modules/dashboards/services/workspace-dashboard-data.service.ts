@@ -1,10 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
-import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { DocumentEntity } from '../../documents/entities/document.entity';
 
 @Injectable()
@@ -14,11 +13,10 @@ export class WorkspaceDashboardDataService {
     private readonly projectRepo: Repository<Project>,
     @InjectRepository(WorkPhase)
     private readonly phaseRepo: Repository<WorkPhase>,
-    @InjectRepository(WorkRisk)
-    private readonly riskRepo: Repository<WorkRisk>,
     @InjectRepository(DocumentEntity)
     private readonly documentRepo: Repository<DocumentEntity>,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private async assertWorkspaceAccess(
@@ -152,19 +150,22 @@ export class WorkspaceDashboardDataService {
       userId,
       platformRole,
     );
-    // Phase 2D: Query work_risks directly (has workspaceId column)
-    const rows = await this.riskRepo
-      .createQueryBuilder('risk')
-      .where('risk.organization_id = :organizationId', { organizationId })
-      .andWhere('risk.workspace_id = :workspaceId', { workspaceId })
-      .andWhere('risk.status != :closed', { closed: 'CLOSED' })
-      .andWhere('risk.deleted_at IS NULL')
-      .orderBy('risk.created_at', 'DESC')
-      .limit(20)
-      .getMany();
+    // Phase 2D: Query work_risks table directly via raw SQL
+    // Using raw query to avoid WorkRisk entity registration in dashboards module
+    const rows = await this.dataSource.query(
+      `SELECT id, title, severity, status, project_id as "projectId"
+       FROM work_risks
+       WHERE organization_id = $1
+         AND workspace_id = $2
+         AND status != 'CLOSED'
+         AND deleted_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [organizationId, workspaceId],
+    );
     return {
       count: rows.length,
-      items: rows.map((item) => ({
+      items: rows.map((item: any) => ({
         id: item.id,
         title: item.title,
         severity: item.severity,
@@ -193,24 +194,16 @@ export class WorkspaceDashboardDataService {
     organizationId: string,
     workspaceId: string,
   ): Promise<number> {
-    // Phase 2D: Query work_risks directly (has workspaceId column)
-    const count = await this.riskRepo.count({
-      where: {
-        organizationId,
-        workspaceId,
-        deletedAt: null as any,
-      },
-    });
-    // Subtract closed risks
-    const closedCount = await this.riskRepo.count({
-      where: {
-        organizationId,
-        workspaceId,
-        status: 'CLOSED' as any,
-        deletedAt: null as any,
-      },
-    });
-    return count - closedCount;
+    // Phase 2D: Count open risks from work_risks via raw SQL
+    const result = await this.dataSource.query(
+      `SELECT COUNT(*) as count FROM work_risks
+       WHERE organization_id = $1
+         AND workspace_id = $2
+         AND status != 'CLOSED'
+         AND deleted_at IS NULL`,
+      [organizationId, workspaceId],
+    );
+    return Number(result[0]?.count || 0);
   }
 
   private async countWorkspaceDocuments(
