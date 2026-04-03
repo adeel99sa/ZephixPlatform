@@ -72,10 +72,10 @@ export function CommandPalette() {
           </Command.Group>
 
           <Command.Group heading="Navigate">
-            <Command.Item onSelect={() => { navigate('/dashboard'); setOpen(false); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded">
+            <Command.Item onSelect={() => { navigate('/home'); setOpen(false); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded">
               <div className="flex items-center gap-2">
-                <span>📊</span>
-                <span>Go to Dashboard</span>
+                <span>🏠</span>
+                <span>Go to Home</span>
               </div>
             </Command.Item>
             <Command.Item onSelect={() => { navigate('/projects'); setOpen(false); }} className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded">
