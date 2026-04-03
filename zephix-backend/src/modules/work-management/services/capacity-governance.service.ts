@@ -135,6 +135,7 @@ export class CapacityGovernanceService {
         entityId: input.taskIds?.[0] ?? 'bulk',
         action: AuditAction.GOVERNANCE_EVALUATE,
         metadata: {
+          governanceType: 'CAPACITY',
           assigneeUserId: input.assigneeUserId,
           projectId: input.projectId,
           currentTaskCount: totalActive,
