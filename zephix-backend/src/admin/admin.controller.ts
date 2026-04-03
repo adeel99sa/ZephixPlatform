@@ -650,14 +650,15 @@ export class AdminController {
       // Generate slug from name
       const slug = body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-      // TODO: Implement workspace creation with member assignment
-      const workspace = await this.workspacesService.create({
+      // Use createWithOwners to ensure creator gets workspace_members entry
+      const workspace = await this.workspacesService.createWithOwners({
         name: body.name,
         slug,
-        ownerId: body.ownerId,
+        description: body.description,
         isPrivate: body.visibility === 'private',
         organizationId,
         createdBy: userId,
+        ownerUserIds: [userId],
       });
       return workspace;
     } catch (_error) {
