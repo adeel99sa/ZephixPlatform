@@ -47,6 +47,7 @@ export class ProjectBudgetsController {
 
     return this.service.update(workspaceId, projectId, dto, {
       userId: auth.userId,
+      organizationId: auth.organizationId,
       workspaceRole: role,
     });
   }
