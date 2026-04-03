@@ -28,7 +28,7 @@ import { ProjectDashboardService } from './services/project-dashboard.service';
 import { ProjectDashboardController } from './controllers/project-dashboard.controller';
 import { WorkspaceDashboardDataController } from './controllers/workspace-dashboard-data.controller';
 import { WorkspaceDashboardDataService } from './services/workspace-dashboard-data.service';
-import { Risk } from '../risks/entities/risk.entity';
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
 import { DocumentEntity } from '../documents/entities/document.entity';
 import { WorkResourceAllocation } from '../work-management/entities/work-resource-allocation.entity';
 import { DashboardCardRegistryService } from './services/dashboard-card-registry.service';
@@ -48,7 +48,7 @@ import { OperationalDashboardController } from './controllers/operational-dashbo
       WorkTask, // Phase 7.5: For project dashboard
       WorkPhase, // Phase 7.5: For project dashboard
       WorkResourceAllocation,
-      Risk,
+      WorkRisk,
       DocumentEntity,
     ]),
     SharedModule, // Provides ResponseService
