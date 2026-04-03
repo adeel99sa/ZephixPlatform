@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { WorkspaceAccessService } from '../../workspace-access/workspace-access.service';
 import { Project } from '../../projects/entities/project.entity';
 import { WorkPhase } from '../../work-management/entities/work-phase.entity';
-import { Risk } from '../../risks/entities/risk.entity';
+import { WorkRisk } from '../../work-management/entities/work-risk.entity';
 import { DocumentEntity } from '../../documents/entities/document.entity';
 
 @Injectable()
@@ -14,8 +14,8 @@ export class WorkspaceDashboardDataService {
     private readonly projectRepo: Repository<Project>,
     @InjectRepository(WorkPhase)
     private readonly phaseRepo: Repository<WorkPhase>,
-    @InjectRepository(Risk)
-    private readonly riskRepo: Repository<Risk>,
+    @InjectRepository(WorkRisk)
+    private readonly riskRepo: Repository<WorkRisk>,
     @InjectRepository(DocumentEntity)
     private readonly documentRepo: Repository<DocumentEntity>,
     private readonly workspaceAccessService: WorkspaceAccessService,
@@ -152,16 +152,13 @@ export class WorkspaceDashboardDataService {
       userId,
       platformRole,
     );
+    // Phase 2D: Query work_risks directly (has workspaceId column)
     const rows = await this.riskRepo
       .createQueryBuilder('risk')
-      .innerJoin(
-        Project,
-        'project',
-        'project.id = risk.project_id::uuid AND project.organization_id = risk.organization_id::uuid AND project.workspace_id = :workspaceId::uuid AND project.deleted_at IS NULL',
-        { workspaceId },
-      )
       .where('risk.organization_id = :organizationId', { organizationId })
-      .andWhere("COALESCE(risk.status, 'open') <> 'closed'")
+      .andWhere('risk.workspace_id = :workspaceId', { workspaceId })
+      .andWhere('risk.status != :closed', { closed: 'CLOSED' })
+      .andWhere('risk.deleted_at IS NULL')
       .orderBy('risk.created_at', 'DESC')
       .limit(20)
       .getMany();
@@ -196,19 +193,24 @@ export class WorkspaceDashboardDataService {
     organizationId: string,
     workspaceId: string,
   ): Promise<number> {
-    const row = await this.riskRepo
-      .createQueryBuilder('risk')
-      .select('COUNT(risk.id)', 'count')
-      .innerJoin(
-        Project,
-        'project',
-        'project.id = risk.project_id::uuid AND project.organization_id = risk.organization_id::uuid AND project.workspace_id = :workspaceId::uuid AND project.deleted_at IS NULL',
-        { workspaceId },
-      )
-      .where('risk.organization_id = :organizationId', { organizationId })
-      .andWhere("COALESCE(risk.status, 'open') <> 'closed'")
-      .getRawOne<{ count?: string }>();
-    return Number(row?.count || 0);
+    // Phase 2D: Query work_risks directly (has workspaceId column)
+    const count = await this.riskRepo.count({
+      where: {
+        organizationId,
+        workspaceId,
+        deletedAt: null as any,
+      },
+    });
+    // Subtract closed risks
+    const closedCount = await this.riskRepo.count({
+      where: {
+        organizationId,
+        workspaceId,
+        status: 'CLOSED' as any,
+        deletedAt: null as any,
+      },
+    });
+    return count - closedCount;
   }
 
   private async countWorkspaceDocuments(
