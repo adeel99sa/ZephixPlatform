@@ -661,8 +661,12 @@ export class AdminController {
         ownerUserIds: [userId],
       });
       return workspace;
-    } catch (_error) {
-      throw new InternalServerErrorException('Failed to create workspace');
+    } catch (error: any) {
+      // Re-throw known NestJS exceptions (validation, auth, conflict)
+      if (error?.status && error.status < 500) throw error;
+      throw new InternalServerErrorException(
+        error?.message || 'Failed to create workspace',
+      );
     }
   }
 
