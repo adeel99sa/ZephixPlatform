@@ -531,4 +531,43 @@ export class DashboardsController {
     );
     return this.responseService.success(dashboards);
   }
+
+  // Phase 3A: Standalone set-default endpoint (decouples from publish)
+  @Post(':id/set-default')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set dashboard as workspace default (admin only)' })
+  async setDefault(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboard = await this.dashboardsService.setAsDefault(
+      id,
+      organizationId,
+      userId,
+      platformRole,
+    );
+    return this.responseService.success(dashboard);
+  }
+
+  @Post(':id/unset-default')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove dashboard as workspace default (admin only)' })
+  async unsetDefault(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const { organizationId, userId } = getAuthContext(req);
+    const platformRole = req.user?.platformRole ?? req.user?.role;
+    const dashboard = await this.dashboardsService.unsetDefault(
+      id,
+      organizationId,
+      userId,
+      platformRole,
+    );
+    return this.responseService.success(dashboard);
+  }
 }

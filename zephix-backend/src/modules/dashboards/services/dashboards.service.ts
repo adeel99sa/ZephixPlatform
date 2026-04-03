@@ -1022,4 +1022,65 @@ export class DashboardsService {
     dashboard.audience = audience;
     return this.dashboardRepository.save(dashboard);
   }
+
+  // Phase 3A: Standalone set/unset default (decoupled from publish)
+
+  async setAsDefault(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can set default dashboard');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    if (!dashboard.workspaceId) {
+      throw new BadRequestException('Dashboard must be in a workspace to be set as default');
+    }
+
+    // Clear other defaults in this workspace
+    await this.dashboardRepository
+      .createQueryBuilder()
+      .update(Dashboard)
+      .set({ isDefault: false })
+      .where(
+        'organization_id = :organizationId AND workspace_id = :workspaceId AND is_default = true AND id != :id',
+        { organizationId, workspaceId: dashboard.workspaceId, id: dashboardId },
+      )
+      .execute();
+
+    dashboard.isDefault = true;
+    return this.dashboardRepository.save(dashboard);
+  }
+
+  async unsetDefault(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    platformRole: string,
+  ): Promise<Dashboard> {
+    const role = normalizePlatformRole(platformRole);
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can unset default dashboard');
+    }
+
+    const dashboard = await this.getDashboardForMutation(
+      dashboardId,
+      organizationId,
+      userId,
+      platformRole,
+    );
+
+    dashboard.isDefault = false;
+    return this.dashboardRepository.save(dashboard);
+  }
 }
