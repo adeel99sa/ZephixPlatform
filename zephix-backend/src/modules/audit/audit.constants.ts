@@ -51,6 +51,7 @@ export enum AuditAction {
   EMAIL_VERIFIED = 'email_verified',
   EMAIL_VERIFICATION_BYPASSED = 'email_verification_bypassed',
   RESEND_VERIFICATION = 'resend_verification',
+  GOVERNANCE_EVALUATE = 'governance_evaluate',
 }
 
 /** Keys that must be stripped from any JSONB payload before persistence. */

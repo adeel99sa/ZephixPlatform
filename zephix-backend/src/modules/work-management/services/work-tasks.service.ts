@@ -109,6 +109,7 @@ import { Project } from '../../projects/entities/project.entity';
 import { AuditService } from '../../audit/services/audit.service';
 import { AuditEntityType, AuditAction, AuditSource } from '../../audit/audit.constants';
 import { GovernanceRuleEngineService, EvaluationResult } from '../../governance-rules/services/governance-rule-engine.service';
+import { CapacityGovernanceService, CapacityEvaluation } from './capacity-governance.service';
 import { EvaluationDecision } from '../../governance-rules/entities/governance-evaluation.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
@@ -154,6 +155,8 @@ export class WorkTasksService {
     private readonly governanceEngine?: GovernanceRuleEngineService,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
+    @Optional()
+    private readonly capacityGovernance?: CapacityGovernanceService,
   ) {}
 
   // ============================================================
@@ -714,6 +717,7 @@ export class WorkTasksService {
       task.priority = dto.priority;
       changedFields.push('priority');
     }
+    let capacityWarning: CapacityEvaluation | null = null;
     if (
       dto.assigneeUserId !== undefined &&
       dto.assigneeUserId !== task.assigneeUserId
@@ -724,6 +728,18 @@ export class WorkTasksService {
           workspaceId,
           dto.assigneeUserId,
         );
+        // Phase 2A: Capacity governance evaluation
+        if (this.capacityGovernance) {
+          capacityWarning = await this.capacityGovernance.evaluateAssignment({
+            organizationId,
+            workspaceId,
+            assigneeUserId: dto.assigneeUserId,
+            projectId: task.projectId,
+            taskIds: [task.id],
+            actorUserId: auth.userId,
+            isBulk: false,
+          });
+        }
       }
       task.assigneeUserId = dto.assigneeUserId;
       changedFields.push('assigneeUserId');
@@ -944,6 +960,17 @@ export class WorkTasksService {
         .catch((err) => this.logger.warn(`Domain event emit failed: ${err}`));
     }
 
+    // Phase 2A: Attach capacity governance warning to response
+    if (capacityWarning?.warning) {
+      (saved as any)._governanceWarning = {
+        type: 'CAPACITY_WARNING',
+        assigneeUserId: capacityWarning.assigneeUserId,
+        currentTaskCount: capacityWarning.currentTaskCount,
+        threshold: capacityWarning.capacityThreshold,
+        reason: capacityWarning.reason,
+      };
+    }
+
     return saved;
   }
 
@@ -990,6 +1017,21 @@ export class WorkTasksService {
         code: 'VALIDATION_ERROR',
         message: 'At least one update field must be provided',
       });
+    }
+
+    // Phase 2A: Capacity governance for bulk assignment
+    let bulkCapacityWarning: any = null;
+    if (dto.assigneeUserId && this.capacityGovernance) {
+      const govResult = await this.capacityGovernance.evaluateBulkAssignment({
+        organizationId,
+        workspaceId,
+        assigneeUserId: dto.assigneeUserId,
+        taskIds: dto.taskIds,
+        actorUserId: auth.userId,
+      });
+      if (govResult.hasWarnings) {
+        bulkCapacityWarning = govResult;
+      }
     }
 
     // STRICT validation for status transitions (only if status is being changed)
@@ -1074,7 +1116,15 @@ export class WorkTasksService {
       );
     }
 
-    return { updated: dto.taskIds.length };
+    const result: any = { updated: dto.taskIds.length };
+    if (bulkCapacityWarning) {
+      result._governanceWarning = {
+        type: 'CAPACITY_WARNING',
+        ...bulkCapacityWarning.evaluations[0],
+        summary: bulkCapacityWarning.summary,
+      };
+    }
+    return result;
   }
 
   async deleteTask(
