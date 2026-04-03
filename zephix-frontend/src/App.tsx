@@ -82,7 +82,7 @@ import AdministrationUsersPage from "@/features/administration/pages/Administrat
 import AdministrationAuditLogPage from "@/features/administration/pages/AdministrationAuditLogPage";
 import AdministrationSettingsPage from "@/features/administration/pages/AdministrationSettingsPage";
 import AdministrationBillingPage from "@/features/administration/pages/AdministrationBillingPage";
-import RisksPage from "@/features/risks/pages/RisksPage";
+// RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
 
 /** "/" — authenticated users go to Unified Home (Batch 2); guests see the marketing page */
@@ -210,7 +210,8 @@ export default function App() {
               {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
-                <Route path="/risks" element={<RisksPage />} />
+                {/* Phase 2D: /risks standalone page retired — risks live inside projects. Use /projects/:id/risks */}
+                <Route path="/risks" element={<Navigate to="/workspaces" replace />} />
                 <Route path="/dashboards" element={<DashboardsIndex />} />
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
