@@ -344,7 +344,14 @@ export const ProjectTableTab: React.FC = () => {
 
   const getFilteredSorted = (taskList: WorkTask[]) => {
     let filtered = taskList.filter((t) => {
-      if (!toolbarConfig.showClosed && (t.status === 'DONE' || t.status === 'CANCELED'))
+      // Show Closed gate: hide DONE/CANCELED unless showClosed is on
+      // OR the user explicitly included that status in the FilterBar
+      const hasExplicitStatusFilter = filters.status && filters.status.length > 0;
+      if (
+        !toolbarConfig.showClosed &&
+        !hasExplicitStatusFilter &&
+        (t.status === 'DONE' || t.status === 'CANCELED')
+      )
         return false;
       if (
         toolbarConfig.search &&
@@ -1028,24 +1035,21 @@ export const ProjectTableTab: React.FC = () => {
 
   return (
     <div data-testid="table-root">
-      {/* ─── View Toolbar ─── */}
-      <ViewToolbar
-        viewType="table"
-        config={toolbarConfig}
-        onChange={(partial) => setToolbarConfig((prev) => ({ ...prev, ...partial }))}
-        className="mb-2"
-      />
-
-      {/* ─── FilterBar (Sprint 1) ─── */}
-      <FilterBar options={filterBarOptions} className="mb-3" />
-
-      {/* ─── Header bar ─── */}
-      <div className="mb-3 flex items-center gap-2">
+      {/* ─── Consolidated Execution Toolbar ─── */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <Table2 className="h-5 w-5 text-slate-700" />
         <h2 className="text-lg font-semibold text-slate-900">Table</h2>
-        <span className="text-sm text-slate-500 ml-2">{sorted.length} tasks</span>
+        <span className="text-sm text-slate-500">{sorted.length} tasks</span>
 
-        {/* Column picker toggle */}
+        {/* Search + Show Closed from ViewToolbar */}
+        <ViewToolbar
+          viewType="table"
+          config={toolbarConfig}
+          onChange={(partial) => setToolbarConfig((prev) => ({ ...prev, ...partial }))}
+          className="ml-2"
+        />
+
+        {/* Column picker */}
         <div className="relative ml-auto">
           <button
             onClick={() => setShowColumnPicker(!showColumnPicker)}
@@ -1081,6 +1085,9 @@ export const ProjectTableTab: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* ─── Filters (URL-param based, real data) ─── */}
+      <FilterBar options={filterBarOptions} className="mb-3" />
 
       {/* ─── Bulk Action Bar (B1) — hidden for read-only users ─── */}
       {canEditWork && selectedIds.size > 0 && (
