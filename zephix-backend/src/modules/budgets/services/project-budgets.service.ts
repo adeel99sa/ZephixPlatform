@@ -11,9 +11,11 @@ import { IsOptional, Matches } from 'class-validator';
 import { ProjectBudgetEntity } from '../entities/project-budget.entity';
 import { DomainEventEmitterService } from '../../kpi-queue/services/domain-event-emitter.service';
 import { DOMAIN_EVENTS } from '../../kpi-queue/constants/queue.constants';
+import { BudgetGovernanceService, GovernedBudgetResult } from './budget-governance.service';
 
 export type BudgetActorContext = {
   userId: string;
+  organizationId: string;
   workspaceRole?: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
 };
 
@@ -51,6 +53,8 @@ export class ProjectBudgetsService {
     private readonly repo: Repository<ProjectBudgetEntity>,
     @Optional()
     private readonly domainEventEmitter?: DomainEventEmitterService,
+    @Optional()
+    private readonly budgetGovernance?: BudgetGovernanceService,
   ) {}
 
   async get(workspaceId: string, projectId: string) {
@@ -85,6 +89,25 @@ export class ProjectBudgetsService {
 
     const row = await this.get(workspaceId, projectId);
 
+    // Phase 2B: Budget governance evaluation (ADR-007 pipeline)
+    let governanceResult: GovernedBudgetResult | null = null;
+    if (this.budgetGovernance) {
+      governanceResult = await this.budgetGovernance.evaluateBudgetUpdate({
+        workspaceId,
+        projectId,
+        organizationId: actor.organizationId,
+        actorUserId: actor.userId,
+        changes: {
+          baselineBudget: dto.baselineBudget,
+          revisedBudget: dto.revisedBudget,
+          contingency: dto.contingency,
+          approvedChangeBudget: dto.approvedChangeBudget,
+          forecastAtCompletion: dto.forecastAtCompletion,
+        },
+        currentBudget: row,
+      });
+    }
+
     if (dto.baselineBudget !== undefined) row.baselineBudget = dto.baselineBudget;
     if (dto.revisedBudget !== undefined) row.revisedBudget = dto.revisedBudget;
     if (dto.contingency !== undefined) row.contingency = dto.contingency;
@@ -95,17 +118,26 @@ export class ProjectBudgetsService {
 
     const saved = await this.repo.save(row);
 
-    // Wave 10: Emit domain event for KPI recompute
+    // Emit domain event for KPI recompute
     if (this.domainEventEmitter) {
       this.domainEventEmitter
         .emit(DOMAIN_EVENTS.BUDGET_UPDATED, {
           workspaceId,
-          organizationId: '', // Budget service doesn't have org context
+          organizationId: actor.organizationId,
           projectId,
           entityId: saved.id,
           entityType: 'BUDGET',
         })
         .catch(() => {});
+    }
+
+    // Attach governance warning to response if threshold exceeded
+    if (governanceResult?.hasWarnings) {
+      (saved as any)._governanceWarning = {
+        type: 'BUDGET_WARNING',
+        summary: governanceResult.summary,
+        evaluations: governanceResult.evaluations.filter(e => e.warning),
+      };
     }
 
     return saved;
