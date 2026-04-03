@@ -310,3 +310,19 @@ export async function listPublishedDashboards(workspaceId: string): Promise<Dash
   const arr = raw.data || response;
   return Array.isArray(arr) ? arr : [];
 }
+
+// Phase 3A: Standalone set/unset default (decoupled from publish)
+
+export async function setDashboardDefault(dashboardId: string): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/set-default`, {}, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}
+
+export async function unsetDashboardDefault(dashboardId: string): Promise<DashboardEntity> {
+  const headers = getWorkspaceHeader();
+  const response = await api.post(`/api/dashboards/${dashboardId}/unset-default`, {}, { headers });
+  const raw = response as { data?: unknown };
+  return (raw.data || response) as DashboardEntity;
+}

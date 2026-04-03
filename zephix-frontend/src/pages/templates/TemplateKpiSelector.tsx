@@ -1,4 +1,8 @@
 /**
+ * @deprecated Phase 3A: This component uses a hardcoded KPI list that does not match
+ * the backend kpi_definitions table or CALCULATOR_MAP. Should be replaced with a
+ * component that fetches from GET .../kpis/definitions API.
+ *
  * Template KPI Defaults Selector
  * MVP: Hardcoded KPI list for template defaultEnabledKPIs
  */
