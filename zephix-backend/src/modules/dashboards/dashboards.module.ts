@@ -28,8 +28,8 @@ import { ProjectDashboardService } from './services/project-dashboard.service';
 import { ProjectDashboardController } from './controllers/project-dashboard.controller';
 import { WorkspaceDashboardDataController } from './controllers/workspace-dashboard-data.controller';
 import { WorkspaceDashboardDataService } from './services/workspace-dashboard-data.service';
-// Phase 2D: Risk queries use raw SQL against work_risks table via DataSource
-// No need to import WorkRisk entity here — avoids module registration issues
+import { WorkRisk } from '../work-management/entities/work-risk.entity';
+import { Risk } from '../risks/entities/risk.entity'; // DashboardCardResolverService still injects this
 import { DocumentEntity } from '../documents/entities/document.entity';
 import { WorkResourceAllocation } from '../work-management/entities/work-resource-allocation.entity';
 import { DashboardCardRegistryService } from './services/dashboard-card-registry.service';
@@ -49,6 +49,8 @@ import { OperationalDashboardController } from './controllers/operational-dashbo
       WorkTask, // Phase 7.5: For project dashboard
       WorkPhase, // Phase 7.5: For project dashboard
       WorkResourceAllocation,
+      WorkRisk, // Phase 2D: WorkspaceDashboardDataService reads from work_risks
+      Risk, // DashboardCardResolverService reads from legacy risks table
       DocumentEntity,
     ]),
     SharedModule, // Provides ResponseService
