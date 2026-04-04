@@ -85,11 +85,11 @@ import AdministrationBillingPage from "@/features/administration/pages/Administr
 // RisksPage retired — risks live inside projects (/projects/:id/risks)
 import { useWorkspaceStore } from "@/state/workspace.store";
 
-/** "/" — authenticated users go to Unified Home (Batch 2); guests see the marketing page */
+/** "/" — authenticated users go to Inbox (inbox-first); guests see the marketing page */
 function RootRoute() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null; // wait for auth check
-  if (user) return <Navigate to="/home" replace />;
+  if (user) return <Navigate to="/inbox" replace />;
   if (isStagingMarketingLandingEnabled()) {
     return (
       <React.Suspense fallback={null}>
@@ -133,7 +133,7 @@ function RequireAdminInline({ children }: { children: React.ReactElement }) {
   const isAdmin =
     platformRoleFromUser(user) === 'ADMIN' ||
     (!Array.isArray(user.permissions) && (user.permissions as any)?.isAdmin === true);
-  if (!isAdmin) return <Navigate to="/home" replace />;
+  if (!isAdmin) return <Navigate to="/inbox" replace />;
   return children;
 }
 
@@ -145,7 +145,7 @@ function RequirePaidInline({ children }: { children: React.ReactElement }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/home" replace />;
+  if (platformRoleFromUser(user) === 'VIEWER') return <Navigate to="/inbox" replace />;
   return children;
 }
 
@@ -181,6 +181,8 @@ export default function App() {
               </ErrorBoundary>
             }>
               {/* ── Org-level routes (no workspace required) ── */}
+              {/* Inbox-first: all roles land here after login */}
+              <Route path="/inbox" element={<InboxPage />} />
               <Route path="/home" element={<HomeRoute />} />
               <Route path="/work" element={<WorkRoute />} />
               <Route path="/documents" element={<DocumentsRoute />} />
@@ -260,7 +262,6 @@ export default function App() {
                 <Route path="/scenarios" element={<ScenarioPage />} />
                 {/* Paid routes - Admin and Member only */}
                 <Route element={<PaidRoute />}>
-                  <Route path="/inbox" element={<InboxPage />} />
                   <Route path="/settings/notifications" element={<NotificationsSettingsPage />} />
                   <Route path="/settings/security" element={<SecuritySettingsPage />} />
                   {/* PHASE 7 MODULE 7.2: My Work */}

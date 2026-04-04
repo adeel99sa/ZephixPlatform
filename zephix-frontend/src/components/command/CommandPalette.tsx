@@ -74,28 +74,24 @@ export function CommandPalette() {
     { id: 'home', label: 'Go to Home', hint: '/home', run: () => navigate('/home') },
   ]);
 
-  // Register workspace settings action dynamically
+  // Register workspace navigation action dynamically
   useEffect(() => {
-    // Only register workspace settings if a workspace is active
-    // TODO: Phase 4 - Also check 'view_workspace' permission from API
-    // Currently relies on backend guard to reject unauthorized access
     if (activeWorkspaceId) {
       setCommands(prev => {
-        const exists = prev.find(c => c.id === 'workspace.settings');
+        const exists = prev.find(c => c.id === 'workspace.home');
         if (exists) return prev;
         return [...prev, {
-          id: 'workspace.settings',
-          label: 'Open workspace settings',
-          hint: `/workspaces/${activeWorkspaceId}/settings`,
+          id: 'workspace.home',
+          label: 'Go to workspace home',
+          hint: `/workspaces/${activeWorkspaceId}`,
           run: () => {
-            navigate(`/workspaces/${activeWorkspaceId}/settings`);
+            navigate(`/workspaces/${activeWorkspaceId}`);
             close();
           }
         }];
       });
     } else {
-      // Remove if no active workspace
-      setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.settings'));
+      setCommands(prev => prev.filter(cmd => cmd.id !== 'workspace.home'));
     }
   }, [activeWorkspaceId, navigate, close]);
 
@@ -178,10 +174,9 @@ export function CommandPalette() {
     if (isAdmin) {
       setCommands(prev => {
         const adminCommands: Command[] = [
-          { id: 'admin-overview', label: 'Go to Admin overview', hint: '/admin/overview', run: () => navigate('/admin/overview') },
-          { id: 'admin-dashboard', label: 'Go to Admin dashboard', hint: '/admin', run: () => navigate('/admin') },
-          { id: 'admin-users', label: 'Manage users', hint: '/admin/users', run: () => navigate('/admin/users') },
-          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/admin/workspaces', run: () => navigate('/admin/workspaces') },
+          { id: 'admin-overview', label: 'Go to Administration', hint: '/administration', run: () => navigate('/administration') },
+          { id: 'admin-users', label: 'Manage users', hint: '/administration/users', run: () => navigate('/administration/users') },
+          { id: 'admin-workspaces', label: 'Manage workspaces', hint: '/administration/workspaces', run: () => navigate('/administration/workspaces') },
         ];
         // Remove existing admin commands and add new ones
         const filtered = prev.filter(cmd => !cmd.id.startsWith('admin-'));

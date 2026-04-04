@@ -20,7 +20,7 @@ export default function RequireWorkspace() {
 
   if (!activeWorkspaceId) {
     const intended = location.pathname + location.search;
-    return <Navigate to={`/home?next=${encodeURIComponent(intended)}`} replace />;
+    return <Navigate to={`/inbox?next=${encodeURIComponent(intended)}`} replace />;
   }
 
   return <Outlet />;
