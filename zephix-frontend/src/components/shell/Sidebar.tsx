@@ -340,7 +340,7 @@ export function Sidebar() {
                       >
                         Nothing shared with you yet.
                         <div className="mt-1 text-xs text-slate-400">
-                          Published dashboards will appear here.
+                          Published dashboards and future shared items will appear here.
                         </div>
                       </div>
                     )
