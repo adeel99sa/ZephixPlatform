@@ -34,14 +34,13 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      // Batch 2 / org home: always land on Unified Home unless returnUrl says otherwise.
-      // Do not auto-open the first workspace (avoids /w/main/home when org has seed/sandbox workspaces).
+      // Inbox-first: all roles land on /inbox after login.
       try {
         await request.get<any[]>("/workspaces");
       } catch {
         // Warm session / cache only; routing must not depend on this call.
       }
-      nav(returnUrl || "/home", { replace: true });
+      nav(returnUrl || "/inbox", { replace: true });
     } catch (e: any) {
       const code = e?.response?.data?.code;
       if (code === "EMAIL_NOT_VERIFIED") {

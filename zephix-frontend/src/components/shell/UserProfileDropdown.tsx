@@ -4,20 +4,16 @@ import { useAuth } from "@/state/AuthContext";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import { useWorkspaceStore } from "@/state/workspace.store";
 import {
-  ChevronDown,
   User,
   Settings,
-  Shield,
   UserPlus,
+  Shield,
   HelpCircle,
   LogOut,
-  Bell,
-  Lock,
 } from "lucide-react";
 import { track } from "@/lib/telemetry";
-import { isPaidUser, platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
+import { platformRoleFromUser, PLATFORM_ROLE } from "@/utils/roles";
 
-/** Aligned with Home / shell help entry points */
 const HELP_URL = "https://docs.zephix.io";
 
 type Align = "left" | "right";
@@ -40,9 +36,9 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
     }
   }, [user, organizations.length, getUserOrganizations]);
 
+  // Click outside to close
   useEffect(() => {
     if (!open) return;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -53,11 +49,11 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
         setOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  // Escape to close + return focus
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
@@ -76,171 +72,124 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
     navigate("/login");
   };
 
-  const companyName =
-    currentOrganization?.name ||
-    (organizations.length > 0 ? organizations[0]?.name : null) ||
-    "Zephix";
-
   const userInitial = (user?.firstName?.[0] ?? user?.email?.[0] ?? "U").toUpperCase();
-
   const menuPosition = align === "right" ? "right-0" : "left-0";
+
+  function go(action: string, path: string) {
+    setOpen(false);
+    track("user.menu.action", { action });
+    navigate(path);
+  }
 
   return (
     <div className="relative" data-testid="user-profile-dropdown">
+      {/* Avatar only — no dropdown arrow per locked spec */}
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex w-full min-w-[10rem] items-center justify-between gap-2 rounded-md px-3 py-2 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          align === "right" ? "max-w-[14rem]" : ""
-        }`}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-500 text-sm font-semibold text-white shadow-sm ring-1 ring-blue-200 hover:ring-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label="Profile menu"
         data-testid="user-profile-button"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
-            {userInitial}
-          </div>
-          <div className="min-w-0 flex-1 text-left">
-            <div className="truncate text-sm font-semibold">{companyName}</div>
-            <div className="truncate text-xs text-gray-500">Menu</div>
-          </div>
-        </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        {userInitial}
       </button>
 
       {open && (
         <div
           ref={dropdownRef}
-          className={`absolute ${menuPosition} top-full z-50 mt-1 w-72 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg`}
+          className={`absolute ${menuPosition} top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg`}
           data-testid="user-profile-menu"
+          role="menu"
         >
-          <div className="border-b border-gray-200 p-4">
+          {/* Identity header */}
+          <div className="border-b border-slate-200 px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-800 to-blue-500 text-sm font-semibold text-white">
                 {userInitial}
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">{companyName}</div>
-                <div className="truncate text-xs text-gray-500">{user?.email}</div>
+                <div className="truncate text-sm font-semibold text-slate-900">
+                  {user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.email ?? "User"}
+                </div>
+                <div className="truncate text-xs text-slate-500">{user?.email}</div>
               </div>
             </div>
           </div>
 
-          <div className="py-2">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                track("user.menu.action", { action: "profile" });
-                navigate("/settings");
-              }}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-              data-testid="menu-profile"
-            >
-              <User className="h-4 w-4 text-gray-500" />
-              My profile
-            </button>
+          <div className="py-1">
+            {/* My Profile */}
+            <MenuItem
+              icon={<User className="h-4 w-4" />}
+              label="My Profile"
+              onClick={() => go("profile", "/settings")}
+              testId="menu-profile"
+            />
 
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                track("user.menu.action", { action: "settings" });
-                navigate("/settings");
-              }}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-              data-testid="menu-settings"
-            >
-              <Settings className="h-4 w-4 text-gray-500" />
-              Settings
-            </button>
+            {/* Preferences */}
+            <MenuItem
+              icon={<Settings className="h-4 w-4" />}
+              label="Preferences"
+              onClick={() => go("preferences", "/settings")}
+              testId="menu-preferences"
+            />
 
-            {isAdmin ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    track("user.menu.action", { action: "administration" });
-                    navigate("/administration");
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                  data-testid="menu-administration"
-                >
-                  <Shield className="h-4 w-4 text-gray-500" />
-                  Administration
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    track("user.menu.action", { action: "invite_members" });
-                    navigate("/administration/users");
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                  data-testid="menu-invite-members"
-                >
-                  <UserPlus className="h-4 w-4 text-gray-500" />
-                  Invite members
-                </button>
-              </>
-            ) : null}
+            {/* Invite Members — admin only */}
+            {isAdmin && (
+              <MenuItem
+                icon={<UserPlus className="h-4 w-4" />}
+                label="Invite Members"
+                onClick={() => go("invite_members", "/administration/users")}
+                testId="menu-invite-members"
+              />
+            )}
 
+            {/* Trash and Archive: hidden until real quick-access surfaces exist (carry-forward Pass 2+) */}
+
+            <div className="my-1 border-t border-slate-200" />
+
+            {/* Administration Console — admin only */}
+            {isAdmin && (
+              <MenuItem
+                icon={<Shield className="h-4 w-4" />}
+                label="Administration Console"
+                onClick={() => go("administration", "/administration")}
+                testId="menu-administration"
+              />
+            )}
+
+            {/* Help — real external link */}
             <a
               href={HELP_URL}
               target="_blank"
               rel="noopener noreferrer"
+              role="menuitem"
               onClick={() => {
                 setOpen(false);
                 track("user.menu.action", { action: "help" });
               }}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
+              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
               data-testid="menu-help"
             >
-              <HelpCircle className="h-4 w-4 text-gray-500" />
+              <HelpCircle className="h-4 w-4 text-slate-400" />
               Help
             </a>
 
-            {isPaidUser(user) && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/settings/notifications");
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                  data-testid="menu-notifications"
-                >
-                  <Bell className="h-4 w-4 text-gray-500" />
-                  Notifications
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/settings/security");
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-gray-50"
-                  data-testid="menu-security"
-                >
-                  <Lock className="h-4 w-4 text-gray-500" />
-                  Security
-                </button>
-              </>
-            )}
+            <div className="my-1 border-t border-slate-200" />
 
-            <div className="my-1 border-t border-gray-200" />
-
+            {/* Log out */}
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 setOpen(false);
                 void handleLogout();
               }}
-              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition"
               data-testid="menu-logout"
             >
               <LogOut className="h-4 w-4" />
@@ -250,5 +199,30 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
         </div>
       )}
     </div>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  testId,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+      data-testid={testId}
+    >
+      <span className="text-slate-400">{icon}</span>
+      {label}
+    </button>
   );
 }
