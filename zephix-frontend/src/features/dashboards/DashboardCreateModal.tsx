@@ -38,7 +38,7 @@ export function DashboardCreateModal({ open, onClose }: DashboardCreateModalProp
       });
 
       track("dashboard.created", { dashboardId: dashboard.id, scope: "workspace" });
-      navigate(`/dashboards/${dashboard.id}/edit`);
+      navigate(`/dashboards/${dashboard.id}`);
       handleClose();
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || "Failed to create dashboard");

@@ -100,25 +100,10 @@ export default function WorkspaceHomePage() {
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-6" data-testid="workspace-dashboard">
-      {/* Dashboard header */}
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{ws.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">Workspace dashboard</p>
-        </div>
-        {isOwnerOrAdmin && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboards")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
-              data-testid="ws-dashboard-manage"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Manage Dashboards
-            </button>
-          </div>
-        )}
+      {/* Dashboard header — one canonical workspace dashboard surface */}
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{ws.name}</h1>
+        <p className="mt-1 text-sm text-slate-500">Workspace dashboard</p>
       </header>
 
       {/* About section */}
@@ -156,14 +141,16 @@ export default function WorkspaceHomePage() {
         )}
       </section>
 
-      {/* KPI overview — real data from workspace summary, empty shells when no data */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Overview</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiShell label="Projects" value={summary?.projectsTotal} hasData={hasProjects} />
-          <KpiShell label="In Progress" value={summary?.projectsInProgress} hasData={hasProjects} />
-          <KpiShell label="Tasks" value={summary?.tasksTotal} hasData={hasProjects} />
-          <KpiShell label="Completed" value={summary?.tasksCompleted} hasData={hasProjects} />
+      {/* Workspace overview context — real summary data, not dashboard widget cards */}
+      <section className="rounded-xl border border-slate-200 bg-white px-5 py-4" data-testid="ws-overview-context">
+        <div className="flex items-center gap-6">
+          <ContextStat label="Projects" value={hasProjects ? (summary?.projectsTotal ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="In progress" value={hasProjects ? (summary?.projectsInProgress ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="Tasks" value={hasProjects ? (summary?.tasksTotal ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="Completed" value={hasProjects ? (summary?.tasksCompleted ?? 0) : null} />
         </div>
       </section>
 
@@ -192,15 +179,13 @@ export default function WorkspaceHomePage() {
   );
 }
 
-function KpiShell({ label, value, hasData }: { label: string; value?: number; hasData: boolean }) {
+function ContextStat({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4" data-testid={`kpi-${label.toLowerCase().replace(/\s/g, '-')}`}>
-      <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</div>
-      {hasData ? (
-        <div className="mt-1 text-2xl font-semibold text-slate-900">{value ?? 0}</div>
-      ) : (
-        <div className="mt-1 text-lg font-medium text-slate-300">&mdash;</div>
-      )}
+    <div className="min-w-0">
+      <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold text-slate-900">
+        {value !== null ? value : <span className="text-slate-300">&mdash;</span>}
+      </div>
     </div>
   );
 }

@@ -10,14 +10,37 @@ interface AddCardModalProps {
 }
 
 /**
- * Pass 3: Add Card modal — real widget selection from the widget registry.
- * Modal-based per locked spec. Every visible category and tile is backed by
- * a real widget type in the registry.
+ * Zephix-ready category mapping.
+ * Only categories approved for this pass are shown.
+ * Backend category names are relabeled to Zephix user-facing language.
+ * Portfolio category hidden (feature-flagged, future-state breadth).
  */
+const ZEPHIX_CATEGORIES: Record<string, string> = {
+  Analytics: "Project Health",
+  Resources: "Resources",
+  Finance: "Finance",
+  Risk: "Risk",
+  Schedule: "Schedule",
+  // Portfolio: hidden — feature-flagged, not Zephix-ready for this pass
+};
+
 export function AddCardModal({ open, onClose, onSelect }: AddCardModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const categories = getWidgetsByCategory();
+  const allCategories = getWidgetsByCategory();
+
+  // Filter to only Zephix-approved categories
+  const categories = Object.entries(allCategories)
+    .filter(([cat]) => cat in ZEPHIX_CATEGORIES)
+    .reduce<Record<string, WidgetType[]>>((acc, [cat, types]) => {
+      acc[cat] = types;
+      return acc;
+    }, {});
+
   const categoryNames = Object.keys(categories);
+
+  function zephixLabel(backendCategory: string): string {
+    return ZEPHIX_CATEGORIES[backendCategory] ?? backendCategory;
+  }
 
   if (!open) return null;
 
@@ -39,11 +62,11 @@ export function AddCardModal({ open, onClose, onSelect }: AddCardModalProps) {
             </button>
           </div>
 
-          {/* Category tabs */}
-          <div className="flex gap-1 border-b border-slate-200 px-6">
+          {/* Category tabs — Zephix labels */}
+          <div className="flex gap-1 border-b border-slate-200 px-6 overflow-x-auto">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-2.5 text-xs font-medium transition ${
+              className={`shrink-0 px-3 py-2.5 text-xs font-medium transition ${
                 selectedCategory === null
                   ? "border-b-2 border-blue-600 text-blue-600"
                   : "text-slate-500 hover:text-slate-700"
@@ -55,14 +78,14 @@ export function AddCardModal({ open, onClose, onSelect }: AddCardModalProps) {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-2.5 text-xs font-medium transition ${
+                className={`shrink-0 px-3 py-2.5 text-xs font-medium transition ${
                   selectedCategory === cat
                     ? "border-b-2 border-blue-600 text-blue-600"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
                 data-testid={`card-category-${cat.toLowerCase()}`}
               >
-                {cat}
+                {zephixLabel(cat)}
               </button>
             ))}
           </div>
@@ -87,7 +110,7 @@ export function AddCardModal({ open, onClose, onSelect }: AddCardModalProps) {
                         data-testid={`card-tile-${type}`}
                       >
                         <div className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                          {entry.category}
+                          {zephixLabel(entry.category)}
                         </div>
                         <div className="mt-1 text-sm font-medium text-slate-900">
                           {entry.displayName}
