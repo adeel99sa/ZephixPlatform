@@ -1,11 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
-import { AiAssistantPanel } from '@/components/shell/AiAssistantPanel';
 import DemoBanner from '@/components/shell/DemoBanner';
 import { EmailVerificationBanner } from '@/components/shell/EmailVerificationBanner';
 import { useAuth } from '@/state/AuthContext';
-import { usePhase5_1Redirect } from '@/hooks/usePhase5_1Redirect';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useWorkspaceValidation } from '@/hooks/useWorkspaceValidation';
 import { useOnboardingCheck } from '@/hooks/useOnboardingCheck';
@@ -43,8 +41,6 @@ export default function DashboardLayout() {
     enabled: onboardingComplete && Boolean(activeWorkspaceId),
   });
 
-  // Phase 5.1: Redirect delivery_owner/workspace_owner to /templates if no active/draft projects
-  usePhase5_1Redirect();
 
   /**
    * GATE 1 CHECK: Legacy hook only gates on auth loading.
@@ -75,7 +71,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      <AiAssistantPanel />
     </div>
   );
 }

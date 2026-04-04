@@ -20,8 +20,8 @@ export default function PaidRoute() {
 
   // Check if user has paid access (Admin or Member)
   if (!isPaidUser(user)) {
-    // Guest users are redirected to home (most stable landing)
-    return <Navigate to="/home" replace />;
+    // Guest users are redirected to inbox (inbox-first landing)
+    return <Navigate to="/inbox" replace />;
   }
 
   return <Outlet />;

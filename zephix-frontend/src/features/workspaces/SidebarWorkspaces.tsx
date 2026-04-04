@@ -10,6 +10,7 @@ import { listWorkspaces } from './api';
 import type { Workspace } from './api';
 import { WorkspaceCreateModal } from './WorkspaceCreateModal';
 import { isAdminRole } from '@/types/roles';
+import { isPlatformViewer } from '@/utils/access';
 
 export function SidebarWorkspaces() {
   const { user, isLoading: authLoading } = useAuth();
@@ -100,8 +101,8 @@ export function SidebarWorkspaces() {
       hasInitializedRef.current = true;
       const firstWorkspace = availableWorkspaces[0];
       if (firstWorkspace) {
+        // Set workspace context without navigating — inbox-first landing stays on /inbox
         setActiveWorkspace(firstWorkspace.id);
-        navigate(`/workspaces/${firstWorkspace.id}/home`, { replace: true });
         telemetry.track('workspace.selected', { workspaceId: firstWorkspace.id });
       }
     }
@@ -221,8 +222,8 @@ export function SidebarWorkspaces() {
         )}
         </div>
 
-        {/* Plus Button */}
-        {activeWorkspaceId && (
+        {/* Plus Button — hidden for viewers (read-only users cannot create) */}
+        {activeWorkspaceId && !isPlatformViewer(user) && (
           <div className="relative" ref={plusMenuRef}>
             <button
               onClick={() => setPlusMenuOpen(!plusMenuOpen)}
@@ -243,16 +244,7 @@ export function SidebarWorkspaces() {
                     }}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                   >
-                    Project
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPlusMenuOpen(false);
-                      navigate('/templates');
-                    }}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
-                  >
-                    Template Center
+                    New project
                   </button>
                   <button
                     onClick={async () => {
