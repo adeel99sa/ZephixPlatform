@@ -209,12 +209,14 @@ export default function App() {
               <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
-              {/* ── Workspace-scoped routes (redirect to /home if none selected) ── */}
+              {/* Pass 3: Dashboards directory — Org Admin standalone surface (no workspace required) */}
+              <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
+
+              {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
               <Route element={<RequireWorkspace />}>
                 <Route path="/reports" element={<Navigate to="/analytics" replace />} />
                 {/* Phase 2D: /risks standalone page retired — risks live inside projects. Use /projects/:id/risks */}
                 <Route path="/risks" element={<Navigate to="/workspaces" replace />} />
-                <Route path="/dashboards" element={<DashboardsIndex />} />
                 <Route path="/dashboards/:id" element={<DashboardView />} />
                 <Route path="/dashboards/:id/edit" element={<DashboardBuilder />} />
                 <Route path="/projects" element={<ProjectsPage />} />

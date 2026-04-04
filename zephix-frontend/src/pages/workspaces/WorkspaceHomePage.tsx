@@ -5,6 +5,7 @@ import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import { toast } from "sonner";
 import { useWorkspaceVisitTracker } from "@/hooks/useWorkspaceVisitTracker";
 import { useWorkspaceStore } from "@/state/workspace.store";
+import { Plus, LayoutDashboard } from "lucide-react";
 
 export default function WorkspaceHomePage() {
   const { workspaceId } = useParams();
@@ -21,16 +22,12 @@ export default function WorkspaceHomePage() {
 
   useEffect(() => {
     if (!workspaceId) return;
-
     setActiveWorkspace(workspaceId);
     loadData();
   }, [workspaceId, setActiveWorkspace]);
 
-  // Track workspace visits for /home page
   useWorkspaceVisitTracker(
-    ws && ws.slug
-      ? { id: ws.id, slug: ws.slug, name: ws.name }
-      : null
+    ws && ws.slug ? { id: ws.id, slug: ws.slug, name: ws.name } : null
   );
 
   const loadData = async () => {
@@ -54,7 +51,6 @@ export default function WorkspaceHomePage() {
 
   const handleSaveAbout = async () => {
     if (!workspaceId) return;
-
     setSavingAbout(true);
     try {
       const updated = await updateWorkspace(workspaceId, { description: aboutText });
@@ -71,52 +67,51 @@ export default function WorkspaceHomePage() {
   if (!workspaceId) {
     return (
       <div className="p-6">
-        <div className="text-lg font-semibold">Workspace not found</div>
+        <div className="text-lg font-semibold text-slate-900">Workspace not found</div>
         <Link className="text-blue-600" to="/workspaces">Back to workspaces</Link>
       </div>
     );
   }
 
   if (loading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-r-transparent" />
+      </div>
+    );
   }
 
   if (err) {
     return (
       <div className="p-6">
-        <div className="text-lg font-semibold">Error</div>
-        <div className="mt-2 text-sm text-muted-foreground">{err}</div>
-        <button
-          onClick={loadData}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+        <div className="text-lg font-semibold text-slate-900">Error</div>
+        <div className="mt-2 text-sm text-slate-500">{err}</div>
+        <button onClick={loadData} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
           Retry
         </button>
-        <Link className="mt-4 ml-4 inline-block text-blue-600" to="/workspaces">Back to workspaces</Link>
       </div>
     );
   }
 
-  if (!ws) {
-    return <div className="p-6">Workspace not found</div>;
-  }
+  if (!ws) return <div className="p-6 text-slate-500">Workspace not found</div>;
 
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
+  const hasProjects = (summary?.projectsTotal ?? 0) > 0;
 
   return (
-    <div className="p-6">
-      <div className="text-2xl font-semibold">{ws.name}</div>
-      <div className="mt-2 text-sm text-muted-foreground">Workspace home</div>
+    <div className="mx-auto max-w-6xl p-6 space-y-6" data-testid="workspace-dashboard">
+      {/* Dashboard header — one canonical workspace dashboard surface */}
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{ws.name}</h1>
+        <p className="mt-1 text-sm text-slate-500">Workspace dashboard</p>
+      </header>
 
-      {/* About Section */}
-      <div className="mt-6 rounded-lg border p-4">
+      {/* About section */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex items-center justify-between mb-2">
-          <div className="font-medium">About</div>
+          <h2 className="text-sm font-semibold text-slate-900">About</h2>
           {isOwnerOrAdmin && !editingAbout && (
-            <button
-              onClick={() => setEditingAbout(true)}
-              className="text-sm text-blue-600 hover:text-blue-700"
-            >
+            <button onClick={() => setEditingAbout(true)} className="text-xs text-blue-600 hover:text-blue-700">
               Edit
             </button>
           )}
@@ -126,113 +121,70 @@ export default function WorkspaceHomePage() {
             <textarea
               value={aboutText}
               onChange={(e) => setAboutText(e.target.value)}
-              className="w-full p-2 border rounded text-sm"
+              className="w-full rounded-lg border border-slate-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={3}
-              placeholder="Add a short intro for your team"
+              placeholder="Describe this workspace for your team"
             />
             <div className="flex gap-2">
-              <button
-                onClick={handleSaveAbout}
-                disabled={savingAbout}
-                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-              >
+              <button onClick={handleSaveAbout} disabled={savingAbout}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
                 {savingAbout ? "Saving..." : "Save"}
               </button>
-              <button
-                onClick={() => {
-                  setEditingAbout(false);
-                  setAboutText(ws.description || "");
-                }}
-                className="px-3 py-1 border text-sm rounded hover:bg-gray-50"
-              >
+              <button onClick={() => { setEditingAbout(false); setAboutText(ws.description || ""); }}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">
-            {ws.description || "Add a short intro for your team"}
-          </div>
+          <p className="text-sm text-slate-500">{ws.description || "Add a description for your team"}</p>
         )}
-      </div>
+      </section>
 
-      {/* KPI Tiles */}
-      <div className="mt-6 grid grid-cols-4 gap-4">
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Total projects</div>
-          <div className="text-2xl font-semibold">{summary?.projectsTotal || 0}</div>
+      {/* Workspace overview context — real summary data, not dashboard widget cards */}
+      <section className="rounded-xl border border-slate-200 bg-white px-5 py-4" data-testid="ws-overview-context">
+        <div className="flex items-center gap-6">
+          <ContextStat label="Projects" value={hasProjects ? (summary?.projectsTotal ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="In progress" value={hasProjects ? (summary?.projectsInProgress ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="Tasks" value={hasProjects ? (summary?.tasksTotal ?? 0) : null} />
+          <div className="h-8 w-px bg-slate-100" />
+          <ContextStat label="Completed" value={hasProjects ? (summary?.tasksCompleted ?? 0) : null} />
         </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Projects in progress</div>
-          <div className="text-2xl font-semibold">{summary?.projectsInProgress || 0}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Total tasks</div>
-          <div className="text-2xl font-semibold">{summary?.tasksTotal || 0}</div>
-        </div>
-        <div className="rounded-lg border p-4">
-          <div className="text-sm text-muted-foreground mb-1">Tasks completed</div>
-          <div className="text-2xl font-semibold">{summary?.tasksCompleted || 0}</div>
-        </div>
-      </div>
+      </section>
 
-      {/* Projects Section */}
-      <div className="mt-6 rounded-lg border p-4">
-        <div className="font-medium mb-2">Projects</div>
-        <div className="mt-4 text-center py-8">
-          <div className="text-sm text-muted-foreground mb-4">
-            No projects yet
+      {/* Empty state guidance when no projects */}
+      {!hasProjects && (
+        <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+            <LayoutDashboard className="h-6 w-6" />
           </div>
-          <Link
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-            to="/templates"
-          >
-            Open Template Center
-          </Link>
-        </div>
-      </div>
+          <h3 className="mt-4 text-sm font-semibold text-slate-900">Dashboard cards will appear here</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+            Create a project from Template Center to start generating data. KPI cards will populate automatically as project data becomes available.
+          </p>
+          {isOwnerOrAdmin && (
+            <Link
+              to="/templates"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
+            >
+              <Plus className="h-4 w-4" />
+              Create from Template
+            </Link>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
 
-      {/* Quick Actions */}
-      <div className="mt-6 rounded-lg border p-4">
-        <div className="font-medium mb-4">Quick Actions</div>
-        <div className="flex gap-3">
-          <button
-            onClick={async () => {
-              if (!workspaceId) {
-                toast.error("Workspace ID required");
-                return;
-              }
-              try {
-                const { createDoc } = await import("@/features/docs/api");
-                const docId = await createDoc(workspaceId, "Untitled");
-                navigate(`/docs/${docId}`);
-              } catch (e: any) {
-                toast.error(e?.message || "Failed to create doc");
-              }
-            }}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-          >
-            New doc
-          </button>
-          <button
-            onClick={async () => {
-              if (!workspaceId) {
-                toast.error("Workspace ID required");
-                return;
-              }
-              try {
-                const { createForm } = await import("@/features/forms/api");
-                const formId = await createForm(workspaceId, "Untitled");
-                navigate(`/forms/${formId}/edit`);
-              } catch (e: any) {
-                toast.error(e?.message || "Failed to create form");
-              }
-            }}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-          >
-            New form
-          </button>
-        </div>
+function ContextStat({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold text-slate-900">
+        {value !== null ? value : <span className="text-slate-300">&mdash;</span>}
       </div>
     </div>
   );
