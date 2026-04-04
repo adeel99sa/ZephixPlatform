@@ -57,6 +57,10 @@ vi.mock('@/features/dashboards/api', () => ({
   listPublishedDashboards: vi.fn(() => Promise.resolve([])),
 }));
 
+vi.mock('@/features/organizations/useOrgHomeState', () => ({
+  useOrgHomeState: vi.fn(() => ({ workspaceCount: 0, isLoading: false })),
+}));
+
 vi.mock('@tanstack/react-query', async () => {
   const actual = await vi.importActual('@tanstack/react-query');
   return {
@@ -69,12 +73,14 @@ import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useProjects } from '@/features/projects/hooks';
 import { useFavorites } from '@/features/favorites/hooks';
+import { useOrgHomeState } from '@/features/organizations/useOrgHomeState';
 
 const mockUseProjects = useProjects as ReturnType<typeof vi.fn>;
 const mockUseFavorites = useFavorites as ReturnType<typeof vi.fn>;
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>;
 const mockUseWorkspaceStore = useWorkspaceStore as ReturnType<typeof vi.fn>;
+const mockUseOrgHomeState = useOrgHomeState as ReturnType<typeof vi.fn>;
 
 function renderSidebar(initialPath = '/inbox') {
   return render(
@@ -91,9 +97,10 @@ const VIEWER_USER = { id: '3', platformRole: 'VIEWER', role: 'viewer', email: 'v
 describe('Pass 1 — Shell locked UX contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: no projects, no favorites
+    // Default: no projects, no favorites, org reports zero workspaces
     mockUseProjects.mockReturnValue({ data: [], isLoading: false });
     mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
+    mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
   });
 
   describe('Logo and Inbox', () => {
@@ -157,35 +164,38 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('section-my-tasks-chevron')).toBeInTheDocument();
     });
 
-    it('My Tasks child items are visible as non-click explanatory text', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
-      renderSidebar();
+    it('My Tasks shows real destinations for paid users (Admin and Member)', () => {
+      for (const user of [ADMIN_USER, MEMBER_USER]) {
+        mockUseAuth.mockReturnValue({ user });
+        mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+        const { unmount } = renderSidebar();
 
-      expect(screen.getByText('Assigned to Me')).toBeInTheDocument();
-      expect(screen.getByText('Today and Overdue')).toBeInTheDocument();
-      expect(screen.getByText('Personal')).toBeInTheDocument();
+        expect(screen.getByTestId('my-tasks-assigned').getAttribute('href')).toBe('/my-work');
+        expect(screen.getByTestId('my-tasks-urgent').getAttribute('href')).toBe(
+          '/my-work?filter=urgent',
+        );
+        unmount();
+      }
     });
 
-    it('My Tasks child items are not clickable buttons or links', () => {
+    it('My Tasks Personal is not a link and explains future availability', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       renderSidebar();
 
+      expect(screen.getByTestId('my-tasks-personal-static')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /^Personal$/i })).not.toBeInTheDocument();
+    });
+
+    it('My Tasks uses static rows for guest (Viewer) instead of links', () => {
+      mockUseAuth.mockReturnValue({ user: VIEWER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      expect(screen.getByTestId('my-tasks-assigned-static')).toBeInTheDocument();
+      expect(screen.getByTestId('my-tasks-urgent-static')).toBeInTheDocument();
       const container = screen.getByTestId('my-tasks-children');
-      // No buttons or anchor tags inside the children
-      expect(container.querySelectorAll('button')).toHaveLength(0);
       expect(container.querySelectorAll('a')).toHaveLength(0);
-    });
-
-    it('My Tasks child items are styled as italic explanatory text', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
-      renderSidebar();
-
-      const assignedItem = screen.getByText('Assigned to Me');
-      expect(assignedItem.className).toContain('italic');
-      expect(assignedItem.className).toContain('text-slate-400');
     });
   });
 
@@ -206,20 +216,53 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.queryByTestId('section-workspaces-plus')).not.toBeInTheDocument();
     });
 
-    it('shows empty state when no workspace selected', () => {
+    it('shows first-workspace empty state when org has no workspaces', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
 
-      expect(screen.getByText('No workspaces yet.')).toBeInTheDocument();
+      expect(screen.getByTestId('workspaces-empty-first')).toBeInTheDocument();
+      expect(screen.getByText(/Create your first workspace/i)).toBeInTheDocument();
     });
 
-    it('shows Create Workspace button in empty state for admin', () => {
+    it('shows choose-workspace prompt when org has workspaces but none selected', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 2, isLoading: false });
+      renderSidebar();
+
+      expect(screen.getByTestId('workspaces-select-prompt')).toBeInTheDocument();
+      expect(screen.getByText(/Choose a workspace/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('empty-create-workspace')).not.toBeInTheDocument();
+    });
+
+    it('shows loading line while org workspace count is loading', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: true });
+      renderSidebar();
+
+      expect(screen.getByTestId('workspaces-empty-loading')).toBeInTheDocument();
+    });
+
+    it('shows Create Workspace button in first-workspace empty state for admin', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
       renderSidebar();
 
       expect(screen.getByTestId('empty-create-workspace')).toBeInTheDocument();
+    });
+
+    it('member with no workspaces sees admin note, not Create Workspace', () => {
+      mockUseAuth.mockReturnValue({ user: MEMBER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseOrgHomeState.mockReturnValue({ workspaceCount: 0, isLoading: false });
+      renderSidebar();
+
+      expect(screen.getByText(/Ask an organization admin/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('empty-create-workspace')).not.toBeInTheDocument();
     });
   });
 
@@ -350,13 +393,13 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByText('No favorites yet.')).toBeInTheDocument();
     });
 
-    it('shows favorited items when favorites exist', () => {
+    it('shows favorited items with real display names', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       mockUseFavorites.mockReturnValue({
         data: [
-          { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayOrder: 0, createdAt: '' },
-          { id: 'f2', itemType: 'dashboard', itemId: 'dash-1', displayOrder: 1, createdAt: '' },
+          { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayName: 'Engineering Hub', displayOrder: 0, createdAt: '' },
+          { id: 'f2', itemType: 'dashboard', itemId: 'dash-1', displayName: 'KPI Overview', displayOrder: 1, createdAt: '' },
         ],
         isLoading: false,
       });
@@ -365,13 +408,33 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('favorites-list')).toBeInTheDocument();
       expect(screen.getByTestId('favorite-item-f1')).toBeInTheDocument();
       expect(screen.getByTestId('favorite-item-f2')).toBeInTheDocument();
+      // Must show real names, not UUID fragments
+      expect(screen.getByText('Engineering Hub')).toBeInTheDocument();
+      expect(screen.getByText('KPI Overview')).toBeInTheDocument();
+    });
+
+    it('does not render UUID fragments for favorites', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseFavorites.mockReturnValue({
+        data: [
+          { id: 'f1', itemType: 'workspace', itemId: 'a1b2c3d4-5678-9abc-def0-123456789abc', displayName: 'My Workspace', displayOrder: 0, createdAt: '' },
+        ],
+        isLoading: false,
+      });
+      renderSidebar();
+
+      // Should not show the UUID fragment
+      expect(screen.queryByText(/a1b2c3d4/)).not.toBeInTheDocument();
+      // Should show the real name
+      expect(screen.getByText('My Workspace')).toBeInTheDocument();
     });
 
     it('shows remove button on hover for each favorite', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       mockUseFavorites.mockReturnValue({
-        data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayOrder: 0, createdAt: '' }],
+        data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayName: 'Sprint Dashboard', displayOrder: 0, createdAt: '' }],
         isLoading: false,
       });
       renderSidebar();

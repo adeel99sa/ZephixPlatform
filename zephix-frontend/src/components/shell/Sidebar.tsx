@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   MoreHorizontal,
   Plus,
   Inbox,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { SidebarWorkspaces } from "@/features/workspaces/SidebarWorkspaces";
 import { WorkspaceCreateModal } from "@/features/workspaces/WorkspaceCreateModal";
@@ -13,12 +14,13 @@ import { useWorkspaceStore } from "@/state/workspace.store";
 import { track } from "@/lib/telemetry";
 import { useAuth } from "@/state/AuthContext";
 import { isPlatformAdmin } from "@/utils/access";
+import { isPaidUser } from "@/utils/roles";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useProjects } from "@/features/projects/hooks";
 import { useFavorites, useRemoveFavorite } from "@/features/favorites/hooks";
 import type { Favorite } from "@/features/favorites/api";
-import { useQuery } from "@tanstack/react-query";
 import { listPublishedDashboards } from "@/features/dashboards/api";
+import { useOrgHomeState } from "@/features/organizations/useOrgHomeState";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
@@ -31,6 +33,67 @@ function InboxBadge() {
     <span className="px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-semibold rounded-full leading-none">
       {unreadCount > 99 ? "99+" : unreadCount}
     </span>
+  );
+}
+
+const myTasksChildNav = (isActive: boolean) =>
+  `block rounded-md px-2 py-1.5 text-sm font-medium transition ${
+    isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
+  }`;
+
+/** My Tasks sub-destinations: real links only for paid roles; honest static row for guests. */
+function MyTasksChildren({ paid }: { paid: boolean }) {
+  const { pathname, search } = useLocation();
+  const filter = new URLSearchParams(search).get("filter");
+  const onMyWork = pathname === "/my-work";
+  const assignedActive = onMyWork && (filter === null || filter === "" || filter === "all");
+  const urgentActive = onMyWork && filter === "urgent";
+
+  return (
+    <div className="ml-4 border-l border-slate-200 pl-3 space-y-0.5" data-testid="my-tasks-children">
+      {paid ? (
+        <>
+          <Link
+            data-testid="my-tasks-assigned"
+            to="/my-work"
+            className={myTasksChildNav(assignedActive)}
+          >
+            Assigned to Me
+          </Link>
+          <Link
+            data-testid="my-tasks-urgent"
+            to="/my-work?filter=urgent"
+            className={myTasksChildNav(urgentActive)}
+          >
+            Today and Overdue
+          </Link>
+        </>
+      ) : (
+        <>
+          <div
+            className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
+            data-testid="my-tasks-assigned-static"
+          >
+            Assigned to Me
+          </div>
+          <div
+            className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
+            data-testid="my-tasks-urgent-static"
+          >
+            Today and Overdue
+          </div>
+        </>
+      )}
+      <div
+        className="rounded-md px-2 py-1.5 text-sm text-slate-500 select-none"
+        data-testid="my-tasks-personal-static"
+      >
+        Personal
+        <p className="mt-0.5 text-xs font-normal text-slate-400 leading-snug">
+          Not available yet — private task lists are planned.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -59,12 +122,12 @@ function SectionHeader({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 transition"
+        className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-900 hover:text-slate-950 transition"
         aria-expanded={expanded}
         data-testid={`${testId}-chevron`}
       >
         <ChevronDown
-          className={`h-3 w-3 transition-transform ${expanded ? "" : "-rotate-90"}`}
+          className={`h-3.5 w-3.5 shrink-0 text-slate-700 transition-transform ${expanded ? "" : "-rotate-90"}`}
         />
         {label}
       </button>
@@ -102,6 +165,7 @@ export function Sidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { workspaceCount, isLoading: orgWorkspaceLoading } = useOrgHomeState();
   const isAdmin = isPlatformAdmin(user);
 
   // Real project existence check — Projects link hidden until at least one exists
@@ -171,10 +235,10 @@ export function Sidebar() {
           data-testid="nav-inbox"
           to="/inbox"
           className={({ isActive }) =>
-            `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${
+            `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition ${
               isActive
-                ? "bg-blue-50 text-blue-700"
-                : "text-slate-700 hover:bg-slate-50"
+                ? "bg-blue-50 text-blue-800"
+                : "text-slate-900 hover:bg-slate-50"
             }`
           }
         >
@@ -194,12 +258,7 @@ export function Sidebar() {
             testId="section-my-tasks"
           />
           {myTasksOpen && (
-            <div className="ml-4 border-l border-slate-200 pl-3 space-y-0.5" data-testid="my-tasks-children">
-              <div className="px-2 py-1 text-xs italic text-slate-400 select-none">Assigned to Me</div>
-              <div className="px-2 py-1 text-xs italic text-slate-400 select-none">Today and Overdue</div>
-              <div className="px-2 py-1 text-xs italic text-slate-400 select-none">Personal</div>
-              <div className="px-2 pt-1 text-[10px] text-slate-300">Available when tasks exist</div>
-            </div>
+            <MyTasksChildren paid={isPaidUser(user)} />
           )}
         </div>
 
@@ -275,8 +334,8 @@ export function Sidebar() {
                   data-testid="ws-nav-projects"
                   to="/projects"
                   className={({ isActive }) =>
-                    `block rounded-lg px-3 py-1.5 text-sm transition ${
-                      isActive ? "bg-slate-100 font-medium" : "hover:bg-slate-50"
+                    `block rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      isActive ? "bg-slate-100 text-slate-900" : "text-slate-800 hover:bg-slate-50"
                     }`
                   }
                 >
@@ -285,25 +344,52 @@ export function Sidebar() {
               </div>
             )}
 
-            {/* No workspace empty state */}
-            {!activeWorkspaceId && (
-              <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-3 text-sm text-slate-500">
-                No workspaces yet.
-                <div className="mt-1 text-xs text-slate-400">
-                  Create your first workspace to start organizing projects, dashboards, and shared items.
+            {/* Honest workspace context: first workspace vs pick from list (org count is source of truth) */}
+            {!activeWorkspaceId &&
+              (orgWorkspaceLoading ? (
+                <div
+                  className="mx-2 rounded-lg border border-slate-200/80 bg-slate-50/40 px-3 py-2.5 text-xs text-slate-500"
+                  data-testid="workspaces-empty-loading"
+                >
+                  Loading workspace info…
                 </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleCreateWorkspace}
-                    className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 transition"
-                    data-testid="empty-create-workspace"
-                  >
-                    Create Workspace
-                  </button>
-                )}
-              </div>
-            )}
+              ) : workspaceCount === 0 ? (
+                <div
+                  className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/80 px-3 py-3"
+                  data-testid="workspaces-empty-first"
+                >
+                  <p className="text-sm font-semibold text-slate-900">Create your first workspace</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    Your organization does not have a workspace yet. Add one to organize projects,
+                    dashboards, and team work — nothing is created until you do.
+                  </p>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={handleCreateWorkspace}
+                      className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+                      data-testid="empty-create-workspace"
+                    >
+                      Create workspace
+                    </button>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-400">
+                      Ask an organization admin to create the first workspace.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="mx-2 rounded-lg border border-slate-200/90 bg-white px-3 py-3 shadow-sm"
+                  data-testid="workspaces-select-prompt"
+                >
+                  <p className="text-sm font-semibold text-slate-900">Choose a workspace</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    Use the workspace row above to select which workspace you are working in. Your
+                    API lists more than one workspace — no default is applied until you choose.
+                  </p>
+                </div>
+              ))}
           </div>
         )}
 
@@ -348,10 +434,10 @@ export function Sidebar() {
                     key={d.id}
                     type="button"
                     onClick={() => navigate(`/dashboards/${d.id}`)}
-                    className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+                    className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm font-medium text-slate-800 hover:bg-slate-50 transition"
                     data-testid={`shared-item-${d.id}`}
                   >
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1.5">
                       Dashboard
                     </span>
                     {d.name}
@@ -396,12 +482,12 @@ function FavoriteItem({
       <button
         type="button"
         onClick={onNavigate}
-        className="flex-1 truncate text-left text-slate-700"
+        className="flex-1 truncate text-left text-slate-800 font-medium"
       >
-        <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1.5">
           {ITEM_TYPE_LABELS[favorite.itemType] ?? favorite.itemType}
         </span>
-        {favorite.itemId.slice(0, 8)}…
+        {favorite.displayName}
       </button>
       <button
         type="button"

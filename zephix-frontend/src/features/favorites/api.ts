@@ -8,6 +8,7 @@ export interface Favorite {
   organizationId: string;
   itemType: FavoriteItemType;
   itemId: string;
+  displayName: string;
   displayOrder: number;
   createdAt: string;
 }
