@@ -15,6 +15,10 @@ import { useAuth } from "@/state/AuthContext";
 import { isPlatformAdmin } from "@/utils/access";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { useProjects } from "@/features/projects/hooks";
+import { useFavorites, useRemoveFavorite } from "@/features/favorites/hooks";
+import type { Favorite } from "@/features/favorites/api";
+import { useQuery } from "@tanstack/react-query";
+import { listPublishedDashboards } from "@/features/dashboards/api";
 
 /* ────────────────────────────────────────────
    Sidebar — locked UX contract (Pass 1)
@@ -104,6 +108,20 @@ export function Sidebar() {
   const { data: projects } = useProjects(activeWorkspaceId, { enabled: !!activeWorkspaceId });
   const hasProjects = (projects?.length ?? 0) > 0;
 
+  // Real favorites data
+  const { data: favorites } = useFavorites();
+  const removeFavorite = useRemoveFavorite();
+  const hasFavorites = (favorites?.length ?? 0) > 0;
+
+  // Published dashboards = "Shared" content (only real sharing model that exists)
+  const { data: publishedDashboards } = useQuery({
+    queryKey: ['published-dashboards', activeWorkspaceId],
+    queryFn: () => listPublishedDashboards(activeWorkspaceId!),
+    enabled: !!activeWorkspaceId,
+    staleTime: 30_000,
+  });
+  const hasSharedItems = (publishedDashboards?.length ?? 0) > 0;
+
   // Section collapse state
   const [myTasksOpen, setMyTasksOpen] = useState(true);
   const [favoritesOpen, setFavoritesOpen] = useState(true);
@@ -187,7 +205,7 @@ export function Sidebar() {
 
         <div className="my-2 border-t border-slate-200/80" />
 
-        {/* ── Favorites ── (plus and three-dot deferred to Pass 2) */}
+        {/* ── Favorites ── real data from /favorites API */}
         <SectionHeader
           label="Favorites"
           expanded={favoritesOpen}
@@ -195,12 +213,37 @@ export function Sidebar() {
           testId="section-favorites"
         />
         {favoritesOpen && (
-          <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-3 text-sm text-slate-500">
-            No favorites yet.
-            <div className="mt-1 text-xs text-slate-400">
-              Add items you want quick access to after workspaces, dashboards, or projects exist.
+          hasFavorites ? (
+            <div className="ml-2 space-y-0.5" data-testid="favorites-list">
+              {favorites!.map((fav) => (
+                <FavoriteItem
+                  key={fav.id}
+                  favorite={fav}
+                  onRemove={() =>
+                    removeFavorite.mutate({
+                      itemType: fav.itemType,
+                      itemId: fav.itemId,
+                    })
+                  }
+                  onNavigate={() => {
+                    if (fav.itemType === 'workspace') navigate(`/workspaces/${fav.itemId}`);
+                    else if (fav.itemType === 'project') navigate(`/projects/${fav.itemId}`);
+                    else if (fav.itemType === 'dashboard') navigate(`/dashboards/${fav.itemId}`);
+                  }}
+                />
+              ))}
             </div>
-          </div>
+          ) : (
+            <div
+              className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-3 text-sm text-slate-500"
+              data-testid="favorites-empty"
+            >
+              No favorites yet.
+              <div className="mt-1 text-xs text-slate-400">
+                Add items you want quick access to after workspaces, dashboards, or projects exist.
+              </div>
+            </div>
+          )
         )}
 
         <div className="my-2 border-t border-slate-200/80" />
@@ -273,27 +316,38 @@ export function Sidebar() {
                     testId="section-shared"
                   />
                   {sharedOpen && (
-                    <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500">
-                      Nothing shared with you yet.
-                      <div className="mt-1 text-xs text-slate-400">
-                        Shared dashboards, projects, and docs will appear here.
+                    hasSharedItems ? (
+                      <div className="ml-2 space-y-0.5" data-testid="shared-list">
+                        {publishedDashboards!.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => navigate(`/dashboards/${d.id}`)}
+                            className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+                            data-testid={`shared-item-${d.id}`}
+                          >
+                            <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
+                              Dashboard
+                            </span>
+                            {d.name}
+                          </button>
+                        ))}
                       </div>
-                    </div>
+                    ) : (
+                      <div
+                        className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500"
+                        data-testid="shared-empty"
+                      >
+                        Nothing shared with you yet.
+                        <div className="mt-1 text-xs text-slate-400">
+                          Published dashboards and future shared items will appear here.
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
 
-                {/* Members — admin/member only */}
-                <NavLink
-                  data-testid="ws-nav-members"
-                  to={`/workspaces/${activeWorkspaceId}/members`}
-                  className={({ isActive }) =>
-                    `block rounded-lg px-3 py-1.5 text-sm transition ${
-                      isActive ? "bg-slate-100 font-medium" : "hover:bg-slate-50"
-                    }`
-                  }
-                >
-                  Members
-                </NavLink>
+                {/* Members: removed from left rail for this shell stage. Access via workspace page. */}
               </div>
             )}
 
@@ -326,5 +380,52 @@ export function Sidebar() {
         onCreated={handleWorkspaceCreated}
       />
     </aside>
+  );
+}
+
+/* ── Favorite item row ── */
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  workspace: 'Workspace',
+  project: 'Project',
+  dashboard: 'Dashboard',
+};
+
+function FavoriteItem({
+  favorite,
+  onRemove,
+  onNavigate,
+}: {
+  favorite: Favorite;
+  onRemove: () => void;
+  onNavigate: () => void;
+}) {
+  return (
+    <div
+      className="group/fav flex items-center justify-between rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 transition cursor-pointer"
+      data-testid={`favorite-item-${favorite.id}`}
+    >
+      <button
+        type="button"
+        onClick={onNavigate}
+        className="flex-1 truncate text-left text-slate-700"
+      >
+        <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
+          {ITEM_TYPE_LABELS[favorite.itemType] ?? favorite.itemType}
+        </span>
+        {favorite.itemId.slice(0, 8)}…
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="ml-1 rounded p-0.5 text-slate-400 opacity-0 group-hover/fav:opacity-100 hover:bg-slate-200 hover:text-red-500 transition"
+        aria-label="Remove from favorites"
+        data-testid={`favorite-remove-${favorite.id}`}
+      >
+        <span className="text-xs">✕</span>
+      </button>
+    </div>
   );
 }

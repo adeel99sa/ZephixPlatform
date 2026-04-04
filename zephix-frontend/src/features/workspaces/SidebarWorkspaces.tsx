@@ -126,6 +126,23 @@ export function SidebarWorkspaces() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [plusMenuOpen]);
 
+  // Hide the entire workspace selector when no workspaces exist
+  // The Sidebar owns the empty-state messaging for that case
+  if (availableWorkspaces.length === 0 && !authLoading) {
+    return (
+      <div data-testid="sidebar-workspaces">
+        {/* Workspace Create Modal kept available for admin */}
+        {canCreateWorkspace && (
+          <WorkspaceCreateModal
+            open={open}
+            onClose={() => setOpen(false)}
+            onCreated={() => { refresh(); }}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="px-2 mb-2" data-testid="sidebar-workspaces">
       {/* Workspace Dropdown and Plus Button */}
@@ -148,22 +165,17 @@ export function SidebarWorkspaces() {
               currentWorkspace
                 ? 'bg-gray-50 border-gray-300 hover:bg-gray-100'
                 : 'bg-white border-gray-300 hover:bg-gray-50'
-            } ${availableWorkspaces.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+            } cursor-pointer`}
             data-testid="workspace-selector"
-            disabled={availableWorkspaces.length === 0 && !canCreateWorkspace}
           >
             <span className="text-sm font-medium truncate flex-1 text-left">
               {currentWorkspace
                 ? currentWorkspace.name
-                : availableWorkspaces.length > 0
-                  ? 'Select workspace'
-                  : 'Select workspace'}
+                : 'Select workspace'}
             </span>
-            {canCreateWorkspace && availableWorkspaces.length > 0 && (
-              <ChevronDown
-                className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
-              />
-            )}
+            <ChevronDown
+              className={`h-4 w-4 text-gray-500 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
+            />
           </button>
 
         {/* STEP 2: Dropdown menu - compact selector only, never renders full workspace list */}
@@ -304,12 +316,6 @@ export function SidebarWorkspaces() {
         />
       )}
 
-      {/* Non-admin message */}
-      {!canCreateWorkspace && availableWorkspaces.length === 0 && (
-        <div className="mt-2 px-3 py-2 text-xs text-gray-500 text-center">
-          Contact an admin to get assigned to a workspace
-        </div>
-      )}
     </div>
   );
 }
