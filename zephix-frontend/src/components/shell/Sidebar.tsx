@@ -268,86 +268,20 @@ export function Sidebar() {
               <SidebarWorkspaces />
             </div>
 
-            {/* Nested under Workspaces when a workspace is selected */}
-            {activeWorkspaceId && (
+            {/* Workspace-scoped children — only Projects for now */}
+            {activeWorkspaceId && hasProjects && (
               <div className="ml-2 space-y-0.5">
-                {/* Projects — only shown when at least one real project exists */}
-                {hasProjects && (
-                  <NavLink
-                    data-testid="ws-nav-projects"
-                    to="/projects"
-                    className={({ isActive }) =>
-                      `block rounded-lg px-3 py-1.5 text-sm transition ${
-                        isActive ? "bg-slate-100 font-medium" : "hover:bg-slate-50"
-                      }`
-                    }
-                  >
-                    Projects
-                  </NavLink>
-                )}
-
-                {/* ── Nested: Dashboards ── */}
-                <div className="mt-1">
-                  <SectionHeader
-                    label="Dashboards"
-                    expanded={dashboardsOpen}
-                    onToggle={() => setDashboardsOpen(!dashboardsOpen)}
-                    onPlus={() => navigate("/dashboards")}
-                    plusLabel="Open Dashboard Center"
-                    plusAlwaysVisible
-                    testId="section-dashboards"
-                  />
-                  {dashboardsOpen && (
-                    <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500">
-                      No dashboards yet.
-                      <div className="mt-1 text-xs text-slate-400">
-                        Create a dashboard after you have projects to pull data from.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Nested: Shared ── */}
-                <div className="mt-1">
-                  <SectionHeader
-                    label="Shared"
-                    expanded={sharedOpen}
-                    onToggle={() => setSharedOpen(!sharedOpen)}
-                    testId="section-shared"
-                  />
-                  {sharedOpen && (
-                    hasSharedItems ? (
-                      <div className="ml-2 space-y-0.5" data-testid="shared-list">
-                        {publishedDashboards!.map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => navigate(`/dashboards/${d.id}`)}
-                            className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
-                            data-testid={`shared-item-${d.id}`}
-                          >
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
-                              Dashboard
-                            </span>
-                            {d.name}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div
-                        className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500"
-                        data-testid="shared-empty"
-                      >
-                        Nothing shared with you yet.
-                        <div className="mt-1 text-xs text-slate-400">
-                          Published dashboards and future shared items will appear here.
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Members: removed from left rail for this shell stage. Access via workspace page. */}
+                <NavLink
+                  data-testid="ws-nav-projects"
+                  to="/projects"
+                  className={({ isActive }) =>
+                    `block rounded-lg px-3 py-1.5 text-sm transition ${
+                      isActive ? "bg-slate-100 font-medium" : "hover:bg-slate-50"
+                    }`
+                  }
+                >
+                  Projects
+                </NavLink>
               </div>
             )}
 
@@ -371,6 +305,61 @@ export function Sidebar() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ── Dashboards (top-level, always visible for Admin) ── */}
+        {isAdmin && (
+          <>
+            <div className="my-2 border-t border-slate-200/80" />
+            <SectionHeader
+              label="Dashboards"
+              expanded={dashboardsOpen}
+              onToggle={() => setDashboardsOpen(!dashboardsOpen)}
+              onPlus={() => navigate("/dashboards")}
+              plusLabel="Open Dashboard Center"
+              plusAlwaysVisible
+              testId="section-dashboards"
+            />
+            {dashboardsOpen && (
+              <div className="mx-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-500">
+                No dashboards yet.
+                <div className="mt-1 text-xs text-slate-400">
+                  Create a dashboard after you have projects to pull data from.
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Shared (top-level, visible only when real shared items exist) ── */}
+        {hasSharedItems && (
+          <>
+            <div className="my-2 border-t border-slate-200/80" />
+            <SectionHeader
+              label="Shared"
+              expanded={sharedOpen}
+              onToggle={() => setSharedOpen(!sharedOpen)}
+              testId="section-shared"
+            />
+            {sharedOpen && (
+              <div className="ml-2 space-y-0.5" data-testid="shared-list">
+                {publishedDashboards!.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => navigate(`/dashboards/${d.id}`)}
+                    className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 transition"
+                    data-testid={`shared-item-${d.id}`}
+                  >
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 mr-1.5">
+                      Dashboard
+                    </span>
+                    {d.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </nav>
 
