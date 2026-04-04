@@ -12,6 +12,7 @@
  * 8. Sidebar structure matches locked spec
  */
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../Sidebar';
@@ -263,6 +264,37 @@ describe('Pass 1 — Shell locked UX contract', () => {
 
       expect(screen.getByText(/Ask an organization admin/i)).toBeInTheDocument();
       expect(screen.queryByTestId('empty-create-workspace')).not.toBeInTheDocument();
+    });
+
+    it('Workspaces section plus opens anchored menu before modal', async () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      await userEvent.click(screen.getByTestId('section-workspaces-plus'));
+      expect(screen.getByTestId('section-workspaces-plus-menu')).toBeInTheDocument();
+      expect(screen.getByTestId('section-workspaces-plus-create')).toBeInTheDocument();
+    });
+
+    it('Workspaces section three-dot opens anchored menu with Browse and Manage for admin', async () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      await userEvent.click(screen.getByTestId('section-workspaces-more'));
+      expect(screen.getByTestId('section-workspaces-more-menu')).toBeInTheDocument();
+      expect(screen.getByTestId('section-workspaces-browse')).toBeInTheDocument();
+      expect(screen.getByTestId('section-workspaces-manage')).toBeInTheDocument();
+    });
+
+    it('Workspaces section three-dot shows only Browse for member', async () => {
+      mockUseAuth.mockReturnValue({ user: MEMBER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      await userEvent.click(screen.getByTestId('section-workspaces-more'));
+      expect(screen.getByTestId('section-workspaces-browse')).toBeInTheDocument();
+      expect(screen.queryByTestId('section-workspaces-manage')).not.toBeInTheDocument();
     });
   });
 

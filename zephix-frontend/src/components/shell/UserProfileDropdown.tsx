@@ -82,7 +82,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
   }
 
   return (
-    <div className="relative" data-testid="user-profile-dropdown">
+    <div className="relative isolate z-[100]" data-testid="user-profile-dropdown">
       {/* Avatar only — no dropdown arrow per locked spec */}
       <button
         ref={buttonRef}
@@ -100,7 +100,7 @@ export function UserProfileDropdown({ align = "left" }: { align?: Align }) {
       {open && (
         <div
           ref={dropdownRef}
-          className={`absolute ${menuPosition} top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg`}
+          className={`absolute ${menuPosition} top-full z-[110] mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5`}
           data-testid="user-profile-menu"
           role="menu"
         >

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { telemetry } from '@/lib/telemetry';
+import { isPlatformAdmin } from '@/utils/access';
 
 import { createWorkspace } from './api';
 
@@ -29,6 +30,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
   const { user } = useAuth();
   const { setActiveWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
+  const isOrgAdmin = isPlatformAdmin(user);
 
   const isValidName = name.trim().length >= 2;
 
@@ -94,7 +96,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/30"
+      className="fixed inset-0 z-[200] grid place-items-center bg-black/30"
       onClick={handleClose}
     >
       <div
@@ -104,7 +106,7 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-1">
-          <h2 className="text-lg font-semibold text-gray-900">Create workspace</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Create Workspace</h2>
           <button
             onClick={handleClose}
             disabled={busy}
@@ -118,10 +120,11 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
         <div className="px-6 py-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name
+            <label htmlFor="workspace-create-name" className="block text-sm font-medium text-gray-700 mb-1">
+              Workspace name
             </label>
             <input
+              id="workspace-create-name"
               data-testid="workspace-name-input"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-colors"
               value={name}
@@ -158,10 +161,10 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
             />
           </div>
 
-          {/* Permissions */}
+          {/* Visibility (workspace access model — not role labels) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Permissions
+              Visibility
             </label>
             <select
               data-testid="workspace-visibility-select"
@@ -170,12 +173,39 @@ export function WorkspaceCreateModal({ open, onClose, onCreated, activationMode,
               onChange={(e) => setVisibility(e.target.value as Visibility)}
             >
               <option value="OPEN">
-                Open — Anyone in your organization can find and join
+                Open — anyone in your organization can find this workspace
               </option>
               <option value="CLOSED">
-                Private — Only invited members can access
+                Closed — only invited members can access
               </option>
             </select>
+          </div>
+
+          {/* Workspace roles — Zephix terminology; no role picker in this modal */}
+          <div
+            className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-xs leading-relaxed text-slate-600"
+            data-testid="workspace-create-roles-copy"
+          >
+            <p className="font-semibold text-slate-800">Workspace roles</p>
+            {isOrgAdmin ? (
+              <p className="mt-1">
+                As an organization administrator creating this workspace, you become{' '}
+                <span className="font-medium text-slate-900">Workspace Owner</span> automatically.
+              </p>
+            ) : (
+              <p className="mt-1">
+                The organization administrator who creates a workspace becomes{' '}
+                <span className="font-medium text-slate-900">Workspace Owner</span> automatically.
+              </p>
+            )}
+            <p className="mt-2">
+              After creation, invite existing platform members and assign{' '}
+              <span className="font-medium text-slate-800">Workspace Owner</span>,{' '}
+              <span className="font-medium text-slate-800">Workspace Member</span>, or{' '}
+              <span className="font-medium text-slate-800">Workspace Viewer</span> for this workspace.
+              Role assignment in the create form is not available yet — use members and workspace
+              settings after the workspace exists.
+            </p>
           </div>
 
           {/* Error display */}

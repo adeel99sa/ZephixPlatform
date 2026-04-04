@@ -67,7 +67,7 @@ export default function DashboardLayout() {
         <Header />
         <EmailVerificationBanner />
         <DemoBanner email={user?.email} />
-        <main className="relative min-w-0 flex-1 overflow-auto" data-testid="main-content">
+        <main className="relative z-0 min-w-0 flex-1 overflow-auto" data-testid="main-content">
           <Outlet />
         </main>
       </div>
