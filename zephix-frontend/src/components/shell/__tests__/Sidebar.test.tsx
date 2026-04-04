@@ -264,40 +264,69 @@ describe('Pass 1 — Shell locked UX contract', () => {
     });
   });
 
-  describe('Nested Dashboards and Shared under Workspaces', () => {
-    it('Dashboards section appears when workspace is selected', () => {
+  describe('Dashboards (top-level, IA correction)', () => {
+    it('Dashboards is a top-level section for Admin (always visible)', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       renderSidebar();
 
       expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
     });
 
-    it('Dashboards plus is always visible when workspace selected', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
-      renderSidebar();
-
-      const plus = screen.getByTestId('section-dashboards-plus');
-      expect(plus).toBeInTheDocument();
-      // plusAlwaysVisible means opacity-100 (not hidden behind hover)
-      expect(plus.className).toContain('opacity-100');
-    });
-
-    it('Shared section appears when workspace is selected', () => {
-      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
-      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
-      renderSidebar();
-
-      expect(screen.getByTestId('section-shared')).toBeInTheDocument();
-    });
-
-    it('Dashboards and Shared do NOT appear without workspace', () => {
+    it('Dashboards is visible for Admin even without workspace selected', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
       renderSidebar();
 
+      expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
+    });
+
+    it('Dashboards plus is always visible for Admin', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      const plus = screen.getByTestId('section-dashboards-plus');
+      expect(plus).toBeInTheDocument();
+      expect(plus.className).toContain('opacity-100');
+    });
+
+    it('Dashboards is NOT visible for non-admin (Member)', () => {
+      mockUseAuth.mockReturnValue({ user: MEMBER_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
       expect(screen.queryByTestId('section-dashboards')).not.toBeInTheDocument();
+    });
+
+    it('Dashboards visible without workspace proves it is not nested under Workspaces', () => {
+      // If Dashboards were nested under Workspaces, it would only appear when
+      // activeWorkspaceId is set. The "visible without workspace" test above
+      // already proves Dashboards is a top-level independent section.
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      expect(screen.getByTestId('section-dashboards')).toBeInTheDocument();
+      // Workspaces expanded content should not exist (no workspace selected)
+      expect(screen.queryByTestId('ws-nav-projects')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Shared (top-level, visibility-based)', () => {
+    it('Shared does NOT appear when no shared items exist', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      expect(screen.queryByTestId('section-shared')).not.toBeInTheDocument();
+    });
+
+    it('Shared does NOT appear without workspace selected', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
       expect(screen.queryByTestId('section-shared')).not.toBeInTheDocument();
     });
   });
@@ -351,17 +380,15 @@ describe('Pass 1 — Shell locked UX contract', () => {
     });
   });
 
-  describe('Shared (Pass 1.1: no management controls)', () => {
-    it('Shared three-dot is NOT present (deferred to Pass 2)', () => {
+  describe('No management controls on Shared or Dashboards', () => {
+    it('Shared three-dot is NOT present', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
       renderSidebar();
 
       expect(screen.queryByTestId('section-shared-more')).not.toBeInTheDocument();
     });
-  });
 
-  describe('Dashboards (Pass 1.1: three-dot removed)', () => {
     it('Dashboards three-dot is NOT present', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
