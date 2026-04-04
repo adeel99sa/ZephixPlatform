@@ -209,7 +209,7 @@ export default function App() {
               <Route path="/admin/*" element={<RequireAdminInline><Navigate to="/administration" replace /></RequireAdminInline>} />
               <Route path="/org-dashboard" element={<RequireAdminInline><OrgDashboardPage /></RequireAdminInline>} />
 
-              {/* Pass 3: Dashboards directory — Org Admin standalone surface (no workspace required) */}
+              {/* Pass 3: Dashboards directory — Org Admin only. Still workspace-dependent for listing/creation. */}
               <Route path="/dashboards" element={<RequireAdminInline><DashboardsIndex /></RequireAdminInline>} />
 
               {/* ── Workspace-scoped routes (redirect to /inbox if none selected) ── */}
