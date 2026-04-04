@@ -48,11 +48,30 @@ vi.mock('@/features/projects/hooks', () => ({
   useProjects: vi.fn(),
 }));
 
+vi.mock('@/features/favorites/hooks', () => ({
+  useFavorites: vi.fn(),
+  useRemoveFavorite: vi.fn(() => ({ mutate: vi.fn() })),
+}));
+
+vi.mock('@/features/dashboards/api', () => ({
+  listPublishedDashboards: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock('@tanstack/react-query', async () => {
+  const actual = await vi.importActual('@tanstack/react-query');
+  return {
+    ...actual,
+    useQuery: vi.fn(() => ({ data: [], isLoading: false })),
+  };
+});
+
 import { useAuth } from '@/state/AuthContext';
 import { useWorkspaceStore } from '@/state/workspace.store';
 import { useProjects } from '@/features/projects/hooks';
+import { useFavorites } from '@/features/favorites/hooks';
 
 const mockUseProjects = useProjects as ReturnType<typeof vi.fn>;
+const mockUseFavorites = useFavorites as ReturnType<typeof vi.fn>;
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>;
 const mockUseWorkspaceStore = useWorkspaceStore as ReturnType<typeof vi.fn>;
@@ -72,8 +91,9 @@ const VIEWER_USER = { id: '3', platformRole: 'VIEWER', role: 'viewer', email: 'v
 describe('Pass 1 — Shell locked UX contract', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: no projects
+    // Default: no projects, no favorites
     mockUseProjects.mockReturnValue({ data: [], isLoading: false });
+    mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
   });
 
   describe('Logo and Inbox', () => {
@@ -282,7 +302,7 @@ describe('Pass 1 — Shell locked UX contract', () => {
     });
   });
 
-  describe('Favorites (Pass 1.1: no management controls)', () => {
+  describe('Favorites (Pass 2: real data)', () => {
     it('Favorites section is visible', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
@@ -291,28 +311,43 @@ describe('Pass 1 — Shell locked UX contract', () => {
       expect(screen.getByTestId('section-favorites')).toBeInTheDocument();
     });
 
-    it('Favorites shows honest empty state', () => {
+    it('shows honest empty state when no favorites exist', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseFavorites.mockReturnValue({ data: [], isLoading: false });
       renderSidebar();
 
+      expect(screen.getByTestId('favorites-empty')).toBeInTheDocument();
       expect(screen.getByText('No favorites yet.')).toBeInTheDocument();
     });
 
-    it('Favorites plus is NOT present (deferred to Pass 2)', () => {
+    it('shows favorited items when favorites exist', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseFavorites.mockReturnValue({
+        data: [
+          { id: 'f1', itemType: 'workspace', itemId: 'ws-1', displayOrder: 0, createdAt: '' },
+          { id: 'f2', itemType: 'dashboard', itemId: 'dash-1', displayOrder: 1, createdAt: '' },
+        ],
+        isLoading: false,
+      });
       renderSidebar();
 
-      expect(screen.queryByTestId('section-favorites-plus')).not.toBeInTheDocument();
+      expect(screen.getByTestId('favorites-list')).toBeInTheDocument();
+      expect(screen.getByTestId('favorite-item-f1')).toBeInTheDocument();
+      expect(screen.getByTestId('favorite-item-f2')).toBeInTheDocument();
     });
 
-    it('Favorites three-dot is NOT present (deferred to Pass 2)', () => {
+    it('shows remove button on hover for each favorite', () => {
       mockUseAuth.mockReturnValue({ user: ADMIN_USER });
       mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: null, setActiveWorkspace: vi.fn() });
+      mockUseFavorites.mockReturnValue({
+        data: [{ id: 'f1', itemType: 'project', itemId: 'p-1', displayOrder: 0, createdAt: '' }],
+        isLoading: false,
+      });
       renderSidebar();
 
-      expect(screen.queryByTestId('section-favorites-more')).not.toBeInTheDocument();
+      expect(screen.getByTestId('favorite-remove-f1')).toBeInTheDocument();
     });
   });
 
@@ -333,6 +368,17 @@ describe('Pass 1 — Shell locked UX contract', () => {
       renderSidebar();
 
       expect(screen.queryByTestId('section-dashboards-more')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Members removal (Pass 2)', () => {
+    it('Members link is NOT in the left rail', () => {
+      mockUseAuth.mockReturnValue({ user: ADMIN_USER });
+      mockUseWorkspaceStore.mockReturnValue({ activeWorkspaceId: 'ws-1', setActiveWorkspace: vi.fn() });
+      renderSidebar();
+
+      expect(screen.queryByTestId('ws-nav-members')).not.toBeInTheDocument();
+      expect(screen.queryByText('Members')).not.toBeInTheDocument();
     });
   });
 
